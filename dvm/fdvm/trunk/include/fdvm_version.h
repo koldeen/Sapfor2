@@ -1,0 +1,1 @@
+#define COMPILER_VERSION  "6.0 (12.05.2016)" 

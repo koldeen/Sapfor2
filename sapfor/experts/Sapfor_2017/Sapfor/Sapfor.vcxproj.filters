@@ -1,0 +1,365 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Файлы исходного кода">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Заголовочные файлы">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Файлы ресурсов">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Файлы исходного кода\Distribution">
+      <UniqueIdentifier>{48ec3c8d-6088-49d3-b41d-6d16dd98bee7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\GraphCall">
+      <UniqueIdentifier>{1bf8fc74-f930-4eda-90df-d857cf8696a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\GraphLoop">
+      <UniqueIdentifier>{9fb056f3-c8d1-427d-a2f2-a8974c10cb3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\LoopAnalyzer">
+      <UniqueIdentifier>{ab4c74ba-1ff3-4d61-b416-4273c43ebd43}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DirectiveAnalyzer">
+      <UniqueIdentifier>{f2649f66-5c91-4e52-a9ad-cdd578507906}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\VerificationCode">
+      <UniqueIdentifier>{bef8fe79-9cea-4637-bd14-871525b66914}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\PrivateAnalyzer">
+      <UniqueIdentifier>{7555bc8f-7ca0-483f-afc1-d1e85aab4d32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\ParallelizationRegions">
+      <UniqueIdentifier>{f6496c18-040c-4db6-b4a8-4f2316a63375}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\LoopConverter">
+      <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\VisualizerCalls">
+      <UniqueIdentifier>{1490a947-91cd-454f-9f02-3b5e3e613f45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\ExpressionTransform">
+      <UniqueIdentifier>{8726a381-4b23-48f4-8473-9a4b43a38a9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\SageExtensions">
+      <UniqueIdentifier>{20451fc6-1c88-4adf-afd3-a07270cfd072}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\SageExtensions\OmegaTest">
+      <UniqueIdentifier>{655ca736-bd26-4e77-b22f-7d10bbc4f3c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\Utils">
+      <UniqueIdentifier>{a809578a-f5be-4f27-9fa5-fa4ec4af7355}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\_src\transforms.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\GraphCall\graph_calls.cpp">
+      <Filter>Файлы исходного кода\GraphCall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp">
+      <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp">
+      <Filter>Файлы исходного кода\DirectiveAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VerificationCode\LoopChecker.cpp">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VerificationCode\IncludeChecker.cpp">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_creator.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\insert_directive.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VerificationCode\CorrectVarDecl.cpp">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\allocations_prepoc.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_analyzer.cpp">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\PrivateAnalyzer\private_analyzer.cpp">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp">
+      <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp">
+      <Filter>Файлы исходного кода\LoopConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VisualizerCalls\get_information.cpp">
+      <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp">
+      <Filter>Файлы исходного кода\ExpressionTransform</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\Cycle.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\Distribution.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\annotationDriver.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\arrayRef.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\computeInducVar.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\constanteProp.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\controlFlow.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\defUse.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\dependence.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\depGraph.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\depInterface.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\flowAnalysis.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\intrinsic.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\invariant.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\loopTransform.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\set.cpp">
+      <Filter>Файлы исходного кода\SageExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.c">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VerificationCode\VerifySageStructures.cpp">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp">
+      <Filter>Файлы исходного кода\LoopConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\utils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\directive_parser.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SgUtils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp">
+      <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\_src\Distribution\Array.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\Arrays.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\Cycle.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\Distribution.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\DvmhDirective.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\GraphCSR.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\GraphCall\graph_calls.h">
+      <Filter>Файлы исходного кода\GraphCall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\GraphLoop\graph_loops.h">
+      <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Заголовочные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h">
+      <Filter>Файлы исходного кода\DirectiveAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\VerificationCode\verifications.h">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\CreateDistributionDirs.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h">
+      <Filter>Файлы исходного кода\PrivateAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h">
+      <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h">
+      <Filter>Файлы исходного кода\LoopConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\VisualizerCalls\get_information.h">
+      <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\transform.h">
+      <Filter>Файлы исходного кода</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h">
+      <Filter>Файлы исходного кода\ExpressionTransform</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\loop_transform.h">
+      <Filter>Файлы исходного кода\LoopConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h">
+      <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\GraphCall\graph_calls_func.h">
+      <Filter>Файлы исходного кода\GraphCall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\utils.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\types.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\errors.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\directive_parser.h">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\PassManager.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\AstWrapper.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h">
+      <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\SgUtils.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\SapforData.h">
+      <Filter>Файлы исходного кода</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib" />
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib" />
+    <Library Include="..\_lib\boost_Release_64\libboost_chrono-vc141-mt-1_64.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\boost_Release_64\libboost_date_time-vc141-mt-1_64.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\boost_Release_64\libboost_system-vc141-mt-1_64.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformCommonLib.lib" />
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformLib.lib" />
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformUtils.lib" />
+  </ItemGroup>
+</Project>

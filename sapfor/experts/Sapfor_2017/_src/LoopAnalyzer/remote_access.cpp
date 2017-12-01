@@ -1,0 +1,706 @@
+#include "../leak_detector.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
+
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+
+#include <vector>
+#include <map>
+#include <set>
+#include <utility>
+#include <assert.h>
+
+#include "dvm.h"
+#include "loop_analyzer.h"
+#include "../types.h"
+#include "../errors.h"
+#include "../SgUtils.h"
+#include "../Distribution/Arrays.h"
+#include "../GraphCall/graph_calls.h"
+#include "../GraphLoop/graph_loops_func.h"
+
+using std::vector;
+using std::pair;
+using std::tuple;
+using std::map;
+using std::set;
+using std::make_pair;
+using std::make_tuple;
+using std::get;
+using std::string;
+
+#define FIRST(x)  get<0>(x)
+#define SECOND(x) get<1>(x)
+#define THIRD(x)  get<2>(x)
+
+static DIST::Array* GetArrayByShortName(const DIST::Arrays<int> &allArrays, SgSymbol *name)
+{
+    auto it = tableOfUniqNames.find(make_pair(name->identifier(), declaratedInStmt(name)->lineNumber()));
+    if (it == tableOfUniqNames.end())
+        return NULL;
+    else
+    {
+        tuple<int, string, string> tmp = it->second;
+        string nameFromUniq = getShortName(tmp);
+        return allArrays.GetArrayByName(nameFromUniq);
+    }
+}
+
+static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, const map<int, LoopGraph*> &sortedLoopGraph,
+                                   vector<SgExpression*> &remotes, const DIST::Arrays<int> &allArrays, 
+                                   const DataDirective &data, const vector<int> &currVar, const int regionID)
+{
+    bool retVal = false;
+
+    if (expr == NULL)
+        return retVal;
+
+    if (expr->variant() == ARRAY_REF)
+    {
+        DIST::Array *currArray = GetArrayByShortName(allArrays, OriginalSymbol(expr->symbol()));
+        if (currArray != NULL)
+        {
+            // find distributed dims
+            DIST::Array *templ = currArray->GetTemplateArray(regionID);
+            bool needToAdd = false;
+
+            for (int i = 0; i < data.distrRules.size(); ++i)
+            {
+                if (data.distrRules[i].first == templ)
+                {
+                    const vector<dist> &rule = data.distrRules[i].second[currVar[i]].distRule;
+                    for (int k = 0; k < rule.size(); ++k)
+                    {
+                        if (rule[k] == BLOCK)
+                        {
+                            needToAdd = true;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            //and add, if found any distributed dim
+            if (needToAdd)
+            {
+                remotes.push_back(expr->copyPtr());
+                retVal = true;
+            }
+        }
+    }
+
+    bool cond = true;
+    if (expr->variant() == FUNC_CALL)
+        cond = isIntrinsic(((SgFunctionCallExp*)expr)->funName()->identifier());
+
+    if (cond)
+    {
+        if (expr->lhs())
+        {
+            bool tmp = findAllArraysForRemote(current, expr->lhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID);
+            retVal = retVal || tmp;
+        }
+        if (expr->rhs())
+        {
+            bool tmp = findAllArraysForRemote(current, expr->rhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID);
+            retVal = retVal || tmp;
+        }
+    }
+    return retVal;
+}
+
+static bool checkExpr(SgExpression *ex)
+{
+    bool retVal = true;
+    if (ex == NULL)
+        return true;
+
+    const int var = ex->variant();
+    if (var == ARRAY_OP || var == ARRAY_REF || var == VAR_REF)
+        return false;
+
+    if (ex->lhs())
+        retVal = retVal && checkExpr(ex->lhs());
+    if (ex->rhs())
+        retVal = retVal && checkExpr(ex->rhs());
+
+    return retVal;
+}
+
+static inline bool isSimpleRef(SgExpression *subs)
+{
+    bool retVal = true;
+    while (subs && retVal)
+    {
+        retVal = retVal && checkExpr(subs->lhs());
+        subs = subs->rhs();
+    }
+
+    return retVal;
+}
+
+static bool inline hasParallelDirs(SgStatement *st)
+{
+    SgStatement *last = st->lastNodeOfStmt();
+    for ( ;st != last; st = st->lexNext())
+        if (st->variant() == DVM_PARALLEL_ON_DIR)
+            return true;
+
+    return false;
+}
+
+template<int NUM>
+void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
+                     const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages)
+{
+    vector<SgExpression*> remotes;
+
+    string leftPartOfAssign = "";
+    if (st->variant() == ASSIGN_STAT)
+        leftPartOfAssign = string(st->expr(0)->unparse());
+
+    if (findAllArraysForRemote(st, st->expr(NUM), sortedLoopGraph, remotes, allArrays, data, currVar, regionID))
+    {
+#if INSERT_AS_COMMENT
+        string remote("!DVM$ REMOTE_ACCESS(");
+        for (int z = 0; z < remotes.size(); ++z)
+        {
+            string remoteExpr(remotes[z]->unparse());
+            remote += remoteExpr;
+            if (z != remotes.size() - 1)
+                remote += ",";
+        }
+        remote += ")\n";
+        st->addComment(remote.c_str());
+#else
+        SgStatement *remoteDir = new SgStatement(DVM_REMOTE_ACCESS_DIR, NULL, NULL, NULL, NULL, NULL);
+        SgExpression *exprList = new SgExpression(EXPR_LIST);
+        remoteDir->setExpression(0, *exprList);
+        
+        //exclude left part of assign: A(i,j,k) = A(i,j,k) + 5
+        if (leftPartOfAssign != "")
+        {
+            int z = 0;
+            while (z != remotes.size())
+            {
+                if (leftPartOfAssign == string(remotes[z]->unparse()))
+                    remotes.erase(remotes.begin() + z);
+                else
+                    z++;
+            }
+        }
+
+        vector<SgExpression*> allSubs;
+        for (auto &rem : remotes)
+            allSubs.push_back(rem->lhs());
+
+        if (remotes.size() > 0)
+        {
+            SgStatement *toInsert = st;
+            //find the uppest control parent
+            do
+            {
+                SgStatement *parent = toInsert->controlParent();
+                const int var = parent->variant();
+                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR || hasParallelDirs(parent))
+                    break;
+                toInsert = parent;
+            } while (1);
+
+            if (toInsert->variant() == FOR_NODE)
+            {
+                for (auto &elem : allSubs)
+                {
+                    const bool isSimple = isSimpleRef(elem);
+                    if (!isSimple)
+                        for (; elem; elem = elem->rhs())
+                            elem->setLhs(new SgExpression(DDOT));
+                }
+            }
+            
+            //create remote dir with uniq expressions
+            set<string> exist;
+            int add = 0;
+            for (int z = 0; z < remotes.size(); ++z, ++add)
+            {
+                if (add != 0)
+                {
+                    exprList->setRhs(new SgExpression(EXPR_LIST));
+                    exprList = exprList->rhs();
+                }
+
+                string currRem = remotes[z]->unparse();
+                auto itR = exist.find(currRem);
+                if (itR == exist.end())
+                {
+                    exprList->setLhs(remotes[z]);
+                    exist.insert(itR, currRem);
+                }
+            }
+            exist.clear();
+
+            SgStatement *prev = toInsert->lexPrev();
+            if (prev)
+            {
+                if (prev->variant() != DVM_REMOTE_ACCESS_DIR)
+                    toInsert->insertStmtBefore(*remoteDir, *toInsert->controlParent());
+                else // aggregate this
+                {
+                    set<string> existsRemotes;
+                    for (SgExpression *list = prev->expr(0); list; list = list->rhs())
+                        existsRemotes.insert(list->lhs()->unparse());
+                    
+                    SgExpression *list = prev->expr(0);
+                    for (auto &rem : remotes)
+                    {
+                        const string curr = rem->unparse();
+                        auto exist = existsRemotes.find(curr);
+                        if (exist == existsRemotes.end())
+                        {
+                            existsRemotes.insert(exist, curr);
+                            SgExpression *newList = new SgExpression(EXPR_LIST);
+                            newList->setLhs(rem);
+                            newList->setRhs(list);
+
+                            list = newList;
+                        }
+                    }
+                    prev->setExpression(0, *list);
+                }
+
+                //TODO:
+                //remove like this: b(1), b(:) -> b(:). 
+                /*set<string> withDDOT;
+                prev->expr(0)->unparsestdout();
+                printf("\n");
+                for (SgExpression *list = prev->expr(0); list; list = list->rhs())
+                    if (list->lhs()->lhs()->lhs()->variant() == DDOT)
+                        withDDOT.insert(list->lhs()->symbol()->identifier());
+
+                if (withDDOT.size() > 0)
+                {
+                    SgExpression *list = prev->expr(0);
+
+                    for (SgExpression *tmp = list, *prev = list; tmp; tmp = tmp->rhs())
+                    {
+                        if (tmp->lhs()->lhs()->lhs()->variant() != DDOT)
+                        {
+                            if (withDDOT.find(tmp->lhs()->symbol()->identifier()) != withDDOT.end())
+                            {
+                                if (list == tmp)
+                                    list = tmp->rhs();
+                                else
+                                    prev->setRhs(tmp->rhs());
+                            }
+                        }
+                        if (prev != tmp)
+                            prev = prev->rhs();
+                    }
+                    prev->setExpression(0, *list);
+                }*/
+            }
+            else
+                toInsert->insertStmtBefore(*remoteDir, *toInsert->controlParent());
+        }
+#endif
+    }
+}
+
+template void createRemoteDir<0>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&);
+template void createRemoteDir<1>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&);
+
+static inline bool isArrayRefHasDifferentVars(SgExpression *ex, set<string> &vars)
+{
+    bool retVal = true;
+    if (ex == NULL)
+        return true;
+
+    const int var = ex->variant();
+    if (var == VAR_REF)
+    {
+        string newVar = string(ex->symbol()->identifier());
+        if (vars.find(newVar) != vars.end())
+            return false;
+        vars.insert(newVar);
+    }
+
+    if (ex->lhs())
+        retVal = retVal && isArrayRefHasDifferentVars(ex->lhs(), vars);
+    if (ex->rhs())
+        retVal = retVal && isArrayRefHasDifferentVars(ex->rhs(), vars);
+    return retVal;
+}
+
+static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*> &uniqRemotes, 
+                                 set<SgArrayRefExp*> &addedRemotes, vector<Messages> &messages, const int line)
+{
+    //TODO: tmp solution, convert all links to arrRef(:,:,:) 
+    SgArrayRefExp *copyExpr = (SgArrayRefExp*)&(expr->copy());
+    SgExpression *subs = copyExpr->subscripts();
+    
+    set<string> tmp;
+    const bool isSimple = isSimpleRef(subs);
+    //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
+    if (!isSimple) // && !isDiffInSubs)
+    {
+        while (subs)
+        {
+            subs->setLhs(new SgExpression(DDOT));
+            subs = subs->rhs();
+        }
+    }
+
+    string remoteExp(copyExpr->unparse());    
+    auto rem = uniqRemotes.find(remoteExp);
+    if (rem == uniqRemotes.end())
+    {
+        rem = uniqRemotes.insert(rem, make_pair(remoteExp, copyExpr));
+        addedRemotes.insert(copyExpr);
+
+        if (line > 0 && !isSimple)
+        {
+            string remoteExp(expr->unparse());
+            print(1, "WARN: added remote access for array ref '%s' on line %d can significantly reduce performance\n", remoteExp.c_str(), line);
+
+            char buf[512];
+            sprintf(buf, "Added remote access for array ref '%s' can significantly reduce performance", remoteExp.c_str());
+            messages.push_back(Messages(WARR, line, buf));
+        }
+    }
+}
+
+void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> &under_dvm_dir,
+                            const DIST::Arrays<int> &allArrays,
+                            const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
+                            const DIST::GraphCSR<int, double, attrType> &reducedG,
+                            const DataDirective &data,
+                            const vector<int> &currVar,
+                            const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                            map<string, SgArrayRefExp*> &uniqRemotes,
+                            vector<Messages> &messages,
+                            const int regionId,
+                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    if (!FIRST(under_dvm_dir) || !SECOND(under_dvm_dir) || !THIRD(under_dvm_dir))
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    set<SgArrayRefExp*> addedRemotes;
+
+    auto it = loopInfo.find(FIRST(under_dvm_dir));
+    if (it != loopInfo.end())
+    {
+        const map<SgSymbol*, ArrayInfo> &currInfo = it->second;
+        DIST::Array *arrayRefOnDir = THIRD(under_dvm_dir)->arrayRef;
+        set<DIST::Array*> realRefArrayOnDir;
+
+        if (!arrayRefOnDir->isTemplate())
+        {
+            getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
+            if (realRefArrayOnDir.size() != 1)
+            {
+                print(1, "not supported yet\n");
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+            else
+                arrayRefOnDir = *(realRefArrayOnDir.begin());
+        }
+
+        vector<pair<DIST::Array*, ArrayInfo>> writesInLoop;
+        //save all write in loop
+        for (auto it = currInfo.begin(); it != currInfo.end(); ++it)
+        {
+            for (int k = 0; k < it->second.dimSize; ++k)
+            {
+                if (it->second.writeOps[k].coefficients.size() != 0)
+                {
+                    SgSymbol *tmpS = OriginalSymbol(it->first);
+                    DIST::Array *arrayRef = GetArrayByShortName(allArrays, tmpS);
+
+                    set<DIST::Array*> realArrayRef;
+                    getRealArrayRefs(arrayRef, arrayRef, realArrayRef, arrayLinksByFuncCalls);
+                    
+                    for (auto &elem : realArrayRef)
+                        writesInLoop.push_back(make_pair(elem, it->second));
+                    break;
+                }
+            }
+        }
+
+        // for all array accesses in loop
+        for (auto it = currInfo.begin(); it != currInfo.end(); ++it)
+        {
+            SgSymbol *tmpS = OriginalSymbol(it->first);
+            DIST::Array *arrayRef = GetArrayByShortName(allArrays, tmpS);
+            if (!arrayRef)
+                continue;
+
+            auto itInfo = currInfo.find(tmpS);
+            if (itInfo == currInfo.end())
+                continue;
+
+            const ArrayInfo *currArrayInfo = &(itInfo->second);
+            
+            set<DIST::Array*> realArrayRef;
+            getRealArrayRefs(arrayRef, arrayRef, realArrayRef, arrayLinksByFuncCalls);
+            
+            for (auto &elem : realArrayRef)
+            {
+                arrayRef = elem;
+
+                // fill links between current array and array in parallel dir
+                vector<int> links;
+                if (arrayRef != arrayRefOnDir)
+                    reducedG.FindLinksBetweenArrays(allArrays, arrayRef, arrayRefOnDir, links);
+                else
+                {
+                    links.resize(arrayRef->GetDimSize());
+                    for (int k = 0; k < arrayRef->GetDimSize(); ++k)
+                        links[k] = k;
+                }
+
+                //fill info links with template
+                const vector<int> &linksWithTempl = arrayRef->GetLinksWithTemplate(regionId);
+                const vector<pair<int, int>> &alignRuleWithTempl = arrayRef->GetAlignRulesWithTemplate(regionId);
+
+                const DIST::Array *templArray = arrayRef->GetTemplateArray(regionId);
+                if (!templArray)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                // fill distribute data variant
+                const DistrVariant *distrVar = NULL;
+                for (int k = 0; k < data.distrRules.size(); ++k)
+                {
+                    if (data.distrRules[k].first == templArray)
+                    {
+                        distrVar = &data.distrRules[k].second[currVar[k]];
+                        break;
+                    }
+                }
+
+                if (!distrVar)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                // set new redistribute rule, if exist
+                const DistrVariant *newDistVar = SECOND(under_dvm_dir)->getRedistributeRule(templArray);
+                if (newDistVar)
+                    distrVar = newDistVar;
+
+                // main check 
+                for (int i = 0; i < links.size(); ++i)
+                {
+                    bool needToCheck = false;
+                    if (links[i] != -1 && linksWithTempl[i] != -1)
+                    {
+                        //THIRD(under_dvm_dir)->on[links[i]].first != "*" && 
+                        if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
+                            needToCheck = true;
+                    }
+                    else if (linksWithTempl[i] != -1)
+                    {
+                        // if distributed and used in loop with out link with array on dir
+                        if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
+                        {
+                            // check all unrecognized refs
+                            for (auto itA = currArrayInfo->arrayAccessUnrec.begin(); itA != currArrayInfo->arrayAccessUnrec.end(); ++itA)
+                            {
+                                if (addedRemotes.find(itA->first) != addedRemotes.end())
+                                    continue;
+                                else if (itA->second.second[i] == REMOTE_TRUE)
+                                    addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                            }
+
+                            // check all regular refs
+                            for (auto itA = currArrayInfo->arrayAccess.begin(); itA != currArrayInfo->arrayAccess.end(); ++itA)
+                            {
+                                if (addedRemotes.find(itA->first) != addedRemotes.end())
+                                    continue;
+
+                                if (arrayRef == arrayRefOnDir)
+                                    continue;
+
+                                addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                            }
+                            continue;
+                        }
+                    }
+
+                    // check if current dimention is distributed
+                    if (needToCheck)
+                    {
+                        // check unregular acceses
+                        for (auto itA = currArrayInfo->arrayAccessUnrec.begin(); itA != currArrayInfo->arrayAccessUnrec.end(); ++itA)
+                        {
+                            if (addedRemotes.find(itA->first) != addedRemotes.end())
+                                continue;
+
+                            if (itA->second.second[i] == REMOTE_TRUE)
+                                addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                        }
+
+                        if (writesInLoop.size() == 0)
+                            continue;
+
+                        // and check regular acceses
+                        for (auto &regAccess : currArrayInfo->arrayAccess)
+                        {
+                            if (addedRemotes.find(regAccess.first) != addedRemotes.end())
+                                continue;
+
+                            if (arrayRef == arrayRefOnDir)
+                                continue;
+
+                            //if has reads in more than one dim and it dims are dirstributed
+                            int countOfDimAcc = 0;
+                            for (int z = 0; z < linksWithTempl.size(); ++z)
+                            {
+                                bool distributed = false;
+                                if (linksWithTempl[z] != -1)
+                                    distributed = (distrVar->distRule[linksWithTempl[z]] == BLOCK);
+
+                                countOfDimAcc += ((regAccess.second.second[z].coefficients.size() != 0) && distributed) ? 1 : 0;
+                            }
+
+                            if (countOfDimAcc > 1 ||
+                                countOfDimAcc == 1 && THIRD(under_dvm_dir)->on[links[i]].first == "*")
+                            {
+                                addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                continue;
+                            }
+
+                            //if has distributed dim but loop maped to *
+                            if (THIRD(under_dvm_dir)->on[links[i]].first == "*")
+                            {
+                                if (linksWithTempl[i] != -1)
+                                    if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
+                                    {
+                                        addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                        continue;
+                                    }
+                            }
+
+                            //if this array has no map rules to current array and this dim is distributed
+                            if (SECOND(under_dvm_dir)->directiveForLoop)
+                            {
+                                if (SECOND(under_dvm_dir)->directiveForLoop->on[links[i]].first != "*")
+                                {
+                                    if (regAccess.second.second[i].coefficients.size() == 0)
+                                    {
+                                        addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            const pair<int, int> &alignRuleRead = alignRuleWithTempl[i];
+                            bool wasAdd = false;
+
+                            // try to check all writes with ...
+                            for (int k = 0; k < writesInLoop.size() && !wasAdd; ++k)
+                            {
+                                if (writesInLoop[k].first != arrayRef)
+                                {
+                                    vector<int> tmpLinks;
+                                    reducedG.FindLinksBetweenArrays(allArrays, arrayRef, writesInLoop[k].first, tmpLinks);
+
+                                    // find link between currentArray and writeArray
+                                    const int writeDim = tmpLinks[i];
+                                    if (writeDim != -1)
+                                    {
+                                        const vector<pair<int, int>> &writeRulesWithTempl = writesInLoop[k].first->GetAlignRulesWithTemplate(regionId);
+                                        const pair<int, int> &alignRuleWrite = writeRulesWithTempl[writeDim];
+
+                                        for (int z = 0; z < writesInLoop[k].second.writeOps[writeDim].coefficients.size(); ++z)
+                                        {
+                                            const pair<int, int> currWriteAcc = writesInLoop[k].second.writeOps[writeDim].coefficients[z];
+
+                                            // ... all reads 
+                                            for (int z1 = 0; z1 < regAccess.second.second[i].coefficients.size(); ++z1)
+                                            {
+                                                const pair<int, int> currReadAcc = regAccess.second.second[i].coefficients[z1];
+                                                // main check for regular read
+                                                //printf("%d %d -- %d %d\n", currWriteAcc.first, alignRuleWrite.first, currReadAcc.first, alignRuleRead.first);
+                                                if (currWriteAcc.first * alignRuleWrite.first != currReadAcc.first * alignRuleRead.first)
+                                                {
+                                                    addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                                    wasAdd = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } // main check
+            }
+        }
+
+        if (SECOND(under_dvm_dir)->perfectLoop > 1)
+        {
+            tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> nextDir = under_dvm_dir;
+            SECOND(nextDir) = SECOND(under_dvm_dir)->childs[0];
+
+            auto it = allLoops.find(SECOND(under_dvm_dir)->childs[0]->lineNum);
+            if (it == allLoops.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            FIRST(nextDir) = it->second.first;
+            createRemoteInParallel(nextDir, allArrays, loopInfo, reducedG, data, currVar, allLoops, uniqRemotes, messages, regionId, arrayLinksByFuncCalls);
+        }
+    }
+}
+
+void addRemotesToDir(const pair<SgForStmt*, LoopGraph*> *under_dvm_dir, const map<string, SgArrayRefExp*> &uniqRemotes)
+{
+    SgStatement *dir = under_dvm_dir->first->lexPrev();
+
+    for (auto it = uniqRemotes.begin(); it != uniqRemotes.end(); ++it)
+    {
+        if (!dir)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (dir->variant() != DVM_PARALLEL_ON_DIR)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        SgExpression *list = dir->expr(1);
+        SgExpression *remoteList = NULL;
+        while (list)
+        {
+            if (list->lhs())
+            {
+                if (list->lhs()->variant() == REMOTE_ACCESS_OP)
+                {
+                    remoteList = list->lhs();
+                    break;
+                }
+            }
+            list = list->rhs();
+        }
+        list = dir->expr(1);
+        SgExpression *toAdd = new SgExpression(EXPR_LIST, it->second, NULL, NULL);
+
+        if (!remoteList)
+        {
+            remoteList = new SgExpression(REMOTE_ACCESS_OP, toAdd, NULL, NULL);
+            dir->setExpression(1, *new SgExpression(EXPR_LIST, remoteList, list, NULL));
+        }
+        else
+        {
+            SgExpression *lastLhs = remoteList->lhs();
+            remoteList->setLhs(toAdd);
+            toAdd->setRhs(lastLhs);
+        }
+    }
+}
+
+#undef FIRST
+#undef SECOND
+#undef THIRD

@@ -1,0 +1,52 @@
+
+***************************** PRELIMINARY ***************************
+
+This file contains PRELIMINARY extensions to the basic sage system.
+It mainly consists in an interface with the Omega test.
+A demo program using the functionnalities of this library is given in
+DemoDataDep. Documentation for this library is not yet available.
+
+
+This directory contains the following files:
+
+
+ Makefile		: just do make: create the library libDep.a
+
+ OmegaForSage		: directory containing the Omega test src code
+
+ annotationDriver.C/.h	: Interface in sage with the annotation system
+
+ arrayRef.C/.h		: routine to create sets of array references  (no yet completed)
+   			  give the index in  affine form when possible
+
+ computeInducVar.C	: Induction variable computation (no yet completed)
+ inducVar.h		: structure for Induction variables
+
+ constanteProp.C	: constante propagation routine (no yet completed)
+ constanteSet.h		: constante data structure
+
+ controlFlow.C		: routine to get the control flow in program (no yet completed)
+
+ defUse.C		: compute for each statement the set of variables defined and used
+			  (no yet completed)
+ definitionSet.h	: for defUse.C  
+
+ depGraph.C		: data dependence graph  (no yet completed)
+ depGraph.h		: class declaration of the data dep graph 
+
+ dependence.C		: Interface with the omega test (no yet completed).
+ dependence.h		: 
+
+ flowAnalysis.C		: support for data flow analysis  (no yet completed)
+
+ intrinsic.C		: list of intrinsic functions  (no yet completed)
+ intrinsic.h		:
+
+ invariant.C		:  (no yet completed)
+
+ loopTransform.C	: simple loop transformations for sage  (no yet completed)
+
+ set.C			: basic class for dealing with object sets.
+ set.h			:
+
+

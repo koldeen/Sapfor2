@@ -1,0 +1,9 @@
+fdvm_include=../../../dvm/fdvm/trunk/include/
+sage_include_1=../../../dvm/fdvm/trunk/Sage/lib/include/
+sage_include_2=../../../dvm/fdvm/trunk/Sage/h/
+fdvm_sources=../../../dvm/fdvm/trunk/fdvm/
+libdb_sources=../../../dvm/fdvm/trunk/Sage/lib/oldsrc/
+sage_sources=../../../dvm/fdvm/trunk/Sage/lib/newsrc/
+sagepp_sources=../../../dvm/fdvm/trunk/Sage/Sage++/
+parser_sources=../../../dvm/fdvm/trunk/parser/
+inline_expansion_sources=../../../dvm/fdvm/trunk/InlineExpansion/
