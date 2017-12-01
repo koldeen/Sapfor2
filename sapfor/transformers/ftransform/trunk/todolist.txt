@@ -1,0 +1,58 @@
+[FTransform] replace with actual called parameters: launchParser.bat program.f90
+[FTransform] merge loops with same header - !PRG command
+[FTransform] merge loops with same header - test or example
+
+[FTransform] merge loops with continuous - algo support for [start, end, step=1] [end+1, end2, step=1]
+[FTransform] merge loops with continuous - !PRG command
+[FTransform] merge loops with continuous - test or example
+[FTransform] merge loops with continuous - for step != 1
+  make step==1 and insert ifs into body
+  like start1=1, end1=10, step=3 (==> i=1, 4, 7, 10 end)
+start2=11, end2 = 20, step=3 (==> i=11, 14, 17, 20 end)
+start=1, end=20, step = 3 (==> i=1, 4, 7, 10, 13, 16, 19)
+  do if i >= start1 && i <= end1 && (i - start1)%step1==0 {
+    <body1>
+  }
+
+встроить в тестировку examples
+посмотреть как делать freeform-unparse()
+
+на счет исключения - функции могу вызывать исключения,
+в случае некорректной работы или ошибки.
+Тогда необходимо будет сказать пользователю в чем дело,
+либо написать что то в логе, чтобы было проще найти ошибку.
+-->??
+
+в сапфоре в utils.h объявлен макрос print, с помощью которого
+необходимо выводить данные в консоль/ лог.
+Если необходимо всегда печатать что то в лог,
+то надо это делать через макрос print(1, ...)
+-->OK incorporated in ftransform
+
+Если же необходимо напечатать какое то сообщение пользователю
+ в визуализаторе, то необходимо понять,
+ к какой строке кода относится сообщение,
+  также надо добавить в свою функцию параметр
+vector<Messages> *currMessages;
+и добавлять сообщения в этот вектор.
+-->ignore for now
+
+так как преобразования у тебя отдельные,
+то необходимо добавить заглушки в свой main, чтобы это все работало.
+Макрос можно скопировать в свой проект.
+-->ok
+
+на счет подстановки инвариантов и проверки корректности: я могу тебе передать
+найденные зависимости по скалярам и массивам для второго цикла,
+в который необходимо что то вносить.
+Этого будет достаточно, чтобы проверить, что операторы до этого цикла и
+после являются инвариантами.
+-->[WIP]
+
+Предлагается доделать проверку на корректность
+и внесение инварианта до и после цикла до 15 сентября включительно.
+Твоя функция пусть принимает map<srting, int>
+где ключ - имя переменной ( скаляра или массива) и тип зависимости,
+private,reduction,flow,anti,output, unknown
+-->int??? string???
+-->стринги хочется на символы поменять сейджовые, инты на енум зависимостей какой-то.
