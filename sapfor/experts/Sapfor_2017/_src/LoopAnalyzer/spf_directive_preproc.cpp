@@ -374,13 +374,13 @@ static bool checkRemote(SgStatement *st,
                 }
 
                 SgForStmt *forSt = (SgForStmt*) st;
-                SgSymbol name = forSt->doName();
+                SgSymbol *name = forSt->doName();
 
                 //FIND : AND NAME IN EXPR
                 set<SgSymbol*> ddotSymbs;
                 fillVars(remElem.second, { DDOT }, ddotSymbs);
 
-                if (!ddotSymbs.size() && !hasForName(remElem.second, name.identifier()))
+                if (!ddotSymbs.size() && !hasForName(remElem.second, name->identifier()))
                 {
                     SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
                     SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();

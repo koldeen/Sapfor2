@@ -1358,8 +1358,11 @@ public:
             SgStatement &body);
 
   inline SgForStmt(SgExpression *start, SgExpression *end, SgExpression *step, SgStatement *body);
-  inline SgSymbol doName();          
-                               // the name of the loop (for F90.)
+#if __SPF
+  inline SgSymbol* doName();
+#else
+  inline SgSymbol doName();
+#endif                          // the name of the loop (for F90.)
   inline void setDoName(SgSymbol &doName);// sets the name of the loop(for F90)
 
   inline SgExpression *start();            
@@ -5609,9 +5612,17 @@ inline SgForStmt::SgForStmt(SgExpression &start, SgExpression &end,
 inline void SgForStmt::setDoName(SgSymbol &doName)
 { BIF_SYMB(thebif) = doName.thesymb; }  // sets the name of the loop (for F90.)
 
+#if __SPF
+inline SgSymbol* SgForStmt::doName()
+{
+    return symbol();
+}
+#else
 inline SgSymbol SgForStmt::doName()
-{ return SgSymbol(BIF_SYMB(thebif)); }   // the name of the loop (for F90.)
-
+{
+    return SgSymbol(BIF_SYMB(thebif));   // the name of the loop (for F90.)
+}
+#endif
 
 inline SgExpression * SgForStmt::start()
 {       

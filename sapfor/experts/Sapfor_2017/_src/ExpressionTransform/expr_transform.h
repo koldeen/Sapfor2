@@ -15,7 +15,7 @@ class DataFlowItem;
 SgExpression* ReplaceParameter(SgExpression *e);
 SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
-void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol doName);
+void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
 void expressionAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile);
 void calculate(SgExpression *&exp);

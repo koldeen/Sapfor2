@@ -20,7 +20,7 @@ enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
-bool checkExistence(SgExpression *exp, SgSymbol doName);
+bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
                   std::vector<ParallelRegion*> regions,

@@ -70,11 +70,11 @@ static bool hasArrayAccessInSubscr(SgExpression *exp)
     return retVal;
 }
 
-bool checkExistence(SgExpression *exp, SgSymbol doName)
+bool checkExistence(SgExpression *exp, SgSymbol *doName)
 {
     bool retVal = false;
     if (exp->variant() == VAR_REF)
-        if (exp->symbol()->id() == doName.id())
+        if (exp->symbol()->id() == doName->id())
             retVal = true;
 
     if (exp->lhs())
@@ -263,7 +263,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         bool needToCacl = true;
         if (subscr->variant() == VAR_REF)
         {
-            if (subscr->symbol()->id() == (parentLoops[position]->doName()).id())
+            if (subscr->symbol()->id() == (parentLoops[position]->doName())->id())
             {
                 coefs.first = 1;
                 needToCacl = false;

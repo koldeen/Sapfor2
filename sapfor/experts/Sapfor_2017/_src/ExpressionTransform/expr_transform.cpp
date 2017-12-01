@@ -111,7 +111,7 @@ SgExpression* ReplaceArrayBoundSizes(SgExpression *edim)
     return edim;
 }
 
-static pair<int, int> getCoefsOfSubscript(SgExpression *exp, SgSymbol& doName, int &err)
+static pair<int, int> getCoefsOfSubscript(SgExpression *exp, SgSymbol *doName, int &err)
 {
     pair<int, int> result;
     pair<int, int> lRes = make_pair(0, 0), rRes = make_pair(0, 0);
@@ -177,7 +177,7 @@ static pair<int, int> getCoefsOfSubscript(SgExpression *exp, SgSymbol& doName, i
             err = -1;
         break;
     case VAR_REF:
-        if (strcmp(exp->symbol()->identifier(), doName.identifier()) == 0)
+        if (strcmp(exp->symbol()->identifier(), doName->identifier()) == 0)
             result = make_pair(1, 0);
         else
             err = -1;
@@ -373,13 +373,13 @@ static void replaceVarRefToZero(SgExpression *&exp, int &countVarRefs)
     }
 }
 
-void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol doName)
+void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName)
 {
     SgExpression *copyExp = &(exp->copy());
     replaceConstatRec(copyExp);
     calculate(copyExp);
 
-    if (isNeedFinishCalc(copyExp, doName.identifier()))
+    if (isNeedFinishCalc(copyExp, doName->identifier()))
     {
         int err = 0;
         retCoefs = getCoefsOfSubscript(copyExp, doName, err);

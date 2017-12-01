@@ -133,7 +133,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                                         SgSymbol *doName = currLoopRef->symbol();
                                         for (int z = 0; z < arrayRef->numberOfSubscripts() && !existSubs; ++z)
                                         {
-                                            existSubs = checkExistence(arrayRef->subscript(z), *doName);
+                                            existSubs = checkExistence(arrayRef->subscript(z), doName);
                                             if (existSubs)
                                                 subsPos = z;
                                         }
