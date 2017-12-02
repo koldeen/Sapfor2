@@ -9,7 +9,7 @@ extern int consoleMode;
 extern "C" int out_free_form;
 
 enum passes {
-    UNROLL_LOOPS,
+    UNROLL_LOOPS, //ordinal == 0
     CONVERT_TO_ENDDO,
     CORRECT_CODE_STYLE,
     LOOP_ANALYZER_DATA_DIST_S1,
@@ -39,7 +39,7 @@ enum passes {
     SUBST_EXPR,
     CALL_GRAPH2,
     REVERT_SUBST_EXPR,
-    CREATE_NESTED_LOOPS,
+    CREATE_NESTED_LOOPS, //ordinal == 30
     UNPARSE_FILE,
     CREATE_TEMPLATE_LINKS,
     CODE_CHECKER_PASSES,

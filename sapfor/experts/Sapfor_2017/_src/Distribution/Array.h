@@ -61,11 +61,12 @@ namespace Distribution
         bool isTemplFlag;
         bool isNonDistribute;
 
+        // PAIR<FILE, LINE>
         SET<PAIR<STRING, int>> declPlaces;
 
-        //0 - local, 1 - common, 2 - module
-        int location;
-        STRING locName;
+        //TYPE: 0 - local, 1 - common, 2 - module
+        // PAIR<NAME, TYPE>
+        PAIR<int, STRING> locationPos;
 
         TemplateLink* getTemlateInfo(const int regionId)
         {
@@ -91,7 +92,7 @@ namespace Distribution
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id
             , const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos) :
             name(name), dimSize(dimSize), id(id), shortName(shortName), isTemplFlag(false), isNonDistribute(false),
-            location(locationPos.first), locName(locationPos.second)
+            locationPos(locationPos)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
@@ -156,7 +157,8 @@ namespace Distribution
         }
         void SetId(const unsigned newId) { id = newId; }
 
-        const SET<PAIR<STRING, int>>& GetDeclInfo() { return declPlaces; }
+        const SET<PAIR<STRING, int>>& GetDeclInfo() const { return declPlaces; }
+        void AddDeclInfo(const PAIR<STRING, int> &declInfo) { declPlaces.insert(declInfo); }
 
         void ExtendShadowSpec(const VECTOR<PAIR<int, int>> &newSpec)
         {
@@ -172,7 +174,7 @@ namespace Distribution
         STRING toString()
         {
             STRING retVal = "";
-            retVal += " " + TO_STR(id);
+            retVal += TO_STR(id);
             retVal += " " + name;
             retVal += " " + shortName;
             retVal += " " + TO_STR(dimSize);
@@ -182,8 +184,8 @@ namespace Distribution
             else
                 retVal += " 0";
 
-            retVal += " " + TO_STR(location);
-            retVal += " " + locName;
+            retVal += " " + TO_STR(locationPos.first);
+            retVal += " " + locationPos.second;
 
             retVal += " " + TO_STR(sizes.size());
             for (int i = 0; i < sizes.size(); ++i)
@@ -210,8 +212,8 @@ namespace Distribution
         void SetNonDistributeFlag(bool isNonDistribute_) { isNonDistribute = isNonDistribute_; }
         bool GetNonDistributeFlag() const { return isNonDistribute; }
 
-        void SetLocation(int loc, const STRING &name) { location = loc; locName = name; }
-        PAIR<int, STRING> GetLocation() const { return std::make_pair(location, locName); }
+        void SetLocation(int loc, const STRING &name) { locationPos = std::make_pair(loc, name); }
+        PAIR<int, STRING> GetLocation() const { return locationPos; }
 
         ~Array() 
         {
