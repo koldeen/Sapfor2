@@ -1,7 +1,6 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
 sapfor/experts/Sapfor_2017/.vs/
 sapfor/experts/Sapfor_2017/_bin/
-sapfor/experts/Sapfor_2017/_lib/x64/Debug/SageLib.lib
 sapfor/experts/Sapfor_2017/_lib/
 sapfor/experts/Sapfor_2017/Inliner/x64/
 sapfor/experts/Sapfor_2017/Parser/x64/
@@ -15,3 +14,4 @@ sapfor/experts/Sapfor_2017/TransformUtils/x64/
 dvm/fdvm/trunk/.svn/
 sapfor/experts/Sapfor_2017/.svn/
 sapfor/transformers/.svn/
+sapfor/experts/Sapfor_2017/_src/boost
