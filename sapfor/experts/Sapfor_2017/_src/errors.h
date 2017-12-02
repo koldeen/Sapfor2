@@ -44,8 +44,13 @@ public:
         printInternalError(file, line); \
 } while (0)
 
+//TODO: count of string len of all parameters
 #define printToBuf(outval, format, ...) do {\
-        char buf[512];\
-        sprintf(buf, format, ##__VA_ARGS__);\
-        outval = string(buf);\
+        const int bufLen = 32 * 1024 * 1024;\
+        char *buf = new char[bufLen];\
+        const int countW = sprintf(buf, format, ##__VA_ARGS__);\
+        if (countW + 1 > bufLen) \
+           printInternalError(__FILE__, __LINE__);\
+        outval = std::string(buf);\
+        delete []buf;\
 } while (0)

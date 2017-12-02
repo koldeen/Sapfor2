@@ -1148,6 +1148,8 @@ static void findArrayRefs(SgExpression *ex,
 
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
+                else
+                    itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
 
                 if (isExecutable)
                     itNew->second.second->AddAccessInfo(make_pair(declSt->lineNumber(), isWrite ? 1 : 0), declSt->fileName());
@@ -1192,14 +1194,14 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             //before SPF preprocessing 
             if (st->variant() == SPF_ANALYSIS_DIR)
                 fillPrivatesFromComment(st, privates);
-
-            //temporary skip decl statements
+                        
             //TODO: add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
-            if (isSgExecutableStatement(st))
-                for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, 
-                                  true, st, currFunctionName, (st->variant() == ASSIGN_STAT && i == 0) ? true : false);
+            for (int i = 0; i < 3; ++i)
+                findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, 
+                              isSgExecutableStatement(st) ? true : false, 
+                              st, currFunctionName, 
+                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false);
             st = st->lexNext();
         }
     }

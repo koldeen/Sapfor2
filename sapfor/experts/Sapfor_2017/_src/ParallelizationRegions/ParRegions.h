@@ -127,7 +127,7 @@ public:
         for (auto it = arrays.begin(); it != arrays.end(); ++it)
         {
             retVal += " " + std::to_string((long long)(*it));
-            retVal += (*it)->toString();
+            retVal += " " + (*it)->toString();
         }
 
         retVal += " " + std::to_string(dataDirectives.alignRules.size());
