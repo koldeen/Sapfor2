@@ -61,7 +61,7 @@ void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifi
     }
 }
 
-static bool varIsPrivate(SgStatement *st, SgSymbol *symbol)
+static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 {
     bool retVal = false;
 
@@ -94,22 +94,63 @@ static bool hasForName(SgExpression *exp, const string &forName)
         if (symb)
             if (string(symb->identifier()) == forName)
                 return true;
+
         return hasForName(lhs, forName) || hasForName(rhs, forName);
     }
+
     return false;
 }
 
-static bool hasEqExpressions(SgExpression *exp, SgExpression *checkExp, map<SgExpression*, string> &collection)
+static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection, map<string, int> &forVars)
+{
+    if (exp == remoteExp)
+        return true;
+
+    bool retVal = true;
+
+    while (exp != NULL && remoteExp != NULL)
+    {
+        if (remoteExp->lhs())
+            if (remoteExp->lhs()->variant() == DDOT)
+                continue;
+
+        retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
+
+        string stringExp = exp->unparse();
+        for (auto &varName : forVars)
+        {
+            //string varName(forVar);
+            int pos = stringExp.find(varName.first, 0);
+            while(pos != string::npos)
+            {
+                ++varName.second;
+                pos = stringExp.find(varName.first, pos + 1);
+                print(1, "I AM FOUND!\n");
+                if (varName.second > 1)
+                    return false;
+            }
+        }
+
+        exp = exp->rhs();
+        remoteExp = remoteExp->rhs();
+    }
+
+    return retVal;
+}
+
+static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection, map<string, int> &forVars)
 {
     if (exp)
     {
         SgExpression *lhs = exp->lhs();
         SgExpression *rhs = exp->rhs();
 
-        if (isEqExpressions(exp, checkExp, collection))
+        if (isRemoteExpressions(exp, remoteExp, collection, forVars))
             return true;
-        return isEqExpressions(lhs, checkExp, collection) || isEqExpressions(rhs, checkExp, collection);
+
+        return hasRemoteExpressions(lhs, remoteExp, collection, forVars) || hasRemoteExpressions(rhs, remoteExp, collection, forVars);
     }
+
     return false;
 }
 
@@ -270,9 +311,8 @@ static bool checkShadowAcross(SgStatement *st,
                 retVal = false;
             }
 
-            //print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
-
-            notPrivCond = !varIsPrivate(st, arraySymbol) && !varIsPrivate(declStatement, arraySymbol);
+            //print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), isPrivateVar(declStatement, arraySymbol));
+            notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
             if (!notPrivCond)
             {
                 print(1, "array '%s' on line %d is private\n", arraySymbol->identifier(), attributeStatement->lineNumber());
@@ -347,84 +387,72 @@ static bool checkRemote(SgStatement *st,
         {
             bool cond = false;
             SgStatement *declStatement = declaratedInStmt(remElem.first.first);
-
             //print(1, "%s\n", remElem.second->unparse());
-
-            if (var == FOR_NODE)
+            set<SgSymbol*> arraySymbols;
+            fillVars(remElem.second, { ARRAY_REF }, arraySymbols);
+            //print(1, "numArratys = %d\n", arraySymbols.size());
+            //print(1, "%s\n", remElem.second->unparse());
+            for (auto &arraySymbol : arraySymbols)
             {
-                set<SgSymbol*> arraySymbols;
-                fillVars(remElem.second, { ARRAY_REF }, arraySymbols);
-                //print(1, "numArratys = %d\n", arraySymbols.size());
+                //print(1, "array = %s\n", arraySymbol->identifier());
+                declStatement = declaratedInStmt(arraySymbol);
+                bool notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
-                for (auto &arraySymbol : arraySymbols)
+                if (!notPrivCond)
                 {
-                    //print(1, "array = %s\n", arraySymbol->identifier());
-
-                    declStatement = declaratedInStmt(arraySymbol);
-                    bool notPrivCond = !varIsPrivate(st, arraySymbol) && !varIsPrivate(declStatement, arraySymbol);
-
-                    if (!notPrivCond)
-                    {
-                        print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                        string message;
-                        printToBuf(message, "array '%s' is private", arraySymbol->identifier());
-                        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                        retVal = false;
-                    }
-                }
-
-                SgForStmt *forSt = (SgForStmt*) st;
-                SgSymbol *name = forSt->doName();
-
-                //FIND : AND NAME IN EXPR
-                set<SgSymbol*> ddotSymbs;
-                fillVars(remElem.second, { DDOT }, ddotSymbs);
-
-                if (!ddotSymbs.size() && !hasForName(remElem.second, name->identifier()))
-                {
-                    SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
-                    SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
-
-                    while (iterator != end)
-                    {
-                        print(1, "%s", iterator->unparse());
-                        map<SgExpression*, string> collection;
-                        for (int i = 0; i < 3; ++i)
-                        {
-                            //recExpressionPrint(st->expr(i));
-                            //recursive
-                            if (hasEqExpressions(st->expr(i), remElem.second, collection))
-                                cond = true;
-                        }
-                        iterator = iterator->lexNext();
-                    }
-                }
-
-                if (!cond)
-                {
-                    print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
+                    print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                     string message;
-                    printToBuf(message, "no such expression '%s' on loop", remElem.second->unparse());
+                    printToBuf(message, "array '%s' is private", arraySymbol->identifier());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                     retVal = false;
                 }
             }
-            else
+
+            map<string, int> forVars;
+
+            if (var == FOR_NODE)
             {
+                SgStatement *iterator = st;
+                SgStatement *end = st->lastNodeOfStmt();
+
+                while (iterator != end)
+                {
+                    SgForStmt *forSt = isSgForStmt(iterator);
+
+                    if (forSt)
+                    {
+                        SgSymbol *forName = forSt->doName();
+                        forVars.insert(std::make_pair(string(forName->identifier()), 0));
+                        print(1, "CODE:%s ; NAME: %s\n", iterator->unparse(), forName->identifier());
+                    }
+
+                    iterator = iterator->lexNext();
+                }
+            }
+
+            SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+            SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
+
+            while (iterator != end)
+            {
+                //print(1, "%s\n", iterator->unparse());
                 map<SgExpression*, string> collection;
                 for (int i = 0; i < 3; ++i)
-                    if (isEqExpressions(st->expr(i), remElem.second, collection))
-                        cond = true;
-
-                if (!cond)
                 {
-                    print(1, "no such expression '%s(%s)' on line %d\n", 
-                          remElem.first.first->identifier(), remElem.second->unparse(), attributeStatement->lineNumber());
-                    string message;
-                    printToBuf(message, "no such expression '%s(%s)' on the next statement", remElem.first.first->identifier(), remElem.second->unparse());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                    retVal = false;
+                    //recExpressionPrint(st->expr(i));
+                    if (hasRemoteExpressions(st->expr(i), remElem.second, collection, forVars))
+                        cond = true;
                 }
+                iterator = iterator->lexNext();
+            }
+
+            if (!cond)
+            {
+                print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
+                string message;
+                printToBuf(message, "no such expression '%s' on loop", remElem.second->unparse());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                retVal = false;
             }
         }
     }
