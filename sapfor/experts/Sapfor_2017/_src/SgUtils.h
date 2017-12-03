@@ -24,3 +24,4 @@ void getCommonBlocksRef(std::map<std::string, SgStatement*> &commonBlocks, SgSta
 
 extern std::map<std::pair<std::string, int>, std::tuple<int, std::string, std::string>> tableOfUniqNames;
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, SgStatement*> &commonBlocks, SgStatement *decl, SgSymbol *symb);
+SgStatement* findMainUnit(SgProject *proj);

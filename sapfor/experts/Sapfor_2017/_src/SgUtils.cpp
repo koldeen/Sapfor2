@@ -644,3 +644,31 @@ tuple<int, string, string> getUniqName(const map<string, SgStatement*> &commonBl
         tableOfUniqNames.insert(it, make_pair(make_pair(symb->identifier(), decl->lineNumber()), retVal));
     return retVal;
 }
+
+SgStatement* findMainUnit(SgProject *proj)
+{
+    SgStatement *mainUnit = NULL;
+    
+    for (int i = proj->numberOfFiles() - 1; i >= 0; --i)
+    {
+        SgFile *file = &(proj->file(i));
+        current_file_id = i;
+        current_file = file;
+        const char *file_name = file->filename();
+
+        
+        for (int k = 0; k < file->numberOfFunctions(); ++k)
+        {
+            SgStatement *func = file->functions(k);
+            if (func->variant() == PROG_HEDR)
+            {
+                mainUnit = func;
+                break;
+            }
+        }
+
+        if (mainUnit)
+            break;
+    }
+    return mainUnit;
+}

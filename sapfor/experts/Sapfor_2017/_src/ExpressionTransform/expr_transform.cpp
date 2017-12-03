@@ -595,7 +595,9 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
     }
 }
 
-void expressionAnalyzer(SgFile *file, vector<Messages> &messagesForFile)
+//TODO: replace to this interface
+//void expressionAnalyzer(SgStatement *function);
+void expressionAnalyzer(SgFile *file)
 {
     print(PRINT_PROF_INFO, "Expression analyzer!\n");
     

@@ -404,7 +404,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REMOVE_DVM_DIRS)
             removeDvmDirectives(file);
         else if (curr_regime == SUBST_EXPR)
-            expressionAnalyzer(file, getMessagesForFile(file_name));
+            expressionAnalyzer(file);
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename());
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -689,31 +689,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRIVATE_ANALYSIS_SPF)
     {
-        bool mainUnitFound = false;
-        for (auto it = allFuncInfo.begin(); it != allFuncInfo.end(); ++it)
-        {
-            for (int k = 0; k < it->second.size(); ++k)
-            {
-                if (it->second[k]->funcPointer->variant() == PROG_HEDR)
-                {
-                    mainUnitFound = true;
-                    for (int i = n - 1; i >= 0; --i)
-                    {
-                        SgFile *file = &(project.file(i));
-                        current_file_id = i;
-
-                        if (file->filename() == it->first)
-                            break;
-                    }
-                    Private_Vars_Analyzer(it->second[k]->funcPointer);
-                    break;
-                }
-            }
-            if (mainUnitFound)
-                break;
-        }
-
-        if (!mainUnitFound)
+        SgStatement *mainUnit = findMainUnit(&project);
+        if (mainUnit)
+            Private_Vars_Analyzer(mainUnit);
+        else
         {
             for (int i = n - 1; i >= 0; --i)
             {
@@ -728,6 +707,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
     }
+    /*else if (curr_regime == SUBST_EXPR)
+    {
+        SgStatement *mainUnit = findMainUnit(&project);
+        if (mainUnit)
+            expressionAnalyzer(mainUnit);
+            Private_Vars_Analyzer(mainUnit);
+        else
+            ;//TODO: add warning or call for graphs
+    }*/
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
@@ -935,6 +923,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     initIntrinsicFunctionNames();
     initTags();
     InitPassesDependencies(passesDependencies, passesIgnoreStateDone);
+    setPassValues();
 
     if (project == NULL)
         project = createProject(proj_name);

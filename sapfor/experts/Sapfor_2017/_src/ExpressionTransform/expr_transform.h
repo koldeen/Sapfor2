@@ -17,7 +17,8 @@ SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
 void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
-void expressionAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile);
+void expressionAnalyzer(SgFile *file);
+//void expressionAnalyzer(SgStatement *function);
 void calculate(SgExpression *&exp);
 void replaceConstatRec(SgExpression *&exp);
 
@@ -28,7 +29,7 @@ void revertReplacements(std::string filename);
 struct StatementObj {
     SgStatement* stmt;
 
-    StatementObj(SgStatement* st): stmt(st) {}
+    StatementObj(SgStatement* st): stmt(st) { }
 
     inline bool operator<(const StatementObj& rhs) const
     {

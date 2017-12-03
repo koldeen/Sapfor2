@@ -110,7 +110,7 @@ void printHelp()
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
     for (int i = 0; i < EMPTY_PASS; ++i)
-        printf("    pass_num = %d:  %s\n", i, passesEnumName[i]);
+        printf("    pass_num = %d:  %s\n", i, passNames[i]);
     printf("\n");
     printf(" -t    <analysis_num>\n");
     printf("    analysis_num = 1:  loops unroller\n");

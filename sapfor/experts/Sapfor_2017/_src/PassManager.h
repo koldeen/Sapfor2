@@ -78,7 +78,7 @@ static void depsToGraphViz(const map<passes, vector<passes>> &passDepsIn)
     for (auto it = passDepsIn.begin(); it != passDepsIn.end(); ++it)
     {
         for (int k = 0; k < it->second.size(); ++k)
-            printf("\"%s\" -> \"%s\";\n", passesEnumName[it->first], passesEnumName[it->second[k]]);
+            printf("\"%s\" -> \"%s\";\n", passNames[it->first], passNames[it->second[k]]);
     }
     printf("}\n");
 }
