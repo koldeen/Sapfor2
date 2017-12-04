@@ -289,7 +289,7 @@ namespace Distribution
          RemoveDuplicates(vector<Cycle<vType, wType, attrType>> &cycles)
     {
         double timeR = omp_get_wtime();
-        print(PRINT_TIMES, "PROF: RemoveDuplicates: start removing with %d cycles\n", (int)cycles.size());
+        __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: start removing with %d cycles\n", (int)cycles.size());
 
         vector<vector<pair<pair<vType, vType>, attrType>>> allUniqEdges(cycles.size());
         //map<int, int> sizes;
@@ -322,7 +322,7 @@ namespace Distribution
 
         maxSize++;
         vector<vector<vType>> uniqLoops(maxSize);
-        print(PRINT_TIMES, "PROF: RemoveDuplicates: done inserting\n");
+        __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: done inserting\n");
 
         const vType part = vType((vType)cycles.size() * 0.1);
         double timeT = omp_get_wtime();
@@ -334,7 +334,7 @@ namespace Distribution
                 if (it % part == 0 && PRINT_TIMES)
                 {
                     double timeT1 = omp_get_wtime();
-                    print(PRINT_TIMES, "PROF: %d done with time %.3f sec\n", it, timeT1 - timeT);
+                    __spf_print(PRINT_TIMES, "PROF: %d done with time %.3f sec\n", it, timeT1 - timeT);
                     timeT = timeT1;
                 }
 
@@ -397,7 +397,7 @@ namespace Distribution
                 newLoops.push_back(cycles[uniqLoops[k][i]]);
 
         cycles = newLoops;
-        print(PRINT_TIMES, "PROF: RemoveDuplicates: done removing with %d cycles, time %f sec\n", (int)cycles.size(), omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: done removing with %d cycles, time %f sec\n", (int)cycles.size(), omp_get_wtime() - timeR);
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -655,10 +655,10 @@ namespace Distribution
         int maxNum = 0;
         for (int i = 0; i < numEdges; ++i)
             maxNum = std::max(maxNum, numbers[i]);
-        print(PRINT_TIMES && needPrint, "max num value = %d\n", maxNum);
+        __spf_print(PRINT_TIMES && needPrint, "max num value = %d\n", maxNum);
         
         double timeFind = omp_get_wtime();
-        print(PRINT_TIMES && needPrint, "graph size: |V| = %d, |E| = %d, quality: [%d, %d]\n", numVerts, numEdges / 2, maxLoopDim, maxChainLen);
+        __spf_print(PRINT_TIMES && needPrint, "graph size: |V| = %d, |E| = %d, quality: [%d, %d]\n", numVerts, numEdges / 2, maxLoopDim, maxChainLen);
         if (maxNum + 1 != numEdges / 2 && maxNum != 0)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         
@@ -668,7 +668,7 @@ namespace Distribution
         vector<vType> trees;
         vector<vector<vType>> vertByTrees;
         set<vType> unqieTrees = FindTrees(trees, vertByTrees);        
-        print(PRINT_TIMES && needPrint, "trees count %d\n", (int)unqieTrees.size());
+        __spf_print(PRINT_TIMES && needPrint, "trees count %d\n", (int)unqieTrees.size());
         
         if (unqieTrees.size() == 0)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -681,7 +681,7 @@ namespace Distribution
             usedMem += cyclesTmp[i].capacity() * sizeof(map<vector<unsigned>, Cycle<vType, wType, attrType>>);
         }
 
-        print(PRINT_TIMES && needPrint, "cycles find started\n");
+        __spf_print(PRINT_TIMES && needPrint, "cycles find started\n");
         // find all cycles with dim >= 3
         for (int t = 0; t < vertByTrees.size(); ++t)
         {
@@ -693,11 +693,11 @@ namespace Distribution
                     color[k] = WHITE;
 
                 findFrom = currentV;
-                print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
+                __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
                 activeV[activeCounter++] = currentV;
                 FindLoop(cyclesTmp[t], currentV, currentV, numbers);
                 activeCounter--;
-                print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
+                __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
             }
         }
 
@@ -732,9 +732,9 @@ namespace Distribution
                 }
 
 
-            print(PRINT_TIMES && needPrint, "FOR TREE %d\n", t);
+            __spf_print(PRINT_TIMES && needPrint, "FOR TREE %d\n", t);
             for (auto it = countOfCyclesTree.begin(); it != countOfCyclesTree.end(); ++it)
-                print(PRINT_TIMES && needPrint, "  found cycles with size %d = %d\n", it->first, it->second);
+                __spf_print(PRINT_TIMES && needPrint, "  found cycles with size %d = %d\n", it->first, it->second);
         }
 
         timeFind = omp_get_wtime() - timeFind;
@@ -742,12 +742,12 @@ namespace Distribution
         int allCycles = 0;
         for (auto it = countOfCycles.begin(); it != countOfCycles.end(); ++it)
         {
-            print(PRINT_TIMES && needPrint, "found cycles with size %d = %d\n", it->first, it->second);
+            __spf_print(PRINT_TIMES && needPrint, "found cycles with size %d = %d\n", it->first, it->second);
             allCycles += it->second;
         }
 
-        print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
-        print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -755,7 +755,7 @@ namespace Distribution
         SortLoopsBySize(vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint)
     {
         double timeR = omp_get_wtime();
-        print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: start\n");
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: start\n");
         int err = 0;
         vector<Cycle<vType, wType, attrType>> sortedLoops(cycles.size());
         int currIdx = 0;
@@ -781,7 +781,7 @@ namespace Distribution
         }
         else
             cycles = sortedLoops;
-        print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: end %f sec\n", omp_get_wtime() - timeR);
         return err;
     }
 
@@ -790,11 +790,11 @@ namespace Distribution
         SortLoopsByWeight(vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint)
     {
         double timeR = omp_get_wtime();
-        print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: start\n");
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: start\n");
 
         if (cycles.size() == 0)
         {
-            print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
+            __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
             return 0;
         }
 
@@ -814,7 +814,7 @@ namespace Distribution
         }
         if (start != end)
             sort(cycles.begin() + start, cycles.begin() + end);
-        print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
         return err;
     }
 
@@ -827,7 +827,7 @@ namespace Distribution
                           vector<pair<int, int>> &indexOfConflict, bool needPrint)
     {
         double timeR = omp_get_wtime();
-        print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: start\n");
+        __spf_print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: start\n");
 
         int countOfConflict = 0;
         indexOfConflict.clear();
@@ -933,7 +933,7 @@ namespace Distribution
             }
 #endif
         }
-        print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: end %f sec\n", omp_get_wtime() - timeR);
         return countOfConflict;
     }
 #undef WITH_CONFLICT_1 
@@ -1464,7 +1464,7 @@ namespace Distribution
 
                         if (intRule.first == 0)
                         {
-                            print(1, "Can not find correct align rule for array '%s'\n", inputArray->GetShortName().c_str());
+                            __spf_print(1, "Can not find correct align rule for array '%s'\n", inputArray->GetShortName().c_str());
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                         }
 
@@ -1696,4 +1696,3 @@ namespace Distribution
 #undef MIN_CYCLE_DIM
 #undef MAX_LOOP_DIM
 #undef PRINT_TIMES
-#undef print

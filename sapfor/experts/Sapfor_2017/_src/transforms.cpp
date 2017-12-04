@@ -112,7 +112,7 @@ static vector<Messages>& getMessagesForFile(const char *fileName)
 extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message)
 {
     vector<Messages> &currM = getMessagesForFile(fileName);
-    print(1, "WARR: line %d: %s\n", line, message);
+    __spf_print(1, "WARR: line %d: %s\n", line, message);
 
     currM.push_back(Messages(WARR, line, message));
 }
@@ -144,7 +144,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     if (isDone(curr_regime))
         return false;
 
-    print(DEBUG_LVL1, "RUN PASS with name %s\n", passNames[curr_regime]);
+    __spf_print(DEBUG_LVL1, "RUN PASS with name %s\n", passNames[curr_regime]);
     const int n = project.numberOfFiles();  
 
     const bool need_to_save = false;
@@ -175,13 +175,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         current_file = file;
         const char *file_name = file->filename();
 
-        print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
+        __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
         if (curr_regime == CONVERT_TO_ENDDO)
             ConverToEndDo(file, getMessagesForFile(file_name));
         else if (curr_regime == UNROLL_LOOPS)
         {
-            print(DEBUG_LVL1, "  it is not implemented yet\n");
+            __spf_print(DEBUG_LVL1, "  it is not implemented yet\n");
             throw(-1);
         }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
@@ -233,7 +233,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 vector<Messages> &currMessages = getMessagesForFile(file_name);
                 for (int z = 0; z < errors.size(); ++z)
                 {
-                    print(1, "  ERROR: Loop on line %d does not have END DO\n", errors[z]);
+                    __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", errors[z]);
                     currMessages.push_back(Messages(ERROR, errors[z], "This loop does not have END DO format"));
                 }
             }
@@ -248,10 +248,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 vector<Messages> &currMessages = getMessagesForFile(file_name);
                 for (auto z = errors.begin(); z != errors.end(); ++z)
                 {
-                    print(1, "  ERROR: include '%s' at line %d has executable operators\n", z->first.c_str(), z->second);
+                    __spf_print(1, "  ERROR: include '%s' at line %d has executable operators\n", z->first.c_str(), z->second);
 
                     string currM;
-                    printToBuf(currM, "Include '%s' has executable operators", z->first.c_str());
+                    __spf_printToBuf(currM, "Include '%s' has executable operators", z->first.c_str());
                     currMessages.push_back(Messages(ERROR, z->second, currM));
                 }
             }
@@ -266,7 +266,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 vector<Messages> &currMessages = getMessagesForFile(file_name);
                 for (int z = 0; z < errors.size(); ++z)
                 {
-                    print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", errors[z]);
+                    __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", errors[z]);
                     currMessages.push_back(Messages(ERROR, errors[z], "Active DVM directives are not supported yet"));
                 }
             }
@@ -534,7 +534,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (newVer == NULL)
             {
-                print(1, "  ERROR: null file addition name\n");
+                __spf_print(1, "  ERROR: null file addition name\n");
                 getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred"));
                 throw(-1);
             }
@@ -549,11 +549,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     sprintf(fout_name, "%s/%s_%s.%s", folderName, OnlyName(file_name).c_str(), newVer, OnlyExt(file_name).c_str());
             }
 
-            print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name);
+            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name);
             if (curr_regime == INSERT_INCLUDES)
             {
-                print(1, "  try to find file <%s>\n", file_name);
-                print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
+                __spf_print(1, "  try to find file <%s>\n", file_name);
+                __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
             }
 
             if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
@@ -566,7 +566,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
                 else
                 {
-                    print(1, "ERROR: can not create file '%s'\n", fout_name);
+                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name);
                     getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred"));
                     throw(-1);
                 }
@@ -585,7 +585,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             sprintf(fout_name, "%s.dep", OnlyName(file_name).c_str());
             file->saveDepFile(fout_name);
-            print(DEBUG_LVL1, "  Saving to <%s> file\n", fout_name);
+            __spf_print(DEBUG_LVL1, "  Saving to <%s> file\n", fout_name);
         }
     } // end of FOR by files
 
@@ -673,14 +673,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createdArrays = createdArraysNew;
         
         for (map<string, string>::iterator it = shortFileNames.begin(); it != shortFileNames.end(); it++)
-            print(1, "  %s -> %s\n", it->first.c_str(), it->second.c_str());
+            __spf_print(1, "  %s -> %s\n", it->first.c_str(), it->second.c_str());
                 
         set<int> idxToDel;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0 || parallelRegions[z]->GetReducedGraph().GetNumberOfE() == 0)
             {
-                print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
+                __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
                 idxToDel.insert(z);
             }
         }
@@ -704,7 +704,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (int k = 0; k < it->second.size(); ++k)
                         {
                             currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf));
-                            print(1, "  Can not find arrays for distribution for parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
+                            __spf_print(1, "  Can not find arrays for distribution for parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
                         }
                     }
 #ifdef _WIN32
@@ -738,19 +738,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (consoleMode)
             {
-                print(1, "  write to <%s_%s> file\n", it->first.c_str(), newVer);
+                __spf_print(1, "  write to <%s_%s> file\n", it->first.c_str(), newVer);
                 insertDistributionToFile(it->first.c_str(), (string(it->first) + "_" + string(newVer)).c_str(), it->second);
             }
             else
             {
                 if (folderName)
                 {
-                    print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(it->first)).c_str());
+                    __spf_print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(it->first)).c_str());
                     insertDistributionToFile(it->first.c_str(), (string(folderName) + "/" + string(it->first)).c_str(), it->second);
                 }
                 else
                 {
-                    print(1, "  write to <%s> file\n", (string(it->first)).c_str());
+                    __spf_print(1, "  write to <%s> file\n", (string(it->first)).c_str());
                     insertDistributionToFile(it->first.c_str(), (string(it->first)).c_str(), it->second);
                 }
             }
@@ -826,10 +826,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 ALGORITHMS_DONE[CREATE_ALIGNS][z] = 1;
             }
 
-            print(1, "*** FOR PARALLEL REGION '%s':\n", parallelRegions[z]->GetName().c_str());
+            __spf_print(1, "*** FOR PARALLEL REGION '%s':\n", parallelRegions[z]->GetName().c_str());
             result = dataDirectives.GenAlignsRules();
             for (int i = 0; i < result.size(); ++i)
-                print(1, "  %s\n", result[i].c_str());
+                __spf_print(1, "  %s\n", result[i].c_str());
         }
     }
     else if (curr_regime == FILE_LINE_INFO)
@@ -837,7 +837,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         int allLineSum = 0;
         for (auto &elem : lineInfo)
             allLineSum += elem.second;
-        print(1, "All lines in project %d\n", allLineSum);
+        __spf_print(1, "All lines in project %d\n", allLineSum);
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
@@ -891,7 +891,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
-    print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
+    __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
 #endif
 
     return true;
@@ -969,7 +969,7 @@ static void findFunctionsToInclude(bool needToAddErrors)
     if (isDone(FIND_FUNC_TO_INCLUDE))
         return;
 
-    print(1, "RUN PASS with name FindFunctionsToInclude\n");
+    __spf_print(1, "RUN PASS with name FindFunctionsToInclude\n");
     
     map<string, int> files;
     for (int i = 0; i < project->numberOfFiles(); ++i)
@@ -1075,7 +1075,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (folderName) {
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
         } else {
-            print(1, "Can not run UNPARSE_FILE after CREATE_NESTED_LOOPS - folder name is null\n");
+            __spf_print(1, "Can not run UNPARSE_FILE after CREATE_NESTED_LOOPS - folder name is null\n");
         }
 #endif
         break;
@@ -1089,7 +1089,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (folderName)
             runAnalysis(*project, curr_regime, true, "", folderName);
         else
-            print(1, "can not run UNPARSE_FILE - folder name is null\n");
+            __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
         break;
     case CHECK_FUNC_TO_INCLUDE:
         findFunctionsToInclude(true);
@@ -1098,7 +1098,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
         else
-            print(1, "can not run UNPARSE_FILE - folder name is null\n");
+            __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
         break;
     default:
         runAnalysis(*project, curr_regime, false);

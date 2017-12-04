@@ -172,7 +172,7 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
             return *regFound.begin();
         else
         {
-            print(1, "WARN: this lines included in more than one region!!\n");
+            __spf_print(1, "WARN: this lines included in more than one region!!\n");
             return NULL;
         }
     }
@@ -229,7 +229,7 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
             }
             
             if (toPrint != "")
-                print(1, "[%s]: funcs: %s\n", regions[i]->GetName().c_str(), toPrint.c_str());
+                __spf_print(1, "[%s]: funcs: %s\n", regions[i]->GetName().c_str(), toPrint.c_str());
         }
     }
 

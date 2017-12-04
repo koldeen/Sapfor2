@@ -101,10 +101,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                                     string depMessage = currNode->createDepMessagebetweenArrays();
                                     depMessage += " with unknown distance in loop on line " + std::to_string(currLoopRef->lineNumber()) + " prevents parallelization";
 
-                                    print(1, "%s\n", (string("  ") + depMessage).c_str());
+                                    __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
                                     currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage));
 
-                                    // print only first unknown dep length
+                                    // __spf_print only first unknown dep length
                                     findUnknownDepLen = true;
                                     if (!onlyOneStep)
                                         currLoop->hasUnknownArrayDep = true;
@@ -187,7 +187,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                         unknownScalarDep[k]->varin->symbol()->identifier(), unknownScalarDep[k]->stmtin->lineNumber());
 
                     string message;
-                    printToBuf(message, "unknown scalar dependencies by '%s' (try to specify its type)", unknownScalarDep[k]->varin->symbol()->identifier());
+                    __spf_printToBuf(message, "unknown scalar dependencies by '%s' (try to specify its type)", unknownScalarDep[k]->varin->symbol()->identifier());
                     currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), message));
 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());

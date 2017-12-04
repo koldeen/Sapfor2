@@ -117,7 +117,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -165,7 +165,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -496,7 +496,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
 
     if (inDecl.size() == 0)
     {
-        print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
+        __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
 
         auto itM = SPF_messages.find(start->fileName());
         if (itM == SPF_messages.end())
@@ -620,16 +620,41 @@ map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
 tuple<int, string, string> getUniqName(const map<string, SgStatement*> &commonBlocks, SgStatement *decl, SgSymbol *symb)
 {
     bool inCommon = false;
+    bool needtoCheck = true;
     int commonPos = 0;
 
     SgExpression *foundCommon = NULL;
-    for (auto i = commonBlocks.begin(); i != commonBlocks.end(); i++)
+
+    SgStatement *declCP = decl->controlParent();
+    // find symbol in parameter list of functions
+    if (declCP->variant() == PROC_HEDR || declCP->variant() == FUNC_HEDR)
     {
-        inCommon = isInCommon(i->second, symb->identifier(), commonPos);
-        if (inCommon)
+        if (declCP->variant() == PROC_HEDR)
         {
-            foundCommon = i->second->expr(0);
-            break;
+            const int num = ((SgProcHedrStmt*)declCP)->numberOfParameters();
+            for (int i = 0; i < num && needtoCheck; ++i)
+                if (!strcmp(((SgProcHedrStmt*)declCP)->parameter(i)->identifier(), symb->identifier()))
+                    needtoCheck = false;
+        }
+        else
+        {
+            const int num = ((SgFuncHedrStmt*)declCP)->numberOfParameters();
+            for (int i = 0; i < num && needtoCheck; ++i)
+                if (!strcmp(((SgFuncHedrStmt*)declCP)->parameter(i)->identifier(), symb->identifier()))
+                    needtoCheck = false;
+        }        
+    }
+
+    if (needtoCheck)
+    {
+        for (auto i = commonBlocks.begin(); i != commonBlocks.end(); i++)
+        {
+            inCommon = isInCommon(i->second, symb->identifier(), commonPos);
+            if (inCommon)
+            {
+                foundCommon = i->second->expr(0);
+                break;
+            }
         }
     }
 

@@ -264,7 +264,7 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
         ParallelRegion *currReg = it->first->region;
         if (currReg == NULL)
         {
-            print(1, "Skip loop on line %d\n", it->first->lineNum);
+            __spf_print(1, "Skip loop on line %d\n", it->first->lineNum);
             continue;
         }
 
@@ -273,7 +273,7 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
         DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
         DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
 
-        //printf("for loop on line %d: \n", it->first->lineNumber());
+        //printf("for loop on line %d: \n", it->first->lineNum);
         const map<DIST::Array*, const ArrayInfo*> &currAccesses = it->second;
         map<DIST::Array*, set<DIST::Array*>> realArrayRefs;
         for (auto &access : currAccesses)
@@ -373,7 +373,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
     FILE *file = fopen(fileName, "w");
     if (file == NULL)
     {
-        print(1, "can not open file %s\n", fileName);
+        __spf_print(1, "can not open file %s\n", fileName);
         return -1;
     }
 
@@ -407,7 +407,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                     uniqMessages.insert(itM, buf);
 
                     currMessages.push_back(Messages(NOTE, loops[i]->lineNum, buf));
-                    print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
+                    __spf_print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
                 }
                 isNotOkey.insert(loops[i]->region);
             }

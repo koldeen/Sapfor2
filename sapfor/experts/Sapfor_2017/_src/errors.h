@@ -53,14 +53,14 @@ public:
         printInternalError(__FILE__, __LINE__);\
 } while (0)
 
-#define printToBuf(outval, format, ...) do {\
+#define __spf_printToBuf(outval, format, ...) do {\
     char *buf = NULL; \
     allocAndPrint(buf, format, ##__VA_ARGS__); \
     outval = std::string(buf);\
     delete []buf;\
 } while (0)
 
-#define print(needPrint, format, ...) do {\
+#define __spf_print(needPrint, format, ...) do {\
     if (needPrint == 1) {\
         char *buf = NULL; \
         allocAndPrint(buf, format, ##__VA_ARGS__); \

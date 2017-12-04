@@ -196,7 +196,7 @@ static void fillEndOfLoop(SgStatement *st, map<SgForStmt*, SgLabel*> &endOfLoops
                         toProcessLoops.insert(it, make_pair(endOfLoop->getLabNumber(), forSt));
                 }
                 else
-                    print(1, " Can not find end of labeled loop on line %d\n", forSt->lineNumber());
+                    __spf_print(1, " Can not find end of labeled loop on line %d\n", forSt->lineNumber());
             }            
         }
         st = st->lexNext();

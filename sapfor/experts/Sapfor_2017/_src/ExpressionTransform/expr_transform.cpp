@@ -442,8 +442,8 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
         if(newExp != NULL)
         {
             createBackup(parent, expNumber);
-            print(PRINT_PROF_INFO, "%s -> ", exp->unparse());
-            print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+            __spf_print(PRINT_PROF_INFO, "%s -> ", exp->unparse());
+            __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
             SgExpression* expToCopy = newExp->copyPtr();
             parent->setExpression(expNumber, *expToCopy);
             wereReplacements = true;
@@ -465,8 +465,8 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (newExp != NULL)
                     {
                         createBackup(parent, expNumber);
-                        print(PRINT_PROF_INFO, "%s -> ", exp->rhs()->unparse());
-                        print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s -> ", exp->rhs()->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
                         SgExpression* expToCopy = newExp->copyPtr();
                         exp->setRhs(expToCopy);
                         wereReplacements = true;
@@ -483,8 +483,8 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (newExp != NULL)
                     {
                         createBackup(parent, expNumber);
-                        print(PRINT_PROF_INFO, "%s -> ", exp->lhs()->unparse());
-                        print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s -> ", exp->lhs()->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
                         SgExpression* expToCopy = newExp->copyPtr();
                         exp->setLhs(expToCopy);
                         wereReplacements = true;
@@ -579,7 +579,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
     bool wereReplacements = true;
     while(wereReplacements)
     {
-        print(PRINT_PROF_INFO, "New substitution iteration\n");
+        __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
         wereReplacements = false;
         visitedStatements.clear();
         ClearCFGInsAndOutsDefs(CGraph);
@@ -599,10 +599,10 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
 //void expressionAnalyzer(SgStatement *function);
 void expressionAnalyzer(SgFile *file)
 {
-    print(PRINT_PROF_INFO, "Expression analyzer!\n");
+    __spf_print(PRINT_PROF_INFO, "Expression analyzer!\n");
     
     int funcNum = file->numberOfFunctions();
-    print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
+    __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
     const string &filename = string(file->filename());
 
     auto itRep = replacementsInFiles.find(filename);
@@ -622,17 +622,17 @@ void expressionAnalyzer(SgFile *file)
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*) st;
-            print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*) st;
-            print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*) st;
-            print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         
         CallData calls;

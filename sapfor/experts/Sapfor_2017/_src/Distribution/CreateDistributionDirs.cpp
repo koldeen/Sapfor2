@@ -202,7 +202,7 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
 
     //TODO:
     if (alignWith == NULL)
-        print(1, "can not find align rules for array '%s' (full name '%s')\n", alignArray->GetShortName().c_str(), alignArray->GetName().c_str());
+        __spf_print(1, "can not find align rules for array '%s' (full name '%s')\n", alignArray->GetShortName().c_str(), alignArray->GetName().c_str());
     checkNull(alignWith, convertFileName(__FILE__).c_str(), __LINE__);
 
     if (hasFreeDims)
@@ -319,7 +319,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                 continue;
             if (partlyNonDistr)
             {
-                print(1, "detected distributed and non distributed array links by functions calls");
+                __spf_print(1, "detected distributed and non distributed array links by functions calls");
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 

@@ -200,14 +200,14 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
     // more than one loop symbol in subscription
     if (countOfSymbols > 1)
     {     
-        print(PRINT_ARRAY_ARCS, " <%d|%d> ", 0, 0);
+        __spf_print(PRINT_ARRAY_ARCS, " <%d|%d> ", 0, 0);
         if (currRegime == DATA_DISTR)
         {
             const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
-            print(1, "WARN: array ref '%s' at line %d has more than one loop's variables\n", arrayRefString.second.c_str(), currLine);
+            __spf_print(1, "WARN: array ref '%s' at line %d has more than one loop's variables\n", arrayRefString.second.c_str(), currLine);
 
             string message;
-            printToBuf(message, "array ref '%s' has more than one loop's variables", arrayRefString.second.c_str());
+            __spf_printToBuf(message, "array ref '%s' has more than one loop's variables", arrayRefString.second.c_str());
             currMessages->push_back(Messages(WARR, currLine, message));
         }
 
@@ -225,7 +225,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
     // no loop symbol in subscription
     else if (countOfSymbols == 0)
     {
-        print(PRINT_ARRAY_ARCS, " <%d|%d> ", 0, 0);
+        __spf_print(PRINT_ARRAY_ARCS, " <%d|%d> ", 0, 0);
         if (currRegime == REMOTE_ACC)
         {
             if (side == RIGHT)
@@ -240,19 +240,19 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 if (parentLoops.size() != 0 && (arrayRefString.first || side == LEFT))
                 {
-                    print(1, "WARN: array ref '%s' at line %d has not loop's variables\n", arrayRefString.second.c_str(), currLine);
+                    __spf_print(1, "WARN: array ref '%s' at line %d has not loop's variables\n", arrayRefString.second.c_str(), currLine);
 
                     string message;
-                    printToBuf(message, "array ref '%s' has not loop's variables", arrayRefString.second.c_str());
+                    __spf_printToBuf(message, "array ref '%s' has not loop's variables", arrayRefString.second.c_str());
                     currMessages->push_back(Messages(WARR, currLine, message));
                 }
             }
             else
             {
-                print(1, "WARN: array ref '%s' at line %d has indirect access\n", arrayRefString.second.c_str(), currLine);
+                __spf_print(1, "WARN: array ref '%s' at line %d has indirect access\n", arrayRefString.second.c_str(), currLine);
 
                 string message;
-                printToBuf(message, "array ref '%s' has indirect access", arrayRefString.second.c_str());
+                __spf_printToBuf(message, "array ref '%s' has indirect access", arrayRefString.second.c_str());
                 currMessages->push_back(Messages(WARR, currLine, message));
             }
         }
@@ -272,7 +272,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
 
         if (needToCacl)
             getCoefsOfSubscript(coefs, subscr, parentLoops[position]->doName());
-        print(PRINT_ARRAY_ARCS, " <%d %d> ", coefs.first, coefs.second);
+        __spf_print(PRINT_ARRAY_ARCS, " <%d %d> ", coefs.first, coefs.second);
 
         if (coefs.first == 0 && coefs.second == 0)
         {
@@ -284,11 +284,11 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             else if (currRegime == DATA_DISTR)
             {
                 const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
-                print(1, "WARN: can not calculate index expression for array ref '%s' at line %d\n", arrayRefString.second.c_str(), currLine);
+                __spf_print(1, "WARN: can not calculate index expression for array ref '%s' at line %d\n", arrayRefString.second.c_str(), currLine);
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
 
                 string message;
-                printToBuf(message, "can not calculate index expression for array ref '%s'", arrayRefString.second.c_str());
+                __spf_printToBuf(message, "can not calculate index expression for array ref '%s'", arrayRefString.second.c_str());
                 currMessages->push_back(Messages(WARR, currLine, message));
             }
         }
@@ -325,11 +325,11 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 if (currRegime == DATA_DISTR)
                 {
                     const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
-                    print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), currLine);
+                    __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), currLine);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
                     
                     string message;
-                    printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
+                    __spf_printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
                     currMessages->push_back(Messages(WARR, currLine, message));
                 }
             }
@@ -391,10 +391,10 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
             const string arrayRefS = arrayRef->unparse();
             for (auto &line : canNotMapToLoop)
             {
-                print(1, "WARN: can not map write to array '%s' to loop on line %d\n", arrayRefS.c_str(), line);
+                __spf_print(1, "WARN: can not map write to array '%s' to loop on line %d\n", arrayRefS.c_str(), line);
 
                 string message;
-                printToBuf(message, "can not map write to array '%s' to this loop", arrayRefS.c_str());
+                __spf_printToBuf(message, "can not map write to array '%s' to this loop", arrayRefS.c_str());
                 currMessages->push_back(Messages(WARR, line, message));
             }
         }
@@ -419,9 +419,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
             else
                 printSide = "R_OP";
 
-            print(PRINT_ARRAY_ARCS, "%s to array <%s> on line %d: ", printSide, OriginalSymbol(currExp->symbol())->identifier(), lineNum);
+            __spf_print(PRINT_ARRAY_ARCS, "%s to array <%s> on line %d: ", printSide, OriginalSymbol(currExp->symbol())->identifier(), lineNum);
             matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph);
-            print(PRINT_ARRAY_ARCS, "\n");
+            __spf_print(PRINT_ARRAY_ARCS, "\n");
         }
     }
     else if (currExp->variant() == FUNC_CALL)
@@ -632,11 +632,11 @@ static inline void findArrayRefInParameters(SgExpression *parList, const set<str
                 {
                     if (!isPassFullArray(parList->lhs()))
                     {
-                        print(1, "ERROR: %d %s: array '%s' in function '%s' at line %d is not a private\n", __LINE__, convertFileName(__FILE__).c_str(), arrayName, procName, line);
-                        print(1, "  this functionality has not supported yet\nSTOP\n");
+                        __spf_print(1, "ERROR: %d %s: array '%s' in function '%s' at line %d is not a private\n", __LINE__, convertFileName(__FILE__).c_str(), arrayName, procName, line);
+                        __spf_print(1, "  this functionality has not supported yet\nSTOP\n");
 
                         string message;
-                        printToBuf(message, "array '%s' in function '%s' is not a private, this functionality has not supported yet", arrayName, procName);
+                        __spf_printToBuf(message, "array '%s' in function '%s' is not a private, this functionality has not supported yet", arrayName, procName);
                         currMessages->push_back(Messages(ERROR, line, message));
 
                         throw(-1);
@@ -796,7 +796,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
     createMapLoopGraph(sortedLoopGraph, loopGraph);
 
     int funcNum = file->numberOfFunctions();
-    print(PRINT_PROF_INFO,"functions num in file = %d\n", funcNum);
+    __spf_print(PRINT_PROF_INFO,"functions num in file = %d\n", funcNum);
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
@@ -824,20 +824,20 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-            print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-            print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
-        print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
+        __spf_print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
                 
         SgStatement *lastNode = st->lastNodeOfStmt();
         vector<SgForStmt*> parentLoops;
@@ -858,19 +858,19 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             if (st == NULL)
             {
                 string message;
-                printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
+                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
                 currMessages->push_back(Messages(ERROR, 1, message));
 
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");                
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");                
                 break;
             }
             else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
             {
                 string message;
-                printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
+                __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
                 currMessages->push_back(Messages(ERROR, 1, message));
 
-                print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
                 breakLineControl = true;
                 break;
             }
@@ -896,7 +896,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 
                 if (PRINT_LOOP_STRUCT)
                     printBlanks(2, (int)parentLoops.size());
-                print(PRINT_LOOP_STRUCT, "FOR NODE on line %d\n", st->lineNumber());
+                __spf_print(PRINT_LOOP_STRUCT, "FOR NODE on line %d\n", st->lineNumber());
 
                 parentLoops.push_back((SgForStmt*)st);
                 
@@ -1040,10 +1040,10 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 if (itF == privatesByModule.end())
                 {
                     string message;
-                    printToBuf(message, "Module with name '%s' must in file", st->symbol()->identifier());
+                    __spf_printToBuf(message, "Module with name '%s' must in file", st->symbol()->identifier());
                     currMessages->push_back(Messages(ERROR, st->lineNumber(), message));
 
-                    print(1, "Module at line %d with name '%s' must in file\n", st->lineNumber(), st->symbol()->identifier());
+                    __spf_print(1, "Module at line %d with name '%s' must in file\n", st->lineNumber(), st->symbol()->identifier());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
@@ -1091,7 +1091,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         else if (regime == COMP_DISTR)
             createParallelDirectives(loopInfo, regions, createdArrays, commonBlocks, sortedLoopGraph, arrayLinksByFuncCalls);
         
-        print(PRINT_PROF_INFO, "Function ended\n");
+        __spf_print(PRINT_PROF_INFO, "Function ended\n");
     }     
 }
 

@@ -367,7 +367,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
         if (line > 0 && !isSimple)
         {
             string remoteExp(expr->unparse());
-            print(1, "WARN: added remote access for array ref '%s' on line %d can significantly reduce performance\n", remoteExp.c_str(), line);
+            __spf_print(1, "WARN: added remote access for array ref '%s' on line %d can significantly reduce performance\n", remoteExp.c_str(), line);
 
             char buf[512];
             sprintf(buf, "Added remote access for array ref '%s' can significantly reduce performance", remoteExp.c_str());
@@ -405,7 +405,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
             if (realRefArrayOnDir.size() != 1)
             {
-                print(1, "not supported yet\n");
+                __spf_print(1, "not supported yet\n");
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
             else
