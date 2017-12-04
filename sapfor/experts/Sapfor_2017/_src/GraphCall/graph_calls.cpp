@@ -173,10 +173,11 @@ static void processActualParams(SgExpression *parList, const map<string, SgState
     }
 }
 
-static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, const map<string, SgStatement*> &commonBlocks)
+static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
+                          const map<string, SgStatement*> &commonBlocks, const set<string> &macroNames)
 {
-    if (curr->variant() == FUNC_CALL)
-    {
+    if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
+    {        
         for (auto &proc : entryProcs)
         {
             string nameOfCallFunc = curr->symbol()->identifier();
@@ -189,9 +190,9 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
     }
 
     if (curr->lhs())
-        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks);
+        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames);
     if (curr->rhs())
-        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks);
+        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames);
 }
 
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -248,6 +249,30 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         vector<FuncInfo*> entryProcs;
         entryProcs.push_back(currInfo);
 
+        vector<SgStatement*> macroStats;
+        set<string> macroNames;
+        while (st != lastNode)
+        {
+            if (st == NULL)
+            {
+                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+
+            if (!isSgExecutableStatement(st))
+            {
+                if (st->variant() == STMTFN_STAT)
+                {
+                    macroStats.push_back(st);
+                    macroNames.insert(st->expr(0)->symbol()->identifier());
+                }
+            }
+            else
+                break;
+            st = st->lexNext();
+        }
+
+        st = file->functions(i);
         while (st != lastNode)
         {
             if (st == NULL)
@@ -273,7 +298,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             {
                 for (int i = 0; i < 3; ++i)
                     if (st->expr(i))
-                        findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks);
+                        findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
             }
 
             if (st->variant() == ENTRY_STAT)

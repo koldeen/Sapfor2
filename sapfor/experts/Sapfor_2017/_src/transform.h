@@ -25,6 +25,7 @@ enum passes {
     INSERT_SHADOW_DIRS,
     EXTRACT_SHADOW_DIRS,
     CREATE_REMOTES,
+    REMOVE_AND_CALC_SHADOW,
 
     CALL_GRAPH,
     CALL_GRAPH2,
@@ -128,5 +129,6 @@ static void setPassValues()
     passNames[SUBST_EXPR_AND_UNPARSE] = "SUBST_EXPR_AND_UNPARSE";
     passNames[BUILD_INCLUDE_DEPENDENCIES] = "BUILD_INCLUDE_DEPENDENCIES";
     passNames[EMPTY_PASS] = "EMPTY_PASS";
+    passNames[REMOVE_AND_CALC_SHADOW] = "REMOVE_AND_CALC_SHADOW";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

@@ -426,7 +426,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 auto it = lineInfo.find(fName);
                 if (it == lineInfo.end())
-                    it = lineInfo.insert(it, make_pair(fName, 0));                
+                    it = lineInfo.insert(it, make_pair(fName, 0));
                 it->second = std::max(it->second, line);
                 st = st->lexNext();
             }
@@ -441,6 +441,88 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             {
                 if (strcmp(file_name, first->fileName()))
                     fileIt->second.insert(first->fileName());
+            }
+        }
+        else if (curr_regime == REMOVE_AND_CALC_SHADOW)
+        {
+            for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
+            {
+                if (first->variant() == DVM_PARALLEL_ON_DIR)
+                {
+                    SgExpression *spec = first->expr(1);
+                    if (spec)
+                    {                     
+                        SgExpression *shadow = NULL, *remote = NULL;
+                        SgExpression *beforeSh = spec;
+
+                        for (auto iter = spec, iterB = spec; iter; iter = iter->rhs())
+                        {
+                            if (iter->lhs()->variant() == SHADOW_RENEW_OP)
+                            {
+                                beforeSh = iterB;
+                                shadow = iter->lhs();
+                            }
+                            else if (iter->lhs()->variant() == REMOTE_ACCESS_OP)
+                                remote = iter->lhs();
+
+                            if (iterB != iter)
+                                iterB = iterB->rhs();
+                        }
+
+                        if (shadow && remote)
+                        {
+                            set<string> allRemoteWitDDOT;
+                            for (auto iter = remote->lhs(); iter; iter = iter->rhs())
+                            {
+                                SgExpression *elem = iter->lhs();
+                                if (elem->variant() == ARRAY_REF)
+                                {
+                                    bool allDDOT = true;
+                                    for (auto iterL = elem->lhs(); iterL; iterL = iterL->rhs())
+                                        if (iterL->lhs()->variant() != DDOT)
+                                            allDDOT = false;
+                                    
+                                    if (allDDOT)
+                                        allRemoteWitDDOT.insert(elem->symbol()->identifier());
+                                }
+                            }
+
+                            auto currShadowP = shadow;
+                            int numActiveSh = 0;
+                            for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
+                            {
+                                SgExpression *elem = iter->lhs();
+                                if (elem->variant() == ARRAY_REF)
+                                {
+                                    if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
+                                    {
+                                        if (currShadowP == shadow)
+                                            shadow->setLhs(iter->rhs());
+                                        else
+                                            currShadowP->setRhs(iter->rhs());
+                                    }
+                                    else
+                                    {
+                                        ++numActiveSh;
+                                        if (currShadowP == shadow)
+                                            currShadowP = shadow->lhs();
+                                        else
+                                            currShadowP = currShadowP->rhs();
+                                    }
+                                }
+                            }
+
+                            //remove shadow dir
+                            if (numActiveSh == 0)
+                            {
+                                if (spec->lhs()->variant() == SHADOW_RENEW_OP)
+                                    first->setExpression(2, *(spec->rhs()));
+                                else
+                                    beforeSh->setRhs(beforeSh->rhs()->rhs());
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -977,7 +1059,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);            
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);            
