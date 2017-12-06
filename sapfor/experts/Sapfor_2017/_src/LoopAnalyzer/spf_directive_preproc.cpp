@@ -101,35 +101,36 @@ static bool hasForName(SgExpression *exp, const string &forName)
     return false;
 }
 
-static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection, map<string, int> &forVars)
+static int hasTextualInclude(SgExpression *exp, string varName)
+{
+    string stringExp = exp->unparse();
+    int count = 0;
+    auto pos = stringExp.find(varName, 0);
+
+    while (pos != string::npos)
+    {
+        ++count;
+        pos = stringExp.find(varName, pos + 1);
+        //print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
+    }
+
+    return count;
+}
+
+static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp == remoteExp)
         return true;
 
     bool retVal = true;
 
-    while (exp != NULL && remoteExp != NULL)
+    while (retVal && exp != NULL && remoteExp != NULL)
     {
         if (remoteExp->lhs())
             if (remoteExp->lhs()->variant() == DDOT)
                 continue;
 
         retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
-
-        string stringExp = exp->unparse();
-        for (auto &varName : forVars)
-        {
-            //string varName(forVar);
-            int pos = stringExp.find(varName.first, 0);
-            while(pos != string::npos)
-            {
-                ++varName.second;
-                pos = stringExp.find(varName.first, pos + 1);
-                print(1, "I AM FOUND!\n");
-                if (varName.second > 1)
-                    return false;
-            }
-        }
 
         exp = exp->rhs();
         remoteExp = remoteExp->rhs();
@@ -138,17 +139,17 @@ static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<
     return retVal;
 }
 
-static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection, map<string, int> &forVars)
+static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp)
     {
         SgExpression *lhs = exp->lhs();
         SgExpression *rhs = exp->rhs();
 
-        if (isRemoteExpressions(exp, remoteExp, collection, forVars))
+        if (isRemoteExpressions(exp, remoteExp, collection))
             return true;
 
-        return hasRemoteExpressions(lhs, remoteExp, collection, forVars) || hasRemoteExpressions(rhs, remoteExp, collection, forVars);
+        return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
     }
 
     return false;
@@ -387,14 +388,11 @@ static bool checkRemote(SgStatement *st,
         {
             bool cond = false;
             SgStatement *declStatement = declaratedInStmt(remElem.first.first);
-            //print(1, "%s\n", remElem.second->unparse());
             set<SgSymbol*> arraySymbols;
+
             fillVars(remElem.second, { ARRAY_REF }, arraySymbols);
-            //print(1, "numArratys = %d\n", arraySymbols.size());
-            //print(1, "%s\n", remElem.second->unparse());
             for (auto &arraySymbol : arraySymbols)
             {
-                //print(1, "array = %s\n", arraySymbol->identifier());
                 declStatement = declaratedInStmt(arraySymbol);
                 bool notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
@@ -408,12 +406,11 @@ static bool checkRemote(SgStatement *st,
                 }
             }
 
-            map<string, int> forVars;
-
             if (var == FOR_NODE)
             {
                 SgStatement *iterator = st;
                 SgStatement *end = st->lastNodeOfStmt();
+                map<string, int> forVars;
 
                 while (iterator != end)
                 {
@@ -422,15 +419,45 @@ static bool checkRemote(SgStatement *st,
                     if (forSt)
                     {
                         SgSymbol *forName = forSt->doName();
-                        forVars.insert(std::make_pair(string(forName->identifier()), 0));
-                        print(1, "CODE:%s ; NAME: %s\n", iterator->unparse(), forName->identifier());
+                        forVars.insert(make_pair(string(forName->identifier()), 0));
                     }
 
                     iterator = iterator->lexNext();
                 }
+
+                // CHECK: i AND a * i + b
+                SgExpression *remoteExp = remElem.second;
+                while (remoteExp)
+                {
+                    int forVarCount = 0;
+
+                    for (auto &forVar : forVars)
+                    {
+                        if (hasTextualInclude(remoteExp->lhs(), forVar.first))
+                        {
+                            ++forVarCount;
+                            ++forVar.second;
+
+                            if (forVarCount > 1 || forVar.second > 1)
+                            {
+                                print(1, "bad directive expression on line %d\n", attributeStatement->lineNumber());
+                                string message;
+                                printToBuf(message, "bad directive expression");
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                return false;
+                            }
+
+                            // CHECK TREE: i OR a * i OR a * i + b
+                            
+                        }
+                    }
+
+                    remoteExp = remoteExp->rhs();
+                }
             }
 
-            SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+            //SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+            SgStatement *iterator = st;
             SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
 
             while (iterator != end)
@@ -439,10 +466,15 @@ static bool checkRemote(SgStatement *st,
                 map<SgExpression*, string> collection;
                 for (int i = 0; i < 3; ++i)
                 {
-                    //recExpressionPrint(st->expr(i));
-                    if (hasRemoteExpressions(st->expr(i), remElem.second, collection, forVars))
+                    if (iterator->expr(i))
+                    {
+                        recExpressionPrint(iterator->expr(i));
+                        print(1, "%s\n\n", iterator->expr(i)->unparse());
+                    }
+                    if (hasRemoteExpressions(iterator->expr(i), remElem.second, collection))
                         cond = true;
                 }
+
                 iterator = iterator->lexNext();
             }
 
