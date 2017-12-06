@@ -55,7 +55,7 @@ void DvmDirectiveChecker(SgFile *file, vector<int> &errors)
                 break;
             }
             
-            if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR || st->variant() != DVM_ENDINTERVAL_DIR))
+            if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
                 errors.push_back(st->lineNumber());
 
             //FOR DEBUGING DVM DIRS

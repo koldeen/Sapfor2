@@ -195,6 +195,124 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
         findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames);
 }
 
+static void findReplaceSymbolByExpression(SgExpression *parentEx, SgExpression *findIn, int pos, 
+                                      const string &symbol, SgExpression *replace,
+                                      vector<tuple<SgExpression*, int, SgExpression*>> &replaces)
+{
+    if (findIn)
+    {
+        if (findIn->symbol())
+            if (findIn->symbol()->identifier() == symbol)
+                replaces.push_back(std::make_tuple(parentEx, pos, replace->copyPtr()));
+            
+        findReplaceSymbolByExpression(findIn, findIn->lhs(), 0, symbol, replace, replaces);
+        findReplaceSymbolByExpression(findIn, findIn->rhs(), 1, symbol, replace, replaces);
+    }
+}
+
+static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpression *findIn, int pos,
+                          const map<string, SgStatement*> &macroStats,
+                          const set<string> &macroNames, bool &needToIterate,
+                          vector<Messages> &messages)
+{
+    if (findIn)
+    {
+        if(findIn->variant() == FUNC_CALL && macroNames.find(string(findIn->symbol()->identifier())) != macroNames.end())
+        {
+            const string funcName = string(findIn->symbol()->identifier());
+            auto it = macroStats.find(funcName);
+            SgStatement *macroStat = it->second;
+
+            vector<SgExpression*> parameters;
+            for (SgExpression *list = findIn->lhs(); list; list = list->rhs())
+                parameters.push_back(list->lhs()->copyPtr());
+            
+            SgExpression *toInsert = macroStat->expr(0)->lhs()->copyPtr();
+            if (parentEx == NULL)
+                parent->setExpression(pos, *toInsert);
+            else
+            {
+                if (pos == 0)
+                    parentEx->setLhs(*toInsert);
+                else if (pos == 1)
+                    parentEx->setRhs(*toInsert);
+            }
+            
+            SgSymbol *declSymb = macroStat->expr(0)->symbol();
+            int parN = lenghtOfParamList(declSymb->thesymb);
+            
+            vector<tuple<SgExpression*, int, SgExpression*>> replaces;
+            for (int z = 0; z < parN; ++z)
+            {
+                SgSymbol *toExpand = SymbMapping(GetThParam(declSymb->thesymb, z));
+                findReplaceSymbolByExpression(toInsert, toInsert->lhs(), 0, toExpand->identifier(), parameters[z], replaces);
+                findReplaceSymbolByExpression(toInsert, toInsert->rhs(), 1, toExpand->identifier(), parameters[z], replaces);                
+            }
+
+            for (auto &repl : replaces)
+            {
+                if (std::get<1>(repl) == 0)
+                    std::get<0>(repl)->setLhs(std::get<2>(repl));
+                else if (std::get<1>(repl) == 1)
+                    std::get<0>(repl)->setRhs(std::get<2>(repl));
+            }
+            needToIterate = true;
+
+            string message;
+            __spf_printToBuf(message, "substitute statement function with name '%s'", funcName.c_str());
+            messages.push_back(Messages(NOTE, parent->lineNumber(), message));
+        }
+
+        doMacroExpand(parent, findIn, findIn->lhs(), 0, macroStats, macroNames, needToIterate, messages);
+        doMacroExpand(parent, findIn, findIn->rhs(), 1, macroStats, macroNames, needToIterate, messages);
+    }
+}
+
+void doMacroExpand(SgFile *file, vector<Messages> &messages)
+{
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+
+        map<string, SgStatement*> macroStats;
+        set<string> macroNames;
+        while (st != lastNode)
+        {
+            if (st == NULL)
+            {
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+
+            if (!isSgExecutableStatement(st))
+            {
+                if (st->variant() == STMTFN_STAT)
+                {
+                    macroStats.insert(make_pair(st->expr(0)->symbol()->identifier(), st));
+                    macroNames.insert(st->expr(0)->symbol()->identifier());
+                }
+            }
+            else
+                break;
+            st = st->lexNext();
+        }
+
+        if (macroStats.size() > 0)
+        {
+            bool needToIterate = true;
+            while (needToIterate)
+            {
+                needToIterate = false;
+                for (SgStatement *stat = st; stat != lastNode; stat = stat->lexNext())
+                    for (int i = 1; i < 3; ++i)
+                        if (stat->expr(i))
+                            doMacroExpand(stat, NULL, stat->expr(i), i, macroStats, macroNames, needToIterate, messages);
+            }
+        }
+    }
+}
+
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     int funcNum = file->numberOfFunctions();
@@ -271,6 +389,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 break;
             st = st->lexNext();
         }
+
 
         st = file->functions(i);
         while (st != lastNode)

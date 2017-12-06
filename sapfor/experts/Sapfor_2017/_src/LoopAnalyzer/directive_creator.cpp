@@ -1170,7 +1170,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         if (current->directive && current->hasLimitsToParallel() == false && (current->region == currParReg))
         {
             if (current->perfectLoop >= 1)
-            {                
+            {
                 bool topCheck = isOnlyTopPerfect(current, distribution);
                 ParallelDirective *parDirective = current->directive;
                 if (topCheck == false)
@@ -1180,7 +1180,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     {
                         result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     }
-                    catch (...)     
+                    catch (...)
                     {
                         __spf_print(1, "exception occurred during loop tighten\n");
                         result = true;

@@ -24,6 +24,7 @@ public:
         hasUnknownScalarDep = false;
         hasUnknownArrayAssignes = false;
         hasNonRectangularBounds = false;
+        hasIndirectAccess = false;
         directive = NULL;
         directiveForLoop = NULL;
         region = NULL;
@@ -53,7 +54,7 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasUnknownArrayAssignes || hasNonRectangularBounds;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasUnknownArrayAssignes || hasNonRectangularBounds || hasIndirectAccess;
     }
     
     void addConflictMessages(std::vector<Messages> *messages)
@@ -74,6 +75,8 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "unknown array reference for writes prevent parallelization of this loop"));
         if (hasNonRectangularBounds)
             messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop"));
+        if (hasIndirectAccess)
+            messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop"));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -162,6 +165,7 @@ public:
  
     bool hasNonRectangularBounds;
 
+    bool hasIndirectAccess;
 
     std::vector<LoopGraph*> childs;
     std::vector<std::pair<std::string, int>> calls;

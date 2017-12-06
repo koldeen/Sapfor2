@@ -397,6 +397,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
             doCallGraph(file);
+        else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE3)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound != loopGraph.end())
+                insertSpfAnalysisBeforeParalleLoops(itFound->second);
+        }
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -525,6 +531,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+        else if (curr_regime == MACRO_EXPANSION)
+            doMacroExpand(file, getMessagesForFile(file_name));
 
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
@@ -1117,6 +1125,7 @@ int main(int argc, char**argv)
 
     try
     {
+        setPassValues();
         consoleMode = 1;
         printVersion();
         const char *proj_name = "dvm.proj";
@@ -1125,7 +1134,8 @@ int main(int argc, char**argv)
         int curr_regime = EMPTY_PASS;
         int numVar = 0;
 
-        out_free_form = 0; // F90 style out    
+        out_free_form = 0; // F90 style out
+        bool printText = false;
 
         for (int i = 0; i < argc; ++i)
         {
@@ -1141,7 +1151,6 @@ int main(int argc, char**argv)
                 else if (string(curr_arg) == "-pass")
                 {
                     i++;
-                    printf("here\n");
                     curr_regime = atoi(argv[i]);
                 }
                 else if (curr_arg[1] == 't')
@@ -1204,6 +1213,10 @@ int main(int argc, char**argv)
                     i++;
                     folderName = argv[i];
                 }
+                else if (string(curr_arg) == "-print")
+                {
+                    printText = true;
+                }
                 break;
             default:
                 break;
@@ -1214,16 +1227,18 @@ int main(int argc, char**argv)
             printHelp();
 
         runPass(curr_regime, proj_name, folderName);
+        if (printText)
+            runPass(UNPARSE_FILE, proj_name, folderName);
     }
     catch (...)
     {
         printf("exception occurred\n");
     }
     
-    deleteAllAllocatedData();    
+    deleteAllAllocatedData();
 #if _WIN32 && _DEBUG
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+    //_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    //_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
     //_CrtDumpMemoryLeaks();
 #endif
 

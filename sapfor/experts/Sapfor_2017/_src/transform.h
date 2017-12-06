@@ -40,12 +40,13 @@ enum passes {
     PREPROC_ALLOCATES,
     CHECK_FUNC_TO_INCLUDE,
 
-    FIND_FUNC_TO_INCLUDE,    
+    FIND_FUNC_TO_INCLUDE,
     ONLY_ARRAY_GRAPH,
     
     PRIVATE_ANALYSIS_SPF,
     PRIVATE_CALL_GRAPH_STAGE1,
     PRIVATE_CALL_GRAPH_STAGE2,
+    PRIVATE_CALL_GRAPH_STAGE3,
 
     FILL_PAR_REGIONS_LINES,
     LOOP_DATA_DEPENDENCIES,
@@ -57,9 +58,11 @@ enum passes {
     REVERT_SUBST_EXPR,
     SUBST_EXPR_AND_UNPARSE,
         
-    GET_ALL_ARRAY_DECL,    
-    FILE_LINE_INFO,        
+    GET_ALL_ARRAY_DECL,
+    FILE_LINE_INFO,
     BUILD_INCLUDE_DEPENDENCIES,
+
+    MACRO_EXPANSION,
     EMPTY_PASS
 };
 
@@ -78,8 +81,8 @@ enum optionNames {
     EMPTY_OPTION
 };
 
-static const char *passNames[EMPTY_PASS + 1];
-static bool passNamesWasInit = false;
+extern const char *passNames[EMPTY_PASS + 1];
+extern bool passNamesWasInit;
 static void setPassValues()
 {
     if (passNamesWasInit)
@@ -109,6 +112,7 @@ static void setPassValues()
     passNames[PRIVATE_ANALYSIS_SPF] = "PRIVATE_ANALYSIS_SPF";
     passNames[PRIVATE_CALL_GRAPH_STAGE1] = "PRIVATE_CALL_GRAPH_STAGE1";
     passNames[PRIVATE_CALL_GRAPH_STAGE2] = "PRIVATE_CALL_GRAPH_STAGE2";
+    passNames[PRIVATE_CALL_GRAPH_STAGE3] = "PRIVATE_CALL_GRAPH_STAGE3";
     passNames[FILL_PAR_REGIONS_LINES] = "FILL_PAR_REGIONS_LINES";
     passNames[LOOP_DATA_DEPENDENCIES] = "LOOP_DATA_DEPENDENCIES";
     passNames[INSERT_INCLUDES] = "INSERT_INCLUDES";
@@ -125,10 +129,11 @@ static void setPassValues()
     passNames[GET_ALL_ARRAY_DECL] = "GET_ALL_ARRAY_DECL";
     passNames[INSERT_SHADOW_DIRS] = "INSERT_SHADOW_DIRS";
     passNames[EXTRACT_SHADOW_DIRS] = "EXTRACT_SHADOW_DIRS";
-    passNames[FILE_LINE_INFO] = "FILE_LINE_INFO";        
+    passNames[FILE_LINE_INFO] = "FILE_LINE_INFO";
     passNames[SUBST_EXPR_AND_UNPARSE] = "SUBST_EXPR_AND_UNPARSE";
     passNames[BUILD_INCLUDE_DEPENDENCIES] = "BUILD_INCLUDE_DEPENDENCIES";
     passNames[EMPTY_PASS] = "EMPTY_PASS";
     passNames[REMOVE_AND_CALC_SHADOW] = "REMOVE_AND_CALC_SHADOW";
+    passNames[MACRO_EXPANSION] = "MACRO_EXPANSION";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
