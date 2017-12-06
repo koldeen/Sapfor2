@@ -1772,7 +1772,7 @@ SgSymbol *FirstDummy(SgSymbol *sf)
 
 
 SgSymbol *NextDummy(SgSymbol *s)
-{
+{    
     return(SymbMapping(s->thesymb->entry.var_decl.next_in));
 }
 

@@ -21,7 +21,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
 {
     bool wasTigtened = false;
     // has non nested child loop
-    print(1, "createNestedLoops for loop at %d. Start\n", current->lineNum);
+    __spf_print(1, "createNestedLoops for loop at %d. Start\n", current->lineNum);
     bool outerTigtened = false;
     bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
     
@@ -43,7 +43,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 if (outerTigtened) {
                     firstChild->perfectLoop = ((SgForStmt *) firstChild->loop)->isPerfectLoopNest();
                 }
-                print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTigtened);
+                __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTigtened);
 
                 char buf[256];
                 sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
@@ -55,14 +55,14 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     wasTigtened = outerTigtened;
     for (int i = 0; i < current->childs.size(); ++i) 
     {
-        print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
+        __spf_print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
         bool result = createNestedLoops(current->childs[i], depInfoForLoopGraph, messages);
         wasTigtened = wasTigtened || result;
     }    
     
     //update perfect loop
     current->perfectLoop = ((SgForStmt*)current->loop)->isPerfectLoopNest();
-    print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
+    __spf_print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
     return wasTigtened;
 }
 
@@ -70,14 +70,14 @@ pair<SgForStmt*, depGraph*> Sapfor2017::CreateNestedLoopsUtils::getDepGraph(Loop
 {
     depGraph *dg = nullptr;
     if (depInfoForLoopGraph.count(loopGraph) == 0) {
-        print(1, "getDepGraph for loop at %d. No depGraph found\n", loopGraph->lineNum);
+        __spf_print(1, "getDepGraph for loop at %d. No depGraph found\n", loopGraph->lineNum);
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     } else {
         dg = depInfoForLoopGraph.at(loopGraph);
     }
     SgForStmt *sgForStmt = isSgForStmt(dg->loop);
     if (sgForStmt == nullptr) {
-        print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
+        __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     return std::make_pair(sgForStmt, dg);
@@ -90,19 +90,19 @@ void printDepGraph(depGraph *dg)
         dn->displayDep();
         int out = dn->stmtout != nullptr ? dn->stmtout->lineNumber() : -1;
         int in = dn->stmtin != nullptr ? dn->stmtin->lineNumber() : -1;
-        //print(1, "dep from %d --> %d\n", out, in);
+        //__spf_print(1, "dep from %d --> %d\n", out, in);
     }
 }
 
 std::map<SgSymbol*, DepType>
   Sapfor2017::CreateNestedLoopsUtils::buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, depGraph *innerDepGraph)
 {
-    //print(1, "Print outer depgraph START\n");
+    //__spf_print(1, "Print outer depgraph START\n");
     //printDepGraph(outerDepGraph);
-    //print(1, "Print outer depgraph END\n");
-    //print(1, "Print inner depgraph START\n");
+    //__spf_print(1, "Print outer depgraph END\n");
+    //__spf_print(1, "Print inner depgraph START\n");
     //printDepGraph(innerDepGraph);
-    //print(1, "Print inner depgraph END\n");
+    //__spf_print(1, "Print inner depgraph END\n");
     SgStatement *outerEnddo = getLastLoopStatement(outerLoop);
     //TODO: NOT FOUND
     SgForStmt *innerLoop = NULL; //lexNextLoop(outerLoop->lexNext(), outerEnddo);

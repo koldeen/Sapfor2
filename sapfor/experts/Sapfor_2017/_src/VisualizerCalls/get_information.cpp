@@ -115,7 +115,7 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         rethrow = ex;
     }
     catch (...)
@@ -239,7 +239,7 @@ int SPF_GetGraphLoops(int *options, short *projName, short *&result, short *&out
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -282,7 +282,7 @@ int SPF_GetGraphFunctions(int *options, short *projName, short *&result, short *
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -442,7 +442,7 @@ int SPF_CreateParallelVariant(int *options, short *projName, short *folderName, 
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -544,7 +544,7 @@ int SPF_SetFunctionsToInclude(int *options, short *projName, short *&result, sho
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -585,7 +585,7 @@ int SPF_GetAllDeclaratedArrays(int *options, short *projName, short *&result, sh
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -627,7 +627,7 @@ int SPF_GetFileLineInfo(int *options, short *projName, short *&result, short *&o
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -655,7 +655,7 @@ int SPF_SetDistributionFlagToArray(char *key, int flag)
     {
         if (it->second.first->GetName() == keyStr)
         {
-            print(1, "change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
+            __spf_print(1, "change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
             printf("SAPFOR: change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
             
             if (flag == 0)
@@ -682,7 +682,7 @@ static int simpleTransformPass(const passes PASS_NAME, int *options, short *proj
     }
     catch (int ex)
     {
-        print(1, "catch code %d\n", ex);
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -723,7 +723,7 @@ int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, cha
     for (int i = 0; i < splited.size(); ++i)
     {
         ::filesToInclude.insert(splited[i]);
-        //print(1, "file = %s\n", splited[i].c_str());
+        //__spf_print(1, "file = %s\n", splited[i].c_str());
     }
     return simpleTransformPass(INSERT_INCLUDES, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }

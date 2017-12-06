@@ -44,7 +44,7 @@ static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const m
             auto itArray = declaratedArrays.find(uniqKey);
             if (itArray == declaratedArrays.end())
             {
-                print(1, "array was not in declarated list %s\n", par->identifier());
+                __spf_print(1, "array was not in declarated list %s\n", par->identifier());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
@@ -173,10 +173,11 @@ static void processActualParams(SgExpression *parList, const map<string, SgState
     }
 }
 
-static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, const map<string, SgStatement*> &commonBlocks)
+static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
+                          const map<string, SgStatement*> &commonBlocks, const set<string> &macroNames)
 {
-    if (curr->variant() == FUNC_CALL)
-    {
+    if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
+    {        
         for (auto &proc : entryProcs)
         {
             string nameOfCallFunc = curr->symbol()->identifier();
@@ -189,15 +190,15 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
     }
 
     if (curr->lhs())
-        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks);
+        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames);
     if (curr->rhs())
-        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks);
+        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames);
 }
 
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     int funcNum = file->numberOfFunctions();
-    print(DEBUG, "functions num in file = %d\n", funcNum);
+    __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -208,19 +209,19 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
             currFunc = progH->symbol()->identifier();
-            print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
             currFunc = procH->symbol()->identifier();
-            print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
             currFunc = funcH->symbol()->identifier();
-            print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         
         SgStatement *lastNode = st->lastNodeOfStmt();
@@ -239,7 +240,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
         if (isSPF_NoInline(st->lexNext()))
         {
-            print(1, "set NOINLINE attribute for function '%s'\n", currFunc.c_str());
+            __spf_print(1, "set NOINLINE attribute for function '%s'\n", currFunc.c_str());
             currInfo->doNotInline = true;
         }
         
@@ -248,11 +249,35 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         vector<FuncInfo*> entryProcs;
         entryProcs.push_back(currInfo);
 
+        vector<SgStatement*> macroStats;
+        set<string> macroNames;
         while (st != lastNode)
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+
+            if (!isSgExecutableStatement(st))
+            {
+                if (st->variant() == STMTFN_STAT)
+                {
+                    macroStats.push_back(st);
+                    macroNames.insert(st->expr(0)->symbol()->identifier());
+                }
+            }
+            else
+                break;
+            st = st->lexNext();
+        }
+
+        st = file->functions(i);
+        while (st != lastNode)
+        {
+            if (st == NULL)
+            {
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -273,7 +298,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             {
                 for (int i = 0; i < 3; ++i)
                     if (st->expr(i))
-                        findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks);
+                        findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
             }
 
             if (st->variant() == ENTRY_STAT)
@@ -284,7 +309,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
                 if (isSPF_NoInline(st->lexNext()))
                 {
-                    print(1, "set NOINLINE attribute for function '%s'\n", entryName.c_str());
+                    __spf_print(1, "set NOINLINE attribute for function '%s'\n", entryName.c_str());
                     entryInfo->doNotInline = true;
                 }
                 it->second.push_back(entryInfo);
@@ -300,7 +325,7 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
     FILE *out = fopen(fileName, "w");
     if (out == NULL)
     {         
-        print(1, "can not open file %s\n", fileName);
+        __spf_print(1, "can not open file %s\n", fileName);
         return -1;
     }
 
@@ -419,7 +444,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
         if (needToAddErrors)
         {
             messages.push_back(Messages(NOTE, line, buf));
-            print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
+            __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
         }
         result = false;
     }
@@ -442,7 +467,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                     if (needToAddErrors)
                     {
                         messages.push_back(Messages(NOTE, line, buf));
-                        print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
+                        __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
                     }
                     result = false;
                 }
@@ -461,7 +486,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                     if (needToAddErrors)
                     {
                         messages.push_back(Messages(NOTE, line, buf));
-                        print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
+                        __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
                 }
@@ -511,7 +536,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         func->funcName.c_str(), symb->identifier(), loop->lineNumber());
 
                                 messages.push_back(Messages(ERROR, statLine, buf));
-                                print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d\n",
+                                __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d\n",
                                       func->funcName.c_str(), symb->identifier(), loop->lineNumber());
                             }
                             ret = true;
@@ -546,7 +571,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         needInsert = true;
 
         if (needToAddErrors)        
-            print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
+            __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
     }
     else
     {
@@ -685,7 +710,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
                 funcByName.insert(itF, make_pair(name, it->second[k]));
             else
             {
-                print(1, "can not find func with name = '%s'\n", name.c_str());
+                __spf_print(1, "can not find func with name = '%s'\n", name.c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
@@ -709,7 +734,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
         FILE *out = fopen(fileName, "w");
         if (out == NULL)
         {
-            print(1, "can not open file %s\n", fileName);
+            __spf_print(1, "can not open file %s\n", fileName);
             throw - 1;
         }
 
@@ -841,7 +866,7 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
 
                 currentChainCalls.push_back(itF->second);
                 const string &chain = printChainRec(currentChainCalls);
-                print(1, "For function on line %d found recursive chain calls: %s\n", currentChainCalls[0]->linesNum.first, chain.c_str());
+                __spf_print(1, "For function on line %d found recursive chain calls: %s\n", currentChainCalls[0]->linesNum.first, chain.c_str());
 
                 char buf[512];
                 sprintf(buf, "Found recursive chain calls: %s, this function will be ignored", chain.c_str());
@@ -877,7 +902,7 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
     
     for (int i = 0; i < itCurrFuncs->second.size(); ++i)
     {
-        print(1, "run for func %s\n", itCurrFuncs->second[i]->funcName.c_str());
+        __spf_print(1, "run for func %s\n", itCurrFuncs->second[i]->funcName.c_str());
         if (hasRecursionChain( { itCurrFuncs->second[i] }, itCurrFuncs->second[i], mapFuncInfo, messagesForFile))
             itCurrFuncs->second[i]->doNotAnalyze = true;
     }

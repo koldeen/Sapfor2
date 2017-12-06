@@ -45,12 +45,26 @@ public:
 } while (0)
 
 //TODO: count of string len of all parameters
-#define printToBuf(outval, format, ...) do {\
-        const int bufLen = 32 * 1024 * 1024;\
-        char *buf = new char[bufLen];\
-        const int countW = sprintf(buf, format, ##__VA_ARGS__);\
-        if (countW + 1 > bufLen) \
-           printInternalError(__FILE__, __LINE__);\
-        outval = std::string(buf);\
+#define allocAndPrint(buf, format, ...) do { \
+   const int bufLen = 32 * 1024 * 1024;\
+   buf = new char[bufLen];\
+   const int countW = sprintf(buf, format, ##__VA_ARGS__);\
+   if (countW + 1 > bufLen) \
+        printInternalError(__FILE__, __LINE__);\
+} while (0)
+
+#define __spf_printToBuf(outval, format, ...) do {\
+    char *buf = NULL; \
+    allocAndPrint(buf, format, ##__VA_ARGS__); \
+    outval = std::string(buf);\
+    delete []buf;\
+} while (0)
+
+#define __spf_print(needPrint, format, ...) do {\
+    if (needPrint == 1) {\
+        char *buf = NULL; \
+        allocAndPrint(buf, format, ##__VA_ARGS__); \
+        addToGlobalBufferAndPrint(buf);\
         delete []buf;\
+    } \
 } while (0)

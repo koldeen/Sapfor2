@@ -1150,15 +1150,17 @@ void InsertSendInquire(SgExpression * eioc[])
  SET_DVM(imem);
 }
 
+# define MAXLISTLEN  1000
+
 void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgStatement *stmt)
 {int imem,j,i,icount,iel;
- SgExpression *el,*ein,*iisize[100],*iinumb[100],*iielem[100];
+ SgExpression *el,*ein,*iisize[MAXLISTLEN],*iinumb[MAXLISTLEN],*iielem[MAXLISTLEN];
  SgType *t;
 
  imp_loop = NULL;
 
  if(dvm_debug)
-   for(i=0;i<100;i++)
+   for(i=0;i<MAXLISTLEN;i++)
      iinumb[i] = NULL;
 
  imem = ndvm;
@@ -1171,6 +1173,8 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
    }
  for (el=input_list;el;el=el->rhs()) {    
    ein = el->lhs();  // input list item
+   if(j> MAXLISTLEN)
+     err("Compiler bug (in InsertSendInputList)",0,stmt);
    if(isSgIOAccessExp(ein)) //implicit loop
    { if(!SpecialKindImplicitLoop(el->rhs(),ein,&j, iisize, iielem, iinumb, stmt))
         ImplicitLoop(ein,&j, iisize, iielem, iinumb, stmt); 

@@ -26,11 +26,11 @@ using std::pair;
 
 bool isSPF_NoInline(SgStatement *st)
 {
-    //print(1, "check attributes for functons in line %d\n", st->lineNumber());
+    //__spf_print(1, "check attributes for functons in line %d\n", st->lineNumber());
     for (int z = 0; z < st->numberOfAttributes(); ++z)
     {
         //if (z == 0)
-        //    print(1, "attribute found with num %d\n", st->numberOfAttributes());
+        //    __spf_print(1, "attribute found with num %d\n", st->numberOfAttributes());
         SgAttribute *attr = st->getAttribute(z);
         int type = st->attributeType(z);
         if (type == SPF_TRANSFORM_DIR)
@@ -43,7 +43,7 @@ bool isSPF_NoInline(SgStatement *st)
                 {
                     if (exprList->lhs()->variant() == SPF_NOINLINE_OP)
                     {
-                        //print(1, "found no inline\n");
+                        //__spf_print(1, "found no inline\n");
                         return true;
                     }
                     exprList = exprList->rhs();
@@ -129,7 +129,7 @@ void fillReductionsFromComment(SgStatement *st, map<string, set<fillType>> &redu
                         if (oper == "minloc" || oper == "maxloc")
                         {
                             //skip
-                            //print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");                            
+                            //__spf_print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");                            
                         }
                         else
                         {

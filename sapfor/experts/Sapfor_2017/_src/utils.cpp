@@ -110,7 +110,7 @@ void printHelp()
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
     for (int i = 0; i < EMPTY_PASS; ++i)
-        printf("    pass_num = %d:  %s\n", i, passesEnumName[i]);
+        printf("    pass_num = %d:  %s\n", i, passNames[i]);
     printf("\n");
     printf(" -t    <analysis_num>\n");
     printf("    analysis_num = 1:  loops unroller\n");
@@ -279,19 +279,19 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
         FILE *tryToOpen = fopen(newCurrFile.c_str(), "r");
         if (tryToOpen == NULL)
         {
-            print(1, "  try to copy file '%s' to '%s'\n", currFile.c_str(), newCurrFile.c_str());
+            __spf_print(1, "  try to copy file '%s' to '%s'\n", currFile.c_str(), newCurrFile.c_str());
 
             FILE *copyFile = fopen(newCurrFile.c_str(), "w");
             FILE *oldFile = fopen(currFile.c_str(), "r");
             if (!copyFile)
             {
-                print(1, "  can not open file '%s' for read\n", currFile.c_str());
+                __spf_print(1, "  can not open file '%s' for read\n", currFile.c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
             if (!oldFile)
             {
-                print(1, "  can not open file '%s' for write\n", newCurrFile.c_str());
+                __spf_print(1, "  can not open file '%s' for write\n", newCurrFile.c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
             
@@ -448,7 +448,7 @@ void sortFilesBySize(const char *proj_name)
     }
     else
     {
-        print(1, "project file '%s' does not exist\n", proj_name);
+        __spf_print(1, "project file '%s' does not exist\n", proj_name);
         throw(-1);
     }
 }

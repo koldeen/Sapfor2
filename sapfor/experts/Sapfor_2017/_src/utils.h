@@ -49,18 +49,5 @@ bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-//TODO: count strings len 
-#define print(needPrint, format, ...) do {\
-    if (needPrint == 1) {\
-        const int bufLen = 32 * 1024 * 1024;\
-        char *buf = new char[bufLen];\
-        const int countW = sprintf(buf, format, ##__VA_ARGS__);\
-        if (countW + 1 > bufLen) \
-           printInternalError(__FILE__, __LINE__);\
-        addToGlobalBufferAndPrint(buf);\
-        delete []buf;\
-    } \
-} while (0)
-
 #define INSERT_AS_COMMENT 0 // deprecated, need to be remove with value == 0
-#define VERSION "432"
+#define VERSION "438"

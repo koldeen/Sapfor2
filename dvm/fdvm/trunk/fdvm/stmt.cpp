@@ -574,28 +574,28 @@ SgStatement *ReplaceDoLabel(SgStatement *last_st, SgLabel *new_lab)
 //                                            99999    CONTINUE
 
 {SgStatement *parent, *st;
- SgLabel *lab;
- parent = last_st->controlParent();
- if((parent->variant()==FOR_NODE || parent->variant()==WHILE_NODE) && (lab=LabelOfDoStmt(parent))){
-               //if((do_st=isSgForStmt(parent)) != NULL && (lab=do_st->endOfLoop())){
-      if(!new_lab)
-        new_lab = GetLabel();
-      BIF_LABEL_USE(parent->thebif) = new_lab->thelabel;
- }
- else
-      return(NULL);
+    SgLabel *lab;
+    parent = last_st->controlParent();
+    if ((parent->variant() == FOR_NODE || parent->variant() == WHILE_NODE) && (lab = LabelOfDoStmt(parent))) {
+        //if((do_st=isSgForStmt(parent)) != NULL && (lab=do_st->endOfLoop())){
+        if (!new_lab)
+            new_lab = GetLabel();
+        BIF_LABEL_USE(parent->thebif) = new_lab->thelabel;
+    }
+    else
+        return(NULL);
 
- //inserts CONTINUE statement with new_lab as label  
- st = new SgStatement(CONT_STAT);
- st->setLabel(*new_lab);
- //for debug regim
- LABEL_BODY(new_lab->thelabel) = st->thebif;
- BIF_LINE(st->thebif) = (last_st->lineNumber()) ? last_st->lineNumber() : LineNumberOfStmtWithLabel(lab);
- if(last_st->variant() != LOGIF_NODE)
-    last_st->insertStmtAfter(*st,*parent);
- else
-    (last_st->lexNext())->insertStmtAfter(*st,*parent);
- return(st);
+    //inserts CONTINUE statement with new_lab as label  
+    st = new SgStatement(CONT_STAT);
+    st->setLabel(*new_lab);
+    //for debug regim
+    LABEL_BODY(new_lab->thelabel) = st->thebif;
+    BIF_LINE(st->thebif) = (last_st->lineNumber()) ? last_st->lineNumber() : LineNumberOfStmtWithLabel(lab);
+    if (last_st->variant() != LOGIF_NODE)
+        last_st->insertStmtAfter(*st, *parent);
+    else
+        (last_st->lexNext())->insertStmtAfter(*st, *parent);
+    return(st);
 }
 
 SgStatement *ReplaceLabelOfDoStmt(SgStatement *first,SgStatement *last_st, SgLabel *new_lab)

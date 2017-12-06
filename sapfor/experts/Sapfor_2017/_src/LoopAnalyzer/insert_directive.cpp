@@ -136,10 +136,10 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
             if (st == NULL)
             {
                 string message;
-                printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
+                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
                 messagesForFile.push_back(Messages(ERROR, 1, message));
 
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -243,7 +243,7 @@ void removeDvmDirectives(SgFile *file)
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -324,7 +324,7 @@ static inline int findTeplatePosition(const DIST::Array *templ, const DataDirect
 
     if (templIdx == -1)
     {
-        print(1, "can not find template position ['%s']\n", templName.c_str());
+        __spf_print(1, "can not find template position ['%s']\n", templName.c_str());
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
         
@@ -385,7 +385,7 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
         
         if (templates.size() == 0)
         {
-            print(1, "can not find templates\n");
+            __spf_print(1, "can not find templates\n");
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         else if (templates.size() == 1)
@@ -397,7 +397,7 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
             {
                 if (t != templ)
                 {
-                    print(1, "find more then one template: %s and %s\n", t->GetShortName().c_str(), templ->GetShortName().c_str());
+                    __spf_print(1, "find more then one template: %s and %s\n", t->GetShortName().c_str(), templ->GetShortName().c_str());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
             }
@@ -641,7 +641,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
         set<string> templateDelc;
-
+        
         pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>
         startLineControl(fin_name, st->lineNumber(), lastNode->lineNumber());
         while (st != lastNode)
@@ -649,10 +649,10 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
             {
                 string message;
-                printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
+                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
                 messagesForFile.push_back(Messages(ERROR, 1, message));
 
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
             
@@ -859,10 +859,10 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
             if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
             {
                 string message;
-                printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
+                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
                 messagesForFile.push_back(Messages(ERROR, 1, message));
 
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 

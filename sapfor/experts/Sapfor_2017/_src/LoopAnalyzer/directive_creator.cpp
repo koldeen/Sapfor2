@@ -110,7 +110,7 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<SgSymbol*, A
         SgArrayType *arType = isSgArrayType(it->first->type());
         if (arType == NULL)
         {
-            print(1, "ERROR: %d %s: array symbol has a type is not an array\n", __LINE__, convertFileName(__FILE__).c_str());
+            __spf_print(1, "ERROR: %d %s: array symbol has a type is not an array\n", __LINE__, convertFileName(__FILE__).c_str());
             throw(-1);
         }
 
@@ -336,15 +336,15 @@ static bool checkForConflict(const map<SgSymbol*, ArrayInfo> &currAccesses,
 
             if (countOfWriteDims > 1)
             {
-                print(PRINT_DIR_RESULT, "    array %s was found for loop on line %d\n", currArr->identifier(), currentLoop->lineNumber());
-                print(PRINT_DIR_RESULT, "    conflicted writes\n");
+                __spf_print(PRINT_DIR_RESULT, "    array %s was found for loop on line %d\n", currArr->identifier(), currentLoop->lineNumber());
+                __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
                 hasConflict = true;
                 lastPosWrite = -1;
             }
 
             if (lastPosWrite == -1)
             {
-                print(PRINT_DIR_RESULT, "   no regular writes for array %s on loop\n", currArr->identifier());
+                __spf_print(PRINT_DIR_RESULT, "   no regular writes for array %s on loop\n", currArr->identifier());
                 continue;
             }
             else
@@ -359,7 +359,7 @@ static bool checkForConflict(const map<SgSymbol*, ArrayInfo> &currAccesses,
                 {
                     if (!underAcross)
                     {
-                        print(PRINT_DIR_RESULT, "    conflicted writes\n");
+                        __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
                         hasConflict = true;
                         continue;
                     }
@@ -408,7 +408,7 @@ static bool checkForConflict(const map<SgSymbol*, ArrayInfo> &currAccesses,
 
             if (countOfReadDims > 1 && lastPosRead != lastPosWrite && !isUnderAcrossDir(currArr->identifier(), acrossInfo))
             {
-                print(PRINT_DIR_RESULT, "    dependencies between read and write\n");
+                __spf_print(PRINT_DIR_RESULT, "    dependencies between read and write\n");
                 hasConflict = true;
                 continue;
             }
@@ -568,7 +568,7 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
         ParallelRegion *currReg = getRegionByLine(regions, it->first->fileName(), it->first->lineNumber());
         if (currReg == NULL)
         {
-            print(PRINT_PROF_INFO, "Skip loop on file %s and line %d\n", it->first->fileName(), it->first->lineNumber());
+            __spf_print(PRINT_PROF_INFO, "Skip loop on file %s and line %d\n", it->first->fileName(), it->first->lineNumber());
             continue;
         }
 
@@ -599,12 +599,12 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
         map<tuple<int, string, string>, vector<pair<int, int>>> arrayReadAcc;
         set<DIST::Array*> acrossOutArrays;
 
-        print(PRINT_DIR_RESULT, "  Loop on line %d:\n", currentLoop->lineNumber());
+        __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", currentLoop->lineNumber());
         // find conflict and fill arrayWriteAcc
         hasConflict = checkForConflict(currAccesses, commonBlocks, createdArrays, currentLoop, arrayWriteAcc, acrossInfo, acrossOutArrays);
 
         if (hasConflict)
-            print(PRINT_DIR_RESULT, "    has conflict\n");
+            __spf_print(PRINT_DIR_RESULT, "    has conflict\n");
         else
         {
             MapToArray mainArray;
@@ -653,7 +653,7 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                         minDim = currDim;
                         posDim = k;
                     }
-                    print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", THIRD(i->first).c_str(), i->second.second.first, i->second.second.second);
+                    __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", THIRD(i->first).c_str(), i->second.second.first, i->second.second.second);
                     accesses.push_back(make_pair(getShortName(uniqKey), i->second));
                 }
 
@@ -726,14 +726,14 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                 }
                 else
                 {
-                    print(PRINT_DIR_RESULT, "    has conflict writes\n");
+                    __spf_print(PRINT_DIR_RESULT, "    has conflict writes\n");
                     hasConflict = true;
                 }
             }
             else
             {
                 mainArray.hasWrite = false;
-                print(PRINT_DIR_RESULT, "   no regular writes on loop\n");
+                __spf_print(PRINT_DIR_RESULT, "   no regular writes on loop\n");
             }
 
             // find dependencies and fill mainArray if no regular writes found
@@ -789,7 +789,7 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
 
                     loop->directiveForLoop = new ParallelDirective(loop->directive);
                 }
-                print(PRINT_DIR_RESULT, "   directive created\n");
+                __spf_print(PRINT_DIR_RESULT, "   directive created\n");
             }
         }
     }
@@ -1182,7 +1182,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     }
                     catch (...)     
                     {
-                        print(1, "exception occurred during loop tighten\n");
+                        __spf_print(1, "exception occurred during loop tighten\n");
                         result = true;
                     }*/
 
@@ -1222,7 +1222,6 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 
 #undef PRINT_DIR_RESULT 
 #undef PRINT_PROF_INFO
-#undef print
 #undef FIRST
 #undef SECOND
 #undef THIRD

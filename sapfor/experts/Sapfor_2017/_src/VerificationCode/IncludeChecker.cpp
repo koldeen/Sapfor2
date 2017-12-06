@@ -30,7 +30,7 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 

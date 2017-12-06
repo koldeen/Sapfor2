@@ -25,13 +25,13 @@ int VerifyFile(SgFile *file)
         {
             if (st == NULL)
             {
-                print(1, "Found errors in Sage structures in file %s, -1\n", file->filename());
+                __spf_print(1, "Found errors in Sage structures in file %s, -1\n", file->filename());
                 isError = -1;
                 break;
             }
             else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
             {
-                print(1, "Found errors in Sage structures in file %s, -2\n", file->filename());
+                __spf_print(1, "Found errors in Sage structures in file %s, -2\n", file->filename());
                 isError = -2;
                 break;
             }

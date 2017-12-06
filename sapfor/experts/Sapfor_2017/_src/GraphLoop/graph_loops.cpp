@@ -306,7 +306,7 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 {
     int funcNum = file->numberOfFunctions();
-    print(DEBUG, "functions num in file = %d\n", funcNum);
+    __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -318,17 +318,17 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-            print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-            print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());            
+            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());            
         }
 
         SgStatement *lastNode = st->lastNodeOfStmt();        
@@ -339,7 +339,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
         {
             if (st == NULL)
             {
-                print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
@@ -396,7 +396,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             }
             st = st->lexNext();
         }
-        print(DEBUG, "Function ended\n");
+        __spf_print(DEBUG, "Function ended\n");
     }
 }
 

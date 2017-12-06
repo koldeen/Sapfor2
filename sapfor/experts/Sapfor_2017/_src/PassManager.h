@@ -78,7 +78,7 @@ static void depsToGraphViz(const map<passes, vector<passes>> &passDepsIn)
     for (auto it = passDepsIn.begin(); it != passDepsIn.end(); ++it)
     {
         for (int k = 0; k < it->second.size(); ++k)
-            printf("\"%s\" -> \"%s\";\n", passesEnumName[it->first], passesEnumName[it->second[k]]);
+            printf("\"%s\" -> \"%s\";\n", passNames[it->first], passNames[it->second[k]]);
     }
     printf("}\n");
 }
@@ -121,7 +121,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
     list({ CORRECT_VAR_DECL, REVERT_SUBST_EXPR, VERIFY_INCLUDE } ) << list({ UNROLL_LOOPS, CONVERT_TO_ENDDO, CORRECT_CODE_STYLE, REMOVE_DVM_DIRS });
     list({ CORRECT_VAR_DECL, REVERT_SUBST_EXPR }) << list({ INSERT_INCLUDES, INSERT_INCLUDES, UNPARSE_FILE });
 
-    passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, PRIVATE_ANALYSIS_SPF, EXTRACT_PARALLEL_DIRS, EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE });
+    passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, PRIVATE_ANALYSIS_SPF, EXTRACT_PARALLEL_DIRS, 
+                                   EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE, REMOVE_AND_CALC_SHADOW });
         
     //only for print  
     //list({ CREATE_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF, CREATE_REMOTES, REVERT_SUBST_EXPR, UNPARSE_FILE, EXTRACT_PARALLEL_DIRS }) <= Pass(INSERT_PARALLEL_DIRS);
