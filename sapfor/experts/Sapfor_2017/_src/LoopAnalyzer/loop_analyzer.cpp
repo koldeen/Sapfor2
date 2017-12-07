@@ -696,7 +696,7 @@ static map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>>
        convertLoopInfo(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, 
                        const map<int, LoopGraph*> &sortedLoopGraph,
                        const set<string> &privateArrays,
-                       const map<string, SgStatement*> &commonBlocks,
+                       const map<string, vector<SgStatement*>> &commonBlocks,
                        const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                        map<tuple<int, string, string>, DIST::Array*> &createdArrays)
@@ -806,7 +806,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
     currMessages = &messagesForFile;
     currRegime = regime;
 
-    map<string, SgStatement*> commonBlocks;
+    map<string, vector<SgStatement*>> commonBlocks;
     map<int, LoopGraph*> sortedLoopGraph;
     map<int, pair<SgForStmt*, set<string>>> allLoops;
 
@@ -1113,7 +1113,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 }
 
 static void findArrayRefs(SgExpression *ex, 
-                          const map<string, SgStatement*> &commonBlocks, 
+                          const map<string, vector<SgStatement*>> &commonBlocks, 
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
@@ -1195,7 +1195,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
     {        
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-        map<string, SgStatement*> commonBlocks;
+        map<string, vector<SgStatement*>> commonBlocks;
         const string currFunctionName = st->symbol()->identifier();
 
         getCommonBlocksRef(commonBlocks, st, lastNode);

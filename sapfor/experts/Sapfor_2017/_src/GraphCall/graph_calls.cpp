@@ -29,7 +29,7 @@ using std::to_string;
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 
-static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, SgStatement*> &commonBlocks)
+static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, vector<SgStatement*>> &commonBlocks)
 {
     SgType *type = par->type();
     if (type)
@@ -70,7 +70,7 @@ static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const m
         currParams->parametersT[i] = UNKNOWN_T;
 }
 
-static void fillFuncParams(FuncInfo *currInfo, const map<string, SgStatement*> &commonBlocks, SgProgHedrStmt *procHeader)
+static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgStatement*>> &commonBlocks, SgProgHedrStmt *procHeader)
 {
     int numOfParams = procHeader->numberOfParameters();
 
@@ -82,7 +82,7 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, SgStatement*> &
             fillParam(i, procHeader->parameter(i), currParams, commonBlocks);
 }
 
-static void fillFuncParams(FuncInfo *currInfo, const map<string, SgStatement*> &commonBlocks, SgStatement *entryHeader)
+static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgStatement*>> &commonBlocks, SgStatement *entryHeader)
 {
     SgExpression *parList = entryHeader->expr(0);
     int numOfParams = 0;
@@ -120,7 +120,7 @@ string removeString(const string toRemove, const string inStr)
 
 #define DEBUG 0
 //TODO:: add values
-static void processActualParams(SgExpression *parList, const map<string, SgStatement*> &commonBlocks, FuncParam *currParams)
+static void processActualParams(SgExpression *parList, const map<string, vector<SgStatement*>> &commonBlocks, FuncParam *currParams)
 {
     int numOfPar = 0;
     
@@ -174,7 +174,7 @@ static void processActualParams(SgExpression *parList, const map<string, SgState
 }
 
 static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
-                          const map<string, SgStatement*> &commonBlocks, const set<string> &macroNames)
+                          const map<string, vector<SgStatement*>> &commonBlocks, const set<string> &macroNames)
 {
     if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
     {        
@@ -349,7 +349,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         if (it == allFuncInfo.end())
             it = allFuncInfo.insert(it, make_pair(fileName, vector<FuncInfo*>()));
         
-        map<string, SgStatement*> commonBlocks;
+        map<string, vector<SgStatement*>> commonBlocks;
         getCommonBlocksRef(commonBlocks, st, lastNode);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));

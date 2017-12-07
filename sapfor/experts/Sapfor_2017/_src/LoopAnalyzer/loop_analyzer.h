@@ -40,7 +40,7 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 void createParallelDirectives(const std::map<SgForStmt*, std::map<SgSymbol*, ArrayInfo>> &loopInfo,
                               std::vector<ParallelRegion*> regions,
                               const std::map<std::tuple<int, std::string, std::string>, DIST::Array*> &createdArrays,
-                              const std::map<std::string, SgStatement*> &commonBlocks,
+                              const std::map<std::string, std::vector<SgStatement*>> &commonBlocks,
                               std::map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 

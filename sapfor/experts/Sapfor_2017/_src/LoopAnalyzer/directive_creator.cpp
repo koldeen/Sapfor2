@@ -303,7 +303,7 @@ static inline bool isUnderAcrossDir(const string &array, const vector<pair<pair<
 }
 
 static bool checkForConflict(const map<SgSymbol*, ArrayInfo> &currAccesses, 
-                             const map<string, SgStatement*> &commonBlocks,
+                             const map<string, vector<SgStatement*>> &commonBlocks,
                              const map<tuple<int, string, string>, DIST::Array*> &createdArrays, 
                              SgForStmt *currentLoop,
                              map<tuple<int, string, string>, pair<int, pair<int, int>>> &arrayWriteAcc,
@@ -478,7 +478,7 @@ static void findRegularReads(const ArrayInfo &currInfo,
 }
 
 static bool checkForDependence(const map<SgSymbol*, ArrayInfo> &currAccesses, 
-                               const map<string, SgStatement*> &commonBlocks,
+                               const map<string, vector<SgStatement*>> &commonBlocks,
                                const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                                const DIST::Arrays<int> &allArrays,
                                MapToArray &mainArray,
@@ -559,7 +559,7 @@ static void fillArraysWithAcrossStatus(SgForStmt *currentLoop, set<string> &uniq
 void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
                               std::vector<ParallelRegion*> regions,
                               const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                              const map<string, SgStatement*> &commonBlocks,
+                              const map<string, vector<SgStatement*>> &commonBlocks,
                               map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
