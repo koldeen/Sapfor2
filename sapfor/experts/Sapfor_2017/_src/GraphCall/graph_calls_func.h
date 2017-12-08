@@ -17,3 +17,4 @@ void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<F
                                              const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 bool isPassFullArray(SgExpression *ex);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
+void doMacroExpand(SgFile *file, std::vector<Messages> &messages);

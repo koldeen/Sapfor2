@@ -346,9 +346,11 @@ public:
     void minusFinalize(VarSet*);
     bool RecordBelong(CVarEntryInfo*);
     void LeaveOnlyRecords();
+    void RemoveDoubtfulCommonVars(AnalysedCallsList*);
     //VarItem* belongs(SgVarRefExp*, bool os = false);
     VarItem* belongs(const CVarEntryInfo*, bool os = false);
     bool equal(VarSet*);
+    int count();
     void print();
     void remove(const CVarEntryInfo*);
     VarItem* getFirst();
@@ -640,6 +642,7 @@ struct CommonDataItem
 {
     SgStatement* cb;
     bool isUsable;
+    bool onlyScalars;
     SgSymbol* name;
     AnalysedCallsList* proc;
     AnalysedCallsList* first;
@@ -654,9 +657,11 @@ public:
     void RegisterCommonBlock(SgStatement*, AnalysedCallsList*);
     void MarkEndOfCommon(AnalysedCallsList*);
     void MarkAsUsed(VarSet*, AnalysedCallsList*);
+    bool CanHaveNonScalarVars(CommonDataItem*);
     //void ProcessDelayedPrivates(PrivateDelayedItem*);
     CommonDataItem* IsThisCommonUsedInProcedure(CommonDataItem*, AnalysedCallsList*);
     CommonVarSet* GetCommonsForVarSet(VarSet*, AnalysedCallsList*);
+    CommonDataItem* IsThisCommonVar(VarItem*, AnalysedCallsList*);
     CommonData() : list(NULL) {}
     ~CommonData();
 };

@@ -11,6 +11,8 @@ using std::list;
 using std::make_pair;
 using std::set;
 
+#define __NEW_ALG 0
+
 #ifdef __SPF
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
 {
@@ -59,6 +61,9 @@ static AnalysedCallsList* currentProcedure = NULL;
 static AnalysedCallsList* mainProcedure = NULL;
 static CommonData* pCommons;
 static CallData* pCalls;
+
+int total_privates = 0;
+int total_pl = 0;
 
 static const IntrinsicSubroutineData intrinsicData[] = {
     {"date_and_time", 4, { {-1, "date", INTRINSIC_OUT}, {-1, "time", INTRINSIC_OUT }, {-1, "zone", INTRINSIC_OUT }, {-1, "values", INTRINSIC_OUT } } },
@@ -551,7 +556,7 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
                 nxt = t->next;
                 CommonVarInfo* cvd = t->cvd;
                 CommonDataItem* d = commons->IsThisCommonUsedInProcedure(cvd->parent, call);
-                if (!d)
+                if (!d || commons->CanHaveNonScalarVars(d))
                     continue;
                 CommonVarInfo* j = cvd->parent->info;
                 CommonVarInfo* i = d->info;
@@ -1208,15 +1213,32 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
         case FOR_NODE:
         {
             SgForStmt* fst = isSgForStmt(*stmt);
+#if __SPF && __NEW_ALG
+            SgStatement *p = NULL;
+            for (int i = 0; i < fst->numberOfAttributes(); ++i)
+            {
+                if (fst->attributeType(i) == SPF_ANALYSIS_DIR)
+                {
+                    p = (SgStatement *)(fst->getAttribute(i)->getAttributeData());
+                    break;
+                }
+            }
+            bool isParLoop = (p && p->variant() == SPF_ANALYSIS_DIR);
+#else
             SgStatement* p = (*stmt)->lexPrev();
             bool isParLoop = (p && p->variant() == DVM_PARALLEL_ON_DIR);
+#endif
             SgExpression* pl = NULL;
             SgExpression* pPl = NULL;
             bool pl_flag = true;
             if (isParLoop){
+#if __SPF && __NEW_ALG
+                SgExpression* el = p->expr(0);
+#else
                 SgExpression* el = p->expr(1);
+#endif
                 pPl = el;
-                while (el != NULL){
+                while (el != NULL) {
                     SgExpression* e = el->lhs();
                     if (e->variant() == ACC_PRIVATE_OP) {
                         pl = e;
@@ -1251,12 +1273,17 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             loop_d->setOriginalStatement(fst);
             ControlFlowItem* loop_emp = new ControlFlowItem(NULL, loop_d, currentProcedure);
             if (isParLoop){
+#if __SPF && __NEW_ALG
+                // all loop has depth == 1 ? is it correct?
+                int k = 1;
+#else
                 SgExpression* par_des = p->expr(2);
                 int k = 0;
                 while (par_des != NULL && par_des->lhs() != NULL){
                     k++;
                     par_des = par_des->rhs();
                 }
+#endif
                 loops->setParallelDepth(k, pl, p, pPl, pl_flag);
             }
 
@@ -1465,6 +1492,19 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
     cdf = false;
 }
 
+CommonDataItem* CommonData::IsThisCommonVar(VarItem* item, AnalysedCallsList* call)
+{
+    for (CommonDataItem* it = list; it != NULL; it = it->next) {
+        if (it->proc == call) {
+            for (CommonVarInfo* inf = it->info; inf != NULL; inf = inf->next) {
+                if (inf->var && item->var && *inf->var == *item->var)
+                    return it;
+            }
+        }
+    }
+    return NULL;
+}
+
 void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
 {
     //todo: multiple common blocks in one procedure with same name
@@ -1474,6 +1514,7 @@ void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
     it->isUsable = true;
     it->proc = cur;
     it->first = cur;
+    it->onlyScalars = true;
     for (CommonDataItem* i = list; i != NULL; i = i->next)
     {
         if (i->name == it->name && i->isUsable) {
@@ -1491,7 +1532,7 @@ void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
     for (int i = 0; i < vars->length(); i++) 
     {
         SgVarRefExp* e = isSgVarRefExp(vars->elem(i));
-        if (e) 
+        if (e && !IS_ARRAY(e->symbol())) 
         {
             CommonVarInfo* c = new CommonVarInfo();
             c->var = new CScalarVarEntryInfo(e->symbol());
@@ -1500,6 +1541,9 @@ void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
             c->parent = it;
             c->next = it->info;
             it->info = c;
+        }
+        else {
+            it->onlyScalars = false;
         }
     }
 
@@ -1670,6 +1714,7 @@ void PrivateDelayedItem::PrintWarnings()
         delete lp;
 }
 #else*/
+
 void PrivateDelayedItem::PrintWarnings()
 {
     if (next)
@@ -1678,9 +1723,11 @@ void PrivateDelayedItem::PrintWarnings()
     int stored_fid = current_file_id;
     CurrentProject->file(file_id);
     current_file_id = file_id;
-
+    total_privates += detected->count();
+    total_pl++;
     lp->minus(detected);
     detected->LeaveOnlyRecords();
+    detected->RemoveDoubtfulCommonVars(lstart->getProc());
     VarSet* test1 = new VarSet();
     test1->unite(detected, false);
     VarSet* test2 = new VarSet();
@@ -1695,14 +1742,22 @@ void PrivateDelayedItem::PrintWarnings()
         prl = new SgExpression(ACC_PRIVATE_OP);
         lst->setLhs(prl);
         lst->setRhs(NULL);
+#if __SPF && __NEW_ALG
+        SgExpression* clauses = prs->expr(0);
+#else
         SgExpression* clauses = prs->expr(1);
+#endif
         if (clauses) {
             while (clauses->rhs() != NULL)
                 clauses = clauses->rhs();
             clauses->setRhs(lst);
         }
         else {
+#if __SPF && __NEW_ALG
+            prs->setExpression(0, *lst);
+#else
             prs->setExpression(1, *lst);
+#endif
         }
     }
     SgExpression* op = prl;
@@ -2520,6 +2575,8 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
             AnalysedCallsList* tp = start->getProc();
             CommonDataItem* p = v->parent;
             if (CommonDataItem* it = pCommons->IsThisCommonUsedInProcedure(p, tp)) {
+                if (pCommons->CanHaveNonScalarVars(it))
+                    continue;
                 CommonVarInfo* i = it->info;
                 CommonVarInfo* j = p->info;
                 while (j != v) {
@@ -2543,6 +2600,8 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
             AnalysedCallsList* tp = start->getProc();
             CommonDataItem* p = v->parent;
             if (CommonDataItem* it = pCommons->IsThisCommonUsedInProcedure(p, tp)) {
+                if (pCommons->CanHaveNonScalarVars(it))
+                    continue;
                 CommonVarInfo* i = it->info;
                 CommonVarInfo* j = p->info;
                 while (j != v) {
@@ -2560,6 +2619,17 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         }
     }
 
+}
+
+bool CommonData::CanHaveNonScalarVars(CommonDataItem* item)
+{
+    for (CommonDataItem* it = list; it != NULL; it = it->next) {
+        if (it->name == item->name && it->first == item->first && !it->onlyScalars)
+            return true;
+    }
+    bool res = !item->onlyScalars;
+    //printf("CommonData::CanHaveNonScalarVars: %d\n", res);
+    return res;
 }
 
 CommonDataItem* CommonData::IsThisCommonUsedInProcedure(CommonDataItem* item, AnalysedCallsList* p)
@@ -2697,6 +2767,41 @@ VarSet* CBasicBlock::getUse()
         setDefAndUse();
     }
     return use;
+}
+
+void VarSet::RemoveDoubtfulCommonVars(AnalysedCallsList* call)
+{
+    VarItem* it = list;
+    VarItem* prev = NULL;
+    while (it != NULL) {
+        CommonDataItem* d = pCommons->IsThisCommonVar(it, call);
+        if (d && pCommons->CanHaveNonScalarVars(d)) {
+            if (prev == NULL) {
+                it = it->next;
+                delete list;
+                list = it;
+            }
+            else {
+                prev->next = it->next;
+                delete it;
+                it = prev->next;
+            }
+            continue;
+        }
+        prev = it;
+        it = it->next;
+    }
+}
+
+int VarSet::count()
+{
+    VarItem* it = list;
+    int t = 0;
+    while (it != NULL) {
+        it = it->next;
+        t++;
+    }
+    return t;
 }
 
 void VarSet::LeaveOnlyRecords()

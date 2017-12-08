@@ -585,17 +585,19 @@ bool isEqExpressions(SgExpression *left, SgExpression *right, map<SgExpression*,
         return getStringExpr(left, collection)->second == getStringExpr(right, collection)->second;
 }
 
-void getCommonBlocksRef(map<string, SgStatement*> &commonBlocks, SgStatement *start, SgStatement *end)
+void getCommonBlocksRef(map<string, vector<SgStatement*>> &commonBlocks, SgStatement *start, SgStatement *end)
 {
     while (start != end)
     {
         if (start->variant() == COMM_STAT)
         {
             const string commonName(start->expr(0)->symbol()->identifier());
-            map<string, SgStatement*>::iterator it = commonBlocks.find(commonName);
-            //TODO: check eq of common blocks with the same name
+            auto it = commonBlocks.find(commonName);
+            
             if (it == commonBlocks.end())
-                commonBlocks.insert(it, make_pair(commonName, start));
+                it = commonBlocks.insert(it, make_pair(commonName, vector<SgStatement*>()));
+
+            it->second.push_back(start);
         }
         start = start->lexNext();
     }
@@ -617,7 +619,7 @@ static bool isInCommon(SgStatement *commonBlock, const char *arrayName, int &com
 }
 
 map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
-tuple<int, string, string> getUniqName(const map<string, SgStatement*> &commonBlocks, SgStatement *decl, SgSymbol *symb)
+tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &commonBlocks, SgStatement *decl, SgSymbol *symb)
 {
     bool inCommon = false;
     bool needtoCheck = true;
@@ -647,14 +649,19 @@ tuple<int, string, string> getUniqName(const map<string, SgStatement*> &commonBl
 
     if (needtoCheck)
     {
-        for (auto i = commonBlocks.begin(); i != commonBlocks.end(); i++)
+        for (auto &common : commonBlocks)
         {
-            inCommon = isInCommon(i->second, symb->identifier(), commonPos);
-            if (inCommon)
+            for (auto &pos : common.second)
             {
-                foundCommon = i->second->expr(0);
-                break;
+                inCommon = isInCommon(pos, symb->identifier(), commonPos);
+                if (inCommon)
+                {
+                    foundCommon = pos->expr(0);
+                    break;
+                }
             }
+            if (foundCommon)
+                break;
         }
     }
 

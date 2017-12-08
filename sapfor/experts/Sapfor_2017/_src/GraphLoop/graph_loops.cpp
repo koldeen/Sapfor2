@@ -57,6 +57,26 @@ static bool recVariantFind(SgExpression *ex, const int var)
     return ret;
 }
 
+static bool recInderectFind(SgExpression *ex, bool wasArrayref)
+{
+    bool ret = false;
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            if (wasArrayref)
+                return true;
+            else
+                wasArrayref = true;
+        }
+
+        ret = ret || recInderectFind(ex->lhs(), wasArrayref);
+        ret = ret || recInderectFind(ex->rhs(), wasArrayref);
+    }
+
+    return ret;
+}
+
 static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
 {
     bool ret = false;
@@ -280,7 +300,7 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
     SgExpression *step = st->step();
 
     bool has = recVariantFind(start, FUNC_CALL) || recVariantFind(end, FUNC_CALL) || recVariantFind(step, FUNC_CALL);
-    has = has || recVariantFind(start, ARRAY_REF) || recVariantFind(end, ARRAY_REF) || recVariantFind(step, ARRAY_REF);
+    has = has || recInderectFind(start, false) || recInderectFind(end, false) || recInderectFind(step, false);
     
     if (has == false)
     {

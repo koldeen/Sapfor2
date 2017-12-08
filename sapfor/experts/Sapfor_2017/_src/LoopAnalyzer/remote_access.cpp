@@ -54,7 +54,8 @@ static DIST::Array* GetArrayByShortName(const DIST::Arrays<int> &allArrays, SgSy
 
 static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, const map<int, LoopGraph*> &sortedLoopGraph,
                                    vector<SgExpression*> &remotes, const DIST::Arrays<int> &allArrays, 
-                                   const DataDirective &data, const vector<int> &currVar, const int regionID)
+                                   const DataDirective &data, const vector<int> &currVar, const int regionID,
+                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool retVal = false;
 
@@ -64,34 +65,42 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     if (expr->variant() == ARRAY_REF)
     {
         DIST::Array *currArray = GetArrayByShortName(allArrays, OriginalSymbol(expr->symbol()));
-        if (currArray != NULL)
-        {
-            // find distributed dims
-            DIST::Array *templ = currArray->GetTemplateArray(regionID);
-            bool needToAdd = false;
 
-            for (int i = 0; i < data.distrRules.size(); ++i)
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(currArray, currArray, realRefs, arrayLinksByFuncCalls);
+
+        for (auto array : realRefs)
+        {
+            if (array != NULL)
             {
-                if (data.distrRules[i].first == templ)
+                // find distributed dims
+                DIST::Array *templ = array->GetTemplateArray(regionID);
+                bool needToAdd = false;
+
+                for (int i = 0; i < data.distrRules.size(); ++i)
                 {
-                    const vector<dist> &rule = data.distrRules[i].second[currVar[i]].distRule;
-                    for (int k = 0; k < rule.size(); ++k)
+                    if (data.distrRules[i].first == templ)
                     {
-                        if (rule[k] == BLOCK)
+                        const vector<dist> &rule = data.distrRules[i].second[currVar[i]].distRule;
+                        for (int k = 0; k < rule.size(); ++k)
                         {
-                            needToAdd = true;
-                            break;
+                            if (rule[k] == BLOCK)
+                            {
+                                needToAdd = true;
+                                break;
+                            }
                         }
+                        break;
                     }
+                }
+
+                //and add, if found any distributed dim
+                if (needToAdd)
+                {
+                    remotes.push_back(expr->copyPtr());
+                    retVal = true;
                     break;
                 }
-            }
-
-            //and add, if found any distributed dim
-            if (needToAdd)
-            {
-                remotes.push_back(expr->copyPtr());
-                retVal = true;
             }
         }
     }
@@ -104,12 +113,12 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     {
         if (expr->lhs())
         {
-            bool tmp = findAllArraysForRemote(current, expr->lhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID);
+            bool tmp = findAllArraysForRemote(current, expr->lhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID, arrayLinksByFuncCalls);
             retVal = retVal || tmp;
         }
         if (expr->rhs())
         {
-            bool tmp = findAllArraysForRemote(current, expr->rhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID);
+            bool tmp = findAllArraysForRemote(current, expr->rhs(), sortedLoopGraph, remotes, allArrays, data, currVar, regionID, arrayLinksByFuncCalls);
             retVal = retVal || tmp;
         }
     }
@@ -158,29 +167,18 @@ static bool inline hasParallelDirs(SgStatement *st)
 
 template<int NUM>
 void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
-                     const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages)
+                     const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
+                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<SgExpression*> remotes;
 
     string leftPartOfAssign = "";
     if (st->variant() == ASSIGN_STAT)
         leftPartOfAssign = string(st->expr(0)->unparse());
-
-    if (findAllArraysForRemote(st, st->expr(NUM), sortedLoopGraph, remotes, allArrays, data, currVar, regionID))
+    
+    if (findAllArraysForRemote(st, st->expr(NUM), sortedLoopGraph, remotes, allArrays, data, currVar, regionID, arrayLinksByFuncCalls))
     {
-#if INSERT_AS_COMMENT
-        string remote("!DVM$ REMOTE_ACCESS(");
-        for (int z = 0; z < remotes.size(); ++z)
-        {
-            string remoteExpr(remotes[z]->unparse());
-            remote += remoteExpr;
-            if (z != remotes.size() - 1)
-                remote += ",";
-        }
-        remote += ")\n";
-        st->addComment(remote.c_str());
-#else
-        SgStatement *remoteDir = new SgStatement(DVM_REMOTE_ACCESS_DIR, NULL, NULL, NULL, NULL, NULL);
+        SgStatement *remoteDir = new SgStatement(DVM_REMOTE_ACCESS_DIR);
         SgExpression *exprList = new SgExpression(EXPR_LIST);
         remoteDir->setExpression(0, *exprList);
         
@@ -309,12 +307,12 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             else
                 toInsert->insertStmtBefore(*remoteDir, *toInsert->controlParent());
         }
-#endif
+
     }
 }
 
-template void createRemoteDir<0>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&);
-template void createRemoteDir<1>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&);
+template void createRemoteDir<0>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&, const map<DIST::Array*, set<DIST::Array*>>&);
+template void createRemoteDir<1>(SgStatement*, const map<int, LoopGraph*>&, const DIST::Arrays<int>&, const DataDirective&, const vector<int>&, const int, vector<Messages>&, const map<DIST::Array*, set<DIST::Array*>>&);
 
 static inline bool isArrayRefHasDifferentVars(SgExpression *ex, set<string> &vars)
 {

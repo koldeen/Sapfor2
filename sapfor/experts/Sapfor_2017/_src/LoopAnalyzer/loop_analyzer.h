@@ -40,7 +40,7 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 void createParallelDirectives(const std::map<SgForStmt*, std::map<SgSymbol*, ArrayInfo>> &loopInfo,
                               std::vector<ParallelRegion*> regions,
                               const std::map<std::tuple<int, std::string, std::string>, DIST::Array*> &createdArrays,
-                              const std::map<std::string, SgStatement*> &commonBlocks,
+                              const std::map<std::string, std::vector<SgStatement*>> &commonBlocks,
                               std::map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
@@ -65,6 +65,7 @@ std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKe
 
 void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt);
+void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops,
@@ -138,4 +139,5 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
-                                       const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages);
+                                       const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,
+                                       const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
