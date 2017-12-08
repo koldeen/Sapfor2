@@ -101,7 +101,7 @@ static bool hasForName(SgExpression *exp, const string &forName)
     return false;
 }
 
-static int hasTextualInclude(SgExpression *exp, string varName)
+static int hasTextualInclude(SgExpression *exp, const string &varName)
 {
     string stringExp = exp->unparse();
     int count = 0;
@@ -111,7 +111,7 @@ static int hasTextualInclude(SgExpression *exp, string varName)
     {
         ++count;
         pos = stringExp.find(varName, pos + 1);
-        //print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
+        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
     }
 
     return count;
@@ -127,10 +127,8 @@ static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<
     while (retVal && exp != NULL && remoteExp != NULL)
     {
         if (remoteExp->lhs())
-            if (remoteExp->lhs()->variant() == DDOT)
-                continue;
-
-        retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
+            if (remoteExp->lhs()->variant() != DDOT)
+                retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
 
         exp = exp->rhs();
         remoteExp = remoteExp->rhs();
@@ -146,8 +144,9 @@ static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map
         SgExpression *lhs = exp->lhs();
         SgExpression *rhs = exp->rhs();
 
-        if (isRemoteExpressions(exp, remoteExp, collection))
-            return true;
+        if (exp->variant() == ARRAY_REF && string(exp->symbol()->identifier()) == remoteExp->symbol()->identifier())
+            if (isRemoteExpressions(exp->lhs(), remoteExp->lhs(), collection))
+                return true;
 
         return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
     }
@@ -427,29 +426,65 @@ static bool checkRemote(SgStatement *st,
                 }
 
                 // CHECK: i AND a * i + b
-                SgExpression *remoteExp = remElem.second;
+                // remElem.second links to b(i,j,k)
+                // remElem.second->lhs() links to i,j,k
+                SgExpression *remoteExp = remElem.second->lhs();
                 while (remoteExp)
                 {
-                    int forVarCount = 0;
+                    int forVarsCount = 0;
 
                     for (auto &forVar : forVars)
                     {
                         if (hasTextualInclude(remoteExp->lhs(), forVar.first))
                         {
-                            ++forVarCount;
+                            ++forVarsCount;
                             ++forVar.second;
 
-                            if (forVarCount > 1 || forVar.second > 1)
+                            if (retVal && forVarsCount > 1 || forVar.second > 1)
                             {
-                                __spf_print(1, "bad directive expression on line %d\n", attributeStatement->lineNumber());
+                                __spf_print(1, "bad directive expression: too many for variables on line %d\n", attributeStatement->lineNumber());
                                 string message;
-                                __spf_printToBuf(message, "bad directive expression");
+                                __spf_printToBuf(message, "bad directive expression: too many for variables");
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                                return false;
+                                retVal = false;
                             }
 
                             // CHECK TREE: i OR a * i OR a * i + b
-                            
+                            SgExpression *list = remoteExp->lhs();
+                            bool isRemoteSubTreeCond = false;
+
+                            if (list->variant() == ADD_OP)
+                            {
+                                if (list->lhs()->variant() == MULT_OP && !hasTextualInclude(list->rhs(), forVar.first))
+                                {
+                                    if (hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                        isRemoteSubTreeCond = true;
+                                }
+                                else if (list->rhs()->variant() == MULT_OP && !hasTextualInclude(list->lhs(), forVar.first))
+                                {
+                                    if (hasTextualInclude(list->rhs(), forVar.first) == 1)
+                                        isRemoteSubTreeCond = true;
+                                }
+                                else if (hasTextualInclude(list, forVar.first) == 1)
+                                    isRemoteSubTreeCond = true;
+                            }
+                            else if (list->variant() == MULT_OP)
+                            {
+                                if (!hasTextualInclude(list->lhs(), forVar.first) && hasTextualInclude(list->rhs(), forVar.first) == 1 ||
+                                    !hasTextualInclude(list->rhs(), forVar.first) && hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                    isRemoteSubTreeCond = true;
+                            }
+                            else if (hasTextualInclude(list, forVar.first) == 1)
+                                isRemoteSubTreeCond = true;
+
+                            if (!isRemoteSubTreeCond)
+                            {
+                                __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());
+                                string message;
+                                __spf_printToBuf(message, "bad directive expression: only a * i + b");
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                retVal = false;
+                            }
                         }
                     }
 
@@ -469,8 +504,9 @@ static bool checkRemote(SgStatement *st,
                 {
                     if (iterator->expr(i))
                     {
-                        recExpressionPrint(iterator->expr(i));
-                        __spf_print(1, "%s\n\n", iterator->expr(i)->unparse());
+                        //recExpressionPrint(iterator->expr(i));
+                        //recExpressionPrint(remElem.second);
+                        //__spf_print(1, "%s\n\n", iterator->expr(i)->unparse());
                     }
                     if (hasRemoteExpressions(iterator->expr(i), remElem.second, collection))
                         cond = true;
