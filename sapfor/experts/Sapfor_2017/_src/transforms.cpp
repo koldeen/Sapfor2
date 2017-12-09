@@ -532,8 +532,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == MACRO_EXPANSION)
-            doMacroExpand(file, getMessagesForFile(file_name));
-
+            doMacroExpand(file, getMessagesForFile(file_name));    
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {

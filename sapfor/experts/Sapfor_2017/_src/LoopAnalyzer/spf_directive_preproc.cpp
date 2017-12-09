@@ -83,7 +83,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     return retVal;
 }
 
-static bool hasForName(SgExpression *exp, const string &forName)
+/*static bool hasForName(SgExpression *exp, const string &forName)
 {
     if (exp)
     {
@@ -99,60 +99,7 @@ static bool hasForName(SgExpression *exp, const string &forName)
     }
 
     return false;
-}
-
-static int hasTextualInclude(SgExpression *exp, const string &varName)
-{
-    string stringExp = exp->unparse();
-    int count = 0;
-    auto pos = stringExp.find(varName, 0);
-
-    while (pos != string::npos)
-    {
-        ++count;
-        pos = stringExp.find(varName, pos + 1);
-        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
-    }
-
-    return count;
-}
-
-static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
-{
-    if (exp == remoteExp)
-        return true;
-
-    bool retVal = true;
-
-    while (retVal && exp != NULL && remoteExp != NULL)
-    {
-        if (remoteExp->lhs())
-            if (remoteExp->lhs()->variant() != DDOT)
-                retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
-
-        exp = exp->rhs();
-        remoteExp = remoteExp->rhs();
-    }
-
-    return retVal;
-}
-
-static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
-{
-    if (exp)
-    {
-        SgExpression *lhs = exp->lhs();
-        SgExpression *rhs = exp->rhs();
-
-        if (exp->variant() == ARRAY_REF && string(exp->symbol()->identifier()) == remoteExp->symbol()->identifier())
-            if (isRemoteExpressions(exp->lhs(), remoteExp->lhs(), collection))
-                return true;
-
-        return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
-    }
-
-    return false;
-}
+}*/
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
@@ -373,6 +320,60 @@ static bool checkShadowAcross(SgStatement *st,
     return retVal;
 }
 
+
+static int hasTextualInclude(SgExpression *exp, const string &varName)
+{
+    string stringExp = exp->unparse();
+    int count = 0;
+    auto pos = stringExp.find(varName, 0);
+
+    while (pos != string::npos)
+    {
+        ++count;
+        pos = stringExp.find(varName, pos + 1);
+        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
+    }
+
+    return count;
+}
+
+static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
+{
+    if (exp == remoteExp)
+        return true;
+
+    bool retVal = true;
+
+    while (retVal && exp != NULL && remoteExp != NULL)
+    {
+        if (remoteExp->lhs())
+            if (remoteExp->lhs()->variant() != DDOT)
+                retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
+
+        exp = exp->rhs();
+        remoteExp = remoteExp->rhs();
+    }
+
+    return retVal;
+}
+
+static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
+{
+    if (exp)
+    {
+        SgExpression *lhs = exp->lhs();
+        SgExpression *rhs = exp->rhs();
+
+        if (exp->variant() == ARRAY_REF && string(exp->symbol()->identifier()) == remoteExp->symbol()->identifier())
+            if (isRemoteExpressions(exp->lhs(), remoteExp->lhs(), collection))
+                return true;
+
+        return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
+    }
+
+    return false;
+}
+
 static bool checkRemote(SgStatement *st,
                         SgStatement *attributeStatement,
                         const map<pair<SgSymbol*, string>, Expression*> &remote,
@@ -442,9 +443,9 @@ static bool checkRemote(SgStatement *st,
 
                             if (retVal && forVarsCount > 1 || forVar.second > 1)
                             {
-                                __spf_print(1, "bad directive expression: too many for variables on line %d\n", attributeStatement->lineNumber());
+                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
                                 string message;
-                                __spf_printToBuf(message, "bad directive expression: too many for variables");
+                                __spf_printToBuf(message, "bad directive expression: too many DO variables");
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                                 retVal = false;
                             }
@@ -491,26 +492,16 @@ static bool checkRemote(SgStatement *st,
                     remoteExp = remoteExp->rhs();
                 }
             }
-
-            //SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+                        
             SgStatement *iterator = st;
             SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
 
             while (iterator != end)
             {
-                //print(1, "%s\n", iterator->unparse());
                 map<SgExpression*, string> collection;
                 for (int i = 0; i < 3; ++i)
-                {
-                    if (iterator->expr(i))
-                    {
-                        //recExpressionPrint(iterator->expr(i));
-                        //recExpressionPrint(remElem.second);
-                        //__spf_print(1, "%s\n\n", iterator->expr(i)->unparse());
-                    }
                     if (hasRemoteExpressions(iterator->expr(i), remElem.second, collection))
-                        cond = true;
-                }
+                        cond = true;                
 
                 iterator = iterator->lexNext();
             }
