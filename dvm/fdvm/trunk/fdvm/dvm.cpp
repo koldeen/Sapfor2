@@ -3567,23 +3567,24 @@ EXEC_PART_:
 	    break;
 
        case DVM_LOCALIZE_DIR:
-            { 
-              int iaxis=1;
-              int rank=Rank(stmt->expr(1)->symbol());
-              SgExpression *ei;    
-              if(!INTERFACE_RTS2)
-              {
-                 warn("LOCALIZE directive is ignored, -Opl2 option should be specified",621,stmt);
-                 pstmt = addToStmtList(pstmt, stmt);
-                 break;
-              }
-              for(ei=stmt->expr(1)->lhs(); ei; ei=ei->rhs(),iaxis++)
-                 if(ei->lhs()->variant() == DDOT)
-                    break; 
-             doCallAfter(IndirectLocalize(stmt->expr(0),HeaderRef(stmt->expr(1)->symbol()),iaxis));
-             Extract_Stmt(stmt);
-             stmt = cur_st;
-             break;
+          { 
+            int iaxis=1;
+            int rank=Rank(stmt->expr(1)->symbol());
+            SgExpression *ei;    
+            if(!INTERFACE_RTS2)
+            {
+               warn("LOCALIZE directive is ignored, -Opl2 option should be specified",621,stmt);
+               pstmt = addToStmtList(pstmt, stmt);
+               break;
+            }
+            LINE_NUMBER_AFTER(stmt,stmt);
+            for(ei=stmt->expr(1)->lhs(); ei; ei=ei->rhs(),iaxis++)
+               if(ei->lhs()->variant() == DDOT)
+                  break; 
+            doCallAfter(IndirectLocalize(stmt->expr(0),HeaderRef(stmt->expr(1)->symbol()),iaxis));
+            Extract_Stmt(stmt);
+            stmt = cur_st;
+            break;
             }
            
        case DVM_SHADOW_ADD_DIR:
@@ -3593,6 +3594,7 @@ EXEC_PART_:
                pstmt = addToStmtList(pstmt, stmt);
                break;
             }
+            LINE_NUMBER_AFTER(stmt,stmt);
             Shadow_Add_Directive(stmt);
             Extract_Stmt(stmt);
             stmt = cur_st;
