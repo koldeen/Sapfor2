@@ -1473,13 +1473,21 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                 CBasicBlock* tmp2 = start;
                 for (int i = 1; i < target->getBBno() || i < list->getBBno(); i++)
                 {
-                    if (i < list->getBBno())
+                    if (i < list->getBBno()) {
                         tmp2 = tmp2->getLexNext();
-                    if (i < target->getBBno())
+                        if (!tmp2)
+                            break;
+                    }
+                    if (i < target->getBBno()) {
                         tmp1 = tmp1->getLexNext();
+                        if (!tmp1)
+                            break;
+                    }
                 }
-                tmp1->addToPrev(tmp2);
-                tmp2->addToSucc(tmp1);
+                if (tmp1 && tmp2) {
+                    tmp1->addToPrev(tmp2);
+                    tmp2->addToSucc(tmp1);
+                }
 //            }
         }
         list = list->getNext();
