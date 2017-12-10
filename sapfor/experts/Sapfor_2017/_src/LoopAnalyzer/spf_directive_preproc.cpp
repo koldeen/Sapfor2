@@ -257,8 +257,10 @@ static bool checkReduction(SgStatement *st,
             }
         }
 
-        reductionVar.insert(redElem.first, vars);
-        reductionArr.insert(redElem.first, arrs);
+        reductionVar.insert(reductionVar.begin(), make_pair(redElem.first, vars));
+        reductionArr.insert(reductionArr.begin(), make_pair(redElem.first, arrs));
+        //reductionVar.insert(make_pair(redElem.first, vars));
+        //reductionArr.insert(make_pair(redElem.first, arrs));
 
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
