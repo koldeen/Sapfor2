@@ -117,6 +117,14 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
     currM.push_back(Messages(WARR, line, message));
 }
 
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message)
+{
+    vector<Messages> &currM = getMessagesForFile(fileName);
+    __spf_print(1, "NOTE: line %d: %s\n", line, message);
+
+    currM.push_back(Messages(NOTE, line, message));
+}
+
 static bool isDone(const int curr_regime)
 {
     if (PASSES_DONE[curr_regime] == 0)
@@ -532,8 +540,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == MACRO_EXPANSION)
-            doMacroExpand(file, getMessagesForFile(file_name));
-
+            doMacroExpand(file, getMessagesForFile(file_name));    
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -1063,8 +1070,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            if (staticPrivateAnalysis)
-                runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
+            //runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
@@ -1107,6 +1113,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
         else
             __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
+        break;
+    case PRIVATE_ANALYSIS_SPF:
+        if (staticPrivateAnalysis)
+            runAnalysis(*project, curr_regime, false);
         break;
     default:
         runAnalysis(*project, curr_regime, false);

@@ -83,76 +83,6 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     return retVal;
 }
 
-static bool hasForName(SgExpression *exp, const string &forName)
-{
-    if (exp)
-    {
-        SgSymbol *symb = exp->symbol();
-        SgExpression *lhs = exp->lhs();
-        SgExpression *rhs = exp->rhs();
-
-        if (symb)
-            if (string(symb->identifier()) == forName)
-                return true;
-
-        return hasForName(lhs, forName) || hasForName(rhs, forName);
-    }
-
-    return false;
-}
-
-static int hasTextualInclude(SgExpression *exp, const string &varName)
-{
-    string stringExp = exp->unparse();
-    int count = 0;
-    auto pos = stringExp.find(varName, 0);
-
-    while (pos != string::npos)
-    {
-        ++count;
-        pos = stringExp.find(varName, pos + 1);
-        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
-    }
-
-    return count;
-}
-
-static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
-{
-    if (exp == remoteExp)
-        return true;
-
-    bool retVal = true;
-
-    while (retVal && exp != NULL && remoteExp != NULL)
-    {
-        if (remoteExp->lhs()->variant() != DDOT)
-           retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
-
-        exp = exp->rhs();
-        remoteExp = remoteExp->rhs();
-    }
-
-    return retVal;
-}
-
-static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
-{
-    if (exp)
-    {
-        SgExpression *lhs = exp->lhs();
-        SgExpression *rhs = exp->rhs();
-
-        if (exp->variant() == ARRAY_REF && string(exp->symbol()->identifier()) == remoteExp->symbol()->identifier())
-            if (isRemoteExpressions(exp->lhs(), remoteExp->lhs(), collection))
-                return true;
-
-        return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
-    }
-
-    return false;
-}
-
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
                          const set<SgSymbol*> &privates,
@@ -289,104 +219,48 @@ static bool checkReduction(SgStatement *st,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(MIN/MAXLOC(VAR, ARRAY, CONST))
-    const int var = st->variant();
     bool retVal = true;
+    map<string, set<SgSymbol*>> reductionVar;
+    map<string, set<SgSymbol*>> reductionArr;
 
-    if (var == FOR_NODE)
+    for (auto &redElem : reduction)
     {
-        SgStatement *iterator = st->lexNext();
-        SgStatement *end = st->lastNodeOfStmt();
-        set<SgSymbol*> varDef;
-        set<SgSymbol*> varUse;
+        set<SgSymbol*> vars;
+        set<SgSymbol*> arrs;
 
-        while (iterator != end)
+        for (auto &setElem : redElem.second)
         {
-            fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef);
-            fillVars(iterator->expr(1), { ARRAY_REF, VAR_REF }, varUse);
-            fillVars(iterator->expr(2), { ARRAY_REF, VAR_REF }, varUse);
-            iterator = iterator->lexNext();
-        }
+            vars.insert(std::get<0>(setElem));
+            arrs.insert(std::get<1>(setElem));
 
-        for (auto &redElem : reduction)
-        {
-            for (auto &setElem : redElem.second)
+            // TODO: FIND ARRAY DECLARATION && ADD CHECKING DIMENTION
+            SgSymbol *arraySymbol = std::get<1>(setElem);
+            SgStatement *declStatement = declaratedInStmt(arraySymbol);
+            SgArrayType *arrayType = NULL;
+
+            if (arraySymbol->type())
+                arrayType = isSgArrayType(arraySymbol->type());
+
+            if (arrayType)
             {
-                bool varDefCond = true;
-                bool varUseCond = true;
-                bool arrDefCond = true;
-                bool arrUseCond = true;
+                int dim = arrayType->dimension();
+                int count = std::get<2>(setElem);
 
-                if (varDef.find(std::get<0>(setElem)) == varDef.end())
-                    varDefCond = false;
-                if (varDef.find(std::get<1>(setElem)) == varDef.end())
-                    arrDefCond = false;
-                if (varUse.find(std::get<0>(setElem)) == varUse.end())
-                    varUseCond = false;
-                if (varUse.find(std::get<1>(setElem)) == varUse.end())
-                    arrUseCond = false;
-
-                // TODO: FIND ARRAY DECLARATION && ADD CHECKING DIMENTION
-                SgSymbol *arraySymbol = std::get<1>(setElem);
-                SgStatement *declStatement = declaratedInStmt(arraySymbol);
-                SgArrayType *arrayType = NULL;
-
-                if (arraySymbol->type())
-                    arrayType = isSgArrayType(arraySymbol->type());
-
-                if (arrayType)
+                if (dim < count)
                 {
-                    int dim = arrayType->dimension();
-                    int count = std::get<2>(setElem);
-                    if (dim < count)
-                    {
-                        __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), count, attributeStatement->lineNumber());
-                        string message;
-                        __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), count);
-                        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                        retVal = false;
-                    }
-                }
-
-                if (var == FOR_NODE && !varDefCond && !varUseCond)
-                {
-                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", std::get<0>(setElem)->identifier(), attributeStatement->lineNumber());
+                    __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), count, attributeStatement->lineNumber());
                     string message;
-                    __spf_printToBuf(message, "variable '%s' is not used in loop", std::get<0>(setElem)->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
-                }
-                if (var == FOR_NODE && !arrDefCond && !arrUseCond)
-                {
-                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", std::get<1>(setElem)->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not used in loop", std::get<1>(setElem)->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
-                }
-                if (var == FOR_NODE && !varDefCond && varUseCond)
-                {
-                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", std::get<0>(setElem)->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not changed in loop", std::get<0>(setElem)->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                    retVal = false;
-                }
-                if (var == FOR_NODE && !arrDefCond && arrUseCond)
-                {
-                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", std::get<1>(setElem)->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not changed in loop", std::get<1>(setElem)->identifier());
+                    __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), count);
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                     retVal = false;
                 }
             }
         }
-    }
-    else
-    {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-        retVal = false;
+
+        reductionVar.insert(redElem.first, vars);
+        reductionArr.insert(redElem.first, arrs);
+
+        retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
 
     return true;
@@ -438,6 +312,7 @@ static bool checkShadowAcross(SgStatement *st,
             if (arrayType)
             {
                 int dim = arrayType->dimension();
+
                 if (dim != arrayDisc.size())
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
@@ -479,6 +354,60 @@ static bool checkShadowAcross(SgStatement *st,
     }
 
     return retVal;
+}
+
+
+static int hasTextualInclude(SgExpression *exp, const string &varName)
+{
+    string stringExp = exp->unparse();
+    int count = 0;
+    auto pos = stringExp.find(varName, 0);
+
+    while (pos != string::npos)
+    {
+        ++count;
+        pos = stringExp.find(varName, pos + 1);
+        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
+    }
+
+    return count;
+}
+
+static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
+{
+    if (exp == remoteExp)
+        return true;
+
+    bool retVal = true;
+
+    while (retVal && exp != NULL && remoteExp != NULL)
+    {
+        if (remoteExp->lhs())
+            if (remoteExp->lhs()->variant() != DDOT)
+                retVal = retVal && isEqExpressions(exp->lhs(), remoteExp->lhs(), collection);
+
+        exp = exp->rhs();
+        remoteExp = remoteExp->rhs();
+    }
+
+    return retVal;
+}
+
+static bool hasRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
+{
+    if (exp)
+    {
+        SgExpression *lhs = exp->lhs();
+        SgExpression *rhs = exp->rhs();
+
+        if (exp->variant() == ARRAY_REF && string(exp->symbol()->identifier()) == remoteExp->symbol()->identifier())
+            if (isRemoteExpressions(exp->lhs(), remoteExp->lhs(), collection))
+                return true;
+
+        return hasRemoteExpressions(lhs, remoteExp, collection) || hasRemoteExpressions(rhs, remoteExp, collection);
+    }
+
+    return false;
 }
 
 static bool checkRemote(SgStatement *st,
@@ -550,9 +479,9 @@ static bool checkRemote(SgStatement *st,
 
                             if (retVal && forVarsCount > 1 || forVar.second > 1)
                             {
-                                __spf_print(1, "bad directive expression: too many for variables on line %d\n", attributeStatement->lineNumber());
+                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
                                 string message;
-                                __spf_printToBuf(message, "bad directive expression: too many for variables");
+                                __spf_printToBuf(message, "bad directive expression: too many DO variables");
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                                 retVal = false;
                             }
@@ -599,26 +528,16 @@ static bool checkRemote(SgStatement *st,
                     remoteExp = remoteExp->rhs();
                 }
             }
-
-            //SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+                        
             SgStatement *iterator = st;
             SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
 
             while (iterator != end)
             {
-                //print(1, "%s\n", iterator->unparse());
                 map<SgExpression*, string> collection;
                 for (int i = 0; i < 3; ++i)
-                {
-                    if (iterator->expr(i))
-                    {
-                        //recExpressionPrint(iterator->expr(i));
-                        //recExpressionPrint(remElem.second);
-                        //__spf_print(1, "%s\n\n", iterator->expr(i)->unparse());
-                    }
                     if (hasRemoteExpressions(iterator->expr(i), remElem.second, collection))
-                        cond = true;
-                }
+                        cond = true;                
 
                 iterator = iterator->lexNext();
             }

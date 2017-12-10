@@ -1131,7 +1131,7 @@ static void findArrayRefs(SgExpression *ex,
         {
             if (symb->type()->variant() == T_ARRAY)
             {
-                SgStatement *decl = isExecutable ? declaratedInStmt(symb) : declSt;
+                SgStatement *decl = declaratedInStmt(symb);
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<int, string> arrayLocation;
@@ -1165,12 +1165,14 @@ static void findArrayRefs(SgExpression *ex,
 
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
-                else
-                    itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
-
+                
+                if (!isExecutable)
+                    itNew->second.first->AddDeclInfo(make_pair(declSt->fileName(), declSt->lineNumber()));
+                itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
+                
                 if (isExecutable)
                     itNew->second.second->AddAccessInfo(make_pair(declSt->lineNumber(), isWrite ? 1 : 0), declSt->fileName());
-
+                
                 auto itDecl = declaratedArraysSt.find(decl);
                 if (itDecl == declaratedArraysSt.end())
                     itDecl = declaratedArraysSt.insert(itDecl, make_pair(decl, set<tuple<int, string, string>>()));
@@ -1228,8 +1230,10 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
 {
     for (auto &loop : loops)
     {
+        SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
+        spfStat->setlineNumber(loop->lineNum);
         if (!loop->hasLimitsToParallel())
-            loop->loop->addAttribute(SPF_ANALYSIS_DIR, new SgStatement(SPF_ANALYSIS_DIR), sizeof(SgStatement));        
+            loop->loop->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
         insertSpfAnalysisBeforeParalleLoops(loop->childs);
     }
 }

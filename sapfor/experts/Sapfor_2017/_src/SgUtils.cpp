@@ -486,7 +486,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
             start = start->lexNext();
         }
     }
-
+    
     if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
@@ -509,7 +509,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    //return statement y priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
+    //return statement by priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
     if (inDecl.size() > 1)
     {
         for (int i = 0; i < inDecl.size(); ++i)
@@ -603,19 +603,19 @@ void getCommonBlocksRef(map<string, vector<SgStatement*>> &commonBlocks, SgState
     }
 }
 
-static bool isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
+static SgExpression* isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
 {
-    SgExpression *exp = commonBlock->expr(0);
-    exp = exp->lhs();
-    commonPos = 0;
-    while (exp)
+    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
     {
-        if (!strcmp(exp->lhs()->symbol()->identifier(), arrayName))
-            return true;
-        commonPos++;
-        exp = exp->rhs();
+        commonPos = 0;
+        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+        {            
+            if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
+                return exp;
+            commonPos++;
+        }
     }
-    return false;
+    return NULL;
 }
 
 map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
@@ -653,10 +653,10 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &
         {
             for (auto &pos : common.second)
             {
-                inCommon = isInCommon(pos, symb->identifier(), commonPos);
-                if (inCommon)
+                foundCommon = isInCommon(pos, symb->identifier(), commonPos);
+                if (foundCommon)
                 {
-                    foundCommon = pos->expr(0);
+                    inCommon = true;
                     break;
                 }
             }
