@@ -359,6 +359,24 @@ static bool checkShadowAcross(SgStatement *st,
 }
 
 
+static int hasName(SgExpression *exp, const string &varName)
+{
+    if (exp)
+    {
+        SgSymbol *symb = exp->symbol();
+        SgExpression *lhs = exp->lhs();
+        SgExpression *rhs = exp->rhs();
+
+        if (symb)
+            if (string(symb->identifier()) == varName)
+                return 1;
+
+        return hasName(lhs, varName) + hasName(rhs, varName);
+    }
+
+    return 0;
+}
+
 static int hasTextualInclude(SgExpression *exp, const string &varName)
 {
     string stringExp = exp->unparse();
@@ -369,7 +387,6 @@ static int hasTextualInclude(SgExpression *exp, const string &varName)
     {
         ++count;
         pos = stringExp.find(varName, pos + 1);
-        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
     }
 
     return count;
@@ -474,7 +491,7 @@ static bool checkRemote(SgStatement *st,
 
                     for (auto &forVar : forVars)
                     {
-                        if (hasTextualInclude(remoteExp->lhs(), forVar.first))
+                        if (hasName(remoteExp->lhs(), forVar.first))
                         {
                             ++forVarsCount;
                             ++forVar.second;
@@ -494,26 +511,26 @@ static bool checkRemote(SgStatement *st,
 
                             if (list->variant() == ADD_OP)
                             {
-                                if (list->lhs()->variant() == MULT_OP && !hasTextualInclude(list->rhs(), forVar.first))
+                                if (list->lhs()->variant() == MULT_OP && !hasName(list->rhs(), forVar.first))
                                 {
-                                    if (hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                    if (hasName(list->lhs(), forVar.first) == 1)
                                         isRemoteSubTreeCond = true;
                                 }
-                                else if (list->rhs()->variant() == MULT_OP && !hasTextualInclude(list->lhs(), forVar.first))
+                                else if (list->rhs()->variant() == MULT_OP && !hasName(list->lhs(), forVar.first))
                                 {
-                                    if (hasTextualInclude(list->rhs(), forVar.first) == 1)
+                                    if (hasName(list->rhs(), forVar.first) == 1)
                                         isRemoteSubTreeCond = true;
                                 }
-                                else if (hasTextualInclude(list, forVar.first) == 1)
+                                else if (hasName(list, forVar.first) == 1)
                                     isRemoteSubTreeCond = true;
                             }
                             else if (list->variant() == MULT_OP)
                             {
-                                if (!hasTextualInclude(list->lhs(), forVar.first) && hasTextualInclude(list->rhs(), forVar.first) == 1 ||
-                                    !hasTextualInclude(list->rhs(), forVar.first) && hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                if (!hasName(list->lhs(), forVar.first) && hasName(list->rhs(), forVar.first) == 1 ||
+                                    !hasName(list->rhs(), forVar.first) && hasName(list->lhs(), forVar.first) == 1)
                                     isRemoteSubTreeCond = true;
                             }
-                            else if (hasTextualInclude(list, forVar.first) == 1)
+                            else if (hasName(list, forVar.first) == 1)
                                 isRemoteSubTreeCond = true;
 
                             if (!isRemoteSubTreeCond)
