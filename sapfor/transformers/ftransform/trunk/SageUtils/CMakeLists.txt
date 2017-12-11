@@ -33,6 +33,7 @@ set(SOURCE_LIB
         ./src/SageUtils.cpp
         ./src/SageTransformUtils.cpp
         ./src/decodeStmtVariant.cpp
+        ./src/LineReorderRecord.cpp
         ./src/LineReorderer.cpp
         )
 set(EXT_PROJECTS_DIR ${PROJECT_SOURCE_DIR}/ext)

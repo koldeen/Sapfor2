@@ -28,6 +28,10 @@ add_executable(StubTest.exe ${SAGE_UTILS_PATH}/StubTest.cpp)
 target_link_libraries(StubTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(StubTest StubTest.exe)
 
-add_executable(LoopTransformTighten.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp)
-target_link_libraries(LoopTransformTighten.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
-add_test(LoopTransformTighten LoopTransformTighten.exe)
+add_executable(LineReordererTest.exe ${SAGE_UTILS_PATH}/LineReordererTest.cpp)
+target_link_libraries(StubTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+add_test(LineReordererTest LineReordererTest.exe)
+
+#add_executable(LoopTransformTighten.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp)
+#target_link_libraries(LoopTransformTighten.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+#add_test(LoopTransformTighten LoopTransformTighten.exe)

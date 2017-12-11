@@ -6,13 +6,12 @@
 #define FTRANSFORM_LINEREORDERER_HPP
 
 #include "LineReorderRecord.hpp"
-#include "../../../../../../dvm/fdvm/trunk/Sage/lib/include/libSage++.h"
+#include <user.h>
 
 namespace SageTransform {
     class LineReorderer {
-    public:        
-        static void apply(SgStatement *baseStatement, LineReorderRecord * lrr);
-    };
+    public:
+        static void apply(SgStatement *baseStatement, LineReorderRecord &lrr);    };
 }
 
 #endif //FTRANSFORM_LINEREORDERER_HPP

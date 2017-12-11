@@ -12,13 +12,31 @@ namespace SageTransform {
     private: //fields
         //first int is original line number, second is new line number relative to some base
         std::map<int, int> relativeMoves;
+        int maxSourceInt;
+
+        //todo impl continuity checks
     public: //methods
-        void addMove(int originalLineNum, int newLineNum);
         /**
-         * Build map with info how to reverse its reorder record.
-         * @return map<new line number, original line number> relative to some base
+         * Store new source code line movement
+         * @param originalLineNum relative to some position
+         * @param newLineNum relative to same position
          */
-        std::map<int, int> buildReverse();
+        void addMove(int originalLineNum, int newLineNum);
+
+        /**
+         * Build a reverse LineReorderRecord that undos current one.
+         * @return LineReorderRecord that reverts this
+         */
+        LineReorderRecord buildReverse();
+
+        /**
+         * Get stored line movements.
+         * @return map<original line position, new line position> relative to some base
+         */
+        const std::map<int, int> *getMoves() { return &relativeMoves; };
+
+        int getMaxLineNumber() { return maxSourceInt; }
+
     private: //methods
     };
 }

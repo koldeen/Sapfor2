@@ -9,12 +9,15 @@ using std::map;
 
 void LineReorderRecord::addMove(int originalLineNum, int newLineNum) {
     relativeMoves.insert({originalLineNum, newLineNum});
+    if (originalLineNum > maxSourceInt) {
+        maxSourceInt = originalLineNum;
+    }
 }
 
-map<int, int> LineReorderRecord::buildReverse() {
-    map<int, int> result;
-    for (auto const& x : relativeMoves) {
-        result.insert({x.second, x.first});
+LineReorderRecord LineReorderRecord::buildReverse() {
+    LineReorderRecord result;
+    for (auto const &x : relativeMoves) {
+        result.addMove(x.second, x.first);
     }
     return result;
 }
