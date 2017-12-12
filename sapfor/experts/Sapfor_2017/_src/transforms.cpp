@@ -693,7 +693,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         set<int> idxToDel;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
-            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0 || parallelRegions[z]->GetReducedGraph().GetNumberOfE() == 0)
+            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
                 idxToDel.insert(z);
@@ -1067,6 +1067,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
@@ -1075,10 +1076,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
 
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);            
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
-            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);            
+            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
         }
     }
         break;

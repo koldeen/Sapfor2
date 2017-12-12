@@ -49,5 +49,4 @@ bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-#define INSERT_AS_COMMENT 0 // deprecated, need to be remove with value == 0
-#define VERSION "448"
+#define VERSION "454"

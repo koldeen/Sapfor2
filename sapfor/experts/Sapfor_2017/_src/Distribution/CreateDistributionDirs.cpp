@@ -164,7 +164,15 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
     map<DIST::Array*, int> trees;
     map<int, vector<DIST::Array*>> convTrees;
 
-    const int countTrees = reducedG.FindAllArraysTrees(trees, allArrays);
+    int countTrees = reducedG.FindAllArraysTrees(trees, allArrays);
+    //create one tree for all array that not found
+    for (auto &array : allArrays.GetArrays())
+    {
+        auto it = trees.find(array);
+        if (it == trees.end())
+            trees.insert(it, make_pair(array, countTrees++));
+    }
+
     convertTrees(trees, convTrees, arrayLinksByFuncCalls);
         
     vector<DIST::Array*> arraysToDist;

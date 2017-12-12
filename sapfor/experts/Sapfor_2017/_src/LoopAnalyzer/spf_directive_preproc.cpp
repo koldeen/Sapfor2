@@ -101,6 +101,13 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     return false;
 }*/
 
+#define BAD_POSITION(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
+   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
+   string message;\
+   __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message)); \
+} while(0)
+
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
                          const set<SgSymbol*> &privates,
@@ -135,30 +142,37 @@ static bool checkPrivate(SgStatement *st,
             if (varUse.find(privElem) == varUse.end())
                 useCond = false;
 
-            if (var == FOR_NODE && !defCond && !useCond)
+            if (var == FOR_NODE)
             {
-                __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
-                messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                if (!defCond && !useCond)
+                {
+                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                }
+                else if (!defCond && useCond)
+                {
+                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    retVal = false;
+                }
             }
-            if (var == FOR_NODE && !defCond && useCond)
+            else
             {
-                __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                retVal = false;
+                if (!defCond)
+                {
+                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());                    
+                    retVal = false;
+                }
             }
         }
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before variable declaration or DO statement\n", 
-                  attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before variable declaration or DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -221,10 +235,7 @@ static bool checkReduction(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -310,10 +321,7 @@ static bool checkShadowAcross(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -518,10 +526,7 @@ static bool checkRemote(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -623,10 +628,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 const int prevVar = prev->variant();
                 if (prevVar != PROC_HEDR && prevVar != FUNC_HEDR)
                 {
-                    __spf_print(1, "bad directive position on line %d, it can be placed only after function statement\n", attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "bad directive position, it can be placed only after function statement");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
                     retVal = false;
                 }
             }
