@@ -12,7 +12,7 @@ namespace SageTransform {
     private: //fields
         //first int is original line number, second is new line number relative to some base
         std::map<int, int> relativeMoves;
-        int maxSourceInt;
+        int maxSourceInt = -0xFFFF;
 
         //todo impl continuity checks
     public: //methods

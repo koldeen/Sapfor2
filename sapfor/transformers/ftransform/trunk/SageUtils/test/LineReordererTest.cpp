@@ -2,8 +2,8 @@
 // Created by baa on 11.12.17.
 //
 
-#include <LineReorderRecord.hpp>
-#include <LineReorderer.hpp>
+#include "LineReorderRecord.hpp"
+#include "LineReorderer.hpp"
 #include "SignalHandling.hpp"
 #include "gtest/gtest.h"
 
@@ -21,7 +21,7 @@ TEST(LineReordererTest, revertReordering) {
     LineReorderRecord reverseRecord = reorderRecord.buildReverse();
 
     const char *fortranSource = "../../SageUtils/test/LineReordererTest/valid.f90";
-    //todo parse in test itself
+    //todo parse in test itself ??
     const char *sageProject = "../../SageUtils/test/LineReordererTest/valid.proj";
     SgProject *project = new SgProject(sageProject);
     SgFile *file = &project->file(0);

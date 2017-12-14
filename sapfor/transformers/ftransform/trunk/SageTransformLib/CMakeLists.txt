@@ -30,7 +30,6 @@ set(SOURCE_LIB
         ./src/dependency/Dependency.cpp
         ./src/dependency/DependencyInfo.cpp
         ./src/dependency/DependencyInfoGetter.cpp
-        ./src/dependency/DependencyType.cpp
         ./src/dependency/DependencyUtils.cpp
         ./src/LoopTransformBreak.cpp
         ./src/LoopTransformMerge.cpp

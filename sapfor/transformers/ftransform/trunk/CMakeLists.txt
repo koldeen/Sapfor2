@@ -32,20 +32,20 @@ foreach (NameAndValue ${SAPFOR_PATHS})
     message("Using ${Name} ${${Name}}")
 endforeach ()
 
-#set(SOURCE_EXE
-#        ./SageTransformApp/src/main.cpp
-#        ./SageTransformApp/src/LaunchOptions.cpp)
+set(SOURCE_EXE
+        ./SageTransformApp/src/main.cpp
+        ./SageTransformApp/src/LaunchOptions.cpp)
 
 include_directories(./CommonLib/include)
 include_directories(./SageUtils/include)
-#include_directories(./SageTransformLib/include)
-#include_directories(./SageTransformApp/include)
+include_directories(./SageTransformLib/include)
+include_directories(./SageTransformApp/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
-#include_directories(${sapfor2017_include})
-#add_executable(ftransform ${SOURCE_EXE})
+include_directories(${sapfor2017_include})
+add_executable(ftransform ${SOURCE_EXE})
 
 add_subdirectory(CommonLib)
 add_subdirectory(SageUtils)
-#add_subdirectory(SageTransformLib)
+add_subdirectory(SageTransformLib)
 add_subdirectory(test)
-#target_link_libraries(ftransform SageTransformLib SageUtils CommonLib)
+target_link_libraries(ftransform SageTransformLib SageUtils CommonLib)

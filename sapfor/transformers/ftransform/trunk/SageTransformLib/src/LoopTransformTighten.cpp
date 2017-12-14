@@ -106,7 +106,7 @@ int LoopTransformTighten::canTighten(SgForStmt *pForLoop) {
     }
 }
 
-int LoopTransformTighten::canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, DepType> &dependencies) {
+int LoopTransformTighten::canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, DependencyType> &dependencies) {
     int nestDepth = 1;
     SgForStmt *processedLoop = pForLoop;
     while (canTightenSingleLevel(processedLoop, dependencies)) {
@@ -116,6 +116,7 @@ int LoopTransformTighten::canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, D
     return nestDepth;
 }
 
+/*
 int LoopTransformTighten::canTighten(SgForStmt *outerLoop,
                                      std::pair<SgForStmt *, depGraph *> &outerLoopDeps,
                                      std::pair<SgForStmt *, depGraph *> &innerLoopDeps) {
@@ -138,9 +139,10 @@ int LoopTransformTighten::canTighten(SgForStmt *outerLoop,
     }
     return canTighten(outerLoop, depMap);
 }
+*/
 
 bool
-LoopTransformTighten::canTightenSingleLevel(SgForStmt *outerLoop, std::map<SgSymbol *, DepType> &dependencies) {
+LoopTransformTighten::canTightenSingleLevel(SgForStmt *outerLoop, std::map<SgSymbol *, DependencyType> &dependencies) {
     SgStatement *outerEnddo = SageUtils::getLastLoopStatement(outerLoop);
     SgForStmt *innerLoop = lexNextLoop(outerLoop->lexNext(), outerEnddo);
     if (innerLoop != NULL) {
@@ -159,7 +161,7 @@ LoopTransformTighten::canTightenSingleLevel(SgForStmt *outerLoop, std::map<SgSym
 }
 
 bool LoopTransformTighten::validateInvariantStatementBeforeLoop(SgStatement *invBegin, SgStatement *invEnd,
-                                                                std::map<SgSymbol *, DepType> &dependencies) {
+                                                                std::map<SgSymbol *, DependencyType> &dependencies) {
     //by type check
     SgStatement *stmt = invBegin;
     bool allAssignment = true;
@@ -174,8 +176,8 @@ bool LoopTransformTighten::validateInvariantStatementBeforeLoop(SgStatement *inv
             SgAssignStmt *assignStmt = isSgAssignStmt(stmt);
             SgSymbol *symbol = assignStmt->lhs()->symbol();
             hasFlowDep = hasFlowDep
-                         || get(dependencies, symbol, -123) == DependencyType::FLOW_DEP
-                         || get(dependencies, symbol, -123) == DependencyType::UNKNOWN_DEP;
+                         || get(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::FLOW_DEP
+                         || get(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::UNKNOWN_DEP;
             stmt = stmt->lexNext();
         }
         if (hasFlowDep) {
@@ -184,9 +186,9 @@ bool LoopTransformTighten::validateInvariantStatementBeforeLoop(SgStatement *inv
             while (stmt != invEnd && noAntiOrOutputDep) {
                 SgAssignStmt *assignStmt = isSgAssignStmt(stmt);
                 SgSymbol *symbol = assignStmt->lhs()->symbol();
-                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, -123) == DependencyType::ANTI_DEP;
-                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, -123) == DependencyType::OUTPUT_DEP;
-                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, -123) == DependencyType::UNKNOWN_DEP;
+                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::ANTI_DEP;
+                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::OUTPUT_DEP;
+                noAntiOrOutputDep = noAntiOrOutputDep && get(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::UNKNOWN_DEP;
                 stmt = stmt->lexNext();
             }
             if (noAntiOrOutputDep) {
@@ -206,7 +208,7 @@ bool LoopTransformTighten::validateInvariantStatementBeforeLoop(SgStatement *inv
 }
 
 bool LoopTransformTighten::validateInvariantStatementAfterLoop(SgStatement *invBegin, SgStatement *invEnd,
-                                                               std::map<SgSymbol *, DepType> &dependencies) {
+                                                               std::map<SgSymbol *, DependencyType> &dependencies) {
     if (invBegin == invEnd) {
         string msg = "No invariants after loop";
         this->addMessage(0, invBegin->lineNumber(), msg);
