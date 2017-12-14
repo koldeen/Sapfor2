@@ -168,9 +168,15 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
     //create one tree for all array that not found
     for (auto &array : allArrays.GetArrays())
     {
-        auto it = trees.find(array);
-        if (it == trees.end())
-            trees.insert(it, make_pair(array, countTrees++));
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+        for (auto &realArray : realRefs)
+        {
+            auto it = trees.find(realArray);
+            if (it == trees.end())
+                trees.insert(it, make_pair(realArray, ++countTrees));
+        }
     }
 
     convertTrees(trees, convTrees, arrayLinksByFuncCalls);

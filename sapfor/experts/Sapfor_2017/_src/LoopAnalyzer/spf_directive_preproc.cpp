@@ -661,7 +661,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-void preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
@@ -696,8 +696,7 @@ void preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     findModulesInFile(file, modules);
     bool result = processModules(modules, currFile, messagesForFile);
     noError = noError && result;
-
-    //TODO: add error return for visualizer
+    return noError;
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,

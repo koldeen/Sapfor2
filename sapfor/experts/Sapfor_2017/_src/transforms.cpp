@@ -389,7 +389,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == PREPROC_SPF)
-            preprocess_spf_dirs(file, getMessagesForFile(file_name));
+        {
+            bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)

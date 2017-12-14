@@ -49,4 +49,4 @@ bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-#define VERSION "454"
+#define VERSION "458"
