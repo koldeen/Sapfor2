@@ -1511,9 +1511,6 @@ namespace Distribution
     void GraphCSR<vType, wType, attrType>::
          FindLinkWithMaxDim(const vType from, const Arrays<vType> &allArrays, pair<Array*, int> &result, set<int> &wasDone)
     {
-        if (numVerts == 0)
-            return;
-
         const vType v = localIdx[from];
         if (v == -1)
             return;

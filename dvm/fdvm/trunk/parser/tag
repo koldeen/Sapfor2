@@ -229,11 +229,7 @@
 #define DVM_IO_MODE_DIR          632	/* DVM-F */
 #define DVM_LOCALIZE_DIR         633    /* DVM-F */
 #define DVM_SHADOW_ADD_DIR       634    /* DVM-F */
-#define DVM_CP_CREATE_DIR        635	/* DVM-F */ 
-#define DVM_CP_LOAD_DIR          636	/* DVM-F */
-#define DVM_CP_SAVE_DIR          637	/* DVM-F */
-#define DVM_CP_WAIT_DIR          638	/* DVM-F */
-     
+      
 /***************** variant tags for low level nodes ********************/
 
 #define INT_VAL			300

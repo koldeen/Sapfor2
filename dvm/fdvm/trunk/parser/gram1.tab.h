@@ -365,15 +365,8 @@
      SPF_NOINLINE = 324,
      SPF_PARALLEL_REG = 325,
      SPF_END_PARALLEL_REG = 326,
-     CP_CREATE = 327,
-     CP_LOAD = 328,
-     CP_SAVE = 329,
-     CP_WAIT = 330,
-     FILES = 331,
-     VARLIST = 332,
-     STATUS = 333,
-     BINARY_OP = 336,
-     UNARY_OP = 337
+     BINARY_OP = 329,
+     UNARY_OP = 330
    };
 #endif
 /* Tokens.  */
@@ -703,22 +696,15 @@
 #define SPF_NOINLINE 324
 #define SPF_PARALLEL_REG 325
 #define SPF_END_PARALLEL_REG 326
-#define CP_CREATE 327
-#define CP_LOAD 328
-#define CP_SAVE 329
-#define CP_WAIT 330
-#define FILES 331
-#define VARLIST 332
-#define STATUS 333
-#define BINARY_OP 336
-#define UNARY_OP 337
+#define BINARY_OP 329
+#define UNARY_OP 330
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 416 "gram1.y"
+#line 409 "gram1.y"
 {
     int token;
     char charv;
@@ -731,7 +717,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 735 "gram1.tab.h"
+#line 721 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -82,7 +82,7 @@ namespace Distribution
             return currLink;
         }
 
-        VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
+        VECTOR<PAIR<int, int>> shadowSpec;
     public:
         Array()
         {
@@ -96,6 +96,9 @@ namespace Distribution
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
+            shadowSpec.resize(dimSize);
+            for (int i = 0; i < dimSize; ++i)
+                shadowSpec[i] = std::make_pair(0, 0);
         }
 
         int GetDimSize() const { return dimSize; }
@@ -157,41 +160,16 @@ namespace Distribution
         const SET<PAIR<STRING, int>>& GetDeclInfo() const { return declPlaces; }
         void AddDeclInfo(const PAIR<STRING, int> &declInfo) { declPlaces.insert(declInfo); }
 
-        //save request of shadow spec
-        void ExtendShadowSpec(const VECTOR<PAIR<int, int>> &newSpec) { allShadowSpecs.push_back(newSpec); }
-        
-        //remove last requst of shadow spec
-        void RemoveShadowSpec(const VECTOR<PAIR<int, int>> &newSpec)
+        void ExtendShadowSpec(const VECTOR<PAIR<int, int>> &newSpec)
         {
-            for (int i = 0; i < allShadowSpecs.size(); ++i)
-            {
-                if (allShadowSpecs[i] == newSpec)
-                {
-                    allShadowSpecs.erase(allShadowSpecs.begin() + i);
-                    break;
-                }
-            }
-        }
-
-        //construct shadow spec from all requests
-        const VECTOR<PAIR<int, int>> GetShadowSpec() 
-        {
-            VECTOR<PAIR<int, int>> shadowSpec;
-            shadowSpec.resize(dimSize);
             for (int i = 0; i < dimSize; ++i)
-                shadowSpec[i] = std::make_pair(0, 0);
-
-            for (auto &spec : allShadowSpecs)
             {
-                for (int i = 0; i < dimSize; ++i)
-                {
-                    shadowSpec[i].first = std::max(shadowSpec[i].first, spec[i].first);
-                    shadowSpec[i].second = std::max(shadowSpec[i].first, spec[i].second);
-                }
+                shadowSpec[i].first = std::max(shadowSpec[i].first, newSpec[i].first);
+                shadowSpec[i].second = std::max(shadowSpec[i].first, newSpec[i].second);
             }
-
-            return shadowSpec; 
         }
+
+        const VECTOR<PAIR<int, int>> &GetShadowSpec() { return shadowSpec; }
 
         STRING toString()
         {

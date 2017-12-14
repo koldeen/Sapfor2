@@ -11,14 +11,18 @@ using std::list;
 using std::make_pair;
 using std::set;
 
+#define __NEW_ALG 0
+
 #ifdef __SPF
-static void getText(const char *s, const char *t, int num, SgStatement *stmt, string &toPrint, int &line)
+inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
 {
+    string toPrint;
+
     char buf[1024];
-    sprintf(buf, s, t);
+    sprintf(buf, s, t);    
     toPrint = buf;
 
-    line = stmt->lineNumber();
+    int line = stmt->lineNumber();
     if (line == 0)
     {
         line = 1;
@@ -28,25 +32,8 @@ static void getText(const char *s, const char *t, int num, SgStatement *stmt, st
             toPrint += " for this loop";
         }
     }
-
-    if (stmt->variant() == SPF_ANALYSIS_DIR)
-        toPrint += " for this loop";
-}
-
-inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
-{
-    string toPrint;
-    int line;
-    getText(s, t, num, stmt, toPrint, line);
-    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());    
-}
-
-inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
-{
-    string toPrint;
-    int line;
-    getText(s, t, num, stmt, toPrint, line);
-    printLowLevelNote(stmt->fileName(), line, toPrint.c_str());
+    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());
+    
 }
 #endif
 
@@ -1226,7 +1213,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
         case FOR_NODE:
         {
             SgForStmt* fst = isSgForStmt(*stmt);
-#if __SPF
+#if __SPF && __NEW_ALG
             SgStatement *p = NULL;
             for (int i = 0; i < fst->numberOfAttributes(); ++i)
             {
@@ -1245,7 +1232,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             SgExpression* pPl = NULL;
             bool pl_flag = true;
             if (isParLoop){
-#if __SPF
+#if __SPF && __NEW_ALG
                 SgExpression* el = p->expr(0);
 #else
                 SgExpression* el = p->expr(1);
@@ -1286,7 +1273,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             loop_d->setOriginalStatement(fst);
             ControlFlowItem* loop_emp = new ControlFlowItem(NULL, loop_d, currentProcedure);
             if (isParLoop){
-#if __SPF
+#if __SPF && __NEW_ALG
                 // all loop has depth == 1 ? is it correct?
                 int k = 1;
 #else
@@ -1486,21 +1473,13 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                 CBasicBlock* tmp2 = start;
                 for (int i = 1; i < target->getBBno() || i < list->getBBno(); i++)
                 {
-                    if (i < list->getBBno()) {
+                    if (i < list->getBBno())
                         tmp2 = tmp2->getLexNext();
-                        if (!tmp2)
-                            break;
-                    }
-                    if (i < target->getBBno()) {
+                    if (i < target->getBBno())
                         tmp1 = tmp1->getLexNext();
-                        if (!tmp1)
-                            break;
-                    }
                 }
-                if (tmp1 && tmp2) {
-                    tmp1->addToPrev(tmp2);
-                    tmp2->addToSucc(tmp1);
-                }
+                tmp1->addToPrev(tmp2);
+                tmp2->addToSucc(tmp1);
 //            }
         }
         list = list->getNext();
@@ -1763,7 +1742,7 @@ void PrivateDelayedItem::PrintWarnings()
         prl = new SgExpression(ACC_PRIVATE_OP);
         lst->setLhs(prl);
         lst->setRhs(NULL);
-#if __SPF
+#if __SPF && __NEW_ALG
         SgExpression* clauses = prs->expr(0);
 #else
         SgExpression* clauses = prs->expr(1);
@@ -1774,7 +1753,7 @@ void PrivateDelayedItem::PrintWarnings()
             clauses->setRhs(lst);
         }
         else {
-#if __SPF
+#if __SPF && __NEW_ALG
             prs->setExpression(0, *lst);
 #else
             prs->setExpression(1, *lst);
@@ -1809,11 +1788,7 @@ void PrivateDelayedItem::PrintWarnings()
         int stored_fid = current_file_id;
         CurrentProject->file(change_fid);
         current_file_id = change_fid;
-#if __SPF
-        Note("add private scalar '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
-#else
         Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
-#endif
         SgExprListExp* nls = new SgExprListExp();
         SgVarRefExp* nvr = new SgVarRefExp(syb->GetSymbol());
         nls->setLhs(nvr);

@@ -10,7 +10,6 @@
 
 #ifdef __SPF
 extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message);
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message);
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);

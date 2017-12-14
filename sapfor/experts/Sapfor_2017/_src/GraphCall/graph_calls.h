@@ -19,8 +19,25 @@ struct FuncParam
         std::fill(parametersT.begin(), parametersT.end(), NONE_T);
     }
 
+	// mycode
+	std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;
+};
+
+// mycode
+struct NestedFuncCall {
+	std::string CalledFuncName;
+	std::vector<std::vector<int>> NoOfParamUsedForCall;
+
+	NestedFuncCall(std::string funcName) :
+		CalledFuncName(funcName)
+	{}
+
+	NestedFuncCall(std::string funcName, int ParsNum) :
+		CalledFuncName(funcName),
+		NoOfParamUsedForCall(std::vector<std::vector<int>>(ParsNum))
+	{}
 };
 
 struct FuncInfo
@@ -37,6 +54,10 @@ struct FuncInfo
 
     std::vector<FuncInfo*> callsTo;
     FuncParam funcParams;
+	// mycode
+	std::vector<bool> isParamUsedAsIndex; // size = amount of parameters 
+	std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func; 
+													 // if FuncsCalledFromThis[func_call_idx].NoOfParamUsedForCall.size() == 0 - no params of cur func used
 
     bool doNotInline;
     bool doNotAnalyze;

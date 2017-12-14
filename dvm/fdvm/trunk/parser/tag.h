@@ -231,11 +231,7 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ DVM_IO_MODE_DIR ] = "DVM_IO_MODE_DIR";
   tag [ DVM_LOCALIZE_DIR ] = "DVM_LOCALIZE_DIR";
   tag [ DVM_SHADOW_ADD_DIR ] = "DVM_SHADOW_ADD_DIR";
-  tag [ DVM_CP_CREATE_DIR ] = "DVM_CP_CREATE_DIR";
-  tag [ DVM_CP_LOAD_DIR ] = "DVM_CP_LOAD_DIR";
-  tag [ DVM_CP_SAVE_DIR ] = "DVM_CP_SAVE_DIR";
-  tag [ DVM_CP_WAIT_DIR ] = "DVM_CP_WAIT_DIR";
-     
+      
 /***************** variant tags for low level nodes ********************/
 
   tag [ INT_VAL ] = "INT_VAL";

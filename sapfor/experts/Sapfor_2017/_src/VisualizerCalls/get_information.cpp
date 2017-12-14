@@ -18,7 +18,6 @@
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
 
-#include "../errors.h"
 #include "get_information.h"
 #include "dvm.h"
 #include "../transform.h"
@@ -26,6 +25,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../utils.h"
 #include "../transform.h"
+#include "../errors.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
 using std::string;
@@ -239,7 +239,7 @@ int SPF_GetGraphLoops(int *options, short *projName, short *&result, short *&out
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -282,7 +282,7 @@ int SPF_GetGraphFunctions(int *options, short *projName, short *&result, short *
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -442,7 +442,7 @@ int SPF_CreateParallelVariant(int *options, short *projName, short *folderName, 
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -497,44 +497,27 @@ int SPF_GetIncludeDependencies(int *options, short *projName, short *&result)
     string resVal = "";
 
     setOptions(options);
-    int retSize = 0;
-    try
-    {
-        runPassesForVisualizer(projName, { BUILD_INCLUDE_DEPENDENCIES });
+    runPassesForVisualizer(projName, { BUILD_INCLUDE_DEPENDENCIES });
 
-        int i = 0;
-        for (auto &deps : includeDependencies)
+    int i = 0;
+    for (auto &deps : includeDependencies)
+    {
+        if (i != 0)
+            resVal += "@";
+        resVal += deps.first + "@";
+        int k = 0;
+        for (auto &incl : deps.second)
         {
-            if (i != 0)
-                resVal += "@";
-            resVal += deps.first + "@";
-            int k = 0;
-            for (auto &incl : deps.second)
-            {
-                if (k != 0)
-                    resVal += "|";
-                resVal += incl;
-                ++k;
-            }
-            ++i;
+            if (k != 0)
+                resVal += "|";
+            resVal += incl;
+            ++k;
         }
+        ++i;
+    }
 
-        copyStringToShort(result, resVal);
-        retSize = (int)resVal.size() + 1;
-    }
-    catch (int ex)
-    {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
-        if (ex == -99)
-            return -99;
-        else
-            retSize = -1;
-    }
-    catch (...)
-    {
-        retSize = -1;
-    }
-    return retSize;
+    copyStringToShort(result, resVal);
+    return (int)resVal.size() + 1;
 }
 
 int SPF_SetFunctionsToInclude(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
@@ -561,7 +544,7 @@ int SPF_SetFunctionsToInclude(int *options, short *projName, short *&result, sho
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -602,8 +585,7 @@ int SPF_GetAllDeclaratedArrays(int *options, short *projName, short *&result, sh
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch(...) { }
-
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -645,7 +627,7 @@ int SPF_GetFileLineInfo(int *options, short *projName, short *&result, short *&o
     }
     catch (int ex)
     {
-        try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        __spf_print(1, "catch code %d\n", ex);
         if (ex == -99)
             return -99;
         else
@@ -669,26 +651,19 @@ int SPF_SetDistributionFlagToArray(char *key, int flag)
         return 0;
 
     string keyStr(key);
-    try
+    for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
     {
-        for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
+        if (it->second.first->GetName() == keyStr)
         {
-            if (it->second.first->GetName() == keyStr)
-            {
-                __spf_print(1, "change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
-                printf("SAPFOR: change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
-
-                if (flag == 0)
-                    it->second.first->SetNonDistributeFlag(false);
-                else
-                    it->second.first->SetNonDistributeFlag(true);
-                break;
-            }
+            __spf_print(1, "change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
+            printf("SAPFOR: change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
+            
+            if (flag == 0)
+                it->second.first->SetNonDistributeFlag(false);
+            else
+                it->second.first->SetNonDistributeFlag(true);
+            break;
         }
-    }
-    catch (...)
-    {
-        return -1;
     }
     return 0;
 }
