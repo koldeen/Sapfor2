@@ -102,81 +102,53 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         }
     }
 
-    vector<string> needDel;
 
-    for (int i = 0; i < funcNum; ++i)
+    const string fileN = file->filename();
+    //insert comment
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
-        SgStatement *st = file->functions(i);
-        SgStatement *lastNode = st->lastNodeOfStmt();
-
-        set<string> toInsert;
-        SgStatement *first = NULL;
-        bool start = false;
-
-        while (st != lastNode)
+        string currFileName = st->fileName();
+        if (currFileName != fileN)
         {
-            if (st == NULL)
+            allIncludeFiles.insert(currFileName);
+            auto it = includeFiles.find(currFileName);
+            if (it != includeFiles.end())
             {
-                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
+                SgStatement *locSt = st->lexNext();
+                while (locSt->fileName() != fileN && locSt)
+                    locSt = locSt->lexNext();
 
-            if (strcmp(st->fileName(), fileName))
-            {
-                string fileToIns(st->fileName());
-                convertToLower(fileToIns);
-
-                toInsert.insert(fileToIns);
-                allIncludeFiles.insert(fileToIns);
-                start = true;
-            }
-            else if (start && first == NULL)
-                first = st;
-            st = st->lexNext();
-        }
-
-        for (auto it = toInsert.begin(); it != toInsert.end(); ++it)
-        {
-            auto foundIt = includeFiles.find(*it);
-            if (foundIt != includeFiles.end())
-            {
-                if (first)
+                if (locSt)
                 {
-                    if (first->comments() == NULL)
-                        first->addComment(foundIt->second.c_str());
-                    else
+                    char *comm = locSt->comments();
+                    if (comm)
                     {
-                        const char *comments = first->comments();
-                        if (strstr(comments, foundIt->second.c_str()) == NULL)
-                            first->addComment(foundIt->second.c_str());
+                        if (string(locSt->comments()).find(it->second) == string::npos)
+                            locSt->addComment(it->second.c_str());
                     }
+                    else
+                        locSt->addComment(it->second.c_str());
                 }
-                else //TODO
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
-
-        // remove code from 'include' only from file, not from Sage structures
-        start = file->functions(i);
-        st = file->functions(i);
-        lastNode = st->lastNodeOfStmt();
-
-        while (st != lastNode)
+    }
+    
+    vector<pair<SgStatement*, SgStatement*>> wasLinked;    
+    //remove
+    for (SgStatement *st = file->firstStatement(), *prev = NULL; st; )
+    {
+        if (st->fileName() != fileN)
         {
-            if (st == NULL)
-            {
-                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
-
-            if (strcmp(st->fileName(), fileName))
-            {
-                string toSplit(st->unparse());
-                convertToLower(toSplit);
-                splitString(toSplit, '\n', needDel);
-            }
-            st = st->lexNext();
+            SgStatement *toDel = st;
+            st = st->lastNodeOfStmt()->lexNext();
+            wasLinked.push_back(make_pair(prev, toDel->extractStmt()));
+            prev = toDel;
         }
+        else
+        {
+            prev = st;
+            st = st->lexNext();
+        }        
     }
 
     FILE *fOut = fopen(fout, "w");
@@ -184,44 +156,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     file->unparse(fOut);
     fclose(fOut);
-
-    if (needDel.size() > 0)
+    
+    //restore
+    int idx = 0;
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
-        fOut = fopen(fout, "r");
-
-        string currFile = "";
-        int idxDel = 0;
-        while (!feof(fOut))
+        if (idx < wasLinked.size())
         {
-            fgets(buf, 8192, fOut);
-            const int len = strlen(buf);
-            if (len > 0)
-                buf[len - 1] = '\0';
-
-            string toCmp(buf);
-            convertToLower(toCmp);
-            //printf("%s\n", toCmp.c_str());
-            if (needDel.size() > idxDel)
+            if (st == wasLinked[idx].first)
             {
-                if (needDel[idxDel] == toCmp)
-                    idxDel++;
-                else
-                {
-                    currFile += toCmp;
-                    currFile += "\n";
-                }
-            }
-            else
-            {
-                currFile += toCmp;
-                currFile += "\n";
+                st->insertStmtAfter(*wasLinked[idx].second, *st->controlParent());
+                idx++;
             }
         }
-        fclose(fOut);
-
-        fOut = fopen(fout, "w");
-        fwrite(currFile.c_str(), sizeof(char), currFile.length(), fOut);
-        fclose(fOut);
+        else
+            break;
     }
 }
 
@@ -306,8 +255,6 @@ static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR,
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
         }
-        else
-            ;// printf("%d_%d -> (NULL NULL)\n", lvl, exp->variant());
 
         if (lhs)
             recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
@@ -321,6 +268,8 @@ void recExpressionPrint(SgExpression *exp)
     printf("digraph G{\n");
     int allNum = 0;
     recExpressionPrint(exp, 0, "L", allNum, allNum);
+    if (allNum == 0)
+        printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
     printf("};\n");
     fflush(NULL);
 }
@@ -486,7 +435,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
             start = start->lexNext();
         }
     }
-
+    
     if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
@@ -509,7 +458,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    //return statement y priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
+    //return statement by priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
     if (inDecl.size() > 1)
     {
         for (int i = 0; i < inDecl.size(); ++i)
@@ -603,19 +552,19 @@ void getCommonBlocksRef(map<string, vector<SgStatement*>> &commonBlocks, SgState
     }
 }
 
-static bool isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
+static SgExpression* isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
 {
-    SgExpression *exp = commonBlock->expr(0);
-    exp = exp->lhs();
-    commonPos = 0;
-    while (exp)
+    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
     {
-        if (!strcmp(exp->lhs()->symbol()->identifier(), arrayName))
-            return true;
-        commonPos++;
-        exp = exp->rhs();
+        commonPos = 0;
+        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+        {            
+            if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
+                return exp;
+            commonPos++;
+        }
     }
-    return false;
+    return NULL;
 }
 
 map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
@@ -653,10 +602,10 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &
         {
             for (auto &pos : common.second)
             {
-                inCommon = isInCommon(pos, symb->identifier(), commonPos);
-                if (inCommon)
+                foundCommon = isInCommon(pos, symb->identifier(), commonPos);
+                if (foundCommon)
                 {
-                    foundCommon = pos->expr(0);
+                    inCommon = true;
                     break;
                 }
             }

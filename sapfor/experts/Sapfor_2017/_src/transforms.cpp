@@ -117,6 +117,14 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
     currM.push_back(Messages(WARR, line, message));
 }
 
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message)
+{
+    vector<Messages> &currM = getMessagesForFile(fileName);
+    __spf_print(1, "NOTE: line %d: %s\n", line, message);
+
+    currM.push_back(Messages(NOTE, line, message));
+}
+
 static bool isDone(const int curr_regime)
 {
     if (PASSES_DONE[curr_regime] == 0)
@@ -381,7 +389,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == PREPROC_SPF)
-            preprocess_spf_dirs(file, getMessagesForFile(file_name));
+        {
+            bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)
@@ -532,8 +544,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == MACRO_EXPANSION)
-            doMacroExpand(file, getMessagesForFile(file_name));
-
+            doMacroExpand(file, getMessagesForFile(file_name));    
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -686,7 +697,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         set<int> idxToDel;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
-            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0 || parallelRegions[z]->GetReducedGraph().GetNumberOfE() == 0)
+            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
                 idxToDel.insert(z);
@@ -1060,19 +1071,19 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            if (staticPrivateAnalysis)
-                runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
+            //runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
 
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);            
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
-            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);            
+            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
         }
     }
         break;
@@ -1107,6 +1118,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
         else
             __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
+        break;
+    case PRIVATE_ANALYSIS_SPF:
+        if (staticPrivateAnalysis)
+            runAnalysis(*project, curr_regime, false);
         break;
     default:
         runAnalysis(*project, curr_regime, false);

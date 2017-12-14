@@ -228,16 +228,16 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             int add = 0;
             for (int z = 0; z < remotes.size(); ++z, ++add)
             {
-                if (add != 0)
-                {
-                    exprList->setRhs(new SgExpression(EXPR_LIST));
-                    exprList = exprList->rhs();
-                }
-
                 string currRem = remotes[z]->unparse();
                 auto itR = exist.find(currRem);
                 if (itR == exist.end())
                 {
+                    if (add != 0)
+                    {
+                        exprList->setRhs(new SgExpression(EXPR_LIST));
+                        exprList = exprList->rhs();
+                    }
+
                     exprList->setLhs(remotes[z]);
                     exist.insert(itR, currRem);
                 }
