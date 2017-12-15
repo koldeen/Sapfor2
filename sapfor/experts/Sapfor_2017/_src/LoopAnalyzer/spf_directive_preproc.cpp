@@ -17,6 +17,7 @@
 #include "../SgUtils.h"
 #include "../errors.h"
 #include "../directive_parser.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using std::string;
 using std::vector;
@@ -213,6 +214,23 @@ static bool checkReduction(SgStatement *st,
     return retVal;
 }
 
+static void fillArrayDimentions(SgExpression *exp, SgSymbol *arraySymbol, vector<SgExpression*> &dimentions)
+{
+    while (exp)
+    {
+        if (exp->lhs()->symbol() == arraySymbol)
+        {
+            SgExpression *list = exp->lhs()->lhs();
+            while (list)
+            {
+                dimentions.push_back(list->lhs());
+                list = list->rhs();
+            }
+        }
+        exp = exp->rhs();
+    }
+}
+
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
                            const map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction,
@@ -237,6 +255,7 @@ static bool checkReduction(SgStatement *st,
             SgSymbol *arraySymbol = std::get<1>(setElem);
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             SgArrayType *arrayType = NULL;
+            int count = std::get<2>(setElem);
 
             if (arraySymbol->type())
                 arrayType = isSgArrayType(arraySymbol->type());
@@ -244,16 +263,85 @@ static bool checkReduction(SgStatement *st,
             if (arrayType)
             {
                 int dim = arrayType->dimension();
-                int count = std::get<2>(setElem);
 
-                if (dim < count)
+                if (dim != 1)
                 {
-                    __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), count, attributeStatement->lineNumber());
+                    __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
                     string message;
-                    __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), count);
+                    __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                     retVal = false;
                 }
+
+                if (!arrayType->baseType()->equivalentToType(SgTypeInt()))
+                {
+                    __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    retVal = false;
+                }
+            }
+            else
+            {
+                __spf_print(1, "'%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                string message;
+                __spf_printToBuf(message, "'%s' must be array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                retVal = false;
+            }
+
+            SgStatement *iterator = st;
+            SgStatement *end = st;
+            vector<SgExpression*> dimentions;
+            bool dimentionsFound = false;
+
+            while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+            {
+                iterator = iterator->controlParent();
+            }
+
+            while (!dimentionsFound && iterator != end)
+            {
+                if (!isSgExecutableStatement(iterator))
+                {
+                    fillArrayDimentions(iterator->expr(0), arraySymbol, dimentions);
+                    /*
+                    if (iterator->expr(0))
+                    {
+                        iterator->expr(0)->unparsestdout();
+                        recExpressionPrint(iterator->expr(0));
+                    }
+                    */
+                    if (dimentions.size())
+                    {
+                        int size;
+                        bool computed = true;
+                        dimentionsFound = true;
+
+                        if (CalculateInteger(dimentions[0], size) != 0)
+                        {
+                            // Expression can not be computed
+                            computed = false;
+                            __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
+                            string message;
+                            __spf_printToBuf(message, "array size can't be computed");
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            //retVal = false;
+                        }
+
+                        if (computed && size != count)
+                        {
+                            __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
+                            string message;
+                            __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            retVal = false;
+                        }
+                    }
+                }
+
+                iterator = iterator->lexNext();
             }
         }
 
@@ -294,7 +382,6 @@ static bool checkShadowAcross(SgStatement *st,
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                 retVal = false;
             }
-
             //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
             notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
@@ -376,7 +463,7 @@ static int hasName(SgExpression *exp, const string &varName)
 
     return 0;
 }
-
+/*
 static int hasTextualInclude(SgExpression *exp, const string &varName)
 {
     string stringExp = exp->unparse();
@@ -391,7 +478,7 @@ static int hasTextualInclude(SgExpression *exp, const string &varName)
 
     return count;
 }
-
+*/
 static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp == remoteExp)
