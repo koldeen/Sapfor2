@@ -32,6 +32,13 @@ namespace SageTransform {
 
         vector<SgStatement *> copyStatements(const vector<SgForStmt *> &originals);
 
+        /**
+         * Move a statement one line to beginning.
+         * @param pStmt statement to move
+         * @return new position of same statement
+         */
+        SgStatement* swapWithLexPrev(SgStatement *pStmt);
+
         //Swap target statements lexically
         void swapLexStmt(SgStatement *, SgStatement *);
 

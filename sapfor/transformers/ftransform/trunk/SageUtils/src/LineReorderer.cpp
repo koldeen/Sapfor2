@@ -3,18 +3,18 @@
 //
 
 #include "LineReorderer.hpp"
-#include <vector>
-#include <SageTransformException.hpp>
-#include <Log.hpp>
+#include "SageTransformException.hpp"
+#include "SageTransformUtils.hpp"
+#include "Log.hpp"
 
 using namespace SageTransform;
 using std::map;
 using std::vector;
 
-int getByValue(const map<int, int> &theMap, int value, int defaultValue) {
+int getKeyByValue(const map<int, int> &theMap, int value, int defaultValue) {
     for (auto &x : theMap) {
         if (x.second == value) {
-            return value;
+            return x.first;
         }
     }
     return defaultValue;
@@ -32,11 +32,6 @@ void shiftKeyToValue(map<int, int> *theMap, int keyToShift) {
     theMap->at(newKey) = newKey;
 }
 
-void swapWithLexPrev(SgStatement *st) {
-    st->insertStmtAfter(*(st->lexPrev()));
-}
-
-
 void LineReorderer::apply(SgStatement *baseStatement, LineReorderRecord &record) {
     auto moves = *record.getMoves();
     int startLineNum = 1;
@@ -51,20 +46,36 @@ void LineReorderer::apply(SgStatement *baseStatement, LineReorderRecord &record)
     }
 
     int current, backShiftsToDo;
+    //build required sequence starting from required line #1, then line #2, then line #3
     for (int placeTo = startLineNum; placeTo <= maxLineNum; placeTo++) {
-        current = getByValue(moves, placeTo, 0xFFFF);
-        if (current == 0xFFFF) {
-            throw SageTransformException("Illegal State in reorderer");
+        current = getKeyByValue(moves, placeTo, 0xFFFF);
+
+        for (int i = current; i >= placeTo + 1; i--) {
+            //original positions of lines are shifted as each iteration we move all lines in range [placeTo, current - 1] down for one line
+            int value = moves.at(i - 1);
+            moves.erase(i);
+            moves.insert({i, value});
         }
+        Log::debug("Actual move: " + std::to_string(current) + " to " + std::to_string(placeTo));
+
+        if (current == 0xFFFF) {
+            throw SageTransformException("Illegal State in reorderer, nowhere to move ");
+        }
+
+        if (placeTo == current) {
+            Log::debug("Already in place");
+            continue;
+        }
+
         stmt = baseStatement;
         for (int i = 0; i < current; ++i) {
             stmt = stmt->lexNext();
         }
         backShiftsToDo = current - placeTo;
-        Log::debug("moving back " + string(stmt->unparse()) + " to position " + std::to_string(placeTo));
+        Log::debug("moving back " + string(stmt->unparse()) + " to position " + std::to_string(placeTo) + " with " + std::to_string(backShiftsToDo) + " moves");
         while (backShiftsToDo > 0) {
             //move statements backward
-            swapWithLexPrev(stmt);
+            stmt = SageTransformUtils::swapWithLexPrev(stmt);
             backShiftsToDo--;
         }
     }

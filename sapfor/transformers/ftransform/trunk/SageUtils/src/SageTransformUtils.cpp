@@ -83,6 +83,22 @@ vector<SgStatement *> SageTransformUtils::copyStatements(const vector<SgForStmt 
     return result;
 }
 
+SgStatement* SageTransformUtils::swapWithLexPrev(SgStatement *pStmt) {
+    SgStatement *previous = pStmt->lexPrev();
+    SgStatement *newControlParent = nullptr;
+    if (pStmt->controlParent() == previous->controlParent()) {
+        newControlParent = previous->controlParent();
+    } else if (pStmt->controlParent() == previous){
+        newControlParent = previous->controlParent();
+    } else {
+        //todo case when enddo is moved up can appear
+        newControlParent = previous->controlParent();
+    }
+    SgStatement *extracted = pStmt->extractStmt();
+    previous->insertStmtBefore(*extracted, *newControlParent);
+    return previous->lexPrev();
+}
+
 void SageTransformUtils::swapLexStmt(SgStatement *pStmtA, SgStatement *pStmtB) {
     SgStatement *pStmtAPre, *pStmtAPost, *pStmtBPre, *pStmtBPost;
     pStmtAPre = pStmtA->lexPrev();
