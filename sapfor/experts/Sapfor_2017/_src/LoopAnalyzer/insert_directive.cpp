@@ -89,21 +89,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
     }
     int funcNum = file->numberOfFunctions();
 
-#if INSERT_AS_COMMENT
-    map<int, vector<string>> toInsertMap;
-    for (int i = 0; i < toInsert.size(); ++i)
-    {
-        auto it = toInsertMap.find(toInsert[i].first);
-        if (it == toInsertMap.end())
-        {
-            vector<string> tmp;
-            tmp.push_back(toInsert[i].second.first);
-            toInsertMap.insert(it, make_pair(toInsert[i].first, tmp));
-        }
-        else
-            it->second.push_back(toInsert[i].second.first);
-    }
-#else
     map<int, vector<vector<Expression*>>> toInsertMap;
     for (int i = 0; i < toInsert.size(); ++i)
     {
@@ -117,10 +102,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         else
             it->second.push_back(toInsert[i].second.second);
     }
-    removeDoubleRedistribute(toInsertMap);
 
+    removeDoubleRedistribute(toInsertMap);
     vector<SgStatement*> toDel;
-#endif    
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -148,25 +132,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                 auto it = toInsertMap.find(st->lineNumber());
                 if (it != toInsertMap.end())
                 {
-#if INSERT_AS_COMMENT
-                    string newComm = "";
-                    for (int i1 = 0; i1 < it->second.size(); ++i1)
-                        newComm += it->second[i1];
-
-                    if (extractDir == false)
-                        st->addComment(newComm.c_str());
-                    else
-                    {
-                        char *str = CMNT_STRING(BIF_CMNT(st->thebif));
-                        string source(str);
-                        removeSubstrFromStr(source, newComm);
-                        if (source.size() == 0)
-                            str[0] = '\0';
-                        else
-                            sprintf(str, "%s", source.c_str());
-                    }
-                    toInsertMap.erase(it);
-#else
                     if (extractDir == false)
                     {
                         for (int i1 = 0; i1 < it->second.size(); ++i1)
@@ -184,11 +149,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                         }
                     }
                     toInsertMap.erase(it);
-#endif
                 }
             }
 
-#if !INSERT_AS_COMMENT
             if (extractDir)
             {
                 const int var = st->variant();
@@ -213,21 +176,16 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     }
                 }
             }
-#endif
             numSt++;
         } while (st != lastNode);
 
-
-#if !INSERT_AS_COMMENT
         if (extractDir)
         {
             for (int k = 0; k < toDel.size(); ++k)
                 toDel[k]->deleteStmt();
         }
-#endif
     }
 }
-#undef INSERT_AS_COMMENT
 
 void removeDvmDirectives(SgFile *file)
 {
@@ -895,7 +853,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
 
                 for (auto &array : declaratedDistrArrays)
                 {
-                    const vector<pair<int, int>> &currSpec = array->GetShadowSpec();
+                    const vector<pair<int, int>> currSpec = array->GetShadowSpec();
                     bool needToGen = false;
 
                     for (auto &elem : currSpec)

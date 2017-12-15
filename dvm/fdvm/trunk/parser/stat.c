@@ -902,6 +902,10 @@ set_stat_list(old_list, stat)
             case (DVM_ASYNCWAIT_DIR):
             case (DVM_F90_DIR):
             case (DVM_IO_MODE_DIR):
+            case (DVM_CP_CREATE_DIR):
+            case (DVM_CP_LOAD_DIR):
+            case (DVM_CP_SAVE_DIR):
+            case (DVM_CP_WAIT_DIR):
             case (DVM_LOCALIZE_DIR):
             case (DVM_SHADOW_ADD_DIR):
 	    case (MOVE_PORT):
