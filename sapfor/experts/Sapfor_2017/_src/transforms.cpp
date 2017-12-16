@@ -1082,17 +1082,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         }
     }
         break;
-    case CREATE_NESTED_LOOPS:
-        runAnalysis(*project, curr_regime, true, "", folderName);
-#ifdef _ARBU
-        //pass 18 CREATE_NESTED_LOOPS is not used as a pass, so can do here an unparse
-        if (folderName) {
-            runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
-        } else {
-            __spf_print(1, "Can not run UNPARSE_FILE after CREATE_NESTED_LOOPS - folder name is null\n");
-        }
-#endif
-        break;
+    case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:

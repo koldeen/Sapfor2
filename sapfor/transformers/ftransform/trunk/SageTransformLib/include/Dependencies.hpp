@@ -11,5 +11,6 @@
 #include "dependency/DependencyInfo.hpp"
 #include "dependency/DependencyInfoGetter.hpp"
 #include "dependency/DependencyUtils.hpp"
+#include "dependency/DependencyType.hpp"
 
 #endif /* SRC_SAGETRANSFORM_DEPENDENCIES_HPP_ */

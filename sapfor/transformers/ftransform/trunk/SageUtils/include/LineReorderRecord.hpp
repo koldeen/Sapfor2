@@ -12,7 +12,7 @@ namespace SageTransform {
     private: //fields
         //first int is original line number, second is new line number relative to some base
         std::map<int, int> relativeMoves;
-        int maxSourceInt = -0xFFFF;
+        int maxSourceInt = 0;
 
         //todo impl continuity checks
     public: //methods
@@ -28,6 +28,13 @@ namespace SageTransform {
          * @return LineReorderRecord that reverts this
          */
         LineReorderRecord buildReverse();
+
+        /**
+         * Build a single combination Reorder record that behaves as (this, lrr) applied one after another.
+         * @param lrr next reorder
+         * @return the resulting reorder
+         */
+        LineReorderRecord combine(LineReorderRecord& lrr);
 
         /**
          * Get stored line movements.

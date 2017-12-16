@@ -22,6 +22,20 @@ SgStatement *SageUtils::getNthLoopStatement(SgForStmt *pForLoop, int n) {
     return stmt;
 }
 
+int SageUtils::lexDist(SgStatement *sBase, SgStatement *sCheck) {
+    SgStatement * counterForward = sBase;
+    SgStatement * counterBackward = sBase;
+    int stepsDone = 0;
+    while (counterForward != sCheck && counterBackward != sCheck && stepsDone < LEX_INFINITY) {
+        stepsDone++;
+        counterForward = counterForward->lexNext();
+        counterBackward = counterBackward->lexPrev();
+    }
+    if (counterForward == sCheck) return stepsDone;
+    else if (counterBackward == sCheck) return -stepsDone;
+    else return LEX_INFINITY;
+}
+
 bool SageUtils::checkTightlyNested(SgForStmt *outerLoop, int depth) {
     SgForStmt *innermostLoop = outerLoop;
     for (int i = 0; i < depth - 1; ++i) {

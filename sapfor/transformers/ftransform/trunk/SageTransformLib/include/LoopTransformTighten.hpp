@@ -7,13 +7,21 @@
 #include "SageTransformConstants.hpp"
 #include "Dependencies.hpp"
 #include "BaseTransform.hpp"
+#include "LineReorderRecord.hpp"
 
 using std::string;
 using std::map;
+using std::vector;
+using std::pair;
 using SageTransform::Constants::TRANSFORM_CMD_PREFIX;
 
 namespace SageTransform {
     class LoopTransformTighten : public BaseTransform {
+    private: //static fields and functions
+        static vector<pair<SgStatement *, LineReorderRecord>> LAUNCHES;
+    public:
+        static vector<pair<SgStatement *, LineReorderRecord>> *getLaunches() { return &LAUNCHES; }
+
     public:
         bool hasTightenComment(SgForStmt *pForLoop);
 
@@ -66,11 +74,7 @@ namespace SageTransform {
         bool validateInvariantStatementAfterLoop(SgStatement *invBegin, SgStatement *invEnd,
                                                  std::map<SgSymbol *, DependencyType> &dependencies);
 
-        void tightenSingleLevel(SgForStmt *pForLoop);
-
-        SgForStmt *lexNextLoop(SgStatement *pStmt, SgStatement *end);
-
-        SgControlEndStmt *lexPrevEnddo(SgStatement *pStmt, SgStatement *end);
+        LineReorderRecord tightenSingleLevel(SgForStmt *pForLoop, SgForStmt *topLevelForLoop);
 
         /**
          * Sinks pStmt into nearest next same-scope loop in following code if possible.

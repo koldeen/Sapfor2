@@ -12,7 +12,8 @@ set(SOURCE_LIB
         ./src/StringUtils.cpp
         ./src/Stacktrace.cpp
         ./src/SageTransformException.cpp
-        ./src/SignalHandling.cpp)
+        ./src/SignalHandling.cpp
+        )
 
 include_directories(./include)
 

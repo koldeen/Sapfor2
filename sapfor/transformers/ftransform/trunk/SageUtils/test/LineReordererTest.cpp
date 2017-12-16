@@ -37,7 +37,7 @@ TEST(LineReordererTest, revertReordering) {
     outputFile = fopen(midResultSource, "w");
     file->unparse(outputFile);
     fclose(outputFile);
-    ASSERT_TRUE(TestUtils::compare(midResultSource, midExpectSource));
+    ASSERT_TRUE(TestUtils::compareFortranSources(midResultSource, midExpectSource));
 
     LineReorderRecord reverseRecord = reorderRecord.buildReverse();
     LineReorderer::apply(stmt, reverseRecord);
@@ -45,7 +45,7 @@ TEST(LineReordererTest, revertReordering) {
     outputFile = fopen(finResultSource, "w");
     file->unparse(outputFile);
     fclose(outputFile);
-    ASSERT_TRUE(TestUtils::compare(finResultSource, finExpectSource));
+    ASSERT_TRUE(TestUtils::compareFortranSources(finResultSource, finExpectSource));
 }
 
 int main(int argc, char **argv) {

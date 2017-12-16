@@ -9,10 +9,8 @@
 #include <SageAnalysisTool/definesValues.h>
 #include "../utils.h"
 
-//TODO: NOT FOUND
-//using SageTransform::SageUtils::lexNextLoop; //
-//using SageTransform::SageUtils::lexPrevEnddo; // not used
 using SageTransform::SageUtils::getLastLoopStatement;
+using SageTransform::DependencyType;
 using Sapfor2017::CreateNestedLoopsUtils;
 using std::pair;
 using std::map;
@@ -34,7 +32,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
             SgForStmt *outerLoop = outerLoopDependencies.first;
 
             SageTransform::LoopTransformTighten loopTransformTighten;
-            map<SgSymbol *, DepType> depMap = CreateNestedLoopsUtils::buildTransformerDependencyMap(outerLoop,
+            map<SgSymbol *, DependencyType> depMap = CreateNestedLoopsUtils::buildTransformerDependencyMap(outerLoop,
                                                                                                     outerLoopDependencies.second,
                                                                                                     nullptr);
             if (loopTransformTighten.canTighten(outerLoop, depMap) >= 2) {
@@ -49,6 +47,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
                 messages.push_back(Messages(NOTE, current->lineNum, buf));
             }
+            outerLoop->unparsestdout();
         }
     }
 
@@ -94,7 +93,7 @@ void printDepGraph(depGraph *dg)
     }
 }
 
-std::map<SgSymbol*, DepType>
+std::map<SgSymbol*, DependencyType>
   Sapfor2017::CreateNestedLoopsUtils::buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, depGraph *innerDepGraph)
 {
     //__spf_print(1, "Print outer depgraph START\n");
@@ -112,7 +111,7 @@ std::map<SgSymbol*, DepType>
     innerLoop = isSgForStmt(pClosestDo);
 
     SgStatement *innerEnddo = getLastLoopStatement(innerLoop);
-    std::map<SgSymbol*, DepType> depMap;
+    std::map<SgSymbol*, DependencyType> depMap;
 
     for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerLoop; stmt = stmt->lexNext()) 
     {
@@ -121,7 +120,7 @@ std::map<SgSymbol*, DepType>
         {
             depNode *node = outerDepGraph->isThereAnEdge(stmt, bodyStmt);
             if (node != nullptr) {
-                DepType type = CreateNestedLoopsUtils::fromDepNode(node);
+                DependencyType type = CreateNestedLoopsUtils::fromDepNode(node);
                 SgSymbol *symbol = node->varout->symbol();
                 depMap.insert(std::make_pair(symbol, type));
             }
@@ -131,7 +130,7 @@ std::map<SgSymbol*, DepType>
     return depMap;
 }
 
-DepType CreateNestedLoopsUtils::fromDepNode(depNode *node) 
+DependencyType CreateNestedLoopsUtils::fromDepNode(depNode *node)
 {
     if (node->typedep == SCALARDEP) 
     {

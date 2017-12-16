@@ -31,6 +31,10 @@ add_executable(StubTest.exe ${SAGE_UTILS_PATH}/StubTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(StubTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(StubTest StubTest.exe)
 
+add_executable(LineReorderRecordTest.exe ${SAGE_UTILS_PATH}/LineReorderRecordTest.cpp ${TEST_COMMON_SRC})
+target_link_libraries(LineReorderRecordTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+add_test(LineReorderRecordTest LineReorderRecordTest.exe)
+
 add_executable(LineReordererTest.exe ${SAGE_UTILS_PATH}/LineReordererTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(LineReordererTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(LineReordererTest LineReordererTest.exe)

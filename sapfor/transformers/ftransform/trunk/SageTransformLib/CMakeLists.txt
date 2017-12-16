@@ -45,6 +45,8 @@ set(SOURCE_LIB
         ./src/BaseTransform.cpp)
 
 include_directories(./include)
+include_directories(../CommonLib/include)
+include_directories(../SageUtils/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 include_directories(${sapfor2017_include})
 add_library(SageTransformLib STATIC ${SOURCE_LIB})

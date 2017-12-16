@@ -33,7 +33,7 @@ TEST(SageTransformUtils, swapWithLexPrev) {
     file->unparse(outputFile);
     fclose(outputFile);
 
-    ASSERT_TRUE(TestUtils::compare(expectSource, resultSource));
+    ASSERT_TRUE(TestUtils::compareFortranSources(expectSource, resultSource));
 }
 
 int main(int argc, char **argv) {
