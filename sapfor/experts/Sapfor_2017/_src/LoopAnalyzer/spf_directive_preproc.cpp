@@ -225,23 +225,6 @@ static bool checkReduction(SgStatement *st,
     return retVal;
 }
 
-static void fillArrayDimentions(SgExpression *exp, SgSymbol *arraySymbol, vector<SgExpression*> &dimentions)
-{
-    while (exp)
-    {
-        if (exp->lhs()->symbol() == arraySymbol)
-        {
-            SgExpression *list = exp->lhs()->lhs();
-            while (list)
-            {
-                dimentions.push_back(list->lhs());
-                list = list->rhs();
-            }
-        }
-        exp = exp->rhs();
-    }
-}
-
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
                            const map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction,
@@ -273,7 +256,7 @@ static bool checkReduction(SgStatement *st,
 
             if (arrayType)
             {
-                int dim = arrayType->dimension();
+                const int dim = arrayType->dimension();
 
                 if (dim != 1)
                 {
@@ -305,52 +288,52 @@ static bool checkReduction(SgStatement *st,
             SgStatement *iterator = st;
             SgStatement *end = st;
             vector<SgExpression*> dimentions;
-            bool dimentionsFound = false;
-
+            
             while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
-            {
                 iterator = iterator->controlParent();
-            }
 
-            while (!dimentionsFound && iterator != end)
+            while (iterator != end)
             {
                 if (!isSgExecutableStatement(iterator))
                 {
-                    fillArrayDimentions(iterator->expr(0), arraySymbol, dimentions);
-                    /*
-                    if (iterator->expr(0))
-                    {
-                        iterator->expr(0)->unparsestdout();
-                        recExpressionPrint(iterator->expr(0));
-                    }
-                    */
+                    for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
+                        if (exp->lhs()->symbol() == arraySymbol)
+                            for (SgExpression *list = exp->lhs()->lhs(); list; list = list->rhs())
+                                dimentions.push_back(list->lhs());
+
                     if (dimentions.size())
                     {
-                        int size;
-                        bool computed = true;
-                        dimentionsFound = true;
+                        if (dimentions.size() != 1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                        if (CalculateInteger(dimentions[0], size) != 0)
+                        int size;
+                        int err = CalculateInteger(dimentions[0], size);
+
+                        if (err != 0)
                         {
-                            // Expression can not be computed
-                            computed = false;
+                            // Expression can not be computed                        
                             __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
+
                             string message;
                             __spf_printToBuf(message, "array size can't be computed");
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                            //retVal = false;
+                            retVal = false;
                         }
-
-                        if (computed && size != count)
+                        else if (size != count)
                         {
-                            __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
+                            __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n",
+                                arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
+
                             string message;
                             __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                             retVal = false;
                         }
+                        break;
                     }
                 }
+                else
+                    break;
 
                 iterator = iterator->lexNext();
             }
@@ -358,8 +341,6 @@ static bool checkReduction(SgStatement *st,
 
         reductionVar.insert(reductionVar.begin(), make_pair(redElem.first, vars));
         reductionArr.insert(reductionArr.begin(), make_pair(redElem.first, arrs));
-        //reductionVar.insert(make_pair(redElem.first, vars));
-        //reductionArr.insert(make_pair(redElem.first, arrs));
 
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
