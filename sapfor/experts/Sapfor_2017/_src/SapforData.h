@@ -14,6 +14,8 @@
 #include "transform.h"
 #include "errors.h"
 
+extern std::map<std::string, std::string> shortFileNames;
+
 int staticShadowAnalysis = 1; // always on
 int staticPrivateAnalysis = 0;
 int keepDvmDirectives = 1; // always on
@@ -22,13 +24,14 @@ int keepSpfDirs = 0;
 int consoleMode = 0;
 int genAllVars = 0;
 uint64_t currentAvailMemory = 0;
+static int activeState = 0;
+
 
 std::map<DIST::Array*, std::tuple<int, std::string, std::string>> tableOfUniqNamesByArray;
 
 std::vector<ParallelRegion*> parallelRegions;
 
 // for LOOP_ANALYZER_DATA_DIST
-extern std::map<std::string, std::string> shortFileNames;
 std::map<std::tuple<int, std::string, std::string>, DIST::Array*> createdArrays;
 
 std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
@@ -73,3 +76,89 @@ std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
 
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
+
+
+#if IS_NOT_READY
+static int stateId = 0;
+class SapforState
+{
+private:
+    int id;
+
+    std::map<DIST::Array*, std::tuple<int, std::string, std::string>> tableOfUniqNamesByArray;
+    std::vector<ParallelRegion*> parallelRegions;
+
+    // for LOOP_ANALYZER_DATA_DIST
+    std::map<std::string, std::string> shortFileNames;
+    std::map<std::tuple<int, std::string, std::string>, DIST::Array*> createdArrays;
+
+    std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+    
+    int QUALITY; // quality of conflicts search in graph 
+    std::map<DIST::Array*, std::set<DIST::Array*>> arrayLinksByFuncCalls;
+
+public:
+    //construct new links and copy objects
+    SapforState()
+    {
+        id = stateId;
+        stateId++;
+
+        QUALITY = ::QUALITY;
+
+        map<DIST::Array*, DIST::Array*> oldNewLinks;
+
+        for (auto &elem : ::declaratedArrays)
+            oldNewLinks[elem.second.first] = new DIST::Array(*elem.second.first);
+
+        declaratedArrays = ::declaratedArrays;
+        createdArrays = ::createdArrays;
+        shortFileNames = ::shortFileNames;
+        depInfoForLoopGraph = ::depInfoForLoopGraph;
+
+        //fix links to new Array
+        for (auto &elem : declaratedArrays)
+            elem.second.first = oldNewLinks[elem.second.first];
+
+        //fix links to new Array
+        for (auto &elem : createdArrays)
+            elem.second = oldNewLinks[elem.second];
+
+        //fix links to new Array
+        for (auto &elem : ::tableOfUniqNamesByArray)
+            tableOfUniqNamesByArray[oldNewLinks[elem.first]] = elem.second;
+
+        //fix linst to new Array
+        for (auto &elem : ::arrayLinksByFuncCalls)
+        {
+            DIST::Array *newArray = oldNewLinks[elem.first];
+            arrayLinksByFuncCalls.insert(make_pair(newArray, std::set<DIST::Array*>()));
+            auto it = arrayLinksByFuncCalls.find(newArray);
+            for (auto &setElem : elem.second)
+                it->second.insert(oldNewLinks[setElem]);
+        }        
+    }
+
+    void RestoreState()
+    {
+        if (activeState != id)
+        {
+            activeState == id;
+
+            ::tableOfUniqNamesByArray = tableOfUniqNamesByArray;
+            ::parallelRegions = parallelRegions;
+            ::shortFileNames = shortFileNames;
+            ::createdArrays = createdArrays;
+            ::declaratedArrays = declaratedArrays;
+            ::declaratedArraysSt = declaratedArraysSt;            
+            ::arrayLinksByFuncCalls = arrayLinksByFuncCalls;            
+            ::depInfoForLoopGraph = depInfoForLoopGraph;
+        }
+    }
+
+    ~SapforState()
+    {
+
+    }
+};
+#endif

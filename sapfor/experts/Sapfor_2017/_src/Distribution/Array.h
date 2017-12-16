@@ -27,6 +27,13 @@ namespace Distribution
             templateArray = NULL;
         }
 
+        TemplateLink(const TemplateLink &copy)
+        {
+            linkWithTemplate = copy.linkWithTemplate;
+            alignRuleWithTemplate = copy.alignRuleWithTemplate;
+            templateArray = copy.templateArray;
+        }
+
         VECTOR<int> linkWithTemplate;
         VECTOR<PAIR<int, int>> alignRuleWithTemplate;
         Array *templateArray;
@@ -67,6 +74,7 @@ namespace Distribution
         //TYPE: 0 - local, 1 - common, 2 - module
         // PAIR<NAME, TYPE>
         PAIR<int, STRING> locationPos;
+        VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
 
         TemplateLink* getTemlateInfo(const int regionId)
         {
@@ -81,8 +89,6 @@ namespace Distribution
                 currLink = it->second;
             return currLink;
         }
-
-        VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
     public:
         Array()
         {
@@ -96,6 +102,26 @@ namespace Distribution
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
+        }
+
+        Array(const Array &copy)
+        {
+            id = copy.id;
+            name = copy.name;
+            shortName = copy.shortName;
+            dimSize = copy.dimSize;
+            sizes = copy.sizes;
+
+            isTemplFlag = copy.isTemplFlag;
+            isNonDistribute = copy.isNonDistribute;
+
+            declPlaces = copy.declPlaces;
+            locationPos = copy.locationPos;
+
+            allShadowSpecs = copy.allShadowSpecs;
+
+            for (auto &elem : copy.templateInfo)
+                templateInfo[elem.first] = new TemplateLink(*elem.second);
         }
 
         int GetDimSize() const { return dimSize; }
