@@ -2424,8 +2424,8 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
        case (DVM_VAR_DECL):
           { SgExpression *el,*eol,*eda;
             SgSymbol *symb;
-            int i, nattrs[7]; 
-            for(i=0; i<7; i++)
+            int i, nattrs[8]; 
+            for(i=0; i<8; i++)
                nattrs[i] = 0;
             eda = NULL;
             //testing obgect list	    
@@ -2437,13 +2437,13 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
                       nattrs[0]++;
                       eda = el->lhs();
                       break;
-                 case (DISTRIBUTE_OP): 
+                  case (DISTRIBUTE_OP): 
                       nattrs[1]++;
                       eda = el->lhs();
                       break; 
                   case (TEMPLATE_OP): 
                       nattrs[2]++;
-                     for(eol=stmt->expr(0); eol; eol=eol->rhs()) { //testing object list
+                      for(eol=stmt->expr(0); eol; eol=eol->rhs()) { //testing object list
                         symb=eol->lhs()->symbol();
                         if(IS_DUMMY(symb))
                           Error("Template may not be a dummy argument: %s",symb->identifier(), 80,stmt);                 
@@ -2487,11 +2487,13 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
                           if (nw!=Rank(ar)) // wrong shadow width list
                             Error("Length of shadow-edge-list is not equal to the rank of array '%s'", ar->identifier(), 88,stmt);
                        }     
-                          
+                       break;   
                       }
-                    
+                  case (COMMON_OP): 
+                      nattrs[7]++;
+                      break;                           
 	      }
-              for(i=0; i<7; i++)
+              for(i=0; i<8; i++)
                if( nattrs[i]>1)
                  Error("%s attribute appears more than once in the combined-directive", AttrName(i), 89, stmt);
 	      if(eda)
@@ -9674,6 +9676,7 @@ char * AttrName(int i)
         case 4: return("DIMENSION");
         case 5: return("DYNAMIC");
         case 6: return("SHADOW");
+        case 7: return("COMMON");
         default: return("NONE");
   }
 }

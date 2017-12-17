@@ -324,6 +324,13 @@
 %token SPF_NOINLINE 324
 %token SPF_PARALLEL_REG 325
 %token SPF_END_PARALLEL_REG 326
+%token CP_CREATE 327
+%token CP_LOAD 328
+%token CP_SAVE 329
+%token CP_WAIT 330
+%token FILES 331
+%token VARLIST 332
+%token STATUS 333
 
 %{
 #include <string.h>
@@ -522,6 +529,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> dvm_debug_dir dvm_enddebug_dir dvm_traceon_dir dvm_traceoff_dir
 %type <bf_node> dvm_interval_dir dvm_endinterval_dir  dvm_barrier_dir dvm_check 
 %type <bf_node> dvm_io_mode_dir dvm_shadow_add dvm_localize
+%type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait
 %type <bf_node> dvm_asyncid dvm_f90 dvm_asynchronous dvm_endasynchronous dvm_asyncwait
 %type <bf_node> dvm_consistent_group dvm_consistent_start dvm_consistent_wait dvm_consistent
 %type <ll_node> dist_name dist_name_list dist_format dist_format_list
@@ -550,7 +558,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> debparamlist debparam async_id_list async_id high_section
 %type <ll_node> section_spec_list section_spec section ar_section low_section
 %type <ll_node> consistent_spec consistent_array_name_list consistent_array_name
-%type <ll_node> mode_list mode_spec 
+%type <ll_node> mode_list mode_spec opt_mode
 %type <ll_node> derived_spec derived_elem derived_elem_list target_spec 
 %type <ll_node> derived_subscript derived_subscript_list opt_plus_shadow plus_shadow shadow_id
 %type <ll_node> template_ref template_obj shadow_axis shadow_axis_list opt_include_to 
@@ -4963,6 +4971,10 @@ dvm_exec: dvm_redistribute
         | dvm_io_mode_dir
         | dvm_shadow_add
         | dvm_localize
+        | dvm_cp_create
+        | dvm_cp_load
+        | dvm_cp_save
+        | dvm_cp_wait
         | hpf_independent 
 	| omp_execution_directive /*OMP*/
 /*        | dvm_own      */
@@ -4970,16 +4982,6 @@ dvm_exec: dvm_redistribute
        
 dvm_template: HPF_TEMPLATE in_dcl template_obj	    
 	      { $$ = get_bfnd(fi,HPF_TEMPLATE_STAT, SMNULL, $3, LLNULL, LLNULL); }
-	    
-	    | HPF_TEMPLATE in_dcl COMMA needkeyword COMMON COLON COLON template_obj
-              {  
-                PTR_SYMB s;
-                PTR_LLND q;
-                s = $8->entry.Template.ll_ptr1->entry.Template.symbol;
-                s->attr = s->attr | COMMON_BIT;
-                q = make_llnd(fi,COMMON_OP, LLNULL, LLNULL, SMNULL);
-                $$ = get_bfnd(fi,HPF_TEMPLATE_STAT, SMNULL, $8, q, LLNULL); 
-              }
 	    | dvm_template COMMA template_obj 
               { PTR_SYMB s;
                 if($1->entry.Template.ll_ptr2)
@@ -5817,6 +5819,7 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                        if($6)
                          err("Shape specification is not permitted", 263);
                      } */
+
                      if(type_options & DIMENSION_BIT)
                        { p = attr_dims; numdim = attr_ndim;}
                      else
@@ -5825,8 +5828,13 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                      { p = $6; numdim = ndim;} /*overrides the DIMENSION attribute */
 	             s = make_array($5, TYNULL, p, numdim, LOCAL);
 
+                     if((type_options & COMMON_BIT) && !(type_options & TEMPLATE_BIT))
+                     {
+                        err("Illegal combination of attributes", 63);
+                        type_options = type_options & (~COMMON_BIT);
+                     }
                      if((type_options & PROCESSORS_BIT) &&((type_options & ALIGN_BIT) ||(type_options & DISTRIBUTE_BIT) ||(type_options & TEMPLATE_BIT) || (type_options & DYNAMIC_BIT) ||(type_options & SHADOW_BIT) ))
-                       err("Illegal combination of attributes", 63);
+                        err("Illegal combination of attributes", 63);
                      else  if((type_options & PROCESSORS_BIT) && ((s->attr & ALIGN_BIT) ||(s->attr & DISTRIBUTE_BIT) ||(s->attr & TEMPLATE_BIT) || (s->attr & DYNAMIC_BIT) ||(s->attr & SHADOW_BIT)) )
                      {  errstr("Inconsistent declaration of  %s", s->ident, 16);
                         type_options = type_options & (~PROCESSORS_BIT);
@@ -5876,6 +5884,11 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                      { p = $4; numdim = ndim;}/*overrides the DIMENSION attribute */
 	             s = make_array($3, TYNULL, p, numdim, LOCAL);
 
+                     if((type_options & COMMON_BIT) && !(type_options & TEMPLATE_BIT))
+                     {
+                        err("Illegal combination of attributes", 63);
+                        type_options = type_options & (~COMMON_BIT);
+                     }
                      if((type_options & PROCESSORS_BIT) &&((type_options & ALIGN_BIT) ||(type_options & DISTRIBUTE_BIT) ||(type_options & TEMPLATE_BIT) || (type_options & DYNAMIC_BIT) ||(type_options & SHADOW_BIT) ))
                        err("Illegal combination of attributes", 63);
                      else  if((type_options & PROCESSORS_BIT) && ((s->attr & ALIGN_BIT) ||(s->attr & DISTRIBUTE_BIT) ||(s->attr & TEMPLATE_BIT) || (s->attr & DYNAMIC_BIT) ||(s->attr & SHADOW_BIT)) )
@@ -5987,6 +6000,11 @@ dvm_attribute: HPF_TEMPLATE
                  type_opt = DISTRIBUTE_BIT;
                  $$ = make_llnd(fi,DISTRIBUTE_OP,LLNULL,LLNULL,SMNULL);
                 } 
+              | COMMON
+                {
+                 type_opt = COMMON_BIT;
+                 $$ = make_llnd(fi,COMMON_OP, LLNULL, LLNULL, SMNULL);
+                }
                ; 
 
 dvm_pointer: type COMMA needkeyword DVM_POINTER in_dcl LEFTPAR dimension_list RIGHTPAR COLON COLON pointer_var_list
@@ -7073,6 +7091,42 @@ aster_expr: ASTER
           }
           ;
 
+dvm_cp_create: CP_CREATE end_spec expr COMMA needkeyword VARLIST LEFTPAR variable_list RIGHTPAR COMMA needkeyword FILES LEFTPAR subscript_list RIGHTPAR  opt_mode 
+              { 
+                PTR_LLND q;
+                if($16)
+                  q = make_llnd(fi,ARRAY_OP, $14, $16, SMNULL);
+                else
+                  q = $14;                  
+                $$ = get_bfnd(fi,DVM_CP_CREATE_DIR,SMNULL,$3,$8,q); 
+              } 
+             ;
+
+opt_mode:
+              { $$ = LLNULL; }
+            |  COMMA needkeyword PARALLEL
+              { $$ = make_llnd(fi, PARALLEL_OP, LLNULL, LLNULL, SMNULL); }
+            |  COMMA needkeyword ACC_LOCAL 
+              { $$ = make_llnd(fi,ACC_LOCAL_OP, LLNULL, LLNULL, SMNULL); }  
+            ;
+
+dvm_cp_load:   CP_LOAD end_spec expr
+              { $$ = get_bfnd(fi,DVM_CP_LOAD_DIR,SMNULL,$3,LLNULL,LLNULL); } 
+           ;
+
+dvm_cp_save:   CP_SAVE end_spec expr
+              { $$ = get_bfnd(fi,DVM_CP_SAVE_DIR,SMNULL,$3,LLNULL,LLNULL); }              
+           |   CP_SAVE end_spec expr COMMA needkeyword ACC_ASYNC 
+              {
+                PTR_LLND q;
+                q = make_llnd(fi,ACC_ASYNC_OP,LLNULL,LLNULL,SMNULL);
+                $$ = get_bfnd(fi,DVM_CP_SAVE_DIR,SMNULL,$3,q,LLNULL);
+              }
+           ;
+
+dvm_cp_wait:   CP_WAIT end_spec expr COMMA needkeyword STATUS LEFTPAR ident RIGHTPAR
+              { $$ = get_bfnd(fi,DVM_CP_WAIT_DIR,SMNULL,$3,$8,LLNULL); }
+           ;
 omp_specification_directive: omp_threadprivate_directive
 	;
 omp_execution_directive: omp_parallel_begin_directive

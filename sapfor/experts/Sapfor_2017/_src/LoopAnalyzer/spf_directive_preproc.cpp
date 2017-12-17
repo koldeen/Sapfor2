@@ -17,6 +17,7 @@
 #include "../SgUtils.h"
 #include "../errors.h"
 #include "../directive_parser.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using std::string;
 using std::vector;
@@ -83,23 +84,12 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     return retVal;
 }
 
-/*static bool hasForName(SgExpression *exp, const string &forName)
-{
-    if (exp)
-    {
-        SgSymbol *symb = exp->symbol();
-        SgExpression *lhs = exp->lhs();
-        SgExpression *rhs = exp->rhs();
-
-        if (symb)
-            if (string(symb->identifier()) == forName)
-                return true;
-
-        return hasForName(lhs, forName) || hasForName(rhs, forName);
-    }
-
-    return false;
-}*/
+#define BAD_POSITION(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
+   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
+   string message;\
+   __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message)); \
+} while(0)
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
@@ -135,30 +125,37 @@ static bool checkPrivate(SgStatement *st,
             if (varUse.find(privElem) == varUse.end())
                 useCond = false;
 
-            if (var == FOR_NODE && !defCond && !useCond)
+            if (var == FOR_NODE)
             {
-                __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
-                messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                if (!defCond && !useCond)
+                {
+                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                }
+                else if (!defCond && useCond)
+                {
+                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    retVal = false;
+                }
             }
-            if (var == FOR_NODE && !defCond && useCond)
+            else
             {
-                __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                retVal = false;
+                if (!defCond)
+                {
+                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());                    
+                    retVal = false;
+                }
             }
         }
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before variable declaration or DO statement\n", 
-                  attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before variable declaration or DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -170,7 +167,7 @@ static bool checkReduction(SgStatement *st,
                            const map<string, set<SgSymbol*>> &reduction,
                            vector<Messages> &messagesForFile)
 {
-    // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
+    // REDUCTION(OP(VAR))
     const int var = st->variant();
     bool retVal = true;
 
@@ -221,14 +218,134 @@ static bool checkReduction(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
     return retVal;
+}
+
+static bool checkReduction(SgStatement *st,
+                           SgStatement *attributeStatement,
+                           const map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction,
+                           vector<Messages> &messagesForFile)
+{
+    // REDUCTION(MIN/MAXLOC(VAR, ARRAY, CONST))
+    bool retVal = true;
+    map<string, set<SgSymbol*>> reductionVar;
+    map<string, set<SgSymbol*>> reductionArr;
+
+    for (auto &redElem : reduction)
+    {
+        set<SgSymbol*> vars;
+        set<SgSymbol*> arrs;
+
+        for (auto &setElem : redElem.second)
+        {
+            vars.insert(std::get<0>(setElem));
+            arrs.insert(std::get<1>(setElem));
+
+            // TODO: FIND ARRAY DECLARATION && ADD CHECKING DIMENTION
+            SgSymbol *arraySymbol = std::get<1>(setElem);
+            SgStatement *declStatement = declaratedInStmt(arraySymbol);
+            SgArrayType *arrayType = NULL;
+            int count = std::get<2>(setElem);
+
+            if (arraySymbol->type())
+                arrayType = isSgArrayType(arraySymbol->type());
+
+            if (arrayType)
+            {
+                const int dim = arrayType->dimension();
+
+                if (dim != 1)
+                {
+                    __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    retVal = false;
+                }
+
+                if (!arrayType->baseType()->equivalentToType(SgTypeInt()))
+                {
+                    __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                    string message;
+                    __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    retVal = false;
+                }
+            }
+            else
+            {
+                __spf_print(1, "'%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                string message;
+                __spf_printToBuf(message, "'%s' must be array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                retVal = false;
+            }
+
+            SgStatement *iterator = st;
+            SgStatement *end = st;
+            vector<SgExpression*> dimentions;
+            
+            while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+                iterator = iterator->controlParent();
+
+            while (iterator != end)
+            {
+                if (!isSgExecutableStatement(iterator))
+                {
+                    for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
+                        if (exp->lhs()->symbol() == arraySymbol)
+                            for (SgExpression *list = exp->lhs()->lhs(); list; list = list->rhs())
+                                dimentions.push_back(list->lhs());
+
+                    if (dimentions.size())
+                    {
+                        if (dimentions.size() != 1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        int size;
+                        int err = CalculateInteger(dimentions[0], size);
+
+                        if (err != 0)
+                        {
+                            // Expression can not be computed                        
+                            __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
+
+                            string message;
+                            __spf_printToBuf(message, "array size can't be computed");
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            retVal = false;
+                        }
+                        else if (size != count)
+                        {
+                            __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n",
+                                arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
+
+                            string message;
+                            __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            retVal = false;
+                        }
+                        break;
+                    }
+                }
+                else
+                    break;
+
+                iterator = iterator->lexNext();
+            }
+        }
+
+        reductionVar.insert(reductionVar.begin(), make_pair(redElem.first, vars));
+        reductionArr.insert(reductionArr.begin(), make_pair(redElem.first, arrs));
+
+        retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
+    }
+
+    return true;
 }
 
 static bool checkShadowAcross(SgStatement *st,
@@ -257,7 +374,6 @@ static bool checkShadowAcross(SgStatement *st,
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                 retVal = false;
             }
-
             //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
             notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
@@ -277,6 +393,7 @@ static bool checkShadowAcross(SgStatement *st,
             if (arrayType)
             {
                 int dim = arrayType->dimension();
+
                 if (dim != arrayDisc.size())
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
@@ -310,10 +427,7 @@ static bool checkShadowAcross(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -321,6 +435,24 @@ static bool checkShadowAcross(SgStatement *st,
 }
 
 
+static int hasName(SgExpression *exp, const string &varName)
+{
+    if (exp)
+    {
+        SgSymbol *symb = exp->symbol();
+        SgExpression *lhs = exp->lhs();
+        SgExpression *rhs = exp->rhs();
+
+        if (symb)
+            if (string(symb->identifier()) == varName)
+                return 1;
+
+        return hasName(lhs, varName) + hasName(rhs, varName);
+    }
+
+    return 0;
+}
+/*
 static int hasTextualInclude(SgExpression *exp, const string &varName)
 {
     string stringExp = exp->unparse();
@@ -331,12 +463,11 @@ static int hasTextualInclude(SgExpression *exp, const string &varName)
     {
         ++count;
         pos = stringExp.find(varName, pos + 1);
-        //__spf_print(1, "I AM ('%s') number %d FOUND!\n", varName.c_str(), count);
     }
 
     return count;
 }
-
+*/
 static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp == remoteExp)
@@ -436,7 +567,7 @@ static bool checkRemote(SgStatement *st,
 
                     for (auto &forVar : forVars)
                     {
-                        if (hasTextualInclude(remoteExp->lhs(), forVar.first))
+                        if (hasName(remoteExp->lhs(), forVar.first))
                         {
                             ++forVarsCount;
                             ++forVar.second;
@@ -456,26 +587,26 @@ static bool checkRemote(SgStatement *st,
 
                             if (list->variant() == ADD_OP)
                             {
-                                if (list->lhs()->variant() == MULT_OP && !hasTextualInclude(list->rhs(), forVar.first))
+                                if (list->lhs()->variant() == MULT_OP && !hasName(list->rhs(), forVar.first))
                                 {
-                                    if (hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                    if (hasName(list->lhs(), forVar.first) == 1)
                                         isRemoteSubTreeCond = true;
                                 }
-                                else if (list->rhs()->variant() == MULT_OP && !hasTextualInclude(list->lhs(), forVar.first))
+                                else if (list->rhs()->variant() == MULT_OP && !hasName(list->lhs(), forVar.first))
                                 {
-                                    if (hasTextualInclude(list->rhs(), forVar.first) == 1)
+                                    if (hasName(list->rhs(), forVar.first) == 1)
                                         isRemoteSubTreeCond = true;
                                 }
-                                else if (hasTextualInclude(list, forVar.first) == 1)
+                                else if (hasName(list, forVar.first) == 1)
                                     isRemoteSubTreeCond = true;
                             }
                             else if (list->variant() == MULT_OP)
                             {
-                                if (!hasTextualInclude(list->lhs(), forVar.first) && hasTextualInclude(list->rhs(), forVar.first) == 1 ||
-                                    !hasTextualInclude(list->rhs(), forVar.first) && hasTextualInclude(list->lhs(), forVar.first) == 1)
+                                if (!hasName(list->lhs(), forVar.first) && hasName(list->rhs(), forVar.first) == 1 ||
+                                    !hasName(list->rhs(), forVar.first) && hasName(list->lhs(), forVar.first) == 1)
                                     isRemoteSubTreeCond = true;
                             }
-                            else if (hasTextualInclude(list, forVar.first) == 1)
+                            else if (hasName(list, forVar.first) == 1)
                                 isRemoteSubTreeCond = true;
 
                             if (!isRemoteSubTreeCond)
@@ -518,10 +649,7 @@ static bool checkRemote(SgStatement *st,
     }
     else
     {
-        __spf_print(1, "bad directive position on line %d, it can be placed only before DO statement\n", attributeStatement->lineNumber());
-        string message;
-        __spf_printToBuf(message, "bad directive position, it can be placed only before DO statement");
-        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
@@ -583,11 +711,14 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
 
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
             map<string, set<SgSymbol*>> reduction;
+            map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
             fillReductionsFromComment(attributeStatement, reduction);
+            fillReductionsFromComment(attributeStatement, reductionLoc);
             if (reduction.size())
             {
                 bool result = checkReduction(st, attributeStatement, reduction, messagesForFile);
-                retVal = retVal && result;
+                bool resultLoc = checkReduction(st, attributeStatement, reductionLoc, messagesForFile);
+                retVal = retVal && result && resultLoc;
             }
         }
         else if (type == SPF_PARALLEL_DIR)
@@ -623,10 +754,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 const int prevVar = prev->variant();
                 if (prevVar != PROC_HEDR && prevVar != FUNC_HEDR)
                 {
-                    __spf_print(1, "bad directive position on line %d, it can be placed only after function statement\n", attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "bad directive position, it can be placed only after function statement");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
                     retVal = false;
                 }
             }
@@ -659,7 +787,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-void preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
@@ -694,8 +822,7 @@ void preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     findModulesInFile(file, modules);
     bool result = processModules(modules, currFile, messagesForFile);
     noError = noError && result;
-
-    //TODO: add error return for visualizer
+    return noError;
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,
