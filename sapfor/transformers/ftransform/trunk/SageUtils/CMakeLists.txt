@@ -33,10 +33,13 @@ set(SOURCE_LIB
         ./src/SageUtils.cpp
         ./src/SageTransformUtils.cpp
         ./src/decodeStmtVariant.cpp
+        ./src/LineReorderRecord.cpp
+        ./src/LineReorderer.cpp
         )
 set(EXT_PROJECTS_DIR ${PROJECT_SOURCE_DIR}/ext)
 
 include_directories(./include)
+include_directories(../CommonLib/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 add_library(SageUtils STATIC ${SOURCE_LIB})
 

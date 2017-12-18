@@ -125,7 +125,6 @@
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\Dependency.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyInfo.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyInfoGetter.cpp" />
-    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyType.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyUtils.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\BaseTransform.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopCombine.cpp" />

@@ -66,6 +66,8 @@ set(SOURCE_EXE
         ${FTRANSFORM_BASE}/SageUtils/src/decodeStmtVariant.cpp
         ${FTRANSFORM_BASE}/SageUtils/src/SageTransformUtils.cpp
         ${FTRANSFORM_BASE}/SageUtils/src/SageUtils.cpp
+        ${FTRANSFORM_BASE}/SageUtils/src/LineReorderRecord.cpp
+        ${FTRANSFORM_BASE}/SageUtils/src/LineReorderer.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/BaseTransform.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/LoopCombine.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformBreak.cpp
@@ -81,7 +83,6 @@ set(SOURCE_EXE
         ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/Dependency.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyInfo.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyInfoGetter.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyType.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyUtils.cpp
         _src/DirectiveAnalyzer/DirectiveAnalyzer.cpp
         _src/Distribution/Array.h

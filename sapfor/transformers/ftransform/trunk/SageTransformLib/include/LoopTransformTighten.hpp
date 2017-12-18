@@ -7,15 +7,21 @@
 #include "SageTransformConstants.hpp"
 #include "Dependencies.hpp"
 #include "BaseTransform.hpp"
-
-#include "SageAnalysisTool/depGraph.h"
+#include "LineReorderRecord.hpp"
 
 using std::string;
 using std::map;
+using std::vector;
+using std::pair;
 using SageTransform::Constants::TRANSFORM_CMD_PREFIX;
 
 namespace SageTransform {
     class LoopTransformTighten : public BaseTransform {
+    private: //static fields and functions
+        static vector<pair<SgStatement *, LineReorderRecord>> LAUNCHES;
+    public:
+        static vector<pair<SgStatement *, LineReorderRecord>> *getLaunches() { return &LAUNCHES; }
+
     public:
         bool hasTightenComment(SgForStmt *pForLoop);
 
@@ -37,14 +43,14 @@ namespace SageTransform {
          * @return achievable level of tightening, value is 2+ or 0 if cannot transform
          */
         /*deprecated*/
-        int canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, DepType> &dependencies);
+        int canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, DependencyType> &dependencies);
 
         //expects that pForLoop contains single level other loop and some statements before inner loop header
         //several same scope child loops are not allowed
         //statements after inner loop are not allowed
-        int canTighten(SgForStmt *pForLoop,
-                       std::pair<SgForStmt *, depGraph *> &outerLoopDependencies,
-                       std::pair<SgForStmt *, depGraph *> &innerLoopDependencies);
+//        int canTighten(SgForStmt *pForLoop,
+//                       std::pair<SgForStmt *, depGraph *> &outerLoopDependencies,
+//                       std::pair<SgForStmt *, depGraph *> &innerLoopDependencies);
 
         /**
          * tighten #level-1 nested loops after given to create a #level nested loop
@@ -60,19 +66,15 @@ namespace SageTransform {
 
         static string COMMENT_PREFIX;
     private:
-        bool canTightenSingleLevel(SgForStmt *pForLoop, std::map<SgSymbol *, DepType> &dependencies);
+        bool canTightenSingleLevel(SgForStmt *pForLoop, std::map<SgSymbol *, DependencyType> &dependencies);
 
         bool validateInvariantStatementBeforeLoop(SgStatement *invBegin, SgStatement *invEnd,
-                                                  std::map<SgSymbol *, DepType> &dependencies);
+                                                  std::map<SgSymbol *, DependencyType> &dependencies);
 
         bool validateInvariantStatementAfterLoop(SgStatement *invBegin, SgStatement *invEnd,
-                                                 std::map<SgSymbol *, DepType> &dependencies);
+                                                 std::map<SgSymbol *, DependencyType> &dependencies);
 
-        void tightenSingleLevel(SgForStmt *pForLoop);
-
-        SgForStmt *lexNextLoop(SgStatement *pStmt, SgStatement *end);
-
-        SgControlEndStmt *lexPrevEnddo(SgStatement *pStmt, SgStatement *end);
+        LineReorderRecord tightenSingleLevel(SgForStmt *pForLoop, SgForStmt *topLevelForLoop);
 
         /**
          * Sinks pStmt into nearest next same-scope loop in following code if possible.

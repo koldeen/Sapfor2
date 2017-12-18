@@ -25,6 +25,19 @@ namespace SageTransform {
         SgStatement *getNthLoopStatement(SgForStmt *, int n);
 
         /**
+         * Count lexical distance from base to check.
+         * @param sBase base to count from
+         * @param sCheck target line
+         * @return 0 if sBase == sCheck,
+         *         positive value if sCheck = sBase->lexNext()...->lexNext(),
+         *         negative value if sCheck = sBase->lexPrev()...->lexPrev(),
+         *         if value cannot be reached, LEX_INFINITY is returned
+         *
+         */
+        int lexDist(SgStatement *sBase, SgStatement *sCheck);
+        const int LEX_INFINITY = 1000000;
+
+        /**
          * Search for next closest SgForStmt until {@param end} is reached.
          * @param pStmt search from this stmt, inclusive
          * @param end search stops at this element, inclusive. It must be lexNext'able from {@param pStmt}.

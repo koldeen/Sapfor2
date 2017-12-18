@@ -54,7 +54,7 @@ StringUtils.o: $(TR_COMMON_BASE_DIR)src/StringUtils.cpp
 #Make transform lib
 TR_LIB_OBS = BaseTransform.o LoopCombine.o LoopTransformBreak.o LoopTransformMerge.o LoopTransformSplit.o LoopTransformTighten.o \
              StatementOrderTransform.o StatementReorderer.o StatementReshuffler.o StatementsSplitter.o TempArrayTransform.o WriteDearray.o \
-			 Dependency.o DependencyType.o DependencyInfo.o DependencyInfoGetter.o DependencyUtils.o
+			 Dependency.o DependencyInfo.o DependencyInfoGetter.o DependencyUtils.o
 			 
 TR_LIB_INC = -I$(TR_LIB_BASE_DIR)include/dependency/ -I$(TR_LIB_BASE_DIR)include/ -I$(TR_COMMON_BASE_DIR)include/ -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(REPO_SPF_BASE)
 
@@ -86,8 +86,6 @@ WriteDearray.o: $(TR_LIB_BASE_DIR)src/WriteDearray.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/WriteDearray.cpp $(TR_LIB_INC)
 Dependency.o: $(TR_LIB_BASE_DIR)src/dependency/Dependency.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/Dependency.cpp $(TR_LIB_INC)
-DependencyType.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyType.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyType.cpp $(TR_LIB_INC)
 DependencyInfo.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfo.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyInfo.cpp $(TR_LIB_INC)
 DependencyInfoGetter.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfoGetter.cpp
@@ -96,7 +94,7 @@ DependencyUtils.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyUtils.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyUtils.cpp $(TR_LIB_INC)
 	
 #Make transform utils
-TR_UTILS_OBS = decodeStmtVariant.o SageTransformUtils.o SageUtils.o
+TR_UTILS_OBS = decodeStmtVariant.o SageTransformUtils.o SageUtils.o LineReorderRecord.o LineReorderer.o
 			 
 TR_UTILS_INC = -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(TR_COMMON_BASE_DIR)include/
 
@@ -109,6 +107,10 @@ SageTransformUtils.o: $(TR_UTILS_BASE_DIR)src/SageTransformUtils.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageTransformUtils.cpp $(TR_UTILS_INC)
 SageUtils.o: $(TR_UTILS_BASE_DIR)src/SageUtils.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageUtils.cpp $(TR_UTILS_INC)
+LineReorderRecord.o: $(TR_UTILS_BASE_DIR)src/LineReorderRecord.cpp
+	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderRecord.cpp $(TR_UTILS_INC)
+LineReorderer.o: $(TR_UTILS_BASE_DIR)src/LineReorderer.cpp
+	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderer.cpp $(TR_UTILS_INC)
 
 #Make SAGE++
 libSage++.o: $(SAGE_SRC_DIR)libSage++.cpp $(LIB_INCL)/macro.h $(LIB_INCL)/bif_node.def $(LIB_INCL)/type.def $(LIB_INCL)/symb.def $(LIB_INCL)/libSage++.h
@@ -228,7 +230,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o transforms.o CorrectVarDecl.o 
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
-	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/trUtils.a $(LIBDIR)/trLib.a $(LIBDIR)/trCommonLib.a
+	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/trCommonLib.a
 
 utils.o: $(REPO_SPF_BASE)utils.cpp $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)

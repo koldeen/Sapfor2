@@ -30,7 +30,6 @@ set(SOURCE_LIB
         ./src/dependency/Dependency.cpp
         ./src/dependency/DependencyInfo.cpp
         ./src/dependency/DependencyInfoGetter.cpp
-        ./src/dependency/DependencyType.cpp
         ./src/dependency/DependencyUtils.cpp
         ./src/LoopTransformBreak.cpp
         ./src/LoopTransformMerge.cpp
@@ -46,6 +45,8 @@ set(SOURCE_LIB
         ./src/BaseTransform.cpp)
 
 include_directories(./include)
+include_directories(../CommonLib/include)
+include_directories(../SageUtils/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 include_directories(${sapfor2017_include})
 add_library(SageTransformLib STATIC ${SOURCE_LIB})
