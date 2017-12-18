@@ -47,7 +47,6 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
                 messages.push_back(Messages(NOTE, current->lineNum, buf));
             }
-            outerLoop->unparsestdout();
         }
     }
 
@@ -67,17 +66,16 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
 
 pair<SgForStmt*, depGraph*> Sapfor2017::CreateNestedLoopsUtils::getDepGraph(LoopGraph *loopGraph, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
+    SgForStmt *sgForStmt = nullptr;
     depGraph *dg = nullptr;
     if (depInfoForLoopGraph.count(loopGraph) == 0) {
         __spf_print(1, "getDepGraph for loop at %d. No depGraph found\n", loopGraph->lineNum);
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     } else {
         dg = depInfoForLoopGraph.at(loopGraph);
-    }
-    SgForStmt *sgForStmt = isSgForStmt(dg->loop);
-    if (sgForStmt == nullptr) {
-        __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        sgForStmt = isSgForStmt(dg->loop);
+        if (sgForStmt == nullptr) {
+            __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
+        }
     }
     return std::make_pair(sgForStmt, dg);
 }
