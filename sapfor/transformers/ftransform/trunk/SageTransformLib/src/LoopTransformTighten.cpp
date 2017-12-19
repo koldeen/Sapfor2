@@ -21,14 +21,14 @@ using MapUtils::getOrDefault;
 
 string LoopTransformTighten::COMMENT_PREFIX("!PRG dimension access");
 
-map<string, stack<pair<SgStatement *, LineReorderRecord>>> LoopTransformTighten::LAUNCHES;
+map<string, stack<pair<SgForStmt *, LineReorderRecord>>> LoopTransformTighten::LAUNCHES;
 
-void LoopTransformTighten::storeLaunch(SgStatement * pStmt, const LineReorderRecord& reorder) {
+void LoopTransformTighten::storeLaunch(SgForStmt * pStmt, const LineReorderRecord& reorder) {
     string filename = SageUtils::getFilename(pStmt);
     if (LAUNCHES.count(filename) == 0) {
-        LAUNCHES.insert({filename, stack<pair<SgStatement *, LineReorderRecord>>()});
+        LAUNCHES.insert({filename, stack<pair<SgForStmt *, LineReorderRecord>>()});
     }
-    stack<pair<SgStatement *, LineReorderRecord>> &stack = LAUNCHES.at(filename);
+    stack<pair<SgForStmt *, LineReorderRecord>> &stack = LAUNCHES.at(filename);
     stack.push(std::make_pair(pStmt, reorder));
 }
 

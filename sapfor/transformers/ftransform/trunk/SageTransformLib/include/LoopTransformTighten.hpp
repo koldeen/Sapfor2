@@ -21,11 +21,11 @@ namespace SageTransform {
     class LoopTransformTighten : public BaseTransform {
     private: //static fields and functions
         //map<filename, vector<{forloop, applied reorder}>>
-        static map<string, stack<pair<SgStatement *, LineReorderRecord>>> LAUNCHES;
+        static map<string, stack<pair<SgForStmt *, LineReorderRecord>>> LAUNCHES;
     public:
-        static map<string, stack<pair<SgStatement *, LineReorderRecord>>> *getLaunches() { return &LAUNCHES; }
+        static map<string, stack<pair<SgForStmt *, LineReorderRecord>>> *getLaunches() { return &LAUNCHES; }
     private:
-        static void storeLaunch(SgStatement * pStmt, const LineReorderRecord& reorder);
+        static void storeLaunch(SgForStmt * pStmt, const LineReorderRecord& reorder);
 
     public:
         bool hasTightenComment(SgForStmt *pForLoop);

@@ -26,24 +26,28 @@ static void buildLoopMap(LoopGraph *current, map<SgForStmt*, LoopGraph*> &loopMa
 
 void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
 {
-    /*map<SgForStmt*, LoopGraph*> loopMap;
+    map<SgForStmt*, LoopGraph*> loopMap;
     for (auto &elem : loopsInFile)
         buildLoopMap(elem, loopMap);
-    
-    //TODO: fill it
-    stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> *backOrder;
-    while (backOrder->size())
-    {
-        auto elem = backOrder->top();
-        backOrder->pop();
 
+    auto *launches = SageTransform::LoopTransformTighten::getLaunches();
+    if (launches->count(file) == 0) {
+        __spf_print(1, "nothing to revert in %s\n", file.c_str());
+        return;
+    }
+    stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> &backOrder = launches->at(file);
+    while (backOrder.size())
+    {
+        auto &elem = backOrder.top();
+        backOrder.pop();
         auto it = loopMap.find(elem.first);
         if (it == loopMap.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        SageTransform::LineReorderer::apply(elem.first, elem.second.buildReverse());
+        auto reorder = elem.second.buildReverse();
+        SageTransform::LineReorderer::apply(elem.first, reorder);
         it->second->recalculatePerfect();
-    }*/
+    }
 }
 
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
