@@ -129,6 +129,13 @@ public:
         return directive;
     }
 
+    void recalculatePerfect()
+    {
+        perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+        for (auto &loop : childs)
+            loop->recalculatePerfect();
+    }
+
     void setRegionToChilds()
     {
         for (auto &loop : childs)

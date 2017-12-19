@@ -4,6 +4,7 @@
 
 #include <LoopTransformTighten.hpp>
 #include <SageTransformException.hpp>
+#include <LineReorderer.hpp>
 #include <SageUtils.hpp>
 #include "SageAnalysisTool/OmegaForSage/include/lang-interf.h"
 #include <SageAnalysisTool/definesValues.h>
@@ -14,6 +15,36 @@ using SageTransform::DependencyType;
 using Sapfor2017::CreateNestedLoopsUtils;
 using std::pair;
 using std::map;
+using std::stack;
+
+static void buildLoopMap(LoopGraph *current, map<SgForStmt*, LoopGraph*> &loopMap)
+{
+    loopMap[(SgForStmt*)(current->loop)] = current;
+    for (int i = 0; i < current->childs.size(); ++i)
+        buildLoopMap(current->childs[i], loopMap);
+}
+
+void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
+{
+    /*map<SgForStmt*, LoopGraph*> loopMap;
+    for (auto &elem : loopsInFile)
+        buildLoopMap(elem, loopMap);
+    
+    //TODO: fill it
+    stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> *backOrder;
+    while (backOrder->size())
+    {
+        auto elem = backOrder->top();
+        backOrder->pop();
+
+        auto it = loopMap.find(elem.first);
+        if (it == loopMap.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        SageTransform::LineReorderer::apply(elem.first, elem.second.buildReverse());
+        it->second->recalculatePerfect();
+    }*/
+}
 
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
 {
@@ -59,7 +90,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     }    
     
     //update perfect loop
-    current->perfectLoop = ((SgForStmt*)current->loop)->isPerfectLoopNest();
+    current->recalculatePerfect();
     __spf_print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
     return wasTigtened;
 }

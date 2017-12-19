@@ -1175,22 +1175,12 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 ParallelDirective *parDirective = current->directive;
                 if (topCheck == false)
                 {  //try to unite loops and recheck
-                    bool result = false;
-                    /*try
-                    {
-                        result = createNestedLoops(current, depInfoForLoopGraph, messages);
-                    }
-                    catch (...)
-                    {
-                        __spf_print(1, "exception occurred during loop tighten\n");
-                        result = true;
-                    }*/
-
+                    /*bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     if (result)
                     {
                         parDirective = current->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(current, distribution);
-                    }
+                    }*/
                 }
 
                 if (topCheck)

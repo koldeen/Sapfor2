@@ -13,6 +13,7 @@ enum passes {
     CONVERT_TO_ENDDO,
     CORRECT_CODE_STYLE,
     CREATE_NESTED_LOOPS,
+    REVERSE_CREATED_NESTED_LOOPS,
     UNPARSE_FILE,
 
     LOOP_ANALYZER_DATA_DIST_S1,
@@ -137,5 +138,6 @@ static void setPassValues()
     passNames[REMOVE_AND_CALC_SHADOW] = "REMOVE_AND_CALC_SHADOW";
     passNames[MACRO_EXPANSION] = "MACRO_EXPANSION";
     passNames[SWAP_ARRAY_DIMENSION] = "SWAP_ARRAY_DIMENSION";
+    passNames[REVERSE_CREATED_NESTED_LOOPS] = "REVERSE_CREATED_NESTED_LOOPS";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

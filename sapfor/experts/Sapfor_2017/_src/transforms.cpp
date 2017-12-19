@@ -216,7 +216,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
-                declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
             UniteNestedDirectives(file, itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -550,6 +550,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == MACRO_EXPANSION)
             doMacroExpand(file, getMessagesForFile(file_name));    
+        else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound != loopGraph.end())
+                reverseCreatedNestedLoops(file->filename(), itFound->second);
+        }
+
+
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
