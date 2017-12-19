@@ -43,6 +43,10 @@ add_executable(SageTransformUtilsTest.exe ${SAGE_UTILS_PATH}/SageTransformUtilsT
 target_link_libraries(SageTransformUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(SageTransformUtilsTest SageTransformUtilsTest.exe)
 
+add_executable(SageUtilsTest.exe ${SAGE_UTILS_PATH}/SageUtilsTest.cpp ${TEST_COMMON_SRC})
+target_link_libraries(SageUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+add_test(SageUtilsTest SageUtilsTest.exe)
+
 add_executable(LoopTransformTighten.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(LoopTransformTighten.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(LoopTransformTighten LoopTransformTighten.exe)

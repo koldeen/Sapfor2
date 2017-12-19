@@ -38,6 +38,12 @@ namespace SageTransform {
         const int LEX_INFINITY = 1000000;
 
         /**
+         * Get filename of source file of given SgStatement
+         * @return string with filename
+         */
+        std::string getFilename(SgStatement *);
+
+        /**
          * Search for next closest SgForStmt until {@param end} is reached.
          * @param pStmt search from this stmt, inclusive
          * @param end search stops at this element, inclusive. It must be lexNext'able from {@param pStmt}.

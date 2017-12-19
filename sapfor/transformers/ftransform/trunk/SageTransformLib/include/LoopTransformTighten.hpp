@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <stack>
 #include "user.h"
 #include "SageTransformConstants.hpp"
 #include "Dependencies.hpp"
@@ -12,15 +13,19 @@
 using std::string;
 using std::map;
 using std::vector;
+using std::stack;
 using std::pair;
 using SageTransform::Constants::TRANSFORM_CMD_PREFIX;
 
 namespace SageTransform {
     class LoopTransformTighten : public BaseTransform {
     private: //static fields and functions
-        static vector<pair<SgStatement *, LineReorderRecord>> LAUNCHES;
+        //map<filename, vector<{forloop, applied reorder}>>
+        static map<string, stack<pair<SgStatement *, LineReorderRecord>>> LAUNCHES;
     public:
-        static vector<pair<SgStatement *, LineReorderRecord>> *getLaunches() { return &LAUNCHES; }
+        static map<string, stack<pair<SgStatement *, LineReorderRecord>>> *getLaunches() { return &LAUNCHES; }
+    private:
+        static void storeLaunch(SgStatement * pStmt, const LineReorderRecord& reorder);
 
     public:
         bool hasTightenComment(SgForStmt *pForLoop);

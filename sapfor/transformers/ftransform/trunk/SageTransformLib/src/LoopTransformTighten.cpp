@@ -21,7 +21,16 @@ using MapUtils::getOrDefault;
 
 string LoopTransformTighten::COMMENT_PREFIX("!PRG dimension access");
 
-vector<pair<SgStatement *, LineReorderRecord>> LoopTransformTighten::LAUNCHES;
+map<string, stack<pair<SgStatement *, LineReorderRecord>>> LoopTransformTighten::LAUNCHES;
+
+void LoopTransformTighten::storeLaunch(SgStatement * pStmt, const LineReorderRecord& reorder) {
+    string filename = SageUtils::getFilename(pStmt);
+    if (LAUNCHES.count(filename) == 0) {
+        LAUNCHES.insert({filename, stack<pair<SgStatement *, LineReorderRecord>>()});
+    }
+    stack<pair<SgStatement *, LineReorderRecord>> &stack = LAUNCHES.at(filename);
+    stack.push(std::make_pair(pStmt, reorder));
+}
 
 bool LoopTransformTighten::hasTightenComment(SgForStmt *pStmt) {
     if (pStmt->comments()) {
@@ -230,7 +239,8 @@ bool LoopTransformTighten::tighten(SgForStmt *pForLoop, int level) {
         processedLoop = lexNextLoop(processedLoop->lexNext(), NULL);
         processing++;
     }
-    LoopTransformTighten::LAUNCHES.push_back(std::make_pair(pForLoop, reorderRecord));
+    string filename = SageUtils::getFilename(pForLoop);
+    storeLaunch(pForLoop, reorderRecord);
     return true;
 }
 

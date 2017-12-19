@@ -11,8 +11,11 @@
 
 using namespace SageTransform;
 
+//todo add more complex tighten test 2 layer loop
+
 TEST(LoopTransformTighten, tightenValid) {
     LoopTransformTighten tighten;
+    const char *sourceFile = "valid.f90";
     const char *projectFile = "../../SageTransformLib/test/LoopTransformTightenTest/valid.proj";
     const char *midResultSource = "../../SageTransformLib/test/LoopTransformTightenTest/result.mid.f90";
     const char *finResultSource = "../../SageTransformLib/test/LoopTransformTightenTest/result.fin.f90";
@@ -40,7 +43,10 @@ TEST(LoopTransformTighten, tightenValid) {
     fclose(outputFile);
     ASSERT_TRUE(TestUtils::compareFortranSources(midResultSource, midExpectSource));
 
-    auto &pair = LoopTransformTighten::getLaunches()->at(0);
+    auto &filename = LoopTransformTighten::getLaunches()->begin()->first;
+    ASSERT_EQ(string(sourceFile), filename);
+    auto &stack = LoopTransformTighten::getLaunches()->begin()->second;
+    auto &pair = stack.top();
     SgStatement * loopStmt = pair.first;
     LineReorderRecord record = pair.second.buildReverse();
     LineReorderer().apply(loopStmt, record);

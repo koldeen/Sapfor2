@@ -36,6 +36,10 @@ int SageUtils::lexDist(SgStatement *sBase, SgStatement *sCheck) {
     else return LEX_INFINITY;
 }
 
+string SageUtils::getFilename(SgStatement *pStmt) {
+    return string(pStmt->fileName());
+}
+
 bool SageUtils::checkTightlyNested(SgForStmt *outerLoop, int depth) {
     SgForStmt *innermostLoop = outerLoop;
     for (int i = 0; i < depth - 1; ++i) {
