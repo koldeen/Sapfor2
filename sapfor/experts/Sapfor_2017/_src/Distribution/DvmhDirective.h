@@ -36,9 +36,13 @@ public:
     void createDirstributionVariants(const std::vector<DIST::Array*> &arraysToDist);
     std::vector<std::string> GenRule(const std::vector<int> &rules) const;
     std::vector<std::string> GenAlignsRules() const;
-public:
     std::vector<Statement*> GenRule(File *file, const std::vector<int> &rules, const int variant) const; 
     std::vector<Statement*> GenAlignsRules(File *file, const int variant) const;
+    void UpdateLinks(const std::map<DIST::Array*, DIST::Array*> &oldNewArrays)
+    {
+        for (int i = 0; i < distrRules.size(); ++i)
+            distrRules[i].first = oldNewArrays.find(distrRules[i].first)->second;
+    }
 };
 
 struct ParallelDirective : Directive
@@ -65,20 +69,20 @@ public:
 
 public:
     ParallelDirective() { }
-    ParallelDirective(const ParallelDirective *copyFrom) : Directive(copyFrom)
+    ParallelDirective(const ParallelDirective &copyFrom) : Directive(copyFrom)
     {
-        parallel = copyFrom->parallel;
-        on = copyFrom->on;
-        arrayRef = copyFrom->arrayRef;
-        arrayRef2 = copyFrom->arrayRef2;
+        parallel = copyFrom.parallel;
+        on = copyFrom.on;
+        arrayRef = copyFrom.arrayRef;
+        arrayRef2 = copyFrom.arrayRef2;
 
-        privates = copyFrom->privates;
-        shadowRenew = copyFrom->shadowRenew;
-        shadowRenewShifts = copyFrom->shadowRenewShifts;
-        across = copyFrom->across;
-        acrossShifts = copyFrom->acrossShifts;
-        remoteAccess = copyFrom->remoteAccess;
-        reduction = copyFrom->reduction;
+        privates = copyFrom.privates;
+        shadowRenew = copyFrom.shadowRenew;
+        shadowRenewShifts = copyFrom.shadowRenewShifts;
+        across = copyFrom.across;
+        acrossShifts = copyFrom.acrossShifts;
+        remoteAccess = copyFrom.remoteAccess;
+        reduction = copyFrom.reduction;
     }
 
     std::pair<std::string, std::vector<Expression*>> 

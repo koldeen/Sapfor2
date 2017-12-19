@@ -63,7 +63,7 @@ enum passes {
     BUILD_INCLUDE_DEPENDENCIES,
 
     MACRO_EXPANSION,
-    SWAP_ARRAY_DIMENTION,
+    SWAP_ARRAY_DIMENSION,
     EMPTY_PASS
 };
 
@@ -136,6 +136,6 @@ static void setPassValues()
     passNames[EMPTY_PASS] = "EMPTY_PASS";
     passNames[REMOVE_AND_CALC_SHADOW] = "REMOVE_AND_CALC_SHADOW";
     passNames[MACRO_EXPANSION] = "MACRO_EXPANSION";
-    passNames[SWAP_ARRAY_DIMENTION] = "SWAP_ARRAY_DIMENTION"; //typo dimension
+    passNames[SWAP_ARRAY_DIMENSION] = "SWAP_ARRAY_DIMENSION";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

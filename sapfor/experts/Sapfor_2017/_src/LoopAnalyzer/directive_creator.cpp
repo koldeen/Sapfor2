@@ -787,7 +787,7 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                     parDir->arrayRef2 = mainArrayOfLoop;
                     addShadowFromAnalysis(parDir, currAccesses);
 
-                    loop->directiveForLoop = new ParallelDirective(loop->directive);
+                    loop->directiveForLoop = new ParallelDirective(*loop->directive);
                 }
                 __spf_print(PRINT_DIR_RESULT, "   directive created\n");
             }

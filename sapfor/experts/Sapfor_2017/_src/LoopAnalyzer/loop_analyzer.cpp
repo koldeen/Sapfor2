@@ -1233,7 +1233,11 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
         SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
         spfStat->setlineNumber(loop->lineNum);
         if (!loop->hasLimitsToParallel())
+        {
             loop->loop->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
+            //uncomment it to debug private analysis
+            //loop->loop->insertStmtBefore(*spfStat);
+        }
         insertSpfAnalysisBeforeParalleLoops(loop->childs);
     }
 }

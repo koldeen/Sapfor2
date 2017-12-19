@@ -50,7 +50,6 @@
 #include "dvm.h"
 #include "transform.h"
 #include "PassManager.h"
-#include "SapforData.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -59,6 +58,8 @@ int PASSES_DONE[EMPTY_PASS];
 bool PASSES_DONE_INIT = false;
 
 int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
+
+#include "SapforData.h"
 
 static SgProject *project = NULL;
 
@@ -196,6 +197,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             try
             {
+                //save current state
+                if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+                    states.push_back(new SapforState());
+
                 auto itFound = loopGraph.find(file_name);
                 auto itFound2 = allFuncInfo.find(file_name);
                 loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), DATA_DISTR, itFound2->second,
@@ -1132,6 +1137,7 @@ int main(int argc, char**argv)
     {
         setPassValues();
         consoleMode = 1;
+        QUALITY = 100;
         printVersion();
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
