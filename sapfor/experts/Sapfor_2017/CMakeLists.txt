@@ -58,32 +58,6 @@ set(SOURCE_EXE
         ${fdvm_sources}/acc_data.cpp
         ${fdvm_sources}/acc_utilities.cpp
         ${fdvm_sources}/calls.cpp
-        ${FTRANSFORM_BASE}/CommonLib/src/Log.cpp
-        ${FTRANSFORM_BASE}/CommonLib/src/SageTransformException.cpp
-        ${FTRANSFORM_BASE}/CommonLib/src/SignalHandling.cpp
-        ${FTRANSFORM_BASE}/CommonLib/src/Stacktrace.cpp
-        ${FTRANSFORM_BASE}/CommonLib/src/StringUtils.cpp
-        ${FTRANSFORM_BASE}/SageUtils/src/decodeStmtVariant.cpp
-        ${FTRANSFORM_BASE}/SageUtils/src/SageTransformUtils.cpp
-        ${FTRANSFORM_BASE}/SageUtils/src/SageUtils.cpp
-        ${FTRANSFORM_BASE}/SageUtils/src/LineReorderRecord.cpp
-        ${FTRANSFORM_BASE}/SageUtils/src/LineReorderer.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/BaseTransform.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopCombine.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformBreak.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformMerge.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformSplit.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformTighten.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/StatementOrderTransform.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/StatementReorderer.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/StatementReshuffler.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/StatementsSplitter.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/TempArrayTransform.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/WriteDearray.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/Dependency.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyInfo.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyInfoGetter.cpp
-        ${FTRANSFORM_BASE}/SageTransformLib/src/dependency/DependencyUtils.cpp
         _src/DirectiveAnalyzer/DirectiveAnalyzer.cpp
         _src/Distribution/Array.h
         _src/Distribution/Arrays.h
@@ -153,6 +127,9 @@ add_definitions("-D __SPF")
 add_subdirectory(SageOldSrc)
 add_subdirectory(SageNewSrc)
 add_subdirectory(SageLib)
+add_subdirectory(TransformCommonLib)
+add_subdirectory(TransformUtils)
+add_subdirectory(TransformLib)
 
 add_definitions("-D _ARBU")
-target_link_libraries(Sapfor_2017 SageNewSrc SageLib gomp)
+target_link_libraries(Sapfor_2017 TransformLib TransformUtils TransformCommonLib SageNewSrc SageLib gomp)
