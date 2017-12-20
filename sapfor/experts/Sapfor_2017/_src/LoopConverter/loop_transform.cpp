@@ -50,12 +50,13 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
     }
 }
 
+//todo parse spf private comments into additional dependency info
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
 {
-    bool wasTigtened = false;
+    bool wasTightened = false;
     // has non nested child loop
     __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
-    bool outerTigtened = false;
+    bool outerTightened = false;
     bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
     
     if (loopCondition)
@@ -71,12 +72,12 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                                                                                                     outerLoopDependencies.second,
                                                                                                     nullptr);
             if (loopTransformTighten.canTighten(outerLoop, depMap) >= 2) {
-                outerTigtened = loopTransformTighten.tighten(outerLoop, 2);
+                outerTightened = loopTransformTighten.tighten(outerLoop, 2);
                 LoopGraph *firstChild = current->childs.at(0);
-                if (outerTigtened) {
+                if (outerTightened) {
                     firstChild->perfectLoop = ((SgForStmt *) firstChild->loop)->isPerfectLoopNest();
                 }
-                __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTigtened);
+                __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 
                 char buf[256];
                 sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
@@ -85,18 +86,18 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
         }
     }
 
-    wasTigtened = outerTigtened;
+    wasTightened = outerTightened;
     for (int i = 0; i < current->childs.size(); ++i) 
     {
         __spf_print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
         bool result = createNestedLoops(current->childs[i], depInfoForLoopGraph, messages);
-        wasTigtened = wasTigtened || result;
+        wasTightened = wasTightened || result;
     }    
     
     //update perfect loop
     current->recalculatePerfect();
     __spf_print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
-    return wasTigtened;
+    return wasTightened;
 }
 
 pair<SgForStmt*, depGraph*> Sapfor2017::CreateNestedLoopsUtils::getDepGraph(LoopGraph *loopGraph, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph)

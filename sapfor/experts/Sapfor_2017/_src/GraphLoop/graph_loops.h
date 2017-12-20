@@ -168,13 +168,13 @@ public:
     
     bool hasUnknownArrayDep;
 
-    bool hasUnknownArrayAssignes;
+    bool hasUnknownArrayAssignes; //fixme typo 'Assigns'
  
     bool hasNonRectangularBounds;
 
     bool hasIndirectAccess;
 
-    std::vector<LoopGraph*> childs;
+    std::vector<LoopGraph*> childs; //fixme typo 'children'
     std::vector<std::pair<std::string, int>> calls;
     
     // agregated read and write operations by arrays
