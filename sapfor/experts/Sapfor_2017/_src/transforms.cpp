@@ -1097,6 +1097,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
+            runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
         }
     }
         break;

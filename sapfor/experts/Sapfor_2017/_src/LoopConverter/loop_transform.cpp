@@ -17,36 +17,36 @@ using std::pair;
 using std::map;
 using std::stack;
 
-static void buildLoopMap(LoopGraph *current, map<SgForStmt*, LoopGraph*> &loopMap)
+static void buildLoopMap(LoopGraph *current, map<PTR_BFND, LoopGraph*> &loopMap)
 {
-    loopMap[(SgForStmt*)(current->loop)] = current;
+    loopMap[current->loop->thebif] = current;
     for (int i = 0; i < current->childs.size(); ++i)
         buildLoopMap(current->childs[i], loopMap);
 }
 
 void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
 {
-    map<SgForStmt*, LoopGraph*> loopMap;
+    map<PTR_BFND, LoopGraph*> loopMap;
     for (auto &elem : loopsInFile)
         buildLoopMap(elem, loopMap);
 
     auto *launches = SageTransform::LoopTransformTighten::getLaunches();
     if (launches->count(file) == 0) {
-        __spf_print(1, "nothing to revert in %s\n", file.c_str());
+        __spf_print(1, "  nothing to revert in %s\n", file.c_str());
         return;
     }
     stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> &backOrder = launches->at(file);
     while (backOrder.size())
     {
-        auto &elem = backOrder.top();
-        backOrder.pop();
-        auto it = loopMap.find(elem.first);
+        auto &elem = backOrder.top();        
+        auto it = loopMap.find(elem.first->thebif);
         if (it == loopMap.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         auto reorder = elem.second.buildReverse();
         SageTransform::LineReorderer::apply(elem.first, reorder);
         it->second->recalculatePerfect();
+        backOrder.pop();
     }
 }
 
@@ -54,7 +54,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
 {
     bool wasTigtened = false;
     // has non nested child loop
-    __spf_print(1, "createNestedLoops for loop at %d. Start\n", current->lineNum);
+    __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
     bool outerTigtened = false;
     bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
     
