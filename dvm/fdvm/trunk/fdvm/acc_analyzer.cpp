@@ -100,7 +100,8 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"sqrt", 1, { {1, NULL, INTRINSIC_IN} } },
     {"int", 1, { {1, NULL, INTRINSIC_IN} } },
     {"iabs", 1, { {1, NULL, INTRINSIC_IN} } },
-    {"fnpr", 4, { {1, NULL, INTRINSIC_IN},{ 2, NULL, INTRINSIC_IN },{ 3, NULL, INTRINSIC_IN },{ 4, NULL, INTRINSIC_IN } } }
+    {"fnpr", 4, { {1, NULL, INTRINSIC_IN},{ 2, NULL, INTRINSIC_IN },{ 3, NULL, INTRINSIC_IN },{ 4, NULL, INTRINSIC_IN } } },
+    {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
 static bool isIntrinsicFunctionNameACC(char* name)
@@ -1285,29 +1286,6 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             ControlFlowItem* loop_d = new ControlFlowItem(add, gotoEnd, currentProcedure);
             loop_d->setOriginalStatement(fst);
             ControlFlowItem* loop_emp = new ControlFlowItem(NULL, loop_d, currentProcedure);
-            if (isParLoop){
-#if __SPF
-                // all loop has depth == 1 ? is it correct?
-                int k = 1;
-#else
-                SgExpression* par_des = p->expr(2);
-                int k = 0;
-                while (par_des != NULL && par_des->lhs() != NULL){
-                    k++;
-                    par_des = par_des->rhs();
-                }
-#endif
-                loops->setParallelDepth(k, pl, p, pPl, pl_flag);
-            }
-
-            if (loops->isLastParallel()){
-                SgExpression* ex = loops->getPrivateList();
-                emptyBeforeDo->MakeParloopStart();
-                bool f;
-                SgExpression* e = loops->getExpressionToModifyPrivateList(&f);
-                emptyBeforeDo->setPrivateList(ex, loops->GetParallelStatement(), e, f);
-                loop_d->MakeParloopEnd();
-            }
             SgVarRefExp* doName = (isSgVarRefExp((*stmt)->expr(2)));
             int lbl = -1;
             if (!isEndDo){
@@ -1318,6 +1296,29 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
                     lbl = end->label()->id();
             }
             loops->addLoop(lbl, doName ? doName->symbol() : NULL, loop_emp, emptyAfterDo);
+            if (isParLoop) {
+#if __SPF
+                // all loop has depth == 1 ? is it correct?
+                int k = 1;
+#else
+                SgExpression* par_des = p->expr(2);
+                int k = 0;
+                while (par_des != NULL && par_des->lhs() != NULL) {
+                    k++;
+                    par_des = par_des->rhs();
+                }
+#endif
+                loops->setParallelDepth(k, pl, p, pPl, pl_flag);
+            }
+
+            if (loops->isLastParallel()) {
+                SgExpression* ex = loops->getPrivateList();
+                emptyBeforeDo->MakeParloopStart();
+                bool f;
+                SgExpression* e = loops->getExpressionToModifyPrivateList(&f);
+                emptyBeforeDo->setPrivateList(ex, loops->GetParallelStatement(), e, f);
+                loop_d->MakeParloopEnd();
+            }
             if (isEndDo){
                 ControlFlowItem* body;
                 if ((body = getControlFlowList(fst->body(), NULL, &last, stmt, loops, calls, commons)) == NULL)
@@ -1593,6 +1594,105 @@ void CBasicBlock::markAsReached()
     }
 }
 
+bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool first)
+{
+    ControlFlowItem* lend;
+    if (is_correct != NULL)
+    {
+        const char* expanded_log;
+        char* tmp = NULL;
+        if (failed_proc_name)
+        {
+            tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
+            strcpy(tmp, is_correct);
+            strcat(tmp, ": ");
+            strcat(tmp, failed_proc_name);
+            expanded_log = tmp;
+        }
+        else
+            expanded_log = is_correct;
+
+        Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
+        if (tmp)
+            delete[] tmp;
+
+    }
+    else
+    {
+        while ((lend = p->containsParloopEnd()) == NULL)
+        {
+            p->PrivateAnalysisForAllCalls();
+            p = p->getLexNext();
+            ControlFlowItem* mstart;
+            if ((mstart = p->containsParloopStart()) != NULL)
+            {
+                CBasicBlock* mp = p;
+                if (first) {
+                    if (!ProcessOneParallelLoop(mstart, of, mp, false))
+                        return false;
+                }
+            }
+        }
+        CBasicBlock* afterParLoop = p->getLexNext()->getLexNext();
+        VarSet* l_pri = ControlFlowGraph(true, false, lstart, lend).getPrivate();
+        if (is_correct != NULL)
+        {
+            const char* expanded_log;
+            char* tmp = NULL;
+            if (failed_proc_name)
+            {
+                tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
+                strcpy(tmp, is_correct);
+                strcat(tmp, ": ");
+                strcat(tmp, failed_proc_name);
+                expanded_log = tmp;
+            }
+            else
+                expanded_log = is_correct;
+
+            Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
+            if (tmp)
+                delete[] tmp;
+
+            return false;
+        }
+        VarSet* p_pri = new VarSet();
+        SgExpression* ex_p = lstart->getPrivateList();
+        if (ex_p != NULL)
+            ex_p = ex_p->lhs();
+        for (; ex_p != NULL; ex_p = ex_p->rhs())
+        {
+            SgVarRefExp* pr;
+            if (pr = isSgVarRefExp(ex_p->lhs()))
+            {
+                CScalarVarEntryInfo* tmp = new CScalarVarEntryInfo(pr->symbol());
+                p_pri->addToSet(tmp, NULL);
+                delete tmp;
+            }
+        }
+
+        VarSet* live = afterParLoop->getLiveIn();
+        VarSet* adef = afterParLoop->getDef();
+        VarSet* pri = new VarSet();
+        VarSet* tmp = new VarSet();
+        VarSet* delay = new VarSet();
+        tmp->unite(l_pri, false);
+
+        for (VarItem* exp = tmp->getFirst(); exp != NULL; exp = tmp->getFirst())
+        {
+            if (!afterParLoop->IsVarDefinedAfterThisBlock(exp->var, false))
+                delay->addToSet(exp->var, NULL);
+            tmp->remove(exp->var);
+        }
+        delete tmp;
+        pri->unite(l_pri, false);
+        pri->minus(live);
+        privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
+        of->SetDelayedData(privateDelayedList);
+    }
+    return true;
+}
+
 void ControlFlowGraph::privateAnalyzer()
 {
     CBasicBlock* p = first;
@@ -1620,90 +1720,8 @@ void ControlFlowGraph::privateAnalyzer()
         p->PrivateAnalysisForAllCalls();
         if ((lstart = p->containsParloopStart()) != NULL) 
         {
-            if (is_correct != NULL) 
-            {
-                const char* expanded_log;
-                char* tmp = NULL;
-                if (failed_proc_name) 
-                {
-                    tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
-                    strcpy(tmp, is_correct);
-                    strcat(tmp, ": ");
-                    strcat(tmp, failed_proc_name);
-                    expanded_log = tmp;
-                }
-                else 
-                    expanded_log = is_correct;
-                
-                Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
-                if (tmp)
-                    delete[] tmp;
-
-            }
-            else
-            {
-                while ((lend = p->containsParloopEnd()) == NULL) 
-                {
-                    p->PrivateAnalysisForAllCalls();
-                    p = p->getLexNext();
-                }
-                CBasicBlock* afterParLoop = p->getLexNext()->getLexNext();
-                VarSet* l_pri = ControlFlowGraph(true, false, lstart, lend).getPrivate();
-                if (is_correct != NULL) 
-                {
-                    const char* expanded_log;
-                    char* tmp = NULL;
-                    if (failed_proc_name)
-                    {
-                        tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
-                        strcpy(tmp, is_correct);
-                        strcat(tmp, ": ");
-                        strcat(tmp, failed_proc_name);
-                        expanded_log = tmp;
-                    }
-                    else 
-                        expanded_log = is_correct;
-                    
-                    Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
-                    if (tmp)
-                        delete[] tmp;
-
-                    break;
-                }
-                VarSet* p_pri = new VarSet();
-                SgExpression* ex_p = lstart->getPrivateList();
-                if (ex_p != NULL)
-                    ex_p = ex_p->lhs();
-                for (; ex_p != NULL; ex_p = ex_p->rhs()) 
-                {
-                    SgVarRefExp* pr;
-                    if (pr = isSgVarRefExp(ex_p->lhs())) 
-                    {
-                        CScalarVarEntryInfo* tmp = new CScalarVarEntryInfo(pr->symbol());
-                        p_pri->addToSet(tmp, NULL);
-                        delete tmp;
-                    }
-                }
-
-                VarSet* live = afterParLoop->getLiveIn();
-                VarSet* adef = afterParLoop->getDef();
-                VarSet* pri = new VarSet();
-                VarSet* tmp = new VarSet();
-                VarSet* delay = new VarSet();
-                tmp->unite(l_pri, false);
-
-                for (VarItem* exp = tmp->getFirst(); exp != NULL; exp = tmp->getFirst()) 
-                {
-                    if (!afterParLoop->IsVarDefinedAfterThisBlock(exp->var, false))
-                        delay->addToSet(exp->var, NULL);
-                    tmp->remove(exp->var);
-                }
-                delete tmp;
-                pri->unite(l_pri, false);
-                pri->minus(live);
-                privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
-                of->SetDelayedData(privateDelayedList);
-            }
+            if (!ProcessOneParallelLoop(lstart, of, p, true))
+                break;
         }
         if (p == last)
             break;
@@ -1740,7 +1758,6 @@ void PrivateDelayedItem::PrintWarnings()
 {
     if (next)
         next->PrintWarnings();
-
     int stored_fid = current_file_id;
     CurrentProject->file(file_id);
     current_file_id = file_id;
@@ -1902,7 +1919,6 @@ ControlFlowItem* doLoops::endLoop(ControlFlowItem* last)
     }
     last->AddNextItem(removed->getSourceForCycle());
     ControlFlowItem* empty = removed->getSourceForExit();
-
     delete removed;
     return empty;
 }

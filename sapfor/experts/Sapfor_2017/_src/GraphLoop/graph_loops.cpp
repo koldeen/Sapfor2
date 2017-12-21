@@ -323,6 +323,44 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
     return has;
 }
 
+static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
+{
+    SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
+    spfStat->setlineNumber(currLoopRef->lineNumber());
+
+    SgExpression *toAdd = new SgExpression(EXPR_LIST, new SgExpression(ACC_PRIVATE_OP), NULL, NULL);
+    set<SgSymbol*> privateDoSymbs = { currLoopRef->symbol() };
+
+    SgStatement *end = currLoopRef->lastNodeOfStmt();
+    for (SgStatement *st = currLoopRef->lexNext(); st != end; st = st->lexNext())
+    {
+        SgForStmt *currFor = isSgForStmt(st);
+        if (currFor)
+            privateDoSymbs.insert(currFor->symbol());
+    }
+
+    spfStat->setExpression(0, *toAdd);
+    toAdd = toAdd->lhs();
+    bool first = true;
+    for (auto &elem : privateDoSymbs)
+    {
+        if (first)
+        {
+            toAdd->setLhs(new SgExpression(EXPR_LIST));
+            toAdd = toAdd->lhs();
+            first = false;
+        }
+        else
+        {
+            toAdd->setRhs(new SgExpression(EXPR_LIST));
+            toAdd = toAdd->rhs();
+        }
+        toAdd->setLhs(new SgVarRefExp(elem));
+    }
+
+    currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));    
+}
+
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 {
     int funcNum = file->numberOfFunctions();
@@ -387,6 +425,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 
                 parentLoops.push_back(newLoop);
                 currLoop = newLoop;
+
+                addLoopVariablesToPrivateList(currLoopRef);
             }
             else if (st->variant() == CONTROL_END)
             {

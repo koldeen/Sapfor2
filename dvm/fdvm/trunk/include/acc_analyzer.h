@@ -187,6 +187,11 @@ class doLoopItem{
     ControlFlowItem* emptyAfter;
     bool current;
     doLoopItem* next;
+    int parallel_depth;
+    SgExpression* prl;
+    SgExpression* pPl;
+    bool plf;
+    SgStatement* prs;
 public:
     inline doLoopItem(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e) : label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL)
     { }
@@ -204,31 +209,6 @@ public:
     { return next; }
     inline int getLabel()
     { return label; }
-};
-
-class doLoops{
-    doLoopItem* first;
-    doLoopItem* current;
-    doLoopItem* findLoop(SgSymbol*);
-    int parallel_depth;
-    SgExpression* prl;
-    SgExpression* pPl;
-    bool plf;
-    SgStatement* prs;
-public:
-    inline doLoops() : first(NULL), current(NULL), parallel_depth(0)
-    { }
-    void addLoop(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e);
-    inline ControlFlowItem* getSourceForCycle()
-    { return current ? current->getSourceForCycle() : NULL; }
-    inline ControlFlowItem* getSourceForCycle(SgSymbol* loop)
-    { return loop ? findLoop(loop)->getSourceForCycle() : getSourceForCycle(); }
-    inline ControlFlowItem* getSourceForExit()
-    { return current ? current->getSourceForExit() : NULL; }
-    inline ControlFlowItem* getSourceForExit(SgSymbol* loop)
-    { return loop ? findLoop(loop)->getSourceForExit() : getSourceForExit(); }
-    ControlFlowItem* endLoop(ControlFlowItem* last);
-    ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);
     inline void setParallelDepth(int k, SgExpression* pl, SgStatement* ps, SgExpression* pPl, bool plf)
     { parallel_depth = k; prl = pl; prs = ps; this->pPl = pPl; this->plf = plf; }
     inline SgStatement* GetParallelStatement()
@@ -243,6 +223,36 @@ public:
     { return prl; }
     inline SgExpression* getExpressionToModifyPrivateList(bool* rhs)
     { if (rhs) *rhs = plf; return pPl; }
+};
+
+class doLoops{
+    doLoopItem* first;
+    doLoopItem* current;
+    doLoopItem* findLoop(SgSymbol*);
+public:
+    inline doLoops() : first(NULL), current(NULL)
+    { }
+    void addLoop(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e);
+    inline ControlFlowItem* getSourceForCycle()
+    { return current ? current->getSourceForCycle() : NULL; }
+    inline ControlFlowItem* getSourceForCycle(SgSymbol* loop)
+    { return loop ? findLoop(loop)->getSourceForCycle() : getSourceForCycle(); }
+    inline ControlFlowItem* getSourceForExit()
+    { return current ? current->getSourceForExit() : NULL; }
+    inline ControlFlowItem* getSourceForExit(SgSymbol* loop)
+    { return loop ? findLoop(loop)->getSourceForExit() : getSourceForExit(); }
+    ControlFlowItem* endLoop(ControlFlowItem* last);
+    ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);
+    inline void setParallelDepth(int k, SgExpression* pl, SgStatement* ps, SgExpression* pPl, bool plf)
+    { current->setParallelDepth(k, pl, ps, pPl, plf); }
+    inline SgStatement* GetParallelStatement()
+    { return current->GetParallelStatement(); }
+    inline bool isLastParallel()
+    {  return current && current->isLastParallel(); }
+    inline SgExpression* getPrivateList()
+    { return current->getPrivateList(); }
+    inline SgExpression* getExpressionToModifyPrivateList(bool* rhs)
+    { return current->getExpressionToModifyPrivateList(rhs); }
     inline ~doLoops();
 };
 
@@ -584,6 +594,7 @@ public:
     VarSet* getUse();
     VarSet* getDef();
     void privateAnalyzer();
+    bool ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool);
     ActualDelayedData* ProcessDelayedPrivates(CommonData*, AnalysedCallsList*, CallAnalysisLog*);
     bool IsMain() { return main; } // change to refs
     void AddRef() { refs++; }
