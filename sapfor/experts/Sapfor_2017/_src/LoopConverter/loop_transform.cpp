@@ -17,6 +17,13 @@ using std::pair;
 using std::map;
 using std::stack;
 
+static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
+{
+    loopTopMap[current] = top;
+    for (int i = 0; i < current->childs.size(); ++i)
+        buildTopParentLoop(current->childs[i], top, loopTopMap);
+}
+
 static void buildLoopMap(LoopGraph *current, map<PTR_BFND, LoopGraph*> &loopMap)
 {
     loopMap[current->loop->thebif] = current;
@@ -27,8 +34,13 @@ static void buildLoopMap(LoopGraph *current, map<PTR_BFND, LoopGraph*> &loopMap)
 void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
 {
     map<PTR_BFND, LoopGraph*> loopMap;
+    map<LoopGraph*, LoopGraph*> loopTopMap;
+
     for (auto &elem : loopsInFile)
+    {
         buildLoopMap(elem, loopMap);
+        buildTopParentLoop(elem, elem, loopTopMap);
+    }
 
     auto *launches = SageTransform::LoopTransformTighten::getLaunches();
     if (launches->count(file) == 0) {
@@ -36,18 +48,23 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
         return;
     }
     stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> &backOrder = launches->at(file);
+    set<LoopGraph*> topLoopsToRecalaulate;
+
     while (backOrder.size())
     {
-        auto &elem = backOrder.top();        
+        auto &elem = backOrder.top();
         auto it = loopMap.find(elem.first->thebif);
         if (it == loopMap.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         auto reorder = elem.second.buildReverse();
         SageTransform::LineReorderer::apply(elem.first, reorder);
-        it->second->recalculatePerfect();
+        topLoopsToRecalaulate.insert(loopTopMap[it->second]);
         backOrder.pop();
     }
+
+    for (auto &elem : topLoopsToRecalaulate)
+        elem->recalculatePerfect();
 }
 
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
