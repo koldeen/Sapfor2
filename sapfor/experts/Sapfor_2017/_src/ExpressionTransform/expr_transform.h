@@ -8,6 +8,9 @@
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../GraphCall/graph_calls.h"
 
+#include "acc_analyzer.h"
+
+
 struct VariableItem;
 class VarsKeeper;
 class DataFlowItem;
@@ -36,3 +39,25 @@ struct StatementObj {
         return stmt->id() < rhs.stmt->id();
     }
 };
+
+struct GraphAdjustmentItem {
+    GraphAdjustmentItem(ControlFlowGraph* cg): CGraph(cg), needAdjustment(true), in_defs(std::map<ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>>()) {}
+    ControlFlowGraph* CGraph;
+    bool needAdjustment;
+    std::map <ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>> in_defs;
+};
+
+class GraphsKeeper {
+private:
+    std::vector<GraphAdjustmentItem> graphs;
+public:
+    GraphsKeeper(): graphs(std::vector<GraphAdjustmentItem>()) {}
+    void addGraph(ControlFlowGraph* CGraph) { graphs.push_back(GraphAdjustmentItem(CGraph)); }
+    void addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs);
+    void deleteInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph);
+    ControlFlowGraph* getGraphForAdjustment();
+    std::map <SymbolKey, std::map<std::string, SgExpression*>>* getInDefsFor(ControlFlowGraph* CGraph);
+    void deleteGraphs();
+
+};
+

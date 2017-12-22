@@ -537,6 +537,7 @@ public:
     bool ShouldThisBlockBeCheckedAgain(CVarEntryInfo* var) { return findentity && var && *var == *findentity; }
 
 #ifdef __SPF
+    AnalysedCallsList* getProc() { return proc; }
     void clearGenKill() { gen.clear(); kill.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SgSymbol* var, SgExpression* value);
@@ -549,6 +550,9 @@ public:
 
     inline std::set<SymbolKey>* getKill()
     { return &kill; }
+
+    inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs)
+    { in_defs = *inDefs; }
 
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs()
     { return &in_defs; }
@@ -729,11 +733,12 @@ struct ActualDelayedData
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, CommonData*);
 void FillCFGSets(ControlFlowGraph*);
 #ifdef __SPF
-void FillCFGInsAndOutsDefs(ControlFlowGraph*);
+void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();
