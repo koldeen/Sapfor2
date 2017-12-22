@@ -43,7 +43,7 @@ std::vector<std::string> StringUtils::split(const std::string &s, char delim) {
 std::string StringUtils::unsplit(const std::vector<std::string> &v, char delim) {
     std::string result;
     result.append(v[0]);
-    for (int i = 1; i < v.size(); ++i) {
+    for (size_t i = 1; i < v.size(); ++i) {
         result += delim;
         result += v[i];
     }

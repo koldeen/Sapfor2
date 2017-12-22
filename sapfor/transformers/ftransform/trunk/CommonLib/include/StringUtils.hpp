@@ -42,8 +42,13 @@ namespace SageTransform {
         }
 
         // trim from left & right
-        inline std::string& trim(std::string& s, const char* t = " \t\n\r\f\v") {
+        inline std::string& trim(std::string& s, const char* t) {
             return ltrim(rtrim(s, t), t);
+        }
+
+        // trim from left & right
+        inline std::string& trim(std::string& s) {
+            return trim(s, " \t\n\r\f\v");
         }
     }
 }

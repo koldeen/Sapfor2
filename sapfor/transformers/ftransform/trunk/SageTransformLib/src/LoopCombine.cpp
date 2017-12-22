@@ -61,7 +61,7 @@ bool LoopCombine::isSameHeadersCombination(vector<SgForStmt *> &combined) const 
 SgStatement *LoopCombine::applySameHeaders(vector<SgForStmt *> &combined) {
     SgForStmt *host = combined[0];
     SgStatement *next = SageUtils::getLastLoopStatement(combined.back())->lexNext();
-    for (int i = 1; i < combined.size(); ++i) {
+    for (size_t i = 1; i < combined.size(); ++i) {
         SageTransformUtils::moveLoopBody(host, combined[i]);
         SageTransformUtils::removeLoop(combined[i]);
     }
@@ -79,7 +79,7 @@ SgStatement *LoopCombine::applyContinuousHeaders(vector<SgForStmt *> &combined) 
     SgForStmt *first = combined.front();
     SgForStmt *last = combined.back();
     SgSymbol *iterateVar = first->symbol();
-    for (int i = 1; i < combined.size(); ++i) {
+    for (size_t i = 1; i < combined.size(); ++i) {
         if (iterateVar != combined[i]->symbol()) {
             iterateVar = NULL;
             break;
@@ -92,11 +92,11 @@ SgStatement *LoopCombine::applyContinuousHeaders(vector<SgForStmt *> &combined) 
     }
     //create ifs in new big loop
     vector<SgStatement *> ifs;
-    for (int i = 0; i < combined.size(); ++i) {
+    for (size_t i = 0; i < combined.size(); ++i) {
         SgForStmt *forStmt = combined[i];
         vector<SgStatement *> body = SageTransformUtils::copyStatements(SageUtils::body(forStmt));
         SgSymbol *iteratingSymb = forStmt->symbol();
-        for (int j = 0; j < body.size(); ++j) {
+        for (size_t j = 0; j < body.size(); ++j) {
             body[j]->replaceSymbBySymb(*iteratingSymb, *iterateVar);
         }
         SgExpression *iterInRangeExpr = SageTransformUtils::variableInBetween(forStmt->start()->copyPtr(),
@@ -109,7 +109,7 @@ SgStatement *LoopCombine::applyContinuousHeaders(vector<SgForStmt *> &combined) 
                                                               last->end()->copyPtr(),
                                                               nullptr, ifs);
     //remove old partial loops
-    for (int i = 0; i < combined.size(); ++i) {
+    for (size_t i = 0; i < combined.size(); ++i) {
         combined[i]->deleteStmt();
     }
     return SageUtils::getLastLoopStatement(singleLoop)->lexNext();

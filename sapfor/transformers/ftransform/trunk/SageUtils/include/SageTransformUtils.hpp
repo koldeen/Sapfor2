@@ -35,7 +35,7 @@ namespace SageTransform {
         /**
          * Move a statement one line to beginning.
          * @param pStmt statement to move
-         * @return new position of same statement
+         * @return new position of the pStmt
          */
         SgStatement* swapWithLexPrev(SgStatement *pStmt);
 
@@ -121,8 +121,6 @@ namespace SageTransform {
          * For simple statements returns control parent
          */
         SgStatement *sameLevelControlParent(SgStatement *sgStatement);
-
-        static int variableCounter = 1;
     }
 }
 

@@ -49,6 +49,9 @@ include_directories(../CommonLib/include)
 include_directories(../SageUtils/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 include_directories(${sapfor2017_include})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_library(SageTransformLib STATIC ${SOURCE_LIB})
 
 add_subdirectory(../libSage ${CMAKE_CURRENT_BINARY_DIR}/libSage)
