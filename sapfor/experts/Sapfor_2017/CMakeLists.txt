@@ -122,7 +122,9 @@ set(SOURCE_EXE
 
 add_executable(Sapfor_2017 ${SOURCE_EXE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+#commented for debugging
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_definitions("-D __SPF")
 add_subdirectory(SageOldSrc)
 add_subdirectory(SageNewSrc)
