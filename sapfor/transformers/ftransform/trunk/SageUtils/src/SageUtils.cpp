@@ -5,6 +5,8 @@
 using namespace SageTransform;
 using std::string;
 
+extern int out_free_form; //from Sage/lib/new_src/low_level.c file, defines unparse() mode
+
 SgStatement *SageUtils::getLastLoopStatement(SgForStmt *pForLoop) {
     SgStatement *stmt = pForLoop->body();
     while (stmt &&
@@ -165,4 +167,12 @@ SgControlEndStmt *SageUtils::lexPrevEnddo(SgStatement *pStmt, SgStatement *end) 
         pClosestEndDo = pClosestEndDo->lexPrev();
     }
     return isSgControlEndStmt(pClosestEndDo);
+}
+
+void SageUtils::setUnparseFreeForm(bool value) {
+    if (value) {
+        out_free_form = 1;
+    } else {
+        out_free_form = 0;
+    }
 }

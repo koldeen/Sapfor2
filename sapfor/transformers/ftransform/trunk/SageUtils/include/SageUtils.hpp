@@ -111,6 +111,12 @@ namespace SageTransform {
          */
         string getLineNumber(SgStatement *sgStatement);
 
+        /**
+         * Set whether output of Sage unparse() should be free form or not
+         * @param value tru for free form, false for not free form. The default is NOT free form.
+         */
+        void setUnparseFreeForm(bool value);
+
         /** Decodes Sage node type into human-readable form.
          * @param variant - Sage statement variant id
          * @return textual name of the variant
