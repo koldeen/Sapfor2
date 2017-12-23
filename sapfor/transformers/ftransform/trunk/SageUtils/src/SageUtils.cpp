@@ -5,7 +5,9 @@
 using namespace SageTransform;
 using std::string;
 
-extern int out_free_form; //from Sage/lib/new_src/low_level.c file, defines unparse() mode
+#ifndef _WIN32
+  extern "C" int out_free_form; //from Sage/lib/new_src/low_level.c file, defines unparse() mode
+#endif
 
 SgStatement *SageUtils::getLastLoopStatement(SgForStmt *pForLoop) {
     SgStatement *stmt = pForLoop->body();
@@ -170,9 +172,13 @@ SgControlEndStmt *SageUtils::lexPrevEnddo(SgStatement *pStmt, SgStatement *end) 
 }
 
 void SageUtils::setUnparseFreeForm(bool value) {
+#ifndef _WIN32
     if (value) {
         out_free_form = 1;
     } else {
         out_free_form = 0;
     }
+#else
+    std::cout << "setUnparseFreeForm ignored, does not work on windows yet" << std::endl;
+#endif
 }
