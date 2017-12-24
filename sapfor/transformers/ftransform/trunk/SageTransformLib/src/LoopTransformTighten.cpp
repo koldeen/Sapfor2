@@ -119,7 +119,11 @@ int LoopTransformTighten::canTighten(SgForStmt *pForLoop, std::map<SgSymbol *, D
         processedLoop = lexNextLoop(processedLoop->lexNext(), NULL);
         nestDepth++;
     }
-    return nestDepth;
+    if (nestDepth == 1) {
+        return 0;
+    } else {
+        return nestDepth;
+    }
 }
 
 /*
@@ -181,23 +185,26 @@ bool LoopTransformTighten::validateInvariantStatementBeforeLoop(SgStatement *inv
         while (stmt != invEnd && !hasFlowDep) {
             SgAssignStmt *assignStmt = isSgAssignStmt(stmt);
             SgSymbol *symbol = assignStmt->lhs()->symbol();
+            auto dependency = getOrDefault(dependencies, symbol, DependencyType::NO_VALUE);
             hasFlowDep = hasFlowDep
-                         || getOrDefault(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::FLOW_DEP
-                         || getOrDefault(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::UNKNOWN_DEP;
+                         || dependency == DependencyType::FLOW_DEP
+                         || dependency == DependencyType::UNKNOWN_DEP;
             stmt = stmt->lexNext();
         }
         if (hasFlowDep) {
-            bool noAntiOrOutputDep = true;
+            bool hasAntiOrOutputDep = false;
             stmt = invBegin;
-            while (stmt != invEnd && noAntiOrOutputDep) {
+            while (stmt != invEnd && !hasAntiOrOutputDep) {
                 SgAssignStmt *assignStmt = isSgAssignStmt(stmt);
                 SgSymbol *symbol = assignStmt->lhs()->symbol();
-                noAntiOrOutputDep = noAntiOrOutputDep && getOrDefault(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::ANTI_DEP;
-                noAntiOrOutputDep = noAntiOrOutputDep && getOrDefault(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::OUTPUT_DEP;
-                noAntiOrOutputDep = noAntiOrOutputDep && getOrDefault(dependencies, symbol, DependencyType::NO_VALUE) == DependencyType::UNKNOWN_DEP;
+                auto dependency = getOrDefault(dependencies, symbol, DependencyType::NO_VALUE);
+                hasAntiOrOutputDep = hasAntiOrOutputDep
+                                     || dependency == DependencyType::ANTI_DEP
+                                     || dependency == DependencyType::OUTPUT_DEP
+                                     || dependency == DependencyType::UNKNOWN_DEP;
                 stmt = stmt->lexNext();
             }
-            if (noAntiOrOutputDep) {
+            if (!hasAntiOrOutputDep) {
                 string msg = "Only flow dependencies present, can tighten.";
                 this->addMessage(0, invBegin->lineNumber(), msg);
                 return true;

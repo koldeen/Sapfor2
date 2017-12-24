@@ -76,8 +76,8 @@ vector<vector<uint>> LoopTransformBreak::getBreakSchema(SgForStmt *outerForLoopN
 void LoopTransformBreak::breakLoop(SgForStmt *outerForLoopNode, SgForStmt *innerForLoopNode,
                                    const vector<vector<uint>> &breakSchema) {
     int bodyLength = innerForLoopNode->numberOfChildrenList1() - 1;
-    SgStatement *outerLoopControlEnd;
-    outerLoopControlEnd = SageUtils::getLastLoopStatement(outerForLoopNode);
+//    SgStatement *outerLoopControlEnd;
+//    outerLoopControlEnd = SageUtils::getLastLoopStatement(outerForLoopNode);
 
     vector<SgForStmt *> outerLoops;
     vector<SgForStmt *> innerLoops;

@@ -7,7 +7,7 @@ cmake ..
 cmake --build . && COMPILED=OK
 if [[ -n $COMPILED ]]; then
 source ../prepare_tests.sh
-ctest
+ctest -V
 else
 echo "BUILD FAILED. Tests not launched."
 fi

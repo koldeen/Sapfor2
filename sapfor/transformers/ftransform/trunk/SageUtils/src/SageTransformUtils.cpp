@@ -3,6 +3,7 @@
 #include <iostream>
 #include <SageUtils.hpp>
 #include <StringUtils.hpp>
+#include <SageTransformException.hpp>
 
 using std::cerr;
 using std::endl;
@@ -16,7 +17,7 @@ SageTransformUtils::createForStmt(SgStatement *createAfter,
                                   SgExpression *end, SgExpression *step, vector<SgStatement *> body) {
     SgStatement *body0 = body[0];
     SgForStmt *result = new SgForStmt(tmpVar, start, end, step, body0);
-    for (int i = 1; i < body.size(); ++i) {
+    for (size_t i = 1; i < body.size(); ++i) {
         result->lastExecutable()->insertStmtAfter(*body[i], *result);
     }
 
@@ -47,7 +48,7 @@ SgIfStmt *
 SageTransformUtils::createIfStmt(SgStatement *createAfter, SgExpression *condition, vector<SgStatement *> trueBody) {
     SgStatement *trueBody0 = trueBody[0];
     SgIfStmt *result = new SgIfStmt(*condition, *trueBody0);
-    for (int i = 1; i < trueBody.size(); ++i) {
+    for (size_t i = 1; i < trueBody.size(); ++i) {
         result->lastExecutable()->insertStmtAfter(*trueBody[i], *result);
     }
     if (createAfter != NULL) {
@@ -69,7 +70,7 @@ SgExpression *SageTransformUtils::variableInBetween(SgExpression *low, SgExpress
 
 vector<SgStatement *> SageTransformUtils::copyStatements(const vector<SgStatement *> &originals) {
     vector<SgStatement *> result;
-    for (int i = 0; i < originals.size(); ++i) {
+    for (size_t i = 0; i < originals.size(); ++i) {
         result.push_back(originals[i]->copyPtr());
     }
     return result;
@@ -77,7 +78,7 @@ vector<SgStatement *> SageTransformUtils::copyStatements(const vector<SgStatemen
 
 vector<SgStatement *> SageTransformUtils::copyStatements(const vector<SgForStmt *> &originals) {
     vector<SgStatement *> result;
-    for (int i = 0; i < originals.size(); ++i) {
+    for (size_t i = 0; i < originals.size(); ++i) {
         result.push_back(originals[i]->copyPtr());
     }
     return result;
@@ -100,14 +101,18 @@ SgStatement* SageTransformUtils::swapWithLexPrev(SgStatement *pStmt) {
 }
 
 void SageTransformUtils::swapLexStmt(SgStatement *pStmtA, SgStatement *pStmtB) {
-    SgStatement *pStmtAPre, *pStmtAPost, *pStmtBPre, *pStmtBPost;
-    pStmtAPre = pStmtA->lexPrev();
-    pStmtAPost = pStmtA->lexNext();
-    pStmtBPre = pStmtB->lexPrev();
-    pStmtBPost = pStmtB->lexNext();
-    pStmtA->replaceWithStmt(*pStmtB);
-    pStmtB->replaceWithStmt(*pStmtA);
-    //not tested
+    int distance = SageUtils::lexDist(pStmtA, pStmtB);
+    SgStatement *stmt = nullptr;
+    if (distance == SageUtils::LEX_INFINITY) {
+        throw new SageTransform::SageTransformException("Cannot swap statements, unreachable.");
+    } else if (distance > 0) {
+        stmt = pStmtB;
+    } else if (distance < 0) {
+        stmt = pStmtA;
+    }
+    for (int i = 0; i < distance; ++i) {
+        stmt = swapWithLexPrev(stmt);
+    }
 }
 
 void SageTransformUtils::swapScopeStmt(SgStatement *pStmtA, SgStatement *pStmtB) {
@@ -242,15 +247,17 @@ SgVariableSymb *SageTransformUtils::addArrayVariable(SgStatement *funcHeader, Sg
     return addArrayVariable(funcHeader, getNewVariableName(), arrayType);
 }
 
+int sageTransformUtilsVariableCounter = 1;
+
 char *SageTransformUtils::getNewVariableName() {
     char *buf = new char[4 + 4];
-    sprintf(buf, "var_%02d", SageTransformUtils::variableCounter++);
+    sprintf(buf, "var_%04d", sageTransformUtilsVariableCounter++);
     return buf;
 }
 
 char *SageTransformUtils::getNewVariableName(char *includedName) {
     char *buf = new char[4 + 4];
-    sprintf(buf, "var_%s_%02d", includedName, SageTransformUtils::variableCounter++);
+    sprintf(buf, "var_%s_%04d", includedName, sageTransformUtilsVariableCounter++);
     return buf;
 }
 

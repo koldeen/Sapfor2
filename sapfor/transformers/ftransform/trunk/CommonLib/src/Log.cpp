@@ -66,7 +66,7 @@ void Log::write(const char * prefix, const string & msg) {
     if (outputStream != nullptr) {
         (*outputStream) <<  ss.str();
     } else {
-        std::cout << "[Log stream unset] " << ss.str();
+        std::cout << ss.str();
     }
     print(1, "%s", ss.str().c_str());
 }
@@ -77,7 +77,7 @@ string Log::getTimestamp() {
     std::time_t t = std::time(NULL);
     char mbstr[100];
     if (std::strftime(mbstr, sizeof(mbstr), "%Y-%m-%d %X", std::localtime(&t))) {
-        ss << mbstr << '\n';
+        ss << mbstr;
     }
     return ss.str();
 }

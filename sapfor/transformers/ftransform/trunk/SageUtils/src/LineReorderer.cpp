@@ -6,6 +6,7 @@
 #include "SageTransformException.hpp"
 #include "SageTransformUtils.hpp"
 #include "Log.hpp"
+#include "StringUtils.hpp"
 
 using namespace SageTransform;
 using std::map;
@@ -46,25 +47,18 @@ void LineReorderer::apply(SgStatement *baseStatement, LineReorderRecord &record)
     }
 
     int current, backShiftsToDo;
-    //build required sequence starting from required line #1, then line #2, then line #3
+    //build required sequence starting from required line #1, then line #2, then line #3, etc.
     for (int placeTo = startLineNum; placeTo <= maxLineNum; placeTo++) {
         current = getKeyByValue(moves, placeTo, 0xFFFF);
-
-        for (int i = current; i >= placeTo + 1; i--) {
-            //original positions of lines are shifted as each iteration we move all lines in range [placeTo, current - 1] down for one line
-            int value = moves.at(i - 1);
-            moves.erase(i);
-            moves.insert({i, value});
-        }
-        Log::debug("Actual move: " + std::to_string(current) + " to " + std::to_string(placeTo));
-
         if (current == 0xFFFF) {
-            throw SageTransformException("Illegal State in reorderer, nowhere to move ");
+            throw SageTransformException("Illegal State in LineReorderer, no statement for step " + std::to_string(placeTo));
         }
 
         if (placeTo == current) {
-            Log::debug("Already in place");
+            Log::debug("Actual move: " + std::to_string(current) + " to " + std::to_string(placeTo) + " - nothing to do");
             continue;
+        } else {
+            Log::debug("Actual move: " + std::to_string(current) + " to " + std::to_string(placeTo));
         }
 
         stmt = baseStatement;
@@ -72,11 +66,22 @@ void LineReorderer::apply(SgStatement *baseStatement, LineReorderRecord &record)
             stmt = stmt->lexNext();
         }
         backShiftsToDo = current - placeTo;
-        Log::debug("moving back " + string(stmt->unparse()) + " to position " + std::to_string(placeTo) + " with " + std::to_string(backShiftsToDo) + " moves");
+        string unparsed = (stmt->unparse());
+        Log::debug("moving back '" + StringUtils::trim(unparsed) + "' to position " + std::to_string(placeTo) + " with " + std::to_string(backShiftsToDo) + " moves");
         while (backShiftsToDo > 0) {
             //move statements backward
             stmt = SageTransformUtils::swapWithLexPrev(stmt);
             backShiftsToDo--;
         }
+
+        for (int i = current; i >= placeTo + 1; i--) {
+            //original positions of lines are shifted as we moved all lines in range [placeTo, current - 1] down(+1) for one line
+            //and current line to placeTo (-some lines)
+            int value = moves.at(i - 1);
+            moves.erase(i);
+            moves.insert({i, value});
+        }
+        moves.erase(placeTo);
+        moves.insert({placeTo, placeTo});
     }
 }

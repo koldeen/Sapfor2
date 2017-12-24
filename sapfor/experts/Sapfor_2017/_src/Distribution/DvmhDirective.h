@@ -49,7 +49,7 @@ struct ParallelDirective : Directive
 {
 public:
     std::vector<std::string> parallel;
-    std::vector<std::pair<std::string, std::pair<int, int>>> on;
+    std::vector<std::pair<std::string, std::pair<int, int>>> on; //todo change to tuple //todo description/clear name
     DIST::Array *arrayRef; // template
     DIST::Array *arrayRef2;// main array in loop
 

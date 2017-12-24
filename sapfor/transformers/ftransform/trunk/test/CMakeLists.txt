@@ -8,10 +8,13 @@ if(MINGW OR CYGWIN)
     set(GTEST_DISABLE_PTHREADS ON)
 endif()
 
-add_subdirectory(../CommonLib ${CMAKE_CURRENT_BINARY_DIR}/CommonLib)
-add_subdirectory(../SageUtils ${CMAKE_CURRENT_BINARY_DIR}/SageUtils)
 add_subdirectory(../SageTransformLib ${CMAKE_CURRENT_BINARY_DIR}/SageTransformLib)
-set(OWN_INCLUDES SageUtils CommonLib SageTransformLib)
+add_subdirectory(../SageUtils ${CMAKE_CURRENT_BINARY_DIR}/SageUtils)
+add_subdirectory(../CommonLib ${CMAKE_CURRENT_BINARY_DIR}/CommonLib)
+add_subdirectory(../libSage ${CMAKE_CURRENT_BINARY_DIR}/libSage)
+add_subdirectory(../libSage++ ${CMAKE_CURRENT_BINARY_DIR}/libSage++)
+add_subdirectory(../libDB ${CMAKE_CURRENT_BINARY_DIR}/libDB)
+set(OWN_INCLUDES SageTransformLib SageUtils CommonLib libSage libSage++ libDB)
 enable_testing()
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -22,6 +25,10 @@ set(SAGE_TRANSFORM_LIB_PATH ../SageTransformLib/test)
 
 include_directories(./include)
 set(TEST_COMMON_SRC ./src/TestUtils.cpp)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+#commented out for debugging
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
 add_executable(StringUtilsTest.exe ${COMMON_LIB_PATH}/StringUtilsTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(StringUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
@@ -47,6 +54,6 @@ add_executable(SageUtilsTest.exe ${SAGE_UTILS_PATH}/SageUtilsTest.cpp ${TEST_COM
 target_link_libraries(SageUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(SageUtilsTest SageUtilsTest.exe)
 
-add_executable(LoopTransformTighten.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp ${TEST_COMMON_SRC})
-target_link_libraries(LoopTransformTighten.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
-add_test(LoopTransformTighten LoopTransformTighten.exe)
+add_executable(LoopTransformTightenTest.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp ${TEST_COMMON_SRC})
+target_link_libraries(LoopTransformTightenTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+add_test(LoopTransformTightenTest LoopTransformTightenTest.exe)

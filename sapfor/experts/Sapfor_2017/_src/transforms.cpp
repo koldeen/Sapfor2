@@ -1042,7 +1042,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     if (project == NULL)
         project = createProject(proj_name);
         
-    //Run dep passes anaysis before main pass
+    //Run dep passes analysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
     if (itDep != passesDependencies.end())
         for (int k = 0; k < itDep->second.size(); ++k)

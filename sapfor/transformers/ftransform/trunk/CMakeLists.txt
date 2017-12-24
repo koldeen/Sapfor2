@@ -8,10 +8,6 @@ project(${project})
 message("processing ${project}")
 include(CTest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-add_definitions("-D SYS5")
-add_definitions("-D YYDEBUG")
-
 # Read pathes to external sapfor directories
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/paths.txt")
     message("Found paths.txt, using custom paths.")
@@ -42,10 +38,23 @@ include_directories(./SageTransformLib/include)
 include_directories(./SageTransformApp/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 include_directories(${sapfor2017_include})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+set(CMAKE_CXX_FLAGS_NO_WERROR "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+#commented out for debugging
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+add_definitions("-D SYS5")
+add_definitions("-D YYDEBUG")
+
 add_executable(ftransform ${SOURCE_EXE})
 
-add_subdirectory(CommonLib)
-add_subdirectory(SageUtils)
 add_subdirectory(SageTransformLib)
+add_subdirectory(SageUtils)
+add_subdirectory(CommonLib)
+add_subdirectory(libSage)
+add_subdirectory(libSage++)
+add_subdirectory(libDB)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_NO_WERROR}")
 add_subdirectory(test)
-target_link_libraries(ftransform SageTransformLib SageUtils CommonLib)
+target_link_libraries(ftransform SageTransformLib SageUtils CommonLib libSage libSage++ libDB)
