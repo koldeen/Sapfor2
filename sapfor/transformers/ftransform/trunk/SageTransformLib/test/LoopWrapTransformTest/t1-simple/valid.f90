@@ -5,10 +5,12 @@
 
         k = 0
         i = 0
+        print *, 'i is 0, see:', i
 !LOOP 1
         do j = 0,ny1
           a(i, j) = 0
         enddo
+        print *, 'i must be still 0, see:', i
 
         do i = 1,nx1
           do j = 0,ny1

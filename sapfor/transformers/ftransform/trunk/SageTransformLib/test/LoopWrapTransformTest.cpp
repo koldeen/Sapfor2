@@ -14,17 +14,19 @@
 using namespace SageTransform;
 
 TEST(LoopWrapTransform, t1_simple_cases) {
-    const char *sourceFile = "valid.f90";
-    const char *projectFile = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/valid.proj";
-    const char *finResultSource = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/result.fin.f90";
-    const char *finExpectSource = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/expected.fin.f90";
+
+    string projectFolder = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/";
+    string sourceFile = projectFolder + "valid.f90";
+    string projectFile = projectFolder + "valid.proj";
+    string finResultSource = projectFolder + "result.fin.f90";
+    string finExpectSource = projectFolder + "expected.fin.f90";
 
     SgForStmt *loop1, *loop2, *loop4, *loop8, *loop9;
     SgIfStmt *if1;
     SgStatement *inv1;
     SgSymbol *iSymbol, *jSymbol, *kSymbol;
 
-    SgProject *project = new SgProject(projectFile);
+    SgProject *project = new SgProject(projectFile.c_str());
     SgFile *file = &project->file(0);
     SgStatement *stmt = file->firstStatement();
     while(!isSgAssignStmt(stmt)) stmt = stmt->lexNext();
@@ -70,10 +72,13 @@ TEST(LoopWrapTransform, t1_simple_cases) {
     loopWrap.wrapWithOneIteration(kSymbol, loop9);
 
     FILE *outputFile;
-    outputFile = fopen(finResultSource, "w");
+    outputFile = fopen(finResultSource.c_str(), "w");
     file->unparse(outputFile);
     fclose(outputFile);
-    ASSERT_TRUE(TestUtils::compareFortranSources(finResultSource, finExpectSource));
+    ASSERT_TRUE(TestUtils::compileAndCompareOutputs(projectFolder.c_str(), sourceFile.c_str(), finResultSource.c_str()));
+    std::cout << "Compilation success" << std::endl;
+    ASSERT_TRUE(TestUtils::compareFortranSources(finResultSource.c_str(), finExpectSource.c_str()));
+    std::cout << "Sources comparison success" << std::endl;
 }
 
 int main(int argc, char **argv) {

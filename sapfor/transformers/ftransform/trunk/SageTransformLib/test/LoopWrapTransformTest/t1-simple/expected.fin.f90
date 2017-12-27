@@ -11,6 +11,7 @@
             a(i,j) = 0
           enddo
         enddo
+        print *, 'i must be 0, and is',i
         do  i = 1,nx1
           do  j = 0,ny1
             a(i,j) = 1
