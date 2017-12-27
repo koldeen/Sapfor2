@@ -44,6 +44,12 @@ SageTransformUtils::createForStmt(SgStatement *createAfter,
     return result;
 }
 
+SgForStmt *SageTransformUtils::createOneIterationLoop(SgSymbol *indexVariable) {
+    SgExpression* from = new SgVarRefExp(indexVariable);
+    SgExpression* to = new SgVarRefExp(indexVariable);
+    return new SgForStmt(indexVariable, from, to, NULL, NULL);
+}
+
 SgIfStmt *
 SageTransformUtils::createIfStmt(SgStatement *createAfter, SgExpression *condition, vector<SgStatement *> trueBody) {
     SgStatement *trueBody0 = trueBody[0];

@@ -35,7 +35,7 @@ namespace SageTransform {
          *
          */
         int lexDist(SgStatement *sBase, SgStatement *sCheck);
-        const int LEX_INFINITY = 1000000;
+        const int LEX_INFINITY = 100000;
 
         /**
          * Get filename of source file of given SgStatement

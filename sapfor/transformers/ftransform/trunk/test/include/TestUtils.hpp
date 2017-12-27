@@ -13,7 +13,6 @@ namespace SageTransform {
     public:
         static bool compareFortranSources(const char *fileName1, const char *fileName2);
     private:
-        static std::string readFile(const char *fileName);
         static std::vector<std::string> readFileLines(const char *fileName);
     };
 }

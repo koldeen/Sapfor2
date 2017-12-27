@@ -24,6 +24,13 @@ namespace SageTransform {
                                  SgSymbol *tmpVar, SgExpression *start,
                                  SgExpression *end, SgExpression *step, vector<SgStatement *> body);
 
+        /**
+         * Create a fake loop with 1 iteration of given symbol
+         * @param index variable
+         * @return created for loop
+         */
+        SgForStmt *createOneIterationLoop(SgSymbol *indexVariable);
+
         SgIfStmt *createIfStmt(SgStatement *createAfter, SgExpression *condition, vector<SgStatement *> body);
 
         SgExpression *variableInBetween(SgExpression *low, SgExpression *high, SgSymbol *variable);
