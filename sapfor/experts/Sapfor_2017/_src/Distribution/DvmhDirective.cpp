@@ -314,6 +314,8 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
                 const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross);
                 if (bounds != "")
                 {
+                    DIST::Array *currArray = allArrays.GetArrayByName(shadowRenew[i1].first.second);
+
                     if (inserted != 0)
                     {
                         shadowAdd += ",";
@@ -333,6 +335,8 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
                     SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first));
+                    newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
                     genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);
 
                     if (shadowRenew[i1].second.size() > 1)

@@ -981,6 +981,14 @@ void addPrivatesToLoops(LoopGraph *topLoop,
     }
 }
 
+static bool addReductionToList(const char *oper, SgExpression *exprList, SgExpression *varin)
+{
+    SgExpression *tmp3 = new SgKeywordValExp(oper);
+    SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, varin, NULL);
+    exprList->setLhs(tmp4);
+    return true;
+}
+
 void addReductionsToLoops(LoopGraph *topLoop,
                           const vector<const depNode*> &reductionsToAdd,
                           const map<int, pair<SgForStmt*, set<string>>> &allLoops,
@@ -1026,24 +1034,14 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 case SADDREDUCTION:
                 case DADDREDUCTION:
                 case IADDREDUCTION:
-                    {
-                        SgExpression *tmp3 = new SgKeywordValExp("SUM");
-                        SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, addForCurrLoop[k]->varin, NULL);
-                        exprList->setLhs(tmp4);
-                        oper = "SUM";
-                        wasAdd = true;
-                    }
+                    wasAdd = addReductionToList("SUM", exprList, addForCurrLoop[k]->varin);
+                    oper = "SUM";                    
                     break;
                 case SMULREDUCTION:
                 case DMULREDUCTION:
                 case IMULREDUCTION:
-                    {
-                        SgExpression *tmp3 = new SgKeywordValExp("PRODUCT");
-                        SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, addForCurrLoop[k]->varin, NULL);
-                        exprList->setLhs(tmp4);
-                        oper = "PRODUCT";
-                        wasAdd = true;
-                    }
+                    wasAdd = addReductionToList("PRODUCT", exprList, addForCurrLoop[k]->varin);
+                    oper = "PRODUCT";                    
                     break;
                 case SDIVREDUCTION:
                 case DDIVREDUCTION:
@@ -1052,24 +1050,30 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 case SMAXREDUCTION:
                 case DMAXREDUCTION:
                 case IMAXREDUCTION:
-                    {
-                        SgExpression *tmp3 = new SgKeywordValExp("MAX");
-                        SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, addForCurrLoop[k]->varin, NULL);
-                        exprList->setLhs(tmp4);
-                        oper = "MAX";
-                        wasAdd = true;
-                    }
+                    wasAdd = addReductionToList("MAX", exprList, addForCurrLoop[k]->varin);
+                    oper = "MAX";                    
                     break;
                 case SMINREDUCTION:
                 case DMINREDUCTION:
                 case IMINREDUCTION:
-                    {
-                        SgExpression *tmp3 = new SgKeywordValExp("MIN");
-                        SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, addForCurrLoop[k]->varin, NULL);
-                        exprList->setLhs(tmp4);
-                        oper = "MIN";
-                        wasAdd = true;
-                    }
+                    wasAdd = addReductionToList("MIN", exprList, addForCurrLoop[k]->varin);
+                    oper = "MIN";
+                    break;
+                case ANDREDUCTION:
+                    wasAdd = addReductionToList("AND", exprList, addForCurrLoop[k]->varin);
+                    oper = "AND";
+                    break;
+                case ORREDUCTION:
+                    wasAdd = addReductionToList("OR", exprList, addForCurrLoop[k]->varin);
+                    oper = "OR";
+                    break;
+                case EQVREDUCTION:
+                    wasAdd = addReductionToList("EQV", exprList, addForCurrLoop[k]->varin);
+                    oper = "EQV";
+                    break;
+                case NEQVREDUCTION:
+                    wasAdd = addReductionToList("NEQV", exprList, addForCurrLoop[k]->varin);
+                    oper = "NEQV";
                     break;
                 default:
                     break;
