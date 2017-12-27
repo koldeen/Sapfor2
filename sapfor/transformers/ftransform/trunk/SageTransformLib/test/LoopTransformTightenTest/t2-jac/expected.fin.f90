@@ -38,17 +38,17 @@
             enddo
          enddo
          print 200, it,eps
-200          FORMAT (' IT = ', I4, '   EPS = ', E14.7)
+200      FORMAT (' IT = ', I4, '   EPS = ', E14.7)
          if (eps .lt. maxeps)          exit
       enddo
       endt = dvtime ()
       print *, 'Jacobi3D Benchmark Completed.'
       print 201, l,l,l
-201     FORMAT (' Size            = ', I4, ' x ', I4, ' x ', I4)
+201   FORMAT (' Size            = ', I4, ' x ', I4, ' x ', I4)
       print 202, itmax
-202     FORMAT (' Iterations      =       ', I12)
+202   FORMAT (' Iterations      =       ', I12)
       print 203, endt - startt
-203     FORMAT (' Time in seconds =       ', F12.2)
+203   FORMAT (' Time in seconds =       ', F12.2)
       print *, 'Operation type  =     floating point'
       if (abs (eps - 5.058044) .lt. 1.0e-4) then
          print *, 'Verification    =         SUCCESSFUL'

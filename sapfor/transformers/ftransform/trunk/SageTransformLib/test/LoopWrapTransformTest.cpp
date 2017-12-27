@@ -19,7 +19,7 @@ TEST(LoopWrapTransform, t1_simple_cases) {
     const char *finResultSource = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/result.fin.f90";
     const char *finExpectSource = "../../SageTransformLib/test/LoopWrapTransformTest/t1-simple/expected.fin.f90";
 
-    SgForStmt *loop1, *loop2, *loop4, *loop6, *loop8, *loop9;
+    SgForStmt *loop1, *loop2, *loop4, *loop8, *loop9;
     SgIfStmt *if1;
     SgStatement *inv1;
     SgSymbol *iSymbol, *jSymbol, *kSymbol;
@@ -30,21 +30,29 @@ TEST(LoopWrapTransform, t1_simple_cases) {
     while(!isSgAssignStmt(stmt)) stmt = stmt->lexNext();
     kSymbol = ((SgAssignStmt *)stmt)->lhs()->symbol();
     //skip to first loop, the init loop
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
     loop1 = isSgForStmt(stmt);
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
     loop2 = isSgForStmt(stmt);
+    stmt = stmt->lexNext();
     while (!isSgIfStmt(stmt)) stmt = stmt->lexNext();
     if1 = isSgIfStmt(stmt);
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
     loop4 = isSgForStmt(stmt);
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
-    loop6 = isSgForStmt(stmt);
     inv1 = stmt->lexNext();
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
     loop8 = isSgForStmt(stmt);
+    stmt = stmt->lexNext();
     while (!isSgForStmt(stmt)) stmt = stmt->lexNext();
     loop9 = isSgForStmt(stmt);
 
@@ -58,7 +66,7 @@ TEST(LoopWrapTransform, t1_simple_cases) {
     loopWrap.wrapWithOneIteration(jSymbol, iLoopAroundIf);
 
     loopWrap.wrapWithOneIteration(kSymbol, loop4);
-    loopWrap.wrapWithOneIteration(kSymbol, loop6->lexNext(), loop8->lexPrev()->lexPrev());
+    loopWrap.wrapWithOneIteration(kSymbol, inv1, loop8->lexPrev()->lexPrev());
     loopWrap.wrapWithOneIteration(kSymbol, loop9);
 
     FILE *outputFile;

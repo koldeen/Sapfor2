@@ -57,7 +57,7 @@
               enddo
             enddo
         enddo
-        do  i = 0, nx1
-            write(unit = *,fmt = '(100g15.5)') ( a(i,j), j=0, ny1 )
+        do  i = 0,nx1
+            write (unit = *,fmt = '(100g15.5)') (a(i,j), j = 0,ny1)
         enddo
         end
