@@ -2,6 +2,7 @@
 #define SAGE_TRANSFORM_UTILS_HPP
 
 #include <vector>
+#include <string>
 #include "user.h"
 
 using std::vector;
@@ -25,11 +26,12 @@ namespace SageTransform {
                                  SgExpression *end, SgExpression *step, vector<SgStatement *> body);
 
         /**
-         * Create a fake loop with 1 iteration of given symbol
-         * @param index variable
+         * Create a fake loop with 1 iteration of given symbol with value of given other symbol
+         * @param indexVariable index variable
+         * @param valueVariable index will have value of this variable
          * @return created for loop
          */
-        SgForStmt *createOneIterationLoop(SgSymbol *indexVariable);
+        SgForStmt *createOneIterationLoop(SgSymbol *indexVariable, SgSymbol *valueVariable);
 
         SgIfStmt *createIfStmt(SgStatement *createAfter, SgExpression *condition, vector<SgStatement *> body);
 
@@ -103,7 +105,8 @@ namespace SageTransform {
 
         //Add new acalar variable to scope #func with type #type
         //return pointer to new variable symbol
-        SgVariableSymb *addScalarVariable(SgStatement *funcHeader, char *varName, SgType *type);
+        SgVariableSymb *addScalarVariable(SgStatement *funcHeader, const char *varName, SgType *type);
+        SgVariableSymb *addScalarVariable(SgStatement *funcHeader, std::string varName, SgType *type);
 
         //Add new array variable to #func with basetype #type and #ranges
         //return pointer to new variable symbol
@@ -111,23 +114,32 @@ namespace SageTransform {
 
         //Add new array variable to #func with #arraytype and #varName
         //return pointer to new variable symbol
-        SgVariableSymb *addArrayVariable(SgStatement *funcHeader, char *varName, SgArrayType *arrayType);
+        SgVariableSymb *addArrayVariable(SgStatement *funcHeader, const char *varName, SgArrayType *arrayType);
 
         //Add new array variable to #func with basetype #type and #ranges
         //return pointer to new variable symbol
         SgVariableSymb *addArrayVariable(SgStatement *funcHeader, SgArrayType *arrayType);
 
         //return new tmp variable identifier
-        char *getNewVariableName();
+        std::string getNewVariableName();
 
         //return new tmp variable identifier
-        char *getNewVariableName(char *includedName);
+        std::string getNewVariableName(const char *includedName);
 
         /**
          * returns input if it is DO header or IF header
          * For simple statements returns control parent
          */
         SgStatement *sameLevelControlParent(SgStatement *sgStatement);
+
+        /**
+         * Replace symbol in statements with other symbol.
+         * @param removed symbol that will be removed
+         * @param usedInstead symbol that will be used instead
+         * @param startInclusive first statement in working scope, inclusive
+         * @param endInclusive last statement in working scope, inclusive
+         */
+        void replaceSymbolInStatements(SgSymbol *removed, SgSymbol *usedInstead, SgStatement *startInclusive, SgStatement *endInclusive);
     }
 }
 

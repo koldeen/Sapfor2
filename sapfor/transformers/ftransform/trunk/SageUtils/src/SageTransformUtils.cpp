@@ -44,9 +44,9 @@ SageTransformUtils::createForStmt(SgStatement *createAfter,
     return result;
 }
 
-SgForStmt *SageTransformUtils::createOneIterationLoop(SgSymbol *indexVariable) {
-    SgExpression* from = new SgVarRefExp(indexVariable);
-    SgExpression* to = new SgVarRefExp(indexVariable);
+SgForStmt *SageTransformUtils::createOneIterationLoop(SgSymbol *indexVariable, SgSymbol *valueVariable) {
+    SgExpression* from = new SgVarRefExp(valueVariable);
+    SgExpression* to = new SgVarRefExp(valueVariable);
     return new SgForStmt(indexVariable, from, to, NULL, NULL);
 }
 
@@ -226,10 +226,14 @@ bool SageTransformUtils::isLoopsHaveContinuousHeaders(vector<SgForStmt *> &loops
     return result;
 }
 
-SgVariableSymb *SageTransformUtils::addScalarVariable(SgStatement *funcHeader, char *varName, SgType *type) {
+SgVariableSymb *SageTransformUtils::addScalarVariable(SgStatement *funcHeader, const char *varName, SgType *type) {
     SgVariableSymb *tmpVar = new SgVariableSymb(varName, *type);
     tmpVar->declareTheSymbol(*funcHeader);
     return tmpVar;
+}
+
+SgVariableSymb *SageTransformUtils::addScalarVariable(SgStatement *funcHeader, std::string varName, SgType *type) {
+    return addScalarVariable(funcHeader, varName.c_str(), type);
 }
 
 SgVariableSymb *
@@ -238,33 +242,31 @@ SageTransformUtils::addArrayVariable(SgStatement *funcHeader, SgType *baseType, 
     for (unsigned int i = 0; i < ranges.size(); ++i) {
         arrayType->addRange(*ranges.at(i));
     }
-    SgVariableSymb *tmpVar = new SgVariableSymb(SageTransformUtils::getNewVariableName(), *arrayType);
+    SgVariableSymb *tmpVar = new SgVariableSymb(SageTransformUtils::getNewVariableName().c_str(), *arrayType);
     tmpVar->declareTheSymbol(*funcHeader);
     return tmpVar;
 }
 
-SgVariableSymb *SageTransformUtils::addArrayVariable(SgStatement *funcHeader, char *varName, SgArrayType *arrayType) {
+SgVariableSymb *SageTransformUtils::addArrayVariable(SgStatement *funcHeader, const char *varName, SgArrayType *arrayType) {
     SgVariableSymb *tmpVar = new SgVariableSymb(varName, *arrayType);
     tmpVar->declareTheSymbol(*funcHeader);
     return tmpVar;
 }
 
 SgVariableSymb *SageTransformUtils::addArrayVariable(SgStatement *funcHeader, SgArrayType *arrayType) {
-    return addArrayVariable(funcHeader, getNewVariableName(), arrayType);
+    return addArrayVariable(funcHeader, getNewVariableName().c_str(), arrayType);
 }
 
 int sageTransformUtilsVariableCounter = 1;
 
-char *SageTransformUtils::getNewVariableName() {
-    char *buf = new char[4 + 4];
-    sprintf(buf, "var_%04d", sageTransformUtilsVariableCounter++);
-    return buf;
+std::string SageTransformUtils::getNewVariableName() {
+    return getNewVariableName("var");
 }
 
-char *SageTransformUtils::getNewVariableName(char *includedName) {
-    char *buf = new char[4 + 4];
-    sprintf(buf, "var_%s_%04d", includedName, sageTransformUtilsVariableCounter++);
-    return buf;
+std::string SageTransformUtils::getNewVariableName(const char *includedName) {
+    string result;
+    result = result + includedName + "_" + std::to_string(sageTransformUtilsVariableCounter++);
+    return result;
 }
 
 SgStatement *SageTransformUtils::sameLevelControlParent(SgStatement *sgStmt) {
@@ -277,4 +279,16 @@ SgStatement *SageTransformUtils::sameLevelControlParent(SgStatement *sgStmt) {
         controlParent = sgStmt->controlParent();
     }
     return controlParent;
+}
+
+void SageTransformUtils::replaceSymbolInStatements(SgSymbol *removed, SgSymbol *used, SgStatement *start, SgStatement *end) {
+    int distance = SageUtils::lexDist(start, end);
+    if (distance != SageUtils::LEX_INFINITY && distance >= 0) {
+        SgStatement *statement = start;
+        SgStatement *endMark = end->lexNext();
+        while (statement != endMark) {
+            statement->replaceSymbBySymb(*removed, *used);
+            statement = statement->lexNext();
+        }
+    }
 }
