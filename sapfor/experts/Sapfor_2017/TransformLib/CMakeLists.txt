@@ -41,6 +41,7 @@ set(SOURCE_EXE
         ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformMerge.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformSplit.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/LoopTransformTighten.cpp
+        ${FTRANSFORM_BASE}/SageTransformLib/src/LoopWrapTransform.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/StatementOrderTransform.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/StatementReorderer.cpp
         ${FTRANSFORM_BASE}/SageTransformLib/src/StatementReshuffler.cpp

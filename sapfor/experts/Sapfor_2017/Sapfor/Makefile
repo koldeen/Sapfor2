@@ -52,7 +52,7 @@ StringUtils.o: $(TR_COMMON_BASE_DIR)src/StringUtils.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/StringUtils.cpp $(TR_COMMON_INC)
 	
 #Make transform lib
-TR_LIB_OBS = BaseTransform.o LoopCombine.o LoopTransformBreak.o LoopTransformMerge.o LoopTransformSplit.o LoopTransformTighten.o \
+TR_LIB_OBS = BaseTransform.o LoopCombine.o LoopTransformBreak.o LoopTransformMerge.o LoopTransformSplit.o LoopTransformTighten.o LoopWrapTransform.o \
              StatementOrderTransform.o StatementReorderer.o StatementReshuffler.o StatementsSplitter.o TempArrayTransform.o WriteDearray.o \
 			 Dependency.o DependencyInfo.o DependencyInfoGetter.o DependencyUtils.o
 			 
@@ -72,6 +72,8 @@ LoopTransformSplit.o: $(TR_LIB_BASE_DIR)src/LoopTransformSplit.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformSplit.cpp $(TR_LIB_INC)
 LoopTransformTighten.o: $(TR_LIB_BASE_DIR)src/LoopTransformTighten.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformTighten.cpp $(TR_LIB_INC)
+LoopWrapTransform.o: $(TR_LIB_BASE_DIR)src/LoopWrapTransform.cpp
+	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopWrapTransform.cpp $(TR_LIB_INC)
 StatementOrderTransform.o: $(TR_LIB_BASE_DIR)src/StatementOrderTransform.cpp
 	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementOrderTransform.cpp $(TR_LIB_INC)
 StatementReorderer.o: $(TR_LIB_BASE_DIR)src/StatementReorderer.cpp
