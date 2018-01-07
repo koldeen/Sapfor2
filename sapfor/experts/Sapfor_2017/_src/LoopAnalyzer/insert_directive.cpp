@@ -431,13 +431,11 @@ static vector<pair<pair<string, string>, vector<pair<int, int>>>>
 }
 
 static void createShadowSpec(const vector<LoopGraph*> &loopGraph, 
-                             vector<pair<pair<string, string>, vector<pair<int, int>>>> &shadowSpecs)
+                             vector<vector<pair<pair<string, string>, vector<pair<int, int>>>>> &shadowSpecs)
 {
     for (int i = 0; i < loopGraph.size(); ++i)
     {
-        for (int k = 0; k < loopGraph[i]->childs.size(); ++k)
-            createShadowSpec(loopGraph[i]->childs, shadowSpecs);
-
+        createShadowSpec(loopGraph[i]->childs, shadowSpecs);
         if (loopGraph[i]->directive == NULL)
             continue;
         if (loopGraph[i]->directive->shadowRenew.size() == 0 && loopGraph[i]->directive->across.size() == 0)
@@ -447,28 +445,11 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
         if (loopGraph[i]->directive->across.size() != loopGraph[i]->directive->acrossShifts.size())
             continue;
 
-        if (shadowSpecs.size() == 0)
-        {
-            shadowSpecs = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
+        vector<pair<pair<string, string>, vector<pair<int, int>>>> fullShadow = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
+        vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
 
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> tmp;
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
-
-            uniteVectors(shadowSpecs, fullAcross, tmp);
-            shadowSpecs = tmp;
-        }
-        else
-        {
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> tmp;
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullShadow = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
-
-            uniteVectors(shadowSpecs, fullShadow, tmp);
-            shadowSpecs = tmp;
-            tmp.clear();
-            uniteVectors(shadowSpecs, fullAcross, tmp);
-            shadowSpecs = tmp;
-        }
+        shadowSpecs.push_back(fullShadow);
+        shadowSpecs.push_back(fullAcross);
     }
 }
 
@@ -748,24 +729,25 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 
                 if (dynamicArrays.size() > 0)
                 {
-                    vector<pair<pair<string, string>, vector<pair<int, int>>>> shadowSpecs;
+                    vector<vector<pair<pair<string, string>, vector<pair<int, int>>>>> shadowSpecsAll;
                     for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-                    {
                         if (it->second.size() > 0)
-                            createShadowSpec(it->second, shadowSpecs);
-                    }
+                            createShadowSpec(it->second, shadowSpecsAll);
 
-                    for (int i = 0; i < shadowSpecs.size(); ++i)
+                    for (auto &spec : shadowSpecsAll)
                     {
-                        auto dynArray = dynamicArraysStr.find(shadowSpecs[i].first.second);
-                        if (dynArray == dynamicArraysStr.end())
-                            continue;
-                         
-                        set<DIST::Array*> realArrayRefs;
-                        getRealArrayRefs(dynArray->second, dynArray->second, realArrayRefs, arrayLinksByFuncCalls);
+                        for (int i = 0; i < spec.size(); ++i)
+                        {
+                            auto dynArray = dynamicArraysStr.find(spec[i].first.second);
+                            if (dynArray == dynamicArraysStr.end())
+                                continue;
 
-                        for (auto &array : realArrayRefs)
-                            array->ExtendShadowSpec(shadowSpecs[i].second);
+                            set<DIST::Array*> realArrayRefs;
+                            getRealArrayRefs(dynArray->second, dynArray->second, realArrayRefs, arrayLinksByFuncCalls);
+
+                            for (auto &array : realArrayRefs)
+                                array->ExtendShadowSpec(spec[i].second);
+                        }
                     }
                 }
                 

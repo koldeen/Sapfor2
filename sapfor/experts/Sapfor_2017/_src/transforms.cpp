@@ -322,6 +322,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
 
+            //clear shadow specs
+            for (auto &array : declaratedArrays)
+                array.second.first->ClearShadowSpecs();
+            
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
@@ -512,13 +516,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                             auto currShadowP = shadow;
                             int numActiveSh = 0;
+
                             for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
                             {
                                 SgExpression *elem = iter->lhs();
+                                //if shadow has CORNER
+                                if (elem->variant() == ARRAY_OP)
+                                    elem = elem->lhs();
+
                                 if (elem->variant() == ARRAY_REF)
                                 {
                                     if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
                                     {
+                                        DIST::Array *currArray = NULL;
+                                        for (int i = 0; i < elem->numberOfAttributes() && currArray == NULL; ++i)
+                                            if (elem->attributeType(i) == ARRAY_REF)
+                                                currArray = (DIST::Array *)(elem->getAttribute(i)->getAttributeData());                                        
+
+                                        if (currArray == NULL)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        vector<pair<int, int>> toDel;
+                                        for (SgExpression *list = elem->lhs(); list; list = list->rhs())
+                                            toDel.push_back(make_pair(list->lhs()->lhs()->valueInteger(), list->lhs()->rhs()->valueInteger()));                                        
+                                        currArray->RemoveShadowSpec(toDel);
+
                                         if (currShadowP == shadow)
                                             shadow->setLhs(iter->rhs());
                                         else
@@ -1086,15 +1108,15 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            //runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);            
+                        
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
