@@ -1,6 +1,7 @@
 #include "../leak_detector.h"
 
 #include "loop_transform.h"
+#include <directive_parser.h>
 
 #include <LoopTransformTighten.hpp>
 #include <SageTransformException.hpp>
@@ -15,6 +16,7 @@ using SageTransform::DependencyType;
 using Sapfor2017::CreateNestedLoopsUtils;
 using std::pair;
 using std::map;
+using std::tuple;
 using std::stack;
 
 static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
@@ -64,7 +66,28 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
     }
 
     for (auto &elem : topLoopsToRecalaulate)
+    {
         elem->recalculatePerfect();
+        elem->restoreDirective();
+    }
+}
+
+//use this for TODO below!
+static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &privates, 
+                                               map<string, set<SgSymbol*>> &reduction,
+                                               map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction_loc)
+{
+    for (int i = 0; i < st->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attribute = st->getAttribute(i);
+        SgStatement *attributeStatement = (SgStatement *)(attribute->getAttributeData());
+        if (st->attributeType(i) == SPF_ANALYSIS_DIR)
+        {
+            fillPrivatesFromComment(attributeStatement, privates);
+            fillReductionsFromComment(attributeStatement, reduction);
+            fillReductionsFromComment(attributeStatement, reduction_loc);
+        }
+    }
 }
 
 //todo parse spf private comments into additional dependency info
