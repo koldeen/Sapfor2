@@ -132,6 +132,7 @@
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopTransformMerge.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopTransformSplit.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopTransformTighten.cpp" />
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopWrapTransform.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\StatementOrderTransform.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\StatementReorderer.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\StatementReshuffler.cpp" />

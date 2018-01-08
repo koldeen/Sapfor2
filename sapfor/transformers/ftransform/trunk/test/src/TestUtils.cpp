@@ -13,37 +13,46 @@ using std::vector;
 
 using std::ifstream;
 
-#include <iterator>
-
-using std::istream_iterator;
-
-#include <algorithm>
-
-using std::copy;
-
 using namespace SageTransform;
 using StringUtils::trim;
 
-string TestUtils::readFile(const char *fileName) {
-    std::ifstream ifs(fileName);
-    string content((std::istreambuf_iterator<char>(ifs)),
-                   (std::istreambuf_iterator<char>()));
-    return content;
+vector<string> TestUtils::readFileLines(const char *fileName) {
+    std::ifstream inputFileStream(fileName);
+    string line;
+    vector<string> lines;
+    while (std::getline(inputFileStream, line)) {
+        lines.push_back(line);
+    }
+    return lines;
 }
 
-vector<string> TestUtils::readFileLines(const char *fileName) {
-    ifstream myfile(fileName);
-    std::vector<string> myLines;
-    std::copy(std::istream_iterator<string>(myfile),
-              std::istream_iterator<string>(),
-              std::back_inserter(myLines));
-    return myLines;
+bool TestUtils::compareStrict(const char *fileName1, const char *fileName2) {
+    vector<string> lines1 = readFileLines(fileName1);
+    vector<string> lines2 = readFileLines(fileName2);
+    bool result = true;
+    if (lines1.size() != lines2.size()) {
+        std::cerr << "Mismatch: different number of lines " << lines1.size() << " and " << lines2.size() << std::endl;
+        result = false;
+    } else if (lines1.size() > 0) {
+        for (size_t i = 0; i < lines1.size(); i++) {
+            string &s1 = lines1[i];
+            string &s2 = lines2[i];
+            if (s1 != s2) {
+                std::cerr << "Mismatch at line " << i + 1 << ": " << std::endl;
+                std::cerr << lines1[i] << " | " << fileName1 << std::endl;
+                std::cerr << lines2[i] << " | " << fileName2 << std::endl;
+                result = false;
+            }
+        }
+    }
+    return result;
 }
 
 bool TestUtils::compareFortranSources(const char *fileName1, const char *fileName2) {
     vector<string> lines1 = readFileLines(fileName1);
     vector<string> lines2 = readFileLines(fileName2);
     if (lines1.size() > 0 && lines2.size() > 0) {
+        bool result = true;
         size_t maxSize = lines1.size();
         size_t minSize = lines2.size();
         vector<string> *maxLines = &lines1;
@@ -56,7 +65,10 @@ bool TestUtils::compareFortranSources(const char *fileName1, const char *fileNam
             string &s1 = trim(lines1[i]);
             string &s2 = trim(lines2[i]);
             if (s1 != s2) {
-                return false;
+                std::cerr << "Mismatch at line " << i + 1 << ": " << std::endl;
+                std::cerr << lines1[i] << " | " << fileName1 << std::endl;
+                std::cerr << lines2[i] << " | " << fileName2 << std::endl;
+                result = false;
             }
         }
 
@@ -64,11 +76,41 @@ bool TestUtils::compareFortranSources(const char *fileName1, const char *fileNam
         for (size_t i = minSize; i < maxSize; i++) {
             string &s = trim((*maxLines)[i]);
             if (s != empty) {
-                return false;
+                std::cerr << "Mismatch at line " << i << ": " << std::endl;
+                std::cerr << "Files have different number of lines" << std::endl;
+                result = false;
             }
         }
-        return true;
+        return result;
     } else {
         return false;
     }
+}
+
+bool TestUtils::compileAndCompareOutputs(const char *fileName1, const char *fileName2) {
+    return compileAndCompareOutputs("", fileName1, fileName2);
+}
+
+bool TestUtils::compileAndCompareOutputs(const char *workFolder, const char *fileName1, const char *fileName2) {
+    std::cout << "Compile and compare " << fileName1 << " and " << fileName2 << std::endl;
+    string workFolderStr(workFolder);
+    string exe1 = workFolderStr + "t1.exe";
+    string exe2 = workFolderStr + "t2.exe";
+    string txt1 = workFolderStr + "t1.txt";
+    string txt2 = workFolderStr + "t2.txt";
+    if (compileAndRun(fileName1, exe1.c_str(), txt1.c_str())
+        && compileAndRun(fileName2, exe2.c_str(), txt2.c_str())) {
+        return compareStrict(txt1.c_str(), txt2.c_str());
+    } else {
+        return false;
+    }
+}
+
+bool TestUtils::compileAndRun(const char *fileName, const char *exeName, const char *outputName) {
+    std::string command;
+    command = command + "gfortran " + fileName + " -o " + exeName;
+    command = command + " && ./" + exeName + " > " + outputName;
+    std::cout << "Running " << command << std::endl;
+    int result = system(command.c_str());
+    return WEXITSTATUS(result) == 0;
 }

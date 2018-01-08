@@ -11,10 +11,13 @@
 namespace SageTransform {
     class TestUtils {
     public:
+        static bool compareStrict(const char *fileName1, const char *fileName2);
         static bool compareFortranSources(const char *fileName1, const char *fileName2);
+        static bool compileAndCompareOutputs(const char *fileName1, const char *fileName2);
+        static bool compileAndCompareOutputs(const char *workFolder, const char *fileName1, const char *fileName2);
     private:
-        static std::string readFile(const char *fileName);
         static std::vector<std::string> readFileLines(const char *fileName);
+        static bool compileAndRun(const char *fileName, const char *exeName, const char *outputName);
     };
 }
 #endif //FTRANSFORM_TEST_HPP

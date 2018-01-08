@@ -30,10 +30,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
 #commented out for debugging
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
+#COMMON_LIB_TESTS
 add_executable(StringUtilsTest.exe ${COMMON_LIB_PATH}/StringUtilsTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(StringUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(StringUtilsTest StringUtilsTest.exe)
 
+#SAGE_UTILS_LIB_TESTS
 add_executable(StubTest.exe ${SAGE_UTILS_PATH}/StubTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(StubTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(StubTest StubTest.exe)
@@ -54,6 +56,12 @@ add_executable(SageUtilsTest.exe ${SAGE_UTILS_PATH}/SageUtilsTest.cpp ${TEST_COM
 target_link_libraries(SageUtilsTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(SageUtilsTest SageUtilsTest.exe)
 
+#SAGE_TRANSFORM_LIB_TESTS
 add_executable(LoopTransformTightenTest.exe ${SAGE_TRANSFORM_LIB_PATH}/LoopTransformTightenTest.cpp ${TEST_COMMON_SRC})
 target_link_libraries(LoopTransformTightenTest.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
 add_test(LoopTransformTightenTest LoopTransformTightenTest.exe)
+
+set(TEST_NAME LoopWrapTransformTest)
+add_executable(${TEST_NAME}.exe ${SAGE_TRANSFORM_LIB_PATH}/${TEST_NAME}.cpp ${TEST_COMMON_SRC})
+target_link_libraries(${TEST_NAME}.exe GTest::GTest GTest::Main ${OWN_INCLUDES})
+add_test(${TEST_NAME} ${TEST_NAME}.exe)
