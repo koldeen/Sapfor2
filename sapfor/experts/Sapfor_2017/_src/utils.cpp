@@ -621,3 +621,11 @@ bool isAllRulesEqual(const vector<const vector<pair<int, int>>*> &allRules)
 {
     return isAllRulesEqual_p(allRules);
 }
+
+static int newLineNumber = -2; // -1 is used for OMP
+int getNextNegativeLineNumber()
+{
+    int ret = newLineNumber;
+    newLineNumber--;
+    return ret;
+}

@@ -65,6 +65,9 @@ enum passes {
 
     MACRO_EXPANSION,
     SWAP_ARRAY_DIMENSION,
+
+    CONVERT_ASSIGN_TO_LOOP,
+    CONVERT_LOOP_TO_ASSIGN,
     EMPTY_PASS
 };
 
@@ -139,5 +142,7 @@ static void setPassValues()
     passNames[MACRO_EXPANSION] = "MACRO_EXPANSION";
     passNames[SWAP_ARRAY_DIMENSION] = "SWAP_ARRAY_DIMENSION";
     passNames[REVERSE_CREATED_NESTED_LOOPS] = "REVERSE_CREATED_NESTED_LOOPS";
+    passNames[CONVERT_ASSIGN_TO_LOOP] = "CONVERT_ASSIGN_TO_LOOP";
+    passNames[CONVERT_LOOP_TO_ASSIGN] = "CONVERT_LOOP_TO_ASSIGN";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

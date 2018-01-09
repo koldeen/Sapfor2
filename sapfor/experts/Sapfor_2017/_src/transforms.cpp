@@ -36,6 +36,7 @@
 #include "PrivateAnalyzer/private_analyzer.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
+#include "LoopConverter/array_assing_to_loop.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -578,7 +579,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
-
+        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
+            convertFromAssignToLoop(file);
+        else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
+            restoreAssignsFromLoop(file);
 
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)

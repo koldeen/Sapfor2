@@ -223,7 +223,7 @@ hlp.o: $(INLINER_BASE_DIR)hlp.cpp $(INLINER_BASE_DIR)inline.h
 
 #Make Sapfor
 SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o transforms.o CorrectVarDecl.o IncludeChecker.o LoopChecker.o ParRegions.o \
-             enddo_loop_converter.o allocations_prepoc.o directive_creator.o insert_directive.o loop_analyzer.o spf_directive_preproc.o \
+             enddo_loop_converter.o array_assign_to_loop.o allocations_prepoc.o directive_creator.o insert_directive.o loop_analyzer.o spf_directive_preproc.o \
 			 graph_loops.o graph_loops_base.o graph_calls.o expr_transform.o CreateDistributionDirs.o DvmhDirective.o DvmhDirectiveBase.o DirectiveAnalyzer.o \
 			 acc_analyzer.o acc_data.o calls.o acc_utilities.o directive_parser.o GraphCSR.o Distribution.o Cycle.o \
 			 annotationDriver.o arrayRef.o computeInducVar.o constanteProp.o  controlFlow.o defUse.o dependence.o depGraph.o \
@@ -267,6 +267,8 @@ ParRegions.o: $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp $(REPO_SPF_B
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 enddo_loop_converter.o: $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h $(REPO_SPF_BASE)errors.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+array_assign_to_loop.o: $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp $(REPO_SPF_BASE)LoopConverter/array_assing_to_loop.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loop_transform.o: $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp $(REPO_SPF_BASE)LoopConverter/loop_transform.h $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h 
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 

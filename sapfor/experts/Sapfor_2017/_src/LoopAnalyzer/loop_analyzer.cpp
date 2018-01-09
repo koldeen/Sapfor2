@@ -502,7 +502,7 @@ static int fillSizes(SgExpression *res, int &left, int &right)
     return err;
 }
 
-static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *delc)
+static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     if (type != NULL)
@@ -547,10 +547,10 @@ static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgState
                 {
                     if (alloc == NULL)
                     {
-                        for (int i = 0; i < delc->numberOfAttributes(); ++i)
+                        for (int i = 0; i < decl->numberOfAttributes(); ++i)
                         {
-                            SgAttribute *attr = delc->getAttribute(i);
-                            int type = delc->attributeType(i);
+                            SgAttribute *attr = decl->getAttribute(i);
+                            int type = decl->attributeType(i);
                             if (type == ALLOCATE_STMT)
                             {
                                 SgStatement *data = (SgStatement *)(attr->getAttributeData());

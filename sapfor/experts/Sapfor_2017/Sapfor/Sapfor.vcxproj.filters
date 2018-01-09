@@ -237,6 +237,9 @@
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp">
       <Filter>Файлы исходного кода\GraphLoop</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -340,6 +343,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\SapforData.h">
       <Filter>Файлы исходного кода</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\array_assing_to_loop.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
