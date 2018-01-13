@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #include "dvm.h"
-#include "array_assing_to_loop.h"
+#include "array_assign_to_loop.h"
 #include "../SgUtils.h"
 
 using std::vector;
@@ -77,7 +77,7 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
     if (alloc == NULL)
         return false;
     
-    for (int idx = 0; alloc; alloc = alloc->rhs(), idx++)
+    for ( ; alloc; alloc = alloc->rhs())
     {
         if (alloc->lhs()->variant() == DDOT)
             bounds.push_back(std::make_tuple(alloc->lhs()->lhs(), alloc->lhs()->rhs(), (SgExpression*)NULL));
@@ -117,6 +117,20 @@ static bool fillSectionInfo(SgExpression *subs, tuple<SgExpression*, SgExpressio
         return false;
 }
 
+static bool hasSections(SgArrayRefExp *array)
+{
+    const int subs = array->numberOfSubscripts();
+    if (subs == 0)
+        return true;
+    else
+    {
+        for (int i = 0; i < subs; ++i)
+            if (array->subscript(i)->variant() == DDOT)
+                return true;
+    }
+    return false;
+}
+
 static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 {
     if (assign->variant() != ASSIGN_STAT)
@@ -130,6 +144,9 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(0);
     SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1);
+
+    if (!hasSections(leftPart) || !hasSections(rightPart))
+        return NULL;
 
     const int leftSubs = leftPart->numberOfSubscripts();
     const int rightSubs = rightPart->numberOfSubscripts();
@@ -305,7 +322,7 @@ void restoreAssignsFromLoop(SgFile *file)
             {
                 if (st->attributeType(i) == ASSIGN_STAT)
                 {
-                    SgStatement *data = (SgStatement *)(st->getAttribute(i)->getAttributeData());                    
+                    SgStatement *data = (SgStatement*)(st->getAttribute(i)->getAttributeData());                    
                     if (data->lineNumber() < 0)
                         toMove.push_back(make_pair(st, data));
                 }

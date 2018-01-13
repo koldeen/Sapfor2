@@ -344,7 +344,7 @@
     <ClInclude Include="..\_src\SapforData.h">
       <Filter>Файлы исходного кода</Filter>
     </ClInclude>
-    <ClInclude Include="..\_src\LoopConverter\array_assing_to_loop.h">
+    <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>

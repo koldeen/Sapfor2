@@ -36,7 +36,7 @@
 #include "PrivateAnalyzer/private_analyzer.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
-#include "LoopConverter/array_assing_to_loop.h"
+#include "LoopConverter/array_assign_to_loop.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -847,15 +847,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
     }
-    /*else if (curr_regime == SUBST_EXPR)
-    {
-        SgStatement *mainUnit = findMainUnit(&project);
-        if (mainUnit)
-            expressionAnalyzer(mainUnit);
-            Private_Vars_Analyzer(mainUnit);
-        else
-            ;//TODO: add warning or call for graphs
-    }*/
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;

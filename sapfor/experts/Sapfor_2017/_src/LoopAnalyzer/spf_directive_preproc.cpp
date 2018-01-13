@@ -1034,14 +1034,14 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 case SADDREDUCTION:
                 case DADDREDUCTION:
                 case IADDREDUCTION:
-                    wasAdd = addReductionToList("SUM", exprList, addForCurrLoop[k]->varin);
-                    oper = "SUM";                    
+                    oper = "sum";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case SMULREDUCTION:
                 case DMULREDUCTION:
                 case IMULREDUCTION:
-                    wasAdd = addReductionToList("PRODUCT", exprList, addForCurrLoop[k]->varin);
-                    oper = "PRODUCT";                    
+                    oper = "product";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case SDIVREDUCTION:
                 case DDIVREDUCTION:
@@ -1050,30 +1050,30 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 case SMAXREDUCTION:
                 case DMAXREDUCTION:
                 case IMAXREDUCTION:
-                    wasAdd = addReductionToList("MAX", exprList, addForCurrLoop[k]->varin);
-                    oper = "MAX";                    
+                    oper = "max";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case SMINREDUCTION:
                 case DMINREDUCTION:
                 case IMINREDUCTION:
-                    wasAdd = addReductionToList("MIN", exprList, addForCurrLoop[k]->varin);
-                    oper = "MIN";
+                    oper = "min";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case ANDREDUCTION:
-                    wasAdd = addReductionToList("AND", exprList, addForCurrLoop[k]->varin);
-                    oper = "AND";
+                    oper = "and";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case ORREDUCTION:
-                    wasAdd = addReductionToList("OR", exprList, addForCurrLoop[k]->varin);
-                    oper = "OR";
+                    oper = "or";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case EQVREDUCTION:
-                    wasAdd = addReductionToList("EQV", exprList, addForCurrLoop[k]->varin);
-                    oper = "EQV";
+                    oper = "eqv";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 case NEQVREDUCTION:
-                    wasAdd = addReductionToList("NEQV", exprList, addForCurrLoop[k]->varin);
-                    oper = "NEQV";
+                    oper = "neqv";
+                    wasAdd = addReductionToList(oper, exprList, addForCurrLoop[k]->varin);
                     break;
                 default:
                     break;
