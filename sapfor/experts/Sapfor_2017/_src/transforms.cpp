@@ -1252,6 +1252,7 @@ int main(int argc, char**argv)
                 {
                     //User sees variants starting from 1, internally they start from 0
                     i++;
+                    genAllVars = 1;
                     genSpecificVar = atoi(argv[i]) - 1;
                 }
                 else if (string(curr_arg) == "-F")
