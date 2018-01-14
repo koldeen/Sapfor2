@@ -1098,6 +1098,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
         for (int i = 0; i < lastI; ++i)
         {
+            //if specific variant number is requested, skip all others
+            if (genSpecificVar >= 0 && i != genSpecificVar) continue;
+
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
@@ -1245,6 +1248,12 @@ int main(int argc, char**argv)
                     keepSpfDirs = 1;
                 else if (string(curr_arg) == "-allVars")
                     genAllVars = 1;
+                else if (string(curr_arg) == "-Var" || string(curr_arg) == "-var")
+                {
+                    //User sees variants starting from 1, internally they start from 0
+                    i++;
+                    genSpecificVar = atoi(argv[i]) - 1;
+                }
                 else if (string(curr_arg) == "-F")
                 {
                     i++;

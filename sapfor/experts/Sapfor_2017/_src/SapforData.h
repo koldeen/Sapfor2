@@ -22,7 +22,8 @@ int keepDvmDirectives = 1; // always on
 int keepFiles = 0;
 int keepSpfDirs = 0;
 int consoleMode = 0;
-int genAllVars = 0;
+int genAllVars = 0; //generate ALL distribution variants
+int genSpecificVar = -1; //generate specific distribution variant
 uint64_t currentAvailMemory = 0;
 static int activeState = 0;
 
