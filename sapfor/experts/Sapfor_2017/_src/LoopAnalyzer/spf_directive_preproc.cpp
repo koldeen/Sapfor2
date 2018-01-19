@@ -338,7 +338,7 @@ static bool checkReduction(SgStatement *st,
                             string message;
                             __spf_printToBuf(message, "array size can't be computed");
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                            //retVal = false;
+                            retVal = false;
                         }
 
                         if (computed && size != count)
