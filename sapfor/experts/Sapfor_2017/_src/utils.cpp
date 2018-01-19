@@ -105,6 +105,7 @@ void printHelp()
     printf(" -keepSPF keep SPF directives\n");
     printf(" -keepDVM keep DVM directives\n");
     printf(" -allVars get all parallel versions\n");
+    printf(" -Var N   get specific parallel version, N=1,2,..\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    

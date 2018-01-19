@@ -78,8 +78,10 @@ set(SOURCE_EXE
         _src/LoopAnalyzer/loop_analyzer.cpp
         _src/LoopAnalyzer/remote_access.cpp
         _src/LoopAnalyzer/spf_directive_preproc.cpp
+        _src/LoopConverter/array_assign_to_loop.cpp
         _src/LoopConverter/enddo_loop_converter.cpp
         _src/LoopConverter/loop_transform.cpp
+        _src/LoopConverter/swap_array_dims.cpp
         _src/ParallelizationRegions/ParRegions.cpp
         _src/PrivateAnalyzer/private_analyzer.cpp
         _src/SageAnalysisTool/OmegaForSage/add-assert.c
