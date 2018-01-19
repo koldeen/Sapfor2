@@ -24,9 +24,35 @@ namespace Distribution
         VECTOR<STRING> arrayNameByVertex;
         VECTOR<PAIR<int, Array*>> arrayDimInfoByVertex;
     public:
-        Arrays()
+        Arrays() { nextVertexNum = 0; }
+
+        Arrays(const Arrays &copy)
         {
-            nextVertexNum = 0;
+            nextVertexNum = copy.nextVertexNum;
+            numVertsInGraph = copy.numVertsInGraph;
+            arraysByName = copy.arraysByName;
+            arrays = copy.arrays;
+            arrayNameByVertex = copy.arrayNameByVertex;
+            arrayDimInfoByVertex = copy.arrayDimInfoByVertex;
+        }
+        
+        void UpdateLinks(const MAP<Array*, Array*> &oldNewArrays)
+        {
+            SET<Array*> newArrays;
+            for (auto &array : arrays)
+                newArrays.insert(oldNewArrays.find(array)->second);
+            arrays = newArrays;
+
+            for (auto &elem : arraysByName)
+                elem.second = oldNewArrays.find(elem.second)->second;
+
+            for (auto &elem : arrayDimInfoByVertex)
+                elem.second = oldNewArrays.find(elem.second)->second;
+
+            MAP<Array*, VECTOR<vType>> newNumVertsInGraph;
+            for (auto &elem : numVertsInGraph)
+                newNumVertsInGraph.insert(std::make_pair(oldNewArrays.find(elem.first)->second, elem.second));
+            numVertsInGraph = newNumVertsInGraph;
         }
 
         void cleanData()

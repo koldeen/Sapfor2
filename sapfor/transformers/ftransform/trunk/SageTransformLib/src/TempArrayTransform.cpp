@@ -16,7 +16,7 @@ SgVariableSymb * TempArrayTransform::replaceRhsScalarWithTempArray(
 		SgStatement * pFuncHeader, const vector<SgAssignStmt *> & pAssignStmt, SgVariableSymb * pVarSymbToReplace, SgStatement * pStoreAfterStmt
 ) {
 	SgArrayRefExp * lhsArrayRef = isSgArrayRefExp(pAssignStmt.at(0)->lhs());	
-	char * tmpVarName = SageTransformUtils::getNewVariableName(pVarSymbToReplace->identifier());
+	const char * tmpVarName = SageTransformUtils::getNewVariableName(pVarSymbToReplace->identifier()).c_str();
 	SgVariableSymb * lhsArraySymb = isSgVariableSymb(lhsArrayRef->symbol());
 	SgArrayType * arrayType = isSgArrayType(lhsArraySymb->type());
 	SgArrayType * tmpVarArrayType = isSgArrayType(arrayType->copyPtr());

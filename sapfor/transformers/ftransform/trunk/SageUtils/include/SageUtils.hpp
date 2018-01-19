@@ -25,6 +25,25 @@ namespace SageTransform {
         SgStatement *getNthLoopStatement(SgForStmt *, int n);
 
         /**
+         * Count lexical distance from base to check.
+         * @param sBase base to count from
+         * @param sCheck target line
+         * @return 0 if sBase == sCheck,
+         *         positive value if sCheck = sBase->lexNext()...->lexNext(),
+         *         negative value if sCheck = sBase->lexPrev()...->lexPrev(),
+         *         if value cannot be reached, LEX_INFINITY is returned
+         *
+         */
+        int lexDist(SgStatement *sBase, SgStatement *sCheck);
+        const int LEX_INFINITY = 100000;
+
+        /**
+         * Get filename of source file of given SgStatement
+         * @return string with filename
+         */
+        std::string getFilename(SgStatement *);
+
+        /**
          * Search for next closest SgForStmt until {@param end} is reached.
          * @param pStmt search from this stmt, inclusive
          * @param end search stops at this element, inclusive. It must be lexNext'able from {@param pStmt}.
@@ -91,6 +110,12 @@ namespace SageTransform {
          * @return result of to_string for line number or 'null' if statement pointer is nullptr.
          */
         string getLineNumber(SgStatement *sgStatement);
+
+        /**
+         * Set whether output of Sage unparse() should be free form or not
+         * @param value tru for free form, false for not free form. The default is NOT free form.
+         */
+        void setUnparseFreeForm(bool value);
 
         /** Decodes Sage node type into human-readable form.
          * @param variant - Sage statement variant id

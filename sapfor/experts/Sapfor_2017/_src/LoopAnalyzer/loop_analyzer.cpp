@@ -502,7 +502,7 @@ static int fillSizes(SgExpression *res, int &left, int &right)
     return err;
 }
 
-static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *delc)
+static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     if (type != NULL)
@@ -547,10 +547,10 @@ static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgState
                 {
                     if (alloc == NULL)
                     {
-                        for (int i = 0; i < delc->numberOfAttributes(); ++i)
+                        for (int i = 0; i < decl->numberOfAttributes(); ++i)
                         {
-                            SgAttribute *attr = delc->getAttribute(i);
-                            int type = delc->attributeType(i);
+                            SgAttribute *attr = decl->getAttribute(i);
+                            int type = decl->attributeType(i);
                             if (type == ALLOCATE_STMT)
                             {
                                 SgStatement *data = (SgStatement *)(attr->getAttributeData());
@@ -1233,7 +1233,11 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
         SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
         spfStat->setlineNumber(loop->lineNum);
         if (!loop->hasLimitsToParallel())
+        {
             loop->loop->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
+            //uncomment it to debug private analysis
+            //loop->loop->insertStmtBefore(*spfStat);
+        }
         insertSpfAnalysisBeforeParalleLoops(loop->childs);
     }
 }

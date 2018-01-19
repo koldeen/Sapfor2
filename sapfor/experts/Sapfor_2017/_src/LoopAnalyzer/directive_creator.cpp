@@ -787,7 +787,7 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                     parDir->arrayRef2 = mainArrayOfLoop;
                     addShadowFromAnalysis(parDir, currAccesses);
 
-                    loop->directiveForLoop = new ParallelDirective(loop->directive);
+                    loop->directiveForLoop = new ParallelDirective(*loop->directive);
                 }
                 __spf_print(PRINT_DIR_RESULT, "   directive created\n");
             }
@@ -1175,17 +1175,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 ParallelDirective *parDirective = current->directive;
                 if (topCheck == false)
                 {  //try to unite loops and recheck
-                    bool result = false;
-                    /*try
-                    {
-                        result = createNestedLoops(current, depInfoForLoopGraph, messages);
-                    }
-                    catch (...)
-                    {
-                        __spf_print(1, "exception occurred during loop tighten\n");
-                        result = true;
-                    }*/
-
+                    bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     if (result)
                     {
                         parDirective = current->recalculateParallelDirective();

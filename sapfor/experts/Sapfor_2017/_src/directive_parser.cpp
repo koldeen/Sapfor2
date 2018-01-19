@@ -175,7 +175,7 @@ void fillReductionsFromComment(SgStatement *st, map<string, set<tuple<fillType, 
                             redSymb = getData(currRed->rhs(), dummy);
                         string oper = ((SgKeywordValExp *)(currRed->lhs()))->value();
 
-                        auto it = reduction.find(oper);                        
+                        auto it = reduction.find(oper);
                         if (oper == "minloc" || oper == "maxloc")
                         {
                             fillType arraySymb = getData(currRed->rhs()->rhs()->lhs(), dummy);

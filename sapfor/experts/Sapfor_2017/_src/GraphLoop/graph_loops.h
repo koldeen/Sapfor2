@@ -26,6 +26,7 @@ public:
         hasNonRectangularBounds = false;
         hasIndirectAccess = false;
         directive = NULL;
+        oldDirective = NULL;
         directiveForLoop = NULL;
         region = NULL;
         countOfIters = 0;
@@ -123,10 +124,29 @@ public:
             if (z != 1)
                 delete old;
         }
-        if (directive)
-            delete directive;
+
+        oldDirective = directive;
         directive = parDirective;
         return directive;
+    }
+
+    void restoreDirective()
+    {
+        if (oldDirective)
+        {
+            delete directive;
+            directive = oldDirective;
+        }
+
+        for (int i = 0; i < childs.size(); ++i)
+            childs[i]->restoreDirective();
+    }
+
+    void recalculatePerfect()
+    {
+        perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+        for (auto &loop : childs)
+            loop->recalculatePerfect();
     }
 
     void setRegionToChilds()
@@ -161,13 +181,13 @@ public:
     
     bool hasUnknownArrayDep;
 
-    bool hasUnknownArrayAssignes;
+    bool hasUnknownArrayAssignes; //fixme typo 'Assigns'
  
     bool hasNonRectangularBounds;
 
     bool hasIndirectAccess;
 
-    std::vector<LoopGraph*> childs;
+    std::vector<LoopGraph*> childs; //fixme typo 'children'
     std::vector<std::pair<std::string, int>> calls;
     
     // agregated read and write operations by arrays
@@ -179,6 +199,7 @@ public:
     std::set<DIST::Array*> acrossOutAttribute;
 
     ParallelDirective *directive;        // united directive for nested loops
+    ParallelDirective *oldDirective;     // save old directive for reverce
     ParallelDirective *directiveForLoop; // part of directive for loop
     ParallelRegion *region;
 

@@ -5,19 +5,18 @@
 #ifndef FTRANSFORM_DEPENDENCYTYPE_HPP
 #define FTRANSFORM_DEPENDENCYTYPE_HPP
 
-#include "SageAnalysisTool/depGraph.h"
+namespace SageTransform {
+    enum class DependencyType {
+        FLOW_DEP,
+        ANTI_DEP,
+        OUTPUT_DEP,
 
-typedef int DepType;
-namespace SageTransform {    
-    namespace DependencyType {
-        const DepType FLOW_DEP = 1;
-        const DepType ANTI_DEP = 2;
-        const DepType OUTPUT_DEP = 3;
-        const DepType PRIVATE_DEP = 4;
-        const DepType REDUCTION_DEP = 5;
-        const DepType UNKNOWN_DEP = -1;
+        //from omega test
+        PRIVATE_DEP,
+        REDUCTION_DEP,
 
-        DepType fromDepNode(depNode* node);
+        UNKNOWN_DEP,
+        NO_VALUE
     };
 }
 

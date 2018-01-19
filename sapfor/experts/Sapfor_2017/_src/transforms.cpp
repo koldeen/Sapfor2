@@ -36,6 +36,7 @@
 #include "PrivateAnalyzer/private_analyzer.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
+#include "LoopConverter/array_assign_to_loop.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -50,7 +51,6 @@
 #include "dvm.h"
 #include "transform.h"
 #include "PassManager.h"
-#include "SapforData.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -59,6 +59,8 @@ int PASSES_DONE[EMPTY_PASS];
 bool PASSES_DONE_INIT = false;
 
 int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
+
+#include "SapforData.h"
 
 static SgProject *project = NULL;
 
@@ -196,6 +198,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             try
             {
+                //save current state
+                if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+                    states.push_back(new SapforState());
+
                 auto itFound = loopGraph.find(file_name);
                 auto itFound2 = allFuncInfo.find(file_name);
                 loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), DATA_DISTR, itFound2->second,
@@ -211,7 +217,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
-                declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
             UniteNestedDirectives(file, itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -317,6 +323,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
 
+            //clear shadow specs
+            for (auto &array : declaratedArrays)
+                array.second.first->ClearShadowSpecs();
+            
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
@@ -507,13 +517,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                             auto currShadowP = shadow;
                             int numActiveSh = 0;
+
                             for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
                             {
                                 SgExpression *elem = iter->lhs();
+                                //if shadow has CORNER
+                                if (elem->variant() == ARRAY_OP)
+                                    elem = elem->lhs();
+
                                 if (elem->variant() == ARRAY_REF)
                                 {
                                     if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
                                     {
+                                        DIST::Array *currArray = NULL;
+                                        for (int i = 0; i < elem->numberOfAttributes() && currArray == NULL; ++i)
+                                            if (elem->attributeType(i) == ARRAY_REF)
+                                                currArray = (DIST::Array *)(elem->getAttribute(i)->getAttributeData());                                        
+
+                                        if (currArray == NULL)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        vector<pair<int, int>> toDel;
+                                        for (SgExpression *list = elem->lhs(); list; list = list->rhs())
+                                            toDel.push_back(make_pair(list->lhs()->lhs()->valueInteger(), list->lhs()->rhs()->valueInteger()));                                        
+                                        currArray->RemoveShadowSpec(toDel);
+
                                         if (currShadowP == shadow)
                                             shadow->setLhs(iter->rhs());
                                         else
@@ -545,6 +573,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == MACRO_EXPANSION)
             doMacroExpand(file, getMessagesForFile(file_name));    
+        else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound != loopGraph.end())
+                reverseCreatedNestedLoops(file->filename(), itFound->second);
+        }
+        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
+            convertFromAssignToLoop(file);
+        else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
+            restoreAssignsFromLoop(file);
+
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -808,15 +847,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
     }
-    /*else if (curr_regime == SUBST_EXPR)
-    {
-        SgStatement *mainUnit = findMainUnit(&project);
-        if (mainUnit)
-            expressionAnalyzer(mainUnit);
-            Private_Vars_Analyzer(mainUnit);
-        else
-            ;//TODO: add warning or call for graphs
-    }*/
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
@@ -1029,7 +1059,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     if (project == NULL)
         project = createProject(proj_name);
         
-    //Run dep passes anaysis before main pass
+    //Run dep passes analysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
     if (itDep != passesDependencies.end())
         for (int k = 0; k < itDep->second.size(); ++k)
@@ -1068,36 +1098,30 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
         for (int i = 0; i < lastI; ++i)
         {
+            //if specific variant number is requested, skip all others
+            if (genSpecificVar >= 0 && i != genSpecificVar) continue;
+
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            //runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);            
+                        
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
+            runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
         }
     }
         break;
-    case CREATE_NESTED_LOOPS:
-        runAnalysis(*project, curr_regime, true, "", folderName);
-#ifdef _ARBU
-        //pass 18 CREATE_NESTED_LOOPS is not used as a pass, so can do here an unparse
-        if (folderName) {
-            runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
-        } else {
-            __spf_print(1, "Can not run UNPARSE_FILE after CREATE_NESTED_LOOPS - folder name is null\n");
-        }
-#endif
-        break;
+    case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
@@ -1142,6 +1166,7 @@ int main(int argc, char**argv)
     {
         setPassValues();
         consoleMode = 1;
+        QUALITY = 100;
         printVersion();
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
@@ -1223,6 +1248,13 @@ int main(int argc, char**argv)
                     keepSpfDirs = 1;
                 else if (string(curr_arg) == "-allVars")
                     genAllVars = 1;
+                else if (string(curr_arg) == "-Var" || string(curr_arg) == "-var")
+                {
+                    //User sees variants starting from 1, internally they start from 0
+                    i++;
+                    genAllVars = 1;
+                    genSpecificVar = atoi(argv[i]) - 1;
+                }
                 else if (string(curr_arg) == "-F")
                 {
                     i++;

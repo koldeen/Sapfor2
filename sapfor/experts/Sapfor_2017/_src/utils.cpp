@@ -105,6 +105,7 @@ void printHelp()
     printf(" -keepSPF keep SPF directives\n");
     printf(" -keepDVM keep DVM directives\n");
     printf(" -allVars get all parallel versions\n");
+    printf(" -Var N   get specific parallel version, N=1,2,..\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
@@ -620,4 +621,12 @@ bool isAllRulesEqual(const vector<vector<int>> &allRules)
 bool isAllRulesEqual(const vector<const vector<pair<int, int>>*> &allRules)
 {
     return isAllRulesEqual_p(allRules);
+}
+
+static int newLineNumber = -2; // -1 is used for OMP
+int getNextNegativeLineNumber()
+{
+    int ret = newLineNumber;
+    newLineNumber--;
+    return ret;
 }

@@ -125,6 +125,8 @@
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\decodeStmtVariant.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\SageTransformUtils.cpp" />
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\SageUtils.cpp" />
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\LineReorderRecord.cpp" />
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\LineReorderer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -17,12 +17,12 @@ struct Directive
     int col;
 
     Directive () { }
-    Directive(const Directive *dir)
+    Directive(const Directive &dir)
     {
-        langType = dir->langType;
-        file = dir->file;
-        line = dir->line;
-        col = dir->col;
+        langType = dir.langType;
+        file = dir.file;
+        line = dir.line;
+        col = dir.col;
     }
 };
 

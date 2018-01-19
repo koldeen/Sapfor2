@@ -2,8 +2,6 @@
 // Created by aielemental on 23.04.2017.
 //
 
-#include <algorithm>
-
 #include "../include/SageUtils.hpp"
 #include "gtest/gtest.h"
 

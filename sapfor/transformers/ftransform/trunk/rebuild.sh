@@ -4,11 +4,12 @@ rm -rf build
 mkdir build
 cd build
 cmake ..
-cmake --build .
-(cd ../SageTransformLib/test/LoopTransformTightenTest;\
- ../../../parser/parser -lgstd valid.f90;\
- rm dvm.proj;\
- echo "../../SageTransformLib/test/LoopTransformTightenTest/valid.dep" > valid.proj)
-ctest
+cmake --build . && COMPILED=OK
+if [[ -n $COMPILED ]]; then
+(cd .. && source prepare_tests.sh)
+ctest -V
+else
+echo "BUILD FAILED. Tests not launched."
+fi
 cd ..
 cp ./build/ftransform ./ftransform

@@ -100,7 +100,7 @@ void transform(SgFile *file) {
     try {
         while (stmt != NULL) {
             next = stmt->lexNext();
-            int lineNumber = stmt->lineNumber();
+            size_t lineNumber = (size_t) stmt->lineNumber();
             cout << "at line " << lineNumber;
             if (lineNumber < lines.size()) {
                 cout << ":" << lines[lineNumber];

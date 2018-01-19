@@ -5978,11 +5978,10 @@ SgExpression *FillerDummyArgumentList(symb_list *paramList,SgStatement *st_hedr)
       if(isSgArrayType(sl->symb->type()))
       {
         SgSymbol *shedr = DummyDvmHeaderSymbol(sl->symb,st_hedr);
-        SgExpression *ae = new SgArrayRefExp(*DummyDvmArraySymbol(sl->symb, shedr));
+        SgExpression *ae = new SgArrayRefExp(*shedr);
         dummy_arg_list = AddListToList(dummy_arg_list,new SgExprListExp(*ae));
-        ae = new SgArrayRefExp(*shedr);
-        dummy_arg_list = AddListToList(dummy_arg_list,new SgExprListExp(*ae));
- 
+        ae = new SgArrayRefExp(*DummyDvmArraySymbol(sl->symb, shedr));
+        dummy_arg_list = AddListToList(dummy_arg_list,new SgExprListExp(*ae)); 
       }
       else
         dummy_arg_list = AddListToList(dummy_arg_list,new SgExprListExp(*new SgVarRefExp(sl->symb)));

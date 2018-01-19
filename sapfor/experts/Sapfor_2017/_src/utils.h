@@ -46,7 +46,9 @@ bool isAllRulesEqual(const std::vector<std::vector<std::tuple<DIST::Array*, int,
 bool isAllRulesEqual(const std::vector<const std::vector<std::pair<int, int>>*> &allRules);
 bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 
+int getNextNegativeLineNumber();
+
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-#define VERSION "458"
+#define VERSION "475"

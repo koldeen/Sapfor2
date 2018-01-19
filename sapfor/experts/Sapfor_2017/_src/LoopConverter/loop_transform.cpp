@@ -1,28 +1,102 @@
 #include "../leak_detector.h"
 
 #include "loop_transform.h"
+#include <directive_parser.h>
 
 #include <LoopTransformTighten.hpp>
 #include <SageTransformException.hpp>
+#include <LineReorderer.hpp>
 #include <SageUtils.hpp>
 #include "SageAnalysisTool/OmegaForSage/include/lang-interf.h"
 #include <SageAnalysisTool/definesValues.h>
 #include "../utils.h"
 
-//TODO: NOT FOUND
-//using SageTransform::SageUtils::lexNextLoop; //
-//using SageTransform::SageUtils::lexPrevEnddo; // not used
 using SageTransform::SageUtils::getLastLoopStatement;
+using SageTransform::DependencyType;
 using Sapfor2017::CreateNestedLoopsUtils;
 using std::pair;
 using std::map;
+using std::tuple;
+using std::stack;
 
+static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
+{
+    loopTopMap[current] = top;
+    for (int i = 0; i < current->childs.size(); ++i)
+        buildTopParentLoop(current->childs[i], top, loopTopMap);
+}
+
+static void buildLoopMap(LoopGraph *current, map<PTR_BFND, LoopGraph*> &loopMap)
+{
+    loopMap[current->loop->thebif] = current;
+    for (int i = 0; i < current->childs.size(); ++i)
+        buildLoopMap(current->childs[i], loopMap);
+}
+
+void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
+{
+    map<PTR_BFND, LoopGraph*> loopMap;
+    map<LoopGraph*, LoopGraph*> loopTopMap;
+
+    for (auto &elem : loopsInFile)
+    {
+        buildLoopMap(elem, loopMap);
+        buildTopParentLoop(elem, elem, loopTopMap);
+    }
+
+    auto *launches = SageTransform::LoopTransformTighten::getLaunches();
+    if (launches->count(file) == 0) {
+        __spf_print(1, "  nothing to revert in %s\n", file.c_str());
+        return;
+    }
+    stack<pair<SgForStmt*, SageTransform::LineReorderRecord>> &backOrder = launches->at(file);
+    set<LoopGraph*> topLoopsToRecalaulate;
+
+    while (backOrder.size())
+    {
+        auto &elem = backOrder.top();
+        auto it = loopMap.find(elem.first->thebif);
+        if (it == loopMap.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        auto reorder = elem.second.buildReverse();
+        SageTransform::LineReorderer::apply(elem.first, reorder);
+        topLoopsToRecalaulate.insert(loopTopMap[it->second]);
+        backOrder.pop();
+    }
+
+    for (auto &elem : topLoopsToRecalaulate)
+    {
+        elem->recalculatePerfect();
+        elem->restoreDirective();
+    }
+}
+
+//use this for TODO below!
+static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &privates, 
+                                               map<string, set<SgSymbol*>> &reduction,
+                                               map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction_loc)
+{
+    for (int i = 0; i < st->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attribute = st->getAttribute(i);
+        SgStatement *attributeStatement = (SgStatement *)(attribute->getAttributeData());
+        if (st->attributeType(i) == SPF_ANALYSIS_DIR)
+        {
+            fillPrivatesFromComment(attributeStatement, privates);
+            fillReductionsFromComment(attributeStatement, reduction);
+            fillReductionsFromComment(attributeStatement, reduction_loc);
+        }
+    }
+}
+
+//todo parse spf private comments into additional dependency info
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
 {
-    bool wasTigtened = false;
+    bool wasTightened = false;
     // has non nested child loop
-    __spf_print(1, "createNestedLoops for loop at %d. Start\n", current->lineNum);
-    bool outerTigtened = false;
+    __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
+    bool outerTightened = false;
     bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
     
     if (loopCondition)
@@ -34,16 +108,16 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
             SgForStmt *outerLoop = outerLoopDependencies.first;
 
             SageTransform::LoopTransformTighten loopTransformTighten;
-            map<SgSymbol *, DepType> depMap = CreateNestedLoopsUtils::buildTransformerDependencyMap(outerLoop,
+            map<SgSymbol *, DependencyType> depMap = CreateNestedLoopsUtils::buildTransformerDependencyMap(outerLoop,
                                                                                                     outerLoopDependencies.second,
                                                                                                     nullptr);
             if (loopTransformTighten.canTighten(outerLoop, depMap) >= 2) {
-                outerTigtened = loopTransformTighten.tighten(outerLoop, 2);
+                outerTightened = loopTransformTighten.tighten(outerLoop, 2);
                 LoopGraph *firstChild = current->childs.at(0);
-                if (outerTigtened) {
+                if (outerTightened) {
                     firstChild->perfectLoop = ((SgForStmt *) firstChild->loop)->isPerfectLoopNest();
                 }
-                __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTigtened);
+                __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 
                 char buf[256];
                 sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
@@ -52,33 +126,32 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
         }
     }
 
-    wasTigtened = outerTigtened;
+    wasTightened = outerTightened;
     for (int i = 0; i < current->childs.size(); ++i) 
     {
         __spf_print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
         bool result = createNestedLoops(current->childs[i], depInfoForLoopGraph, messages);
-        wasTigtened = wasTigtened || result;
+        wasTightened = wasTightened || result;
     }    
     
     //update perfect loop
-    current->perfectLoop = ((SgForStmt*)current->loop)->isPerfectLoopNest();
+    current->recalculatePerfect();
     __spf_print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
-    return wasTigtened;
+    return wasTightened;
 }
 
 pair<SgForStmt*, depGraph*> Sapfor2017::CreateNestedLoopsUtils::getDepGraph(LoopGraph *loopGraph, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
+    SgForStmt *sgForStmt = nullptr;
     depGraph *dg = nullptr;
     if (depInfoForLoopGraph.count(loopGraph) == 0) {
         __spf_print(1, "getDepGraph for loop at %d. No depGraph found\n", loopGraph->lineNum);
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     } else {
         dg = depInfoForLoopGraph.at(loopGraph);
-    }
-    SgForStmt *sgForStmt = isSgForStmt(dg->loop);
-    if (sgForStmt == nullptr) {
-        __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        sgForStmt = isSgForStmt(dg->loop);
+        if (sgForStmt == nullptr) {
+            __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
+        }
     }
     return std::make_pair(sgForStmt, dg);
 }
@@ -94,7 +167,7 @@ void printDepGraph(depGraph *dg)
     }
 }
 
-std::map<SgSymbol*, DepType>
+std::map<SgSymbol*, DependencyType>
   Sapfor2017::CreateNestedLoopsUtils::buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, depGraph *innerDepGraph)
 {
     //__spf_print(1, "Print outer depgraph START\n");
@@ -112,7 +185,7 @@ std::map<SgSymbol*, DepType>
     innerLoop = isSgForStmt(pClosestDo);
 
     SgStatement *innerEnddo = getLastLoopStatement(innerLoop);
-    std::map<SgSymbol*, DepType> depMap;
+    std::map<SgSymbol*, DependencyType> depMap;
 
     for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerLoop; stmt = stmt->lexNext()) 
     {
@@ -121,7 +194,7 @@ std::map<SgSymbol*, DepType>
         {
             depNode *node = outerDepGraph->isThereAnEdge(stmt, bodyStmt);
             if (node != nullptr) {
-                DepType type = CreateNestedLoopsUtils::fromDepNode(node);
+                DependencyType type = CreateNestedLoopsUtils::fromDepNode(node);
                 SgSymbol *symbol = node->varout->symbol();
                 depMap.insert(std::make_pair(symbol, type));
             }
@@ -131,7 +204,7 @@ std::map<SgSymbol*, DepType>
     return depMap;
 }
 
-DepType CreateNestedLoopsUtils::fromDepNode(depNode *node) 
+DependencyType CreateNestedLoopsUtils::fromDepNode(depNode *node)
 {
     if (node->typedep == SCALARDEP) 
     {

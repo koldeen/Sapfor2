@@ -5,6 +5,9 @@
 using namespace SageTransform;
 using std::string;
 
+extern "C" int out_free_form;
+
+
 SgStatement *SageUtils::getLastLoopStatement(SgForStmt *pForLoop) {
     SgStatement *stmt = pForLoop->body();
     while (stmt &&
@@ -20,6 +23,24 @@ SgStatement *SageUtils::getNthLoopStatement(SgForStmt *pForLoop, int n) {
         stmt = stmt->lexNext();
     }
     return stmt;
+}
+
+int SageUtils::lexDist(SgStatement *sBase, SgStatement *sCheck) {
+    SgStatement * counterForward = sBase;
+    SgStatement * counterBackward = sBase;
+    int stepsDone = 0;
+    while (counterForward != sCheck && counterBackward != sCheck && stepsDone < LEX_INFINITY) {
+        stepsDone++;
+        counterForward = counterForward->lexNext();
+        counterBackward = counterBackward->lexPrev();
+    }
+    if (counterForward == sCheck) return stepsDone;
+    else if (counterBackward == sCheck) return -stepsDone;
+    else return LEX_INFINITY;
+}
+
+string SageUtils::getFilename(SgStatement *pStmt) {
+    return string(pStmt->fileName());
 }
 
 bool SageUtils::checkTightlyNested(SgForStmt *outerLoop, int depth) {
@@ -147,4 +168,16 @@ SgControlEndStmt *SageUtils::lexPrevEnddo(SgStatement *pStmt, SgStatement *end) 
         pClosestEndDo = pClosestEndDo->lexPrev();
     }
     return isSgControlEndStmt(pClosestEndDo);
+}
+
+void SageUtils::setUnparseFreeForm(bool value) {
+//#ifdef _WIN32
+    if (value) {
+        out_free_form = 1;
+    } else {
+        out_free_form = 0;
+    }
+/*#else
+    std::cout << "setUnparseFreeForm ignored, does not work on windows yet" << std::endl;
+#endif*/
 }
