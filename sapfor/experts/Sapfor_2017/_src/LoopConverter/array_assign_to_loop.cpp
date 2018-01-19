@@ -13,6 +13,7 @@
 #include "dvm.h"
 #include "array_assign_to_loop.h"
 #include "../SgUtils.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using std::vector;
 using std::set;
@@ -22,6 +23,12 @@ using std::make_pair;
 using std::string;
 using std::to_string;
 using std::get;
+
+static void checkAlloc(SgExpression *toCheck, SgExpression *&alloc, const string &toFind)
+{
+    if (toCheck->lhs()->symbol()->identifier() == toFind)
+        alloc = toCheck->lhs()->lhs();
+}
 
 static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*, SgExpression*>> &bounds)
 {
@@ -64,13 +71,17 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
 
     if (consistInAllocates == 0)
     {
-        for (SgExpression *ex = decl->expr(0); ex; ex = ex->rhs())
+        const string toFind = string(symb->identifier());
+
+        for (SgExpression *ex = decl->expr(0); ex && (alloc == NULL); ex = ex->rhs())
         {
-            if (OriginalSymbol(ex->lhs()->symbol())->identifier() == string(symb->identifier()))
+            if (ex->lhs()->variant() == ASSGN_OP)
             {
-                alloc = ex->lhs()->lhs();
-                break;
+                if (ex->lhs()->lhs() && ex->lhs()->lhs()->symbol())
+                    checkAlloc(ex->lhs(), alloc, toFind);
             }
+            else if (ex->lhs() && ex->lhs()->symbol())
+                checkAlloc(ex, alloc, toFind);
         }
     }
 
@@ -131,6 +142,84 @@ static bool hasSections(SgArrayRefExp *array)
     return false;
 }
 
+static bool needSwap(SgExpression *leftStep, SgExpression *rightStep)
+{
+    if (leftStep == NULL || rightStep == NULL)
+        return false;
+
+    pair<bool, int> left, right;
+    if (leftStep->isInteger())
+        left = make_pair(true, leftStep->valueInteger());
+    else
+        left.first = false;
+
+    if (rightStep->isInteger())
+        right = make_pair(true, rightStep->valueInteger());
+    else
+        right.first = false;
+
+    if (right.first && left.first)
+        if (left.second > right.second)
+            return true;    
+
+    return false;
+}
+
+static void checkAndinsertFixedDimentionValue(SgExpression *subs, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds, 
+                                              int &rMinus, bool &flag)
+{
+    if (get<0>(bounds) && get<1>(bounds))
+        if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+        {
+            subs->setLhs(get<0>(bounds)->copy());
+            rMinus = 1;
+            flag = false; //needFor or fixedDim flag
+        }
+}
+
+static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds)
+{
+    subsL->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
+}
+
+static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep, 
+                            const tuple<SgExpression*, SgExpression*, SgExpression*> &leftBounds,
+                            const tuple<SgExpression*, SgExpression*, SgExpression*> &rightBounds,
+                            SgExpression *shift)
+{
+    SgExpression *idxVar = new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep)));
+
+    if (get<2>(rightBounds))
+    {
+        if (get<2>(rightBounds)->isInteger() && get<2>(rightBounds)->valueInteger() != 1)
+            idxVar = &(*idxVar * get<2>(rightBounds)->copy());
+    }
+
+    if (get<2>(leftBounds))
+    {
+        if (get<2>(leftBounds)->isInteger() && get<2>(leftBounds)->valueInteger() != 1)
+            idxVar = &(*idxVar / get<2>(leftBounds)->copy());
+    }
+
+    if (get<0>(rightBounds))
+        shift = &(get<0>(rightBounds)->copy() - get<0>(leftBounds)->copy());
+
+    int res;
+    int err = CalculateInteger(shift, res);
+    if (err == 0)
+    {
+        if (res != 0)
+            shift = new SgValueExp(res);
+        else
+            shift = NULL;
+    }
+        
+    if (shift)
+        subsR->setLhs(*idxVar + *shift);
+    else
+        subsR->setLhs(*idxVar);
+}
+
 static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 {
     if (assign->variant() != ASSIGN_STAT)
@@ -153,10 +242,10 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftBound;
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> rightBound;
-    
+
     bool resL = fillBounds(leftPart->symbol(), leftBound);
     bool resR = fillBounds(rightPart->symbol(), rightBound);
-        
+
     if (!resL && !resR)
         return NULL;
 
@@ -175,7 +264,22 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 
     for (int deep = 0; deep < leftBound.size(); ++deep, ++lIdx, ++rIdx)
     {
-        auto leftBounds = leftBound[lIdx];
+        bool needSwapLR = false;
+        
+        tuple<SgExpression*, SgExpression*, SgExpression*> leftBounds = leftBound[lIdx];
+        tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds = std::make_tuple((SgExpression*)NULL, (SgExpression*)NULL, (SgExpression*)NULL);
+
+        if (leftSubs != 0)
+            if (!fillSectionInfo(subsL, leftBounds))
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);        
+
+        if (rightSubs != 0)
+            if (!fillSectionInfo(subsR, rightBounds))
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        
+        if (rIdx < rightBound.size() && leftSubs != 0 && rightSubs != 0)
+            needSwapLR = needSwap(get<2>(leftBounds), get<2>(rightBounds));
+
         int rMinus = 0;
         bool needFor = true;
 
@@ -183,52 +287,45 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
             leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
         else
         {
-            if (!fillSectionInfo(subsL, leftBounds))
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            if (needSwapLR)
+            {
+                SgExpression *shift = &(get<0>(leftBound[rIdx])->copy() - get<0>(rightBounds)->copy());
+                insertMinorPart(subsL, file, deep, rightBounds, leftBounds, shift);
+            }
+            else
+            {
+                insertMainPart(subsL, file, deep, leftBounds);
+                checkAndinsertFixedDimentionValue(subsL, leftBounds, rMinus, needFor);
+            }
 
-            subsL->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
-            if (get<0>(leftBounds) && get<1>(leftBounds))
-                if (string(get<0>(leftBounds)->unparse()) == string(get<1>(leftBounds)->unparse())) // fixed dimension value
-                {
-                    subsL->setLhs(get<0>(leftBounds)->copy());
-                    rMinus = 1;
-                    needFor = false;
-                }
             subsL = subsL->rhs();
         }
 
         if (rIdx < rightBound.size() && needFor)
         {
-            SgExpression *shift = &(get<0>(rightBound[rIdx])->copy() - get<0>(leftBounds)->copy());
-            bool fixedDim = true;
-            while (fixedDim)
+            if (needSwapLR)
             {
-                fixedDim = false;
-                if (rightSubs == 0)
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))) + *shift);
-                else
+                insertMainPart(subsR, file, deep, rightBounds);
+                subsR = subsR->rhs();
+            }
+            else
+            {
+                SgExpression *shift = &(get<0>(rightBound[rIdx])->copy() - get<0>(leftBounds)->copy());
+                bool fixedDim = false;
+                while (!fixedDim)
                 {
-                    tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds;
-                    if (!fillSectionInfo(subsR, rightBounds))
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    fixedDim = true;
+                    if (rightSubs == 0)
+                        rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))) + *shift);
+                    else
+                    {
+                        insertMinorPart(subsR, file, deep, leftBounds, rightBounds, shift);
 
-                    SgExpression *idxVar = new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep)));
-                    if (get<2>(leftBounds))
-                        idxVar = &(*idxVar / get<2>(leftBounds)->copy());
-                    if (get<2>(rightBounds))
-                        idxVar = &(*idxVar * get<2>(rightBounds)->copy());
+                        int tmp;
+                        checkAndinsertFixedDimentionValue(subsR, rightBounds, tmp, fixedDim);
 
-                    if (get<0>(rightBounds))
-                        shift = &(get<0>(rightBounds)->copy() - get<0>(leftBounds)->copy());
-
-                    subsR->setLhs(*idxVar + *shift);
-                    if (get<0>(rightBounds) && get<1>(rightBounds))
-                        if (string(get<0>(rightBounds)->unparse()) == string(get<1>(rightBounds)->unparse())) // fixed dimension value
-                        {
-                            subsR->setLhs(get<0>(rightBounds)->copy());
-                            fixedDim = true;
-                        }
-                    subsR = subsR->rhs();
+                        subsR = subsR->rhs();
+                    }
                 }
             }
         }
@@ -244,10 +341,16 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
             else
                 body = retVal;
 
-            if (get<2>(leftBounds)) // has step
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(leftBounds)->copy(), get<1>(leftBounds)->copy(), get<2>(leftBounds)->copy(), *body);
+            tuple<SgExpression*, SgExpression*, SgExpression*> bounds;
+            if (!needSwapLR)
+                bounds = leftBounds;
             else
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(leftBounds)->copy(), get<1>(leftBounds)->copy(), *body);
+                bounds = rightBounds;
+
+            if (get<2>(bounds)) // has step
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(bounds)->copy(), get<1>(bounds)->copy(), get<2>(bounds)->copy(), *body);
+            else
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(bounds)->copy(), get<1>(bounds)->copy(), *body);
         }
 
         rIdx -= rMinus;
@@ -322,7 +425,7 @@ void restoreAssignsFromLoop(SgFile *file)
             {
                 if (st->attributeType(i) == ASSIGN_STAT)
                 {
-                    SgStatement *data = (SgStatement*)(st->getAttribute(i)->getAttributeData());                    
+                    SgStatement *data = (SgStatement*)(st->getAttribute(i)->getAttributeData());
                     if (data->lineNumber() < 0)
                         toMove.push_back(make_pair(st, data));
                 }

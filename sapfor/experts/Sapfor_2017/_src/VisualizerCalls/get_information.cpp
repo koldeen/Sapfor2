@@ -748,7 +748,7 @@ int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, cha
     for (int i = 0; i < splited.size(); ++i)
     {
         ::filesToInclude.insert(splited[i]);
-        //__spf_print(1, "file = %s\n", splited[i].c_str());
+        __spf_print(1, "file = %s\n", splited[i].c_str());
     }
     return simpleTransformPass(INSERT_INCLUDES, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }

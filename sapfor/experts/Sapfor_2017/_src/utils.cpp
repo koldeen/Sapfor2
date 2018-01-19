@@ -236,9 +236,26 @@ void clearGlobalMessagesBuffer() { SPF_messages.clear();  }
 
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
 {
+    auto copySPF_messages = SPF_messages;
+    for (auto &byFile : copySPF_messages)
+    {
+        vector<Messages> newVal;
+        bool waschanged = false;
+        for (auto &message : byFile.second)
+        {
+            if (message.line > 0)
+                newVal.push_back(message);
+            else
+                waschanged = true;
+        }
+
+        if (waschanged)
+            byFile.second = newVal;
+    }
+
     string val = "";
-    val += std::to_string(SPF_messages.size());
-    for (auto it = SPF_messages.begin(); it != SPF_messages.end(); ++it)
+    val += std::to_string(copySPF_messages.size());
+    for (auto it = copySPF_messages.begin(); it != copySPF_messages.end(); ++it)
     {
         val += "|" + it->first + "|" + std::to_string(it->second.size());
         for (int k = 0; k < it->second.size(); ++k)

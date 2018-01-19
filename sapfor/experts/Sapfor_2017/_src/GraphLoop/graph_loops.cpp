@@ -406,7 +406,16 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             {
                 LoopGraph *newLoop = new LoopGraph();
                 newLoop->lineNum = st->lineNumber();
-                newLoop->lineNumAfterLoop = st->lastNodeOfStmt()->lexNext()->lineNumber();
+
+                SgStatement *afterLoop = st->lastNodeOfStmt()->lexNext();
+                //< 0 was appear after CONVERT_ASSIGN_TO_LOOP pass
+                while (afterLoop->lineNumber() < 0)
+                {
+                    afterLoop = afterLoop->lastNodeOfStmt();
+                    afterLoop = afterLoop->lexNext();
+                }
+                newLoop->lineNumAfterLoop = afterLoop->lineNumber();
+
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);

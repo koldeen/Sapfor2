@@ -743,7 +743,8 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
 
             if (!hasConflict &&
                 mainArray.arrayRef != NULL && mainArray.dimentionPos != -1 && 
-                !sortedLoopGraph[currentLoop->lineNumber()]->hasLimitsToParallel())
+                !sortedLoopGraph[currentLoop->lineNumber()]->hasLimitsToParallel() &&
+                currentLoop->lineNumber() > 0)
             {
                 DIST::Array *mainArrayOfLoop = mainArray.arrayRef;
                 //change array to template if ACROSS was not found

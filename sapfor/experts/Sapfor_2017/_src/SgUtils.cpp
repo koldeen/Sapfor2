@@ -115,7 +115,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             if (it != includeFiles.end())
             {
                 SgStatement *locSt = st->lexNext();
-                while (locSt->fileName() != fileN && locSt)
+                while (locSt && locSt->fileName() != fileN)
                     locSt = locSt->lexNext();
 
                 if (locSt)

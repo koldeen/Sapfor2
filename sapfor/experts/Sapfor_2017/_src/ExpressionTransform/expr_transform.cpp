@@ -321,7 +321,6 @@ int CalculateInteger(SgExpression *expr, int &result)
     {
         pair<int, int> err = make_pair(-1, -1);
         pair<int, int> res;
-        const pair<int, int> errState = make_pair(-1, -1);
         if (expr->lhs())
             err.first = CalculateInteger(expr->lhs(), res.first);
         if (expr->rhs())
@@ -330,51 +329,71 @@ int CalculateInteger(SgExpression *expr, int &result)
         switch (expr->variant())
         {
         case ADD_OP:
-            if (err != errState)
+            if (err.first != -1 && err.second != -1)
+            {
                 result = res.first + res.second;
+                return 0;
+            }
             else
                 return -1;
             break;
         case MINUS_OP:
             if (err.first != -1)
+            {
                 result = -res.first;
+                return 0;
+            }
             else
                 return -1;
             break;
         case MULT_OP:
-            if (err != errState)
+            if (err.first != -1 && err.second != -1)
+            {
                 result = res.first  *res.second;
+                return 0;
+            }
             else
                 return -1;
             break;
         case SUBT_OP:
-            if (err != errState)
+            if (err.first != -1 && err.second != -1)
+            {
                 result = res.first - res.second;
+                return 0;
+            }
             else
                 return -1;
             break;
         case DIV_OP:
-            if (err != errState && res.second != 0)
+            if (err.first != -1 && err.second != -1 && res.second != 0)
+            {
                 result = res.first / res.second;
+                return 0;
+            }
             else
                 return -1;
             break;
         case MOD_OP:
-            if (err != errState && res.second != 0)
+            if (err.first != -1 && err.second != -1 && res.second != 0)
+            {
                 result = res.first % res.second;
+                return 0;
+            }
             else
                 return -1;
             break;
         case EXP_OP:
-            if (err != errState)
-                result = (int) pow(res.first, res.second);
+            if (err.first != -1 && err.second != -1)
+            {
+                result = (int)pow(res.first, res.second);
+                return 0;
+            }
             else
                 return -1;
             break;
         default:
             return -1;
         }
-        return 0;
     }
 }
 

@@ -1103,6 +1103,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     bool change = true;
+    // set nonDistr flag if all links not distr
     while (change)
     {
         change = false;
@@ -1133,6 +1134,25 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
                     change = true;
                 }
             }
+        }
+    }
+
+    //propagate distr state
+    change = true;
+    while (change)
+    {
+        change = false;
+        for (auto &array : declaratedArrays)
+        {
+            set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+
+            if (realArrayRefs.size() && (*realArrayRefs.begin()) != array.second.first &&
+                !(*realArrayRefs.begin())->GetNonDistributeFlag() && array.second.first->GetNonDistributeFlag())
+            {
+                array.second.first->SetNonDistributeFlag(false);
+                change = true;
+            }            
         }
     }
 }
