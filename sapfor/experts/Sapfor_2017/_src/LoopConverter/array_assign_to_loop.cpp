@@ -267,7 +267,7 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
         bool needSwapLR = false;
         
         tuple<SgExpression*, SgExpression*, SgExpression*> leftBounds = leftBound[lIdx];
-        tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds = std::make_tuple((SgExpression*)NULL, (SgExpression*)NULL, (SgExpression*)NULL);
+        tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds = rightBound[rIdx];
 
         if (leftSubs != 0)
             if (!fillSectionInfo(subsL, leftBounds))
