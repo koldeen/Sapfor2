@@ -152,6 +152,14 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
     }
 }
 
+static SgStatement *getLoopControlParent(SgStatement *inSt)
+{
+    SgStatement *cp = inSt->controlParent();
+    while (!isSgForStmt(cp) && cp)
+        cp = cp->controlParent();
+    return cp;
+}
+
 static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vector<int> &linesOfExtGoTo, const map<int, vector<int>> &labelsRef)
 {
     bool has = false;
@@ -169,7 +177,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
         {
             if (curr->expr(i))
             {
-                if (recVariantFind(curr->expr(i), EXIT_STMT))
+                if (recVariantFind(curr->expr(i), EXIT_STMT) && getLoopControlParent(curr) == loop)
                 {
                     linesOfIntGoTo.push_back(curr->lineNumber());
                     has = true;
@@ -179,7 +187,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
 
         processLables(curr, gotoLabels);
 
-        if (curr->variant() == EXIT_STMT)
+        if (curr->variant() == EXIT_STMT && getLoopControlParent(curr) == loop)
         {
             linesOfIntGoTo.push_back(curr->lineNumber());
             has = true;
@@ -430,7 +438,10 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 if (parentLoops.size() == 0)
                     loopGraph.push_back(newLoop);
                 else
+                {
                     currLoop->childs.push_back(newLoop);
+                    currLoop->childs.back()->parent = parentLoops.back();
+                }
 
                 parentLoops.push_back(newLoop);
                 currLoop = newLoop;
@@ -469,4 +480,10 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
     }
 }
 
+void LoopGraph::recalculatePerfect()
+{
+    perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+    for (auto &loop : childs)
+        loop->recalculatePerfect();
+}
 #undef DEBUG

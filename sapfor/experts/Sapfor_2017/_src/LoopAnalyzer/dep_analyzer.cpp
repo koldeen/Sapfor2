@@ -40,7 +40,7 @@ extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 // try to find dependencies: reductions and privates for scalar 
 //                           and regular and other for arrrays
 //TODO: add optimization - dont call omega test for arrays many times
-void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
                            set<SgStatement*> &funcWasInit, SgFile *file, vector<ParallelRegion*> regions,
                            vector<Messages> *currMessages,
                            map<SgExpression*, string> &collection)
@@ -48,6 +48,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
     auto it = allLoops.find(currLoop->lineNum);
     if (it == allLoops.end())
         return;
+
+    map<int, SgForStmt*> localAllLoopMap;
+    for (auto &elem : allLoops)
+        localAllLoopMap.insert(make_pair(elem.first, elem.second.first));
 
     ParallelRegion *currReg = getRegionByLine(regions, it->second.first->fileName(), currLoop->lineNum);
     if (currReg && currLoop->hasLimitsToParallel() == false)
@@ -60,7 +64,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         if (startL == endL)
             onlyOneStep = true;
 
-        const set<string> &privVars = it->second.second;
+        const set<string> &privVars = it->second.second.first;
+        const set<string> &nonDistrArrays = it->second.second.second;
 
         SgStatement *func = currLoopRef->controlParent();
         if (funcWasInit.find(func) == funcWasInit.end())
@@ -80,6 +85,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             bool findUnknownDepLen = false;
             map<SgSymbol*, tuple<int, int, int>> acrossToAdd;
 
+            map<SgSymbol*, string> varInOut;
+            bool varIn, varOut;
             for (int k = 0; k < nodes.size(); ++k)
             {
                 const depNode *currNode = nodes[k];
@@ -88,8 +95,24 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                 case WRONGDEP:
                     break;
                 case ARRAYDEP:
+                    if (nonDistrArrays.size() > 0)
+                    {
+                        SgSymbol *vIn = OriginalSymbol(currNode->varin->symbol());
+                        SgSymbol *vOut = OriginalSymbol(currNode->varout->symbol());
+
+                        auto found = varInOut.find(vIn);
+                        if (found == varInOut.end())
+                            found = varInOut.insert(found, make_pair(vIn, vIn->identifier()));
+                        varIn = nonDistrArrays.find(found->second) != nonDistrArrays.end();
+                        
+                        found = varInOut.find(vOut);
+                        if (found == varInOut.end())
+                            found = varInOut.insert(found, make_pair(vOut, vOut->identifier()));
+                        varOut = nonDistrArrays.find(found->second) != nonDistrArrays.end();
+                    }
+                    
                     //dont check if textual identically 
-                    if (!isEqExpressions(currNode->varin, currNode->varout, collection))
+                    if ((!isEqExpressions(currNode->varin, currNode->varout, collection) || varIn || varOut) && (currNode->varin != currNode->varout))
                     {
                         // TODO: process all loop, not only top loop
                         if (currNode->knowndist[1] == 0 || currNode->distance[1] != 0)
@@ -155,14 +178,31 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             }
                             //currNode->displayDep();
                         }
+                        else if (varIn || varOut) // found dependencies between non ditributed arrays
+                        {
+                            if (!findUnknownDepLen)
+                            {
+                                string depMessage = currNode->createDepMessagebetweenArrays() + " prevents parallelization";
+
+                                __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
+                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage));
+
+                                // __spf_print only first unknown dep length
+                                findUnknownDepLen = true;
+                                if (!onlyOneStep)
+                                    currLoop->hasUnknownArrayDep = true;
+                            }
+                        }
                     }
 
                     break;
                 case PRIVATEDEP:
-                    privatesToAdd.push_back(currNode);
+                    if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+                        privatesToAdd.push_back(currNode);
                     break;
                 case REDUCTIONDEP:
-                    reductionsToAdd.push_back(currNode);
+                    if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+                        reductionsToAdd.push_back(currNode);
                     break;
                 case SCALARDEP:
                     if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
@@ -175,10 +215,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
             if (!onlyOneStep)
             {
-                addPrivatesToLoops(currLoop, privatesToAdd, allLoops, *currMessages);
-                addReductionsToLoops(currLoop, reductionsToAdd, allLoops, *currMessages);
+                addPrivatesToLoops(currLoop, privatesToAdd, localAllLoopMap, *currMessages);
+                addReductionsToLoops(currLoop, reductionsToAdd, localAllLoopMap, *currMessages);
                 if (!findUnknownDepLen && !currLoop->hasLimitsToParallel())
-                    addAcrossToLoops(currLoop, acrossToAdd, allLoops, *currMessages);
+                    addAcrossToLoops(currLoop, acrossToAdd, localAllLoopMap, *currMessages);
                 
                 currLoop->hasUnknownScalarDep = (unknownScalarDep.size() != 0);
                 for (int k = 0; k < unknownScalarDep.size(); ++k)

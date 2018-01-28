@@ -307,3 +307,45 @@ void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expressi
 
 template void fillRemoteFromComment(SgStatement *st, map<pair<string, string>, Expression*> &remote, bool isFull);
 template void fillRemoteFromComment(SgStatement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull);
+
+void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
+{
+    SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
+    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attr = currentLoop->getAttribute(i);
+
+        int type = currentLoop->attributeType(i);
+        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
+        {
+            SgStatement *data = (SgStatement *)(attr->getAttributeData());
+            if (data)
+                fillShadowAcrossFromComment(ACROSS_OP, data, acrossInfo);
+        }
+    }
+}
+
+void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
+{
+    SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
+
+    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attr = currentLoop->getAttribute(i);
+        int type = currentLoop->attributeType(i);
+
+        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
+        {
+            SgStatement *data = (SgStatement *)(attr->getAttributeData());
+            if (data)
+            {
+                fillPrivatesFromComment(data, directive->privates);
+                fillReductionsFromComment(data, directive->reduction);
+                fillReductionsFromComment(data, directive->reductionLoc);
+                fillShadowAcrossFromComment(SHADOW_OP, data, directive->shadowRenew);
+                fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
+                fillRemoteFromComment(data, directive->remoteAccess);
+            }
+        }
+    }
+}

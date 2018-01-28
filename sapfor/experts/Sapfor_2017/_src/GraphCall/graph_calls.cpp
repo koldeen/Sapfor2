@@ -642,7 +642,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                 {
                     SgStatement *decl = declaratedInStmt(symb);
                     set<string> privatesVars;
-                    tryToFindPrivateInAttributes(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    tryToFindPrivateInAttributes(decl, privatesVars);
+                    fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {

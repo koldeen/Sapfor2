@@ -5,6 +5,8 @@
 #include <map>
 
 #include "AstWrapper.h"
+#include "GraphLoop/graph_loops.h"
+#include "Distribution/DvmhDirective.h"
 
 bool isSPF_NoInline(SgStatement *stPrev);
 
@@ -22,3 +24,6 @@ void fillShadowAcrossFromComment(const int type, SgStatement *st, std::vector<st
 
 template<typename fillType>
 void fillRemoteFromComment(SgStatement *st, std::map<std::pair<fillType, std::string>, Expression*> &remote, bool isFull = false);
+
+void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &acrossInfo);
+void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive);

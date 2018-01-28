@@ -37,11 +37,8 @@ void loopAnalyzer(SgFile *file,
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
-void createParallelDirectives(const std::map<SgForStmt*, std::map<SgSymbol*, ArrayInfo>> &loopInfo,
-                              std::vector<ParallelRegion*> regions,
-                              const std::map<std::tuple<int, std::string, std::string>, DIST::Array*> &createdArrays,
-                              const std::map<std::string, std::vector<SgStatement*>> &commonBlocks,
-                              std::map<int, LoopGraph*> &sortedLoopGraph,
+void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
+                              std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 void selectParallelDirectiveForVariant(SgFile *file, 
@@ -68,7 +65,7 @@ void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, 
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 
 // dep_analyzer.cpp
-void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops,
+void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
                            std::map<SgExpression*, std::string> &collection);
 
@@ -114,15 +111,15 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
 void addAcrossToLoops(LoopGraph *topLoop, const std::map<SgSymbol*, std::tuple<int, int, int>> &acrossToAdd, 
-                      const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops, 
+                      const std::map<int, SgForStmt*> &allLoops, 
                       std::vector<Messages> &currMessages);
 void addPrivatesToLoops(LoopGraph *currLoop, const std::vector<const depNode*> &privatesToAdd, 
-                        const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops, 
+                        const std::map<int, SgForStmt*> &allLoops, 
                         std::vector<Messages> &currMessages);
 void addReductionsToLoops(LoopGraph *currLoop, const std::vector<const depNode*> &reductionsToAdd, 
-                          const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops, 
+                          const std::map<int, SgForStmt*> &allLoops, 
                           std::vector<Messages> &currMessages);
-void fillVars(SgExpression *exp, const std::set<int> &types, std::set<SgSymbol*> &identifierList);
+void fillVars(SgExpression *exp, const std::set<int> &types, std::set<SgSymbol*> &identifierList, std::vector<SgExpression*> &funcCalls);
 
 // remote_access.cpp
 void addRemotesToDir(const std::pair<SgForStmt*, LoopGraph*> *under_dvm_dir, const std::map<std::string, SgArrayRefExp*> &uniqRemotes);
@@ -132,7 +129,7 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             const DIST::GraphCSR<int, double, attrType> &reducedG,
                             const DataDirective &data,
                             const std::vector<int> &currVar,
-                            const std::map<int, std::pair<SgForStmt*, std::set<std::string>>> &allLoops,
+                            const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                             std::map<std::string, SgArrayRefExp*> &uniqRemotes,
                             std::vector<Messages> &messages,
                             const int regionId,

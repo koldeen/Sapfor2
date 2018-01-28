@@ -534,8 +534,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
             {
             case T_INT:
                 return  IADDREDUCTION;
+            case T_COMPLEX:
             case T_FLOAT:
                 return SADDREDUCTION;
+            case T_DCOMPLEX:
             case T_DOUBLE:
                 return DADDREDUCTION;
             default:
@@ -546,8 +548,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
             {
             case T_INT:
                 return IMULREDUCTION;
+            case T_COMPLEX:
             case T_FLOAT:
                 return SMULREDUCTION;
+            case T_DCOMPLEX:
             case T_DOUBLE:
                 return DMULREDUCTION;
             default:
@@ -592,8 +596,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 {
                 case T_INT:
                     return  IMAXREDUCTION;
+                case T_COMPLEX:
                 case T_FLOAT:
                     return  SMAXREDUCTION;
+                case T_DCOMPLEX:
                 case T_DOUBLE:
                     return DMAXREDUCTION;
                 }
@@ -604,8 +610,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 {
                 case T_INT:
                     return  IMINREDUCTION;
+                case T_COMPLEX:
                 case T_FLOAT:
                     return  SMINREDUCTION;
+                case T_DCOMPLEX:
                 case T_DOUBLE:
                     return DMINREDUCTION;
                 }

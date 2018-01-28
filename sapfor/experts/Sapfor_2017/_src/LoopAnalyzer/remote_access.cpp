@@ -380,7 +380,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                             const DIST::GraphCSR<int, double, attrType> &reducedG,
                             const DataDirective &data,
                             const vector<int> &currVar,
-                            const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                            const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
                             map<string, SgArrayRefExp*> &uniqRemotes,
                             vector<Messages> &messages,
                             const int regionId,

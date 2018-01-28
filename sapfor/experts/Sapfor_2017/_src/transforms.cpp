@@ -218,7 +218,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
                          declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
-            UniteNestedDirectives(file, itFound->second);
+            UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
         {

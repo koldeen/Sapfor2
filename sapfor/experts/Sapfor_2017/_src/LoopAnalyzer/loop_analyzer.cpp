@@ -685,7 +685,10 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
                 privates.insert(*it);
         }
         else
-            tryToFindPrivateInAttributes(mod, declaratedArrays, declaratedArraysSt, privates);
+        {
+            tryToFindPrivateInAttributes(mod, privates);
+            fillNonDistrArraysAsPrivate(mod, declaratedArrays, declaratedArraysSt, privates);
+        }
         mod = mod->lexNext();
     }
     return privates;
@@ -785,7 +788,8 @@ static inline void fillPrivatesFromDecl(SgExpression *ex, set<SgSymbol*> &delcsS
             if (itD == delcsStatViewed.end())
             {
                 delcsStatViewed.insert(itD, decl);
-                tryToFindPrivateInAttributes(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                tryToFindPrivateInAttributes(decl, privatesVars);
+                fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
             }
         }
     }
@@ -808,7 +812,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
     map<string, vector<SgStatement*>> commonBlocks;
     map<int, LoopGraph*> sortedLoopGraph;
-    map<int, pair<SgForStmt*, set<string>>> allLoops;
+    map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> allLoops;
 
     createMapLoopGraph(sortedLoopGraph, loopGraph);
 
@@ -835,6 +839,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             continue;
 
         map<SgForStmt*, map<SgSymbol*, ArrayInfo>> loopInfo;
+        set<int> loopWithOutArrays;
+
         set<string> privatesVars;
 
         SgStatement *st = file->functions(i);
@@ -858,6 +864,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 
         SgStatement *lastNode = st->lastNodeOfStmt();
         vector<SgForStmt*> parentLoops;
+        vector<set<string>> privatesVarsForLoop;
 
         //For remote access
         pair<SgForStmt*, LoopGraph*> *under_dvm_dir = NULL;
@@ -909,14 +916,19 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             const int currV = st->variant();
             if (currV == FOR_NODE)
             {
-                tryToFindPrivateInAttributes(st, declaratedArrays, declaratedArraysSt, privatesVars);
-                
+                tryToFindPrivateInAttributes(st, privatesVars);
+                fillNonDistrArraysAsPrivate(st, declaratedArrays, declaratedArraysSt, privatesVars);
+                                
+                set<string> toAdd;
+                tryToFindPrivateInAttributes(st, toAdd);
+
                 if (PRINT_LOOP_STRUCT)
                     printBlanks(2, (int)parentLoops.size());
                 __spf_print(PRINT_LOOP_STRUCT, "FOR NODE on line %d\n", st->lineNumber());
 
                 parentLoops.push_back((SgForStmt*)st);
-                
+                privatesVarsForLoop.push_back(toAdd);
+
                 if (regime == REMOTE_ACC)
                 {
                     SgStatement *prev = st->lexPrev();
@@ -940,8 +952,22 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 {
                     if (contrlParent->variant() == FOR_NODE)
                     {
-                        allLoops[contrlParent->lineNumber()] = make_pair((SgForStmt*)contrlParent, privatesVars);
+                        if (loopInfo.find((SgForStmt*)contrlParent) == loopInfo.end())
+                            loopWithOutArrays.insert(contrlParent->lineNumber());
+
+                        set<string> unitedPrivates;
+                        for (int p = 0; p < parentLoops.size(); ++p)
+                            for (auto &privVar : privatesVarsForLoop[p])
+                                unitedPrivates.insert(privVar);
+                        
+                        set<string> setDiff;
+                        for (auto &privVars : privatesVars)
+                            if (unitedPrivates.find(privVars) == unitedPrivates.end())
+                                setDiff.insert(privVars);                        
+
+                        allLoops[contrlParent->lineNumber()] = make_pair((SgForStmt*)contrlParent, make_pair(unitedPrivates, setDiff));
                         parentLoops.pop_back();
+                        privatesVarsForLoop.pop_back();
 
                         if (regime == REMOTE_ACC)
                         {
@@ -994,8 +1020,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                         if (st->expr(1)->variant() == ARRAY_REF && st->expr(0)->variant() == ARRAY_REF)
                         {
                             set<SgSymbol*> ddots;
-                            fillVars(st->expr(0), { DDOT }, ddots);
-                            fillVars(st->expr(1), { DDOT }, ddots);
+                            vector<SgExpression*> dummy;
+                            fillVars(st->expr(0), { DDOT }, ddots, dummy);
+                            fillVars(st->expr(1), { DDOT }, ddots, dummy);
 
                             if (ddots.size() != 0)
                                 cond = false;
@@ -1069,7 +1096,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             }
             else
             {
-                tryToFindPrivateInAttributes(st, declaratedArrays, declaratedArraysSt, privatesVars);
+                tryToFindPrivateInAttributes(st, privatesVars);
+                fillNonDistrArraysAsPrivate(st, declaratedArrays, declaratedArraysSt, privatesVars);
 
                 if (isDVM_stat(st) == false)
                 {
@@ -1091,22 +1119,25 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         if (breakLineControl)
             return;
 
+        auto convertedLoopInfo = convertLoopInfo(loopInfo, sortedLoopGraph, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays);
         if (regime == DATA_DISTR)
         {
-            auto convertedLoopInfo = convertLoopInfo(loopInfo, sortedLoopGraph, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays);
             processLoopInformationForFunction(convertedLoopInfo);
 
             //find dependencies for loops in function
             initAnnotationsSysExt(0);
             set<SgStatement*> funcWasInit;
             map<SgExpression*, string> collection;
-            for (auto it = convertedLoopInfo.begin(); it != convertedLoopInfo.end(); ++it)
-                tryToFindDependencies(it->first, allLoops, funcWasInit, file, regions, currMessages, collection);
-                        
+            for (auto &loop : convertedLoopInfo)
+                tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection);
+                                    
             addToDistributionGraph(convertedLoopInfo, arrayLinksByFuncCalls);
+
+            for (auto &loop : loopWithOutArrays)
+                tryToFindDependencies(sortedLoopGraph[loop], allLoops, funcWasInit, file, regions, currMessages, collection);
         }
         else if (regime == COMP_DISTR)
-            createParallelDirectives(loopInfo, regions, createdArrays, commonBlocks, sortedLoopGraph, arrayLinksByFuncCalls);
+            createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls);        
         
         __spf_print(PRINT_PROF_INFO, "Function ended\n");
     }     

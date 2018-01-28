@@ -32,6 +32,7 @@ public:
         countOfIters = 0;
         countOfIterNested = 1;
         loop = NULL;
+        parent = NULL;
     }
 
     ~LoopGraph()
@@ -142,13 +143,6 @@ public:
             childs[i]->restoreDirective();
     }
 
-    void recalculatePerfect()
-    {
-        perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
-        for (auto &loop : childs)
-            loop->recalculatePerfect();
-    }
-
     void setRegionToChilds()
     {
         for (auto &loop : childs)
@@ -158,6 +152,7 @@ public:
         }
     }
 
+    void recalculatePerfect();
 public:
     int lineNum;
     int lineNumAfterLoop;
@@ -188,6 +183,8 @@ public:
     bool hasIndirectAccess;
 
     std::vector<LoopGraph*> childs; //fixme typo 'children'
+    LoopGraph *parent;
+
     std::vector<std::pair<std::string, int>> calls;
     
     // agregated read and write operations by arrays
@@ -199,7 +196,7 @@ public:
     std::set<DIST::Array*> acrossOutAttribute;
 
     ParallelDirective *directive;        // united directive for nested loops
-    ParallelDirective *oldDirective;     // save old directive for reverce
+    ParallelDirective *oldDirective;     // save old directive for reverse
     ParallelDirective *directiveForLoop; // part of directive for loop
     ParallelRegion *region;
 
@@ -212,3 +209,9 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 void convertToString(const LoopGraph *currLoop, std::string &result);
 int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph);
 void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages);
+
+void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+
+void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);

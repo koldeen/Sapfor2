@@ -10,10 +10,13 @@ void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);
 void getModulesAndFunctions(SgFile *file, std::vector<SgStatement*> &modulesAndFunctions);
 void findModulesInFile(SgFile *file, std::vector<SgStatement*> &modules);
-void tryToFindPrivateInAttributes(SgStatement *st, 
-                                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
-                                  std::set<std::string> &privatesVars);
+void tryToFindPrivateInAttributes(SgStatement *st, std::set<std::string> &privatesVars);
+
+void fillNonDistrArraysAsPrivate(SgStatement *st,
+                                 const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                 const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
+                                 std::set<std::string> &privatesVars);
+
 SgStatement* declaratedInStmt(SgSymbol *toFind);
 bool isSPF_comment(SgStatement *st);
 void initTags();
