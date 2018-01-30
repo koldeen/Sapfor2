@@ -3286,10 +3286,22 @@ void CBasicBlock::adjustGenAndKill(SgStatement *st)
         if(left->variant() == VAR_REF) // x = ...
             addVarToGen(left->symbol(), right);
         else // x[...] = ...
+        {
+            checkFunctionCalls(left);
             checkFunctionCalls(right);
+        }
     }
-    else if(st->variant() == PROC_CALL)
-        checkFunctionCalls(st->expr(0));
+    else if(st->variant() == PROC_STAT) {
+        SgCallStmt* procCall = isSgCallStmt(st);
+        for(int i=0;i<procCall->numberOfArgs(); ++i)
+        {
+            SgExpression* arg = procCall->arg(i);
+            if(arg->variant() == VAR_REF)
+                addVarToKill(arg->symbol());
+            else
+                checkFunctionCalls(arg);
+        }
+    }
 
 }
 

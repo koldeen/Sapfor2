@@ -383,7 +383,7 @@ Set *Set::copy()
     return newset;
 }
 
-void *Set::getElement(int i)
+void *Set::getElement(int i) const
 {
     void *pt;
     if ((i < 0) || (i >= nbelement))

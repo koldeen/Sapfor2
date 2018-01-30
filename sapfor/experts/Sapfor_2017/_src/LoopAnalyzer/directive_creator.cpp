@@ -41,7 +41,7 @@ using std::make_tuple;
 using std::get;
 using std::string;
 
-static struct MapToArray
+struct MapToArray
 {
 public:
     MapToArray() : underAcross(false) { }

@@ -32,32 +32,17 @@ public:
     void diffSet(Set *s1, Set *s2);
     int equalSet(Set *s1);
     int isInSet(void *e1);
-    void setDealllocateElem()
-    {
-        deallocelem = 1;
-    };
-    void resetDealllocateElem()
-    {
-        deallocelem = 0;
-    };
+    void setDealllocateElem() { deallocelem = 1; }
+    void resetDealllocateElem() { deallocelem = 0; }
     void printSet();
-    int size()
-    {
-        return nbelement;
-    };
+    int size() const { return nbelement; }
     void addElement(void *el);
     void *rmElement(int i);
-    void *getElement(int i);
+    void* getElement(int i) const;
     Set *compact();
     Set *copy();
-    void setStmt(SgStatement *s)
-    {
-        stmt = s;
-    }
-    SgStatement *getStmt()
-    {
-        return stmt;
-    }
+    void setStmt(SgStatement *s) { stmt = s; }
+    SgStatement* getStmt() const { return stmt; }
     // add a chunk to the size ;
     void Reallocatedata();
 };

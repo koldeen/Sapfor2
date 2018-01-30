@@ -381,7 +381,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                 auto itLoop = sortedLoopGraph.find(parentLoops[i]->lineNumber());
                 if (itLoop == sortedLoopGraph.end())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                ifUnknownWriteFound = itLoop->second->hasUnknownArrayAssignes = true;
+                ifUnknownWriteFound = itLoop->second->hasUnknownArrayAssigns = true;
                 canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
             }
         }
@@ -844,20 +844,24 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         set<string> privatesVars;
 
         SgStatement *st = file->functions(i);
+        string funcName = "";
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
             __spf_print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = progH->symbol()->identifier();
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = procH->symbol()->identifier();
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = funcH->symbol()->identifier();
         }
         getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
         __spf_print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
@@ -1134,10 +1138,92 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             addToDistributionGraph(convertedLoopInfo, arrayLinksByFuncCalls);
 
             for (auto &loop : loopWithOutArrays)
+            {
                 tryToFindDependencies(sortedLoopGraph[loop], allLoops, funcWasInit, file, regions, currMessages, collection);
+                sortedLoopGraph[loop]->withoutDistributedArrays = true;
+            }
+
+            //only top loop may be parallel
+            for (auto &loop : loopWithOutArrays)
+                sortedLoopGraph[loop]->setWithOutDistrFlagToFalse();
+            
+            for (auto &loop : loopWithOutArrays)
+            {
+                if (sortedLoopGraph[loop]->withoutDistributedArrays)
+                {
+                    //TODO: enable linear writes to non distr arrays for CONSISTENT
+                    bool hasWritesToArray = false;
+                    bool hasReduction = false;
+
+                    auto loopRef = sortedLoopGraph[loop];
+                    SgStatement *loopSt = loopRef->loop;
+
+                    for (int z = 0; z < loopSt->numberOfAttributes() && !hasReduction; ++z)
+                    {
+                        if (loopSt->attributeType(z) == SPF_ANALYSIS_DIR || loopSt->attributeType(z) == SPF_PARALLEL_DIR)
+                        {
+                            SgStatement *data = (SgStatement*)(loopSt->getAttribute(z)->getAttributeData());
+                            if (data)
+                            {
+                                map<string, set<string>> reductions;
+                                map<string, set<tuple<string, string, int>>> reductionsLoc;
+
+                                fillReductionsFromComment(data, reductions);
+                                fillReductionsFromComment(data, reductionsLoc);
+
+                                hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
+                            }
+                        }
+                    }
+
+                    for (SgStatement *start = loopSt->lexNext(); 
+                         start != loopSt->lastNodeOfStmt() && !hasWritesToArray && !hasReduction; 
+                         start = start->lexNext())
+                    {
+                        if (start->variant() == ASSIGN_STAT)
+                            if (start->expr(0)->variant() == ARRAY_REF)
+                                hasWritesToArray = true;
+                    }
+
+                    if (hasReduction || (!hasReduction && !hasWritesToArray))
+                        addToDistributionGraph(loopRef, funcName);
+                    else
+                        loopRef->withoutDistributedArrays = false;
+                }
+            }
         }
         else if (regime == COMP_DISTR)
-            createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls);        
+        {
+            createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls);
+
+            for (auto &loop : loopWithOutArrays)
+            {
+                auto loopRef = sortedLoopGraph[loop];
+                if (loopRef->withoutDistributedArrays && loopRef->region && !loopRef->hasLimitsToParallel())
+                {
+                    auto region = loopRef->region;
+                    auto allArrays = region->GetAllArrays();
+
+                    string fullLoopName = loopRef->genLoopArrayName(funcName);
+                    auto loopArray = allArrays.GetArrayByName(fullLoopName);
+                    
+                    ArrayInfo tmpArrayInfo;
+                    tmpArrayInfo.dimSize = 1;
+
+                    ArrayOp tmpOp;
+                    tmpOp.coefficients.push_back(make_pair(1, 0));
+                    tmpArrayInfo.writeOps.push_back(tmpOp);
+                    tmpArrayInfo.readOps.push_back(ArrayOp());
+                    map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> convertedLoopInfo;
+
+                    map<DIST::Array*, const ArrayInfo*> tmpAdd;
+                    tmpAdd.insert(make_pair(loopArray, &tmpArrayInfo));
+                    convertedLoopInfo.insert(make_pair(loopRef, tmpAdd));
+
+                    createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, map<DIST::Array*, set<DIST::Array*>>());
+                }
+            }
+        }
         
         __spf_print(PRINT_PROF_INFO, "Function ended\n");
     }     

@@ -6093,12 +6093,13 @@ SgStatement *CreateIndirectDistributionProcedure(SgSymbol *sProc,symb_list *para
     // make declarations
 
     SgExpression *el=NULL; 
-    SgStatement *stmt=NULL;
+    SgStatement *stmt=NULL, *st_cur=st_hedr;
     for (el = dummy_list; el; el = el->rhs())
     {
        stmt = el->lhs()->symbol()->makeVarDeclStmt();
        ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
-       st_hedr->insertStmtAfter(*stmt, *st_hedr);
+       st_cur->insertStmtAfter(*stmt, *st_hedr);
+       st_cur = stmt;
     }
     stmt = s->makeVarDeclStmt();
     stmt->expr(1)->setType(tdvm);

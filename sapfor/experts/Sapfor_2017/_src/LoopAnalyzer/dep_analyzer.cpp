@@ -15,6 +15,7 @@
 #include <set>
 #include <utility>
 #include <assert.h>
+#include <omp.h>
 
 #include "dvm.h"
 #include "loop_analyzer.h"
@@ -74,7 +75,11 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             initializeDepAnalysisForFunction(file, func);
         }
 
+        double t = omp_get_wtime();
         depGraph *depg = new depGraph(file, currLoopRef->controlParent(), currLoopRef, privVars);
+        t = omp_get_wtime() - t;
+        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+
         if (depg)
         {
             const std::vector<depNode*> &nodes = depg->getNodes();
@@ -236,7 +241,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             if (!currLoop->hasLimitsToParallel())
                 depInfoForLoopGraph[currLoop] = depg;
             else
+            {
+                currLoop->addConflictMessages(currMessages);
                 delete depg;
+            }
         }
     }
     else if (currReg && currLoop->hasLimitsToParallel())

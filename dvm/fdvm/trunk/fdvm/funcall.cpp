@@ -3865,7 +3865,7 @@ SgExpression *DvmhMultBlock(SgExpression *em)
 SgExpression *DvmhIndirect(SgSymbol *smap)
 {
   // generates function call:
-  //      DvmType dvmh_distribution_indirect_(const DvmType *pElemType, const void *arrayAddr)
+  //      DvmType dvmh_distribution_indirect(const DvmType *pElemType, const void *arrayAddr)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_INDIRECT]);
   fmask[DVMH_INDIRECT] = 1;
@@ -3877,8 +3877,16 @@ SgExpression *DvmhIndirect(SgSymbol *smap)
 
 }
 
-//DvmType dvmh_distribution_derived_(const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)
-
+SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func)
+{ //generating function call:
+  //      DvmType dvmh_distribution_derived(const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)  
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_DERIVED]);
+  fmask[DVMH_DERIVED] = 1;  
+  fe->addArg(*derived_rhs);
+  fe->addArg(*counter_func);
+  fe->addArg(*filler_func);
+  return fe;
+}
 
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list)
 {
