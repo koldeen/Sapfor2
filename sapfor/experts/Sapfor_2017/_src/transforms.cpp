@@ -851,6 +851,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         vector<string> result;
 
+        set<DIST::Array*> arraysDone;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
@@ -859,6 +860,25 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
+                //recalculate array sizes after expression substitution
+                for (auto array : allArrays.GetArrays())
+                {
+                    auto itF = arraysDone.find(array);
+                    if (itF == arraysDone.end())
+                    {
+                        itF = arraysDone.insert(itF, array);
+                        Symbol *symb = array->GetDeclSymbol();
+                        if (symb)
+                        {
+                            SgStatement *decl = declaratedInStmt(symb);
+
+                            vector<pair<int, int>> sizes;
+                            getArraySizes(sizes, symb, decl);
+                            array->SetSizes(sizes);
+                        }
+                    }
+                }
+
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
             }           

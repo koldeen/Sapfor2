@@ -366,7 +366,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
         toAdd->setLhs(new SgVarRefExp(elem));
     }
 
-    currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));    
+    currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)

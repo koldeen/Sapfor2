@@ -97,9 +97,10 @@ static void copyStringToShort(short *&result, const string &resVal)
 int passDone = 0;
 static int rethrow = 0;
 static void runPassesLoop(const vector<passes> &passesToRun, const char *prName, const char *folderNameChar)
-{
+{    
     try
     {
+        setPassValues();
         printf("SAPFOR: all passes num %zd\n", passesToRun.size());
         for (int i = 0; i < passesToRun.size(); ++i)
         {
@@ -679,9 +680,9 @@ int SPF_SetDistributionFlagToArray(char *key, int flag)
                 printf("SAPFOR: change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
 
                 if (flag == 0)
-                    it->second.first->SetNonDistributeFlag(false);
+                    it->second.first->SetNonDistributeFlag(DIST::DISTR);
                 else
-                    it->second.first->SetNonDistributeFlag(true);
+                    it->second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                 break;
             }
         }

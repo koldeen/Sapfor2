@@ -222,7 +222,7 @@ public:
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
+bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
 
 void convertToString(const LoopGraph *currLoop, std::string &result);
 int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph);

@@ -502,7 +502,7 @@ static int fillSizes(SgExpression *res, int &left, int &right)
     return err;
 }
 
-static void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     if (type != NULL)
@@ -1145,7 +1145,23 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
             //only top loop may be parallel
             for (auto &loop : loopWithOutArrays)
-                sortedLoopGraph[loop]->setWithOutDistrFlagToFalse();
+            {
+                auto loopRef = sortedLoopGraph[loop];
+                loopRef->setWithOutDistrFlagToFalse();
+
+                SgForStmt *forSt = (SgForStmt*)(loopRef->loop);
+                SgStatement *cp = forSt->controlParent();
+                while (cp)
+                {
+                    if (cp->variant() == FOR_NODE)
+                    {
+                        auto cpLoopRef = sortedLoopGraph[cp->lineNumber()];
+                        if (!cpLoopRef->hasLimitsToParallel())
+                            cpLoopRef->setWithOutDistrFlagToFalse();
+                    }
+                    cp = cp->controlParent();
+                }
+            }
             
             for (auto &loop : loopWithOutArrays)
             {
@@ -1154,6 +1170,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     //TODO: enable linear writes to non distr arrays for CONSISTENT
                     bool hasWritesToArray = false;
                     bool hasReduction = false;
+                    //TODO: add IPA for non pure
+                    bool hasNonPureProcedures = false;
 
                     auto loopRef = sortedLoopGraph[loop];
                     SgStatement *loopSt = loopRef->loop;
@@ -1177,16 +1195,25 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     }
 
                     for (SgStatement *start = loopSt->lexNext(); 
-                         start != loopSt->lastNodeOfStmt() && !hasWritesToArray && !hasReduction; 
+                         start != loopSt->lastNodeOfStmt() && !hasNonPureProcedures;
                          start = start->lexNext())
                     {
                         if (start->variant() == ASSIGN_STAT)
                             if (start->expr(0)->variant() == ARRAY_REF)
                                 hasWritesToArray = true;
+
+                        if (start->variant() == PROC_STAT)
+                        {
+                            if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                                hasNonPureProcedures = true;
+                        }
                     }
 
-                    if (hasReduction || (!hasReduction && !hasWritesToArray))
-                        addToDistributionGraph(loopRef, funcName);
+                    if ((hasReduction || (!hasReduction && !hasWritesToArray)) && !hasNonPureProcedures)
+                    {
+                        if (!addToDistributionGraph(loopRef, funcName))
+                            loopRef->withoutDistributedArrays = false;
+                    }
                     else
                         loopRef->withoutDistributedArrays = false;
                 }
@@ -1263,19 +1290,10 @@ static void findArrayRefs(SgExpression *ex,
                 if (itNew == declaratedArrays.end())
                 {
                     DIST::Array *arrayToAdd = new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
-                                                              getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation);
+                                                              getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb));
 
-                    if (privates.find(symb->identifier()) != privates.end())
-                    {
-                        itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
-                        arrayToAdd->SetNonDistributeFlag(true);
-                    }
-                    else
-                    {
-                        itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
-                        arrayToAdd->SetNonDistributeFlag(false);
-                    }                    
-                    
+                    itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
+ 
                     vector<pair<int, int>> sizes;
                     getArraySizes(sizes, symb, decl);
                     arrayToAdd->SetSizes(sizes);
@@ -1283,6 +1301,11 @@ static void findArrayRefs(SgExpression *ex,
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 
+                if (privates.find(symb->identifier()) != privates.end())
+                    itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                else
+                    itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
+
                 if (!isExecutable)
                     itNew->second.first->AddDeclInfo(make_pair(declSt->fileName(), declSt->lineNumber()));
                 itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
@@ -1320,17 +1343,20 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         getCommonBlocksRef(commonBlocks, st, lastNode);
         set<string> privates;
         
-        while (st != lastNode)
-        {   
+        for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
+        {
             //after SPF preprocessing 
-            for (int z = 0; z < st->numberOfAttributes(); ++z)
-                if (st->attributeType(z) == SPF_ANALYSIS_DIR)
-                    fillPrivatesFromComment((SgStatement *)(st->getAttribute(z)->getAttributeData()), privates);
+            for (int z = 0; z < iter->numberOfAttributes(); ++z)
+                if (iter->attributeType(z) == SPF_ANALYSIS_DIR)
+                    fillPrivatesFromComment((SgStatement *)(iter->getAttribute(z)->getAttributeData()), privates);
 
             //before SPF preprocessing 
-            if (st->variant() == SPF_ANALYSIS_DIR)
-                fillPrivatesFromComment(st, privates);
-                        
+            if (iter->variant() == SPF_ANALYSIS_DIR)
+                fillPrivatesFromComment(iter, privates);
+        }
+
+        while (st != lastNode)
+        {                        
             //TODO: add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)

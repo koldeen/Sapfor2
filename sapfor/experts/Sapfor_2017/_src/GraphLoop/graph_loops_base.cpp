@@ -301,13 +301,13 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
     }
 }
 
-void addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
+bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
 {
     ParallelRegion *currReg = loopInfo->region;
-    if (currReg == NULL || loopInfo->countOfIters == 1 || loopInfo->hasLimitsToParallel())
+    if (currReg == NULL || loopInfo->countOfIters == 0 || loopInfo->hasLimitsToParallel())
     {
         __spf_print(1, "Skip loop on line %d\n", loopInfo->lineNum);
-        return;
+        return false;
     }
 
     const double currWeight = loopInfo->countOfIterNested;
@@ -318,9 +318,13 @@ void addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
     string fullLoopName = loopInfo->genLoopArrayName(inFunction);
     string loopName = fullLoopName;
 
-    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction));
+    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction), NULL);
+
     loopArray->ExtendDimSize(0, make_pair(1, loopInfo->countOfIters));
+    loopArray->setLoopArray(true);
+
     allArrays.AddArrayToGraph(loopArray);
+    return true;
 }
 
 static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])

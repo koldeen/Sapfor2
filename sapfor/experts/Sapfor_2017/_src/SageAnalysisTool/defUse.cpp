@@ -320,13 +320,11 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
         else
             Message("internal error : IO statements not found\n", 0);
         break;
-    case PROC_STAT: 
+    case PROC_STAT:
+        //TODO:
+        break;
         callStat = (SgCallStmt*)stmt;
-        fc = new SgFunctionCallExp(*new SgSymbol(MEMBER_FUNC, "dummy"));
-        for (int arg = 0; arg < callStat->numberOfArgs(); ++arg)
-            fc->addArg(callStat->arg(arg)->copy());
-                
-        pt = fc->args();
+        pt = callStat->expr(0);
         if (pt)
         {
             *use = pt->symbRefs();

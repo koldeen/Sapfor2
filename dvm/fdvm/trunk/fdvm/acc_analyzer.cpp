@@ -131,13 +131,20 @@ RE: st = st->lastNodeOfStmt();
 
 }
 
+#ifdef __SPF
+bool IsPureProcedureACC(SgSymbol* s)
+#else
 static bool IsPureProcedureACC(SgSymbol* s)
+#endif
 {
     // is a copied function
     SgSymbol *shedr = NULL;
-//TODO: rewrite it for SAPFOR
+
 #ifndef __SPF 
     shedr = GetProcedureHeaderSymbol(s);
+#else
+    if (ATTR_NODE(s))
+        shedr = (GRAPHNODE(s)->symb);
 #endif
     if (shedr)
         return(shedr->attributes() & PURE_BIT);
@@ -1000,8 +1007,14 @@ AnalysedCallsList* CallData::getLinkToCall(SgExpression* e, SgStatement* s, Comm
         SgFunctionCallExp* f = isSgFunctionCallExp(e);
         if (isStatementFunction(f->funName()))
             return (AnalysedCallsList*)(-2);
-        g = GRAPHNODE(f->funName());
-        header = isSgFuncHedrStmt(GRAPHNODE(f->funName())->st_header);
+        if (ATTR_NODE(f->funName()) != NULL)
+            g = GRAPHNODE(f->funName());
+        if (g == NULL) {
+            is_correct = "no header for function";
+            failed_proc_name = f->funName()->identifier();
+            return (AnalysedCallsList*)(-1);
+        }
+        header = isSgFuncHedrStmt(g->st_header);
         name = f->funName();
         isFun = true;
     }
@@ -1156,6 +1169,8 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
         case PRINT_STAT:
         case READ_STAT:
         case WRITE_STAT:
+        case ALLOCATE_STMT:
+        case DEALLOCATE_STMT:
         {
             ControlFlowItem* cur = new ControlFlowItem(*stmt, NULL, currentProcedure, (*stmt)->variant() == PROC_STAT ? calls->getLinkToCall(NULL, *stmt, commons) : NULL);
             if (*pred != NULL)
@@ -1434,7 +1449,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
     }
 }
 
-ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL)
+ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL), hasBeenAnalyzed(false)
 {
     int n = 0;
     ControlFlowItem* orig = list;
@@ -1596,6 +1611,9 @@ void CBasicBlock::markAsReached()
 
 bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool first)
 {
+    int stored_fid = current_file_id;
+    CurrentProject->file(lstart->getProc()->file_id);
+    current_file_id = lstart->getProc()->file_id;
     ControlFlowItem* lend;
     if (is_correct != NULL)
     {
@@ -1628,8 +1646,11 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
             {
                 CBasicBlock* mp = p;
                 if (first) {
-                    if (!ProcessOneParallelLoop(mstart, of, mp, false))
+                    if (!ProcessOneParallelLoop(mstart, of, mp, false)) {
+                        current_file_id = stored_fid;
+                        CurrentProject->file(stored_fid);
                         return false;
+                    }
                 }
             }
         }
@@ -1653,7 +1674,8 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
             Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
             if (tmp)
                 delete[] tmp;
-
+            current_file_id = stored_fid;
+            CurrentProject->file(stored_fid);
             return false;
         }
         VarSet* p_pri = new VarSet();
@@ -1690,11 +1712,15 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
         privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
         of->SetDelayedData(privateDelayedList);
     }
+    current_file_id = stored_fid;
+    CurrentProject->file(stored_fid);
     return true;
 }
 
 void ControlFlowGraph::privateAnalyzer()
 {
+    if (hasBeenAnalyzed)
+        return;
     CBasicBlock* p = first;
     /*
     printf("GRAPH:\n");
@@ -1709,10 +1735,7 @@ void ControlFlowGraph::privateAnalyzer()
     }
     */
     p = first;
-
-    //if (is_correct) {
     liveAnalysis();
-    //}
     while (1) 
     {
         ControlFlowItem* lstart, *lend;
@@ -1727,6 +1750,7 @@ void ControlFlowGraph::privateAnalyzer()
             break;
         p = p->getLexNext();
     }
+    hasBeenAnalyzed = true;
 }
 
 /*#ifdef __SPF
@@ -2496,7 +2520,7 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
     }
     for (int i = 0; i < header->numberOfParameters(); i++) {
         SgSymbol* arg = header->parameter(i);
-        if (arg->attributes() & IN_BIT) {
+        if (arg->attributes() & (IN_BIT)) {
             SgExpression* ar = GetProcedureArgument(isF, f, i);
             addExprToUse(ar);
         }
@@ -2530,6 +2554,7 @@ bool AnalysedCallsList::isArgIn(int i)
 bool AnalysedCallsList::isArgOut(int i)
 {
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
+    graph->privateAnalyzer();
     VarSet* def = graph->getDef();
     SgSymbol* par = h->parameter(i);
     CScalarVarEntryInfo* var = new CScalarVarEntryInfo(par);
@@ -3275,34 +3300,59 @@ void CBasicBlock::checkFunctionCalls(SgExpression* exp) {
     }
 }
 
-void CBasicBlock::adjustGenAndKill(SgStatement *st)
+bool argIsReplaceable(int i, AnalysedCallsList* callData)
 {
-    if(st->variant() == ASSIGN_STAT)
+    if (callData)
+        return false;
+    SgProcHedrStmt* header = isSgProcHedrStmt(callData->header);
+    if (header)
     {
-        SgExpression *left, *right;
-        left = st->expr(0);
-        right = st->expr(1);
-        checkFunctionCalls(right);
-        if(left->variant() == VAR_REF) // x = ...
-            addVarToGen(left->symbol(), right);
-        else // x[...] = ...
-        {
-            checkFunctionCalls(left);
-            checkFunctionCalls(right);
-        }
+        int attr = header->parameter(i)->attributes();
+        if (callData->isArgOut(i) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+            return false;
+        else if (!(callData->isArgIn(i) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+            return false;
+        else
+            return true;
     }
-    else if(st->variant() == PROC_STAT) {
-        SgCallStmt* procCall = isSgCallStmt(st);
-        for(int i=0;i<procCall->numberOfArgs(); ++i)
-        {
-            SgExpression* arg = procCall->arg(i);
-            if(arg->variant() == VAR_REF)
-                addVarToKill(arg->symbol());
-            else
-                checkFunctionCalls(arg);
-        }
-    }
+    else
+        return false;
+}
 
+void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
+{
+	SgStatement* st = cfi->getStatement();
+	if (st != NULL) {
+		if (st->variant() == ASSIGN_STAT) {
+			SgExpression *left, *right;
+			left = st->expr(0);
+			right = st->expr(1);
+			checkFunctionCalls(right);
+			if (left->variant() == VAR_REF) // x = ...
+				addVarToGen(left->symbol(), right);
+			else // x[...] = ...
+			{
+				checkFunctionCalls(left);
+				checkFunctionCalls(right);
+			}
+		} else if (st->variant() == PROC_STAT) {
+			SgCallStmt* callStmt = isSgCallStmt(st);
+			AnalysedCallsList* callData = cfi->getCall();
+
+			//st->unparsestdout();
+			for (int i = 0; i < callStmt->numberOfArgs(); ++i)
+			{
+				//printf("%d(%d %d ][%d %d %d)   ",i, callData->isArgIn(i), callData->isArgOut(i), attr & (IN_BIT), attr & (OUT_BIT), attr & (INOUT_BIT));
+				SgExpression* arg = callStmt->arg(i);
+				if (arg->variant() == VAR_REF) {
+					if (!argIsReplaceable(i, callData))
+						addVarToKill(arg->symbol());
+				} else
+					checkFunctionCalls(arg);
+			}
+			//printf("\n");
+		}
+	}
 }
 
 void setGensAndKills(CBasicBlock *b)
@@ -3311,9 +3361,7 @@ void setGensAndKills(CBasicBlock *b)
     ControlFlowItem *till = b->getEnd()->getNext();
     while(cfi != till)
     {
-        SgStatement *st;
-        if((st = cfi->getStatement()) != NULL)
-            b->adjustGenAndKill(st);
+        b->adjustGenAndKill(cfi);
         cfi = cfi->getNext();
     }
 }
@@ -3468,7 +3516,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::ma
     while(b != NULL)
     {
         setGensAndKills(b);
-        /*Инициализация OUT, оно равно gen блока*/
+        /*Initialization of OUT, it equals to GEN	*/
         initializeOutWithGen(b->getOutDefs(), b->getGen());
         b = b->getLexNext();
     }

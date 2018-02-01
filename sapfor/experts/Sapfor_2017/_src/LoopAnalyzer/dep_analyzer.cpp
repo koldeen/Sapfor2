@@ -78,7 +78,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         double t = omp_get_wtime();
         depGraph *depg = new depGraph(file, currLoopRef->controlParent(), currLoopRef, privVars);
         t = omp_get_wtime() - t;
-        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+        if (t > 1.0)
+            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
 
         if (depg)
         {
@@ -91,7 +92,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             map<SgSymbol*, tuple<int, int, int>> acrossToAdd;
 
             map<SgSymbol*, string> varInOut;
-            bool varIn, varOut;
+            bool varIn = false, varOut = false;
+
             for (int k = 0; k < nodes.size(); ++k)
             {
                 const depNode *currNode = nodes[k];
@@ -115,7 +117,6 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             found = varInOut.insert(found, make_pair(vOut, vOut->identifier()));
                         varOut = nonDistrArrays.find(found->second) != nonDistrArrays.end();
                     }
-                    
                     //dont check if textual identically 
                     if ((!isEqExpressions(currNode->varin, currNode->varout, collection) || varIn || varOut) && (currNode->varin != currNode->varout))
                     {
