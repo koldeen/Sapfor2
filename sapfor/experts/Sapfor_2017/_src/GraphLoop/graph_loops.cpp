@@ -261,7 +261,7 @@ static inline int tryCalculate(SgExpression *expr, int &res)
     return 0;
 }
 
-static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgExpression *step)
+static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgExpression *step, std::tuple<int, int, int> &result)
 {
     if (!start && !end)
         return 0;
@@ -289,7 +289,12 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
 
     int count = (endV - startV + stepV) / stepV;
     if (count > 0)
+    {
+        std::get<0>(result) = startV;
+        std::get<1>(result) = endV;
+        std::get<2>(result) = stepV;
         return count;
+    }
     else
         return 0;
 }
@@ -432,7 +437,15 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
-                newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step());
+
+                std::tuple<int, int, int> loopInfoSES;
+                newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
+                if (newLoop->countOfIters != 0)
+                {
+                    newLoop->startVal = std::get<0>(loopInfoSES);
+                    newLoop->endVal = std::get<1>(loopInfoSES);
+                    newLoop->stepVal = std::get<2>(loopInfoSES);
+                }
                 newLoop->loop = new Statement(st);
 
                 if (parentLoops.size() == 0)
@@ -485,5 +498,54 @@ void LoopGraph::recalculatePerfect()
     perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
     for (auto &loop : childs)
         loop->recalculatePerfect();
+}
+
+extern int PASSES_DONE[EMPTY_PASS];
+static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
+{
+    int loopState = 0; // 0 - unknown, 1 - good, 2 - bad
+    if (PASSES_DONE[CREATE_TEMPLATE_LINKS])
+    {
+        if (currLoop->hasLimitsToParallel())
+            loopState = 2;
+        else
+            loopState = 1;
+    }
+    else
+    {
+        if (currLoop->hasLimitsToParallel())
+            loopState = 2;
+    }
+
+    sprintf(buf, " %d %d %d %d %d %d %d",
+        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
+}
+
+void convertToString(const LoopGraph *currLoop, string &result)
+{
+    if (currLoop)
+    {
+        char buf[512];
+        result += " " + std::to_string(currLoop->calls.size());
+        for (int i = 0; i < currLoop->calls.size(); ++i)
+            result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
+        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        result += string(buf);
+
+        result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());
+        for (int i = 0; i < currLoop->linesOfExternalGoTo.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfExternalGoTo[i]);
+
+        result += " " + std::to_string(currLoop->linesOfInternalGoTo.size());
+        for (int i = 0; i < currLoop->linesOfInternalGoTo.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfInternalGoTo[i]);
+
+        result += " " + std::to_string(currLoop->linesOfIO.size());
+        for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfIO[i]);
+
+        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
+            convertToString(currLoop->childs[i], result);
+    }
 }
 #undef DEBUG

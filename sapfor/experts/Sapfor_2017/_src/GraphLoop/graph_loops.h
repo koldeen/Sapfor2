@@ -34,6 +34,7 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        startVal = endVal = stepVal = -1;
     }
 
     ~LoopGraph()
@@ -175,6 +176,10 @@ public:
     int perfectLoop;
     int countOfIters;
     double countOfIterNested;
+
+    int startVal;
+    int endVal;
+    int stepVal;
 
     bool hasGoto;
     std::vector<int> linesOfInternalGoTo;

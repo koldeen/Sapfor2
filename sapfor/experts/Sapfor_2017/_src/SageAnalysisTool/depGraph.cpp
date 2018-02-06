@@ -270,7 +270,6 @@ void depNode::displayDep() const
 ///////////////////////////////////////////////////////////////////////////////////////
 // Here are the methods of depGraph
 ///////////////////////////////////////////////////////////////////////////////////////
-
 depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string> &privVars) : privVars(privVars)
 {
     SgForStmt *doloop;
@@ -294,13 +293,13 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         induc = NULL;
         currentDepGraph = this;
         perfectNestedLevel = doloop->isPerfectLoopNest();
-        // We now compute the dependence Graph;  
+        // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
 #if _WIN32 && NDEBUG
         if (passDone == 2)
             throw boost::thread_interrupted();
-#endif
-        computeLoopDependencies(func, arrayRef, tsymb, induc);
+#endif        
+        computeLoopDependencies(func, arrayRef, tsymb, induc);      
         scalarRefAnalysis(loop);
     }
     else

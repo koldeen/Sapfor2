@@ -510,7 +510,10 @@ int commonDepth(context_iterator iti1, context_iterator iti2)
     return depth;
 }
 
-int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc)
+//from dep_analyzer.cpp
+extern bool isRemovableDependence(const depNode *toCheck, const std::set<std::string> &privVars);
+
+static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc, int &countOfNodes)
 {
     ///////////////////////////////////////////////////////////////////////////
     // deallocation Set
@@ -656,12 +659,25 @@ int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc)
     currentVarOut = el2->var;
 
     dd_omega_test(access1, access2, oitype, iotype, nest1, nest2, bnest);
+    
+    //check if dependensices is known;
+    int result = 0;
+    const std::vector<depNode*> &nodes = currentDepGraph->getNodes();
+    for (int z = countOfNodes; z < nodes.size(); ++z)
+    {
+        if (isRemovableDependence(nodes[z], currentDepGraph->privVars) == false)
+        {
+            result = 5;
+            break;
+        }
+    }
+    countOfNodes = nodes.size();
     // should delete all allocated space;
 #ifdef _WIN32
     removeFromCollection(setForDealocatingMemory);
 #endif
     delete setForDealocatingMemory;
-    return 1;
+    return result;
 }
 
 //
@@ -706,6 +722,8 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     // not needed anymore
     //  depset =  new Set(dependenceEqual, NULL, dependencePrint);
     WarningOutForNegativeStep = 0;
+
+    int countOfNodes = currentDepGraph->getNodes().size();
     for (i = 0; i < inset->size(); i++)
     {
 #if _WIN32 && NDEBUG
@@ -725,11 +743,18 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
                         (el1->rw || el2->rw) &&
                         (el1->var->symbol() == el2->var->symbol()))
                     {
-                        isDependent(el1, el2, induc);
+                        int res = isDependent(el1, el2, induc, countOfNodes);
+                        if (res == 5)
+                        {
+                            printf("Sapfor: return from computeLoopDependencies with 5 status with %d graph\n", countOfNodes);
+                            return NULL;
+                        }                            
                     }
                 }
             }
         }
     }
+    if (countOfNodes > 1000)
+        printf("Sapfor: return from computeLoopDependencies with %d graph\n", countOfNodes);
     return NULL;
 }

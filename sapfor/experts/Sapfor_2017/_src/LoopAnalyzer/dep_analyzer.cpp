@@ -38,6 +38,66 @@ using std::string;
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 
+static const set<string> *currentNonDistrArrays = NULL;
+static map<SgSymbol*, string> varInOut;
+static map<SgExpression*, string> *currentCollection = NULL;
+
+bool isRemovableDependence(const depNode *currNode, const set<string> &privVars)
+{
+    bool result = true;
+    bool varIn = false, varOut = false;
+
+    switch (currNode->typedep)
+    {
+    case WRONGDEP:
+        result = false;
+        break;
+    case ARRAYDEP:
+        if (currentNonDistrArrays && currentNonDistrArrays->size() > 0)
+        {
+            SgSymbol *vIn = OriginalSymbol(currNode->varin->symbol());
+            SgSymbol *vOut = OriginalSymbol(currNode->varout->symbol());
+
+            auto found = varInOut.find(vIn);
+            if (found == varInOut.end())
+                found = varInOut.insert(found, make_pair(vIn, vIn->identifier()));
+            varIn = currentNonDistrArrays->find(found->second) != currentNonDistrArrays->end();
+
+            found = varInOut.find(vOut);
+            if (found == varInOut.end())
+                found = varInOut.insert(found, make_pair(vOut, vOut->identifier()));
+            varOut = currentNonDistrArrays->find(found->second) != currentNonDistrArrays->end();
+        }
+        //dont check if textual identically 
+        if ((!isEqExpressions(currNode->varin, currNode->varout, *currentCollection) || varIn || varOut) && (currNode->varin != currNode->varout))
+        {
+            // TODO: process all loop, not only top loop
+            if (currNode->knowndist[1] == 0 || currNode->distance[1] != 0)
+            {
+                if (currNode->knowndist[1] == 0)
+                    result = false;
+            }
+            else if (varIn || varOut) // found dependencies between non ditributed arrays
+            {
+                result = false;
+            }
+        }
+
+        break;
+    case PRIVATEDEP:
+    case REDUCTIONDEP:
+        break;
+    case SCALARDEP:
+        if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+            result = false;
+        break;
+    default:
+        result = false;
+        break;
+    }
+    return result;
+}
+
 // try to find dependencies: reductions and privates for scalar 
 //                           and regular and other for arrrays
 //TODO: add optimization - dont call omega test for arrays many times
@@ -68,6 +128,9 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         const set<string> &privVars = it->second.second.first;
         const set<string> &nonDistrArrays = it->second.second.second;
 
+        currentNonDistrArrays = &nonDistrArrays;
+        currentCollection = &collection;
+
         SgStatement *func = currLoopRef->controlParent();
         if (funcWasInit.find(func) == funcWasInit.end())
         {
@@ -91,7 +154,6 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             bool findUnknownDepLen = false;
             map<SgSymbol*, tuple<int, int, int>> acrossToAdd;
 
-            map<SgSymbol*, string> varInOut;
             bool varIn = false, varOut = false;
 
             for (int k = 0; k < nodes.size(); ++k)
@@ -239,6 +301,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());
                 }
             }
+
             if (!currLoop->hasLimitsToParallel())
                 depInfoForLoopGraph[currLoop] = depg;
             else

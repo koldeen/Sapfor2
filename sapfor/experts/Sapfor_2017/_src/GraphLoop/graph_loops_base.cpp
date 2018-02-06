@@ -320,45 +320,11 @@ bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
 
     DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction), NULL);
 
-    loopArray->ExtendDimSize(0, make_pair(1, loopInfo->countOfIters));
+    loopArray->ExtendDimSize(0, make_pair(loopInfo->startVal, loopInfo->endVal));
     loopArray->setLoopArray(true);
 
     allArrays.AddArrayToGraph(loopArray);
     return true;
-}
-
-static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
-{
-    sprintf(buf, " %d %d %d %d %d %d",
-        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize);
-}
-
-void convertToString(const LoopGraph *currLoop, string &result)
-{
-    if (currLoop)
-    {
-        char buf[512];
-        result += " " + std::to_string(currLoop->calls.size());
-        for (int i = 0; i < currLoop->calls.size(); ++i)
-            result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
-        result += string(buf);
-
-        result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());
-        for (int i = 0; i < currLoop->linesOfExternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfExternalGoTo[i]);
-
-        result += " " + std::to_string(currLoop->linesOfInternalGoTo.size());
-        for (int i = 0; i < currLoop->linesOfInternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfInternalGoTo[i]);
-
-        result += " " + std::to_string(currLoop->linesOfIO.size());
-        for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfIO[i]);
-
-        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
-            convertToString(currLoop->childs[i], result);
-    }
 }
 
 static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlanks)

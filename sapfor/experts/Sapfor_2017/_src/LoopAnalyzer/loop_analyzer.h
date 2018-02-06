@@ -70,6 +70,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<Sg
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
                            std::map<SgExpression*, std::string> &collection);
 
+bool isRemovableDependence(const depNode *toCheck);
+
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
 
