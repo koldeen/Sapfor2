@@ -33,8 +33,35 @@ static void getText(const char *s, const char *t, int num, SgStatement *stmt, st
         toPrint += " for this loop";
 }
 
+static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
+{
+    bool ret = false;
+    int var = stmt->variant();    
+    if (var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR)
+        stmt = stmt->lexNext();
+        
+    SgForStmt *forS = isSgForStmt(stmt);
+    
+    if (forS)
+    {
+        SgStatement *end = forS->lastNodeOfStmt();
+        for (; stmt != end && !ret; stmt = stmt->lexNext())
+            if (stmt->variant() == FOR_NODE)
+                if (isSgForStmt(stmt)->symbol()->identifier() == symb)
+                    ret = true;
+    }
+
+    return ret;
+}
+
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
 {
+    //TODO:
+    //filter private variables in loop symbols
+    if (PRIVATE_ANALYSIS_REMOVE_VAR)    
+        if (ifVarIsLoopSymb(stmt, t))
+            return;
+    
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
@@ -1050,7 +1077,7 @@ AnalysedCallsList* CallData::getLinkToCall(SgExpression* e, SgStatement* s, Comm
     return p;
 }
 
-static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, ControlFlowItem** last, CommonData* commons)
+static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, ControlFlowItem** last, CommonData* commons, SgStatement* os)
 {
     if (e == NULL) {
         *last = NULL;
@@ -1059,11 +1086,12 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
     SgFunctionCallExp* f = isSgFunctionCallExp(e);
     if (f) {
         ControlFlowItem* head = new ControlFlowItem(NULL, NULL, currentProcedure, calls->getLinkToCall(e, NULL, commons));
+        head->setOriginalStatement(os);
         ControlFlowItem* curl = head;
         head->setFunctionCall(f);
         ControlFlowItem* l1, *l2;
-        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs(), calls, &l1, commons);
-        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->rhs(), calls, &l2, commons);
+        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs(), calls, &l1, commons, os);
+        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->rhs(), calls, &l2, commons, os);
         *last = head;
         if (tail2 != NULL) {
             l2->AddNextItem(head);
@@ -1079,11 +1107,12 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
     f = isSgFunctionCallExp(e->lhs());
     if (f) {
         ControlFlowItem* head = new ControlFlowItem(NULL, NULL, currentProcedure, calls->getLinkToCall(e->lhs(), NULL, commons));
+        head->setOriginalStatement(os);
         head->setFunctionCall(f);
         ControlFlowItem* l1, *l2, *l3;
-        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs()->lhs(), calls, &l1, commons);
-        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->lhs()->rhs(), calls, &l2, commons);
-        ControlFlowItem* tail3 = GetFuncCallsForExpr(e->rhs(), calls, &l3, commons);
+        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs()->lhs(), calls, &l1, commons, os);
+        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->lhs()->rhs(), calls, &l2, commons, os);
+        ControlFlowItem* tail3 = GetFuncCallsForExpr(e->rhs(), calls, &l3, commons, os);
         *last = head;
         if (tail2 != NULL) {
             l2->AddNextItem(head);
@@ -1091,7 +1120,7 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
         }
         if (tail1 != NULL) {
             l1->AddNextItem(head);
-            head = l1;
+            head = tail1;
         }
         if (tail3 != NULL) {
             (*last)->AddNextItem(tail3);
@@ -1099,14 +1128,14 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
         }
         return head;
     }
-    return GetFuncCallsForExpr(e->rhs(), calls, last, commons);
+    return GetFuncCallsForExpr(e->rhs(), calls, last, commons, os);
 }
 
 static ControlFlowItem* AddFunctionCalls(SgStatement* st, CallData* calls, ControlFlowItem** last, CommonData* commons)
 {
-    ControlFlowItem* retv = GetFuncCallsForExpr(st->expr(0), calls, last, commons);
+    ControlFlowItem* retv = GetFuncCallsForExpr(st->expr(0), calls, last, commons, st);
     ControlFlowItem* l2 = NULL;
-    ControlFlowItem* second = GetFuncCallsForExpr(st->expr(1), calls, &l2, commons);
+    ControlFlowItem* second = GetFuncCallsForExpr(st->expr(1), calls, &l2, commons, st);
     if (retv == NULL) {
         retv = second;
         *last = l2;
@@ -1116,7 +1145,7 @@ static ControlFlowItem* AddFunctionCalls(SgStatement* st, CallData* calls, Contr
         *last = l2;
     }
     ControlFlowItem* l3 = NULL;
-    ControlFlowItem* third = GetFuncCallsForExpr(st->expr(2), calls, &l3, commons);
+    ControlFlowItem* third = GetFuncCallsForExpr(st->expr(2), calls, &l3, commons, st);
     if (retv == NULL) {
         retv = third;
         *last = l3;

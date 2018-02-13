@@ -361,22 +361,17 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     {
         vector<int> matchToLoops = matchSubscriptToLoopSymbols(parentLoops, currExp->lhs(), arrayRef, side, i, loopInfo, currLine, numOfSubs);
         for (int k = 0; k < matchToLoops.size(); ++k)
-            wasFound[matchToLoops[k]] = 1;
+            wasFound[matchToLoops[k]]++;
         currExp = currExp->rhs();
     }
     
     if (side == LEFT)
-    {
-        int countOfFound = 0;
-        for (int i = 0; i < wasFound.size(); ++i)
-            if (wasFound[i] == 1)
-                countOfFound++;
-         
+    {         
         bool ifUnknownWriteFound = false;
         vector<int> canNotMapToLoop;
         for (int i = 0; i < wasFound.size(); ++i)
         {
-            if (wasFound[i] == 0)
+            if (wasFound[i] != 1)
             {
                 auto itLoop = sortedLoopGraph.find(parentLoops[i]->lineNumber());
                 if (itLoop == sortedLoopGraph.end())
@@ -514,9 +509,9 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
         while (dimList)
         {
             SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs());
-            if (res->variant() == INT_VAL)
+            if (res && res->variant() == INT_VAL)
                 sizes.push_back(make_pair(1, res->valueInteger()));
-            else if (res->variant() == DDOT)
+            else if (res && res->variant() == DDOT)
             {
                 int err, tmpRes;
                 if (res->lhs())

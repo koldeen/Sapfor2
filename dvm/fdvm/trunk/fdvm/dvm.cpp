@@ -8091,7 +8091,8 @@ void ShadowList (SgExpression *el, SgStatement *st, SgExpression *gref)
         if(ear->lhs()) 
         { 
            doShadSizeArrays(ear->lhs(), ear->symbol(), st, shlist);
-           doCallAfter(ShadowRenew_H2(head,corner,Rank(ar),*shlist));   
+           if(*shlist)
+             doCallAfter(ShadowRenew_H2(head,corner,Rank(ar),*shlist));   
            //doCallAfter(ShadowRenew_H2(Register_Array_H2(head),corner,Rank(ar),*shlist));   
         }
         else
@@ -8123,12 +8124,23 @@ int doShadSizeArrayM1(SgSymbol *ar, SgExpression **shlist)
 int doShadSizeArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, SgExpression **shlist) 
 {
  int rank,nw;
- int i=0,iright=0;
- SgExpression *wl,*ew,*lbound[7], *ubound[7];
+ int i=0,iright=0,j=0;
+ SgExpression *wl,*ew,*lbound[MAX_DIMS], *ubound[MAX_DIMS];
  rank = Rank(ar);
+ if(!TestMaxDims(shl,ar,st)) 
+     return (0);
  for(wl = shl; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
-     if(ew->variant() == DDOT){
+     if(ew->variant() == SHADOW_NAMES_OP) {
+       lbound[i] = new SgValueExp(0); 
+       ubound[i] = new SgValueExp(0);
+       j++;
+       if(!shlist)  //interface of RTS1
+         Error("Illegal shadow width specification of array '%s'", ar->identifier(), 56, st); 
+       else        //interface of RTS2 
+         ShadowNames(ar,rank-i,ew->lhs());               
+     }
+     else if(ew->variant() == DDOT) {
        lbound[i] = &(ew->lhs())->copy();//left bound 
        ubound[i] = &(ew->rhs())->copy();//right bound 
      } else {
@@ -8144,10 +8156,16 @@ int doShadSizeArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, SgExpress
      ubound[i] = new SgValueExp(1);
     }
 */
+
   TestShadowWidths(ar, lbound, ubound, nw, st);
   if (nw != rank) {// wrong shadow width list length
-     Error("Length of shadow-edge-list is not equal to the rank of array '%s'", ar->identifier(), 88,st); 
+     Error("Length of shadow-edge-list is not equal to the rank of array '%s'", ar->identifier(), 88, st); 
      return(0);
+  }
+  if(shlist && j==i)  //interface of RTS2 
+  {
+    *shlist = NULL;
+    return(0);
   }
   if(!shlist) //interface of RTS1 
   {
@@ -8168,10 +8186,19 @@ int doShadSizeArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, SgExpress
   return(iright);
 }
 
+void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list)
+{
+ SgExpression *nml;
+ SgExpression *head=HeaderRef(ar);
+ if(!head) return;
+ for(nml = shadow_name_list; nml; nml = nml->rhs())   
+   doCallAfter(IndirectShadowRenew(head,axis,nml->lhs()));
+}
+
 void TestShadowWidths(SgSymbol *ar, SgExpression * lbound[], SgExpression * ubound[], int nw, SgStatement *st)
   //compare shadow widths with that specified for array 'ar' in SHADOW directive
   // or SHADOW attribute of combined directive
-{SgExpression *lw[7], *uw[7],**pe,*wl,*ew;
+{SgExpression *lw[MAX_DIMS], *uw[MAX_DIMS],**pe,*wl,*ew;
  int i,n;
  pe=SHADOW_(ar);
  if(pe){ //distributed array has SHADOW attribute
@@ -8190,9 +8217,9 @@ void TestShadowWidths(SgSymbol *ar, SgExpression * lbound[], SgExpression * ubou
    n = i;
    for(i=0; i<nw && i<n; i++){
      if(lbound[i]->isInteger() && lw[i]->isInteger() && lbound[i]->valueInteger() > lw[i]->valueInteger() )
-      Error("Low shadow width  of  '%s' is greater than the corresponding one specified in SHADOW directive", ar->identifier(), 142,st); 
+       Error("Low shadow width  of  '%s' is greater than the corresponding one specified in SHADOW directive", ar->identifier(), 142,st); 
      if(ubound[i]->isInteger() && uw[i]->isInteger() && ubound[i]->valueInteger() > uw[i]->valueInteger() )
-      Error("High shadow width  of  '%s' is greater than the corresponding one specified in SHADOW directive", ar->identifier(), 143,st); 
+       Error("High shadow width  of  '%s' is greater than the corresponding one specified in SHADOW directive", ar->identifier(), 143,st); 
    }
  }
  else  {//by default shadow width = 1
@@ -11095,17 +11122,15 @@ void  RegistrateArg(SgExpression *ele)
 
 SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el)
 {
-  int i,j;
-  SgExpression *ei[MAX_DIMS], *index_list=NULL;
+  int i;
+  SgExpression *ei, *index_list=NULL;
   for(i=0; el; el=el->rhs(),i++) 
   { 
-     ei[i] = &(el->lhs()->copy());       
+     ei = &(el->lhs()->copy()); 
+     ei = new SgExprListExp(*DvmType_Ref(ei)); 
+     ei->setRhs(index_list);
+     index_list = ei;
   } 
-
-  index_list = new SgExprListExp(*DvmType_Ref(ei[i-1]));
-     
-  for(j=i-1; j; j--) 
-     index_list= AddListToList(index_list,new SgExprListExp(*DvmType_Ref(ei[j-1])));              
   return (CalculateLinear(HeaderRef(ar),i,index_list));
 
 }
@@ -12699,30 +12724,31 @@ void UpperBoundInTriplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit
  
 int doSectionIndex(SgExpression *esec, SgSymbol *ar, SgStatement *st, int idv[], int ileft, SgExpression *lrec[], SgExpression *rrec[])
 {int i, j, rank, isec, ilow, ihi;
- SgExpression *el,*einit[7],*elast[7],*estep[7];
+ SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
  SgValueExp cM1(-1);
  rank = Rank(ar);
  isec = ndvm;
  for(j=rank; j; j--)
-      doAssignStmtAfter(&cM1); 
+   doAssignStmtAfter(&cM1); 
  if(! esec->lhs()) { //no array section
    idv[0] = isec;
    idv[1] = idv[0];
  } else {
- for(el=esec->lhs(),i=0; el; el=el->rhs(),i++) //looking through the section index list   
-    Triplet(el->lhs(),ar,i, einit,elast,estep);
- if(i != rank){
-    Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
-    return(0);
- }
+   if(!TestMaxDims(esec->lhs(),ar,st)) return (0);
+   for(el=esec->lhs(),i=0; el; el=el->rhs(),i++) //looking through the section index list  
+      Triplet(el->lhs(),ar,i, einit,elast,estep);
+   if(i != rank){
+      Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
+      return(0);
+   }
  
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(einit[j-1])); 
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(elast[j-1])); 
 
- idv[0] = isec+rank;
- idv[1] = isec+2*rank;
+   idv[0] = isec+rank;
+   idv[1] = isec+2*rank;
  }
  if(!esec->rhs()){
     idv[2] = isec;
@@ -12735,43 +12761,44 @@ int doSectionIndex(SgExpression *esec, SgSymbol *ar, SgStatement *st, int idv[],
  if(!esec->rhs()->lhs()) {//no low shadow section
    idv[2] = isec;
    idv[3] = ileft; 
- } else { 
- for(el=esec->rhs()->lhs(),i=0; el; el=el->rhs(),i++)//looking through the section index list   
-    ShadowSectionTriplet(el->lhs(), i, einit,elast,estep,lrec,rrec,0);
- if(i != rank){
-    Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
-    return(0);
- }
+ } else {
+   if(!TestMaxDims(esec->rhs()->lhs(),ar,st)) return (0); 
+   for(el=esec->rhs()->lhs(),i=0; el; el=el->rhs(),i++)//looking through the section index list  
+      ShadowSectionTriplet(el->lhs(), i, einit,elast,estep,lrec,rrec,0);
+   if(i != rank){
+      Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
+      return(0);
+   }
  
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(einit[j-1])); 
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(elast[j-1])); 
 
- idv[2] = ilow;
- idv[3] = ilow+rank;
+   idv[2] = ilow;
+   idv[3] = ilow+rank;
  }
  ihi=ndvm;
  if(!esec->rhs()->rhs()) {//no high shadow section
    idv[4] = isec;
    idv[5] = ileft+rank; 
  } else { 
- for(el=esec->rhs()->rhs(),i=0; el; el=el->rhs(),i++)//looking through the section index list   
-    ShadowSectionTriplet(el->lhs(), i, einit,elast,estep,lrec,rrec,1);
- if(i != rank){
-    Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
-    return(0);
- }
+   if(!TestMaxDims(esec->rhs()->rhs(),ar,st)) return (0);
+   for(el=esec->rhs()->rhs(),i=0; el; el=el->rhs(),i++)//looking through the section index list  
+      ShadowSectionTriplet(el->lhs(), i, einit,elast,estep,lrec,rrec,1);
+   if(i != rank){
+      Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,st);
+      return(0);
+   }
  
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(einit[j-1])); 
- for(j=i; j; j--)
+   for(j=i; j; j--)
       doAssignStmtAfter(Calculate(elast[j-1])); 
 
- idv[4] = ihi;
- idv[5] = ihi+rank;
- }
- 
+   idv[4] = ihi;
+   idv[5] = ihi+rank;
+ } 
  return(1);
 }
 
@@ -12927,8 +12954,8 @@ void  doAssignIndexVar(SgExpression *dol,int iout, SgExpression *init[])
 
 SgExpression *TestDVMArrayRef(SgExpression *e)
 {SgExpression *dovar, *vl, *ei, *el, *coeff, *cons, *eop;
- SgSymbol *dim_ident[7];
- int i,j,k,n,num,use[7],is;
+ SgSymbol *dim_ident[MAX_DIMS];
+ int i,j,k,n,num,use[MAX_DIMS],is;
  sum_dvm = NULL;
  is = isInSymbList(dvm_ar,e->symbol());
     
@@ -14223,4 +14250,19 @@ int isInternalOrModuleProcedure(SgStatement *header_st)
  else 
     return 0;
 
+}
+
+int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt)
+{
+   int ndim = 0;
+   SgExpression *el;
+   for( el=list; el; el=el->rhs())
+      ndim++; 
+   if(ndim>MAX_DIMS)
+   {
+      Error("Too many dimensions specified for '%s'",ar->identifier(),43,stmt); 
+      return 0;
+   }
+   else
+      return 1;      
 }

@@ -163,6 +163,7 @@ name_dvm[REG_DESTROY_RB]   = "region_destroy_rb";
 name_dvm[GET_ACTUAL_EDGES] = "dvmh_get_actual_edges";
 name_dvm[SHADOW_RENEW]     = "dvmh_shadow_renew";
 name_dvm[SHADOW_RENEW_2]   = "dvmh_shadow_renew2";
+name_dvm[INDIRECT_SH_RENEW]= "dvmh_indirect_shadow_renew";
 name_dvm[LOOP_CREATE]      = "loop_create";
 name_dvm[LOOP_CREATE_2]    = "dvmh_loop_create";
 name_dvm[REG_HANDLER]      = "loop_register_handler";

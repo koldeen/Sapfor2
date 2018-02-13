@@ -3051,11 +3051,12 @@ SgExpression *SectionBoundsList(SgExpression *are)
     SgSymbol *ar = are->symbol(); 
     int rank = Rank(ar);
     int i;
-    for (el = are->lhs(), i = 0; el; el = el->rhs(), i++) {
-        Doublet(el->lhs(), ar, i, einit, elast);
-        bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(elast[i])));
-        bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(einit[i])));
-    }
+    for (el = are->lhs(), i = 0; el; el = el->rhs(), i++) 
+        if(i<MAX_DIMS) {
+           Doublet(el->lhs(), ar, i, einit, elast);
+           bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(elast[i])));
+           bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(einit[i])));
+        }
     if (i != rank)
         Error("Wrong number of subscripts specified for '%s'", ar->identifier(), 140, cur_st);    
 
@@ -3076,6 +3077,8 @@ int SectionBounds(SgExpression *are)
 
         return(init);
     }
+    if(!TestMaxDims(are->lhs(),ar,cur_st))
+        return (0);
     for (el = are->lhs(), i = 0; el; el = el->rhs(), i++)
         Doublet(el->lhs(), ar, i, einit, elast);
     if (i != rank){

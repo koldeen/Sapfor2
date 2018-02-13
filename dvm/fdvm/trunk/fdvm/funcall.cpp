@@ -3618,6 +3618,20 @@ SgStatement *ShadowRenew_H2(SgExpression *head,int corner,int rank,SgExpression 
   return(call);
 }
 
+
+SgStatement *IndirectShadowRenew(SgExpression *head, int axis, SgExpression *shadow_name)
+{// generating subroutine call:
+ //      dvmh_indirect_shadow_renew_(const DvmType dvmDesc[], const DvmType *pAxis, const DvmType *pShadowNameStr); 
+  
+  SgCallStmt *call = new SgCallStmt(*fdvm[INDIRECT_SH_RENEW]);
+  fmask[INDIRECT_SH_RENEW] = 2;
+
+  call->addArg(*head);
+  call->addArg(*ConstRef(axis));
+  call->addArg(*DvmhString(shadow_name));    //DvmhString(new SgValueExp(name))
+  return(call);
+}
+
 SgStatement *LoopShadowCompute_H(int il,SgExpression *headref)
 {  //generating subroutine call:  loop_shadow_compute(DvmhLoopRef,dvmDesc[]) 
    // DvmhLoopRef - result of loop_create()

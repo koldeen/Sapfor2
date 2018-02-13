@@ -114,7 +114,6 @@ void GraphsKeeper::deleteGraphs()
 
 void revertReplacements(SgStatement* function)
 {
-    ;
     auto tmpF = replacementsInFunctions.find(function);
     if (tmpF == replacementsInFunctions.end())
         return;
@@ -124,12 +123,14 @@ void revertReplacements(SgStatement* function)
     {
         SgStatement *parent = it->first.stmt;
         for (int i = 0; i < 3; ++i)
+        {
             if (it->second[i] != NULL)
             {
                 SgExpression* replacement = parent->expr(i);
                 parent->setExpression(i, *(it->second[i]));
                 it->second[i] = replacement;
             }
+        }
     }
 }
 
@@ -144,12 +145,14 @@ void revertReplacements(string filename)
     {
         SgStatement *parent = it->first.stmt;
         for (int i = 0; i < 3; ++i)
+        {
             if (it->second[i] != NULL)
             {
                 SgExpression* replacement = parent->expr(i);
                 parent->setExpression(i, *(it->second[i]));
                 it->second[i] = replacement;
             }
+        }
     }
 }
 

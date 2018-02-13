@@ -887,6 +887,8 @@ void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *e
 void Shadow_Add_Directive(SgStatement *stmt);
 SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el);
 SgSymbol *IOstatSymbol();
+void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list);
+int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -1685,6 +1687,7 @@ SgExpression *GetActualEdges_H(SgExpression *gref);
 //SgStatement *DoneShadow_GPU(int ish);
 SgStatement *ShadowRenew_H(SgExpression *gref);
 SgStatement *ShadowRenew_H2(SgExpression *head,int corner,int rank,SgExpression *shlist);
+SgStatement *IndirectShadowRenew(SgExpression *head, int axis, SgExpression *shadow_name);
 SgStatement *EndHostExec_GPU(int il);
 SgStatement *UpdateDVMArrayOnHost(SgSymbol *s);
 SgStatement *InsertRed_GPU(int il,int irv,SgExpression *base,SgExpression *loc_base,SgExpression *offset,SgExpression *loc_offset);

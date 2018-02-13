@@ -164,6 +164,7 @@ enum {
       GET_ACTUAL_EDGES,
       SHADOW_RENEW,
       SHADOW_RENEW_2,
+      INDIRECT_SH_RENEW,
       LOOP_CREATE,
       LOOP_CREATE_2,
       REG_HANDLER,
