@@ -656,13 +656,71 @@ static bool checkRemote(SgStatement *st,
     return retVal;
 }
 
-static bool checkParallelregions(SgStatement *st,
+static bool fillParallelregions(SgStatement *st,
                                  SgStatement *attributeStatement,
+                                 map<SgSymbol*, bool> &parRegList,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
-    // TODO
+    if (isSgExecutableStatement(st))
+    {
+        SgStatement *parent = st->controlParent();
+
+        if (st->variant() == SPF_PARALLEL_REG_DIR)
+        {
+            string identName = attributeStatement->symbol()->identifier();
+            SgSymbol *identSymbol = attributeStatement->symbol();
+            //SgStatement *declStatement = declaratedInStmt(identSymbol);
+
+            //TODO: add declaration checking
+
+            pair<map<SgSymbol*, bool>::iterator, bool> ret;
+
+            ret = parRegList.insert(std::make_pair(identSymbol, false));
+
+            if (ret.second == false)
+            {
+                __spf_print(1, "identificator '%s' is already used on line %d\n", identName, attributeStatement->lineNumber());
+                string message;
+                __spf_printToBuf(message, "identificator '%s' is already used", identName);
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                retVal = false;
+            }
+        }
+        else // type == SPF_END_PARALLEL_REG_DIR
+        {
+            parRegList.rbegin()->second = true;
+        }
+    }
+    else
+    {
+        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+        retVal = false;
+    }
+
+    return retVal;
+}
+
+static bool checkParallelregions(SgStatement *st,
+                                 SgStatement *attributeStatement,
+                                 const map<SgSymbol*, bool> &parRegList,
+                                 vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+
+    for (auto &parReg : parRegList)
+    {
+        if (!parReg.second)
+        {
+            string identName = parReg.first->identifier();
+            __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identName, attributeStatement->lineNumber());
+            string message;
+            __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identName);
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+            retVal = false;
+        }
+    }
 
     return retVal;
 }
@@ -691,6 +749,8 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 iterator = prev;
         }
     } while (cond);
+
+    map<SgSymbol*, bool> parRegList;
 
     for (int i = 0; i < st->numberOfAttributes(); ++i)
     {
@@ -733,7 +793,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 bool result = checkShadowAcross(st, attributeStatement, data, messagesForFile);
                 retVal = retVal && result;
             }
-            
+
             // REMOTE_ACCESS (EXPR)
             map<pair<SgSymbol*, string>, Expression*> remote;
             fillRemoteFromComment(attributeStatement, remote, true);
@@ -759,9 +819,10 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 }
             }
         }
-        else if (type == SPF_PARALLEL_REG_DIR)
+        else if (type == SPF_PARALLEL_REG_DIR || type == SPF_END_PARALLEL_REG_DIR)
         {
-            bool result = checkParallelregions(st, attributeStatement, messagesForFile);
+            bool result = fillParallelregions(st, attributeStatement, parRegList, messagesForFile);
+            result = result && checkParallelregions(st, attributeStatement, parRegList, messagesForFile);
             retVal = retVal && result;
         }
     }
