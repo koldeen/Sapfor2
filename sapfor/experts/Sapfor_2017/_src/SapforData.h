@@ -78,6 +78,7 @@ std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 
+std::map<int, std::map<std::pair<std::string, int>, SgStatement*>> statsByLine;
 
 static int stateId = 0;
 class SapforState

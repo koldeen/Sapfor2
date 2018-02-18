@@ -28,3 +28,6 @@ void getCommonBlocksRef(std::map<std::string, std::vector<SgStatement*>> &common
 extern std::map<std::pair<std::string, int>, std::tuple<int, std::string, std::string>> tableOfUniqNames;
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, std::vector<SgStatement*>> &commonBlocks, SgStatement *decl, SgSymbol *symb);
 SgStatement* findMainUnit(SgProject *proj);
+
+template<typename IN_TYPE, typename OUT_TYPE>
+const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);

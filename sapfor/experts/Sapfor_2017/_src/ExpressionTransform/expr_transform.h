@@ -21,7 +21,8 @@ SgExpression* ReplaceConstant(SgExpression *e);
 void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
 void expressionAnalyzer(SgFile *file);
-//void expressionAnalyzer(SgStatement *function);
+void expressionAnalyzer(SgStatement *function);
+
 void calculate(SgExpression *&exp);
 void replaceConstatRec(SgExpression *&exp);
 

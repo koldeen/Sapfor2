@@ -142,6 +142,17 @@ static bool isDone(const int curr_regime)
     return false;
 }
 
+static void updateStatsByLine(const int id)
+{ 
+    statsByLine[id].clear();
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        statsByLine[id][make_pair(st->fileName(), st->lineNumber())] = st;
+
+}
+
+//TODO: remove with value == 1
+#define NEW_SUBS 0
+
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
     if (PASSES_DONE_INIT == false)
@@ -175,6 +186,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #if _WIN32
     double timeForPass = omp_get_wtime();
 #endif
+
+    for (int i = n - 1; i >= 0; --i)
+    {
+        SgFile *file = &(project.file(i));
+        current_file_id = i;
+        current_file = file;
+        updateStatsByLine(current_file_id);
+    }
+
     for (int i = n - 1; i >= 0; --i)
     {
 #if _WIN32 && NDEBUG
@@ -183,6 +203,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
+
         const char *file_name = file->filename();
 
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
@@ -431,8 +452,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS)
             removeDvmDirectives(file);
+#if !NEW_SUBS
         else if (curr_regime == SUBST_EXPR)
             expressionAnalyzer(file);
+#endif
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename());
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -841,12 +864,35 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #endif
                 SgFile *file = &(project.file(i));
                 current_file_id = i;
+                current_file = file;
+
                 auto funcForFile = allFuncInfo.find(file->filename());
                 if (funcForFile != allFuncInfo.end())
                     PrivateAnalyzer(file, funcForFile->second);
             }
         }
     }
+#if NEW_SUBS
+    else if (curr_regime == SUBST_EXPR)
+    {
+        SgStatement *mainUnit = findMainUnit(&project);
+        if (mainUnit)
+            expressionAnalyzer(mainUnit);
+        else
+        {
+            for (int i = n - 1; i >= 0; --i)
+            {
+#if _WIN32 && NDEBUG
+                createNeededException();
+#endif
+                SgFile *file = &(project.file(i));
+                current_file_id = i;
+                current_file = file;
+                expressionAnalyzer(file);
+            }
+        }
+    }
+#endif
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
@@ -1130,6 +1176,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
             runPass(CREATE_REMOTES, proj_name, folderName);
+
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);            
                         

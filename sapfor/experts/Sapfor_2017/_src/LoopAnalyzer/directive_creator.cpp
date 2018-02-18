@@ -257,6 +257,22 @@ static inline bool isUnderAcrossDir(const string &array, const vector<pair<pair<
     return underAcrossDir;
 }
 
+static inline pair<int, int> getShadowsAcross(const string &array, const int pos, 
+                                              const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
+{
+    pair<int, int> shadows = make_pair(0, 0);
+    for (int i = 0; i < acrossInfo.size(); ++i)
+    {
+        if (acrossInfo[i].first.first == array)
+        {
+            shadows = acrossInfo[i].second[pos];
+            break;
+        }
+    }
+
+    return shadows;
+}
+
 static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAccesses,
                              const LoopGraph *currentLoop,
                              map<DIST::Array*, pair<int, pair<int, int>>> &arrayWriteAcc,
@@ -313,28 +329,46 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
                 }
                 else
                 {
-                    //TODO: imporve this
-                    //SgExpression *step = currentLoop->step();
-                    pair<int, int> needed;
-                    int init = 0;
-                    for (auto it = uniqAccess.begin(); it != uniqAccess.end(); ++it)
+                    int loopStep = currentLoop->stepVal;
+
+                    if (loopStep == 0)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    int shiftMin, shiftMax;
+                    bool init = false;
+                    for (auto &access : uniqAccess)
                     {
-                        if (init == 0)
+                        if (!init)
                         {
-                            needed = *it;
-                            init = 1;
+                            shiftMin = shiftMax = access.second;
+                            init = true;
                         }
                         else
                         {
-                            if ((*it).second == 0)
-                            {
-                                needed = *it;
-                                break;
-                            }
-                            else if (needed.second < (*it).second)
-                                needed = *it;
+                            shiftMin = std::min(shiftMin, access.second);
+                            shiftMax = std::max(shiftMax, access.second);
                         }
                     }
+
+                    pair<int, int> needed;// = (loopStep > 0) ? make_pair(0, shiftMin) : make_pair(0, shiftMax);
+                    pair<int, int> shiftSize = getShadowsAcross(arrayName.c_str(), lastPosWrite, acrossInfo);
+                    if (loopStep > 0)
+                        needed.second = shiftMax - shiftSize.second * loopStep;
+                    else
+                        needed.second = shiftMin - shiftSize.first * loopStep;
+
+                    //TODO: check
+                    for (auto &access : uniqAccess)
+                    {
+                        if (access.second == needed.second)
+                        {
+                            needed.first = access.first;
+                            break;
+                        }
+                    }
+                    if (needed.first == 0)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                     arrayWriteAcc.insert(make_pair(itArray.first, make_pair(lastPosWrite, needed)));
                     acrossOutArrays.insert(itArray.first);
                 }

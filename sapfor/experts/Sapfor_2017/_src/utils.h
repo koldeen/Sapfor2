@@ -51,4 +51,4 @@ int getNextNegativeLineNumber();
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 
-#define VERSION "505"
+#define VERSION "510"

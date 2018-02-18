@@ -11122,6 +11122,8 @@ void Create_C_extern_block()
         block_C_Cuda = st_mod;
         //Typedef_Stmts(st_end);   //10.12.13 
         TypeSymbols(st_end);
+        if(INTERFACE_RTS2)
+            st_mod->addComment(IncludeComment("<dvmhlib2.h>"));      
         st_mod->addComment(IncludeComment("<dvmhlib_cuda.h>\n#define dcmplx2 Complex<double>\n#define cmplx2 Complex<float>"));
         st_mod->addComment(CudaIndexTypeComment());
     }
@@ -11140,6 +11142,8 @@ void Create_C_extern_block()
     {      //Typedef_Stmts(end_block); //10.12.13
         TypeSymbols(end_block);
         block_C->addComment(IncludeComment("<dvmhlib_cuda.h>"));
+        if(INTERFACE_RTS2)
+            block_C->addComment(IncludeComment("<dvmhlib2.h>"));
         block_C->addComment(CudaIndexTypeComment());
     }
     block_C->addComment("#ifdef _MS_F_\n");

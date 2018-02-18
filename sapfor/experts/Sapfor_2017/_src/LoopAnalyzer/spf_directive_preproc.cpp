@@ -68,20 +68,15 @@ void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifi
 static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 {
     bool retVal = false;
-
-    for (int i = 0; i < st->numberOfAttributes() && !retVal; ++i)
+    
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
-        SgAttribute *attribute = st->getAttribute(i);
-        SgStatement *attributeStatement = (SgStatement *)(attribute->getAttributeData());
-        int type = st->attributeType(i);
+        set<string> privates;
+        fillPrivatesFromComment(data, privates);
 
-        if (type == SPF_ANALYSIS_DIR)
-        {
-            set<string> privates;
-            fillPrivatesFromComment(attributeStatement, privates);
-
-            retVal = retVal || privates.find(symbol->identifier()) != privates.end();
-        }
+        retVal = retVal || privates.find(symbol->identifier()) != privates.end();
+        if (retVal)
+            break;
     }
 
     return retVal;
@@ -957,14 +952,8 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             set<string> added;
-            for (int z = 0; z < itLoop->second->numberOfAttributes(); ++z)
-            {
-                SgAttribute *attr = itLoop->second->getAttribute(z);
-                int type = itLoop->second->attributeType(z);
-
-                if (type == SPF_ANALYSIS_DIR)
-                    fillPrivatesFromComment((SgStatement *)(attr->getAttributeData()), added);
-            }
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(itLoop->second, set<int>{ SPF_ANALYSIS_DIR }))
+                fillPrivatesFromComment(data, added);
 
             int uniq = 0;
             int k = 0;

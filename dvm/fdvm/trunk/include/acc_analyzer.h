@@ -543,7 +543,7 @@ public:
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SgSymbol* var, SgExpression* value);
     void addVarToKill(SgSymbol* var);
-    void checkFunctionCalls(SgExpression* exp);
+    void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
     void correctInDefs();
     inline std::map<SymbolKey, SgExpression*>* getGen()
@@ -742,6 +742,7 @@ bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
 void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term);
+void showDefsOfGraph(ControlFlowGraph *CGraph);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();

@@ -340,6 +340,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
 {
     SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
     spfStat->setlineNumber(currLoopRef->lineNumber());
+    spfStat->setFileName(currLoopRef->fileName());
 
     SgExpression *toAdd = new SgExpression(EXPR_LIST, new SgExpression(ACC_PRIVATE_OP), NULL, NULL);
     set<SgSymbol*> privateDoSymbs = { currLoopRef->symbol() };

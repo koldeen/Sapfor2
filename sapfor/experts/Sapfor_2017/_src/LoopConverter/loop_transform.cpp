@@ -9,7 +9,7 @@
 #include <SageUtils.hpp>
 #include "SageAnalysisTool/OmegaForSage/include/lang-interf.h"
 #include <SageAnalysisTool/definesValues.h>
-#include "../utils.h"
+#include "../SgUtils.h"
 
 using SageTransform::SageUtils::getLastLoopStatement;
 using SageTransform::DependencyType;
@@ -77,16 +77,11 @@ static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &
                                                map<string, set<SgSymbol*>> &reduction,
                                                map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction_loc)
 {
-    for (int i = 0; i < st->numberOfAttributes(); ++i)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
-        SgAttribute *attribute = st->getAttribute(i);
-        SgStatement *attributeStatement = (SgStatement *)(attribute->getAttributeData());
-        if (st->attributeType(i) == SPF_ANALYSIS_DIR)
-        {
-            fillPrivatesFromComment(attributeStatement, privates);
-            fillReductionsFromComment(attributeStatement, reduction);
-            fillReductionsFromComment(attributeStatement, reduction_loc);
-        }
+        fillPrivatesFromComment(data, privates);
+        fillReductionsFromComment(data, reduction);
+        fillReductionsFromComment(data, reduction_loc);
     }
 }
 

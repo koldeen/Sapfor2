@@ -26,29 +26,17 @@ using std::pair;
 
 bool isSPF_NoInline(SgStatement *st)
 {
-    //__spf_print(1, "check attributes for functons in line %d\n", st->lineNumber());
-    for (int z = 0; z < st->numberOfAttributes(); ++z)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_TRANSFORM_DIR }))
     {
-        //if (z == 0)
-        //    __spf_print(1, "attribute found with num %d\n", st->numberOfAttributes());
-        SgAttribute *attr = st->getAttribute(z);
-        int type = st->attributeType(z);
-        if (type == SPF_TRANSFORM_DIR)
+        SgExpression *exprList = data->expr(0);
+        while (exprList)
         {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
+            if (exprList->lhs()->variant() == SPF_NOINLINE_OP)
             {
-                SgExpression *exprList = data->expr(0);
-                while (exprList)
-                {
-                    if (exprList->lhs()->variant() == SPF_NOINLINE_OP)
-                    {
-                        //__spf_print(1, "found no inline\n");
-                        return true;
-                    }
-                    exprList = exprList->rhs();
-                }
+                //__spf_print(1, "found no inline\n");
+                return true;
             }
+            exprList = exprList->rhs();
         }
     }
     return false;
@@ -311,41 +299,20 @@ template void fillRemoteFromComment(SgStatement *st, map<pair<SgSymbol*, string>
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
-    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
-    {
-        SgAttribute *attr = currentLoop->getAttribute(i);
-
-        int type = currentLoop->attributeType(i);
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
-        {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
-                fillShadowAcrossFromComment(ACROSS_OP, data, acrossInfo);
-        }
-    }
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
+        fillShadowAcrossFromComment(ACROSS_OP, data, acrossInfo);
 }
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
-
-    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
     {
-        SgAttribute *attr = currentLoop->getAttribute(i);
-        int type = currentLoop->attributeType(i);
-
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
-        {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
-            {
-                fillPrivatesFromComment(data, directive->privates);
-                fillReductionsFromComment(data, directive->reduction);
-                fillReductionsFromComment(data, directive->reductionLoc);
-                fillShadowAcrossFromComment(SHADOW_OP, data, directive->shadowRenew);
-                fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
-                fillRemoteFromComment(data, directive->remoteAccess);
-            }
-        }
+        fillPrivatesFromComment(data, directive->privates);
+        fillReductionsFromComment(data, directive->reduction);
+        fillReductionsFromComment(data, directive->reductionLoc);
+        fillShadowAcrossFromComment(SHADOW_OP, data, directive->shadowRenew);
+        fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
+        fillRemoteFromComment(data, directive->remoteAccess);
     }
 }

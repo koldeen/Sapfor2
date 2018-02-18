@@ -233,7 +233,7 @@ int main(int argc, char *argv[]){
         {  
             parloop_by_handler = 2;
             options.setOn(O_HOST);
-            options.setOn(NO_CUDA);
+           // options.setOn(NO_CUDA);
         }
         else if (!strcmp(argv[0], "-Opl"))         /*ACC*/
             parloop_by_handler = 1; 
@@ -338,7 +338,7 @@ int main(int argc, char *argv[]){
         ACC_program = 0;
     }
     if (parloop_by_handler == 2)
-       (void)fprintf(stderr, "Warning: -Ohost and -noCuda options is set to -Opl2 mode\n");
+       (void)fprintf(stderr, "Warning: -Ohost option is set to -Opl2 mode\n");
     
     if (v_print)
         (void)fprintf(stderr, "<<<<<  Translating  >>>>>\n");

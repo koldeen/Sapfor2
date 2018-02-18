@@ -315,11 +315,19 @@ namespace Distribution
         double globalSum = 0;
         if (!onlyGraph)
         {
+            G.HighlightLinks();
+
+            //old simple algorithm
+            //G.RemoveMultipleArcsByWeights();
+
+            //new algorithm with optimal strategy
+            G.RemoveMultipleArcsOptimal();
+
 #if TEST
             string ArrayFileName = "_save_arrays_reg" + std::to_string(regionNum) + ".txt";
             string GraphFileName = "_save_full_graph_reg" + std::to_string(regionNum) + ".txt";
             string ReducedGraphFileName = "_save_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
-            
+
             FILE *load = fopen(ArrayFileName.c_str(), "r");
             bool needToReSave = true;
             if (load)
@@ -339,7 +347,7 @@ namespace Distribution
                         loadG_ok = G_local.LoadGraphFromFile(load);
                         fclose(load);
                     }
-                    
+
                     load = fopen(ReducedGraphFileName.c_str(), "rb");
                     if (load)
                     {
@@ -354,7 +362,7 @@ namespace Distribution
                     }
                     else
                         needToReSave = true;
-                }                
+                }
             }
 
             if (needToReSave)
@@ -376,13 +384,6 @@ namespace Distribution
                     needToReSave = false;
             }
 #endif
-            G.HighlightLinks();
-
-            //old simple algorithm
-            //G.RemoveMultipleArcsByWeights();
-
-            //new algorithm with optimal strategy
-            G.RemoveMultipleArcsOptimal();
 
             globalSum = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
 

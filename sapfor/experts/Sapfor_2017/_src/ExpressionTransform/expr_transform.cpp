@@ -26,7 +26,6 @@ using std::string;
 using std::iterator;
 using std::make_pair;
 
-#define PRINT_SUBSTITUTIONS 0
 #define PRINT_PROF_INFO 0
 /*
  * Contains original SgExpressions.
@@ -502,7 +501,22 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     return exp;
 }
 
-void createBackup(SgStatement* stmt, int expNumber)
+static void createLinksToCopy(SgExpression *exOrig, SgExpression *exCopy)
+{
+    if (exOrig && exCopy)
+    {
+        if (exOrig->variant() == ARRAY_REF && exCopy->variant() == ARRAY_REF)
+        {
+            exOrig->addAttribute(ARRAY_REF, exCopy, sizeof(SgExpression*));
+            exCopy->addAttribute(ARRAY_REF, exOrig, sizeof(SgExpression*));
+        }
+
+        createLinksToCopy(exOrig->lhs(), exCopy->lhs());
+        createLinksToCopy(exOrig->rhs(), exCopy->rhs());
+    }    
+}
+
+static void createBackup(SgStatement* stmt, int expNumber)
 {
     SgExpression* exp = stmt->expr(expNumber);
     auto foundedParent = curFileReplacements->find(stmt);
@@ -514,10 +528,16 @@ void createBackup(SgStatement* stmt, int expNumber)
         for (int i = 0; i < 2; ++i)
             foundedParent->second[i] = NULL;
     }
+
     if (foundedParent->second[expNumber] == NULL)
     {
         SgExpression* expToCopy = exp->copyPtr();
         foundedParent->second[expNumber] = expToCopy;
+
+        string orig = string(exp->unparse());
+        string copy = string(expToCopy->unparse());
+        if (orig == copy)
+            createLinksToCopy(exp, expToCopy);
     }
 }
 
@@ -540,6 +560,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
     //If SgExpression is a single VAR
     if (exp->variant() == VAR_REF)
     {
+
         SgExpression* newExp = valueOfVar(exp, b);
         if (newExp != NULL)
         {
@@ -550,7 +571,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
             wereReplacements = true;
         }
-    }        //If not :)
+    }//If not
     else
     {
         toCheck.push(exp);
@@ -646,8 +667,8 @@ bool replaceCallArguments(ControlFlowItem* cfi)
 
     if (needReplacement)
     {
-//		createBackup(callStmt)
         //TODO For procuderes and functions
+		//createBackup(callStmt)
         return replaceCallArgumentsInExpression(NULL, NULL);
     }
     else
@@ -661,9 +682,9 @@ bool replaceVarsInBlock(CBasicBlock* b)
     bool wereReplacements = false;
     SgStatement* st;
     for (ControlFlowItem* cfi = b->getStart(); cfi != b->getEnd()->getNext(); cfi = cfi->getNext())
+    {
         if ((st = cfi->getStatement()) != NULL)
         {
-
             if (isDVM_stat(st))
                 continue;
             if (isSPF_stat(st))
@@ -683,24 +704,25 @@ bool replaceVarsInBlock(CBasicBlock* b)
             default:
                 for (int i = 0; i < 3; ++i)
                     if (st->expr(i))
-                    {
                         wereReplacements |= replaceVarsInExpression(st, i, b, true);
-                        b->checkFunctionCalls(st->expr(i));
-                    }
             }
         }
-        else if ((st = cfi->getOriginalStatement()) != NULL)		//if or loop statement condition expressions
+        else if ((st = cfi->getOriginalStatement()) != NULL)    //if, loop or funcCall statement condition expressions
         {
+            if(cfi->getFunctionCall())//Will be processed further
+                continue;
             if (visitedStatements.find(st) == visitedStatements.end())
             {
                 visitedStatements.insert(st);
                 if (st->expr(0))
-                {
                     wereReplacements |= replaceVarsInExpression(st, 0, b, true);
-                    b->checkFunctionCalls(st->expr(0));
-                }
             }
         }
+
+        if(cfi->getFunctionCall())
+            b->checkFuncAndProcCalls(cfi);
+
+    }
     return wereReplacements;
 }
 
@@ -858,6 +880,8 @@ void expressionAnalyzer(SgFile *file)
         //calls.printControlFlows();
 
         ExpandExpressions(CGraph);
+
+//        showDefsOfGraph(CGraph);
         /*
          st = file->firstStatement();
          while(st != NULL)
@@ -865,45 +889,45 @@ void expressionAnalyzer(SgFile *file)
          st->unparsestdout();
          st = st->nextInChildList();
          }*/
-        /*
+/*
          CBasicBlock* b = CGraph->getFirst();
-         while (b != NULL)
-         {
-         //            printf("Block:\n");
-         SgStatement* st = NULL;
-         SgExpression* exp = NULL;
-         ControlFlowItem *cfi = b->getStart(), *till = b->getEnd()->getNext();
-         while (cfi != till)
-         {
-         printf("cfi: ");
-         if(cfi->getFunctionCall())
-         {
-         if(cfi->getOriginalStatement())
-         cfi->getOriginalStatement()->unparsestdout();
-         printf("-> %s'%s'%d <- ", cfi->getFunctionCall()->unparse(), cfi->getCall()->funName, cfi->getCall()->graph);
-         }
-         AnalysedCallsList* list = cfi->getCall();
-         //                if ((st = cfi->getOriginalStatement()) != NULL)
-         //              {
-         //            	printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
-         //          }
-         //        else
-         if ((st = cfi->getStatement()) != NULL)
-         {
-         printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
-         while (list != NULL)
-         {
-         printf("--%s'%d ", list->funName, list->graph);
-         list = list->next;
-         }
-         printf("\n");
-         }
-         cfi = cfi->getNext();
-         }
-         printf("\n");
-         b = b->getLexNext();
-         }
-         */
+        while (b != NULL)
+        {
+            printf("Block:\n");
+            SgStatement* st = NULL;
+            SgExpression* exp = NULL;
+            ControlFlowItem *cfi = b->getStart(), *till = b->getEnd()->getNext();
+            while (cfi != till)
+            {
+                printf("cfi: ");
+                if (cfi->getFunctionCall())
+                {
+                    //if (cfi->getOriginalStatement())
+                    //    cfi->getOriginalStatement()->unparsestdout();
+                    printf("->%d %s'%s'%d <- ", cfi->getOriginalStatement(), cfi->getFunctionCall()->unparse(), cfi->getCall()->funName, cfi->getCall()->graph);
+                }
+                AnalysedCallsList* list = cfi->getCall();
+                //                if ((st = cfi->getOriginalStatement()) != NULL)
+                //              {
+                //            	printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
+                //          }
+                //        else
+                if ((st = cfi->getStatement()) != NULL)
+                {
+                    printf("%d-%d: %s ", st->lineNumber(), st->variant(), st->unparse());
+                    while (list != NULL)
+                    {
+                        printf("--%s'%d ", list->funName, list->graph);
+                        list = list->next;
+                    }
+                    printf("\n");
+                }
+                cfi = cfi->getNext();
+            }
+            printf("\n");
+            b = b->getLexNext();
+        }
+*/
         delete CGraph;
     }
 }

@@ -37,29 +37,26 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
 
     int consistInAllocates = 0;
     SgExpression *alloc = NULL;
-    for (int i = 0; i < decl->numberOfAttributes(); ++i)
-    {
-        if (decl->attributeType(i) == ALLOCATE_STMT)
-        {
-            SgStatement *data = (SgStatement *)(decl->getAttribute(i)->getAttributeData());
-            SgExpression *list = data->expr(0);
-            if (data->variant() != ALLOCATE_STMT)
-                continue;
 
-            while (list)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT }))
+    {
+        SgExpression *list = data->expr(0);
+        if (data->variant() != ALLOCATE_STMT)
+            continue;
+
+        while (list)
+        {
+            SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
+            if (arrayRef != NULL)
             {
-                SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
-                if (arrayRef != NULL)
+                if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(symb->identifier()))
                 {
-                    if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(symb->identifier()))
-                    {
-                        consistInAllocates++;
-                        alloc = list->lhs()->lhs();
-                        break;
-                    }
+                    consistInAllocates++;
+                    alloc = list->lhs()->lhs();
+                    break;
                 }
-                list = list->rhs();
             }
+            list = list->rhs();
         }
     }
 
@@ -420,17 +417,9 @@ void restoreAssignsFromLoop(SgFile *file)
 
         vector<pair<SgStatement*, SgStatement*>> toMove;
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
-        {
-            for (int i = 0; i < st->numberOfAttributes(); ++i)
-            {
-                if (st->attributeType(i) == ASSIGN_STAT)
-                {
-                    SgStatement *data = (SgStatement*)(st->getAttribute(i)->getAttributeData());
-                    if (data->lineNumber() < 0)
-                        toMove.push_back(make_pair(st, data));
-                }
-            }
-        }
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
+                if (data->lineNumber() < 0)
+                    toMove.push_back(make_pair(st, data));
 
         for (auto &move : toMove)
             move.second->extractStmt();

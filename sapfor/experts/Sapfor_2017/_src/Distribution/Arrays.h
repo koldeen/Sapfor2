@@ -246,7 +246,7 @@ namespace Distribution
                     fscanf(file, "%d", &strLen);
                     fscanf(file, "%c", &tmpChar);
 
-                    string uniqKey = "";
+                    STRING uniqKey = "";
                     for (int k = 0; k < strLen; ++k)
                     {
                         char symb;
@@ -258,7 +258,7 @@ namespace Distribution
                     int dimCount = 0;
                     fscanf(file, "%d", &dimCount);
                     fscanf(file, "%c", &tmpChar);
-                    vector<vType> tmp(dimCount);
+                    VECTOR<vType> tmp(dimCount);
                     for (int z = 0; z < dimCount; ++z)
                     {
                         fscanf(file, "%d", &(tmp[z]));

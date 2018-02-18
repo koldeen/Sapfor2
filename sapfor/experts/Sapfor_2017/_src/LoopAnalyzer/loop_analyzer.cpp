@@ -177,7 +177,22 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                                                map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, 
                                                const int currLine, const int numOfSubscriptions)
 {
+    SgExpression *origSubscr = subscr;
     ArrayRefExp *arrayRef = new ArrayRefExp(arrayRefIn);
+    
+    // REVERT_SUBS has been done before REMOTE_ACC PASS
+    if (currRegime == REMOTE_ACC)
+    {
+        auto data = getAttributes<SgExpression*, SgExpression*>(arrayRefIn, set<int>{ ARRAY_REF });
+        if (data.size() == 1)
+        {
+            SgExpression *dataS = data[0]->lhs();
+            for (int z = 0; z < dimNum; ++z)
+                dataS = dataS->rhs();
+            subscr = dataS->lhs();
+        }
+    }
+
     int countOfSymbols = 0;
     int position = -1;
     vector<int> allPositions;
@@ -203,7 +218,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         __spf_print(PRINT_ARRAY_ARCS, " <%d|%d> ", 0, 0);
         if (currRegime == DATA_DISTR)
         {
-            const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
+            const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
             __spf_print(1, "WARN: array ref '%s' at line %d has more than one loop's variables\n", arrayRefString.second.c_str(), currLine);
 
             string message;
@@ -234,7 +249,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         }
         else if (currRegime == DATA_DISTR)
         {
-            const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
+            const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
 
             if (!hasArrayAcc)
             {
@@ -283,7 +298,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             }
             else if (currRegime == DATA_DISTR)
             {
-                const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
+                const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
                 __spf_print(1, "WARN: can not calculate index expression for array ref '%s' at line %d\n", arrayRefString.second.c_str(), currLine);
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
 
@@ -324,7 +339,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 if (currRegime == DATA_DISTR)
                 {
-                    const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, subscr);
+                    const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
                     __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), currLine);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
                     
@@ -352,7 +367,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
 {
     SgArrayRefExp *arrayRef = (SgArrayRefExp*)currExp;
     int numOfSubs = arrayRef->numberOfSubscripts();
-    
+
     currExp = currExp->lhs();
     vector<int> wasFound(parentLoops.size());
     std::fill(wasFound.begin(), wasFound.end(), 0);
@@ -542,31 +557,25 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
                 {
                     if (alloc == NULL)
                     {
-                        for (int i = 0; i < decl->numberOfAttributes(); ++i)
+                        for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT }))
                         {
-                            SgAttribute *attr = decl->getAttribute(i);
-                            int type = decl->attributeType(i);
-                            if (type == ALLOCATE_STMT)
+                            if (data->variant() != ALLOCATE_STMT)
+                                continue;
+                            
+                            SgExpression *list = data->expr(0);
+                            while (list)
                             {
-                                SgStatement *data = (SgStatement *)(attr->getAttributeData());
-                                SgExpression *list = data->expr(0);
-                                if (data->variant() != ALLOCATE_STMT)
-                                    continue;
-
-                                while (list)
+                                SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
+                                if (arrayRef != NULL)
                                 {
-                                    SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
-                                    if (arrayRef != NULL)
+                                    if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(symb->identifier()))
                                     {
-                                        if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(symb->identifier()))
-                                        {
-                                            consistInAllocates++;
-                                            alloc = list->lhs()->lhs();
-                                            break;
-                                        }
+                                        consistInAllocates++;
+                                        alloc = list->lhs()->lhs();
+                                        break;
                                     }
-                                    list = list->rhs();
                                 }
+                                list = list->rhs();
                             }
                         }
                     }
@@ -1171,22 +1180,17 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     auto loopRef = sortedLoopGraph[loop];
                     SgStatement *loopSt = loopRef->loop;
 
-                    for (int z = 0; z < loopSt->numberOfAttributes() && !hasReduction; ++z)
+                    for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
                     {
-                        if (loopSt->attributeType(z) == SPF_ANALYSIS_DIR || loopSt->attributeType(z) == SPF_PARALLEL_DIR)
-                        {
-                            SgStatement *data = (SgStatement*)(loopSt->getAttribute(z)->getAttributeData());
-                            if (data)
-                            {
-                                map<string, set<string>> reductions;
-                                map<string, set<tuple<string, string, int>>> reductionsLoc;
+                        map<string, set<string>> reductions;
+                        map<string, set<tuple<string, string, int>>> reductionsLoc;
 
-                                fillReductionsFromComment(data, reductions);
-                                fillReductionsFromComment(data, reductionsLoc);
+                        fillReductionsFromComment(data, reductions);
+                        fillReductionsFromComment(data, reductionsLoc);
 
-                                hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
-                            }
-                        }
+                        hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
+                        if (hasReduction)
+                            break;
                     }
 
                     for (SgStatement *start = loopSt->lexNext(); 
@@ -1341,9 +1345,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
             //after SPF preprocessing 
-            for (int z = 0; z < iter->numberOfAttributes(); ++z)
-                if (iter->attributeType(z) == SPF_ANALYSIS_DIR)
-                    fillPrivatesFromComment((SgStatement *)(iter->getAttribute(z)->getAttributeData()), privates);
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
+                fillPrivatesFromComment(data, privates);
 
             //before SPF preprocessing 
             if (iter->variant() == SPF_ANALYSIS_DIR)
@@ -1370,6 +1373,8 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
     {
         SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
         spfStat->setlineNumber(loop->lineNum);
+        spfStat->setFileName((char*)current_file->filename());
+
         if (!loop->hasLimitsToParallel())
         {
             loop->loop->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
