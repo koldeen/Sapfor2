@@ -3618,6 +3618,20 @@ SgStatement *ShadowRenew_H2(SgExpression *head,int corner,int rank,SgExpression 
   return(call);
 }
 
+
+SgStatement *IndirectShadowRenew(SgExpression *head, int axis, SgExpression *shadow_name)
+{// generating subroutine call:
+ //      dvmh_indirect_shadow_renew_(const DvmType dvmDesc[], const DvmType *pAxis, const DvmType *pShadowNameStr); 
+  
+  SgCallStmt *call = new SgCallStmt(*fdvm[INDIRECT_SH_RENEW]);
+  fmask[INDIRECT_SH_RENEW] = 2;
+
+  call->addArg(*head);
+  call->addArg(*ConstRef(axis));
+  call->addArg(*DvmhString(shadow_name));    //DvmhString(new SgValueExp(name))
+  return(call);
+}
+
 SgStatement *LoopShadowCompute_H(int il,SgExpression *headref)
 {  //generating subroutine call:  loop_shadow_compute(DvmhLoopRef,dvmDesc[]) 
    // DvmhLoopRef - result of loop_create()
@@ -3865,7 +3879,7 @@ SgExpression *DvmhMultBlock(SgExpression *em)
 SgExpression *DvmhIndirect(SgSymbol *smap)
 {
   // generates function call:
-  //      DvmType dvmh_distribution_indirect_(const DvmType *pElemType, const void *arrayAddr)
+  //      DvmType dvmh_distribution_indirect(const DvmType *pElemType, const void *arrayAddr)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_INDIRECT]);
   fmask[DVMH_INDIRECT] = 1;
@@ -3877,8 +3891,16 @@ SgExpression *DvmhIndirect(SgSymbol *smap)
 
 }
 
-//DvmType dvmh_distribution_derived_(const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)
-
+SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func)
+{ //generating function call:
+  //      DvmType dvmh_distribution_derived(const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)  
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_DERIVED]);
+  fmask[DVMH_DERIVED] = 1;  
+  fe->addArg(*derived_rhs);
+  fe->addArg(*counter_func);
+  fe->addArg(*filler_func);
+  return fe;
+}
 
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list)
 {
@@ -4169,29 +4191,42 @@ SgExpression *HasLocalElement_H2(SgSymbol *s_loop_ref, SgSymbol*ar, int n, SgExp
 // ------ Calls from Adapter/Cuda-Handler (C Language) --------------------------------------------------------------
 
 SgExpression *GetNaturalBase(SgSymbol *s_cur_dev,SgSymbol *shead)
-{ // generating function call: dvmh_get_natural_base(DvmType *deviceRef, DvmType dvmDesc[])
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_BASE]);
-  
-  fe->addArg(SgAddrOp(* new SgVarRefExp(s_cur_dev)));
+{ // generating function call: dvmh_get_natural_base (DvmType *deviceRef, DvmType dvmDesc[])
+  // or 
+  //                           dvmh_get_natural_base_C(DvmType deviceNum, const DvmType dvmDesc[])
+
+  int fNum = INTERFACE_RTS2 ? GET_BASE_C : GET_BASE;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(* new SgVarRefExp(s_cur_dev));
+  else
+     fe->addArg(SgAddrOp(* new SgVarRefExp(s_cur_dev)));
   fe->addArg(* new SgArrayRefExp(*shead));
   return(fe);
 }
 
 SgExpression *GetDeviceAddr(SgSymbol *s_cur_dev,SgSymbol *s_var)
-{ // generating function call: dvmh_get_device_addr(DvmType *deviceRef, void *variable)
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_DEVICE_ADDR]);
-  
-  fe->addArg(SgAddrOp(*new SgVarRefExp(s_cur_dev)));
+{ // generating function call: dvmh_get_device_addr (DvmType *deviceRef, void *variable)
+  // or when RTS2 is used
+  //                           dvmh_get_device_addr_C(DvmType deviceNum, const void *addr);
+
+  int fNum = INTERFACE_RTS2 ? GET_DEVICE_ADDR_C : GET_DEVICE_ADDR ;  
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(*new SgVarRefExp(s_cur_dev));
+  else
+     fe->addArg(SgAddrOp(*new SgVarRefExp(s_cur_dev)));
   fe->addArg(*new SgVarRefExp(*s_var));
   return(fe);
 }
 
 SgExpression *FillHeader(SgSymbol *s_cur_dev,SgSymbol *sbase,SgSymbol *shead,SgSymbol *sgpuhead)
 { // generating function call: dvmh_fill_header_(DvmType *deviceRef, void *base, DvmType dvmDesc[], DvmType dvmhDesc[])
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[FILL_HEADER]);
+  // or when RTS2 is used
+  //                   DvmType dvmh_fill_header2_(const DvmType *pDeviceNum, const void *baseAddr, const DvmType dvmDesc[], DvmType devHeader[]);     
+
+  int fNum = INTERFACE_RTS2 ? FILL_HEADER_2 : FILL_HEADER ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
   
   fe->addArg(SgAddrOp(*new SgVarRefExp(s_cur_dev)));
   fe->addArg(* new SgVarRefExp(*sbase));
@@ -4202,16 +4237,23 @@ SgExpression *FillHeader(SgSymbol *s_cur_dev,SgSymbol *sbase,SgSymbol *shead,SgS
 
 SgExpression *FillHeader_Ex(SgSymbol *s_cur_dev,SgSymbol *sbase,SgSymbol *shead,SgSymbol *sgpuhead,SgSymbol *soutType,SgSymbol *sParams)
 { // generating function call: dvmh_fill_header_ex_(DvmType *deviceRef, void *base, DvmType dvmDesc[], DvmType dvmhDesc[],DvmType *outTypeOfTransformation, DvmType extendedParams[])
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[FILL_HEADER_EX]);
-  
+  // or when RTS2 is used    
+  //                   DvmType dvmh_fill_header_ex2_(const DvmType *pDeviceNum, const void *baseAddr, const DvmType dvmDesc[], DvmType devHeader[], DvmType extendedParams[])
+
+  int fNum = INTERFACE_RTS2 ? FILL_HEADER_EX_2 : FILL_HEADER_EX ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  SgExpression *e;  
   fe->addArg(SgAddrOp(*new SgVarRefExp(s_cur_dev)));
   fe->addArg(* new SgVarRefExp(*sbase));
   fe->addArg(* new SgArrayRefExp(*shead));
   fe->addArg(* new SgArrayRefExp(*sgpuhead));
-  fe->addArg(SgAddrOp(*new SgVarRefExp(soutType)));
+  if(!INTERFACE_RTS2)
+     fe->addArg(SgAddrOp(*new SgVarRefExp(soutType)));
   fe->addArg(* new SgArrayRefExp(*sParams));
-  return(fe);
+  if(INTERFACE_RTS2)
+     e = &SgAssignOp(*new SgVarRefExp(soutType), *fe);
+
+  return(INTERFACE_RTS2 ? e : fe);
 }
 
 SgExpression *LoopDoCuda(SgSymbol *s_loop_ref,SgSymbol *s_blocks,SgSymbol *s_threads,SgSymbol *s_stream, SgSymbol *s_blocks_info,SgSymbol *s_const)
@@ -4236,31 +4278,32 @@ SgExpression *LoopDoCuda(SgSymbol *s_loop_ref,SgSymbol *s_blocks,SgSymbol *s_thr
 SgFunctionCallExp *CallKernel(SgSymbol *skernel, SgExpression *blosks_threads)
 {// generating Kernel Call:  
  // loop_<file_name>_<loopNo>(InDeviceBaseAddr1,dvmhDesc1[]...,InDeviceBaseAddrN,dvmhDescN[],<uses_vars>,<for_red_vars> ,blocks_info,red_count) 
-
     
   SgExpression *fe = new SgExpression(ACC_CALL_OP);
   fe->setSymbol(*skernel); 
   fe->setRhs(*blosks_threads);
-
-                 //  fe ->setVariant(ACC_CALL_OP);
   return((SgFunctionCallExp *)fe);
 }
 
 SgExpression *RegisterReduction(SgSymbol *s_loop_ref, SgSymbol *s_var_num, SgSymbol *s_red, SgSymbol *s_loc)
 { // generating function call: loop_cuda_register_red(DvmhLoopRef *InDvmhLoop, DvmType InRedNum, void **ArrayPtr, void **LocPtr)
+  // or when RTS2 is used 
+  //                      dvmh_loop_cuda_register_red_C(DvmType curLoop, DvmType redIndex, void **arrayAddrPtr, void **locAddrPtr)
+
   SgExpression *eloc;
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[RED_CUDA]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
- 
+  int fNum = INTERFACE_RTS2 ? RED_CUDA_C : RED_CUDA ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else   
+     fe->addArg(* new SgVarRefExp(s_loop_ref));  
   fe->addArg(* new SgVarRefExp(s_var_num));  
   fe->addArg(SgAddrOp(*new SgVarRefExp(*s_red))); 
   if (s_loc)
     eloc = &(SgAddrOp(*new SgVarRefExp(*s_loc)));
   else
     eloc = new SgValueExp(0);
-  fe->addArg(*eloc);
- 
+  fe->addArg(*eloc); 
   return( fe);
 }
 
@@ -4286,8 +4329,12 @@ SgExpression *Register_Red(SgSymbol *s_loop_ref, SgSymbol *s_var_num, SgSymbol *
 
 SgExpression *InitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_red,SgSymbol *s_loc)
 { // generating function call: loop_red_init_(DvmhLoopRef *InDvmhLoop, Dvmtype *InRedNum, void *arrayPtr, void *locPtr)
+  // or when RTS2 is used  
+  //                      dvmh_loop_red_init_(const DvmType *pCurLoop, const DvmType *pRedIndex, void *arrayAddr, void *locAddr)
+
   SgExpression *eloc;
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[RED_INIT_C]);
+  int fNum = INTERFACE_RTS2 ? RED_INIT_2 : RED_INIT_C ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
   
   fe->addArg(* new SgVarRefExp(s_loop_ref));  
   fe->addArg(SgAddrOp(* new SgVarRefExp(s_var_num)));
@@ -4301,11 +4348,17 @@ SgExpression *InitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol
 }
 
 SgExpression *CudaInitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num,  SgSymbol *s_dev_red,SgSymbol *s_dev_loc) //SgSymbol *s_red,SgSymbol *s_loc,
-{ // generating function call: loop_cuda_red_init_(DvmhLoopRef *InDvmhLoop, Dvmtype InRedNum, void *arrayPtr, void *locPtr, void **devArrayPtr, void **devLocPtr)
+{ // generating function call: loop_cuda_red_init_ (DvmhLoopRef *InDvmhLoop, Dvmtype InRedNum, void *arrayPtr, void *locPtr, void **devArrayPtr, void **devLocPtr)
+  // or when RTS2 is used  
+  //                      dvmh_loop_cuda_red_init_C(DvmType curLoop, DvmType redIndex, void **devArrayAddrPtr, void **devLocAddrPtr) 
+
   SgExpression *eloc;
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[CUDA_RED_INIT]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
+  int fNum = INTERFACE_RTS2 ? CUDA_RED_INIT_2 : CUDA_RED_INIT ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else   
+     fe->addArg(* new SgVarRefExp(s_loop_ref));
   fe->addArg(* new SgVarRefExp(s_var_num));
        //fe->addArg(* new SgVarRefExp(*s_red));
        //if (s_loc)
@@ -4324,10 +4377,15 @@ SgExpression *CudaInitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num,  SgS
 
 SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_count, SgSymbol *s_fill_flag)
 { // generating function call: loop_cuda_red_prepare_(DvmhLoopRef *InDvmhLoop, Dvmtype InRedNumRef, DvmType InCountRef, DvmType InFillFlagRef)
-                                                     
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[RED_PREPARE]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
+  // or when RTS2 is used  
+  //                      dvmh_loop_cuda_red_prepare_C(DvmType curLoop, DvmType redIndex, DvmType count, DvmType fillFlag)                                                     
+
+  int fNum = INTERFACE_RTS2 ? RED_PREPARE_C : RED_PREPARE ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else   
+     fe->addArg(* new SgVarRefExp(s_loop_ref));
   fe->addArg(* new SgVarRefExp(s_var_num));
   fe->addArg(* new SgVarRefExp(s_count));
   fe->addArg(* new SgVarRefExp(s_fill_flag));
@@ -4335,11 +4393,16 @@ SgExpression *PrepareReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSym
 }
 
 SgExpression *FinishReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num)
-{ // generating function call: void loop_red_finish_(DvmhLoopRef *InDvmhLoop, DvmType InRedNumRef)
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[RED_FINISH]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
+{ // generating function call: loop_red_finish_(DvmhLoopRef *InDvmhLoop, DvmType InRedNumRef)
+  // or when RTS2 is used  
+  //                           dvmh_loop_cuda_red_finish_C(DvmType curLoop, DvmType redIndex)
+
+  int fNum = INTERFACE_RTS2 ? RED_FINISH_C : RED_FINISH ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else   
+     fe->addArg(* new SgVarRefExp(s_loop_ref));
   fe->addArg(* new SgVarRefExp(s_var_num));
   return(fe);
 }
@@ -4357,10 +4420,16 @@ SgExpression *LoopSharedNeeded(SgSymbol *s_loop_ref, SgExpression *ecount)
 
 SgExpression *GetLocalPart(SgSymbol *s_loop_ref, SgSymbol *shead, SgSymbol *s_const)
 { // generating function call:
-  //             CudaIndexType *  loop_cuda_get_local_part(DvmhLoopRef *InDvmhLoop, DvmType dvmDesc[], DvmType indexType);
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_LOCAL_PART]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
+  //             void * loop_cuda_get_local_part (DvmhLoopRef *InDvmhLoop, DvmType dvmDesc[], DvmType indexType);
+  // or when RTS2 is used  
+  //         void *dvmh_loop_cuda_get_local_part_C(DvmType curLoop, const DvmType dvmDesc[], DvmType indexType)
+
+  int fNum = INTERFACE_RTS2 ? GET_LOCAL_PART_C : GET_LOCAL_PART ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else   
+     fe->addArg(* new SgVarRefExp(s_loop_ref));  
   fe->addArg(* new SgArrayRefExp(*shead));
   fe->addArg(* new SgVarRefExp(s_const));
   return(fe);
@@ -4369,9 +4438,12 @@ SgExpression *GetLocalPart(SgSymbol *s_loop_ref, SgSymbol *shead, SgSymbol *s_co
 
 SgExpression *GetDeviceNum(SgSymbol *s_loop_ref)
 { // generating function call:
-  //                       DvmType loop_get_device_num_(DvmhLoopRef *InDvmhLoop)
- 
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_DEVICE_NUM]);
+  //                       DvmType  loop_get_device_num_ (DvmhLoopRef *InDvmhLoop)
+  // or when RTS2 is used
+  //                       DvmType dvmh_loop_get_device_num_(const DvmType *pCurLoop)
+  
+  int  fNum = INTERFACE_RTS2 ? GET_DEVICE_NUM_2 : GET_DEVICE_NUM ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
   
   fe->addArg(* new SgVarRefExp(s_loop_ref));
   
@@ -4394,11 +4466,14 @@ SgExpression *GetOverallStep(SgSymbol *s_loop_ref)
 
 SgExpression *FillBounds(SgSymbol *loop_s, SgSymbol *sBlow,SgSymbol *sBhigh,SgSymbol *sBstep)
 {// generating function call: 
- //                         void loop_fill_bounds_(DvmhLoopRef, lowIndex[],highIndex[],stepIndex[]) 
- // DvmhLoopRef - result of loop_create() 
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[FILL_BOUNDS_C]);  
-  
+ //                               loop_fill_bounds_(DvmType *InDvmhLoop, DvmType lowIndex[], DvmType highIndex[], DvmType stepIndex[]) 
+ // DvmhLoopRef - result of loop_create()
+ // or when RTS2 is used   
+ //                          dvmh_loop_fill_bounds_(const DvmType *pCurLoop, DvmType boundsLow[], DvmType boundsHigh[], DvmType loopSteps[]);  
+
+  int fNum = INTERFACE_RTS2 ? FILL_BOUNDS_2 : FILL_BOUNDS_C ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);  
+                             
   fe -> addArg(* new SgVarRefExp(loop_s));
   fe -> addArg(* new SgVarRefExp(sBlow));
   fe -> addArg(* new SgVarRefExp(sBhigh));
@@ -4411,10 +4486,13 @@ SgExpression *FillBounds(SgSymbol *loop_s, SgSymbol *sBlow,SgSymbol *sBhigh,SgSy
 
 SgExpression *RedPost(SgSymbol *loop_s, SgSymbol *s_var_num, SgSymbol *sRed,SgSymbol *sLoc)
 {// generating function call: 
- //                         void loop_red_post_(DvmhLoopRef *InDvmhLoop, DvmType *InRedNum, void *arrayPtr, void *locPtr) 
- // DvmhLoopRef - result of loop_create()    
-   
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[RED_POST_C]);  
+ //                         void  loop_red_post_(DvmhLoopRef *InDvmhLoop, DvmType *InRedNum, void *arrayPtr, void *locPtr) 
+ // DvmhLoopRef - result of loop_create() 
+ // or when RTS2 is used      
+ //                     void dvmh_loop_red_post_(const DvmType *pCurLoop, const DvmType *pRedIndex, const void *arrayAddr, const void *locAddr)   
+
+  int fNum = INTERFACE_RTS2 ? RED_POST_2 : RED_POST_C ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);  
   
   fe -> addArg(* new SgVarRefExp(loop_s));
   fe->addArg(SgAddrOp(* new SgVarRefExp(s_var_num)));
@@ -4445,8 +4523,11 @@ SgExpression *CudaReplicate(SgSymbol *Addr, SgSymbol *recordSize, SgSymbol *quan
 SgExpression *GetDependencyMask(SgSymbol *s_loop_ref) 
 { // generating function call:
   //                       DvmType loop_get_dependency_mask_(DvmhLoopRef *InDvmhLoop)
- 
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_DEP_MASK]);
+  // or when RTS2 is used   
+  //                  DvmType dvmh_loop_get_dependency_mask_(const DvmType *pCurLoop)
+
+  int fNum = INTERFACE_RTS2 ? GET_DEP_MASK_2 : GET_DEP_MASK ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
   
   fe->addArg(* new SgVarRefExp(s_loop_ref));
   
@@ -4470,9 +4551,12 @@ SgExpression *CudaTransform(SgSymbol *s_loop_ref, SgSymbol *s_head, SgSymbol *s_
 
 SgExpression *CudaAutoTransform(SgSymbol *s_loop_ref, SgSymbol *s_head) 
 { // generating function call:
-  //                       DvmType loop_cuda_autotransform_(DvmhLoopRef *InDvmhLoop, DvmType dvmDesc[])
- 
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[CUDA_AUTOTRANSFORM]);
+  //                       DvmType loop_cuda_autotransform(DvmhLoopRef *InDvmhLoop, DvmType dvmDesc[])
+  // or when RTS2 is used  
+  //                       DvmType dvmh_loop_autotransform_(const DvmType *pCurLoop, DvmType dvmDesc[])
+
+  int fNum = INTERFACE_RTS2 ? LOOP_AUTOTRANSFORM : CUDA_AUTOTRANSFORM ;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
   
   fe->addArg(* new SgVarRefExp(s_loop_ref));
   fe->addArg(* new SgArrayRefExp(*s_head));  
@@ -4493,12 +4577,17 @@ SgExpression *ApplyOffset(SgSymbol *s_head, SgSymbol *s_base, SgSymbol *s_headH)
 }
 
 SgExpression *GetConfig(SgSymbol *s_loop_ref,SgSymbol *s_shared_perThread,SgSymbol *s_regs_perThread,SgSymbol *s_threads,SgSymbol *s_stream, SgSymbol *s_shared_perBlock)
-{ // generating function call: void loop_cuda_get_config_ (DvmhLoopRef *InDvmhLoop, DvmType InSharedPerThread, DvmType InRegsPerThread, dim3 *OutThreads, cudaStream_t *OutStream, DvmType *OutSharedPerBlock);
+{ // generating function call: void loop_cuda_get_config_ (DvmhLoopRef *InDvmhLoop, DvmType InSharedPerThread, DvmType InRegsPerThread, dim3 *OutThreads, cudaStream_t *OutStream, DvmType *OutSharedPerBlock)
+  // or when RTS2 is used  
+  //                           dvmh_loop_cuda_get_config_C(DvmType curLoop, DvmType sharedPerThread, DvmType regsPerThread, void *inOutThreads, void *outStream,DvmType *outSharedPerBlock)
 
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GET_CONFIG]);
-  
-  fe->addArg(* new SgVarRefExp(s_loop_ref));
+  int fNum = INTERFACE_RTS2 ? GET_CONFIG_C : GET_CONFIG ;  
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);
+
+  if(INTERFACE_RTS2)
+     fe->addArg(SgDerefOp(*new SgVarRefExp(s_loop_ref)));
+  else     
+     fe->addArg(* new SgVarRefExp(s_loop_ref));
   if(s_shared_perThread)
     fe->addArg(*new SgVarRefExp(*s_shared_perThread));
   else
@@ -4520,7 +4609,7 @@ SgExpression *GetConfig(SgSymbol *s_loop_ref,SgSymbol *s_shared_perThread,SgSymb
 SgExpression *ChangeFilledBounds(SgSymbol *s_low,SgSymbol *s_high,SgSymbol *s_idx, SgSymbol *s_n,SgSymbol *s_dep,SgSymbol *s_type,SgSymbol *s_idxs)
 {// generating function call: 
  //                         void dvmh_change_filled_bounds(DvmType *low, DvmType *high, DvmType *idx, DvmType n, DvmType dep, DvmType type_of_run, DvmType *idxs); 
-  
+ //                              dvmh_change_filled_bounds_C(DvmType boundsLow[], DvmType boundsHigh[], DvmType loopSteps[], DvmType rank, DvmType depMask, DvmType idxPerm[])  
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[CHANGE_BOUNDS]);  
   
   fe -> addArg(* new SgVarRefExp(s_low));
@@ -4536,8 +4625,11 @@ SgExpression *ChangeFilledBounds(SgSymbol *s_low,SgSymbol *s_high,SgSymbol *s_id
 SgExpression *GuessIndexType(SgSymbol *s_loop_ref)
 {// generating function call: 
  //                         loop_guess_index_type_(DvmhLoopRef *InDvmhLoop) 
-  
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[GUESS_INDEX_TYPE]);  
+ // or when RTS2 is used  
+ //                    dvmh_loop_guess_index_type_(const DvmType *pCurLoop)
+
+  int fNum = INTERFACE_RTS2 ? GUESS_INDEX_TYPE_2 : GUESS_INDEX_TYPE ;  
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[fNum]);  
   
   fe -> addArg(* new SgVarRefExp(s_loop_ref));
   return(fe);

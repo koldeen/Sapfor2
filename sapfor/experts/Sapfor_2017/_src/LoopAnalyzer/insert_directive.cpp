@@ -226,9 +226,9 @@ void removeDvmDirectives(SgFile *file)
         toDel[k]->deleteStmt();
 }
 
-static inline string genTamplateDelc(const DIST::Array *templ)
+static inline string genTamplateDelc(const DIST::Array *templ, const bool common = true)
 {
-    string templDecl = "!DVM$ TEMPLATE, COMMON :: ";
+    string templDecl = (common) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     const vector<pair<int, int>> &sizes = templ->GetSizes();
 
     templDecl += templ->GetShortName() + "(";
@@ -461,6 +461,7 @@ static inline void extractComments(SgStatement *where, const string &what)
     sprintf(str, "%s", source.c_str());
 }
 
+//NOTE: this function inserts also local templates for parallel loop with out distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                         map<string, string> templateDeclInIncludes,
                                         const vector<string> &distrRules, const DIST::Arrays<int> &allArrays, 
@@ -487,7 +488,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
             const set<DIST::Array*> &arrays = allArrays.GetArrays();
             for (auto &array : arrays)
             {
-                if (array->isTemplate())
+                if (array->isTemplate() && !array->isLoopArray())
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     string templDecl = genTamplateDelc(array);
@@ -507,6 +508,52 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     }
 
                     if (needToInsert && includedToThisFile.find(fullDecl) == includedToThisFile.end())
+                    {
+                        if (extractDir)
+                            extractComments(nextSt, fullDecl);
+                        else
+                            nextSt->addComment(fullDecl.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    const set<DIST::Array*> &arrays = allArrays.GetArrays();
+    set<DIST::Array*> loopArrays;
+    for (auto &array : arrays)
+        if (array->isTemplate() && array->isLoopArray())
+            loopArrays.insert(array);
+    
+    if (loopArrays.size())
+    {
+        for (int i = 0; i < modulesAndFuncs.size(); ++i)
+        {
+            SgStatement *st = modulesAndFuncs[i];
+
+            string name = "";
+            if (st->variant() == PROG_HEDR || (st->variant() == FUNC_HEDR))
+                name = ((SgFuncHedrStmt*)st)->name().identifier();
+            else if (st->variant() == PROC_HEDR)
+                name = ((SgProcHedrStmt*)st)->name().identifier();
+
+            if (name == "")
+                continue;
+
+            for (auto &array : loopArrays)
+            {
+                const auto &location = array->GetLocation();
+                if (location.second == name)
+                {
+                    int templIdx = findTeplatePosition(array, dataDir);
+                    string templDecl = genTamplateDelc(array, false);
+                    string templDist = genTemplateDistr(array, distrRules, regionId, templIdx);
+                    string templDyn = "";
+
+                    string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));
+                    SgStatement *nextSt = st->lexNext();
+
+                    if (includedToThisFile.find(fullDecl) == includedToThisFile.end())
                     {
                         if (extractDir)
                             extractComments(nextSt, fullDecl);

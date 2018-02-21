@@ -24,5 +24,11 @@
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\SageUtils.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\LineReorderRecord.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageUtils\src\LineReorderer.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -1088,7 +1088,7 @@ int RecurList (SgExpression *el, SgStatement *st, SgExpression *gref, int *ag, i
 { SgValueExp c1(1);
   int rank,ndep;
   int  ileft,idv[6];
-  SgExpression *es, *ear, *head, *esec, *esc, *lrec[7], *rrec[7], *gref_acc = NULL;
+  SgExpression *es, *ear, *head, *esec, *esc, *lrec[MAX_DIMS], *rrec[MAX_DIMS], *gref_acc = NULL;
   SgSymbol *ar;
   //int nel = 0;
   
@@ -1133,7 +1133,7 @@ int RecurList (SgExpression *el, SgStatement *st, SgExpression *gref, int *ag, i
           doAssignStmtAfter(InsertArrayBoundDep(gref_acc, head, ileft, ileft+rank, 1, ileft+2*rank));
      }
      else {
-       if(!Recurrences(ear->lhs(),lrec,rrec,7))
+       if(!Recurrences(ear->lhs(),lrec,rrec,MAX_DIMS))
           err("Recurrence list is not specified", 261, st);
        for(esc=esec; esc; esc=esc->rhs()) {
           doSectionIndex(esc->lhs(), ear->symbol(), st, idv, ileft, lrec, rrec);
@@ -1152,15 +1152,17 @@ int doRecurLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int rt
  int rank,nw,nnl,flag;
  int i=0;
  nnl = 0;
- SgExpression *wl,*ew, *bound[7],*null[7],*shsign[7],*eneg;
+ SgExpression *wl,*ew, *bound[MAX_DIMS],*null[MAX_DIMS],*shsign[MAX_DIMS],*eneg;
  rank = Rank(ar);
  if(!shl)  //without dependence-list ,
            // by default dependence length is equal to the maximal size of shadow edge
-   for(i=rank-1,nnl=1; i>=0; i--){
+   for(i=rank-1,nnl=1; i>=0; i--) {
         bound[i]  = &cM1;
         null[i]   = &c0;
         shsign[i] = &c3;
    }
+ if(!TestMaxDims(shl,ar,st))
+     return(0);
  for(wl = shl; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
      flag = all_positive_step ? 0 : loop_num[i];
@@ -1230,7 +1232,7 @@ int doRecurLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int rt
  int rank,nw,nnl,flag;
  int i=0;
  nnl = 0;
- SgExpression *wl,*ew, *bound[7],*null[7],*shsign[7],*eneg;
+ SgExpression *wl,*ew, *bound[MAX_DIMS],*null[MAX_DIMS],*shsign[MAX_DIMS],*eneg;
  rank = Rank(ar);
  if(!shl)  //without dependence-list ,
            // by default dependence length is equal to the maximal size of shadow edge
@@ -1239,6 +1241,8 @@ int doRecurLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int rt
         null[i]   = &c0;
         shsign[i] = &c3;
    }
+ if(!TestMaxDims(shl,ar,st))
+     return(0);
  for(wl = shl; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
      flag = all_positive_step ? 0 : loop_num[i];
@@ -1412,7 +1416,7 @@ int doDepLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int dep)
  int rank,nw,nnl;
  int i=0;
  nnl = 0;
- SgExpression *wl,*ew, *bound[7],*null[7],*shsign[7];
+ SgExpression *wl,*ew, *bound[MAX_DIMS],*null[MAX_DIMS],*shsign[MAX_DIMS];
  rank = Rank(ar);
  if(!shl)  //without dependence-list ,
            // by default dependence length is equal to the maximal size of shadow edge
@@ -1421,7 +1425,8 @@ int doDepLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int dep)
         null[i]   = &c0;
         shsign[i] = &c3;
    }
-  
+ if(!TestMaxDims(shl,ar,st))
+     return(0);  
  for(wl = shl; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
      if(dep == ANTIDEP)

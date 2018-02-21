@@ -439,6 +439,7 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ DERIVED_OP ] = "DERIVED_OP";
   tag [ DUMMY_REF ] = "DUMMY_REF";
   tag [ COMMON_OP ] = "COMMON_OP";
+  tag [ SHADOW_NAMES_OP ] = "SHADOW_NAMES_OP";
 
 /***************** variant tags for symbol table entries ********************/
 

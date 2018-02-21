@@ -5,6 +5,11 @@
 #include "leak_detector.h"
 #include <stdio.h>
 
+#ifdef __SPF
+extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+extern "C" void removeFromCollection(void *pointer);
+#endif
+
 #ifndef __GNUC__
 # include <stdlib.h>
 #else
@@ -23,11 +28,6 @@ extern "C" void exit(int status);
 extern "C" int number_of_ll_node;
 
 #undef USER
-
-#ifdef __SPF
-extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
-extern "C" void removeFromCollection(void *pointer);
-#endif
 
 //
 // define for having the debugging

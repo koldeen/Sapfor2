@@ -152,6 +152,14 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
     }
 }
 
+static SgStatement *getLoopControlParent(SgStatement *inSt)
+{
+    SgStatement *cp = inSt->controlParent();
+    while (!isSgForStmt(cp) && cp)
+        cp = cp->controlParent();
+    return cp;
+}
+
 static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vector<int> &linesOfExtGoTo, const map<int, vector<int>> &labelsRef)
 {
     bool has = false;
@@ -169,7 +177,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
         {
             if (curr->expr(i))
             {
-                if (recVariantFind(curr->expr(i), EXIT_STMT))
+                if (recVariantFind(curr->expr(i), EXIT_STMT) && getLoopControlParent(curr) == loop)
                 {
                     linesOfIntGoTo.push_back(curr->lineNumber());
                     has = true;
@@ -179,7 +187,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
 
         processLables(curr, gotoLabels);
 
-        if (curr->variant() == EXIT_STMT)
+        if (curr->variant() == EXIT_STMT && getLoopControlParent(curr) == loop)
         {
             linesOfIntGoTo.push_back(curr->lineNumber());
             has = true;
@@ -253,7 +261,7 @@ static inline int tryCalculate(SgExpression *expr, int &res)
     return 0;
 }
 
-static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgExpression *step)
+static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgExpression *step, std::tuple<int, int, int> &result)
 {
     if (!start && !end)
         return 0;
@@ -281,7 +289,12 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
 
     int count = (endV - startV + stepV) / stepV;
     if (count > 0)
+    {
+        std::get<0>(result) = startV;
+        std::get<1>(result) = endV;
+        std::get<2>(result) = stepV;
         return count;
+    }
     else
         return 0;
 }
@@ -327,6 +340,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
 {
     SgStatement *spfStat = new SgStatement(SPF_ANALYSIS_DIR);
     spfStat->setlineNumber(currLoopRef->lineNumber());
+    spfStat->setFileName(currLoopRef->fileName());
 
     SgExpression *toAdd = new SgExpression(EXPR_LIST, new SgExpression(ACC_PRIVATE_OP), NULL, NULL);
     set<SgSymbol*> privateDoSymbs = { currLoopRef->symbol() };
@@ -358,7 +372,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
         toAdd->setLhs(new SgVarRefExp(elem));
     }
 
-    currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));    
+    currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
@@ -406,7 +420,16 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             {
                 LoopGraph *newLoop = new LoopGraph();
                 newLoop->lineNum = st->lineNumber();
-                newLoop->lineNumAfterLoop = st->lastNodeOfStmt()->lexNext()->lineNumber();
+
+                SgStatement *afterLoop = st->lastNodeOfStmt()->lexNext();
+                //< 0 was appear after CONVERT_ASSIGN_TO_LOOP pass
+                while (afterLoop->lineNumber() < 0)
+                {
+                    afterLoop = afterLoop->lastNodeOfStmt();
+                    afterLoop = afterLoop->lexNext();
+                }
+                newLoop->lineNumAfterLoop = afterLoop->lineNumber();
+
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
@@ -415,13 +438,24 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
-                newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step());
+
+                std::tuple<int, int, int> loopInfoSES;
+                newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
+                if (newLoop->countOfIters != 0)
+                {
+                    newLoop->startVal = std::get<0>(loopInfoSES);
+                    newLoop->endVal = std::get<1>(loopInfoSES);
+                    newLoop->stepVal = std::get<2>(loopInfoSES);
+                }
                 newLoop->loop = new Statement(st);
 
                 if (parentLoops.size() == 0)
                     loopGraph.push_back(newLoop);
                 else
+                {
                     currLoop->childs.push_back(newLoop);
+                    currLoop->childs.back()->parent = parentLoops.back();
+                }
 
                 parentLoops.push_back(newLoop);
                 currLoop = newLoop;
@@ -460,4 +494,59 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
     }
 }
 
+void LoopGraph::recalculatePerfect()
+{
+    perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+    for (auto &loop : childs)
+        loop->recalculatePerfect();
+}
+
+extern int PASSES_DONE[EMPTY_PASS];
+static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
+{
+    int loopState = 0; // 0 - unknown, 1 - good, 2 - bad
+    if (PASSES_DONE[CREATE_TEMPLATE_LINKS])
+    {
+        if (currLoop->hasLimitsToParallel())
+            loopState = 2;
+        else
+            loopState = 1;
+    }
+    else
+    {
+        if (currLoop->hasLimitsToParallel())
+            loopState = 2;
+    }
+
+    sprintf(buf, " %d %d %d %d %d %d %d",
+        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
+}
+
+void convertToString(const LoopGraph *currLoop, string &result)
+{
+    if (currLoop)
+    {
+        char buf[512];
+        result += " " + std::to_string(currLoop->calls.size());
+        for (int i = 0; i < currLoop->calls.size(); ++i)
+            result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
+        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        result += string(buf);
+
+        result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());
+        for (int i = 0; i < currLoop->linesOfExternalGoTo.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfExternalGoTo[i]);
+
+        result += " " + std::to_string(currLoop->linesOfInternalGoTo.size());
+        for (int i = 0; i < currLoop->linesOfInternalGoTo.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfInternalGoTo[i]);
+
+        result += " " + std::to_string(currLoop->linesOfIO.size());
+        for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfIO[i]);
+
+        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
+            convertToString(currLoop->childs[i], result);
+    }
+}
 #undef DEBUG

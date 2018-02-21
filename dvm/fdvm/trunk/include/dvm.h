@@ -883,9 +883,12 @@ SgExpression *AddElementToList(SgExpression *list, SgExpression *e);
 SgExpression *ListUnion(SgExpression *list1, SgExpression *list2);
 SgExpression *TypeSize_RTS2(SgType *type);
 SgExpression *DeclaredShadowWidths(SgSymbol *ar);
+void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *eFunc[]);
 void Shadow_Add_Directive(SgStatement *stmt);
 SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el);
 SgSymbol *IOstatSymbol();
+void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list);
+int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -1684,6 +1687,7 @@ SgExpression *GetActualEdges_H(SgExpression *gref);
 //SgStatement *DoneShadow_GPU(int ish);
 SgStatement *ShadowRenew_H(SgExpression *gref);
 SgStatement *ShadowRenew_H2(SgExpression *head,int corner,int rank,SgExpression *shlist);
+SgStatement *IndirectShadowRenew(SgExpression *head, int axis, SgExpression *shadow_name);
 SgStatement *EndHostExec_GPU(int il);
 SgStatement *UpdateDVMArrayOnHost(SgSymbol *s);
 SgStatement *InsertRed_GPU(int il,int irv,SgExpression *base,SgExpression *loc_base,SgExpression *offset,SgExpression *loc_offset);
@@ -1773,6 +1777,7 @@ SgExpression *DvmhWgtBlock(SgSymbol *sw, SgExpression *en);
 SgExpression *DvmhGenBlock(SgSymbol *sg);
 SgExpression *DvmhMultBlock(SgExpression *em);
 SgExpression *DvmhIndirect(SgSymbol *smap);
+SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func);
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhRedistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, SgExpression *alignment_list);

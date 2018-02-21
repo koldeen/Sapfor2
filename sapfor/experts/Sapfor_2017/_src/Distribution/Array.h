@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include "../AstWrapper.h"
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -14,6 +15,8 @@
 
 namespace Distribution
 {
+    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV } distFlagType;
+
     class Array;
 
     struct TemplateLink
@@ -66,7 +69,10 @@ namespace Distribution
         // template info by region
         MAP<int, TemplateLink*> templateInfo;
         bool isTemplFlag;
-        bool isNonDistribute;
+        bool isLoopArrayFlag;
+        distFlag isNonDistribute;
+        Symbol *declSymbol;
+        STRING uniqKey;
 
         // PAIR<FILE, LINE>
         SET<PAIR<STRING, int>> declPlaces;
@@ -89,19 +95,38 @@ namespace Distribution
                 currLink = it->second;
             return currLink;
         }
+
+        void GenUniqKey()
+        {
+            uniqKey = shortName + locationPos.second + TO_STR(dimSize);
+            for (auto &place : declPlaces)
+                uniqKey += place.first + TO_STR(place.second);
+        }
     public:
         Array()
         {
-
+            isTemplFlag = false;
+            isLoopArrayFlag = false;
+            isNonDistribute = NO_DISTR;
+            uniqKey = "";
         }
 
-        Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id
-            , const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos) :
-            name(name), dimSize(dimSize), id(id), shortName(shortName), isTemplFlag(false), isNonDistribute(false),
-            locationPos(locationPos)
+        Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
+              const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
+              Symbol *declSymbol) :
+
+            name(name), dimSize(dimSize), id(id), shortName(shortName), 
+            isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
+            locationPos(locationPos), declSymbol(declSymbol)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
+            for (int z = 0; z < dimSize; ++z)
+            {
+                sizes[z].first = INT_MAX;
+                sizes[z].second = -INT_MAX;
+            }
+            GenUniqKey();
         }
 
         Array(const Array &copy)
@@ -114,6 +139,7 @@ namespace Distribution
 
             isTemplFlag = copy.isTemplFlag;
             isNonDistribute = copy.isNonDistribute;
+            isLoopArrayFlag = copy.isLoopArrayFlag;
 
             declPlaces = copy.declPlaces;
             locationPos = copy.locationPos;
@@ -122,6 +148,9 @@ namespace Distribution
 
             for (auto &elem : copy.templateInfo)
                 templateInfo[elem.first] = new TemplateLink(*elem.second);
+
+            declSymbol = copy.declSymbol;
+            uniqKey = copy.uniqKey;
         }
 
         int GetDimSize() const { return dimSize; }
@@ -132,6 +161,8 @@ namespace Distribution
         const VECTOR<PAIR<int, int>>& GetSizes() const { return sizes; }
         void SetTemplateFlag(const bool templFlag) { isTemplFlag = templFlag; }
         bool isTemplate() const { return isTemplFlag; }
+        bool isLoopArray() const { return isLoopArrayFlag; }
+        void setLoopArray(const bool flag) { isLoopArrayFlag = flag; }
         int AddLinkWithTemplate(const int dimNum, const int value, Array *templateArray_, const PAIR<int, int> &rule, const int regionId)
         {
             int err = 0;
@@ -168,6 +199,7 @@ namespace Distribution
                 shortName = newName;
                 name += newName;
             }
+            GenUniqKey();
         }
 
         void ExtendDimSize(const int dim, const PAIR<int, int> &size) 
@@ -181,7 +213,11 @@ namespace Distribution
         void SetId(const unsigned newId) { id = newId; }
 
         const SET<PAIR<STRING, int>>& GetDeclInfo() const { return declPlaces; }
-        void AddDeclInfo(const PAIR<STRING, int> &declInfo) { declPlaces.insert(declInfo); }
+        void AddDeclInfo(const PAIR<STRING, int> &declInfo) 
+        {
+            declPlaces.insert(declInfo); 
+            GenUniqKey();
+        }
 
         //save request of shadow spec
         void ExtendShadowSpec(const VECTOR<PAIR<int, int>> &newSpec)
@@ -243,12 +279,8 @@ namespace Distribution
             retVal += " " + name;
             retVal += " " + shortName;
             retVal += " " + TO_STR(dimSize);
-
-            if (isNonDistribute)
-                retVal += " 1";
-            else
-                retVal += " 0";
-
+            retVal += " " + TO_STR(isNonDistribute);
+            
             retVal += " " + TO_STR(locationPos.first);
             retVal += " " + locationPos.second;
 
@@ -261,10 +293,11 @@ namespace Distribution
                 retVal += " " + TO_STR(it->first) + it->second->toString();
             
             retVal += " " + TO_STR((int)isTemplFlag);
+            retVal += "|" + TO_STR((int)isLoopArrayFlag);
             retVal += "|" + TO_STR(declPlaces.size());
 
             for (auto &place : declPlaces)
-                retVal += "|" + place.first + "|" + TO_STR(place.second);            
+                retVal += "|" + place.first + "|" + TO_STR(place.second);
             return retVal;
         }
 
@@ -274,11 +307,20 @@ namespace Distribution
             return currLink->templateArray;
         }
 
-        void SetNonDistributeFlag(bool isNonDistribute_) { isNonDistribute = isNonDistribute_; }
-        bool GetNonDistributeFlag() const { return isNonDistribute; }
+        void SetNonDistributeFlag(const distFlag isNonDistribute_) { isNonDistribute = isNonDistribute_; }
+        bool GetNonDistributeFlag() const { return (isNonDistribute == DISTR) ? false : true; }
+        distFlag GetNonDistributeFlagVal() const { return isNonDistribute; }
 
-        void SetLocation(int loc, const STRING &name) { locationPos = std::make_pair(loc, name); }
+        void SetLocation(int loc, const STRING &name) 
+        {
+            locationPos = std::make_pair(loc, name); 
+            GenUniqKey();
+        }
         PAIR<int, STRING> GetLocation() const { return locationPos; }
+
+        Symbol* GetDeclSymbol() const { return declSymbol; }
+
+        const STRING& GetArrayUniqKey() const { return uniqKey; }
 
         ~Array() 
         {

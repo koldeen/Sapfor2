@@ -14,6 +14,7 @@ extern "C" void printLowLevelNote(const char *fileName, const int line, const ch
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
+bool IsPureProcedureACC(SgSymbol* s);
 #endif
 
 struct AnalysedCallsList;
@@ -71,7 +72,7 @@ public:
     inline int getBBno()
     { return bbno; }
 
-    inline void AddNextItem(ControlFlowItem *n) 
+    inline void AddNextItem(ControlFlowItem *n)
     { next = n; }
 
     inline void MakeParloopStart()
@@ -114,7 +115,7 @@ public:
     inline ControlFlowItem* getJump()
     { return jmp; }
 
-    inline ControlFlowItem* getNext() 
+    inline ControlFlowItem* getNext()
     { return next; }
 
     inline void setLeader()
@@ -172,7 +173,7 @@ public:
     void printDebugInfo();
 
 #endif
-    
+
     ~ControlFlowItem()
     {
         /*if (jmp != NULL)
@@ -449,7 +450,7 @@ class CBasicBlock
     bool lv_undef;
     void setDefAndUse();
     char prev_status;
-    bool temp; 
+    bool temp;
     void addExprToUse(SgExpression* e, CExprList*);
     void AddOneExpressionToUse(SgExpression*, SgStatement*);
     void AddOneExpressionToDef(SgExpression*, SgStatement*);
@@ -542,8 +543,8 @@ public:
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SgSymbol* var, SgExpression* value);
     void addVarToKill(SgSymbol* var);
-    void checkFunctionCalls(SgExpression* exp);
-    void adjustGenAndKill(SgStatement* st);
+    void checkFuncAndProcCalls(ControlFlowItem* cfi);
+    void adjustGenAndKill(ControlFlowItem* cfi);
     void correctInDefs();
     inline std::map<SymbolKey, SgExpression*>* getGen()
     { return &gen; }
@@ -590,6 +591,7 @@ class ControlFlowGraph
     bool temp;
     bool main;
     int refs;
+    bool hasBeenAnalyzed;
     void liveAnalysis();
 public:
     ControlFlowGraph(bool temp, bool main, ControlFlowItem* item, ControlFlowItem* end);
@@ -697,7 +699,7 @@ public:
     ~PrivateDelayedItem();
     void PrintWarnings();
     void MoveFromPrivateToLastPrivate(CVarEntryInfo*);
-    VarSet* getDetected() { return detected;  }
+    VarSet* getDetected() { return detected; }
     VarSet* getDelayed() { return delay; }
 };
 
@@ -738,7 +740,9 @@ void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+bool argIsReplaceable(int i, AnalysedCallsList* callData);
 void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term);
+void showDefsOfGraph(ControlFlowGraph *CGraph);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();

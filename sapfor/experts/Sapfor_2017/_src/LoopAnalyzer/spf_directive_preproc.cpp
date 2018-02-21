@@ -45,10 +45,13 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     }
 }
 
-void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifierList)
+void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifierList, vector<SgExpression*> &funcCalls)
 {
     if (exp)
     {
+        if (exp->variant() == FUNC_CALL)
+            funcCalls.push_back(exp);
+
         if (types.find(exp->variant()) != types.end())
         {
             if (exp->symbol())
@@ -57,28 +60,23 @@ void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifi
                 identifierList.insert((SgSymbol*)exp); // BAD solution
         }
         
-        fillVars(exp->lhs(), types, identifierList);
-        fillVars(exp->rhs(), types, identifierList);
+        fillVars(exp->lhs(), types, identifierList, funcCalls);
+        fillVars(exp->rhs(), types, identifierList, funcCalls);
     }
 }
 
 static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 {
     bool retVal = false;
-
-    for (int i = 0; i < st->numberOfAttributes() && !retVal; ++i)
+    
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
-        SgAttribute *attribute = st->getAttribute(i);
-        SgStatement *attributeStatement = (SgStatement *)(attribute->getAttributeData());
-        int type = st->attributeType(i);
+        set<string> privates;
+        fillPrivatesFromComment(data, privates);
 
-        if (type == SPF_ANALYSIS_DIR)
-        {
-            set<string> privates;
-            fillPrivatesFromComment(attributeStatement, privates);
-
-            retVal = retVal || privates.find(symbol->identifier()) != privates.end();
-        }
+        retVal = retVal || privates.find(symbol->identifier()) != privates.end();
+        if (retVal)
+            break;
     }
 
     return retVal;
@@ -90,6 +88,41 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, message)); \
 } while(0)
+
+static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
+{
+    for ( ;iterator != end; iterator = iterator->lexNext())
+    {
+        vector<SgExpression*> funcCalls;
+        if (iterator->variant() == PROC_STAT)
+        {// TODO: procedures may have IN, INOUT, OUT parameters
+            fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef, funcCalls);
+            fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
+        }
+        else
+        {
+            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == false)
+                fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef, funcCalls);
+            else
+                fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
+
+            fillVars(iterator->expr(1), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
+            fillVars(iterator->expr(2), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
+
+            if (iterator->variant() == FOR_NODE)
+            {
+                auto loop = isSgForStmt(iterator);
+                varDef.insert(loop->doName());
+                varUse.insert(loop->doName());
+            }
+
+            vector<SgExpression*> dummy;
+            // TODO: functions may have IN, INOUT, OUT parameters
+            for (auto &func : funcCalls)
+                fillVars(func, { ARRAY_REF, VAR_REF }, varDef, dummy);
+        }        
+    }
+}
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
@@ -107,14 +140,8 @@ static bool checkPrivate(SgStatement *st,
         set<SgSymbol*> varDef;
         set<SgSymbol*> varUse;
 
-        while (iterator != end)
-        {
-            fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef);
-            fillVars(iterator->expr(1), { ARRAY_REF, VAR_REF }, varUse);
-            fillVars(iterator->expr(2), { ARRAY_REF, VAR_REF }, varUse);
-            iterator = iterator->lexNext();
-        }
-
+        fillVarsSets(iterator, end, varDef, varUse);
+        
         for (auto &privElem : privates)
         {
             bool defCond = true;
@@ -178,13 +205,7 @@ static bool checkReduction(SgStatement *st,
         set<SgSymbol*> varDef;
         set<SgSymbol*> varUse;
 
-        while (iterator != end)
-        {
-            fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef);
-            fillVars(iterator->expr(1), { ARRAY_REF, VAR_REF }, varUse);
-            fillVars(iterator->expr(2), { ARRAY_REF, VAR_REF }, varUse);
-            iterator = iterator->lexNext();
-        }
+        fillVarsSets(iterator, end, varDef, varUse);
 
         for (auto &redElem : reduction)
         {
@@ -522,7 +543,8 @@ static bool checkRemote(SgStatement *st,
             SgStatement *declStatement = declaratedInStmt(remElem.first.first);
             set<SgSymbol*> arraySymbols;
 
-            fillVars(remElem.second, { ARRAY_REF }, arraySymbols);
+            vector<SgExpression*> dummy;
+            fillVars(remElem.second, { ARRAY_REF }, arraySymbols, dummy);
             for (auto &arraySymbol : arraySymbols)
             {
                 declStatement = declaratedInStmt(arraySymbol);
@@ -888,7 +910,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
 void addAcrossToLoops(LoopGraph *topLoop,
                       const map<SgSymbol*, tuple<int, int, int>> &acrossToAdd,
-                      const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                      const map<int, SgForStmt*> &allLoops,
                       vector<Messages> &currMessages)
 {
     if (acrossToAdd.size() != 0)
@@ -954,13 +976,13 @@ void addAcrossToLoops(LoopGraph *topLoop,
         auto it = allLoops.find(topLoop->lineNum);
         if (it == allLoops.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        it->second.first->addAttribute(SPF_PARALLEL_DIR, acrSpf, sizeof(SgStatement));
+        it->second->addAttribute(SPF_PARALLEL_DIR, acrSpf, sizeof(SgStatement));
     }
 }
 
 void addPrivatesToLoops(LoopGraph *topLoop, 
                         const vector<const depNode*> &privatesToAdd,
-                        const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                        const map<int, SgForStmt*> &allLoops,
                         vector<Messages> &currMessages)
 {
     if (privatesToAdd.size() != 0)
@@ -991,14 +1013,8 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             set<string> added;
-            for (int z = 0; z < itLoop->second.first->numberOfAttributes(); ++z)
-            {
-                SgAttribute *attr = itLoop->second.first->getAttribute(z);
-                int type = itLoop->second.first->attributeType(z);
-
-                if (type == SPF_ANALYSIS_DIR)
-                    fillPrivatesFromComment((SgStatement *)(attr->getAttributeData()), added);
-            }
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(itLoop->second, set<int>{ SPF_ANALYSIS_DIR }))
+                fillPrivatesFromComment(data, added);
 
             int uniq = 0;
             int k = 0;
@@ -1037,7 +1053,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
             }
 
             if (uniq > 0)
-                itLoop->second.first->addAttribute(SPF_ANALYSIS_DIR, privSpf, sizeof(SgStatement));
+                itLoop->second->addAttribute(SPF_ANALYSIS_DIR, privSpf, sizeof(SgStatement));
         }
     }
 }
@@ -1052,7 +1068,7 @@ static bool addReductionToList(const char *oper, SgExpression *exprList, SgExpre
 
 void addReductionsToLoops(LoopGraph *topLoop,
                           const vector<const depNode*> &reductionsToAdd,
-                          const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                          const map<int, SgForStmt*> &allLoops,
                           vector<Messages> &currMessages)
 {
     if (reductionsToAdd.size() != 0)
@@ -1166,7 +1182,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
             auto it = allLoops.find(topLoop->lineNum);
             if (it == allLoops.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            it->second.first->addAttribute(SPF_ANALYSIS_DIR, redSpf, sizeof(SgStatement));
+            it->second->addAttribute(SPF_ANALYSIS_DIR, redSpf, sizeof(SgStatement));
         }
     }
 }

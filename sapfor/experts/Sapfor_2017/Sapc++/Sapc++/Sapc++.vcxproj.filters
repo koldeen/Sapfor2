@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Исходные файлы">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Файлы заголовков">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Файлы ресурсов">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Исходные файлы\Distribution">
+      <UniqueIdentifier>{803b433b-ef2b-461c-bcdf-40587ac27031}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\Distribution">
+      <UniqueIdentifier>{9bbb0a2e-36f6-4736-8fa2-3f260e2df36c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\GraphCall">
+      <UniqueIdentifier>{ed7a5083-8582-4f54-bcf2-fd6d393bdae8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\GraphLoop">
+      <UniqueIdentifier>{0fc93dbd-8ac8-47fe-a5c9-26ad308f0197}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\GraphLoop">
+      <UniqueIdentifier>{c06f742b-74c2-454e-b221-fa3924b6b4a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\ParallelRegions">
+      <UniqueIdentifier>{a7d01b3a-ec98-48a0-8ba8-982b9d886b74}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp">
+      <Filter>Исходные файлы\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\Distribution\Cycle.cpp">
+      <Filter>Исходные файлы\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\Distribution\Distribution.cpp">
+      <Filter>Исходные файлы\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\Distribution\DvmhDirectiveBase.cpp">
+      <Filter>Исходные файлы\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\Distribution\GraphCSR.cpp">
+      <Filter>Исходные файлы\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\GraphLoop\graph_loops_base.cpp">
+      <Filter>Исходные файлы\GraphLoop</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\utils.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\_src\Distribution\Array.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\Arrays.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\CreateDistributionDirs.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\Cycle.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\Distribution.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\DvmhDirectiveBase.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\GraphCSR.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\GraphCall\graph_calls.h">
+      <Filter>Файлы заголовков\GraphCall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h">
+      <Filter>Исходные файлы\ParallelRegions</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\AstWrapper.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\errors.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\leak_detector.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\SapforData.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\transform.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\types.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\utils.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h">
+      <Filter>Файлы заголовков\GraphLoop</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Distribution\DvmhDirective.h">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

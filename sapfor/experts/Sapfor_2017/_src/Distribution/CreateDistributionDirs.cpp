@@ -16,7 +16,6 @@
 #include "../errors.h"
 #include "../utils.h"
 #include "../GraphLoop/graph_loops.h"
-#include "../GraphLoop/graph_loops_func.h"
 
 using std::vector;
 using std::set;

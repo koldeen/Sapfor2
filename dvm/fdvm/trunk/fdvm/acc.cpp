@@ -3051,11 +3051,12 @@ SgExpression *SectionBoundsList(SgExpression *are)
     SgSymbol *ar = are->symbol(); 
     int rank = Rank(ar);
     int i;
-    for (el = are->lhs(), i = 0; el; el = el->rhs(), i++) {
-        Doublet(el->lhs(), ar, i, einit, elast);
-        bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(elast[i])));
-        bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(einit[i])));
-    }
+    for (el = are->lhs(), i = 0; el; el = el->rhs(), i++) 
+        if(i<MAX_DIMS) {
+           Doublet(el->lhs(), ar, i, einit, elast);
+           bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(elast[i])));
+           bounds_list = AddElementToList(bounds_list, DvmType_Ref(Calculate(einit[i])));
+        }
     if (i != rank)
         Error("Wrong number of subscripts specified for '%s'", ar->identifier(), 140, cur_st);    
 
@@ -3076,6 +3077,8 @@ int SectionBounds(SgExpression *are)
 
         return(init);
     }
+    if(!TestMaxDims(are->lhs(),ar,cur_st))
+        return (0);
     for (el = are->lhs(), i = 0; el; el = el->rhs(), i++)
         Doublet(el->lhs(), ar, i, einit, elast);
     if (i != rank){
@@ -6093,12 +6096,13 @@ SgStatement *CreateIndirectDistributionProcedure(SgSymbol *sProc,symb_list *para
     // make declarations
 
     SgExpression *el=NULL; 
-    SgStatement *stmt=NULL;
+    SgStatement *stmt=NULL, *st_cur=st_hedr;
     for (el = dummy_list; el; el = el->rhs())
     {
        stmt = el->lhs()->symbol()->makeVarDeclStmt();
        ConstantSubstitutionInTypeSpec(stmt->expr(1)); 
-       st_hedr->insertStmtAfter(*stmt, *st_hedr);
+       st_cur->insertStmtAfter(*stmt, *st_hedr);
+       st_cur = stmt;
     }
     stmt = s->makeVarDeclStmt();
     stmt->expr(1)->setType(tdvm);
@@ -11118,6 +11122,8 @@ void Create_C_extern_block()
         block_C_Cuda = st_mod;
         //Typedef_Stmts(st_end);   //10.12.13 
         TypeSymbols(st_end);
+        if(INTERFACE_RTS2)
+            st_mod->addComment(IncludeComment("<dvmhlib2.h>"));      
         st_mod->addComment(IncludeComment("<dvmhlib_cuda.h>\n#define dcmplx2 Complex<double>\n#define cmplx2 Complex<float>"));
         st_mod->addComment(CudaIndexTypeComment());
     }
@@ -11136,6 +11142,8 @@ void Create_C_extern_block()
     {      //Typedef_Stmts(end_block); //10.12.13
         TypeSymbols(end_block);
         block_C->addComment(IncludeComment("<dvmhlib_cuda.h>"));
+        if(INTERFACE_RTS2)
+            block_C->addComment(IncludeComment("<dvmhlib2.h>"));
         block_C->addComment(CudaIndexTypeComment());
     }
     block_C->addComment("#ifdef _MS_F_\n");

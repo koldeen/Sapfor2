@@ -307,7 +307,7 @@ void ReplaceAssignByIf(SgStatement *stmt)
      ar = stmt->expr(0)->lhs()->symbol();
      el = stmt->expr(0)->lhs()->lhs(); //index list
   }
-  if (!el) //error situation: no subscripts
+  if (!el || !TestMaxDims(el,ar,stmt)) //error situation: no subscripts or the number of subscripts > MAX_DIMS
      return; 
   
   if (stmt-> hasLabel()) {    // assign statement has label
@@ -318,9 +318,7 @@ void ReplaceAssignByIf(SgStatement *stmt)
   cmnt=stmt-> comments();
   if (cmnt)    // statement has preceeding comments 
      BIF_CMNT(stmt->thebif) = NULL;
-  
-  //cur_st =  stmt->lexPrev();
-  
+    
   for(i=0;el;el=el->rhs(),i++) 
   {  ei[i] = &(el->lhs()->copy());       
      ChangeDistArrayRef(ei[i]);
@@ -574,28 +572,28 @@ SgStatement *ReplaceDoLabel(SgStatement *last_st, SgLabel *new_lab)
 //                                            99999    CONTINUE
 
 {SgStatement *parent, *st;
-    SgLabel *lab;
-    parent = last_st->controlParent();
-    if ((parent->variant() == FOR_NODE || parent->variant() == WHILE_NODE) && (lab = LabelOfDoStmt(parent))) {
-        //if((do_st=isSgForStmt(parent)) != NULL && (lab=do_st->endOfLoop())){
-        if (!new_lab)
-            new_lab = GetLabel();
-        BIF_LABEL_USE(parent->thebif) = new_lab->thelabel;
-    }
-    else
-        return(NULL);
+ SgLabel *lab;
+ parent = last_st->controlParent();
+ if((parent->variant()==FOR_NODE || parent->variant()==WHILE_NODE) && (lab=LabelOfDoStmt(parent))){
+               //if((do_st=isSgForStmt(parent)) != NULL && (lab=do_st->endOfLoop())){
+      if(!new_lab)
+        new_lab = GetLabel();
+      BIF_LABEL_USE(parent->thebif) = new_lab->thelabel;
+ }
+ else
+      return(NULL);
 
-    //inserts CONTINUE statement with new_lab as label  
-    st = new SgStatement(CONT_STAT);
-    st->setLabel(*new_lab);
-    //for debug regim
-    LABEL_BODY(new_lab->thelabel) = st->thebif;
-    BIF_LINE(st->thebif) = (last_st->lineNumber()) ? last_st->lineNumber() : LineNumberOfStmtWithLabel(lab);
-    if (last_st->variant() != LOGIF_NODE)
-        last_st->insertStmtAfter(*st, *parent);
-    else
-        (last_st->lexNext())->insertStmtAfter(*st, *parent);
-    return(st);
+ //inserts CONTINUE statement with new_lab as label  
+ st = new SgStatement(CONT_STAT);
+ st->setLabel(*new_lab);
+ //for debug regim
+ LABEL_BODY(new_lab->thelabel) = st->thebif;
+ BIF_LINE(st->thebif) = (last_st->lineNumber()) ? last_st->lineNumber() : LineNumberOfStmtWithLabel(lab);
+ if(last_st->variant() != LOGIF_NODE)
+    last_st->insertStmtAfter(*st,*parent);
+ else
+    (last_st->lexNext())->insertStmtAfter(*st,*parent);
+ return(st);
 }
 
 SgStatement *ReplaceLabelOfDoStmt(SgStatement *first,SgStatement *last_st, SgLabel *new_lab)
@@ -1142,7 +1140,7 @@ SgStatement *ReplaceOnByIf(SgStatement *stmt,SgStatement *end_stmt)
      ar = stmt->expr(0)->lhs()->symbol();
      el = stmt->expr(0)->lhs()->lhs(); //index list
   }
-  if (!el) //error situation: no subscripts
+  if (!el || !TestMaxDims(el,ar,stmt)) //error situation: no subscripts or the number of subscripts > MAX_DIMS
     return NULL; 
   
   cmnt=stmt-> comments();

@@ -193,12 +193,96 @@ namespace Distribution
         int GetInfoByVertex(const vType vertex, std::pair<int, Array*> &info) const
         {
             int err = (arrayDimInfoByVertex.size() >= vertex) ? 1 : 0;
-            if (arrayDimInfoByVertex.size() < vertex)                
+            if (arrayDimInfoByVertex.size() < vertex)
                 info = arrayDimInfoByVertex[vertex];
             return err;
         }
 
         const SET<Array*>& GetArrays() const { return arrays; }
+
+        unsigned GetMaxVertexNum() const { return nextVertexNum; }
+
+        void SaveArraysToFile(FILE *file) const
+        {
+            if (file)
+            {
+                fprintf(file, "%d\n", nextVertexNum);
+                int count = numVertsInGraph.size();
+                fprintf(file, "%d\n", count);
+                for (auto &elem : numVertsInGraph)
+                {
+                    fprintf(file, "%d\n", elem.first->GetArrayUniqKey().size());
+                    fprintf(file, "%s\n", elem.first->GetArrayUniqKey().c_str());
+                    int dimCount = elem.second.size();
+                    fprintf(file, "%d\n", dimCount);
+                    for (int z = 0; z < dimCount; ++z)
+                        fprintf(file, "%d\n", elem.second[z]);
+                }
+            }
+        }
+
+        //load and check
+        bool LoadArraysFromFile(FILE *file, const SET<Array*> &currArrays, const int nextVertexNumOld)
+        {
+            bool status = true;
+            if (file)
+            {
+                char tmpChar;
+                MAP<STRING, Array*> keys;
+                for (auto &elem : currArrays)
+                    keys.insert(std::make_pair(elem->GetArrayUniqKey(), elem));
+
+                fscanf(file, "%d", &nextVertexNum);
+                fscanf(file, "%c", &tmpChar);
+                if (nextVertexNumOld != nextVertexNum)
+                    return false;                
+
+                int count;
+                fscanf(file, "%d", &count);
+                fscanf(file, "%c", &tmpChar);
+                for (int i = 0; i < count; ++i)
+                {
+                    int strLen = 0;
+                    fscanf(file, "%d", &strLen);
+                    fscanf(file, "%c", &tmpChar);
+
+                    STRING uniqKey = "";
+                    for (int k = 0; k < strLen; ++k)
+                    {
+                        char symb;
+                        fscanf(file, "%c", &symb);
+                        uniqKey += symb;
+                    }
+                    fscanf(file, "%c", &tmpChar);
+                    
+                    int dimCount = 0;
+                    fscanf(file, "%d", &dimCount);
+                    fscanf(file, "%c", &tmpChar);
+                    VECTOR<vType> tmp(dimCount);
+                    for (int z = 0; z < dimCount; ++z)
+                    {
+                        fscanf(file, "%d", &(tmp[z]));
+                        fscanf(file, "%c", &tmpChar);
+                    }
+
+                    auto found = keys.find(uniqKey);
+                    if (found == keys.end())
+                    {
+                        status = false;
+                        break;
+                    }
+                    else
+                    {
+                        numVertsInGraph.insert(std::make_pair(found->second, tmp));
+                        arraysByName.insert(std::make_pair(found->second->GetName(), found->second));
+                        arrays.insert(found->second);
+                    }
+                }
+            }
+            else
+                status = false;
+            return status;
+        }
     };
 }
 #undef MAP

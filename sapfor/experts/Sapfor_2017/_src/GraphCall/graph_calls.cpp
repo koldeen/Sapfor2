@@ -642,7 +642,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                 {
                     SgStatement *decl = declaratedInStmt(symb);
                     set<string> privatesVars;
-                    tryToFindPrivateInAttributes(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    tryToFindPrivateInAttributes(decl, privatesVars);
+                    fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {
@@ -1103,6 +1104,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     bool change = true;
+    // set nonDistr flag if all links not distr
     while (change)
     {
         change = false;
@@ -1112,15 +1114,16 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
 
             bool allNonDistr = true;
-            bool partlyNonDistr = false;
+            bool nonDistrSpfPrif = false;
             bool init = false;
             for (auto &realRef : realArrayRefs)
             {
                 if (realRef != array.second.first)
                 {
                     bool nonDistr = realRef->GetNonDistributeFlag();
+                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+                        nonDistrSpfPrif = true;
                     allNonDistr = allNonDistr && nonDistr;
-                    partlyNonDistr = partlyNonDistr || nonDistr;
                     init = true;
                 }
             }
@@ -1129,9 +1132,31 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             {
                 if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
                 {
-                    array.second.first->SetNonDistributeFlag(true);
+                    if (nonDistrSpfPrif)
+                        array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    else
+                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                     change = true;
                 }
+            }
+        }
+    }
+
+    //propagate distr state
+    change = true;
+    while (change)
+    {
+        change = false;
+        for (auto &array : declaratedArrays)
+        {
+            set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+
+            if (realArrayRefs.size() && (*realArrayRefs.begin()) != array.second.first &&
+                !(*realArrayRefs.begin())->GetNonDistributeFlag() && array.second.first->GetNonDistributeFlag())
+            {
+                array.second.first->SetNonDistributeFlag(DIST::DISTR);
+                change = true;
             }
         }
     }

@@ -123,7 +123,8 @@ class  SgStatement{
   // point to the function or subroutine name.
   SgSymbol *symbol();        // returns the symbol field.
   inline char *fileName();
-            
+  inline void setFileName(char *newFile);
+
   inline int hasLabel();     // returns 1 if there is a label on the stmt.
   SgLabel *label();          // the label
 
@@ -3064,6 +3065,11 @@ inline SgSymbol * SgStatement::symbol()
 
 inline char * SgStatement::fileName()
 { return BIF_FILE_NAME(thebif)->name; }
+
+inline void SgStatement::setFileName(char *newFile)
+{    
+    BIF_FILE_NAME(thebif)->name = newFile;
+}
 
 inline int SgStatement::hasLabel()
 {

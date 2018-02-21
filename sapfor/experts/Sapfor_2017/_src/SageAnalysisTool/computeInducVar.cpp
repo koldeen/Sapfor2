@@ -273,10 +273,7 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
             induc->addElement((void *)elin);
         }
         else
-        {
-            Message("Basic Induction Var not Found: dependence Test will abort",
-                loop->lineNumber());
-        }
+            Message("Basic Induction Var not Found: dependence Test will abort", loop->lineNumber());
         // limited to basic induction variable for the moment...;
     }
     return induc;

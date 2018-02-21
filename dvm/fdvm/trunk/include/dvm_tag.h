@@ -56,8 +56,11 @@
 #define DVM_IO_MODE_DIR              632
 #define DVM_LOCALIZE_DIR             633    
 #define DVM_SHADOW_ADD_DIR           634    
-	
-	   
+#define DVM_CP_CREATE_DIR            635
+#define DVM_CP_LOAD_DIR              636
+#define DVM_CP_SAVE_DIR              637	
+#define DVM_CP_WAIT_DIR              638
+		   
 #define BLOCK_OP           705
 #define NEW_SPEC_OP        706
 #define REDUCTION_OP       707
@@ -83,6 +86,8 @@
 #define INDIRECT_OP        738     
 #define DERIVED_OP         739     
 #define DUMMY_REF          740     
+#define COMMON_OP          741
+#define SHADOW_NAMES_OP    742
           
 #define SHADOW_GROUP_NAME     523
 #define REDUCTION_GROUP_NAME  524

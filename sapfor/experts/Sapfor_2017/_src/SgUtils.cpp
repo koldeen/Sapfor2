@@ -115,7 +115,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             if (it != includeFiles.end())
             {
                 SgStatement *locSt = st->lexNext();
-                while (locSt->fileName() != fileN && locSt)
+                while (locSt && locSt->fileName() != fileN)
                     locSt = locSt->lexNext();
 
                 if (locSt)
@@ -332,46 +332,43 @@ bool isSPF_comment(SgStatement *st)
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 
-void tryToFindPrivateInAttributes(SgStatement *st, 
-                                  const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                                  const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
-                                  set<string> &privatesVars)
+void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
 {
-    for (int z = 0; z < st->numberOfAttributes(); ++z)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
     {
-        SgAttribute *attr = st->getAttribute(z);
-        int type = st->attributeType(z);
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR)
+        if (data)
         {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
+            fillPrivatesFromComment(data, privatesVars);
+
+            // try to find reductions and set its symbols as private in 
+            // current loop analysis for correct scalar detection in 
+            // tryToFindDependencies() function
+            map<string, set<string>> reductions;
+            map<string, set<tuple<string, string, int>>> reductionsLoc;
+
+            fillReductionsFromComment(data, reductions);
+            fillReductionsFromComment(data, reductionsLoc);
+
+            for (auto &redList : reductions)
+                privatesVars.insert(redList.second.begin(), redList.second.end());
+
+            for (auto &redLocList : reductionsLoc)
             {
-                fillPrivatesFromComment(data, privatesVars);
-
-                // try to find reductions and set its symbols as private in 
-                // current loop analysis for correct scalar detection in 
-                // tryToFindDependencies() function
-                map<string, set<string>> reductions;
-                map<string, set<tuple<string, string, int>>> reductionsLoc;
-
-                fillReductionsFromComment(data, reductions);
-                fillReductionsFromComment(data, reductionsLoc);
-
-                for (auto &redList : reductions)
-                    privatesVars.insert(redList.second.begin(), redList.second.end());
-
-                for (auto &redLocList : reductionsLoc)
+                for (auto &groupList : redLocList.second)
                 {
-                    for (auto &groupList : redLocList.second)
-                    {
-                        privatesVars.insert(std::get<0>(groupList));
-                        privatesVars.insert(std::get<1>(groupList));
-                    }
+                    privatesVars.insert(std::get<0>(groupList));
+                    privatesVars.insert(std::get<1>(groupList));
                 }
             }
         }
     }
+}
 
+void fillNonDistrArraysAsPrivate(SgStatement *st,
+                                 const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                 const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
+                                 set<string> &privatesVars)
+{
     // fill as private all non distributed arrays
     auto it = declaratedArraysSt.find(st);
     if (it != declaratedArraysSt.end())
@@ -653,3 +650,23 @@ SgStatement* findMainUnit(SgProject *proj)
     }
     return mainUnit;
 }
+
+template<typename IN_TYPE, typename OUT_TYPE>
+const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
+{
+    vector<OUT_TYPE> outData;
+
+    for (int i = 0; i < st->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attr = st->getAttribute(i);
+        const int type = st->attributeType(i);
+        if (dataType.find(type) != dataType.end())
+            if (attr->getAttributeData())
+                outData.push_back((OUT_TYPE)(attr->getAttributeData()));
+    }
+
+    return outData;
+}
+
+template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
+template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);

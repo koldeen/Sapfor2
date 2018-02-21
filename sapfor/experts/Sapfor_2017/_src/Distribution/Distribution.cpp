@@ -302,6 +302,7 @@ namespace Distribution
         return globalSum;
     }
 
+#define TEST 0
     template<typename vType, typename wType, typename attrType>
     void createOptimalDistribution(GraphCSR<vType, wType, attrType> &G, GraphCSR<vType, wType, attrType> &reducedG,
                                    const Arrays<vType> &allArrays, const int regionNum, bool onlyGraph)
@@ -321,6 +322,68 @@ namespace Distribution
 
             //new algorithm with optimal strategy
             G.RemoveMultipleArcsOptimal();
+
+#if TEST
+            string ArrayFileName = "_save_arrays_reg" + std::to_string(regionNum) + ".txt";
+            string GraphFileName = "_save_full_graph_reg" + std::to_string(regionNum) + ".txt";
+            string ReducedGraphFileName = "_save_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
+
+            FILE *load = fopen(ArrayFileName.c_str(), "r");
+            bool needToReSave = true;
+            if (load)
+            {
+                Arrays<vType> allArraysT;
+                GraphCSR<vType, wType, attrType> G_local, reducedG_local;
+
+                needToReSave = needToReSave && !allArraysT.LoadArraysFromFile(load, allArrays.GetArrays(), allArrays.GetMaxVertexNum());
+                fclose(load);
+
+                if (!needToReSave)
+                {
+                    load = fopen(GraphFileName.c_str(), "rb");
+                    bool loadG_ok = false, loadGR_ok = false;
+                    if (load)
+                    {
+                        loadG_ok = G_local.LoadGraphFromFile(load);
+                        fclose(load);
+                    }
+
+                    load = fopen(ReducedGraphFileName.c_str(), "rb");
+                    if (load)
+                    {
+                        loadGR_ok = reducedG_local.LoadGraphFromFile(load);
+                        fclose(load);
+                    }
+
+                    //process
+                    if (loadG_ok && loadGR_ok)
+                    {
+
+                    }
+                    else
+                        needToReSave = true;
+                }
+            }
+
+            if (needToReSave)
+            {
+                FILE *save = fopen(ArrayFileName.c_str(), "w");
+                if (save)
+                {
+                    allArrays.SaveArraysToFile(save);
+                    fclose(save);
+
+                    save = fopen(GraphFileName.c_str(), "wb");
+                    if (save)
+                    {
+                        G.SaveGraphToFile(save);
+                        fclose(save);
+                    }
+                }
+                else
+                    needToReSave = false;
+            }
+#endif
 
             globalSum = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
 
@@ -355,7 +418,23 @@ namespace Distribution
                             reducedG.RemovedEdges(toDelArcsLocal, allArrays);
                     }
                 }
+            }  
+
+#if TEST
+            if (needToReSave)
+            {
+                FILE *save = NULL;
+                if (save)
+                {
+                    save = fopen(ReducedGraphFileName.c_str(), "wb");
+                    if (save)
+                    {
+                        reducedG.SaveGraphToFile(save);
+                        fclose(save);
+                    }
+                }
             }
+#endif
         }
         else
         {
