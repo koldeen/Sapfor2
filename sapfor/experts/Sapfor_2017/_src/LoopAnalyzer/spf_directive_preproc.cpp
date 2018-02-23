@@ -679,23 +679,49 @@ static bool checkRemote(SgStatement *st,
 }
 
 static bool fillParallelregions(SgStatement *st,
-                                 SgStatement *attributeStatement,
-                                 map<SgSymbol*, bool> &parRegList,
-                                 vector<Messages> &messagesForFile)
+                                SgStatement *attributeStatement,
+                                map<SgSymbol*, bool> &parRegList,
+                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
     if (isSgExecutableStatement(st))
     {
-        SgStatement *parent = st->controlParent();
+        // SgStatement *parent = st->controlParent();
 
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
             string identName = attributeStatement->symbol()->identifier();
             SgSymbol *identSymbol = attributeStatement->symbol();
-            //SgStatement *declStatement = declaratedInStmt(identSymbol);
 
-            //TODO: add declaration checking
+			// declaration checking
+			// SgStatement *declStatement = declaratedInStmt(identSymbol);
+			SgStatement *iterator = st;
+			SgStatement *end = st;
+
+			while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+				iterator = iterator->controlParent();
+
+			while (iterator != end)
+			{
+				if (!isSgExecutableStatement(iterator))
+				{
+					for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
+						if (exp->lhs()->symbol() == identSymbol)
+						{
+							retVal = false;
+							__spf_print(1, "variable '%s' is declarated on line %d\n", identName, attributeStatement->lineNumber());
+							string message;
+							__spf_printToBuf(message, "variable '%s' is declarated", identName);
+							messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+							retVal = false;
+						}
+				}
+				else
+					break;
+
+				iterator = iterator->lexNext();
+			}
 
             pair<map<SgSymbol*, bool>::iterator, bool> ret;
 
