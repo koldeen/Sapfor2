@@ -678,7 +678,7 @@ static bool checkRemote(SgStatement *st,
     return retVal;
 }
 
-static bool fillParallelregions(SgStatement *st,
+static bool fillParallelRegions(SgStatement *st,
                                 SgStatement *attributeStatement,
                                 map<SgSymbol*, bool> &parRegList,
                                 vector<Messages> &messagesForFile)
@@ -738,7 +738,8 @@ static bool fillParallelregions(SgStatement *st,
         }
         else // type == SPF_END_PARALLEL_REG_DIR
         {
-            parRegList.rbegin()->second = true;
+			if (parRegList.size())
+				parRegList.rbegin()->second = true;
         }
     }
     else
@@ -750,7 +751,7 @@ static bool fillParallelregions(SgStatement *st,
     return retVal;
 }
 
-static bool checkParallelregions(SgStatement *st,
+static bool checkParallelRegions(SgStatement *st,
                                  SgStatement *attributeStatement,
                                  const map<SgSymbol*, bool> &parRegList,
                                  vector<Messages> &messagesForFile)
@@ -869,8 +870,8 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
         }
         else if (type == SPF_PARALLEL_REG_DIR || type == SPF_END_PARALLEL_REG_DIR)
         {
-            bool result = fillParallelregions(st, attributeStatement, parRegList, messagesForFile);
-            result = result && checkParallelregions(st, attributeStatement, parRegList, messagesForFile);
+            bool result = fillParallelRegions(st, attributeStatement, parRegList, messagesForFile);
+            result = result && checkParallelRegions(st, attributeStatement, parRegList, messagesForFile);
             retVal = retVal && result;
         }
     }
