@@ -1724,6 +1724,13 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
                 p_pri->addToSet(tmp, NULL);
                 delete tmp;
             }
+            SgArrayRefExp* ar;
+            if (ar = isSgArrayRefExp(ex_p->lhs()))
+            {
+                CArrayVarEntryInfo* tmp = new CArrayVarEntryInfo(ar->symbol(), ar);
+                p_pri->addToSet(tmp, NULL);
+                delete tmp;
+            }
         }
 
         VarSet* live = afterParLoop->getLiveIn();
@@ -2400,42 +2407,45 @@ CRecordVarEntryInfo* AddRecordVarRef(SgRecordRefExp* ref)
         CVarEntryInfo* parent = new CScalarVarEntryInfo(isSgVarRefExp(ref->lhs())->symbol());
         return new CRecordVarEntryInfo(ref->rhs()->symbol(), parent);
     }
+    if (isSgArrayRefExp(ref->lhs())) {
+        CVarEntryInfo* parent = new CArrayVarEntryInfo(isSgArrayRefExp(ref->lhs())->symbol(), isSgArrayRefExp(ref->lhs()));
+        return new CRecordVarEntryInfo(ref->rhs()->symbol(), parent);
+    }
     return NULL;
 }
 
 void CBasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st)
 {
+    CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
     if ((r = isSgVarRefExp(ex)))
-    {
-        CScalarVarEntryInfo* var = new CScalarVarEntryInfo(r->symbol());
-        if (def == NULL || !def->belongs(var))
-            use->addToSet(var, st);
-        delete var;
-    }
+        var = new CScalarVarEntryInfo(r->symbol());
+    SgArrayRefExp* ar;
+    if ((ar = isSgArrayRefExp(ex)))
+        var = new CArrayVarEntryInfo(ar->symbol(), ar);
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
-    {
-        CRecordVarEntryInfo* var = AddRecordVarRef(rr);
-        if (var && (def == NULL || !def->belongs(var)))
-            use->addToSet(var, st);
+        var = AddRecordVarRef(rr);
+    if (var) {
+        var->RegisterUsage(def, use, st);
         delete var;
     }
 }
 
 void CBasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st)
 {
+    CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
-    if ((r = isSgVarRefExp(ex))) {
-        CScalarVarEntryInfo* var = new CScalarVarEntryInfo(r->symbol());
-        def->addToSet(var, st);
-        delete var;
-    }
+    if ((r = isSgVarRefExp(ex)))
+        var = new CScalarVarEntryInfo(r->symbol());
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
-    {
-        CRecordVarEntryInfo* var = AddRecordVarRef(rr);
-        def->addToSet(var, st);
+        var = AddRecordVarRef(rr);
+    SgArrayRefExp* ar;
+    if ((ar = isSgArrayRefExp(ex)))
+        var = new CArrayVarEntryInfo(ar->symbol(), ar);
+    if (var) {
+        var->RegisterDefinition(def, st);
         delete var;
     }
 }
@@ -2850,6 +2860,12 @@ VarSet* CBasicBlock::getUse()
         setDefAndUse();
     }
     return use;
+}
+
+bool CArrayVarEntryInfo::CompareSubscripts(const CArrayVarEntryInfo&) const
+{
+    //TODO
+    return false;
 }
 
 void VarSet::RemoveDoubtfulCommonVars(AnalysedCallsList* call)
@@ -3354,6 +3370,14 @@ bool argIsReplaceable(int i, AnalysedCallsList* callData)
         return false;
 }
 
+set<SymbolKey>* CBasicBlock::getOutVars()
+{
+    set<SymbolKey>* outVars = new set<SymbolKey>();
+    for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
+        outVars->insert(it->first);
+    return outVars;
+}
+
 void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
 {
 	SgStatement* st = cfi->getStatement();
@@ -3400,15 +3424,18 @@ bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpress
     return mainChanged;
 }
 
-void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term)
+void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term, set<SymbolKey>* allowedVars)
 {
     for (auto it = term->begin(); it != term->end(); ++it)
     {
-        auto founded = main->find(it->first);
-        if (founded == main->end())
-            main->insert(founded, *it);
-        if(founded != main->end())
-            mergeExpressionMaps(founded->second, it->second);
+        if (!allowedVars || (allowedVars && allowedVars->find(it->first) != allowedVars->end()))
+        {
+            auto founded = main->find(it->first);
+            if (founded == main->end())
+                main->insert(founded, *it);
+            if (founded != main->end())
+                mergeExpressionMaps(founded->second, it->second);
+        }
     }
 }
 
@@ -3446,6 +3473,8 @@ bool addDefsFilteredByKill( map<SymbolKey, map<string, SgExpression*>> *main,
     return mainChanged;
 }
 
+
+
 void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
@@ -3463,11 +3492,41 @@ void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
     printf("\n");
 }
 
+void showDefs(map<SymbolKey, SgExpression*> *defs)
+{
+    printf("Defs: %d\n", (int)defs->size());
+    for(auto it = defs->begin(); it != defs->end();++it)
+    {
+        printf("--- %s = %s", it->first.getVar()->identifier(), it->second->unparse());
+        printf("\n");
+    }
+    printf("\n");
+}
+
 bool adjustInsAndOuts(CBasicBlock *b)
 {
+    set<SymbolKey> *allowedVars = NULL;
+    BasicBlockItem *bi = b->getPrev();
+    if(bi && bi->next)
+        allowedVars = bi->block->getOutVars();
+
+    if (allowedVars)
+        for(bi = bi->next; bi != NULL; bi = bi->next)
+        {
+            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
+            for(auto it = allowedVars->begin(); it != allowedVars->end(); ++it)
+                if(nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                    allowedVars->erase(it);
+            delete nextAllowedVars;
+        }
+
+
     /*Updating IN*/
     for(BasicBlockItem* prev = b->getPrev(); prev != NULL; prev=prev->next)
-        mergeDefs(b->getInDefs(), prev->block->getOutDefs());
+        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), allowedVars);
+
+    if(allowedVars)
+        delete allowedVars;
 
     /*Updating OUT, true, if OUT has been changed*/
     return addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
@@ -3498,6 +3557,12 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
         {
             printf("\n In ");
             showDefs(b->getInDefs());
+            printf("\n Gen");
+            showDefs(b->getGen());
+            printf("\n Kill %d\n ", b->getKill()->size());
+            for(auto it = b->getKill()->begin(); it!=b->getKill()->end(); ++it)
+                printf("%s ", it->getVar()->identifier());
+            printf("\n");
             printf("\n Out ");
             showDefs(b->getOutDefs());
         }
@@ -3531,7 +3596,6 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::ma
         CGraph->getFirst()->setInDefs(inDefs);
 
     bool setsChanged = true;
-    int i = 0;
     while(setsChanged)
     {
         setsChanged = false;
@@ -3580,18 +3644,11 @@ bool valueWithFunctionCall(SgExpression* exp) {
  * 1. it has multiple values
  * 2. value has function call
  * 3. value has itself within (recursion)
- * 4. var have other ambiguouse vars within
  */
 void CBasicBlock::correctInDefs() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
     vector<SymbolKey> ambiguouseVars;
-/*    for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
-        if(it->second.size() != 1) //1, 4
-        {
-            toDel.push_back(it);
-            ambiguouseVars.push_back(it->first);
-        }
-*/
+
     for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
         if(it->second.size() != 1) //1
             //continue;
@@ -3600,14 +3657,6 @@ void CBasicBlock::correctInDefs() {
             toDel.push_back(it);
         else if(valueWithRecursion(it->first, it->second.begin()->second)) //3
             toDel.push_back(it);
-/*        else //4
-            for(int i = 0; i < ambiguouseVars.size(); ++i)
-                if(symbolInExpression(ambiguouseVars[i].getVar(), it->second.begin()->second))
-                {
-                    toDel.push_back(it);
-                    break;
-                }
-*/
 
     for (int i = 0; i < toDel.size(); ++i)
         in_defs.erase(toDel[i]);

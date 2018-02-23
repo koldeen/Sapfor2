@@ -446,6 +446,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
+        else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
+            arrayAccessAnalyzer(file, getMessagesForFile(file_name), PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -807,12 +809,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
     }
-    else if (curr_regime == LOOP_GRAPH)
-    {
-        if (keepFiles)
-            printLoopGraph("_loopGraph.txt", loopGraph);
-        checkCountOfIter(loopGraph, SPF_messages);
-    }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
         for (auto it = commentsToInclude.begin(); it != commentsToInclude.end(); ++it)
@@ -955,7 +951,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         __spf_print(1, "All lines in project %d\n", allLineSum);
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
+    {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
+
+        checkCountOfIter(loopGraph, SPF_messages);
+        if (keepFiles)
+            printLoopGraph("_loopGraph.txt", loopGraph);
+    }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
