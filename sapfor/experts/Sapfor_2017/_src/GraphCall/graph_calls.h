@@ -57,7 +57,8 @@ struct FuncInfo
 	// mycode
 	std::vector<bool> isParamUsedAsIndex; // size = amount of parameters 
 	std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func; 
-													 // if FuncsCalledFromThis[func_call_idx].NoOfParamUsedForCall.size() == 0 - no params of cur func used
+													 // if FuncsCalledFromThis[func_call_idx].
+                                                    // NoOfParamUsedForCall.size() == 0 - no params of cur func used
 
     bool doNotInline;
     bool doNotAnalyze;

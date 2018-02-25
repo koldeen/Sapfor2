@@ -361,6 +361,7 @@ void findParamInParam(SgExpression *exp, int &parNo, FuncInfo &currInfo) {
 				if (exp->symbol()->identifier() == parName) {
 					NestedFuncCall &currNestedFuncCall = currInfo.funcsCalledFromThis.back();
 					currNestedFuncCall.NoOfParamUsedForCall[parNo].push_back(i);
+                    break;
 				}
 			}
 		}
@@ -414,6 +415,45 @@ void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo) {
 			findParamUsedInFuncCalls(exp->lhs(), currInfo);
 		}
 	}
+}
+
+void updateFuncInfo(vector<FuncInfo*> entryProcs) {
+    bool changesDone;
+
+    do {
+        changesDone = false;
+
+        for (auto& currInfo : entryProcs) {
+            bool atLeastOneUsed = false;
+
+            for(auto& funcCall : currInfo->funcsCalledFromThis) {
+                FuncInfo* calledFunc;
+
+                // Find pointer to info of called function
+                for(auto& funcInfo: entryProcs) {
+                    if(funcInfo->funcName == funcCall.CalledFuncName) {
+                        calledFunc = funcInfo;
+                        break;
+                    }
+                }
+
+                // Iterate through all pars of the call
+                int parNo = 0;
+                for(auto& parOfCalled : funcCall.NoOfParamUsedForCall) {
+                    // If this par of called func is used as index change
+                    if (calledFunc->isParamUsedAsIndex[parNo]) {
+                        // Then pars of calling func which are used in this par of called
+                        // are also used as index
+                        for (auto& parOfCalling : parOfCalled) {
+                            changesDone = true;
+                            currInfo->isParamUsedAsIndex[parOfCalling] = true;
+                        }
+                    }
+                    parNo++;
+                }
+            }
+        }
+    } while (changesDone);
 }
 
 // end of mycode
