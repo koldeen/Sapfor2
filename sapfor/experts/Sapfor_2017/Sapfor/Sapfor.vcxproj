@@ -188,6 +188,7 @@
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
+    <ClCompile Include="..\_src\Predictor\PredictScheme.cpp" />
     <ClCompile Include="..\_src\PrivateAnalyzer\private_analyzer.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\annotationDriver.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\arrayRef.cpp" />
@@ -253,6 +254,7 @@
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\PassManager.h" />
+    <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
     <ClInclude Include="..\_src\SapforData.h" />
     <ClInclude Include="..\_src\SgUtils.h" />

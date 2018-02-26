@@ -529,7 +529,11 @@ static void createLinksToCopy(SgExpression *exOrig, SgExpression *exCopy)
 
 static void createBackup(SgStatement* stmt, int expNumber)
 {
-    SgExpression* exp = stmt->expr(expNumber);
+    SgExpression *exp = stmt->expr(expNumber);
+
+    if (exp == NULL) // no backup is required
+        return;
+
     auto foundedParent = curFileReplacements->find(stmt);
     if (foundedParent == curFileReplacements->end())
     {

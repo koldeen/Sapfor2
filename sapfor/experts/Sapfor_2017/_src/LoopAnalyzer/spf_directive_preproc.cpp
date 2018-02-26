@@ -1044,7 +1044,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 }
 
                 wasAdd = false;
-                char *oper = NULL;
+                const char *oper = NULL;
                 switch (addForCurrLoop[k]->kinddep)
                 {
                 case SADDREDUCTION:

@@ -69,6 +69,8 @@ enum passes {
 
     CONVERT_ASSIGN_TO_LOOP,
     CONVERT_LOOP_TO_ASSIGN,
+
+	PREDICT_SCHEME,
     EMPTY_PASS
 };
 
@@ -146,5 +148,6 @@ static void setPassValues()
     passNames[CONVERT_ASSIGN_TO_LOOP] = "CONVERT_ASSIGN_TO_LOOP";
     passNames[CONVERT_LOOP_TO_ASSIGN] = "CONVERT_LOOP_TO_ASSIGN";
     passNames[PRIVATE_CALL_GRAPH_STAGE4] = "PRIVATE_CALL_GRAPH_STAGE4";
+	passNames[PREDICT_SCHEME] = "PREDICT_SCHEME";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

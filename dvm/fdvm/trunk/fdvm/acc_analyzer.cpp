@@ -3514,9 +3514,13 @@ bool adjustInsAndOuts(CBasicBlock *b)
         for(bi = bi->next; bi != NULL; bi = bi->next)
         {
             set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
-            for(auto it = allowedVars->begin(); it != allowedVars->end(); ++it)
-                if(nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
-                    allowedVars->erase(it);
+            for (auto it = allowedVars->begin(); it != allowedVars->end(); )
+            {
+                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                    it = allowedVars->erase(it);
+                else
+                    ++it;
+            }
             delete nextAllowedVars;
         }
 

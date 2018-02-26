@@ -55,6 +55,9 @@
     <Filter Include="Файлы исходного кода\CodeConverter">
       <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы исходного кода\Predictor">
+      <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\transforms.cpp">
@@ -240,6 +243,9 @@
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
+      <Filter>Файлы исходного кода\Predictor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -346,6 +352,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Predictor\PredictScheme.h">
+      <Filter>Файлы исходного кода\Predictor</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
