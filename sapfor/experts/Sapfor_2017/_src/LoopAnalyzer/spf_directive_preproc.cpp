@@ -678,21 +678,19 @@ static bool checkRemote(SgStatement *st,
     return retVal;
 }
 
-static bool checkParallelRegions(SgStatement *st,
-                                 SgStatement *attributeStatement,
-                                 map<SgSymbol*, int> &parRegIdentList,
-                                 vector<Messages> &messagesForFile)
+static bool fillParallelRegions(SgStatement *st,
+                                SgStatement *attributeStatement,
+                                pair<map<SgSymbol*, int>, vector<int>> &parRegList,
+                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
     if (isSgExecutableStatement(st))
     {
-        // SgStatement *parent = st->controlParent();
-
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
-            string identName = attributeStatement->symbol()->identifier();
             SgSymbol *identSymbol = attributeStatement->symbol();
+            string identName = attributeStatement->symbol()->identifier();
 
 			// declaration checking
 			SgStatement *iterator = st;
@@ -726,8 +724,7 @@ static bool checkParallelRegions(SgStatement *st,
 
             // adding identificator to identList
             pair<map<SgSymbol*, int>::iterator, bool> ret;
-
-            ret = parRegIdentList.insert(std::make_pair(identSymbol, attributeStatement->lineNumber()));
+            ret = parRegList.first.insert(std::make_pair(identSymbol, attributeStatement->lineNumber()));
 
             if (ret.second == false)
             {
@@ -777,6 +774,10 @@ static bool checkParallelRegions(SgStatement *st,
                 retVal = false;
             }
         }
+        else // type == SPF_END_PARALLEL_REG_DIR
+        {
+            parRegList.second.push_back(attributeStatement->lineNumber());
+        }
     }
     else
     {
@@ -787,7 +788,18 @@ static bool checkParallelRegions(SgStatement *st,
 	return retVal;
 }
 
-static inline bool processStat(SgStatement *st, const string &currFile, vector<Messages> &messagesForFile)
+static bool checkParallelRegions(SgStatement *st,
+                                 const pair<map<SgSymbol*, int>, vector<int>> &parRegList,
+                                 vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+
+    // TODO: add intersections checking
+
+    return retVal;
+}
+
+static inline bool processStat(SgStatement *st, const string &currFile, pair<map<SgSymbol*, int>, vector<int>> &parRegList, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
     // ignore SPF statements
@@ -811,9 +823,6 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 iterator = prev;
         }
     } while (cond);
-
-    // second - line number
-    map<SgSymbol*, int> parRegIdentList;
 
     for (int i = 0; i < st->numberOfAttributes(); ++i)
     {
@@ -884,7 +893,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
         }
         else if (type == SPF_PARALLEL_REG_DIR || type == SPF_END_PARALLEL_REG_DIR)
         {
-            bool result = checkParallelRegions(st, attributeStatement, parRegIdentList, messagesForFile);
+            bool result = fillParallelRegions(st, attributeStatement, parRegList, messagesForFile);
             retVal = retVal && result;
         }
     }
@@ -895,13 +904,15 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
 static bool processModules(vector<SgStatement*> &modules, const string &currFile, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+    pair<map<SgSymbol*, int>, vector<int>> parRegList;
     for (int i = 0; i < modules.size(); ++i)
     {
         SgStatement *modIterator = modules[i];
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
         while (modIterator != modEnd)
         {
-            bool result = processStat(modIterator, currFile, messagesForFile);
+            bool result = processStat(modIterator, currFile, parRegList, messagesForFile);
+            retVal = retVal && checkParallelRegions(modIterator, parRegList, messagesForFile);
             retVal = retVal && result;
             modIterator = modIterator->lexNext();
         }
@@ -917,6 +928,10 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     
     bool noError = true;
 
+    // first - SPF_PARALLEL_REG_DIR
+    // second - SPF_END_PARALLEL_REG_DIR
+    pair<map<SgSymbol*, int>, vector<int>> parRegList;
+
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -930,7 +945,8 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                 break;
             }
 
-            bool result = processStat(st, currFile, messagesForFile);
+            bool result = processStat(st, currFile, parRegList, messagesForFile);
+            noError = noError && checkParallelRegions(st, parRegList, messagesForFile);
             noError = noError && result;
 
             SgStatement *next = st->lexNext();
