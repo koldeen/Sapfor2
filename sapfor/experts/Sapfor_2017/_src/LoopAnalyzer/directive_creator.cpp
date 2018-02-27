@@ -910,11 +910,11 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 if (dir.arrayRef2->GetDimSize() != links.size())
                 {
                     __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
-                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), links.size());
+                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 
                     char buf[256];
                     sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
-                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), links.size());
+                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
                     messages.push_back(Messages(ERROR, loopLine, buf));
 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1197,6 +1197,8 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *current = loopGraph[i];
+        currProcessing.second = current->loop;
+
         if (current->directive && current->hasLimitsToParallel() == false && (current->region == currParReg))
         {
             if (current->perfectLoop >= 1)

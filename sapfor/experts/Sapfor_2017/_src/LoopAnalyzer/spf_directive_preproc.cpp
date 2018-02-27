@@ -823,6 +823,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
         while (st != lastNode)
         {
+            currProcessing.second = NULL;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");

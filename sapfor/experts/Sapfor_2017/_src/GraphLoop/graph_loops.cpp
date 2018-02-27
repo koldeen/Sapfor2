@@ -403,12 +403,13 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());            
         }
 
-        SgStatement *lastNode = st->lastNodeOfStmt();        
+        SgStatement *lastNode = st->lastNodeOfStmt();
         vector<LoopGraph*> parentLoops;
         LoopGraph *currLoop = NULL;
         
         while (st != lastNode)
         {
+            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -476,7 +477,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             else if (currLoop && (st->variant() == PROC_STAT || st->variant() == FUNC_STAT))
             {
                 string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
-                currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));                
+                currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
             }
             else if (currLoop)
             {

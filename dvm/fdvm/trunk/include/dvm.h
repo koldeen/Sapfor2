@@ -1780,7 +1780,7 @@ SgExpression *DvmhIndirect(SgSymbol *smap);
 SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func);
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhRedistribute(SgSymbol *das, int rank, SgExpression *distr_list);
-SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, SgExpression *alignment_list);
+SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, int nr, SgExpression *alignment_list);
 SgStatement *DvmhRealign(SgExpression *objref, int new_sign, SgExpression *pattern_ref, int nr, SgExpression *align_list);
 SgStatement *IndirectLocalize(SgExpression *ref_array, SgExpression *target_array, int iaxis);
 SgExpression *DvmhExprScan(SgExpression *edummy);
@@ -2158,3 +2158,7 @@ public:
 };
 
 extern Options options;
+
+#if __SPF
+extern std::pair<SgFile*, SgStatement*> currProcessing;
+#endif

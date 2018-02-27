@@ -4905,7 +4905,7 @@ void    GenAlignArray(align *node, align *root, int nr, SgExpression *align_rule
 
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(doDvmShapeList(als,node->align_stmt),DeclaredShadowWidths(als))));
     if(!(ia & POSTPONE_BIT) && align_rule_list)
-      doCallStmt(DvmhAlign(als,root->symb,align_rule_list));
+      doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
     where = savest;
     return;
   }
@@ -5465,10 +5465,14 @@ void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpress
   ifst = ndvm;
   rank = Rank(p);
   type = p->type();
-  size_array = doSizeAllocArray(p,desc,stmt,RTS1); 
-  
+  size_array = doSizeAllocArray(p,desc,stmt,(INTERFACE_RTS2 ? RTS2:RTS1)); 
+  if( INTERFACE_RTS2 ) // interface of RTS2
+  {
+      doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(p))));            
+      return;    
+  }
+                       //interface of RTS1
   ia = p->attributes();
-
   sign = 0;  
    
   // dvm000(i) = CrtDA (ArrayHeader,Base,Rank,TypeSize,SizeArray,
@@ -5530,6 +5534,7 @@ void   AllocateAlignArray(SgSymbol *p, SgExpression *desc, SgStatement *stmt) {
  int nr=0,iaxis=0,*ix=NULL,ifst=0;
  SgStatement *algn_st;
  SgSymbol *base, *pb;
+ SgExpression *align_rule_list;
  align * node,*root;
  ifst = ndvm; 
  pb = ORIGINAL_SYMBOL(p);
@@ -5560,7 +5565,7 @@ void   AllocateAlignArray(SgSymbol *p, SgExpression *desc, SgStatement *stmt) {
     {iaxis = *ix; nr = *(++ix);}
  else {
   iaxis = ndvm;
-  nr = doAlignRule(p,algn_st,0);
+  align_rule_list = doAlignRules(p,algn_st,0,nr);
  }
  }
  //sheap = heap_ar_decl ? heap_ar_decl->symbol() : p;//heap_ar_decl == NULL is user error
@@ -5591,6 +5596,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
   int sign,re_sign,ia;
   SgSymbol *als;
   SgExpression *array_header,*size_array,*pref, *arglist, *lbound;
+  SgExpression *align_rule_list;
   SgType *type;
  
   als = node->symb;
@@ -5613,11 +5619,25 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
     where = ifst->lexNext();  // reffer to ENDIF statement   
   }      
   LINE_NUMBER_BEFORE(stmt,where); 
-                           //LINE_NUMBER_BEFORE(node->align_stmt,where); 
-                                        // for tracing set the global variable of LibDVM to
-                                        // line number of ALIGN directive 
-  isize = ndvm;
   rank = Rank(als);
+
+  if(INTERFACE_RTS2) { //interface of RTS2
+    size_array = NULL;
+    array_header = HeaderRef(als);
+    if(IS_ALLOCATABLE_POINTER(als))  
+      size_array = doSizeAllocArray(als, desc, stmt, RTS2);
+    else if(!IS_POINTER(als))
+      size_array = doDvmShapeList(als,node->align_stmt);  
+    doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(als))));
+    align_rule_list = doAlignRules(node->symb,node->align_stmt,0,nr);
+    if( root && align_rule_list)     //!(ia & POSTPONE_BIT) 
+      doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
+    if(IS_SAVE(als))
+      where = where->lexNext();
+    return;
+  }
+                      //interface of RTS1
+  isize = ndvm;
   if(IS_POINTER(als)){
     size_array = ReverseDim(desc,rank);
     pref = where->expr(0);
@@ -5650,8 +5670,8 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
   if(IS_ALLOCATABLE_POINTER(als)) {
       StoreLowerBoundsPlusOfAllocatable(als,desc);
       iaxis = ndvm;
-      if(!(ia & POSTPONE_BIT))   //if(root)
-        nr = doAlignRule(als,node->align_stmt,0);
+      if(!(ia & POSTPONE_BIT))   //if(root)       
+        align_rule_list = doAlignRules(node->symb,node->align_stmt,0,nr); //nr = doAlignRule(als,node->align_stmt,0);
   }
   else {
       arglist= stmt->expr(1)->lhs();
@@ -6125,7 +6145,7 @@ SgExpression * doSizeArrayD(SgSymbol *ar, SgStatement *st)
 
 SgExpression * doSizeAllocArray(SgSymbol *ar, SgExpression *desc, SgStatement *st, int RTS_flag)
 {
-  SgExpression *pe, *result, *size[7], *el;
+  SgExpression *pe, *result, *size[MAX_DIMS], *el;
   SgSubscriptExp *sbe;
   SgValueExp c1(1);
   SgArrayType *artype;
@@ -6141,6 +6161,8 @@ SgExpression * doSizeAllocArray(SgSymbol *ar, SgExpression *desc, SgStatement *s
   ndim =  artype->dimension();
   if(!desc->lhs())
     Error("No allocaton specifications for %s",ar->identifier(),293,st);
+  if(!TestMaxDims(desc->lhs(), ar, st))
+    return(result);
   for(el=desc->lhs(),n=0; el; el=el->rhs(),n++){
    pe = el->lhs();
    if((sbe=isSgSubscriptExp(pe)) != NULL)
@@ -6539,14 +6561,14 @@ int BoundSizeArrays (SgSymbol *das)
 {
  int iright;
  int i,nw,rank,width;
- SgExpression *wl,*ew, *lbound[7], *ubound[7], *she;
- //SgStatement *stsh;
+ SgExpression *wl,*ew, *lbound[MAX_DIMS], *ubound[MAX_DIMS], *she;
 
  rank = Rank(das);
  if(SHADOW_(das)) { // there is SHADOW directive, i.e. shadow  widths are
                     // specified
    iright = 0;
    she = *SHADOW_(das);
+   if(!TestMaxDims(she,das,0)) return(0);
    for(wl = she,i=0; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
      if(ew->variant() == DDOT){
@@ -6699,6 +6721,11 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
      numb[i] = NULL;
   for(e=dist_format; e; e = e->rhs()) {
      efm = e->lhs(); //dist_format expression
+     if(ndis==MAX_DIMS)
+     {
+        err("Too many dimensions",43,stdis); 
+        break;
+     }
      ndis++;
      if(efm->variant() == BLOCK_OP) {
         nblock++;
@@ -6864,15 +6891,15 @@ int doAlignRule (SgSymbol *alignee, SgStatement *algn_st, int iaxis)
 // returns length of align_source_list (dimension_identifier_list)
 // (SgExpression **p_axis,
 //                    SgExpression **p_coeff, SgExpression **p_const) 
-{ int i,j,rank,ni,nt,ia,num, use[7];
+{ int i,j,rank,ni,nt,ia,num, use[MAX_DIMS];
     //algn_attr *attr;
     //SgStatement *algn_st;
   SgExpression * el,*e,*ei,*elbi,*elbb;
-  SgSymbol *dim_ident[7],*align_base;
-  SgExpression *axis[7], *coef[7], *cons[7], *et;
+  SgSymbol *dim_ident[MAX_DIMS],*align_base;
+  SgExpression *axis[MAX_DIMS], *coef[MAX_DIMS], *cons[MAX_DIMS], *et;
   SgValueExp c1(1),c0(0),cM1(-1);
-  int num_dim[7], ncolon, ntriplet;
-  for(i=0;i<7;i++)
+  int num_dim[MAX_DIMS], ncolon, ntriplet;
+  for(i=0;i<MAX_DIMS;i++)
      num_dim[i]=0;
 
   rank = Rank(alignee);    // rank of aligned array
@@ -6891,6 +6918,10 @@ int doAlignRule (SgSymbol *alignee, SgStatement *algn_st, int iaxis)
     }
   //looking through the align_source_list (dimension_identifier_list)
   for(el=algn_st->expr(1); el; el=el->rhs())   {
+     if(ni==MAX_DIMS) {
+        err("Illegal align-source-list",633,algn_st); 
+        break;
+     }
      if(isSgVarRefExp(el->lhs())) {  // dimension identifier
        if(el->lhs()->symbol()->attributes() & PARAMETER_BIT)
          Error("The align-dummy %s isn't a scalar integer variable",el->lhs()->symbol()->identifier(), 62,algn_st);
@@ -6918,7 +6949,7 @@ int doAlignRule (SgSymbol *alignee, SgStatement *algn_st, int iaxis)
 
   nt = 0;//counter of elements in align_subscript_list
   ntriplet = 0; //counter of triplets in align_subscript_list
-  if(! et->lhs())  //align_source_list is absent
+  if(! et->lhs())  //align_subscript_list is absent
     for( ; nt<Rank(align_base); nt++,ntriplet++) {
        axis[nt] = new SgValueExp(ni-num_dim[ntriplet]);
        coef[nt] = new SgValueExp(1);
@@ -6927,6 +6958,10 @@ int doAlignRule (SgSymbol *alignee, SgStatement *algn_st, int iaxis)
   } 
  //looking through the align_subscript_list 
   for(el=et->lhs(); el; el=el->rhs())   {
+     if(nt==MAX_DIMS) {
+        err("Illegal align-subscript-list",634,algn_st); 
+        break;
+     }
      e = el->lhs();  //subscript expression
      if(e->variant()==KEYWORD_VAL) {  // "*"
        axis[nt] = & cM1.copy();
@@ -7051,6 +7086,10 @@ int doAlignRuleArrays (SgSymbol *alignee, SgStatement *algn_st, int iaxis, SgExp
     }
   //looking through the align_source_list (dimension_identifier_list)
   for(el=algn_st->expr(1); el; el=el->rhs())   {
+     if(ni==MAX_DIMS) {
+        err("Illegal align-source-list",633,algn_st); 
+        break;
+     }
      if(isSgVarRefExp(el->lhs())) {  // dimension identifier
        if(el->lhs()->symbol()->attributes() & PARAMETER_BIT)
          Error("The align-dummy %s isn't a scalar integer variable",el->lhs()->symbol()->identifier(), 62,algn_st);
@@ -7087,6 +7126,10 @@ int doAlignRuleArrays (SgSymbol *alignee, SgStatement *algn_st, int iaxis, SgExp
   } 
  //looking through the align_subscript_list 
   for(el=et->lhs(); el; el=el->rhs())   {
+     if(nt==MAX_DIMS) {
+        err("Illegal align-subscript-list",634,algn_st); 
+        break;
+     }
      e = el->lhs();  //subscript expression
      if(e->variant()==KEYWORD_VAL) {  // "*"
        axis[nt] = & cM1.copy();
@@ -8149,14 +8192,6 @@ int doShadSizeArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, SgExpress
      }
  }
   nw = i; 
-/*
-  if(nw<rank)  
-    for(; i<rank; i++) {      
-     lbound[i] = new SgValueExp(1); // by default, bound width = 1
-     ubound[i] = new SgValueExp(1);
-    }
-*/
-
   TestShadowWidths(ar, lbound, ubound, nw, st);
   if (nw != rank) {// wrong shadow width list length
      Error("Length of shadow-edge-list is not equal to the rank of array '%s'", ar->identifier(), 88, st); 
@@ -8203,6 +8238,7 @@ void TestShadowWidths(SgSymbol *ar, SgExpression * lbound[], SgExpression * ubou
  pe=SHADOW_(ar);
  if(pe){ //distributed array has SHADOW attribute
  //looking through the shadow width list of SHADOW directive/attribute 
+   if(!TestMaxDims(*pe,ar,0)) return;
    for(wl = *pe, i=0; wl; wl = wl->rhs(),i++) {
      ew = wl->lhs();
      if(ew->variant() == DDOT){
@@ -9108,7 +9144,7 @@ return;
 
 int CreateBufferArray (int rank, SgExpression *rme, int *amview, SgStatement *stmt)
 {int ihead,isize,i,j,iamv,ileft,idis;
- SgExpression *es,*esz[7], *elb[7];
+ SgExpression *es,*esz[MAX_DIMS], *elb[MAX_DIMS];
  ihead = ndvm; // allocating array header for buffer array
  ndvm+=2*rank+2;
  iamv = *amview =  ndvm++; 
@@ -14260,7 +14296,8 @@ int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt)
       ndim++; 
    if(ndim>MAX_DIMS)
    {
-      Error("Too many dimensions specified for '%s'",ar->identifier(),43,stmt); 
+      if(stmt)
+         Error("Too many dimensions specified for '%s'",ar->identifier(),43,stmt); 
       return 0;
    }
    else

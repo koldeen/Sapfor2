@@ -3934,7 +3934,7 @@ SgStatement *DvmhRedistribute(SgSymbol *das, int rank, SgExpression *distr_list)
 }
 
 
-SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, SgExpression *alignment_list)
+SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, int nr, SgExpression *alignment_list)
 {
  // generating subroutine call:
  //                   dvmh_align(DvmType dvmDesc[], const DvmType templDesc[], const DvmType *pTemplRank, 
@@ -3945,7 +3945,7 @@ SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, SgExpression *alignm
 
   call->addArg(*HeaderRef(als));
   call->addArg(*HeaderRef(align_base));
-  call->addArg(*ConstRef_F95(Rank(als)));
+  call->addArg(*ConstRef(nr));  //addArg(*ConstRef_F95(Rank(align_base)));
   AddListToList(call->expr(0),alignment_list);
   return(call);
 }

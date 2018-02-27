@@ -224,7 +224,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
 
             string message;
             __spf_printToBuf(message, "array ref '%s' has more than one loop's variables", arrayRefString.second.c_str());
-            currMessages->push_back(Messages(WARR, currLine, message));
+            if (currLine > 0)
+                currMessages->push_back(Messages(WARR, currLine, message));
         }
 
         for (int i = 0; i < allPositions.size(); ++i)
@@ -260,7 +261,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
 
                     string message;
                     __spf_printToBuf(message, "array ref '%s' has not loop's variables", arrayRefString.second.c_str());
-                    currMessages->push_back(Messages(WARR, currLine, message));
+                    if (currLine > 0)
+                        currMessages->push_back(Messages(WARR, currLine, message));
                 }
             }
             else
@@ -269,7 +271,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
 
                 string message;
                 __spf_printToBuf(message, "array ref '%s' has indirect access", arrayRefString.second.c_str());
-                currMessages->push_back(Messages(WARR, currLine, message));
+                if (currLine > 0)
+                    currMessages->push_back(Messages(WARR, currLine, message));
             }
         }
     }
@@ -289,7 +292,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             getCoefsOfSubscript(coefs, subscr, parentLoops[position]->doName());
         __spf_print(PRINT_ARRAY_ARCS, " <%d %d> ", coefs.first, coefs.second);
 
-        if (coefs.first == 0 && coefs.second == 0)
+        if (coefs.first == 0) // && coefs.second == 0)
         {
             if (currRegime == REMOTE_ACC)
             {
@@ -297,14 +300,15 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     addInfoToMaps(loopInfo, parentLoops[position], currOrigArrayS, arrayRef, dimNum, REMOTE_TRUE, currLine, numOfSubscriptions);
             }
             else if (currRegime == DATA_DISTR)
-            {
+            {                
                 const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
                 __spf_print(1, "WARN: can not calculate index expression for array ref '%s' at line %d\n", arrayRefString.second.c_str(), currLine);
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
 
                 string message;
                 __spf_printToBuf(message, "can not calculate index expression for array ref '%s'", arrayRefString.second.c_str());
-                currMessages->push_back(Messages(WARR, currLine, message));
+                if (currLine > 0)
+                    currMessages->push_back(Messages(WARR, currLine, message));
             }
         }
         else
@@ -345,7 +349,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     
                     string message;
                     __spf_printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
-                    currMessages->push_back(Messages(WARR, currLine, message));
+                    if (currLine > 0)
+                        currMessages->push_back(Messages(WARR, currLine, message));
                 }
             }
             else
@@ -418,7 +423,8 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
 
                 string message;
                 __spf_printToBuf(message, "can not map write to array '%s' to this loop", arrayRefS.c_str());
-                currMessages->push_back(Messages(WARR, line, message));
+                if (line > 0)
+                    currMessages->push_back(Messages(WARR, line, message));
             }
         }
     }
@@ -486,8 +492,8 @@ static int uniqfileNames = 0;
 
 string getShortName(const tuple<int, string, string> &uniqKey)
 {
-	const char *declFileName = SECOND(uniqKey).c_str();
-	const char *varName = THIRD(uniqKey).c_str();
+    const char *declFileName = SECOND(uniqKey).c_str();
+    const char *varName = THIRD(uniqKey).c_str();
     const int position = FIRST(uniqKey);
 
     map<string, string>::iterator it;
@@ -498,7 +504,7 @@ string getShortName(const tuple<int, string, string> &uniqKey)
     {
         retVal = string("f") + std::to_string(uniqfileNames) + string("_");
         shortFileNames[string(declFileName)] = retVal;
-		uniqfileNames++;
+        uniqfileNames++;
     }
     else
         retVal = it->second;
@@ -896,6 +902,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
         while (st != lastNode)
         {
+            currProcessing.second = st;
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -1324,6 +1331,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, REGIME
 
         while (st != lastNode)
         {
+            currProcessing.second = st;
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -1496,7 +1504,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         }
 
         while (st != lastNode)
-        {                        
+        {
+            currProcessing.second = st;
             //TODO: add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)
