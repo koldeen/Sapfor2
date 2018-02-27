@@ -277,61 +277,10 @@ enum eVariableType
     VAR_REF_ARRAY_EXP
 };
 
-class CVarEntryInfo
-{
-    SgSymbol* symbol;
-    int references;
-public:
-    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) {};
-    virtual ~CVarEntryInfo() {};
-    virtual eVariableType GetVarType() const = 0;
-    virtual CVarEntryInfo* Clone(SgSymbol*) const = 0;
-    virtual CVarEntryInfo* Clone() const = 0;
-    virtual CVarEntryInfo* GetLeftmostParent() = 0;
-    SgSymbol* GetSymbol() const { return symbol; }
-    virtual bool operator==(const CVarEntryInfo& rhs) const = 0;
-    void AddReference() { references++; }
-    bool RemoveReference() { return --references == 0; }
-};
-
-class CScalarVarEntryInfo: public CVarEntryInfo
-{
-public:
-    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) {};
-    ~CScalarVarEntryInfo() {};
-    eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CScalarVarEntryInfo(s); }
-    CVarEntryInfo* Clone() const { return new CScalarVarEntryInfo(GetSymbol()); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_VAR_EXP && rhs.GetSymbol() == GetSymbol(); }
-    CVarEntryInfo* GetLeftmostParent() { return this; }
-};
-
-class CRecordVarEntryInfo : public CVarEntryInfo
-{
-    CVarEntryInfo* parent;
-public:
-    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) {};
-    ~CRecordVarEntryInfo()
-    {
-        if (parent->RemoveReference())
-            delete parent;
-    }
-    eVariableType GetVarType() const { return VAR_REF_RECORD_EXP; }
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CRecordVarEntryInfo(s, parent->Clone()); }
-    CVarEntryInfo* Clone() const { return new CRecordVarEntryInfo(GetSymbol(), parent->Clone()); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_RECORD_EXP && rhs.GetSymbol() == GetSymbol() &&
-        parent && static_cast<const CRecordVarEntryInfo&>(rhs).parent && *static_cast<const CRecordVarEntryInfo&>(rhs).parent == *parent; }
-    CVarEntryInfo* GetLeftmostParent() { return parent->GetLeftmostParent(); }
-};
-
-class CArrayVarEntryInfo : public CVarEntryInfo
-{
-public:
-    eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
-    CVarEntryInfo* GetLeftmostParent() { return this; }
-};
 
 #define PRIVATE_GET_LAST_ASSIGN 0
+
+class CVarEntryInfo;
 
 struct VarItem
 {
@@ -339,10 +288,11 @@ struct VarItem
     int file_id;
     //CLAStatementItem* lastAssignments;
 #if PRIVATE_GET_LAST_ASSIGN
-	std::list<SgStatement*> lastAssignments;
+    std::list<SgStatement*> lastAssignments;
 #endif
     VarItem* next;
 };
+
 
 class VarSet
 {
@@ -368,7 +318,90 @@ public:
     VarItem* getFirst();
     ~VarSet();
     inline bool isEmpty()
-    { return list == NULL; }
+    {
+        return list == NULL;
+    }
+};
+
+class CVarEntryInfo
+{
+    SgSymbol* symbol;
+    int references;
+public:
+    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) {};
+    virtual ~CVarEntryInfo() {};
+    virtual eVariableType GetVarType() const = 0;
+    virtual CVarEntryInfo* Clone(SgSymbol*) const = 0;
+    virtual CVarEntryInfo* Clone() const = 0;
+    virtual CVarEntryInfo* GetLeftmostParent() = 0;
+    virtual void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) = 0;
+    virtual void RegisterDefinition(VarSet* def, SgStatement* st) = 0;
+    SgSymbol* GetSymbol() const { return symbol; }
+    virtual bool operator==(const CVarEntryInfo& rhs) const = 0;
+    void AddReference() { references++; }
+    bool RemoveReference() { return --references == 0; }
+};
+
+class CScalarVarEntryInfo: public CVarEntryInfo
+{
+public:
+    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) {};
+    ~CScalarVarEntryInfo() {};
+    eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CScalarVarEntryInfo(s); }
+    CVarEntryInfo* Clone() const { return new CScalarVarEntryInfo(GetSymbol()); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_VAR_EXP && rhs.GetSymbol() == GetSymbol(); }
+    CVarEntryInfo* GetLeftmostParent() { return this; }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+};
+
+class CRecordVarEntryInfo : public CVarEntryInfo
+{
+    CVarEntryInfo* parent;
+public:
+    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) {};
+    ~CRecordVarEntryInfo()
+    {
+        if (parent->RemoveReference())
+            delete parent;
+    }
+    eVariableType GetVarType() const { return VAR_REF_RECORD_EXP; }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CRecordVarEntryInfo(s, parent->Clone()); }
+    CVarEntryInfo* Clone() const { return new CRecordVarEntryInfo(GetSymbol(), parent->Clone()); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_RECORD_EXP && rhs.GetSymbol() == GetSymbol() &&
+        parent && static_cast<const CRecordVarEntryInfo&>(rhs).parent && *static_cast<const CRecordVarEntryInfo&>(rhs).parent == *parent; }
+    CVarEntryInfo* GetLeftmostParent() { return parent->GetLeftmostParent(); }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+};
+
+class CArrayVarEntryInfo : public CVarEntryInfo
+{
+    SgArrayRefExp* ref;
+public:
+    CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s), ref(r) {};
+    bool CompareSubscripts(const CArrayVarEntryInfo&) const;
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, ref); }
+    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), ref); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol() && 
+        static_cast<const CArrayVarEntryInfo&>(rhs).ref && ref && CompareSubscripts(static_cast<const CArrayVarEntryInfo&>(rhs)); }
+    eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
+    CVarEntryInfo* GetLeftmostParent() { return this; }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        //todo: FIX
+        /*
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+        */
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { /*  def->addToSet(this, st); */ /* FIX */ };
 };
 
 class CBasicBlock;
@@ -545,6 +578,7 @@ public:
     void addVarToKill(SgSymbol* var);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
+    std::set<SymbolKey>* getOutVars();
     void correctInDefs();
     inline std::map<SymbolKey, SgExpression*>* getGen()
     { return &gen; }
@@ -741,8 +775,9 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
-void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term);
+void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term, std::set<SymbolKey>* allowedVars);
 void showDefsOfGraph(ControlFlowGraph *CGraph);
+bool symbolInExpression(SgSymbol *symbol, SgExpression *exp);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();

@@ -318,6 +318,12 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
                     {
                         insertMinorPart(subsR, file, deep, leftBounds, rightBounds, shift);
 
+                        if (subsR->rhs() == NULL)
+                        {
+                            subsR = NULL;
+                            break;
+                        }
+
                         int tmp;
                         checkAndinsertFixedDimentionValue(subsR, rightBounds, tmp, fixedDim);
 

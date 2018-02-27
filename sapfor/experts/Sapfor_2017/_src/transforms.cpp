@@ -37,6 +37,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
+#include "Predictor/PredictScheme.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -149,9 +150,6 @@ static void updateStatsByLine(const int id)
         statsByLine[id][make_pair(st->fileName(), st->lineNumber())] = st;
 
 }
-
-//TODO: remove with value == 1
-#define NEW_SUBS 0
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
@@ -446,16 +444,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
+        else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
+            arrayAccessAnalyzer(file, getMessagesForFile(file_name), PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS)
             removeDvmDirectives(file);
-#if !NEW_SUBS
         else if (curr_regime == SUBST_EXPR)
             expressionAnalyzer(file);
-#endif
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename());
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -606,7 +604,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             convertFromAssignToLoop(file);
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
-
+		else if (curr_regime == PREDICT_SCHEME)
+		{
+			auto itFound = loopGraph.find(file_name);
+			if (itFound == loopGraph.end())
+			{
+				auto tmp = vector<LoopGraph*>();
+				processFileToPredict(file, tmp);
+			}
+			else
+				processFileToPredict(file, itFound->second);
+		}
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -807,12 +815,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
     }
-    else if (curr_regime == LOOP_GRAPH)
-    {
-        if (keepFiles)
-            printLoopGraph("_loopGraph.txt", loopGraph);
-        checkCountOfIter(loopGraph, SPF_messages);
-    }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
         for (auto it = commentsToInclude.begin(); it != commentsToInclude.end(); ++it)
@@ -872,27 +874,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
     }
-#if NEW_SUBS
-    else if (curr_regime == SUBST_EXPR)
-    {
-        SgStatement *mainUnit = findMainUnit(&project);
-        if (mainUnit)
-            expressionAnalyzer(mainUnit);
-        else
-        {
-            for (int i = n - 1; i >= 0; --i)
-            {
-#if _WIN32 && NDEBUG
-                createNeededException();
-#endif
-                SgFile *file = &(project.file(i));
-                current_file_id = i;
-                current_file = file;
-                expressionAnalyzer(file);
-            }
-        }
-    }
-#endif
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
@@ -955,7 +936,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         __spf_print(1, "All lines in project %d\n", allLineSum);
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
+    {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
+
+        checkCountOfIter(loopGraph, SPF_messages);
+        if (keepFiles)
+            printLoopGraph("_loopGraph.txt", loopGraph);
+    }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
@@ -1162,30 +1149,33 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (genAllVars == 0)
             lastI = 1;
 
-        for (int i = 0; i < lastI; ++i)
-        {
-            //if specific variant number is requested, skip all others
-            if (genSpecificVar >= 0 && i != genSpecificVar) continue;
+		for (int i = 0; i < lastI; ++i)
+		{
+			//if specific variant number is requested, skip all others
+			if (genSpecificVar >= 0 && i != genSpecificVar) 
+				continue;
 
-            string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
+			string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
-            runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+			runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 
-            runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+			runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+			runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
-            runPass(CREATE_REMOTES, proj_name, folderName);
+			runPass(CREATE_REMOTES, proj_name, folderName);
 
-            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);            
-                        
-            runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+			runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+			runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-            runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
-            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
-            runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
-        }
+			runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+
+			runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+
+			runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
+			runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
+			runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
+		}
     }
         break;
     case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
@@ -1195,7 +1185,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
-    case UNPARSE_FILE:        
+    case UNPARSE_FILE:
         if (folderName)
             runAnalysis(*project, curr_regime, true, "", folderName);
         else

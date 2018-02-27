@@ -169,6 +169,15 @@ public:
     {
         return funcName + "_loop_" + std::to_string(lineNum);
     }
+
+    std::set<DIST::Array*> getAllArraysInLoop()
+    {
+        std::set<DIST::Array*> retVal(readOpsArray);
+        for (auto &elem : writeOps)
+            retVal.insert(elem.first);
+        return retVal;
+    }
+
 public:
     int lineNum;
     int lineNumAfterLoop;

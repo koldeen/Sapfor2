@@ -426,12 +426,9 @@ static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, 
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (loops[i]->region)
-        {
-            if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-                loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-            multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
-        }
+        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
+            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
     }
 }
 

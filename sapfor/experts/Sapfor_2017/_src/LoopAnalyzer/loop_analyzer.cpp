@@ -212,6 +212,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         }
     }
 
+    pair<int, int> coefs = pair<int, int>(0, 0);
     // more than one loop symbol in subscription
     if (countOfSymbols > 1)
     {     
@@ -274,7 +275,6 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
     }
     else
     {
-        pair<int, int> coefs = pair<int, int>(0, 0);
         bool needToCacl = true;
         if (subscr->variant() == VAR_REF)
         {
@@ -355,7 +355,20 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 else
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, READ_OP, numOfSubscriptions);
             }
-        }        
+        }
+    }
+
+    if (currRegime == PRIVATE_STEP4)
+    {
+        int *valueSubs = new int[2];
+        valueSubs[0] = coefs.first;
+        valueSubs[1] = coefs.second;
+#ifdef _WIN32
+        addToCollection(__LINE__, __FILE__, valueSubs, 2);
+#endif
+        subscr->addAttribute(INT_VAL, valueSubs, sizeof(int*));
+        if (position != -1 && allPositions.size() == 1 && position < parentLoops.size())
+            subscr->addAttribute(FOR_NODE, parentLoops[position], sizeof(SgStatement));
     }
 
     return allPositions;
@@ -1253,6 +1266,135 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         
         __spf_print(PRINT_PROF_INFO, "Function ended\n");
     }     
+}
+
+void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, REGIME regime)
+{
+    currMessages = &messagesForFile;
+    currRegime = regime;
+
+    map<string, vector<SgStatement*>> commonBlocks;
+    map<int, LoopGraph*> sortedLoopGraph;
+    map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> allLoops;
+    
+    int funcNum = file->numberOfFunctions();
+    __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
+
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+
+    map<string, SgStatement*> modulesByName;
+    for (int i = 0; i < modules.size(); ++i)
+        modulesByName[modules[i]->symbol()->identifier()] = modules[i];
+
+    for (int i = 0; i < funcNum; ++i)
+    {
+        map<SgForStmt*, map<SgSymbol*, ArrayInfo>> loopInfo;
+        set<int> loopWithOutArrays;
+        set<string> privatesVars;
+
+        SgStatement *st = file->functions(i);
+        string funcName = "";
+        if (st->variant() == PROG_HEDR)
+        {
+            SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
+            __spf_print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = progH->symbol()->identifier();
+        }
+        else if (st->variant() == PROC_HEDR)
+        {
+            SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = procH->symbol()->identifier();
+        }
+        else if (st->variant() == FUNC_HEDR)
+        {
+            SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
+            __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
+            funcName = funcH->symbol()->identifier();
+        }
+        getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
+        __spf_print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
+
+        SgStatement *lastNode = st->lastNodeOfStmt();
+        vector<SgForStmt*> parentLoops;
+        
+        startLineControl(file->filename(), st->lineNumber(), lastNode->lineNumber());
+        bool breakLineControl = false;
+
+        while (st != lastNode)
+        {
+#if _WIN32 && NDEBUG
+            if (passDone == 2)
+                throw boost::thread_interrupted();
+#endif
+            if (st == NULL)
+            {
+                string message;
+                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
+                currMessages->push_back(Messages(ERROR, 1, message));
+
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+            else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
+            {
+                string message;
+                __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
+                currMessages->push_back(Messages(ERROR, 1, message));
+
+                __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
+                breakLineControl = true;
+                break;
+            }
+                        
+            const int currV = st->variant();
+            if (currV == FOR_NODE)
+            {
+                if (PRINT_LOOP_STRUCT)
+                    printBlanks(2, (int)parentLoops.size());
+                __spf_print(PRINT_LOOP_STRUCT, "FOR NODE on line %d\n", st->lineNumber());
+
+                parentLoops.push_back((SgForStmt*)st);
+                sortedLoopGraph[st->lineNumber()] = new LoopGraph();
+            }
+            else if (currV == CONTROL_END)
+            {
+                SgStatement *contrlParent = st->controlParent();
+                if (contrlParent)
+                {
+                    if (contrlParent->variant() == FOR_NODE)
+                    {
+                        if (loopInfo.find((SgForStmt*)contrlParent) == loopInfo.end())
+                            loopWithOutArrays.insert(contrlParent->lineNumber());
+
+                        parentLoops.pop_back();
+                        delete sortedLoopGraph[st->lineNumber()];
+                    }
+                }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+            else if (currV == ASSIGN_STAT)
+            {
+                if (st->expr(0))
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, false);
+                if (st->expr(1))
+                    findArrayRef(parentLoops, st->expr(1), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, false);
+            }
+            else if (currV == IF_NODE || currV == ELSEIF_NODE || currV == LOGIF_NODE || currV == SWITCH_NODE)
+            {
+                if (st->expr(0))
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, false);
+            }
+            st = st->lexNext();
+        }
+
+        if (breakLineControl)
+            return;
+
+        __spf_print(PRINT_PROF_INFO, "Function ended\n");
+    }
 }
 
 static void findArrayRefs(SgExpression *ex, 

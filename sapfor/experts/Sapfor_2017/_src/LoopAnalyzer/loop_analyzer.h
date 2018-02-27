@@ -16,7 +16,7 @@
 typedef std::pair<std::pair<int, int>, std::pair<int, int>> attrType;
 namespace DIST = Distribution;
 
-enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, UNDEF };
+enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
@@ -34,6 +34,7 @@ void loopAnalyzer(SgFile *file,
                   std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                   std::vector<LoopGraph*> *loopGraph = NULL);
+void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, REGIME regime);
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
