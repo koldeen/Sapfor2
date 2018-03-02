@@ -73,6 +73,10 @@ std::map<std::string, int> lineInfo; // file -> lines count
 std::map<std::string, std::set<std::string>> includeDependencies; // file -> includes
 //
 
+//for FILL_COM_BLOCKS
+std::map<std::string, std::vector<std::string>> commonBlocks;
+//
+
 std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
 
 const char *passNames[EMPTY_PASS + 1];

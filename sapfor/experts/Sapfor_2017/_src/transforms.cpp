@@ -419,7 +419,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == PREPROC_SPF)
         {
-            bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
+            bool noError = preprocess_spf_dirs(file, commonBlocks, getMessagesForFile(file_name));
             if (!noError)
                 internalExit = 1;
         }
@@ -448,6 +448,30 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             arrayAccessAnalyzer(file, getMessagesForFile(file_name), PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
+        else if (curr_regime == FILL_COM_BLOCKS)
+        {
+            // fillCommonBlocks(file, commonBlocks);
+            map<string, vector<SgStatement*>> tmpCommonBlocks;
+            SgStatement *st = file->firstStatement();
+
+            while (st)
+            {
+                getCommonBlocksRef(tmpCommonBlocks, st, st->lastNodeOfStmt());
+                st = st->lexNext();
+            }
+
+            for (auto &commonBlockPair : tmpCommonBlocks)
+            {
+                vector<string> vars;
+
+                for (auto &st : commonBlockPair.second)
+                    vars.push_back(st->expr(0)->symbol()->identifier());
+
+                recExpressionPrint(st->expr(0)); // remove this line
+
+                commonBlocks.insert(make_pair(commonBlockPair.first, vars));
+            }
+        }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS)

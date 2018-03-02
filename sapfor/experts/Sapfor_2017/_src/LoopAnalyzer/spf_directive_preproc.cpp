@@ -681,6 +681,7 @@ static bool checkRemote(SgStatement *st,
 static bool fillParallelRegions(SgStatement *st,
                                 SgStatement *attributeStatement,
                                 pair<map<SgSymbol*, int>, vector<int>> &parRegList,
+                                const map<string, vector<string>> &commonBlocks,
                                 vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -723,24 +724,21 @@ static bool fillParallelRegions(SgStatement *st,
 			}
 
             // TODO: add common blocks checking
-            map<string, vector<SgStatement*>> commonBlocks;
-            getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
+            // map<string, vector<SgStatement*>> commonBlocks;
+            // getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
 
             for (auto &commonBlockPair : commonBlocks)
             {
-                for (auto &statement : commonBlockPair.second)
+                for (auto &varName : commonBlockPair.second)
                 {
-                    for (int i = 0; i < 3; ++i) {
-                        for (SgExpression *exp = statement->expr(i); exp; exp = exp->rhs())
-                            if (exp->lhs()->symbol() == identSymbol)
-                            {
-                                retVal = false;
-                                __spf_print(1, "variable '%s' was declarated on line %d\n", identName, attributeStatement->lineNumber());
-                                string message;
-                                __spf_printToBuf(message, "variable '%s' was declarated", identName);
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
-                                retVal = false;
-                            }
+                    if (varName == identSymbol->identifier())
+                    {
+                        retVal = false;
+                        __spf_print(1, "variable '%s' was declarated on line %d\n", identName, attributeStatement->lineNumber());
+                        string message;
+                        __spf_printToBuf(message, "variable '%s' was declarated", identName);
+                        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                        retVal = false;
                     }
                 }
             }
@@ -827,7 +825,10 @@ static bool checkParallelRegions(SgStatement *st,
 }
 */
 
-static inline bool processStat(SgStatement *st, const string &currFile, pair<map<SgSymbol*, int>, vector<int>> &parRegList, vector<Messages> &messagesForFile)
+static inline bool processStat(SgStatement *st, const string &currFile,
+                               pair<map<SgSymbol*, int>, vector<int>> &parallelRegions,
+                               const map<string, vector<string>> &commonBlocks,
+                               vector<Messages> &messagesForFile)
 {
     bool retVal = true;
     // ignore SPF statements
@@ -921,7 +922,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, pair<map
         }
         else if (type == SPF_PARALLEL_REG_DIR || type == SPF_END_PARALLEL_REG_DIR)
         {
-            bool result = fillParallelRegions(st, attributeStatement, parRegList, messagesForFile);
+            bool result = fillParallelRegions(st, attributeStatement, parallelRegions, commonBlocks, messagesForFile);
             retVal = retVal && result;
         }
     }
@@ -929,17 +930,18 @@ static inline bool processStat(SgStatement *st, const string &currFile, pair<map
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, vector<string>> &commonBlocks, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
-    pair<map<SgSymbol*, int>, vector<int>> parRegList;
+    pair<map<SgSymbol*, int>, vector<int>> parallelRegions;
+
     for (int i = 0; i < modules.size(); ++i)
     {
         SgStatement *modIterator = modules[i];
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
         while (modIterator != modEnd)
         {
-            bool result = processStat(modIterator, currFile, parRegList, messagesForFile);
+            bool result = processStat(modIterator, currFile, parallelRegions, commonBlocks, messagesForFile);
             // retVal = retVal && checkParallelRegions(modIterator, parRegList, messagesForFile);
             retVal = retVal && result;
             modIterator = modIterator->lexNext();
@@ -949,7 +951,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, const map<string, vector<string>> &commonBlocks, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
@@ -958,7 +960,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
     // first - SPF_PARALLEL_REG_DIR
     // second - SPF_END_PARALLEL_REG_DIR
-    pair<map<SgSymbol*, int>, vector<int>> parRegList;
+    pair<map<SgSymbol*, int>, vector<int>> parallelRegions;
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -973,7 +975,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                 break;
             }
 
-            bool result = processStat(st, currFile, parRegList, messagesForFile);
+            bool result = processStat(st, currFile, parallelRegions, commonBlocks, messagesForFile);
             // noError = noError && checkParallelRegions(st, parRegList, messagesForFile);
             noError = noError && result;
 
@@ -987,7 +989,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
-    bool result = processModules(modules, currFile, messagesForFile);
+    bool result = processModules(modules, currFile, commonBlocks, messagesForFile);
     noError = noError && result;
     return noError;
 }
