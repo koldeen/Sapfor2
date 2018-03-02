@@ -151,6 +151,8 @@ static void updateStatsByLine(const int id)
 
 }
 
+pair<SgFile*, SgStatement*> currProcessing;
+
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
     if (PASSES_DONE_INIT == false)
@@ -193,6 +195,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         updateStatsByLine(current_file_id);
     }
 
+    currProcessing.first = NULL; currProcessing.second = NULL;
     for (int i = n - 1; i >= 0; --i)
     {
 #if _WIN32 && NDEBUG
@@ -201,6 +204,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
+
+        currProcessing.first = file; currProcessing.second = NULL;
 
         const char *file_name = file->filename();
 
@@ -237,6 +242,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
                          declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+
+            currProcessing.second = NULL;
             UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -341,6 +348,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
+            currProcessing.second = NULL;
 
             //clear shadow specs
             for (auto &array : declaratedArrays)
@@ -625,20 +633,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
-            convertFromAssignToLoop(file);
+            convertFromAssignToLoop(file, getMessagesForFile(file_name));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
-		else if (curr_regime == PREDICT_SCHEME)
-		{
-			auto itFound = loopGraph.find(file_name);
-			if (itFound == loopGraph.end())
-			{
-				auto tmp = vector<LoopGraph*>();
-				processFileToPredict(file, tmp);
-			}
-			else
-				processFileToPredict(file, itFound->second);
-		}
+        else if (curr_regime == PREDICT_SCHEME)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound == loopGraph.end())
+            {
+                auto tmp = vector<LoopGraph*>();
+                processFileToPredict(file, tmp);
+            }
+            else
+                processFileToPredict(file, itFound->second);
+        }
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -709,6 +717,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// SECOND AGGREGATION STEP            /// 
     // **********************************  ///
+    currProcessing.first = NULL; currProcessing.second = NULL;
     if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)
@@ -1173,33 +1182,33 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (genAllVars == 0)
             lastI = 1;
 
-		for (int i = 0; i < lastI; ++i)
-		{
-			//if specific variant number is requested, skip all others
-			if (genSpecificVar >= 0 && i != genSpecificVar) 
-				continue;
+        for (int i = 0; i < lastI; ++i)
+        {
+            //if specific variant number is requested, skip all others
+            if (genSpecificVar >= 0 && i != genSpecificVar) 
+                continue;
 
-			string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
+            string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
-			runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+            runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 
-			runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+            runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-			runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
-			runPass(CREATE_REMOTES, proj_name, folderName);
+            runPass(CREATE_REMOTES, proj_name, folderName);
 
-			runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-			runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-			runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+            runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
-			runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
-			runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
-			runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
-			runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
-		}
+            runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
+            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
+            runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
+        }
     }
         break;
     case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
