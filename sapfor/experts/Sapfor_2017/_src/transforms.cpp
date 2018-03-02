@@ -732,6 +732,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             CreateCallGraphWiz("_callGraph.txt", allFuncInfo);
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
+        // call here
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
     }
     else if (curr_regime == LOOP_GRAPH)

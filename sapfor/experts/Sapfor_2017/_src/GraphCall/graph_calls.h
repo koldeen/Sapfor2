@@ -20,7 +20,7 @@ struct FuncParam
 	}
 
 	// mycode
-	std::vector<std::string> identificators;
+	std::vector<std::string> identificators; // maybe map
 	std::vector<void*> parameters;
 	std::vector<paramType> parametersT;
 };
