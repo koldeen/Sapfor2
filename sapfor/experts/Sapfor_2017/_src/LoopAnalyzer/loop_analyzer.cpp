@@ -388,33 +388,40 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
 
     currExp = currExp->lhs();
     vector<int> wasFound(parentLoops.size());
+    vector<int> matched(numOfSubs);
     std::fill(wasFound.begin(), wasFound.end(), 0);
+    std::fill(matched.begin(), matched.end(), -1);
 
     for (int i = 0; i < numOfSubs; ++i)
     {
         vector<int> matchToLoops = matchSubscriptToLoopSymbols(parentLoops, currExp->lhs(), arrayRef, side, i, loopInfo, currLine, numOfSubs);
         for (int k = 0; k < matchToLoops.size(); ++k)
             wasFound[matchToLoops[k]]++;
+
+        if (matchToLoops.size())
+            matched[i] = 0;
         currExp = currExp->rhs();
     }
     
-    if (side == LEFT)
-    {         
-        bool ifUnknownWriteFound = false;
-        vector<int> canNotMapToLoop;
-        for (int i = 0; i < wasFound.size(); ++i)
+    bool ifUnknownFound = false;
+    vector<int> canNotMapToLoop;
+    for (int i = 0; i < wasFound.size(); ++i)
+    {
+        if (wasFound[i] != 1)
         {
-            if (wasFound[i] != 1)
-            {
-                auto itLoop = sortedLoopGraph.find(parentLoops[i]->lineNumber());
-                if (itLoop == sortedLoopGraph.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                ifUnknownWriteFound = itLoop->second->hasUnknownArrayAssigns = true;
-                canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
-            }
+            auto itLoop = sortedLoopGraph.find(parentLoops[i]->lineNumber());
+            if (itLoop == sortedLoopGraph.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            ifUnknownFound = true;
+            if (side == LEFT)
+                itLoop->second->hasUnknownArrayAssigns = true;
+            canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
         }
+    }
 
-        if (ifUnknownWriteFound && (currRegime == DATA_DISTR))
+    if (side == LEFT)
+    {
+        if (ifUnknownFound && (currRegime == DATA_DISTR))
         {
             const string arrayRefS = arrayRef->unparse();
             for (auto &line : canNotMapToLoop)
@@ -426,6 +433,17 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                 if (line > 0)
                     currMessages->push_back(Messages(WARR, line, message));
             }
+        }
+    }
+    else if (side == RIGHT)
+    {
+        SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
+        if (ifUnknownFound && (currRegime == REMOTE_ACC))
+        {
+            for (int i = 0; i < wasFound.size(); ++i)
+                if (wasFound[i] != 1)
+                    for (int k = 0; k < numOfSubs; ++k)
+                        addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
         }
     }
 }
@@ -927,7 +945,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 break;
             }
 
-            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+            const int currentLine = st->lineNumber() < -1 ? st->localLineNumber() : st->lineNumber();
+            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), currentLine);
             if (currReg == NULL)
             {
                 st = st->lexNext();

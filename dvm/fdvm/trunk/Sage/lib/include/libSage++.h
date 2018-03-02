@@ -113,6 +113,7 @@ class  SgStatement{
   SgStatement(SgStatement &);
   // info about statement
   inline int lineNumber();          // source text line number
+  inline int localLineNumber();
   inline int id();                  // unique id;
   inline int variant();             // the type of the statement
   SgExpression *expr(int i); // i = 0,1,2 returns the i-th expression.
@@ -129,7 +130,8 @@ class  SgStatement{
   SgLabel *label();          // the label
 
   // modifying the info.
-  inline void setlineNumber(int n); // change the line number info
+  inline void setlineNumber(const int n); // change the line number info
+  inline void setLocalLineNumber(const int n);
   inline void setId(int n);         // cannot change the id info
   inline void setVariant(int n);    // change the type of the statement
   void setExpression (int i, SgExpression &e); // change the i-th expression
@@ -3040,6 +3042,9 @@ inline SgType *SgFile::SgTypeWithId( int id)
 inline int SgStatement::lineNumber()
 { return BIF_LINE(thebif); }
 
+inline int SgStatement::localLineNumber()
+{ return BIF_LOCAL_LINE(thebif); }
+
 inline int  SgStatement::id()
 { return BIF_ID(thebif);}
 
@@ -3081,8 +3086,11 @@ inline int SgStatement::hasLabel()
   return x;
 }
 
-inline void SgStatement::setlineNumber(int n)
+inline void SgStatement::setlineNumber(const int n)
 { BIF_LINE(thebif) = n; }
+
+inline void SgStatement::setLocalLineNumber(const int n)
+{ BIF_LOCAL_LINE(thebif) = n; }
 
 inline void SgStatement::setId(int)
 { Message("Id cannot be changed",BIF_LINE(thebif)); }

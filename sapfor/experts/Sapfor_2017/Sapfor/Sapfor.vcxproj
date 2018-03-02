@@ -262,6 +262,7 @@
     <ClInclude Include="..\_src\types.h" />
     <ClInclude Include="..\_src\utils.h" />
     <ClInclude Include="..\_src\VerificationCode\verifications.h" />
+    <ClInclude Include="..\_src\version.h" />
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

@@ -151,6 +151,14 @@ static void updateStatsByLine(const int id)
 
 }
 
+static void updateStatsExprs(const int id, const string &file)
+{
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        sgStats[st->thebif] = make_pair(file, id);
+    for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
+        sgExprs[ex->thellnd] = make_pair(file, id);
+}
+
 pair<SgFile*, SgStatement*> currProcessing;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
@@ -186,13 +194,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #if _WIN32
     double timeForPass = omp_get_wtime();
 #endif
-
+    
+    sgStats.clear();
+    sgExprs.clear();
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
         updateStatsByLine(current_file_id);
+        updateStatsExprs(current_file_id, file->filename());
     }
 
     currProcessing.first = NULL; currProcessing.second = NULL;
@@ -208,7 +219,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         currProcessing.first = file; currProcessing.second = NULL;
 
         const char *file_name = file->filename();
-
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
         if (curr_regime == CONVERT_TO_ENDDO)
@@ -897,7 +907,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                for (auto array : allArrays.GetArrays())
+                for (auto &array : allArrays.GetArrays())
                 {
                     auto itF = arraysDone.find(array);
                     if (itF == arraysDone.end())

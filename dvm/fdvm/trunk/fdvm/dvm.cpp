@@ -12,7 +12,7 @@
 
 #include "libSageOMP.h"
 
-const char *name_loop_var[8] = {"idvm00","idvm01","idvm02","idvm03", "idvm04","idvm05","idvm06","idvm07"};  
+const char *name_loop_var[MAX_DIMS+1] = {"idvm00","idvm01","idvm02","idvm03", "idvm04","idvm05","idvm06","idvm07","idvm08","idvm09","idvm10","idvm11","idvm12","idvm13","idvm14","idvm15"};  
 const char *name_bufIO[Ntp] = {"i000io","r000io", "d000io","c000io","l000io","dc00io","ch00io","i100io","i200io","i800io","l100io","l200io","l800io"};
 SgSymbol *rmbuf[Ntp];
 const char *name_rmbuf[Ntp] = {"i000bf","r000bf", "d000bf","c000bf","l000bf","dc00bf","ch00bf","i100bf","i200bf","i800bf","l100bf","l200bf","l800bf"};
@@ -9210,7 +9210,7 @@ int CreateBufferArray (int rank, SgExpression *rme, int *amview, SgStatement *st
 
 void CopyToBuffer(int rank,  int ibuf, SgExpression *rme)
 {  int itype,iindex,i,j,from_init,to_init;
-  SgExpression *es,*ei[7],*el[7],*head;
+  SgExpression *es,*ei[MAX_DIMS],*el[MAX_DIMS],*head;
   SgValueExp MM1(-1); 
 
   if(!rank) { // copying one element of distributed array to buffer 
@@ -9355,14 +9355,14 @@ void RemoteVariableList1(SgSymbol *group,SgExpression *rml, SgStatement *stmt)
 
 void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
 { SgStatement *if_st,*end_st = NULL; 
-  SgExpression *el, *es,*coef[7],*cons[7],*axis[7], *do_var;  //*dim[7],
-  SgExpression  *ind_deb[7];
+  SgExpression *el, *es,*coef[MAX_DIMS],*cons[MAX_DIMS],*axis[MAX_DIMS], *do_var;  
+  SgExpression  *ind_deb[MAX_DIMS];
   int nc; //counter of ':' or do-var-use elements of remote-index-list
   int n;  //counter of  elements of remote-index-list
   int rank;  //rank of remote variable
-  int num,use[7];   //,dim_num[7];
+  int num,use[MAX_DIMS];   
   int i,j,st_sign,iaxis,ideb=-1;
-  SgSymbol *dim_ident[7],*ar;
+  SgSymbol *dim_ident[MAX_DIMS],*ar;
   int ibuf = 0; 
   int iamv =0;
   int err_subscript = 0;
@@ -9396,7 +9396,8 @@ void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
         nc = 0;
         err_subscript = 0;
         for(j=0; j<i;j++)
-        use[j] = 0;        
+          use[j] = 0; 
+        if(!TestMaxDims(el->lhs()->lhs(),el->lhs()->symbol(),stmt)) continue;  
         // looking through the index list of remote variable
         for(es=el->lhs()->lhs(); es; es= es->rhs(),n++)  
 	  if(es->lhs()->variant() == DDOT){
@@ -9540,28 +9541,28 @@ void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
             InsertNewStatementAfter(D_RmBuf( HeaderRef(el->lhs()->symbol()),GetAddresDVM( header_rf(ar,ibuf,1)),n,ideb),cur_st,cur_st->controlParent());
           }
 	  SET_DVM(iaxis);
-        //adding attribute REMOTE_VARIABLE 
-        rem_var *remv = new rem_var;
-        remv->ncolon = nc;
-        remv->index = ibuf;
-        remv->amv   = group ? 1 : iamv;
-        remv->buffer = NULL;               /*ACC*/
+          //adding attribute REMOTE_VARIABLE 
+          rem_var *remv = new rem_var;
+          remv->ncolon = nc;
+          remv->index = ibuf;
+          remv->amv   = group ? 1 : iamv;
+          remv->buffer = NULL;               /*ACC*/
 
-	(el->lhs())->addAttribute(REMOTE_VARIABLE,(void *) remv, sizeof(rem_var));
+	  (el->lhs())->addAttribute(REMOTE_VARIABLE,(void *) remv, sizeof(rem_var));
 	  
   }
- if(group) {
+  if(group) {
        cur_st = cur_st->lexNext()->lexNext();//IF THEN after ELSE
        doAssignStmtAfter(WaitBG(GROUP_REF(group,1)));
        FREE_DVM(1);
 	 //cur_st = if_st->lastNodeOfStmt();
        cur_st = end_st;
- }
+  }
 }
 
 void IndirectList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
 { SgStatement *if_st,*end_st = NULL; 
-  SgExpression *el, *es,*cons[7];
+  SgExpression *el, *es,*cons[MAX_DIMS];
   SgSymbol *mehead;
   int nc; //counter of indirect access dimensions
   int n;  //counter of  elements of indirect-subscript-list
@@ -11646,7 +11647,7 @@ SgExpression *ParentPS ()
 { return( GetProcSys(&SgUMinusOp(*ConstRef(1))));} 
 
 SgExpression *PSReference(SgStatement *st)
-{SgExpression *target,*es,*le[7],*re[7];
+{SgExpression *target,*es,*le[MAX_DIMS],*re[MAX_DIMS];
  SgValueExp c1(1);
  int ile,ips,rank,j,i;
 
@@ -11665,8 +11666,12 @@ SgExpression *PSReference(SgStatement *st)
        return(target);
       // return( new SgVarRefExp(target->symbol()));
     
-    for(es=target->lhs(),j=0; es; es=es->rhs(),j++){ //looking through the subscript list 
-        if(es->lhs()->variant() == DDOT) {
+    for(es=target->lhs(),j=0; es; es=es->rhs(),j++){ //looking through the subscript list
+       if(j==MAX_DIMS) {
+            Error("Too many dimensions specified for %s", target->symbol()->identifier(),43,st);
+            break;
+       }  
+       if(es->lhs()->variant() == DDOT) {
          //determination of dimension bounds
          if(!es->lhs()->lhs() && !es->lhs()->rhs()){ 
             le[j] = new SgValueExp(0);
@@ -11684,7 +11689,7 @@ SgExpression *PSReference(SgStatement *st)
        } else {
             le[j] = &(*es->lhs() - *Exprn(LowerBound(target->symbol(),j)));
             re[j] = &le[j]->copy();
-     }
+       }
     }
     rank = Rank(target->symbol());
     if(rank && rank != j)
@@ -12585,7 +12590,7 @@ int AssignDistrArray(SgStatement *stmt)
 }
 
 int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt)
-{SgExpression *el,*einit[7],*elast[7],*estep[7];
+{SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
  int init,i,j;
  init = ndvm;
  if(!are->lhs()) { //MakeSection(are); // A => A(:,:, ...,:)
@@ -12594,6 +12599,7 @@ int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt)
    ndvm += 2*rank;
    return(init);
  }
+ if(!TestMaxDims(are->lhs(),ar,stmt)) return(0);
  for(el=are->lhs(),i=0; el; el=el->rhs(),i++)    
     Triplet(el->lhs(),ar,i, einit,elast,estep);
  if(i != rank){
@@ -12611,7 +12617,7 @@ int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt)
 }
 
 void AsynchronousCopy(SgStatement *stmt)
-{SgExpression *le,*re,*el,*einit[7],*elast[7],*estep[7],*headl,*headr,*flag,*ec;
+{SgExpression *le,*re,*el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS],*headl,*headr,*flag,*ec;
  int j,i,from_init,to_init,rl,rr;
  SgSymbol *ar,*ar1;
  SgType *typel,*typer;
@@ -12634,8 +12640,8 @@ void AsynchronousCopy(SgStatement *stmt)
  ar1=ar;
  rr = Rank(ar);
  headr = HeaderRef(ar);
+ if(!TestMaxDims(re->lhs(),ar,stmt)) return;
  if(!re->lhs()) MakeSection(re); // A => A(:,:, ...,:)
-
  for(el=re->lhs(),i=0; el; el=el->rhs(),i++)    
     Triplet(el->lhs(),ar,i, einit,elast,estep);
  if(i != rr){
@@ -12661,6 +12667,7 @@ void AsynchronousCopy(SgStatement *stmt)
  if(!CompareTypes(typel,typer))
     err("Different types of left and right side",620,stmt);
  headl = HeaderRef(ar);
+ if(!TestMaxDims(le->lhs(),ar,stmt)) return;
  if(!le->lhs()) MakeSection(le); // A => A(:,:, ...,:)
  for(el=le->lhs(),i=0; el; el=el->rhs(),i++)    
     Triplet(el->lhs(),ar,i, einit,elast,estep);

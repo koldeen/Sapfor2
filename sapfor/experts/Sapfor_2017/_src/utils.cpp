@@ -21,6 +21,7 @@
 
 #include "utils.h"
 #include "errors.h"
+#include "version.h"
 
 #include "GraphLoop/graph_loops.h"
 

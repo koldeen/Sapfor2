@@ -43,7 +43,7 @@ int     yylonglines = 0;	/* set if non-standard line length allowed */
 int     prflag;
 int     dorange;		/* current do range label */
 int     undeftype = NO;		/* set if IMPLICIT NONE */
-int     maxdim = 10;		/* max allowable dimension size */
+int     maxdim = 15;		/* max allowable number of dimensions */
 int     nowarnflag = NO;	/* set if don't want warning messages */
 int     shiftcase = YES;	/* convert variable to lower case */
 int	num_files;
