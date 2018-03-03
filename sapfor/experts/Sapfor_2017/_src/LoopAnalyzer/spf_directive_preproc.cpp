@@ -473,22 +473,7 @@ static int hasName(SgExpression *exp, const string &varName)
 
     return 0;
 }
-/*
-static int hasTextualInclude(SgExpression *exp, const string &varName)
-{
-    string stringExp = exp->unparse();
-    int count = 0;
-    auto pos = stringExp.find(varName, 0);
 
-    while (pos != string::npos)
-    {
-        ++count;
-        pos = stringExp.find(varName, pos + 1);
-    }
-
-    return count;
-}
-*/
 static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp == remoteExp)
@@ -688,6 +673,7 @@ static bool fillParallelRegions(SgStatement *st,
 
     if (isSgExecutableStatement(st))
     {
+        __spf_print(1, "    IS EXECUTABLE\n"); // remove this line
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
             __spf_print(1, "    SPF_PARALLEL_REG_DIR\n"); // remove this line
@@ -705,7 +691,8 @@ static bool fillParallelRegions(SgStatement *st,
 			{
 				if (!isSgExecutableStatement(iterator))
 				{
-                    for (int i = 0; i < 3; ++i) {
+                    for (int i = 0; i < 3; ++i)
+                    {
                         for (SgExpression *exp = iterator->expr(i); exp; exp = exp->rhs())
                             if (exp->lhs()->symbol() == identSymbol)
                             {
