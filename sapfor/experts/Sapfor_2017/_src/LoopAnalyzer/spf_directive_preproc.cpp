@@ -802,6 +802,12 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
         {
             bool result = processStat(modIterator, currFile, messagesForFile);
             retVal = retVal && result;
+
+            SgStatement *next = modIterator->lexNext();
+            if (next)
+                if (next->variant() == SPF_END_PARALLEL_REG_DIR)
+                    addToattribute(next, modIterator, SPF_END_PARALLEL_REG_DIR);
+
             modIterator = modIterator->lexNext();
         }
     }
