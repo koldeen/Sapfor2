@@ -929,6 +929,12 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
             bool result = processStat(modIterator, currFile, parallelRegions, commonBlocks, messagesForFile);
             // retVal = retVal && checkParallelRegions(modIterator, parallelRegions, messagesForFile);
             retVal = retVal && result;
+
+            SgStatement *next = modIterator->lexNext();
+            if (next)
+                if (next->variant() == SPF_END_PARALLEL_REG_DIR)
+                    addToattribute(next, modIterator, SPF_END_PARALLEL_REG_DIR);
+
             modIterator = modIterator->lexNext();
         }
     }
