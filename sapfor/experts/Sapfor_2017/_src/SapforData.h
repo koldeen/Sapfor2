@@ -73,7 +73,7 @@ std::map<std::string, int> lineInfo; // file -> lines count
 std::map<std::string, std::set<std::string>> includeDependencies; // file -> includes
 //
 
-//for FILL_COM_BLOCKS
+//for FILL_COMMON_BLOCKS
 std::map<std::string, std::vector<std::string>> commonBlocks;
 //
 

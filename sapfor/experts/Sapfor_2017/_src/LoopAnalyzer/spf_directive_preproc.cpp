@@ -680,7 +680,7 @@ static bool checkRemote(SgStatement *st,
 
 static bool fillParallelRegions(SgStatement *st,
                                 SgStatement *attributeStatement,
-                                pair<map<SgSymbol*, int>, vector<int>> &parRegList,
+                                pair<map<SgSymbol*, int>, vector<int>> &parallelRegions,
                                 const map<string, vector<string>> &commonBlocks,
                                 vector<Messages> &messagesForFile)
 {
@@ -690,6 +690,7 @@ static bool fillParallelRegions(SgStatement *st,
     {
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
+            __spf_print(1, "    SPF_PARALLEL_REG_DIR\n"); // remove this line
             SgSymbol *identSymbol = attributeStatement->symbol();
             string identName = attributeStatement->symbol()->identifier();
 
@@ -742,7 +743,7 @@ static bool fillParallelRegions(SgStatement *st,
 
             // adding identificator to identList
             pair<map<SgSymbol*, int>::iterator, bool> ret;
-            ret = parRegList.first.insert(std::make_pair(identSymbol, attributeStatement->lineNumber()));
+            ret = parallelRegions.first.insert(std::make_pair(identSymbol, attributeStatement->lineNumber()));
 
             if (ret.second == false)
             {
@@ -793,7 +794,7 @@ static bool fillParallelRegions(SgStatement *st,
         }
         else // type == SPF_END_PARALLEL_REG_DIR
         {
-            parRegList.second.push_back(attributeStatement->lineNumber());
+            parallelRegions.second.push_back(attributeStatement->lineNumber());
         }
     }
     else
@@ -807,13 +808,13 @@ static bool fillParallelRegions(SgStatement *st,
 
 /*
 static bool checkParallelRegions(SgStatement *st,
-                                 const pair<map<SgSymbol*, int>, vector<int>> &parRegList,
+                                 const pair<map<SgSymbol*, int>, vector<int>> &parallelRegions,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
     // TODO: add intersections checking
-    for (auto &identPair : parRegList.first)
+    for (auto &identPair : parallelRegions.first)
     {
 
     }
@@ -939,7 +940,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
         while (modIterator != modEnd)
         {
             bool result = processStat(modIterator, currFile, parallelRegions, commonBlocks, messagesForFile);
-            // retVal = retVal && checkParallelRegions(modIterator, parRegList, messagesForFile);
+            // retVal = retVal && checkParallelRegions(modIterator, parallelRegions, messagesForFile);
             retVal = retVal && result;
             modIterator = modIterator->lexNext();
         }
@@ -974,7 +975,7 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, vector<string>> &common
             }
 
             bool result = processStat(st, currFile, parallelRegions, commonBlocks, messagesForFile);
-            // noError = noError && checkParallelRegions(st, parRegList, messagesForFile);
+            // noError = noError && checkParallelRegions(st, parallelRegions, messagesForFile);
             noError = noError && result;
 
             SgStatement *next = st->lexNext();

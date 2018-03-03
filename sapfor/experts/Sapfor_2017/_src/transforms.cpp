@@ -482,26 +482,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (auto &commonBlockPair : tmpCommonBlocks)
             {
                 vector<string> vars;
-
-                for (auto &st : commonBlockPair.second)
+                for (auto &commonBlock : commonBlockPair.second)
                 {
-                    vars.push_back(st->expr(0)->symbol()->identifier());
-                }
-
-                /*
-                for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
-                {
-                    commonPos = 0;
-                    for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
                     {
-                        if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
-                            return exp;
-                        commonPos++;
+                        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                        {
+                            vars.push_back(commonBlock->expr(0)->symbol()->identifier());
+                        }
                     }
                 }
-                */
 
-                recExpressionPrint(st->expr(0)); // remove this line
+                // recExpressionPrint(st->expr(0)); // remove this line
 
                 commonBlocks.insert(make_pair(commonBlockPair.first, vars));
             }
