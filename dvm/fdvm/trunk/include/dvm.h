@@ -143,7 +143,7 @@ struct IND_ref_list {
 };
 
 struct coeffs {
-       SgSymbol *sc[10];
+       SgSymbol *sc[MAX_DIMS+2];
        int use;
 };
 
@@ -456,7 +456,7 @@ EXTERN SgStatement *where;//used in doAssignStmt: new statement is inserted befo
 EXTERN int nio;
 EXTERN SgSymbol *bufIO[Ntp],*IOstat;
 EXTERN int buf_use[Ntp];
-EXTERN SgSymbol *loop_var[8]; // for generatig DO statements
+EXTERN SgSymbol *loop_var[MAX_DIMS+1]; // for generatig DO statements
 EXTERN SgStatement *cur_func;  // current function 
 EXTERN int errcnt;  // counter of errors in file
 EXTERN int saveall; //= 1 if there is SAVE without name-list in current function(procedure) 

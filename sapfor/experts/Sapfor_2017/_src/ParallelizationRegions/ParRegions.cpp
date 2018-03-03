@@ -259,5 +259,8 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
         getAllLoops(it->second, loops);
 
     for (auto &loop : loops)
-        loop->region = getRegionByLine(regions, loop->fileName, loop->lineNum);
+    {
+        const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
+        loop->region = getRegionByLine(regions, loop->fileName, currLine);
+    }
 }

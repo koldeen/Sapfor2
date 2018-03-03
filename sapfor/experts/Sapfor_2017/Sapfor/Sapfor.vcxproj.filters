@@ -356,6 +356,9 @@
     <ClInclude Include="..\_src\Predictor\PredictScheme.h">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClInclude>
+    <ClInclude Include="..\_src\version.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />

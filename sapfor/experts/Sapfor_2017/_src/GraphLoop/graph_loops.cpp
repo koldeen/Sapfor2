@@ -21,6 +21,7 @@
 
 #include "graph_loops.h"
 #include "../utils.h"
+#include "../SgUtils.h"
 
 #include "../errors.h"
 #include "../AstWrapper.h"
@@ -253,7 +254,7 @@ static inline void findFuncCalls(SgExpression *ex, set<string> &funcCalls)
 
 static inline int tryCalculate(SgExpression *expr, int &res)
 {
-    SgExpression *copyExp = &(expr->copy());
+    SgExpression *copyExp = expr->copyPtr();
     replaceConstatRec(copyExp);
     calculate(copyExp);
     if (CalculateInteger(copyExp, res) == -1)

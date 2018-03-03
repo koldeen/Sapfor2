@@ -2570,6 +2570,7 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
 
 bool AnalysedCallsList::isArgIn(int i)
 {
+    int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
     VarSet* use = graph->getUse();
     SgSymbol* par = h->parameter(i);
@@ -2578,11 +2579,13 @@ bool AnalysedCallsList::isArgIn(int i)
     if (use->belongs(var))
         result = true;
     delete var;
+    SwitchFile(stored);
     return result;
 }
 
 bool AnalysedCallsList::isArgOut(int i)
 {
+    int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
     graph->privateAnalyzer();
     VarSet* def = graph->getDef();
@@ -2592,6 +2595,7 @@ bool AnalysedCallsList::isArgOut(int i)
     if (def->belongs(var))
         result = true;
     delete var;
+    SwitchFile(stored);
     return result;
 }
 
@@ -3505,32 +3509,9 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
 
 bool adjustInsAndOuts(CBasicBlock *b)
 {
-    set<SymbolKey> *allowedVars = NULL;
-    BasicBlockItem *bi = b->getPrev();
-    if(bi && bi->next)
-        allowedVars = bi->block->getOutVars();
-
-    if (allowedVars)
-        for(bi = bi->next; bi != NULL; bi = bi->next)
-        {
-            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
-            for (auto it = allowedVars->begin(); it != allowedVars->end(); )
-            {
-                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
-                    it = allowedVars->erase(it);
-                else
-                    ++it;
-            }
-            delete nextAllowedVars;
-        }
-
-
     /*Updating IN*/
     for(BasicBlockItem* prev = b->getPrev(); prev != NULL; prev=prev->next)
-        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), allowedVars);
-
-    if(allowedVars)
-        delete allowedVars;
+        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
 
     /*Updating OUT, true, if OUT has been changed*/
     return addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
@@ -3648,14 +3629,34 @@ bool valueWithFunctionCall(SgExpression* exp) {
  * 1. it has multiple values
  * 2. value has function call
  * 3. value has itself within (recursion)
+ * 4. value was killed in one of previous blocks
  */
 void CBasicBlock::correctInDefs() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
-    vector<SymbolKey> ambiguouseVars;
+
+    set<SymbolKey> *allowedVars = NULL;
+    BasicBlockItem *bi = getPrev();
+    if(bi && bi->next)
+        allowedVars = bi->block->getOutVars();
+
+    if (allowedVars)
+        for(bi = bi->next; bi != NULL; bi = bi->next)
+        {
+            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
+            for (auto it = allowedVars->begin(); it != allowedVars->end(); )
+            {
+                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                    it = allowedVars->erase(it);
+                else
+                    ++it;
+            }
+            delete nextAllowedVars;
+        }
 
     for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
         if(it->second.size() != 1) //1
-            //continue;
+            toDel.push_back(it);
+        else if(allowedVars && allowedVars->find(it->first) == allowedVars->end()) ///4
             toDel.push_back(it);
         else if(valueWithFunctionCall(it->second.begin()->second)) //2
             toDel.push_back(it);
@@ -3664,6 +3665,9 @@ void CBasicBlock::correctInDefs() {
 
     for (int i = 0; i < toDel.size(); ++i)
         in_defs.erase(toDel[i]);
+
+    if(allowedVars)
+        delete allowedVars;
 }
 
 

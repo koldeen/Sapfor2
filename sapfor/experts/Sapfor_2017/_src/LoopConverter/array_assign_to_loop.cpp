@@ -382,7 +382,20 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
             for (int i = 0; i < rightSections.size(); ++i)
             {
                 SgExpression *shift = &(get<0>(rightSections[i])->copy() - get<0>(leftSections[i])->copy());
-                rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
+
+                int res;
+                int err = CalculateInteger(shift, res);
+                if (err == 0)
+                {
+                    if (res != 0)
+                        shift = new SgValueExp(res);
+                    else
+                        shift = NULL;
+                }
+                if (shift)
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
+                else
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
             }
         }
         else
@@ -452,7 +465,12 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
                     SgStatement *end = conv->lastNodeOfStmt();
                     for (SgStatement *st1 = conv; st1 != end; st1 = st1->lexNext())
+                    {
                         st1->setlineNumber(getNextNegativeLineNumber());
+                        st1->setLocalLineNumber(st->lineNumber());
+                    }
+                    end->setlineNumber(getNextNegativeLineNumber());
+                    end->setLocalLineNumber(st->lineNumber());
                 }
             }
         }
