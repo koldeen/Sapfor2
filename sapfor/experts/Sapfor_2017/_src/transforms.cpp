@@ -456,7 +456,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             arrayAccessAnalyzer(file, getMessagesForFile(file_name), PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
-        else if (curr_regime == FILL_COM_BLOCKS)
+        else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
             map<string, vector<SgStatement*>> tmpCommonBlocks;
@@ -465,6 +465,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             while (st)
             {
                 getCommonBlocksRef(tmpCommonBlocks, st, st->lastNodeOfStmt());
+                st = st->lastNodeOfStmt();
                 st = st->lexNext();
             }
 
@@ -473,7 +474,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 vector<string> vars;
 
                 for (auto &st : commonBlockPair.second)
+                {
                     vars.push_back(st->expr(0)->symbol()->identifier());
+                }
+
+                /*
+                for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
+                {
+                    commonPos = 0;
+                    for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                    {
+                        if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
+                            return exp;
+                        commonPos++;
+                    }
+                }
+                */
 
                 recExpressionPrint(st->expr(0)); // remove this line
 

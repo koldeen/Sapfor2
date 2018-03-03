@@ -723,10 +723,7 @@ static bool fillParallelRegions(SgStatement *st,
 				iterator = iterator->lexNext();
 			}
 
-            // TODO: add common blocks checking
-            // map<string, vector<SgStatement*>> commonBlocks;
-            // getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
-
+            // common blocks checking
             for (auto &commonBlockPair : commonBlocks)
             {
                 for (auto &varName : commonBlockPair.second)
@@ -734,9 +731,9 @@ static bool fillParallelRegions(SgStatement *st,
                     if (varName == identSymbol->identifier())
                     {
                         retVal = false;
-                        __spf_print(1, "variable '%s' was declarated on line %d\n", identName, attributeStatement->lineNumber());
+                        __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identName, commonBlockPair.first, attributeStatement->lineNumber());
                         string message;
-                        __spf_printToBuf(message, "variable '%s' was declarated", identName);
+                        __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identName, commonBlockPair.first);
                         messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
                         retVal = false;
                     }
@@ -801,7 +798,7 @@ static bool fillParallelRegions(SgStatement *st,
     }
     else
     {
-        BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+        BAD_POSITION(1, ERROR, "after", "", "DATA statement", attributeStatement->lineNumber());
         retVal = false;
     }
 
