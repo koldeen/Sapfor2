@@ -664,7 +664,7 @@ static bool checkRemote(SgStatement *st,
 }
 
 static bool checkParallelRegions(SgStatement *st,
-                                 SgStatement *attributeStatement,
+                                 // SgStatement *attributeStatement,
                                  // pair<map<SgSymbol*, int>, vector<int>> &parallelRegions,
                                  const map<string, vector<string>> &commonBlocks,
                                  vector<Messages> &messagesForFile)
@@ -675,15 +675,15 @@ static bool checkParallelRegions(SgStatement *st,
     {
         __spf_print(1, "    IS EXECUTABLE\n"); // remove this line
 
-        if (attributeStatement->variant() == SPF_PARALLEL_REG_DIR)
+        if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
             __spf_print(1, "    SPF_PARALLEL_REG_DIR\n"); // remove this line
-            SgSymbol *identSymbol = attributeStatement->symbol();
+            SgSymbol *identSymbol = st->symbol();
             string identName = identSymbol->identifier();
 
 			// declaration checking
-            SgStatement *iterator = st->lexPrev();
-			SgStatement *end = st->lexPrev();
+            SgStatement *iterator = st;
+			SgStatement *end = st;
 
 			while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
 				iterator = iterator->controlParent();
@@ -698,10 +698,10 @@ static bool checkParallelRegions(SgStatement *st,
                             if (exp->lhs()->symbol() == identSymbol)
                             {
                                 retVal = false;
-                                __spf_print(1, "variable '%s' was declarated on line %d\n", identName, attributeStatement->lineNumber());
+                                __spf_print(1, "variable '%s' was declarated on line %d\n", identName, st->lineNumber());
                                 string message;
                                 __spf_printToBuf(message, "variable '%s' was declarated", identName);
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                                 retVal = false;
                             }
                     }
@@ -720,17 +720,17 @@ static bool checkParallelRegions(SgStatement *st,
                     if (varName == identSymbol->identifier())
                     {
                         retVal = false;
-                        __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identName, commonBlockPair.first, attributeStatement->lineNumber());
+                        __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identName, commonBlockPair.first, st->lineNumber());
                         string message;
                         __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identName, commonBlockPair.first);
-                        messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                         retVal = false;
                     }
                 }
             }
 
             // finding SPF_END_PARALLEL_REG_DIR
-            iterator = st->lexNext();
+            iterator = st;
             bool found = false;
             while (iterator && retVal && !found)
             {
@@ -738,10 +738,10 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "expected 'SPF END_PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identName, attributeStatement->lineNumber());
+                    __spf_print(1, "expected 'SPF END_PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identName, st->lineNumber());
                     string message;
                     __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identName);
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                     retVal = false;
                     break;
                 }
@@ -755,10 +755,10 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found)
             {
-                __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identName, attributeStatement->lineNumber());
+                __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identName, st->lineNumber());
                 string message;
                 __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identName);
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                 retVal = false;
             }
         }
@@ -766,7 +766,7 @@ static bool checkParallelRegions(SgStatement *st,
         {
             __spf_print(1, "    SPF_END_PARALLEL_REG_DIR\n"); // remove this line
             // finding SPF_PARALLEL_REG_DIR
-            SgStatement *iterator = st->lexPrev();
+            SgStatement *iterator = st;
             bool found = false;
             while (iterator && retVal && !found)
             {
@@ -774,10 +774,10 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_END_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", attributeStatement->lineNumber());
+                    __spf_print(1, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
                     string message;
                     __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR' for identificator '%s', but got 'SPF END PARALLEL_REG_DIR'");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                     retVal = false;
                     break;
                 }
@@ -791,17 +791,17 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found)
             {
-                __spf_print(1, "expected 'SPF PARALLEL_REG_DIR' on line %d\n", attributeStatement->lineNumber());
+                __spf_print(1, "expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
                 string message;
                 __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR'");
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                 retVal = false;
             }
         }
     }
     else
     {
-        BAD_POSITION(1, ERROR, "after", "", "DATA statement", attributeStatement->lineNumber());
+        BAD_POSITION(1, ERROR, "after", "", "DATA statement", st->lineNumber());
         retVal = false;
     }
 
@@ -814,6 +814,14 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+
+    if (st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR)
+    {
+        bool result = checkParallelRegions(st, commonBlocks, messagesForFile);
+        // bool result = fillParallelRegions(st, attributeStatement, parallelRegions, commonBlocks, messagesForFile);
+        retVal = retVal && result;
+    }
+
     // ignore SPF statements
     if (isSPF_comment(st))
         return retVal;
@@ -902,12 +910,6 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
             }
-        }
-        else if (type == SPF_PARALLEL_REG_DIR || type == SPF_END_PARALLEL_REG_DIR)
-        {
-            bool result = checkParallelRegions(st, attributeStatement, commonBlocks, messagesForFile);
-            // bool result = fillParallelRegions(st, attributeStatement, parallelRegions, commonBlocks, messagesForFile);
-            retVal = retVal && result;
         }
     }
 
