@@ -488,13 +488,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     {
                         for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
                         {
-                            vars.push_back(commonBlock->expr(0)->symbol()->identifier());
+                            vars.push_back(currCommon->lhs()->symbol()->identifier());
                         }
                     }
                 }
-
-                // recExpressionPrint(st->expr(0)); // remove this line
-
                 commonBlocks.insert(make_pair(commonBlockPair.first, vars));
             }
         }
