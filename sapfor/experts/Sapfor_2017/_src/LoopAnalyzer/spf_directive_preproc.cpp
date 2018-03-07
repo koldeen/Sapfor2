@@ -678,6 +678,8 @@ static bool checkParallelRegions(SgStatement *st,
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
             __spf_print(1, "    SPF_PARALLEL_REG_DIR\n"); // remove this line
+            for (int i = 0; i < 3; ++i ) if (st->expr(i)) recExpressionPrint(st->expr(i));
+
             SgSymbol *identSymbol = st->symbol();
             string identName = identSymbol->identifier();
 
@@ -692,9 +694,10 @@ static bool checkParallelRegions(SgStatement *st,
 			{
 				if (!isSgExecutableStatement(iterator))
 				{
-                    for (int i = 0; i < 3; ++i)
-                    {
-                        for (SgExpression *exp = iterator->expr(i); exp; exp = exp->rhs())
+                    // for (int i = 0; i < 3; ++i)
+                    // {
+                    // if (iterator->expr(0)) recExpressionPrint(iterator->expr(0));
+                        for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
                             if (exp->lhs()->symbol() == identSymbol)
                             {
                                 retVal = false;
@@ -704,7 +707,7 @@ static bool checkParallelRegions(SgStatement *st,
                                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
                                 retVal = false;
                             }
-                    }
+                    // }
 				}
 				else
 					break;
