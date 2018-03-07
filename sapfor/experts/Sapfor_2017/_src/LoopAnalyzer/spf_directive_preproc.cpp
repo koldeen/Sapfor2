@@ -705,6 +705,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
         cond = (isSPF_comment(prev) && prevVar != SPF_END_PARALLEL_REG_DIR);
         if (cond)
         {
+			printf("----Find_SPF\n");
             addToattribute(prev, st, prevVar);
 
             if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
@@ -813,6 +814,10 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
+
+	printf("----funcNum=%d\n", funcNum);
+
+	printf("----preprocess_spf_dirs!!!\n");
     
     bool noError = true;
 
@@ -820,9 +825,10 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-
+		int count = 0;
         while (st != lastNode)
         {
+			printf("----Count=%d\n",count ++);
             currProcessing.second = NULL;
             if (st == NULL)
             {
@@ -839,6 +845,16 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                     addToattribute(next, st, SPF_END_PARALLEL_REG_DIR);
             st = st->lexNext();
         }
+		printf("----After----\n");
+		st = file->functions(i);
+		lastNode = st->lastNodeOfStmt();
+		count = 0;
+		while (st != lastNode)
+		{
+			printf("----Count=%d\n", count++);
+			st = st->lexNext();
+
+		}
     }
 
     vector<SgStatement*> modules;
@@ -846,6 +862,69 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     bool result = processModules(modules, currFile, messagesForFile);
     noError = noError && result;
     return noError;
+}
+
+void revertion_spf_dirs(SgFile *file) {
+	printf("----revertion_spf_dirs!!!\n");
+	int funcNum = file->numberOfFunctions();
+
+	printf("----funcNum=%d\n", funcNum);
+	for (int i = 0; i < funcNum; i++) {
+		SgStatement *st = file->functions(i);
+		SgStatement *lastNode = st->lastNodeOfStmt();
+
+		int count = 0;
+		while (st != lastNode) {
+			if (st == NULL) {
+				__spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
+				break;
+			}
+
+			//analise attributes
+			SgAttribute *prev_atrib = NULL;
+			SgAttribute *atrib = st->getAttribute(0);
+			int countAttribute = 0;
+			//			if (atrib == NULL) {
+			//				printf("----Atrib==NULL\n");
+			//			}
+			while (atrib) {
+				printf("----countAttribute=%d\n", countAttribute++);
+				if (isSPF_comment(atrib)) {
+					printf("----Find_SPF\n");
+					//return spf_dir
+					int var = atrib->getAttributeType();
+					SgStatement *toAdd = new SgStatement(var);
+					st->insertStmtBefore(*toAdd);
+					//delete atrib
+				}
+				prev_atrib = atrib;
+				atrib = atrib->getNext();
+			}
+
+			printf("----Count=%d\n", count++);
+			st = st->lexNext();
+		}
+	}
+
+/////////////  Check chain with revert spf_dir  /////////////////////////
+	printf("----After\n");
+	for (int i = 0; i < funcNum; i++) {
+		SgStatement *st = file->functions(i);
+		SgStatement *lastNode = st->lastNodeOfStmt();
+
+		int count = 0;
+		while (st != lastNode) {
+			if (st == NULL) {
+				__spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
+				break;
+			}
+			if (isSPF_comment(st))
+				printf("----SPFdir\n");
+			printf("----Count=%d\n", count++);
+			st = st->lexNext();
+		}
+	}
+//////////////////////////////////////////////////////////////////////////
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,
