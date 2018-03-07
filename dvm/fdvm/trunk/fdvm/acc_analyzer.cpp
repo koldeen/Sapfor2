@@ -61,8 +61,12 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
 extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
 
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
-{    
-    if (PRIVATE_ANALYSIS_REMOVE_VAR)
+{
+    //TODO: is it correct?
+    if (stmt == NULL)
+        return;
+
+    if (num == PRIVATE_ANALYSIS_REMOVE_VAR)
     {
         auto nextStat = statsByLine[current_file_id].find(make_pair(stmt->fileName(), stmt->lineNumber()));
         if (nextStat != statsByLine[current_file_id].end())

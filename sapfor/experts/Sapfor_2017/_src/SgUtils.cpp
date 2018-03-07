@@ -286,13 +286,11 @@ void initTags()
 void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
 {
     SgStatement *first = file->firstStatement();
-    vector<SgStatement*> functions;
+    set<SgStatement*> functions;
 
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
-        functions.push_back(file->functions(i));
-
-    int inV = functions.size() > 0 ? 0 : -1;
+        functions.insert(file->functions(i));
 
     while (first)
     {
@@ -303,13 +301,11 @@ void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
         }
         else
         {
-            if (inV >= 0)
+            if (functions.size())
             {
-                if (first == functions[inV])
-                {
-                    first = functions[inV]->lastNodeOfStmt();
-                    inV++;
-                }
+                auto it = functions.find(first);
+                if (it != functions.end())
+                    first = (*it)->lastNodeOfStmt();
             }
         }
 

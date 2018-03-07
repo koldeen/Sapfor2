@@ -160,6 +160,7 @@ static void updateStatsExprs(const int id, const string &file)
 }
 
 pair<SgFile*, SgStatement*> currProcessing;
+map<string, pair<SgFile*, int>> files;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
@@ -463,7 +464,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
-            arrayAccessAnalyzer(file, getMessagesForFile(file_name), PRIVATE_STEP4);
+            arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -898,6 +899,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         vector<string> result;
 
         set<DIST::Array*> arraysDone;
+        
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
@@ -916,11 +918,39 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         Symbol *symb = array->GetDeclSymbol();
                         if (symb)
                         {
-                            SgStatement *decl = declaratedInStmt(symb);
+                            auto &sizeInfo = array->GetSizes();
+                            bool needToUpdate = false;
+                            for (auto &elem : sizeInfo)
+                            {
+                                if (elem.first == elem.second)
+                                {
+                                    needToUpdate = true;
+                                    break;
+                                }
+                            }
 
-                            vector<pair<int, int>> sizes;
-                            getArraySizes(sizes, symb, decl);
-                            array->SetSizes(sizes);
+                            if (needToUpdate)
+                            {
+                                auto &declInfo = array->GetDeclInfo();
+                                bool wasSelect = false;
+                                for (auto &elem : declInfo)
+                                {
+                                    auto it = files.find(elem.first);
+                                    if (it != files.end())
+                                    {
+                                        CurrentProject->file(it->second.second);
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+                                if (!wasSelect)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                SgStatement *decl = declaratedInStmt(symb);
+                                vector<pair<int, int>> sizes;
+                                getArraySizes(sizes, symb, decl);
+                                array->SetSizes(sizes);
+                            }
                         }
                     }
                 }
@@ -1268,6 +1298,11 @@ int main(int argc, char**argv)
                 {
                     i++;
                     curr_regime = atoi(argv[i]);
+                }
+                else if (string(curr_arg) == "-q")
+                {
+                    i++;
+                    QUALITY = atoi(argv[i]);
                 }
                 else if (curr_arg[1] == 't')
                 {

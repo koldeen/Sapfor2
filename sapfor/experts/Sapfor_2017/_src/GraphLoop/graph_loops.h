@@ -26,6 +26,7 @@ public:
         hasNonRectangularBounds = false;
         hasIndirectAccess = false;
         withoutDistributedArrays = false;
+        hasWritesToNonDistribute = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -58,7 +59,8 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
+               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute;
     }
     
     void addConflictMessages(std::vector<Messages> *messages)
@@ -81,6 +83,8 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop"));
         if (hasIndirectAccess)
             messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop"));
+        if (hasWritesToNonDistribute)
+            messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop"));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -186,6 +190,8 @@ public:
     int countOfIters;
     double countOfIterNested;
 
+    int calculatedCountOfIters; // save calculated
+
     int startVal;
     int endVal;
     int stepVal;
@@ -210,6 +216,8 @@ public:
     bool hasNonRectangularBounds;
 
     bool hasIndirectAccess;
+
+    bool hasWritesToNonDistribute;
 
     bool withoutDistributedArrays;
 

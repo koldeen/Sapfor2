@@ -1042,11 +1042,13 @@ void insertDistributeDirsToParallelRegions(const vector<ParallelRegionLines> *cu
             if (insertAfter->variant() == CONTROL_END)
                 controlParentAfter = controlParentAfter->controlParent();
 
-            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR || insertBefore->lexPrev()->variant() == DVM_REDISTRIBUTE_DIR)
                 insertBefore = insertBefore->lexPrev();
-
+            
             while (insertAfter->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
                 insertAfter = insertAfter->lexPrev();
+            while (insertAfter->lexNext()->variant() == DVM_REDISTRIBUTE_DIR)
+                insertAfter = insertAfter->lexNext();
 
             while (insertBefore && isSgExecutableStatement(insertBefore) == NULL)
                 insertBefore = insertBefore->lexNext();
