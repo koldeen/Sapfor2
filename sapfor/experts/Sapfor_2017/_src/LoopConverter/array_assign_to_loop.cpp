@@ -98,34 +98,26 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
 
 static bool fillSectionInfo(SgExpression *subs, tuple<SgExpression*, SgExpression*, SgExpression*> &section)
 {
-    if (subs->lhs())
+    if (subs->lhs() && subs->lhs()->variant() == DDOT)
     {
-        if (subs->lhs()->variant() == DDOT)
+        if (subs->lhs()->lhs() && subs->lhs()->lhs()->variant() == DDOT)
         {
-            if (subs->lhs()->lhs() && subs->lhs()->lhs()->variant() == DDOT)
-            {
-                if (subs->lhs()->lhs()->lhs() != NULL) // low section
-                    get<0>(section) = subs->lhs()->lhs()->lhs()->copyPtr();
+            if (subs->lhs()->lhs()->lhs() != NULL) // low section
+                get<0>(section) = subs->lhs()->lhs()->lhs()->copyPtr();
 
-                if (subs->lhs()->lhs()->rhs() != NULL) // high section
-                    get<1>(section) = subs->lhs()->lhs()->rhs()->copyPtr();
+            if (subs->lhs()->lhs()->rhs() != NULL) // high section
+                get<1>(section) = subs->lhs()->lhs()->rhs()->copyPtr();
 
-                if (subs->lhs()->rhs() != NULL) // step of section
-                    get<2>(section) = subs->lhs()->rhs()->copyPtr();
-            }
-            else
-            {
-                if (subs->lhs()->lhs() != NULL) // low section
-                    get<0>(section) = subs->lhs()->lhs()->copyPtr();
-
-                if (subs->lhs()->rhs() != NULL) // high section
-                    get<1>(section) = subs->lhs()->rhs()->copyPtr();
-            }
+            if (subs->lhs()->rhs() != NULL) // step of section
+                get<2>(section) = subs->lhs()->rhs()->copyPtr();
         }
         else
-        {   // low and high sections
-            get<0>(section) = subs->lhs()->copyPtr();
-            get<1>(section) = subs->lhs()->copyPtr();
+        {
+            if (subs->lhs()->lhs() != NULL)
+                get<0>(section) = subs->lhs()->lhs()->copyPtr();
+
+            if (subs->lhs()->rhs() != NULL)
+                get<1>(section) = subs->lhs()->rhs()->copyPtr();
         }
         return true;
     }
@@ -170,6 +162,18 @@ static bool needSwap(SgExpression *leftStep, SgExpression *rightStep)
     return false;
 }
 
+static void checkAndinsertFixedDimentionValue(SgExpression *subs, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds, 
+                                              int &rMinus, bool &flag)
+{
+    if (get<0>(bounds) && get<1>(bounds))
+        if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+        {
+            subs->setLhs(get<0>(bounds)->copy());
+            rMinus = 1;
+            flag = false; //needFor or fixedDim flag
+        }
+}
+
 static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds)
 {
     subsL->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
@@ -182,46 +186,15 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
 {
     SgExpression *idxVar = new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep)));
 
-    bool stepIsEqual = false;
-    int valL = 0, valR = 0;
-    if (get<2>(rightBounds) && get<2>(leftBounds))
+    if (get<2>(rightBounds))
     {
-        if (string(get<2>(rightBounds)->unparse()) == string(get<2>(leftBounds)->unparse()))
-            stepIsEqual = true;
-        else
-        {
-            if (get<2>(rightBounds)->isInteger())
-                valR = get<2>(rightBounds)->valueInteger();
-            if (get<2>(leftBounds)->isInteger())
-                valL = get<2>(leftBounds)->valueInteger();
-            if ((valR < 0 && valL < 0) || (valR < 0 && valL > 0))
-            {
-                valR = -valR;
-                valL = -valL;
-            }
-        }
-    }
-
-    if (get<2>(rightBounds) && !stepIsEqual)
-    {
-        if (get<2>(rightBounds)->isInteger())
-        {
-            if (valR != 1)
-                idxVar = &(*idxVar * *new SgValueExp(valR));
-        }
-        else
+        if (get<2>(rightBounds)->isInteger() && get<2>(rightBounds)->valueInteger() != 1)
             idxVar = &(*idxVar * get<2>(rightBounds)->copy());
-        
     }
 
-    if (get<2>(leftBounds) && !stepIsEqual)
+    if (get<2>(leftBounds))
     {
-        if (get<2>(leftBounds)->isInteger())
-        {
-            if (valL != 1)
-                idxVar = &(*idxVar / *new SgValueExp(valL));
-        }
-        else
+        if (get<2>(leftBounds)->isInteger() && get<2>(leftBounds)->valueInteger() != 1)
             idxVar = &(*idxVar / get<2>(leftBounds)->copy());
     }
 
@@ -244,7 +217,7 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
         subsR->setLhs(*idxVar);
 }
 
-static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file)
 {
     if (assign->variant() != ASSIGN_STAT)
         return NULL;
@@ -286,163 +259,123 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     int rIdx = 0;
     bool bodyInserted = false;
 
-
-    vector<bool> fixedLeft(leftBound.size()), fixedRight(rightBound.size());
-    for (int i = 0; i < leftBound.size(); ++i)
-        fixedLeft[i] = false;
-    for (int i = 0; i < fixedRight.size(); ++i)
-        fixedRight[i] = false;
-
-    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftSections, rightSections;
-
-    SgExpression *ex = subsL;
-    for (int i = 0; i < leftSubs; ++i)
+    for (int deep = 0; deep < leftBound.size(); ++deep, ++lIdx, ++rIdx)
     {
-        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = leftBound[lIdx];
-        if (!fillSectionInfo(ex, bounds))
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        bool needSwapLR = false;
+        
+        tuple<SgExpression*, SgExpression*, SgExpression*> leftBounds = leftBound[lIdx];
+        tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds = rightBound[rIdx];
 
-        if (get<0>(bounds) && get<1>(bounds))
-            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
-                fixedLeft[i] = true;
+        if (leftSubs != 0)
+            if (!fillSectionInfo(subsL, leftBounds))
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);        
 
-        if (!fixedLeft[i])
-            leftSections.push_back(bounds);        
-        ex = ex->rhs();
-    }
+        if (rightSubs != 0)
+            if (!fillSectionInfo(subsR, rightBounds))
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        
+        if (rIdx < rightBound.size() && leftSubs != 0 && rightSubs != 0)
+            needSwapLR = needSwap(get<2>(leftBounds), get<2>(rightBounds));
 
-    ex = subsR;
-    for (int i = 0; i < rightSubs; ++i)
-    {
-        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = rightBound[rIdx];
-        if (!fillSectionInfo(ex, bounds))
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                
-        if (get<0>(bounds) && get<1>(bounds))
-            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
-                fixedRight[i] = true;
+        int rMinus = 0;
+        bool needFor = true;
 
-        if (!fixedRight[i])
-            rightSections.push_back(bounds);
-        ex = ex->rhs();
-    }
-
-    if (leftSections.size() != rightSections.size())
-    {
-        __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-
-        string message;
-        __spf_printToBuf(message, "can not convert array assign to loop");
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message));
-    }
-    else
-    {
-        vector<tuple<SgExpression*, SgExpression*, SgExpression*>> forBounds;
-        // create DO bounds
-        if (leftSections.size())
-        {
-            for (int i = 0; i < leftSections.size(); ++i)
-            {
-                if (needSwap(get<2>(leftSections[i]), get<2>(rightSections[i])))
-                    forBounds.push_back(rightSections[i]);
-                else
-                    forBounds.push_back(leftSections[i]);
-            }
-        }
+        if (leftSubs == 0)
+            leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
         else
         {
-            leftSections = leftBound;
-            rightSections = rightBound;
+            if (needSwapLR)
+            {
+                SgExpression *shift = &(get<0>(leftBound[rIdx])->copy() - get<0>(rightBounds)->copy());
+                insertMinorPart(subsL, file, deep, rightBounds, leftBounds, shift);
+            }
+            else
+            {
+                insertMainPart(subsL, file, deep, leftBounds);
+                checkAndinsertFixedDimentionValue(subsL, leftBounds, rMinus, needFor);
+            }
 
-            for (int i = 0; i < leftSections.size(); ++i)
-                forBounds.push_back(leftSections[i]);
+            subsL = subsL->rhs();
         }
 
-        SgStatement *body = NULL;
-        // construct DO bounds
-        for (int i = 0; i < forBounds.size(); ++i)
+        if (rIdx < rightBound.size() && needFor)
         {
-            if (body == NULL)
+            if (needSwapLR)
+            {
+                insertMainPart(subsR, file, deep, rightBounds);
+                subsR = subsR->rhs();
+            }
+            else
+            {
+                SgExpression *shift = &(get<0>(rightBound[rIdx])->copy() - get<0>(leftBounds)->copy());
+                bool fixedDim = false;
+                while (!fixedDim)
+                {
+                    fixedDim = true;
+                    if (rightSubs == 0)
+                        rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))) + *shift);
+                    else
+                    {
+                        insertMinorPart(subsR, file, deep, leftBounds, rightBounds, shift);
+
+                        int tmp;
+                        checkAndinsertFixedDimentionValue(subsR, rightBounds, tmp, fixedDim);
+
+                        subsR = subsR->rhs();
+                    }
+                }
+            }
+        }
+
+        SgStatement *body;
+        if (needFor)
+        {
+            if (!bodyInserted)
+            {
                 body = copy;
+                bodyInserted = true;
+            }
             else
                 body = retVal;
 
-            if (get<2>(forBounds[i])) // has step
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i)), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), get<2>(forBounds[i])->copy(), *body);
+            tuple<SgExpression*, SgExpression*, SgExpression*> bounds;
+            if (!needSwapLR)
+                bounds = leftBounds;
             else
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i)), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
+                bounds = rightBounds;
+
+            if (get<2>(bounds)) // has step
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(bounds)->copy(), get<1>(bounds)->copy(), get<2>(bounds)->copy(), *body);
+            else
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(deep)), get<0>(bounds)->copy(), get<1>(bounds)->copy(), *body);
         }
-                
-        if (leftSubs == 0)
+
+        rIdx -= rMinus;
+    } 
+
+    while (rIdx < rightBound.size() - 1) // if fixed dims at the end
+    {
+        tuple<SgExpression*, SgExpression*, SgExpression*> rightBounds;
+        if (!fillSectionInfo(subsR, rightBounds))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (get<0>(rightBounds) && get<1>(rightBounds))
         {
-            // A = B
-            for (int i = 0; i < leftSections.size(); ++i)
-                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
-
-            for (int i = 0; i < rightSections.size(); ++i)
-            {
-                SgExpression *shift = &(get<0>(rightSections[i])->copy() - get<0>(leftSections[i])->copy());
-
-                int res;
-                int err = CalculateInteger(shift, res);
-                if (err == 0)
-                {
-                    if (res != 0)
-                        shift = new SgValueExp(res);
-                    else
-                        shift = NULL;
-                }
-                if (shift)
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
-                else
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
-            }
+            if (string(get<0>(rightBounds)->unparse()) == string(get<1>(rightBounds)->unparse())) // fixed dimension value
+                subsR->setLhs(get<0>(rightBounds)->copy());
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         else
-        {
-            //A( : : : ) = B( : : : )
-            ex = subsL;
-            for (int i = 0, freeIdx = 0; i < leftSubs; ++i, subsL = subsL->rhs())
-            {
-                if (!fixedLeft[i])
-                {
-                    if (needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
-                    {
-                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
-                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift);
-                    }
-                    else
-                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx]);
-                    ++freeIdx;
-                }
-            }
-
-            ex = subsR;
-            for (int i = 0, freeIdx = 0; i < rightSubs; ++i, subsR = subsR->rhs())
-            {
-                if (!fixedRight[i])
-                {
-                    if (!needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
-                    {
-                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
-                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift);
-                    }
-                    else
-                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx]);
-                    ++freeIdx;
-                }
-            }
-        }
-
-        __spf_print(1, "was on line %d file %s\n", assign->lineNumber(), assign->fileName());
-        __spf_print(1, "%s", string(assign->unparse()).c_str());
-        __spf_print(1, "%s", string(retVal->unparse()).c_str());
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        rIdx++;
+        subsR = subsR->rhs();
     }
 
     return retVal;
 }
 
-void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
+void convertFromAssignToLoop(SgFile *file)
 {
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
@@ -454,10 +387,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         for ( ; st != lastNode; st = st->lexNext())
         {
-            currProcessing.second = st;
             if (st->variant() == ASSIGN_STAT)
             {
-                SgStatement *conv = convertFromAssignToLoop(st, file, messagesForFile);
+                SgStatement *conv = convertFromAssignToLoop(st, file);
                 if (conv)
                 {
                     st->insertStmtBefore(*conv, *st->controlParent());
@@ -465,12 +397,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
                     SgStatement *end = conv->lastNodeOfStmt();
                     for (SgStatement *st1 = conv; st1 != end; st1 = st1->lexNext())
-                    {
                         st1->setlineNumber(getNextNegativeLineNumber());
-                        st1->setLocalLineNumber(st->lineNumber());
-                    }
-                    end->setlineNumber(getNextNegativeLineNumber());
-                    end->setLocalLineNumber(st->lineNumber());
                 }
             }
         }
@@ -490,12 +417,9 @@ void restoreAssignsFromLoop(SgFile *file)
 
         vector<pair<SgStatement*, SgStatement*>> toMove;
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
-        {
-            currProcessing.second = st;
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
                 if (data->lineNumber() < 0)
                     toMove.push_back(make_pair(st, data));
-        }
 
         for (auto &move : toMove)
             move.second->extractStmt();

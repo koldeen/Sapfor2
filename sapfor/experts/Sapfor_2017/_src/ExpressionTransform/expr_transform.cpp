@@ -53,13 +53,13 @@ void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* pa
             auto founded = it->in_defs.find(parentGraph);
             if (founded == it->in_defs.end())
                 it->in_defs.insert(founded, make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-            mergeDefs(&(founded->second), inDefs, NULL);
+            mergeDefs(&(founded->second), inDefs);
             return;
         }
 
     graphs.push_back(GraphAdjustmentItem(targetGraph));
     graphs[graphs.size() - 1].in_defs.insert(make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-    mergeDefs(&(graphs[graphs.size() - 1].in_defs.begin()->second), inDefs, NULL);
+    mergeDefs(&(graphs[graphs.size() - 1].in_defs.begin()->second), inDefs);
     graphs[graphs.size() - 1].in_defs.begin();
 
 }
@@ -85,7 +85,7 @@ map<SymbolKey, map<string, SgExpression*>>* GraphsKeeper::getInDefsFor(ControlFl
         if (graphs[i].CGraph == CGraph)
         {
             for (auto it = graphs[i].in_defs.begin(); it != graphs[i].in_defs.end(); ++it)
-                mergeDefs(result, &(it->second), NULL);
+                mergeDefs(result, &(it->second));
         }
     }
     return result;
@@ -354,16 +354,6 @@ int CalculateInteger(SgExpression *expr, int &result)
                 result = res.first * res.second;
                 return 0;
             }
-            else if(err.first != -1 && res.first == 0)
-            {
-                result = 0;
-                return 0;
-            }
-            else if (err.second != -1 && res.second == 0)
-            {
-                result = 0;
-                return 0;
-            }
             else
                 return -1;
             break;
@@ -413,9 +403,9 @@ void calculate(SgExpression *&exp)
 {
     SgExpression *left, *right;
     int res, err;
-
-    if ((left = exp->lhs()) != NULL)
+    if (exp->lhs())
     {
+        left = exp->lhs();
         err = CalculateInteger(left, res);
         if (err != -1)
             exp->setLhs(new SgValueExp(res));
@@ -423,8 +413,9 @@ void calculate(SgExpression *&exp)
             calculate(left);
     }
 
-    if ((right = exp->rhs()) != NULL)
+    if (exp->rhs())
     {
+        right = exp->rhs();
         err = CalculateInteger(right, res);
         if (err != -1)
             exp->setRhs(new SgValueExp(res));
@@ -500,24 +491,13 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
             if (!valueWithRecursion(founded->first, founded->second))
                 exp = founded->second;
 
-    if (exp == NULL)
-    {
-        //second, check defs from previous blocks
-        auto founded_inDefs = b->getInDefs()->find(SymbolKey(var->symbol()));
-        if (founded_inDefs != b->getInDefs()->end())
-            //if smth is founded_inDefs, it has single value
-            //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = founded_inDefs->second.begin()->second;
+    //second, check defs from previous blocks
+    auto founded_inDefs = b->getInDefs()->find(SymbolKey(var->symbol()));
+    if (founded_inDefs != b->getInDefs()->end())
+        //if smth is founded_inDefs, it has single value
+        //thanks to CorrectInDefs(ControlFlowGraph*) function
+        exp = founded_inDefs->second.begin()->second;
 
-        //we have to check if this value was killed by gen inside block
-        if (exp != NULL)
-            for (auto it = b->getGen()->begin(); it != b->getGen()->end(); ++it)
-                if (symbolInExpression(it->first.getVar(), exp))
-                {
-                    exp = NULL;
-                    break;
-                }
-    }
     return exp;
 }
 
@@ -538,18 +518,14 @@ static void createLinksToCopy(SgExpression *exOrig, SgExpression *exCopy)
 
 static void createBackup(SgStatement* stmt, int expNumber)
 {
-    SgExpression *exp = stmt->expr(expNumber);
-
-    if (exp == NULL) // no backup is required
-        return;
-
+    SgExpression* exp = stmt->expr(expNumber);
     auto foundedParent = curFileReplacements->find(stmt);
     if (foundedParent == curFileReplacements->end())
     {
         auto inserted = curFileReplacements->insert(std::make_pair(StatementObj(stmt), vector<SgExpression*>()));
         foundedParent = inserted.first;
         foundedParent->second.resize(3);
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 2; ++i)
             foundedParent->second[i] = NULL;
     }
 
@@ -573,18 +549,6 @@ SgExpression* tryMakeInt(SgExpression* exp)
     return exp;
 }
 
-void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp)
-{
-    SgExpression *oldExp = rightSide ? parent->rhs() : parent->lhs();
-
-    __spf_print(PRINT_PROF_INFO, "%s -> ", oldExp->unparse());
-    __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
-    SgExpression* expToCopy = newExp->copyPtr();
-    calculate(expToCopy);
-
-    rightSide ? parent->setRhs(tryMakeInt(expToCopy)) : parent->setLhs(tryMakeInt(expToCopy));
-}
-
 bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b, bool replaceFirstVar)
 {
     std::queue<SgExpression*> toCheck;
@@ -604,7 +568,6 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
             __spf_print(PRINT_PROF_INFO, "%s -> ", exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
             SgExpression* expToCopy = newExp->copyPtr();
-            calculate(expToCopy);
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
             wereReplacements = true;
         }
@@ -625,29 +588,34 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (newExp != NULL)
                     {
                         createBackup(parent, expNumber);
-                        setNewSubexpression(exp, true, newExp);
+                        __spf_print(PRINT_PROF_INFO, "%s -> ", exp->rhs()->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+                        SgExpression* expToCopy = newExp->copyPtr();
+                        exp->setRhs(tryMakeInt(expToCopy));
                         wereReplacements = true;
                     }
                 }
                 else
                     toCheck.push(exp->rhs());
             }
-            if(exp->variant() != FUNC_CALL)// Funcs' arguments are processed in replaceCallArguments
-                if (exp->lhs())
+            if (exp->lhs())
+            {
+                if (exp->lhs()->variant() == VAR_REF)
                 {
-                    if (exp->lhs()->variant() == VAR_REF)
+                    SgExpression* newExp = valueOfVar(exp->lhs(), b);
+                    if (newExp != NULL)
                     {
-                        SgExpression* newExp = valueOfVar(exp->lhs(), b);
-                        if (newExp != NULL)
-                        {
-                            createBackup(parent, expNumber);
-                            setNewSubexpression(exp, false, newExp);
-                            wereReplacements = true;
-                        }
+                        createBackup(parent, expNumber);
+                        __spf_print(PRINT_PROF_INFO, "%s -> ", exp->lhs()->unparse());
+                        __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+                        SgExpression* expToCopy = newExp->copyPtr();
+                        exp->setLhs(tryMakeInt(expToCopy));
+                        wereReplacements = true;
                     }
-                    else
-                        toCheck.push(exp->lhs());
                 }
+                else
+                    toCheck.push(exp->lhs());
+            }
         }
     }
     return wereReplacements;
@@ -674,83 +642,37 @@ bool needReplacements(SgExpression* exp, map<SymbolKey, std::vector<SgExpression
     }
 }
 
-bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
+bool replaceCallArgumentsInExpression(SgExpression* exp, CBasicBlock* b)
 {
-    bool wereReplacements = false;
-    SgExpression *lhs = exp->lhs(), *rhs = exp->rhs();
-    //We don't want expand arguments of other functions.
-    if(lhs && lhs->variant() != FUNC_CALL)
-    {
-        if(lhs->variant() == VAR_REF)
-        {
-            SgExpression* newExp = valueOfVar(lhs, b);
-            if (newExp != NULL)
-            {
-                setNewSubexpression(exp, false, newExp);
-                wereReplacements = true;
-            }
-        }
-        else
-            replaceVarsInCallArgument(lhs, b);
-    }
-    //We don't want expand arguments of other functions and other arguments
-    if(rhs && rhs->variant() != FUNC_CALL && rhs->variant() != EXPR_LIST)
-    {
-        if(rhs->variant() == VAR_REF)
-        {
-            SgExpression* newExp = valueOfVar(rhs, b);
-            if (newExp != NULL)
-            {
-                setNewSubexpression(exp, true, newExp);
-                wereReplacements = true;
-            }
-        }
-        else
-            replaceVarsInCallArgument(rhs, b);
-    }
-
-    return wereReplacements;
+    return false;
 }
 
-bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
+bool replaceCallArguments(ControlFlowItem* cfi)
 {
-    bool wereReplacements = false;
-    int numberOfArgs = 0;
-    SgExpression *args = NULL, *arg = NULL;
-    SgFunctionCallExp *funcCall = NULL;
-    SgStatement *st = cfi->getStatement();
+    bool needReplacement = false;
+    SgCallStmt *callStmt = isSgCallStmt(cfi->getStatement());
     AnalysedCallsList *callData = cfi->getCall();
+    SgExpression* args = callStmt->expr(0);
 
-    if(callData == NULL)//no info of arguments, can't expand expressions;
-        return false;
-
-    if (st != NULL && st->variant() == PROC_STAT) //procedure call
+    for (int i = 0; i < callStmt->numberOfArgs(); ++i)
     {
-        createBackup(st, 0);
-        SgCallStmt *callStmt = isSgCallStmt(cfi->getStatement());
-        args = callStmt->expr(0);
-        numberOfArgs = callStmt->numberOfArgs();
-    }
-    else if ((funcCall = cfi->getFunctionCall()) != NULL) //functionCall
-    {
-        st = cfi->getOriginalStatement();
-        for(int i=0;i<3;++i)
-            if(st->expr(i)) // TODO: search for expression?
-                createBackup(st, i);
-        args = funcCall->lhs();
-        numberOfArgs = funcCall->numberOfArgs();
-    }
-
-    if (args)
-        for (int i = 0; i < numberOfArgs; ++i)
+        SgExpression* arg = args->lhs();
+        args = args->rhs();
+        if ((arg->variant() != VAR_REF) || argIsReplaceable(i, callData))
         {
-            arg = args->lhs();
-            if ((arg->variant() != VAR_REF) || argIsReplaceable(i, callData))
-                wereReplacements |= replaceVarsInCallArgument(args, b);
-            args = args->rhs();
+            needReplacement = true;
+            break;
         }
+    }
 
-    return wereReplacements;
+    if (needReplacement)
+    {
+        //TODO For procuderes and functions
+		//createBackup(callStmt)
+        return replaceCallArgumentsInExpression(NULL, NULL);
+    }
+    else
+        return false;
 }
 /*
  * Have to run b->adjustGenAndKill(cfi) here to track changes inside block.
@@ -761,15 +683,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
     SgStatement* st;
     for (ControlFlowItem* cfi = b->getStart(); cfi != b->getEnd()->getNext(); cfi = cfi->getNext())
     {
-        st = cfi->getStatement();
-
-        if(cfi->getFunctionCall())
-        {
-            wereReplacements |= replaceCallArguments(cfi, b);
-            b->checkFuncAndProcCalls(cfi);
-        }
-
-        if (st != NULL)
+        if ((st = cfi->getStatement()) != NULL)
         {
             if (isDVM_stat(st))
                 continue;
@@ -784,7 +698,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case PROC_STAT:
-                wereReplacements |= replaceCallArguments(cfi, b);
+                wereReplacements |= replaceCallArguments(cfi);
                 b->adjustGenAndKill(cfi);
                 break;
             default:
@@ -795,7 +709,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
         }
         else if ((st = cfi->getOriginalStatement()) != NULL)    //if, loop or funcCall statement condition expressions
         {
-            if(cfi->getFunctionCall())//processed already
+            if(cfi->getFunctionCall())//Will be processed further
                 continue;
             if (visitedStatements.find(st) == visitedStatements.end())
             {
@@ -804,6 +718,10 @@ bool replaceVarsInBlock(CBasicBlock* b)
                     wereReplacements |= replaceVarsInExpression(st, 0, b, true);
             }
         }
+
+        if(cfi->getFunctionCall())
+            b->checkFuncAndProcCalls(cfi);
+
     }
     return wereReplacements;
 }
@@ -843,19 +761,25 @@ void processFuncCalls(ControlFlowGraph* CGraph)
         {
 
             AnalysedCallsList* call = cfi->getCall();
-            if(call)
-                graphsKeeper.addGraph(call->graph);
-            cfi = cfi->getNext();
+            SgFunctionCallExp* funcCall = cfi->getFunctionCall();
+            if (call && funcCall)
+            {
+                ;
+            }
+
+            if ((st = cfi->getStatement()) != NULL)
+                if (st->variant() == PROC_STAT)
+                {
+                    ;
+                }
         }
     }
 }
 
 void processGraph(ControlFlowGraph* CGraph)
 {
-    printf("next graph!\n");
-    SgStatement* function = CGraph->getFirst()->getStart()->getOriginalStatement();
+    SgStatement* function = CGraph->getFirst()->getStart()->getStatement();
 
-    /*printf("%ld %ld %ld %ld \n",CGraph, CGraph->getFirst(), CGraph->getFirst()->getStart(), CGraph->getFirst()->getStart()->getOriginalStatement());
     if (function->variant() == PROG_HEDR)
     {
         SgProgHedrStmt *progH = (SgProgHedrStmt*) function;
@@ -870,30 +794,17 @@ void processGraph(ControlFlowGraph* CGraph)
     {
         SgFuncHedrStmt *funcH = (SgFuncHedrStmt*) function;
         __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), function->lineNumber(), function->fileName());
-    }*/
+    }
 
-    printf("expanding!\n");
     ExpandExpressions(CGraph);
     processFuncCalls(CGraph);
 
 }
 
-static void SwitchToFile(const char *fileName) {
-    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
-        if(strcmp(CurrentProject->fileName(i), fileName) == 0)
-        {
-            SwitchToFile(i);
-            current_file = &CurrentProject->file(i);
-            current_file_id = i;
-        }
-}
-
 void expressionAnalyzer(SgStatement *function)
 {
     __spf_print(PRINT_PROF_INFO, "Expression analyzer!\n");
-    const char *prevFile = current_file->filename();
-    const char *filename = function->fileName();
-    SwitchToFile(filename);
+    const string &filename = string(function->fileName());
 
     auto itRep = replacementsInFunctions.find(function);
     if (itRep == replacementsInFunctions.end())
@@ -905,10 +816,6 @@ void expressionAnalyzer(SgStatement *function)
     }
     curFunctionReplacements = &(itRep->second);
 
-
-
-    printf("Graph!\n");
-
     CallData calls;
     CommonData commons;
     SetUpVars(&commons, &calls, calls.AddHeader(function, false, function->symbol(), current_file_id));
@@ -918,15 +825,12 @@ void expressionAnalyzer(SgStatement *function)
     commons.MarkEndOfCommon(GetCurrentProcedure());
     //calls.printControlFlows();
 
-
-    printf("Subs!\n");
-
     graphsKeeper.addGraph(CGraph);
 
     while ((CGraph = graphsKeeper.getGraphForAdjustment()) != NULL)
         processGraph(CGraph);
+
     graphsKeeper.deleteGraphs();
-    SwitchToFile(prevFile);
 }
 
 void expressionAnalyzer(SgFile *file)
@@ -977,7 +881,7 @@ void expressionAnalyzer(SgFile *file)
 
         ExpandExpressions(CGraph);
 
-        //showDefsOfGraph(CGraph);
+//        showDefsOfGraph(CGraph);
         /*
          st = file->firstStatement();
          while(st != NULL)
@@ -1005,7 +909,7 @@ void expressionAnalyzer(SgFile *file)
                 AnalysedCallsList* list = cfi->getCall();
                 //                if ((st = cfi->getOriginalStatement()) != NULL)
                 //              {
-                //              printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
+                //            	printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
                 //          }
                 //        else
                 if ((st = cfi->getStatement()) != NULL)

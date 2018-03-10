@@ -48,7 +48,6 @@ enum passes {
     PRIVATE_CALL_GRAPH_STAGE1,
     PRIVATE_CALL_GRAPH_STAGE2,
     PRIVATE_CALL_GRAPH_STAGE3,
-    PRIVATE_CALL_GRAPH_STAGE4,
 
     FILL_PAR_REGIONS_LINES,
     LOOP_DATA_DEPENDENCIES,
@@ -69,8 +68,7 @@ enum passes {
 
     CONVERT_ASSIGN_TO_LOOP,
     CONVERT_LOOP_TO_ASSIGN,
-
-    PREDICT_SCHEME,
+    CREATE_INTER_TREE,
     EMPTY_PASS
 };
 
@@ -147,7 +145,6 @@ static void setPassValues()
     passNames[REVERSE_CREATED_NESTED_LOOPS] = "REVERSE_CREATED_NESTED_LOOPS";
     passNames[CONVERT_ASSIGN_TO_LOOP] = "CONVERT_ASSIGN_TO_LOOP";
     passNames[CONVERT_LOOP_TO_ASSIGN] = "CONVERT_LOOP_TO_ASSIGN";
-    passNames[PRIVATE_CALL_GRAPH_STAGE4] = "PRIVATE_CALL_GRAPH_STAGE4";
-    passNames[PREDICT_SCHEME] = "PREDICT_SCHEME";
+    passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

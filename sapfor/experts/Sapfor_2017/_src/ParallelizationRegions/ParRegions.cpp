@@ -97,7 +97,6 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
 
         while (st != NULL && st != lastNode)
         {
-            currProcessing.second = st;
             int attrNum = st->numberOfAttributes();
             for (int k = 0; k < attrNum; ++k)
             {
@@ -183,15 +182,6 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
     return NULL;
 }
 
-static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops)
-{
-    for (auto &elem : loopGraph)
-        loops.push_back(elem);
-
-    for (auto &elem : loopGraph)
-        getAllLoops(elem->childs, loops);
-}
-
 void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<FuncInfo*>> allFuncInfo, map<string, vector<LoopGraph*>> &loopGraph)
 {
     map<string, FuncInfo*> funcMap;
@@ -199,7 +189,7 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
 
     for (int i = 0; i < regions.size(); ++i)
     {
-        if (regions[i]->GetName() != "DEFAULT")
+        if (regions[i]->GetName() != "DEFAULT") 
         {
             set<string> uniqFuncCalls;
             for (auto &elem : regions[i]->GetAllFuncCalls())
@@ -237,7 +227,7 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
                     toPrint += elem + " ";
                 }
             }
-
+            
             if (toPrint != "")
                 __spf_print(1, "[%s]: funcs: %s\n", regions[i]->GetName().c_str(), toPrint.c_str());
         }
@@ -254,13 +244,16 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
     }
 
     //fill regions for loop 
-    vector<LoopGraph*> loops;
     for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        getAllLoops(it->second, loops);
-
-    for (auto &loop : loops)
     {
-        const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
-        loop->region = getRegionByLine(regions, loop->fileName, currLine);
+        for (auto &loop : it->second)
+        {
+            ParallelRegion *parReg = getRegionByLine(regions, it->first, loop->lineNum);
+            if (parReg != NULL)
+            {
+                loop->region = parReg;
+                loop->setRegionToChilds();
+            }
+        }
     }
 }

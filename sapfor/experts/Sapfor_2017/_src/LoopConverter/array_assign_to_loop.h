@@ -1,8 +1,6 @@
 #pragma once
-#include <vector>
 
 #include "dvm.h"
-#include "../errors.h"
 
-void convertFromAssignToLoop(SgFile *file, std::vector<Messages> &messagesForFile);
+void convertFromAssignToLoop(SgFile *file);
 void restoreAssignsFromLoop(SgFile *file);

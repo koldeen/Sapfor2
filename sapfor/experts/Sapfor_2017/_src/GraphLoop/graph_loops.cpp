@@ -21,7 +21,6 @@
 
 #include "graph_loops.h"
 #include "../utils.h"
-#include "../SgUtils.h"
 
 #include "../errors.h"
 #include "../AstWrapper.h"
@@ -254,7 +253,7 @@ static inline void findFuncCalls(SgExpression *ex, set<string> &funcCalls)
 
 static inline int tryCalculate(SgExpression *expr, int &res)
 {
-    SgExpression *copyExp = expr->copyPtr();
+    SgExpression *copyExp = &(expr->copy());
     replaceConstatRec(copyExp);
     calculate(copyExp);
     if (CalculateInteger(copyExp, res) == -1)
@@ -404,13 +403,12 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());            
         }
 
-        SgStatement *lastNode = st->lastNodeOfStmt();
+        SgStatement *lastNode = st->lastNodeOfStmt();        
         vector<LoopGraph*> parentLoops;
         LoopGraph *currLoop = NULL;
         
         while (st != lastNode)
         {
-            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -445,7 +443,6 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
                 if (newLoop->countOfIters != 0)
                 {
-                    newLoop->calculatedCountOfIters = newLoop->countOfIters;
                     newLoop->startVal = std::get<0>(loopInfoSES);
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);
@@ -479,7 +476,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             else if (currLoop && (st->variant() == PROC_STAT || st->variant() == FUNC_STAT))
             {
                 string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
-                currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
+                currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));                
             }
             else if (currLoop)
             {

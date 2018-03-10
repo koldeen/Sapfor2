@@ -799,70 +799,16 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
-
-
-
-
-static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
-                                    const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                    DIST::GraphCSR<int, double, attrType> &reducedG,
-                                    DIST::Arrays<int> &allArrays)
-{
-    bool ok = true;
-    if (templ == NULL)
-        return false;
-
-    for (auto &array : links)
-    {
-        set<DIST::Array*> realArrayRef;
-        getRealArrayRefs(array.first, array.first, realArrayRef, arrayLinksByFuncCalls);
-
-        vector<vector<int>> AllLinks(realArrayRef.size());
-        int currL = 0;
-        for (auto &array : realArrayRef)
-        {
-            reducedG.FindLinksBetweenArrays(allArrays, array, templ, AllLinks[currL++]);
-            bool noneLink = true;
-            for (auto &elem : AllLinks[currL - 1])
-            {
-                if (elem != -1)
-                {
-                    noneLink = false;
-                    break;
-                }
-            }
-            if (noneLink == false)
-                break;
-        }
-
-        if (isAllRulesEqual(AllLinks))
-            array.second = AllLinks[0];
-
-        if (ok == false)
-            break;
-    }
-    return ok;
-}
-
 static bool checkCorrectness(const ParallelDirective &dir, 
                              const vector<pair<DIST::Array*, const DistrVariant*>> &distribution, 
                              DIST::GraphCSR<int, double, attrType> &reducedG,
                              DIST::Arrays<int> &allArrays,
-                             const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                             const set<DIST::Array*> &allArraysInLoop,
+                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                              vector<Messages> &messages, const int loopLine)
 {    
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
-    map<DIST::Array*, vector<int>> arrayLinksWithTmpl;
-
-    const DistrVariant *distRuleTempl = NULL;
-
-    for (auto &array : allArraysInLoop)
-        arrayLinksWithTmpl[array] = vector<int>();
-
     vector<int> links;
-    bool ok = true;
 
     for (int i = 0; i < distribution.size(); ++i)
     {
@@ -871,7 +817,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
             distArray = &distribution[i];
             for (int z = 0; z < distArray->first->GetDimSize(); ++z)
                 links.push_back(z);
-            distRuleTempl = distribution[i].second;
             break;
         }
     }
@@ -910,11 +855,11 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 if (dir.arrayRef2->GetDimSize() != links.size())
                 {
                     __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
-                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), links.size());
 
                     char buf[256];
                     sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
-                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), links.size());
                     messages.push_back(Messages(ERROR, loopLine, buf));
 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -935,7 +880,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 DistrVariant *tmp = new DistrVariant(derivedRule);
                 newDistArray->second = tmp;
                 distArray = newDistArray;
-                distRuleTempl = distribution[i].second;
                 break;
             }
         }
@@ -944,10 +888,8 @@ static bool checkCorrectness(const ParallelDirective &dir,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
-    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays);
-    
-    // check main array
     const vector<dist> &rule = distArray->second->distRule;
+    bool ok = true;
     for (int i = 0; i < rule.size(); ++i)
     {
         if (rule[i] == dist::BLOCK)
@@ -960,37 +902,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     break;
                 }
             }
-        }
-    }
-
-    for (auto &array : arrayLinksWithTmpl)
-    {
-        if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
-        {
-            vector<dist> derivedRule(array.first->GetDimSize());
-
-            for (int z = 0; z < array.second.size(); ++z)
-            {
-                if (array.second[z] != -1)
-                    derivedRule[z] = distRuleTempl->distRule[array.second[z]];
-                else
-                    derivedRule[z] = dist::NONE;
-            }
-
-            for (int i = 0; i < derivedRule.size(); ++i)
-            {
-                if (derivedRule[i] == dist::BLOCK)
-                {
-                    if (dir.on[array.second[i]].first == "*")
-                    {
-                        ok = false;
-                        break;
-                    }
-                }
-            }
-
-            if (ok == false)
-                break;
         }
     }
 
@@ -1197,15 +1108,13 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *current = loopGraph[i];
-        currProcessing.second = current->loop;
-
         if (current->directive && current->hasLimitsToParallel() == false && (current->region == currParReg))
         {
             if (current->perfectLoop >= 1)
             {
                 bool topCheck = isOnlyTopPerfect(current, distribution);
                 ParallelDirective *parDirective = current->directive;
-                /* if (topCheck == false)
+                if (topCheck == false)
                 {  //try to unite loops and recheck
                     bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     if (result)
@@ -1213,11 +1122,11 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                         parDirective = current->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(current, distribution);
                     }
-                } */
+                }
 
                 if (topCheck)
                 {
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, current->getAllArraysInLoop(), messages, current->lineNum))
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, messages, current->lineNum))
                         addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId);
                 }
                 else

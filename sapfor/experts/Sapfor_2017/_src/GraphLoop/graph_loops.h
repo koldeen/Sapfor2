@@ -26,7 +26,6 @@ public:
         hasNonRectangularBounds = false;
         hasIndirectAccess = false;
         withoutDistributedArrays = false;
-        hasWritesToNonDistribute = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -59,8 +58,7 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
-               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess;
     }
     
     void addConflictMessages(std::vector<Messages> *messages)
@@ -83,8 +81,6 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop"));
         if (hasIndirectAccess)
             messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop"));
-        if (hasWritesToNonDistribute)
-            messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop"));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -173,15 +169,6 @@ public:
     {
         return funcName + "_loop_" + std::to_string(lineNum);
     }
-
-    std::set<DIST::Array*> getAllArraysInLoop()
-    {
-        std::set<DIST::Array*> retVal(readOpsArray);
-        for (auto &elem : writeOps)
-            retVal.insert(elem.first);
-        return retVal;
-    }
-
 public:
     int lineNum;
     int lineNumAfterLoop;
@@ -189,8 +176,6 @@ public:
     int perfectLoop;
     int countOfIters;
     double countOfIterNested;
-
-    int calculatedCountOfIters; // save calculated
 
     int startVal;
     int endVal;
@@ -216,8 +201,6 @@ public:
     bool hasNonRectangularBounds;
 
     bool hasIndirectAccess;
-
-    bool hasWritesToNonDistribute;
 
     bool withoutDistributedArrays;
 

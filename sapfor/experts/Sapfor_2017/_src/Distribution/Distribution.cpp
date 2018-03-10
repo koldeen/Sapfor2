@@ -313,18 +313,6 @@ namespace Distribution
             return;
 
         double globalSum = 0;
-
-
-        string FullName = "_full_graph_reg" + std::to_string(regionNum) + ".txt";
-        string ReducedName = "_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
-        if (keepFiles)
-        {
-            if (!onlyGraph)
-                G.CreateGraphWiz(FullName.c_str(), toDelArcs, allArrays, false);
-            else
-                G.CreateGraphWiz(FullName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);
-        }
-
         if (!onlyGraph)
         {
             G.HighlightLinks();
@@ -453,13 +441,22 @@ namespace Distribution
             reducedG = G;
             reducedG.RemoveMultipleArcsByWeights();
         }
-        
+
+        string FullName = "_full_graph_reg" + std::to_string(regionNum) + ".txt";
+        string ReducedName = "_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
+
         if (keepFiles)
         {
             if (!onlyGraph)
-                reducedG.CreateGraphWiz(ReducedName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);            
+            {
+                G.CreateGraphWiz(FullName.c_str(), toDelArcs, allArrays, false);
+                reducedG.CreateGraphWiz(ReducedName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);
+            }
             else
-                reducedG.CreateGraphWiz(ReducedName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);            
+            {
+                G.CreateGraphWiz(FullName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);
+                reducedG.CreateGraphWiz(ReducedName.c_str(), vector<tuple<int, int, attrType>>(), allArrays, true);
+            }
         }
     }
 

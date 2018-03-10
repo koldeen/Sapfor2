@@ -28,7 +28,6 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
         int lastLine = 0;
         while (st != lastNode)
         {
-            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
