@@ -19,7 +19,6 @@
 #include <boost/chrono.hpp>
 
 #include "../errors.h"
-#include "../version.h"
 #include "get_information.h"
 #include "dvm.h"
 #include "../transform.h"

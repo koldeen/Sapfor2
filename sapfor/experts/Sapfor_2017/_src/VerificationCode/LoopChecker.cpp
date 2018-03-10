@@ -21,7 +21,6 @@ void EndDoLoopChecker(SgFile *file, vector<int> &errors)
 
         while (st != lastNode)
         {
-            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -50,7 +49,6 @@ void DvmDirectiveChecker(SgFile *file, vector<int> &errors)
 
         while (st != lastNode)
         {
-            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");

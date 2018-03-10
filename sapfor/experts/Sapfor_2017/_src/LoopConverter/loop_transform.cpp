@@ -162,17 +162,6 @@ void printDepGraph(depGraph *dg)
     }
 }
 
-static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, std::map<SgSymbol*, DependencyType> &depMap)
-{
-    depNode *node = outerDepGraph->isThereAnEdge(in, out);
-    if (node != nullptr)
-    {
-        DependencyType type = CreateNestedLoopsUtils::fromDepNode(node);
-        SgSymbol *symbol = node->varout->symbol();
-        depMap.insert(std::make_pair(symbol, type));
-    }
-}
-
 std::map<SgSymbol*, DependencyType>
   Sapfor2017::CreateNestedLoopsUtils::buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, depGraph *innerDepGraph)
 {
@@ -198,8 +187,12 @@ std::map<SgSymbol*, DependencyType>
         //loop through invariants before inner loop
         for (SgStatement *bodyStmt = innerLoop->lexNext(); bodyStmt != innerEnddo; bodyStmt = bodyStmt->lexNext()) 
         {
-            addToMap(stmt, bodyStmt, outerDepGraph, depMap);
-            addToMap(bodyStmt, stmt, outerDepGraph, depMap);
+            depNode *node = outerDepGraph->isThereAnEdge(stmt, bodyStmt);
+            if (node != nullptr) {
+                DependencyType type = CreateNestedLoopsUtils::fromDepNode(node);
+                SgSymbol *symbol = node->varout->symbol();
+                depMap.insert(std::make_pair(symbol, type));
+            }
         }
     }
 

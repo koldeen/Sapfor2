@@ -114,7 +114,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         int numSt = 0;
         do
         {
-            currProcessing.second = st;
             if (numSt != 0)
                 st = st->lexNext();
 
@@ -200,7 +199,6 @@ void removeDvmDirectives(SgFile *file)
 
         while (st != lastNode)
         {
-            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -1042,13 +1040,11 @@ void insertDistributeDirsToParallelRegions(const vector<ParallelRegionLines> *cu
             if (insertAfter->variant() == CONTROL_END)
                 controlParentAfter = controlParentAfter->controlParent();
 
-            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR || insertBefore->lexPrev()->variant() == DVM_REDISTRIBUTE_DIR)
+            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
                 insertBefore = insertBefore->lexPrev();
-            
+
             while (insertAfter->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
                 insertAfter = insertAfter->lexPrev();
-            while (insertAfter->lexNext()->variant() == DVM_REDISTRIBUTE_DIR)
-                insertAfter = insertAfter->lexNext();
 
             while (insertBefore && isSgExecutableStatement(insertBefore) == NULL)
                 insertBefore = insertBefore->lexNext();

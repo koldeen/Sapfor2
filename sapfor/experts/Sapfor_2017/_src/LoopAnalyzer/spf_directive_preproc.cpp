@@ -101,7 +101,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*>
         }
         else
         {
-            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == false)
+            if (iterator->variant() == ASSIGN_STAT || !isSgExecutableStatement(iterator))
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef, funcCalls);
             else
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
@@ -802,12 +802,6 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
         {
             bool result = processStat(modIterator, currFile, messagesForFile);
             retVal = retVal && result;
-
-            SgStatement *next = modIterator->lexNext();
-            if (next)
-                if (next->variant() == SPF_END_PARALLEL_REG_DIR)
-                    addToattribute(next, modIterator, SPF_END_PARALLEL_REG_DIR);
-
             modIterator = modIterator->lexNext();
         }
     }
@@ -829,7 +823,6 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
         while (st != lastNode)
         {
-            currProcessing.second = NULL;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -1051,7 +1044,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                 }
 
                 wasAdd = false;
-                const char *oper = NULL;
+                char *oper = NULL;
                 switch (addForCurrLoop[k]->kinddep)
                 {
                 case SADDREDUCTION:

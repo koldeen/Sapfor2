@@ -683,31 +683,22 @@ namespace Distribution
 
         __spf_print(PRINT_TIMES && needPrint, "cycles find started\n");
         // find all cycles with dim >= 3
-        try
+        for (int t = 0; t < vertByTrees.size(); ++t)
         {
-            for (int t = 0; t < vertByTrees.size(); ++t)
+            for (int k = 0; k < vertByTrees[t].size(); ++k)
             {
-                for (int k = 0; k < vertByTrees[t].size(); ++k)
-                {
-                    const vType i = vertByTrees[t][k];
-                    const vType currentV = i;
-                    for (vType k = 0; k < numVerts; ++k)
-                        color[k] = WHITE;
+                const vType i = vertByTrees[t][k];
+                const vType currentV = i;
+                for (vType k = 0; k < numVerts; ++k)
+                    color[k] = WHITE;
 
-                    findFrom = currentV;
-                    __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
-                    activeV[activeCounter++] = currentV;
-                    FindLoop(cyclesTmp[t], currentV, currentV, numbers);
-                    activeCounter--;
-                    __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
-                }
+                findFrom = currentV;
+                __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
+                activeV[activeCounter++] = currentV;
+                FindLoop(cyclesTmp[t], currentV, currentV, numbers);
+                activeCounter--;
+                __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
             }
-        }
-        catch (int code)
-        {
-            if (code == -2)
-                __spf_print(1, "OUT OF MEMORY: max avail %lld\n", maxAvailMemory);
-            throw code;
         }
 
         int minSize = INT_MAX;

@@ -16,7 +16,7 @@
 typedef std::pair<std::pair<int, int>, std::pair<int, int>> attrType;
 namespace DIST = Distribution;
 
-enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
+enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
@@ -30,13 +30,10 @@ void loopAnalyzer(SgFile *file,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
                   const std::vector<FuncInfo*> &funcInfo,
-                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
+                  std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                  std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                   std::vector<LoopGraph*> *loopGraph = NULL);
-void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
-                         const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
-                         REGIME regime);
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
@@ -72,6 +69,8 @@ void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
                            std::map<SgExpression*, std::string> &collection);
+
+bool isRemovableDependence(const depNode *toCheck);
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);

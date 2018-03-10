@@ -37,7 +37,8 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
-#include "Predictor/PredictScheme.h"
+
+#include "CreateInterTree/CreateInterTree.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -151,16 +152,8 @@ static void updateStatsByLine(const int id)
 
 }
 
-static void updateStatsExprs(const int id, const string &file)
-{
-    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
-        sgStats[st->thebif] = make_pair(file, id);
-    for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
-        sgExprs[ex->thellnd] = make_pair(file, id);
-}
-
-pair<SgFile*, SgStatement*> currProcessing;
-map<string, pair<SgFile*, int>> files;
+//TODO: remove with value == 1
+#define NEW_SUBS 0
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
@@ -195,19 +188,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #if _WIN32
     double timeForPass = omp_get_wtime();
 #endif
-    
-    sgStats.clear();
-    sgExprs.clear();
+
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
         updateStatsByLine(current_file_id);
-        updateStatsExprs(current_file_id, file->filename());
     }
 
-    currProcessing.first = NULL; currProcessing.second = NULL;
     for (int i = n - 1; i >= 0; --i)
     {
 #if _WIN32 && NDEBUG
@@ -217,9 +206,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         current_file_id = i;
         current_file = file;
 
-        currProcessing.first = file; currProcessing.second = NULL;
-
         const char *file_name = file->filename();
+
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
         if (curr_regime == CONVERT_TO_ENDDO)
@@ -253,8 +241,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
                          declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
-
-            currProcessing.second = NULL;
             UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -359,7 +345,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
-            currProcessing.second = NULL;
 
             //clear shadow specs
             for (auto &array : declaratedArrays)
@@ -463,16 +448,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
-        else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
-            arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS)
             removeDvmDirectives(file);
+#if !NEW_SUBS
         else if (curr_regime == SUBST_EXPR)
             expressionAnalyzer(file);
+#endif
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename());
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -620,20 +605,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
-            convertFromAssignToLoop(file, getMessagesForFile(file_name));
+            convertFromAssignToLoop(file);
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
-        else if (curr_regime == PREDICT_SCHEME)
-        {
-            auto itFound = loopGraph.find(file_name);
-            if (itFound == loopGraph.end())
-            {
-                auto tmp = vector<LoopGraph*>();
-                processFileToPredict(file, tmp);
-            }
-            else
-                processFileToPredict(file, itFound->second);
-        }
+        else if (curr_regime == CREATE_INTER_TREE)
+        	createInterTree(file);
+
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -704,7 +681,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// SECOND AGGREGATION STEP            /// 
     // **********************************  ///
-    currProcessing.first = NULL; currProcessing.second = NULL;
     if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)
@@ -835,6 +811,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
     }
+    else if (curr_regime == LOOP_GRAPH)
+    {
+        if (keepFiles)
+            printLoopGraph("_loopGraph.txt", loopGraph);
+        checkCountOfIter(loopGraph, SPF_messages);
+    }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
         for (auto it = commentsToInclude.begin(); it != commentsToInclude.end(); ++it)
@@ -894,12 +876,32 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
     }
+#if NEW_SUBS
+    else if (curr_regime == SUBST_EXPR)
+    {
+        SgStatement *mainUnit = findMainUnit(&project);
+        if (mainUnit)
+            expressionAnalyzer(mainUnit);
+        else
+        {
+            for (int i = n - 1; i >= 0; --i)
+            {
+#if _WIN32 && NDEBUG
+                createNeededException();
+#endif
+                SgFile *file = &(project.file(i));
+                current_file_id = i;
+                current_file = file;
+                expressionAnalyzer(file);
+            }
+        }
+    }
+#endif
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
 
         set<DIST::Array*> arraysDone;
-        
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
@@ -909,7 +911,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                for (auto &array : allArrays.GetArrays())
+                for (auto array : allArrays.GetArrays())
                 {
                     auto itF = arraysDone.find(array);
                     if (itF == arraysDone.end())
@@ -918,39 +920,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         Symbol *symb = array->GetDeclSymbol();
                         if (symb)
                         {
-                            auto &sizeInfo = array->GetSizes();
-                            bool needToUpdate = false;
-                            for (auto &elem : sizeInfo)
-                            {
-                                if (elem.first == elem.second)
-                                {
-                                    needToUpdate = true;
-                                    break;
-                                }
-                            }
+                            SgStatement *decl = declaratedInStmt(symb);
 
-                            if (needToUpdate)
-                            {
-                                auto &declInfo = array->GetDeclInfo();
-                                bool wasSelect = false;
-                                for (auto &elem : declInfo)
-                                {
-                                    auto it = files.find(elem.first);
-                                    if (it != files.end())
-                                    {
-                                        CurrentProject->file(it->second.second);
-                                        wasSelect = true;
-                                        break;
-                                    }
-                                }
-                                if (!wasSelect)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                SgStatement *decl = declaratedInStmt(symb);
-                                vector<pair<int, int>> sizes;
-                                getArraySizes(sizes, symb, decl);
-                                array->SetSizes(sizes);
-                            }
+                            vector<pair<int, int>> sizes;
+                            getArraySizes(sizes, symb, decl);
+                            array->SetSizes(sizes);
                         }
                     }
                 }
@@ -985,13 +959,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         __spf_print(1, "All lines in project %d\n", allLineSum);
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
-    {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
-
-        checkCountOfIter(loopGraph, SPF_messages);
-        if (keepFiles)
-            printLoopGraph("_loopGraph.txt", loopGraph);
-    }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
@@ -1201,8 +1169,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         for (int i = 0; i < lastI; ++i)
         {
             //if specific variant number is requested, skip all others
-            if (genSpecificVar >= 0 && i != genSpecificVar) 
-                continue;
+            if (genSpecificVar >= 0 && i != genSpecificVar) continue;
 
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
@@ -1215,11 +1182,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
 
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
-
+            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);            
+                        
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
-            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
@@ -1234,7 +1199,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
-    case UNPARSE_FILE:
+    case UNPARSE_FILE:        
         if (folderName)
             runAnalysis(*project, curr_regime, true, "", folderName);
         else
@@ -1253,6 +1218,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (staticPrivateAnalysis)
             runAnalysis(*project, curr_regime, false);
         break;
+    case LOOP_GRAPH:
+    	runAnalysis(*project, curr_regime, false);
+    	runPass(CREATE_INTER_TREE, proj_name, folderName);
+    	break;
     default:
         runAnalysis(*project, curr_regime, false);
         break;
@@ -1298,11 +1267,6 @@ int main(int argc, char**argv)
                 {
                     i++;
                     curr_regime = atoi(argv[i]);
-                }
-                else if (string(curr_arg) == "-q")
-                {
-                    i++;
-                    QUALITY = atoi(argv[i]);
                 }
                 else if (curr_arg[1] == 't')
                 {

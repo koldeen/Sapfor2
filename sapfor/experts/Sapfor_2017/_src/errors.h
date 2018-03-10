@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include "dvm.h"
 
 enum typeMessage { WARR, ERROR, NOTE };
 struct Messages
@@ -36,12 +35,6 @@ public:
     char buf[512];\
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
-\
-    if (currProcessing.first && currProcessing.second)\
-    { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second->lineNumber(), currProcessing.first->filename());\
-       addToGlobalBufferAndPrint(buf);\
-    } \
     throw(-1);\
 } while (0)
 
