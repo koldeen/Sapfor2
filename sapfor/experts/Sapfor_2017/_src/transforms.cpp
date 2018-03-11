@@ -145,10 +145,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         return false;
 
     __spf_print(DEBUG_LVL1, "RUN PASS with name %s\n", passNames[curr_regime]);
-    const int n = project.numberOfFiles();  
+    const int n = project.numberOfFiles();
 
     const bool need_to_save = false;
-    char fout_name[128];    
+    char fout_name[128];
     bool veriyOK = true;
 
     int internalExit = 0;
@@ -160,7 +160,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     map<string, string> templateDeclInIncludes;
 
     // **********************************  ///
-    /// FIRST STEP - RUN ANALYSIS BY FILES /// 
+    /// FIRST STEP - RUN ANALYSIS BY FILES ///
     // **********************************  ///
 #if _WIN32
     double timeForPass = omp_get_wtime();
@@ -353,7 +353,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
                             const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
 
-                            insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);                            
+                            insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
                         }
                     }
                 }
@@ -442,7 +442,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto fileIt = includeDependencies.find(file_name);
             if (fileIt == includeDependencies.end())
                 fileIt = includeDependencies.insert(fileIt, make_pair(file_name, set<string>()));
-                        
+
             for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
             {
                 if (strcmp(file_name, first->fileName()))
@@ -457,7 +457,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 {
                     SgExpression *spec = first->expr(1);
                     if (spec)
-                    {                     
+                    {
                         SgExpression *shadow = NULL, *remote = NULL;
                         SgExpression *beforeSh = spec;
 
@@ -487,7 +487,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                     for (auto iterL = elem->lhs(); iterL; iterL = iterL->rhs())
                                         if (iterL->lhs()->variant() != DDOT)
                                             allDDOT = false;
-                                    
+
                                     if (allDDOT)
                                         allRemoteWitDDOT.insert(elem->symbol()->identifier());
                                 }
@@ -602,7 +602,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
 
     // **********************************  ///
-    /// SECOND AGGREGATION STEP            /// 
+    /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
     if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
@@ -657,7 +657,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
-        //remove arrays that is not used        
+        //remove arrays that is not used
         map<tuple<int, string, string>, DIST::Array*> createdArraysNew;
         for (auto it = createdArrays.begin(); it != createdArrays.end(); ++it)
         {
@@ -679,10 +679,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         createdArrays = createdArraysNew;
-        
+
         for (map<string, string>::iterator it = shortFileNames.begin(); it != shortFileNames.end(); it++)
             __spf_print(1, "  %s -> %s\n", it->first.c_str(), it->second.c_str());
-                
+
         set<int> idxToDel;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
@@ -732,8 +732,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             CreateCallGraphWiz("_callGraph.txt", allFuncInfo);
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
-        // call here
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
+        updateFuncInfo(allFuncInfo);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
@@ -771,8 +771,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == EXTRACT_SHADOW_DIRS)
         commentsToInclude.clear();
-    else if (curr_regime == VERIFY_ENDDO || 
-             curr_regime == VERIFY_INCLUDE || 
+    else if (curr_regime == VERIFY_ENDDO ||
+             curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS)
     {
         if (veriyOK == false)
@@ -816,12 +816,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
             DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
             DataDirective &dataDirectives = parallelRegions[z]->GetDataDirToModify();
-            
+
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
-            }           
+            }
 
             if (ALGORITHMS_DONE[CREATE_ALIGNS][z] == 0)
             {
@@ -869,7 +869,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             {
                 string fileName = file->filename();
                 auto itDep = includeDependencies.find(fileName);
-                
+
                 //TODO: split by functions
                 set<string> includedToThisFile;
                 if (itDep != includeDependencies.end())
@@ -979,7 +979,7 @@ static void findFunctionsToInclude(bool needToAddErrors)
         return;
 
     __spf_print(1, "RUN PASS with name FindFunctionsToInclude\n");
-    
+
     map<string, int> files;
     for (int i = 0; i < project->numberOfFiles(); ++i)
     {
@@ -992,7 +992,7 @@ static void findFunctionsToInclude(bool needToAddErrors)
         failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
     else
         failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
-        
+
     if (failed > 0 && needToAddErrors)
         throw -5;
 }
@@ -1000,11 +1000,11 @@ static void findFunctionsToInclude(bool needToAddErrors)
 static SgProject* createProject(const char *proj_name)
 {
     sortFilesBySize(proj_name);
-    SgProject *project = new SgProject(proj_name); 
+    SgProject *project = new SgProject(proj_name);
     addNumberOfFileToAttribute(project);
 
-    ParallelRegion *defaultParRegion = new ParallelRegion(0, "DEFAULT"); 
-    parallelRegions.push_back(defaultParRegion);    
+    ParallelRegion *defaultParRegion = new ParallelRegion(0, "DEFAULT");
+    parallelRegions.push_back(defaultParRegion);
     return project;
 }
 
@@ -1018,13 +1018,13 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
     if (project == NULL)
         project = createProject(proj_name);
-        
+
     //Run dep passes anaysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
     if (itDep != passesDependencies.end())
         for (int k = 0; k < itDep->second.size(); ++k)
-            runPass(itDep->second[k], proj_name, folderName);    
-    
+            runPass(itDep->second[k], proj_name, folderName);
+
     switch (curr_regime)
     {
     case FIND_FUNC_TO_INCLUDE:
@@ -1052,7 +1052,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         int maxDimsIdx = -1;
         int maxDimsIdxReg = -1;
 
-        int lastI = countMaxValuesForParallelVariants(maxDims, maxDimsIdx, maxDimsIdxReg, currentVariants);        
+        int lastI = countMaxValuesForParallelVariants(maxDims, maxDimsIdx, maxDimsIdxReg, currentVariants);
         if (genAllVars == 0)
             lastI = 1;
 
@@ -1070,10 +1070,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
 
-            runPass(REVERT_SUBST_EXPR, proj_name, folderName);            
+            runPass(REVERT_SUBST_EXPR, proj_name, folderName);
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
-            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);            
+            runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
         }
     }
         break;
@@ -1094,7 +1094,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
-    case UNPARSE_FILE:        
+    case UNPARSE_FILE:
         if (folderName)
             runAnalysis(*project, curr_regime, true, "", folderName);
         else
@@ -1112,7 +1112,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     default:
         runAnalysis(*project, curr_regime, false);
         break;
-    } 
+    }
 }
 
 int main(int argc, char**argv)
@@ -1235,7 +1235,7 @@ int main(int argc, char**argv)
     {
         printf("exception occurred\n");
     }
-    
+
     deleteAllAllocatedData();
 #if _WIN32 && _DEBUG
     //_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);

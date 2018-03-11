@@ -314,12 +314,12 @@ void doMacroExpand(SgFile *file, vector<Messages> &messages)
 }
 
 // mycode
-static void findIdxRef (SgExpression *exp, FuncInfo &currInfo)
+static void findIdxRef(SgExpression *exp, FuncInfo &currInfo)
 {
 	if (exp)
-    {
+	{
 		if (exp->variant() == VAR_REF)
-        {
+		{
 			for (int i = 0; i < currInfo.funcParams.identificators.size(); i++)
 			{
 				if (exp->symbol()->identifier() == currInfo.funcParams.identificators[i])
@@ -332,68 +332,69 @@ static void findIdxRef (SgExpression *exp, FuncInfo &currInfo)
 	}
 }
 
-static void findArrayRef (SgExpression *exp, FuncInfo &currInfo)
+static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
 {
 	if (exp)
-    {
+	{
 		if (exp->variant() == ARRAY_REF)
-        {
+		{
 			// Through all indexes 
 			for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
 				findIdxRef(exp->lhs(), currInfo); //
 		}
 		else
-        {
+		{
 			findArrayRef(exp->lhs(), currInfo);
 			findArrayRef(exp->rhs(), currInfo);
 		}
 	}
 }
 
-static void findParamInParam (SgExpression *exp, const int parNo, FuncInfo &currInfo) {
+static void findParamInParam(SgExpression *exp, FuncInfo &currInfo) {
 	// Searching through expression, which parameter presented with
 	if (exp)
-    {
+	{
 		if (exp->variant() == VAR_REF)
-        {
-			// check for matching with one of param of func called this
+		{
+			// check for matching with one of param of func which called this
+			//std::cout << "Checking " << exp->symbol()->identifier() << " for match.." << std::endl;
 			for (int i = 0; i < currInfo.funcParams.identificators.size(); i++)
 			{
 				std::string parName = currInfo.funcParams.identificators[i];
+				//std::cout << "	with " << parName << ".. ";
 				if (exp->symbol()->identifier() == parName)
-                {
+				{
+					//std::cout << "Success." << std::endl;
 					NestedFuncCall &currNestedFuncCall = currInfo.funcsCalledFromThis.back();
-					currNestedFuncCall.NoOfParamUsedForCall[parNo].push_back(i);
+					currNestedFuncCall.NoOfParamUsedForCall.back().push_back(i);
 					break;
+				}
+				else {
+					//std::cout << "Fail." << std::endl;
 				}
 			}
 		}
 		// do not search further if found, cause VAR_REF is always a leaf
 		else
-        {
-			findParamInParam(exp->rhs(), parNo, currInfo);
-			findParamInParam(exp->rhs(), parNo, currInfo);
+		{
+			findParamInParam(exp->lhs(), currInfo);
+			findParamInParam(exp->rhs(), currInfo);
 		}
 	}
 }
 
-static void findParamUsedInFuncCalls (SgExpression *exp, FuncInfo &currInfo);
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo);
 
-static void throughParams (SgExpression *pars, FuncInfo &currInfo)
+static void throughParams(SgExpression *pars, FuncInfo &currInfo)
 {
-	// May be starting from second lhs
-	int parNo = 0; // idx of processing par
 	for (SgExpression *par = pars; par != NULL; par = par->rhs())
 	{
 		// initialize vector representing parameter #parNo
-		if (pars->lhs())
-        {
-			NestedFuncCall currNestedFuncCall = currInfo.funcsCalledFromThis.back();
-			currNestedFuncCall.NoOfParamUsedForCall.push_back(std::vector<int>());
-		}
+		NestedFuncCall &currNestedFuncCall = currInfo.funcsCalledFromThis.back();
+		std::vector<int> *vec = new std::vector<int>;
+		currNestedFuncCall.NoOfParamUsedForCall.push_back(*vec);
 
-		findParamInParam(pars->lhs(), parNo, currInfo);
-		parNo++;
+		findParamInParam(par->lhs(), currInfo);
 	}
 
 	// search another func call, possibly used in parameter
@@ -405,21 +406,22 @@ static void throughParams (SgExpression *pars, FuncInfo &currInfo)
 
 // Takes random expression, finds there func calls and check their parameters 
 // for using parameters of func where first is called from
-static void findParamUsedInFuncCalls (SgExpression *exp, FuncInfo &currInfo)
+static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo)
 {
 	if (exp)
-    {
+	{
 		if (exp->variant() == FUNC_CALL)
-        {
+		{
 			// Add func call which we've just found
-			NestedFuncCall funcCall(exp->symbol()->identifier());
-			currInfo.funcsCalledFromThis.push_back(funcCall);
+			NestedFuncCall *funcCall = new NestedFuncCall(exp->symbol()->identifier());
+			currInfo.funcsCalledFromThis.push_back(*funcCall);
 
 			// For every found func call iterate through pars
-			throughParams(exp, currInfo);
+			//std::cout << "Through params of the call of " << exp->symbol()->identifier() << std::endl;
+			throughParams(exp->lhs(), currInfo);
 		}
 		else
-        {
+		{
 			// If we've not found func call, search further in all branches
 			findParamUsedInFuncCalls(exp->rhs(), currInfo);
 			findParamUsedInFuncCalls(exp->lhs(), currInfo);
@@ -427,61 +429,56 @@ static void findParamUsedInFuncCalls (SgExpression *exp, FuncInfo &currInfo)
 	}
 }
 
-void updateFuncInfo (const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
+static void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
 {
 	bool changesDone;
 
 	do
-    {
-        map<string, FuncInfo*> mapFuncInfo;
-        createMapOfFunc(allFuncInfo, mapFuncInfo);
+	{
+		map<string, FuncInfo*> mapFuncInfo;
+		createMapOfFunc(allFuncInfo, mapFuncInfo);
 
 		changesDone = false;
 
-        for (auto &it : mapFuncInfo)
-        {
-            FuncInfo *currInfo = it.second;
+		for (auto &it : mapFuncInfo)
+		{
+			FuncInfo *currInfo = it.second;
 
 			for(auto &funcCall : currInfo->funcsCalledFromThis)
-            {
-/*				FuncInfo *calledFunc;
+			{
+				// Find pointer to info of called function
+				auto itCalledFunc = mapFuncInfo.find(funcCall.CalledFuncName);
 
-				for(auto &mapIt: mapFuncInfo)
-                {
-                    FuncInfo *funcInfo = mapIt.second;
+				if (itCalledFunc != mapFuncInfo.end())
+				{
+					FuncInfo *calledFunc = itCalledFunc->second;
 
-					if(funcInfo->funcName == funcCall.CalledFuncName)
-                    {
-						calledFunc = funcInfo;
-						break;
+					// Iterate through all pars of the call
+					int parNo = 0;
+
+					for (auto &parOfCalled : funcCall.NoOfParamUsedForCall)
+					{
+						// If this par of called func is used as index change
+						if (calledFunc->isParamUsedAsIndex[parNo])
+						{
+							// Then pars of calling func which are used in this par of called
+							// are also used as index
+							for (auto &parOfCalling : parOfCalled)
+							{
+								if (!currInfo->isParamUsedAsIndex[parOfCalling])
+								{
+									changesDone = true;
+									currInfo->isParamUsedAsIndex[parOfCalling] = true;
+								}
+							}
+						}
+						parNo++;
 					}
-				}*/
-
-                // Find pointer to info of called function
-                auto itCalledFunc = mapFuncInfo.find(funcCall.CalledFuncName);
-
-                if (itCalledFunc != mapFuncInfo.end()) {
-                    FuncInfo *calledFunc = itCalledFunc->second;
-
-                    // Iterate through all pars of the call
-                    int parNo = 0;
-                    for (auto &parOfCalled : funcCall.NoOfParamUsedForCall) {
-                        // If this par of called func is used as index change
-                        if (calledFunc->isParamUsedAsIndex[parNo]) {
-                            // Then pars of calling func which are used in this par of called
-                            // are also used as index
-                            for (auto &parOfCalling : parOfCalled) {
-                                changesDone = true;
-                                currInfo->isParamUsedAsIndex[parOfCalling] = true;
-                            }
-                        }
-                        parNo++;
-                    }
-                }
-                else
-                {
-                    // Error! No funcInfo of called func
-                }
+				}
+				else
+				{
+					// Error! No funcInfo of called func
+				}
 			}
 		}
 	} while (changesDone);
@@ -536,7 +533,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 			SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
 
 			for (int i = 0; i < procFuncHedr->numberOfParameters(); i++)
-            {
+			{
 				currInfo->funcParams.identificators.push_back((procFuncHedr->parameter(i))->identifier());
 				currInfo->isParamUsedAsIndex.push_back(false);
 			}
@@ -606,15 +603,16 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 				currInfo->funcsCalledFromThis.push_back(funcCall);
 
 				// search for using pars of cur func in pars of called
-				SgProgHedrStmt *hedrFuncProc = ((SgProgHedrStmt *)st);
-				throughParams(hedrFuncProc->expr(0), *currInfo);
+				//SgProgHedrStmt *hedrFuncProc = ((SgProgHedrStmt *)st);
+				recExpressionPrint(st->expr(0));
+				throughParams(st->expr(0), *currInfo);
 				// end of mycode
 			}
 			else
 			{
 				for (int i = 0; i < 3; ++i)
 					if (st->expr(i))
-                    {
+					{
 						findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
 						// mycode
 						findParamUsedInFuncCalls(st->expr(i), *currInfo);
@@ -640,7 +638,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 			// mycode
 			for (size_t i = 0; i < 3; i++)
 			{
-				if (currInfo->isParamUsedAsIndex.size() != 0)
+				// st->unparsestdout();
+				// TODO: don't treat declarations like execution
+				if (currInfo->isParamUsedAsIndex.size() != 0 && isSgExecutableStatement(st));
 					findArrayRef(st->expr(i), *currInfo);
 			}
 			// end of mycode
@@ -649,23 +649,51 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 		}
 	}
 
-	//for (auto file : allFuncInfo)
-	//{
-	//	for (auto currInfo : file.second)
-	//	{
-	//		std::cout << currInfo->funcName << std::endl;
+	updateFuncInfo(allFuncInfo);
 
-	//		for (size_t i = 0; i < currInfo->isParamUsedAsIndex.size(); i++)
-	//		{
-	//			std::cout << currInfo->funcParams.identificators[i] << ": ";
-	//			if (currInfo->isParamUsedAsIndex[i])
-	//				std::cout << "used" << std::endl;
-	//			else
-	//				std::cout << "not used" << std::endl;
-	//		}
-	//	}
-	//}
-	//std::cout << std::endl;
+/*	//CHECK PARAM AS INDEXES
+	for (auto file1 : allFuncInfo)
+	{
+		for (auto currInfo : file1.second)
+		{
+			std::cout << currInfo->funcName << std::endl;
+
+			for (size_t i = 0; i < currInfo->isParamUsedAsIndex.size(); i++)
+			{
+				std::cout << currInfo->funcParams.identificators[i] << ": ";
+				if (currInfo->isParamUsedAsIndex[i])
+					std::cout << "used" << std::endl;
+				else
+					std::cout << "not used" << std::endl;
+			}
+		}
+	}
+
+	std::cout << std::endl;*/
+
+/*	for (auto file1 : allFuncInfo)
+	{
+		for (auto currInfo : file1.second)
+		{
+			std::cout << currInfo->funcName << " calls to:" <<std::endl;
+
+			for (auto &calledFunc : currInfo->funcsCalledFromThis)
+			{
+				std::cout << "	" << calledFunc.CalledFuncName << " with params:" << std::endl;
+				int parNo = 0;
+				for (auto &paramOfCalled : calledFunc.NoOfParamUsedForCall) {
+					std::cout << "		" << parNo << ": ";
+					for (auto &paramOfCalling : paramOfCalled)
+						std::cout << paramOfCalling << " ";
+
+					parNo++;
+					std::cout << std::endl;
+				}
+			}
+		}
+	}
+
+	std::cout << std::endl;*/
 }
 
 int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
