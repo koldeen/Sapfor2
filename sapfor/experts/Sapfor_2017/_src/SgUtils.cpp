@@ -157,7 +157,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 pair<int, int> lines = make_pair(lineBefore, -1);
 
                 SgStatement *locSt = st->lexNext();
-                while (locSt && locSt->fileName() != fileN)
+                while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
                     locSt = locSt->lexNext();
                 lines.second = locSt->lineNumber();
 
