@@ -429,7 +429,7 @@ static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo)
 	}
 }
 
-static void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
+void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
 {
 	bool changesDone;
 
@@ -484,6 +484,53 @@ static void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) //
 	} while (changesDone);
 }
 
+void printParInfo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo)
+{
+	std::cout << "*********Which parameters of current function are used in func calls inside it*********" << std::endl;
+	for (auto file1 : allFuncInfo)
+	{
+		for (auto currInfo : file1.second)
+		{
+			std::cout << currInfo->funcName << " calls to:" <<std::endl;
+
+			for (auto &calledFunc : currInfo->funcsCalledFromThis)
+			{
+				std::cout << "	" << calledFunc.CalledFuncName << " with params:" << std::endl;
+				int parNo = 0;
+				for (auto &paramOfCalled : calledFunc.NoOfParamUsedForCall) {
+					std::cout << "		" << parNo << ": ";
+					for (auto &paramOfCalling : paramOfCalled)
+						std::cout << currInfo->funcParams.identificators[paramOfCalling] << " ";
+
+					parNo++;
+					std::cout << std::endl;
+				}
+			}
+		}
+	}
+
+	std::cout << std::endl;
+
+	std::cout << "*********Which parameters of current function are used as indices for arrays*********" << std::endl;
+	for (auto file1 : allFuncInfo)
+	{
+		for (auto currInfo : file1.second)
+		{
+			std::cout << currInfo->funcName << std::endl;
+
+			for (size_t i = 0; i < currInfo->isParamUsedAsIndex.size(); i++)
+			{
+				std::cout << currInfo->funcParams.identificators[i] << ": ";
+				if (currInfo->isParamUsedAsIndex[i])
+					std::cout << "used" << std::endl;
+				else
+					std::cout << "not used" << std::endl;
+			}
+		}
+	}
+
+	std::cout << std::endl;
+}
 // end of mycode
 
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -636,11 +683,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 			}
 
 			// mycode
-			for (size_t i = 0; i < 3; i++)
+			if (currInfo->isParamUsedAsIndex.size() != 0 && isSgExecutableStatement(st))
 			{
-				// st->unparsestdout();
-				// TODO: don't treat declarations like execution
-				if (currInfo->isParamUsedAsIndex.size() != 0 && isSgExecutableStatement(st));
+				for (char i = 0; i < 3; i++)
 					findArrayRef(st->expr(i), *currInfo);
 			}
 			// end of mycode
@@ -648,52 +693,6 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 			st = st->lexNext();
 		}
 	}
-
-	updateFuncInfo(allFuncInfo);
-
-/*	//CHECK PARAM AS INDEXES
-	for (auto file1 : allFuncInfo)
-	{
-		for (auto currInfo : file1.second)
-		{
-			std::cout << currInfo->funcName << std::endl;
-
-			for (size_t i = 0; i < currInfo->isParamUsedAsIndex.size(); i++)
-			{
-				std::cout << currInfo->funcParams.identificators[i] << ": ";
-				if (currInfo->isParamUsedAsIndex[i])
-					std::cout << "used" << std::endl;
-				else
-					std::cout << "not used" << std::endl;
-			}
-		}
-	}
-
-	std::cout << std::endl;*/
-
-/*	for (auto file1 : allFuncInfo)
-	{
-		for (auto currInfo : file1.second)
-		{
-			std::cout << currInfo->funcName << " calls to:" <<std::endl;
-
-			for (auto &calledFunc : currInfo->funcsCalledFromThis)
-			{
-				std::cout << "	" << calledFunc.CalledFuncName << " with params:" << std::endl;
-				int parNo = 0;
-				for (auto &paramOfCalled : calledFunc.NoOfParamUsedForCall) {
-					std::cout << "		" << parNo << ": ";
-					for (auto &paramOfCalling : paramOfCalled)
-						std::cout << paramOfCalling << " ";
-
-					parNo++;
-					std::cout << std::endl;
-				}
-			}
-		}
-	}
-
-	std::cout << std::endl;*/
 }
 
 int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)

@@ -734,6 +734,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
+
+        // Debug:
+        printParInfo(allFuncInfo);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
