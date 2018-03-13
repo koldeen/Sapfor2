@@ -266,7 +266,7 @@ static bool checkReduction(SgStatement *st,
             vars.insert(std::get<0>(setElem));
             arrs.insert(std::get<1>(setElem));
 
-            // TODO: FIND ARRAY DECLARATION && ADD CHECKING DIMENTION
+            // CHECK ARRAY DECLARATION && DIMENTION
             SgSymbol *arraySymbol = std::get<1>(setElem);
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             SgArrayType *arrayType = NULL;
@@ -282,27 +282,33 @@ static bool checkReduction(SgStatement *st,
                 if (dim != 1)
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+
                     retVal = false;
                 }
 
                 if (!arrayType->baseType()->equivalentToType(SgTypeInt()))
                 {
                     __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+
                     retVal = false;
                 }
             }
             else
             {
                 __spf_print(1, "'%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+
                 string message;
                 __spf_printToBuf(message, "'%s' must be array", arraySymbol->identifier());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+
                 retVal = false;
             }
 
@@ -315,6 +321,12 @@ static bool checkReduction(SgStatement *st,
 
             while (iterator != end)
             {
+                if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                {
+                    iterator = iterator->lexNext();
+                    continue;
+                }
+
                 if (!isSgExecutableStatement(iterator))
                 {
                     for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
@@ -338,6 +350,7 @@ static bool checkReduction(SgStatement *st,
                             string message;
                             __spf_printToBuf(message, "array size can't be computed");
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+
                             retVal = false;
                         }
                         else if (size != count)
@@ -348,6 +361,7 @@ static bool checkReduction(SgStatement *st,
                             string message;
                             __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+
                             retVal = false;
                         }
                         break;
@@ -670,7 +684,7 @@ static bool checkParallelRegions(SgStatement *st,
 {
     bool retVal = true;
 
-    if (isSgExecutableStatement(st))
+    if (isSgExecutableStatement(st->lexNext()))
     {
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
@@ -684,19 +698,41 @@ static bool checkParallelRegions(SgStatement *st,
 			while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
 				iterator = iterator->controlParent();
 
-			while (iterator != end)
+			while (iterator != end && retVal)
 			{
+                if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                {
+                    iterator = iterator->lexNext();
+                    continue;
+                }
+
 				if (!isSgExecutableStatement(iterator))
 				{
-                    for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
-                        if (exp->lhs()->symbol() == identSymbol)
+                    // if (iterator->fileName() == st->fileName())
+                        for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
-                            retVal = false;
-                            __spf_print(1, "variable '%s' was declarated on line %d\n", identName.c_str(), st->lineNumber());
-                            string message;
-                            __spf_printToBuf(message, "variable '%s' was declarated", identName.c_str());
-                            messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
-                            retVal = false;
+                            // FROM ALEX
+                            // exp->unparsestdout();
+                            // printf("\n");
+                            // SEE isInCommon function!!
+                            //
+
+                            for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
+                            {
+                                // __spf_print(1, "    varname is '%s'\n", currExp->lhs()->symbol()->identifier()); // remove this line
+                                // if (currExp->lhs()->symbol() == identSymbol)
+                                // if (string(currExp->lhs()->symbol()->identifier()) == identSymbol->identifier())
+                                if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
+                                {
+                                    __spf_print(1, "variable '%s' was declarated on line %d\n", identName.c_str(), st->lineNumber());
+
+                                    string message;
+                                    __spf_printToBuf(message, "variable '%s' was declarated", identName.c_str());
+                                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
+                                    retVal = false;
+                                }
+                            }
                         }
 				}
 				else
@@ -712,11 +748,12 @@ static bool checkParallelRegions(SgStatement *st,
                 {
                     if (varName == identSymbol->identifier())
                     {
-                        retVal = false;
                         __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identName.c_str(), commonBlockPair.first.c_str(), st->lineNumber());
+
                         string message;
                         __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identName.c_str(), commonBlockPair.first.c_str());
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
                         retVal = false;
                     }
                 }
@@ -725,16 +762,18 @@ static bool checkParallelRegions(SgStatement *st,
             // finding SPF_END_PARALLEL_REG_DIR
             iterator = st->lexNext();
             bool found = false;
-            while (iterator && retVal && !found)
+            while (iterator && !found)
             {
                 const int var = iterator->variant();
                 if (var == SPF_PARALLEL_REG_DIR)
                 {
                     // intersection
                     __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identName.c_str(), st->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identName.c_str());
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
                     retVal = false;
                     break;
                 }
@@ -749,14 +788,17 @@ static bool checkParallelRegions(SgStatement *st,
             if (!found)
             {
                 __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identName.c_str(), st->lineNumber());
+
                 string message;
                 __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identName.c_str());
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
                 retVal = false;
             }
         }
-        else // type == SPF_END_PARALLEL_REG_DIR
+        else
         {
+            // type == SPF_END_PARALLEL_REG_DIR
             // finding SPF_PARALLEL_REG_DIR
             SgStatement *iterator = st->lexPrev();
             bool found = false;
@@ -767,9 +809,11 @@ static bool checkParallelRegions(SgStatement *st,
                 {
                     // intersection
                     __spf_print(1, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
                     retVal = false;
                     break;
                 }
@@ -784,9 +828,11 @@ static bool checkParallelRegions(SgStatement *st,
             if (!found)
             {
                 __spf_print(1, "expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+
                 string message;
                 __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR'");
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+
                 retVal = false;
             }
         }
@@ -810,7 +856,6 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     if (st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR)
     {
         bool result = checkParallelRegions(st, commonBlocks, messagesForFile);
-        // bool result = fillParallelRegions(st, attributeStatement, parallelRegions, commonBlocks, messagesForFile);
         retVal = retVal && result;
     }
 
