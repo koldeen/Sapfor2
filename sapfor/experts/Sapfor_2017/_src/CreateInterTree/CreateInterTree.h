@@ -7,7 +7,7 @@
 
 struct Interval{
 	SgStatement* begin;
-	SgStatement* end;
+	std::vector<SgStatement*> ends;
 
 	std::vector<Interval*> includes;
 };
