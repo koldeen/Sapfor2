@@ -2665,9 +2665,26 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
         if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i)) {
             addExprToUse(ar);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+            }
         }
+
         if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i)) {
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+            }
         }
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
