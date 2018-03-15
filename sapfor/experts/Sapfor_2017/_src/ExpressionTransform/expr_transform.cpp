@@ -43,6 +43,8 @@ map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
 set<SgStatement*> visitedStatements;
 GraphsKeeper graphsKeeper;
 
+CommonDataItem* currentCommonVars = NULL;
+
 void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, map<SymbolKey, map<string, SgExpression*>>* inDefs)
 {
     //TODO
@@ -492,6 +494,14 @@ void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *
 
 SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
+    //Do not expand common vars, now...
+    string ident(var->symbol()->identifier());
+    for(CommonDataItem* commonVar = currentCommonVars; commonVar != NULL; commonVar = commonVar->next)
+        if(ident == string(commonVar->name->identifier()))
+            return NULL;
+
+
+
     SgExpression* exp = NULL;
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
@@ -975,9 +985,32 @@ void expressionAnalyzer(SgFile *file)
         commons.MarkEndOfCommon(GetCurrentProcedure());
         //calls.printControlFlows();
 
-        ExpandExpressions(CGraph);
+        currentCommonVars = commons.getList();
 
-        //showDefsOfGraph(CGraph);
+        ExpandExpressions(CGraph);
+/*        printf("!");
+        CommonVarSet* cvs = CGraph->getCommonDef();
+        while(cvs)
+        {
+            CommonVarInfo* cvi = cvs->cvd;
+            while(cvi)
+            {
+                printf("%s ", cvi->var->GetSymbol()->identifier());
+                cvi = cvi->next;
+            }
+            printf("\n");
+            cvs = cvs->next;
+        }
+
+        CommonDataItem* commonVars = commons.getList();
+        while(commonVars != NULL)
+        {
+            printf("%s ", commonVars->name->identifier());
+            commonVars = commonVars->next;
+        }
+        printf("\n");
+*/
+//        showDefsOfGraph(CGraph);
         /*
          st = file->firstStatement();
          while(st != NULL)
