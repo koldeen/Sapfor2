@@ -58,6 +58,9 @@
     <Filter Include="Файлы исходного кода\Predictor">
       <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CreateIntervalsTree">
+      <UniqueIdentifier>{c26e2185-b3c8-4160-8e9e-c48b59ef234f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\transforms.cpp">
@@ -246,6 +249,9 @@
     <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp">
+      <Filter>CreateIntervalsTree</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -358,6 +364,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\version.h">
       <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h">
+      <Filter>CreateIntervalsTree</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
