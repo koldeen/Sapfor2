@@ -36,6 +36,22 @@ using std::make_pair;
 
 const char *tag[];
 
+static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
+{
+    bool retVal = false;
+
+    for (auto &elem : intervals)
+    {
+        if (toFind.first <= elem.first && toFind.second >= elem.second)
+        {
+            retVal = true;
+            break;
+        }
+    }
+
+    return retVal;
+}
+
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
 {
     fflush(NULL);
@@ -50,10 +66,11 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     }
 
     // name -> unparse comment
-    map<string, string> includeFiles;
-
+    map<string, pair<string, vector<pair<int, int>> > > includeFiles;
+    bool notClosed = false;
     // TODO: extend buff size in dynamic
     char buf[8192];
+    int lineBefore = 0;
     while (!feof(currFile))
     {
         char *read = fgets(buf, 8192, currFile);
@@ -96,15 +113,37 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
                 auto toInsert = includeFiles.find(inclName);
                 if (toInsert == includeFiles.end())
-                    includeFiles.insert(toInsert, make_pair(inclName, line));
+                {
+                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(line, vector<pair<int, int>>())));
+                    toInsert->second.second.push_back(make_pair(lineBefore, -1));
+                    notClosed = true;
+                }
+                else
+                {
+                    toInsert->second.second.push_back(make_pair(lineBefore, -1));
+                    notClosed = true;
+                }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
+            else
+            {
+                if (notClosed)
+                {
+                    for (auto &elem : includeFiles)
+                        for (auto &pair : elem.second.second)
+                            if (pair.second == -1)
+                                pair.second = lineBefore + 1;
+                    notClosed = false;
+                }
+            }
+            ++lineBefore;
         }
     }
 
 
     const string fileN = file->filename();
     //insert comment
+    lineBefore = -1;
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         string currFileName = st->fileName();
@@ -112,25 +151,31 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         {
             allIncludeFiles.insert(currFileName);
             auto it = includeFiles.find(currFileName);
+
             if (it != includeFiles.end())
             {
-                SgStatement *locSt = st->lexNext();
-                while (locSt && locSt->fileName() != fileN)
-                    locSt = locSt->lexNext();
+                pair<int, int> lines = make_pair(lineBefore, -1);
 
-                if (locSt)
+                SgStatement *locSt = st->lexNext();
+                while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
+                    locSt = locSt->lexNext();
+                lines.second = locSt->lineNumber();
+
+                if (locSt && ifIntevalExists(it->second.second, lines))
                 {
                     char *comm = locSt->comments();
                     if (comm)
                     {
-                        if (string(locSt->comments()).find(it->second) == string::npos)
-                            locSt->addComment(it->second.c_str());
+                        if (string(locSt->comments()).find(it->second.first) == string::npos)
+                            locSt->addComment(it->second.first.c_str());
                     }
                     else
-                        locSt->addComment(it->second.c_str());
+                        locSt->addComment(it->second.first.c_str());
                 }
             }
         }
+        else
+            lineBefore = st->lineNumber();
     }
     
     vector<pair<SgStatement*, SgStatement*>> wasLinked;    
@@ -286,13 +331,11 @@ void initTags()
 void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
 {
     SgStatement *first = file->firstStatement();
-    vector<SgStatement*> functions;
+    set<SgStatement*> functions;
 
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
-        functions.push_back(file->functions(i));
-
-    int inV = functions.size() > 0 ? 0 : -1;
+        functions.insert(file->functions(i));
 
     while (first)
     {
@@ -303,13 +346,11 @@ void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
         }
         else
         {
-            if (inV >= 0)
+            if (functions.size())
             {
-                if (first == functions[inV])
-                {
-                    first = functions[inV]->lastNodeOfStmt();
-                    inV++;
-                }
+                auto it = functions.find(first);
+                if (it != functions.end())
+                    first = (*it)->lastNodeOfStmt();
             }
         }
 

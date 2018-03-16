@@ -445,6 +445,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
                 if (newLoop->countOfIters != 0)
                 {
+                    newLoop->calculatedCountOfIters = newLoop->countOfIters;
                     newLoop->startVal = std::get<0>(loopInfoSES);
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);

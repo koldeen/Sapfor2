@@ -2518,24 +2518,18 @@ SgStatement *SgSymbol::declaredInStmt()
 
 int SgSymbol::attributes()
 {
-  return SYMB_ATTR(thesymb);
+    return SYMB_ATTR(thesymb);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::setAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) |= attribute;
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::removeAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) ^= attribute;
 }
-#endif
 
 SgStatement *SgSymbol::body()
 {

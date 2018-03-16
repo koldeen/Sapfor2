@@ -43,6 +43,8 @@ map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
 set<SgStatement*> visitedStatements;
 GraphsKeeper graphsKeeper;
 
+CommonDataItem* currentCommonVars = NULL;
+
 void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, map<SymbolKey, map<string, SgExpression*>>* inDefs)
 {
     //TODO
@@ -354,6 +356,16 @@ int CalculateInteger(SgExpression *expr, int &result)
                 result = res.first * res.second;
                 return 0;
             }
+            else if(err.first != -1 && res.first == 0)
+            {
+                result = 0;
+                return 0;
+            }
+            else if (err.second != -1 && res.second == 0)
+            {
+                result = 0;
+                return 0;
+            }
             else
                 return -1;
             break;
@@ -403,9 +415,9 @@ void calculate(SgExpression *&exp)
 {
     SgExpression *left, *right;
     int res, err;
-    if (exp->lhs())
+
+    if ((left = exp->lhs()) != NULL)
     {
-        left = exp->lhs();
         err = CalculateInteger(left, res);
         if (err != -1)
             exp->setLhs(new SgValueExp(res));
@@ -413,9 +425,8 @@ void calculate(SgExpression *&exp)
             calculate(left);
     }
 
-    if (exp->rhs())
+    if ((right = exp->rhs()) != NULL)
     {
-        right = exp->rhs();
         err = CalculateInteger(right, res);
         if (err != -1)
             exp->setRhs(new SgValueExp(res));
@@ -483,6 +494,14 @@ void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *
 
 SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
+    //Do not expand common vars, now...
+    string ident(var->symbol()->identifier());
+    for(CommonDataItem* commonVar = currentCommonVars; commonVar != NULL; commonVar = commonVar->next)
+        if(ident == string(commonVar->name->identifier()))
+            return NULL;
+
+
+
     SgExpression* exp = NULL;
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
@@ -571,6 +590,7 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
     __spf_print(PRINT_PROF_INFO, "%s -> ", oldExp->unparse());
     __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
     SgExpression* expToCopy = newExp->copyPtr();
+    calculate(expToCopy);
 
     rightSide ? parent->setRhs(tryMakeInt(expToCopy)) : parent->setLhs(tryMakeInt(expToCopy));
 }
@@ -594,6 +614,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
             __spf_print(PRINT_PROF_INFO, "%s -> ", exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
             SgExpression* expToCopy = newExp->copyPtr();
+            calculate(expToCopy);
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
             wereReplacements = true;
         }
@@ -682,8 +703,8 @@ bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
         else
             replaceVarsInCallArgument(lhs, b);
     }
-
-    if(rhs && rhs->variant() != FUNC_CALL)
+    //We don't want expand arguments of other functions and other arguments
+    if(rhs && rhs->variant() != FUNC_CALL && rhs->variant() != EXPR_LIST)
     {
         if(rhs->variant() == VAR_REF)
         {
@@ -964,9 +985,32 @@ void expressionAnalyzer(SgFile *file)
         commons.MarkEndOfCommon(GetCurrentProcedure());
         //calls.printControlFlows();
 
-        ExpandExpressions(CGraph);
+        currentCommonVars = commons.getList();
 
-        //showDefsOfGraph(CGraph);
+        ExpandExpressions(CGraph);
+/*        printf("!");
+        CommonVarSet* cvs = CGraph->getCommonDef();
+        while(cvs)
+        {
+            CommonVarInfo* cvi = cvs->cvd;
+            while(cvi)
+            {
+                printf("%s ", cvi->var->GetSymbol()->identifier());
+                cvi = cvi->next;
+            }
+            printf("\n");
+            cvs = cvs->next;
+        }
+
+        CommonDataItem* commonVars = commons.getList();
+        while(commonVars != NULL)
+        {
+            printf("%s ", commonVars->name->identifier());
+            commonVars = commonVars->next;
+        }
+        printf("\n");
+*/
+//        showDefsOfGraph(CGraph);
         /*
          st = file->firstStatement();
          while(st != NULL)

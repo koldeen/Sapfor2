@@ -579,7 +579,8 @@ public:
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
     std::set<SymbolKey>* getOutVars();
-    void correctInDefs();
+    void correctInDefsSimple();
+    bool correctInDefsIterative();
     inline std::map<SymbolKey, SgExpression*>* getGen()
     { return &gen; }
 
@@ -706,6 +707,7 @@ class CommonData
 {
     CommonDataItem* list;
 public:
+    CommonDataItem* getList() { return list; }
     void RegisterCommonBlock(SgStatement*, AnalysedCallsList*);
     void MarkEndOfCommon(AnalysedCallsList*);
     void MarkAsUsed(VarSet*, AnalysedCallsList*);

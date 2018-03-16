@@ -61,8 +61,12 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
 extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
 
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
-{    
-    if (PRIVATE_ANALYSIS_REMOVE_VAR)
+{
+    //TODO: is it correct?
+    if (stmt == NULL)
+        return;
+
+    if (num == PRIVATE_ANALYSIS_REMOVE_VAR)
     {
         auto nextStat = statsByLine[current_file_id].find(make_pair(stmt->fileName(), stmt->lineNumber()));
         if (nextStat != statsByLine[current_file_id].end())
@@ -2661,9 +2665,26 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
         if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i)) {
             addExprToUse(ar);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+            }
         }
+
         if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i)) {
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+            }
         }
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
@@ -3360,18 +3381,18 @@ bool argIsReplaceable(int i, AnalysedCallsList* callData)
     if (callData == NULL)
         return false;
     SgProcHedrStmt* header = isSgProcHedrStmt(callData->header);
-    if (header != NULL)
-    {
-        int attr = header->parameter(i)->attributes();
-        if (callData->isArgOut(i) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
-            return false;
-        else if (!(callData->isArgIn(i) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
-            return false;
-        else
-            return true;
-    }
-    else
+    if (header == NULL)
+        return NULL;
+    if (header->parameter(i) == NULL)
         return false;
+    int attr = header->parameter(i)->attributes();
+
+    if (callData->isArgOut(i) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+        return false;
+    else if (!(callData->isArgIn(i) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+        return false;
+    else
+        return true;
 }
 
 set<SymbolKey>* CBasicBlock::getOutVars()
@@ -3538,6 +3559,22 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
             }
             cfi = cfi->getNext();
         }
+        if(!printed)
+        {
+            SgStatement* origStmt = NULL;
+            cfi = b->getStart();
+            while(cfi != till)
+            {
+                if((origStmt = cfi->getOriginalStatement()) != NULL)
+                {
+                    printed = true;
+                    printf("Original: ");
+                    origStmt->unparsestdout();
+                }
+                cfi = cfi->getNext();
+            }
+        }
+
         if (printed)
         {
             printf("\n In ");
@@ -3629,34 +3666,12 @@ bool valueWithFunctionCall(SgExpression* exp) {
  * 1. it has multiple values
  * 2. value has function call
  * 3. value has itself within (recursion)
- * 4. value was killed in one of previous blocks
  */
-void CBasicBlock::correctInDefs() {
+void CBasicBlock::correctInDefsSimple() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
-
-    set<SymbolKey> *allowedVars = NULL;
-    BasicBlockItem *bi = getPrev();
-    if(bi && bi->next)
-        allowedVars = bi->block->getOutVars();
-
-    if (allowedVars)
-        for(bi = bi->next; bi != NULL; bi = bi->next)
-        {
-            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
-            for (auto it = allowedVars->begin(); it != allowedVars->end(); )
-            {
-                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
-                    it = allowedVars->erase(it);
-                else
-                    ++it;
-            }
-            delete nextAllowedVars;
-        }
 
     for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
         if(it->second.size() != 1) //1
-            toDel.push_back(it);
-        else if(allowedVars && allowedVars->find(it->first) == allowedVars->end()) ///4
             toDel.push_back(it);
         else if(valueWithFunctionCall(it->second.begin()->second)) //2
             toDel.push_back(it);
@@ -3665,19 +3680,80 @@ void CBasicBlock::correctInDefs() {
 
     for (int i = 0; i < toDel.size(); ++i)
         in_defs.erase(toDel[i]);
-
-    if(allowedVars)
-        delete allowedVars;
 }
 
+
+/*
+ * Can't expand var if
+ * value is not present in one of previous block
+ */
+bool CBasicBlock::correctInDefsIterative() {
+    bool changed = false;
+    BasicBlockItem *bi = getPrev();
+
+    if (bi)
+    {
+        set<SymbolKey> *allowedVars = bi->block->getOutVars();
+
+        for (bi = bi->next; bi != NULL; bi = bi->next)
+        {
+            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
+            for (auto it = allowedVars->begin(); it != allowedVars->end();)
+            {
+                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                    it = allowedVars->erase(it);
+                else
+                    ++it;
+            }
+            delete nextAllowedVars;
+        }
+//Clean inDefs
+        vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
+        for (auto it = in_defs.begin(); it != in_defs.end(); ++it)
+            if (allowedVars->find(it->first) == allowedVars->end())
+                toDel.push_back(it);
+
+        for (int i = 0; i < toDel.size(); ++i)
+            in_defs.erase(toDel[i]);
+
+//Clean outDefs
+        toDel.clear();
+        for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
+            if(allowedVars->find(it->first) == allowedVars->end()
+                    && gen.find(it->first) == gen.end())
+                toDel.push_back(it);
+
+        for (int i = 0; i < toDel.size(); ++i)
+            out_defs.erase(toDel[i]);
+
+        if(toDel.size() != 0)
+            changed = true;
+
+        delete allowedVars;
+    }
+
+    return changed;
+}
 
 void CorrectInDefs(ControlFlowGraph* CGraph)
 {
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
     {
-        b->correctInDefs();
+        b->correctInDefsSimple();
         b = b->getLexNext();
+    }
+
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+        b = CGraph->getFirst();
+        while (b != NULL)
+        {
+            changes |= b->correctInDefsIterative();
+            b = b->getLexNext();
+        }
     }
 }
 #endif

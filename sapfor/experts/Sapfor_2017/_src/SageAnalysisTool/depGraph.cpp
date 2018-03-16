@@ -873,26 +873,22 @@ void depGraph::scalarRefAnalysis(SgStatement *loop)
                     {
                         if (thereisawrite >= 1)
                         {
-                            if (isItPrivate(i, access1, arrayRef, loop))
+                            int tp;
+                            if (tp = isItReduction(i, access1, arrayRef, loop))
+                                addAnEdge(access1->stmt, NULL, access1->var, NULL, REDUCTIONDEP, tp, NULL, NULL, 0);
+                            else if (isItPrivate(i, access1, arrayRef, loop))
                                 addAnEdge(access1->stmt, NULL, access1->var, NULL, PRIVATEDEP, 0, NULL, NULL, 0);
-                            else
-                            {
-                                int tp;
-                                if (tp = isItReduction(i, access1, arrayRef, loop))
-                                    addAnEdge(access1->stmt, NULL, access1->var, NULL, REDUCTIONDEP, tp, NULL, NULL, 0);
-                                else // scalar dep;
-                                    addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);
-                            }
+                            else // scalar dep;
+                                addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);                            
                         }
                         else //drop it;
                             addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);
                     }
-                    // else nothing to do this is safe......;
+                    // else nothing to do this is safe...;
                 }
             }
         }
     }
-
 }
 
 

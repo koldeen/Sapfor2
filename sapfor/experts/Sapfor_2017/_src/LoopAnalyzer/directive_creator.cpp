@@ -1205,7 +1205,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             {
                 bool topCheck = isOnlyTopPerfect(current, distribution);
                 ParallelDirective *parDirective = current->directive;
-                if (topCheck == false)
+                /* if (topCheck == false)
                 {  //try to unite loops and recheck
                     bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     if (result)
@@ -1213,7 +1213,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                         parDirective = current->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(current, distribution);
                     }
-                }
+                } */
 
                 if (topCheck)
                 {
