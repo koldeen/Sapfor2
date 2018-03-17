@@ -32,6 +32,8 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     SgStatement *toAdd = new SgStatement(toAttr->variant(), NULL, toAttr->symbol(), toAttr->expr(0), toAttr->expr(1), toAttr->expr(2));
     toAdd->setlineNumber(toAttr->lineNumber());
 
+
+	recExpressionPrint(toAttr->expr(0));
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
     if (toAttr->comments())
@@ -892,10 +894,24 @@ void revertion_spf_dirs(SgFile *file) {
 				if (isSPF_comment(atrib)) {
 					printf("----Find_SPF\n");
 					//return spf_dir
-					int var = atrib->getAttributeType();
-					SgStatement *toAdd = new SgStatement(var);
+				//	int var = atrib->getAttributeType();
+				//	SgStatement *toAdd = new SgStatement(var);
+					SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+					SgStatement *toAdd = new SgStatement(data->variant(), NULL, data->symbol(), data->expr(0), data->expr(1), data->expr(2));
+				/*	SgExpression *expr = atrib->getExpression();
+					if (expr == NULL) {
+						printf("----Expt == NULL\n");
+					}   */
+//					recExpressionPrint(expr);
+				//	SgStatement *toAdd = new SgStatement(var, NULL, NULL, expr, NULL, NULL);
+					if (toAdd->expr(0)) {
+						recExpressionPrint(toAdd->expr(0));
+					}
+					else {
+						printf("----toAdd->expr(0) == NULL\n");
+					}
 					st->insertStmtBefore(*toAdd);
-					//delete atrib
+					//delete atrib				
 				}
 				prev_atrib = atrib;
 				atrib = atrib->getNext();
