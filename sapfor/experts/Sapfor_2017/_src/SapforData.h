@@ -74,7 +74,7 @@ std::map<std::string, std::set<std::string>> includeDependencies; // file -> inc
 //
 
 //for FILL_COMMON_BLOCKS
-std::map<std::string, std::vector<std::string>> commonBlocks;
+std::map<std::string, std::vector<std::string>> commonBlocks; // common-block name and vector of variables
 //
 
 std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
