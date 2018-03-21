@@ -482,18 +482,39 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             for (auto &commonBlockPair : tmpCommonBlocks)
             {
-                vector<string> vars;
-                for (auto &commonBlock : commonBlockPair.second)
+                auto it = commonBlocks.find(commonBlockPair.first);
+                if (it != commonBlocks.end())
                 {
-                    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
+                    // common-block already exists
+                    set<string> &vars = (*it).second;
+                    for (auto &commonBlock : commonBlockPair.second)
                     {
-                        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                        for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
                         {
-                            vars.push_back(currCommon->lhs()->symbol()->identifier());
+                            for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                            {
+                                auto &var = vars.find(currCommon->lhs()->symbol()->identifier());
+                                vars.insert(currCommon->lhs()->symbol()->identifier());
+                            }
                         }
                     }
                 }
-                commonBlocks.insert(make_pair(commonBlockPair.first, vars));
+                else
+                {
+                    // new common-block
+                    set<string> vars;
+                    for (auto &commonBlock : commonBlockPair.second)
+                    {
+                        for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
+                        {
+                            for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+                            {
+                                vars.insert(currCommon->lhs()->symbol()->identifier());
+                            }
+                        }
+                    }
+                    commonBlocks.insert(make_pair(commonBlockPair.first, vars));
+                }
             }
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)

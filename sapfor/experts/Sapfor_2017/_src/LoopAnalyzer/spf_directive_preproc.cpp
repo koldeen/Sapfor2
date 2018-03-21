@@ -678,7 +678,7 @@ static bool checkRemote(SgStatement *st,
 }
 
 static bool checkParallelRegions(SgStatement *st,
-                                 const map<string, vector<string>> &commonBlocks,
+                                 const map<string, set<string>> &commonBlocks,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -833,7 +833,7 @@ static bool checkParallelRegions(SgStatement *st,
 }
 
 static inline bool processStat(SgStatement *st, const string &currFile,
-                               const map<string, vector<string>> &commonBlocks,
+                               const map<string, set<string>> &commonBlocks,
                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -937,7 +937,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, vector<string>> &commonBlocks, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, set<string>> &commonBlocks, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
@@ -962,7 +962,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-bool preprocess_spf_dirs(SgFile *file, const map<string, vector<string>> &commonBlocks, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, const map<string, set<string>> &commonBlocks, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
