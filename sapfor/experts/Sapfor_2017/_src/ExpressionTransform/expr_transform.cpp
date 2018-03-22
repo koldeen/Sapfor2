@@ -496,11 +496,11 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
     //Do not expand common vars, now...
     string ident(var->symbol()->identifier());
-    for(CommonDataItem* commonVar = currentCommonVars; commonVar != NULL; commonVar = commonVar->next)
-        if(ident == string(commonVar->name->identifier()))
-            return NULL;
-
-
+    for(CommonDataItem *common = currentCommonVars; common != NULL; common = common->next)
+        for (CommonVarInfo *varInfo = common->info; varInfo != NULL; varInfo = varInfo->next)
+            if(ident == varInfo->var->GetSymbol()->identifier())
+                return NULL;
+    
 
     SgExpression* exp = NULL;
     //first, check previous defs within block

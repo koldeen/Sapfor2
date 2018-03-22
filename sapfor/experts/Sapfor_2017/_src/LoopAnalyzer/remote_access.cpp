@@ -387,7 +387,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
 
             char buf[512];
             sprintf(buf, "Added remote access for array ref '%s' can significantly reduce performance", remoteExp.c_str());
-            messages.push_back(Messages(WARR, line, buf));
+            messages.push_back(Messages(WARR, line, buf, 3009));
         }
     }
 }

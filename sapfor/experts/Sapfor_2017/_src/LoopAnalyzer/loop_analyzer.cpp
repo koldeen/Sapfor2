@@ -225,7 +225,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             string message;
             __spf_printToBuf(message, "array ref '%s' has more than one loop's variables", arrayRefString.second.c_str());
             if (currLine > 0)
-                currMessages->push_back(Messages(WARR, currLine, message));
+                currMessages->push_back(Messages(WARR, currLine, message, 1021));
         }
 
         for (int i = 0; i < allPositions.size(); ++i)
@@ -262,7 +262,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     string message;
                     __spf_printToBuf(message, "array ref '%s' has not loop's variables", arrayRefString.second.c_str());
                     if (currLine > 0)
-                        currMessages->push_back(Messages(WARR, currLine, message));
+                        currMessages->push_back(Messages(WARR, currLine, message, 1021));
                 }
             }
             else
@@ -272,7 +272,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 string message;
                 __spf_printToBuf(message, "array ref '%s' has indirect access", arrayRefString.second.c_str());
                 if (currLine > 0)
-                    currMessages->push_back(Messages(WARR, currLine, message));
+                    currMessages->push_back(Messages(WARR, currLine, message, 1022));
             }
         }
     }
@@ -308,7 +308,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 string message;
                 __spf_printToBuf(message, "can not calculate index expression for array ref '%s'", arrayRefString.second.c_str());
                 if (currLine > 0)
-                    currMessages->push_back(Messages(WARR, currLine, message));
+                    currMessages->push_back(Messages(WARR, currLine, message, 1023));
             }
         }
         else
@@ -350,7 +350,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     string message;
                     __spf_printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
                     if (currLine > 0)
-                        currMessages->push_back(Messages(WARR, currLine, message));
+                        currMessages->push_back(Messages(WARR, currLine, message, 1024));
                 }
             }
             else
@@ -431,7 +431,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                 string message;
                 __spf_printToBuf(message, "can not map write to array '%s' to this loop", arrayRefS.c_str());
                 if (line > 0)
-                    currMessages->push_back(Messages(WARR, line, message));
+                    currMessages->push_back(Messages(WARR, line, message, 1025));
             }
         }
     }
@@ -451,7 +451,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
 static inline void findArrayRefInParameters(SgExpression *parList, const set<string> &privatesVars, const char *procName, const int line);
 static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int lineNum, const int side, 
                          map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, const int currLine, const set<string> &privatesVars,
-                         map<int, LoopGraph*> &sortedLoopGraph, const map<string, vector<SgStatement*>> &commonBlocks, 
+                         map<int, LoopGraph*> &sortedLoopGraph, const map<string, vector<SgExpression*>> &commonBlocks,
                          const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, bool wasDistributedArrayRef)
 {
     if (currExp->variant() == ARRAY_REF)
@@ -528,7 +528,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                             string message;
                             __spf_printToBuf(message, "write to non distributed array '%s' to loop", symb->identifier());
                             if (loop->lineNumber() > 0)
-                                currMessages->push_back(Messages(WARR, loop->lineNumber(), message));
+                                currMessages->push_back(Messages(WARR, loop->lineNumber(), message, 1026));
                             sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
                         }
                     }
@@ -743,7 +743,7 @@ static inline void findArrayRefInParameters(SgExpression *parList, const set<str
 
                         string message;
                         __spf_printToBuf(message, "array '%s' in function '%s' is not a private, this functionality has not supported yet", arrayName, procName);
-                        currMessages->push_back(Messages(ERROR, line, message));
+                        currMessages->push_back(Messages(ERROR, line, message, 1027));
 
                         throw(-1);
                     }
@@ -788,7 +788,7 @@ static map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>>
        convertLoopInfo(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, 
                        const map<int, LoopGraph*> &sortedLoopGraph,
                        const set<string> &privateArrays,
-                       const map<string, vector<SgStatement*>> &commonBlocks,
+                       const map<string, vector<SgExpression*>> &commonBlocks,
                        const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                        map<tuple<int, string, string>, DIST::Array*> &createdArrays)
@@ -899,7 +899,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
     currMessages = &messagesForFile;
     currRegime = regime;
 
-    map<string, vector<SgStatement*>> commonBlocks;
+    map<string, vector<SgExpression*>> commonBlocks;
     map<int, LoopGraph*> sortedLoopGraph;
     map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> allLoops;
 
@@ -979,7 +979,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message));
+                currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");                
                 break;
@@ -988,7 +988,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             {
                 string message;
                 __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message));
+                currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
                 breakLineControl = true;
@@ -1181,10 +1181,10 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 if (itF == privatesByModule.end())
                 {
                     string message;
-                    __spf_printToBuf(message, "Module with name '%s' must in file", st->symbol()->identifier());
-                    currMessages->push_back(Messages(ERROR, st->lineNumber(), message));
+                    __spf_printToBuf(message, "Module with name '%s' must be placed in current file", st->symbol()->identifier());
+                    currMessages->push_back(Messages(ERROR, st->lineNumber(), message, 1028));
 
-                    __spf_print(1, "Module at line %d with name '%s' must in file\n", st->lineNumber(), st->symbol()->identifier());
+                    __spf_print(1, "Module at line %d with name '%s' must be placed in current file\n", st->lineNumber(), st->symbol()->identifier());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
@@ -1349,7 +1349,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     currMessages = &messagesForFile;
     currRegime = regime;
 
-    map<string, vector<SgStatement*>> commonBlocks;
+    map<string, vector<SgExpression*>> commonBlocks;
     map<int, LoopGraph*> sortedLoopGraph;
     map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> allLoops;
     
@@ -1411,7 +1411,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message));
+                currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
@@ -1420,7 +1420,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             {
                 string message;
                 __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message));
+                currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
                 breakLineControl = true;
@@ -1477,7 +1477,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 }
 
 static void findArrayRefs(SgExpression *ex, 
-                          const map<string, vector<SgStatement*>> &commonBlocks, 
+                          const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
@@ -1557,7 +1557,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
     {        
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-        map<string, vector<SgStatement*>> commonBlocks;
+        map<string, vector<SgExpression*>> commonBlocks;
         const string currFunctionName = st->symbol()->identifier();
 
         getCommonBlocksRef(commonBlocks, st, lastNode);

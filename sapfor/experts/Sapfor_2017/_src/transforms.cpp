@@ -52,6 +52,7 @@
 #include "dvm.h"
 #include "transform.h"
 #include "PassManager.h"
+#include "SgUtils.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -112,20 +113,20 @@ static vector<Messages>& getMessagesForFile(const char *fileName)
     return it->second;
 }
 
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message)
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group)
 {
     vector<Messages> &currM = getMessagesForFile(fileName);
     __spf_print(1, "WARR: line %d: %s\n", line, message);
 
-    currM.push_back(Messages(WARR, line, message));
+    currM.push_back(Messages(WARR, line, message, group));
 }
 
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message)
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
 {
     vector<Messages> &currM = getMessagesForFile(fileName);
     __spf_print(1, "NOTE: line %d: %s\n", line, message);
 
-    currM.push_back(Messages(NOTE, line, message));
+    currM.push_back(Messages(NOTE, line, message, group));
 }
 
 static bool isDone(const int curr_regime)
@@ -285,7 +286,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z = 0; z < errors.size(); ++z)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", errors[z]);
-                    currMessages.push_back(Messages(ERROR, errors[z], "This loop does not have END DO format"));
+                    currMessages.push_back(Messages(ERROR, errors[z], "This loop does not have END DO format", 1018));
                 }
             }
         }
@@ -303,7 +304,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                     string currM;
                     __spf_printToBuf(currM, "Include '%s' has executable operators", z->first.c_str());
-                    currMessages.push_back(Messages(ERROR, z->second, currM));
+                    currMessages.push_back(Messages(ERROR, z->second, currM, 1019));
                 }
             }
         }
@@ -318,7 +319,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z = 0; z < errors.size(); ++z)
                 {
                     __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", errors[z]);
-                    currMessages.push_back(Messages(ERROR, errors[z], "Active DVM directives are not supported yet"));
+                    currMessages.push_back(Messages(ERROR, errors[z], "Active DVM directives are not supported yet", 1020));
                 }
             }
         }
@@ -634,6 +635,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             else
                 processFileToPredict(file, itFound->second);
         }
+        else if (curr_regime == DEF_USE_STAGE1)
+            constructDefUseStep1(file, defUseByFunctions);        
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -643,7 +646,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (newVer == NULL)
             {
                 __spf_print(1, "  ERROR: null file addition name\n");
-                getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred"));
+                getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                 throw(-1);
             }
 
@@ -675,7 +678,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 else
                 {
                     __spf_print(1, "ERROR: can not create file '%s'\n", fout_name);
-                    getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred"));
+                    getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                     throw(-1);
                 }
             }
@@ -812,7 +815,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         sprintf(buf, "Can not find arrays for distribution for parallel region '%s', ignored", regToDel->GetName().c_str());
                         for (int k = 0; k < it->second.size(); ++k)
                         {
-                            currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf));
+                            currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
                             __spf_print(1, "  Can not find arrays for distribution for parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
                         }
                     }

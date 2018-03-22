@@ -75,6 +75,9 @@ std::map<std::string, std::set<std::string>> includeDependencies; // file -> inc
 
 std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
 
+//for DEF USE
+map<string, vector<DefUseList>> defUseByFunctions;
+
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 

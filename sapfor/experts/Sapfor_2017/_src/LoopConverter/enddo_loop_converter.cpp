@@ -111,11 +111,11 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
             toDel->deleteStmt();
 
             char buf[512];
-            sprintf(buf, "converted arithmetic IF to simple IF on line %d\n", lineNum);
+            sprintf(buf, "convert arithmetic IF to simple IF on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
 
-            sprintf(buf, "converted arithmetic IF to simple I");
-            currMessages->push_back(Messages(NOTE, lineNum, buf));
+            sprintf(buf, "convert arithmetic IF to simple IF");
+            currMessages->push_back(Messages(NOTE, lineNum, buf, 2002));
 
             continue;
         }
@@ -139,19 +139,19 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
                 sprintf(buf, "ERROR: can not convert to END DO loop on line %d\n", lineNum);
                 addToGlobalBufferAndPrint(buf);
 
-                sprintf(buf, "can not convert to END DO loop\n");
-                currMessages->push_back(Messages(ERROR, lineNum, buf));
+                sprintf(buf, "can not convert to END DO loop");
+                currMessages->push_back(Messages(ERROR, lineNum, buf, 2003));
             }
         }
 
         if (result > 0)
         {
             char buf[512];
-            sprintf(buf, "converted to END DO loop on line %d\n", lineNum);
+            sprintf(buf, "convert to END DO loop on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
 
-            sprintf(buf, "converted to END DO loop\n");
-            currMessages->push_back(Messages(NOTE, lineNum, buf));
+            sprintf(buf, "convert to END DO loop");
+            currMessages->push_back(Messages(NOTE, lineNum, buf, 2004));
         }
     }
 }

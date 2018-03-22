@@ -9,8 +9,8 @@
 #define PRIVATE_ANALYSIS_NO_RECURSION_ANALYSIS 653
 
 #ifdef __SPF
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message);
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message);
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group);
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group);
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
@@ -705,10 +705,11 @@ struct CommonVarInfo
 
 struct CommonDataItem
 {
-    SgStatement* cb;
+    SgStatement *cb;
+    std::vector<SgExpression*> commonRefs;
     bool isUsable;
     bool onlyScalars;
-    SgSymbol* name;
+    std::string name;
     AnalysedCallsList* proc;
     AnalysedCallsList* first;
     CommonVarInfo* info;

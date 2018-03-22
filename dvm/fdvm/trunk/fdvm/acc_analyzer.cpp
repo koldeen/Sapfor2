@@ -79,7 +79,7 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
-    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());    
+    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str(), 1029);
 }
 
 inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
@@ -87,7 +87,7 @@ inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
-    printLowLevelNote(stmt->fileName(), line, toPrint.c_str());
+    printLowLevelNote(stmt->fileName(), line, toPrint.c_str(), 1030);
 }
 #endif
 
@@ -1583,50 +1583,56 @@ CommonDataItem* CommonData::IsThisCommonVar(VarItem* item, AnalysedCallsList* ca
     return NULL;
 }
 
-void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
+void CommonData::RegisterCommonBlock(SgStatement *st, AnalysedCallsList *cur)
 {
-    //todo: multiple common blocks in one procedure with same name
-    CommonDataItem* it = new CommonDataItem();
-    it->cb = st;
-    it->name = st->expr(0)->symbol();
-    it->isUsable = true;
-    it->proc = cur;
-    it->first = cur;
-    it->onlyScalars = true;
-    for (CommonDataItem* i = list; i != NULL; i = i->next)
+    //TODO: multiple common blocks in one procedure with same name
+    for (SgExpression *common = st->expr(0); common; common = common->rhs())
     {
-        if (strcmp(i->name->identifier(), it->name->identifier()) == 0 && i->isUsable) {
-            it->first = i->first;
-        }
-    }
-    SgExprListExp* vars = (SgExprListExp*)st->expr(0)->lhs();
-    it->info = NULL;
-    if (vars == NULL) 
-    {
-        delete it;
-        return;
-    }
+        bool newBlock = false;
+        SgExprListExp* vars = (SgExprListExp*)common->lhs();
+        if (vars == NULL)
+            continue;
 
-    for (int i = 0; i < vars->length(); i++) 
-    {
-        SgVarRefExp* e = isSgVarRefExp(vars->elem(i));
-        if (e && !IS_ARRAY(e->symbol())) 
+        const string currCommonName = (common->symbol()) ? common->symbol()->identifier() : "spf_unnamed";
+
+        CommonDataItem *it = new CommonDataItem();
+        it->cb = st;
+        it->name = currCommonName;
+        it->isUsable = true;
+        it->proc = cur;
+        it->first = cur;
+        it->onlyScalars = true;
+        newBlock = true;
+
+        it->commonRefs.push_back(common);
+        
+        for (CommonDataItem *i = list; i != NULL; i = i->next)
+            if (i->name == currCommonName && i->isUsable)
+                it->first = i->first;
+
+        for (int i = 0; i < vars->length(); ++i)
         {
-            CommonVarInfo* c = new CommonVarInfo();
-            c->var = new CScalarVarEntryInfo(e->symbol());
-            c->isPendingLastPrivate = false;
-            c->isInUse = false;
-            c->parent = it;
-            c->next = it->info;
-            it->info = c;
+            SgVarRefExp *e = isSgVarRefExp(vars->elem(i));
+            if (e && !IS_ARRAY(e->symbol()))
+            {
+                CommonVarInfo* c = new CommonVarInfo();
+                c->var = new CScalarVarEntryInfo(e->symbol());
+                c->isPendingLastPrivate = false;
+                c->isInUse = false;
+                c->parent = it;
+                c->next = it->info;
+                it->info = c;
+            }
+            else
+                it->onlyScalars = false;
         }
-        else {
-            it->onlyScalars = false;
+
+        if (newBlock)
+        {
+            it->next = list;
+            list = it;
         }
     }
-
-    it->next = list;
-    list = it;
 }
 
 void CommonData::MarkEndOfCommon(AnalysedCallsList* cur)
@@ -2666,29 +2672,11 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
     }
     for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) {
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
-        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i)) {
+        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i))
             addExprToUse(ar);
 
-            if (c->header)
-            {
-                if (isFun)
-                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
-                else
-                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
-            }
-        }
-
-        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i)) {
+        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i))
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
-
-            if (c->header)
-            {
-                if (isFun)
-                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
-                else
-                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
-            }
-        }
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
         for (CommonVarSet* cu = c->graph->getCommonUse(); cu != NULL; cu = cu->next) {
@@ -2745,7 +2733,7 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
 bool CommonData::CanHaveNonScalarVars(CommonDataItem* item)
 {
     for (CommonDataItem* it = list; it != NULL; it = it->next) {
-        if (strcmp(it->name->identifier(), item->name->identifier()) == 0 && it->first == item->first && !it->onlyScalars)
+        if (it->name == item->name && it->first == item->first && !it->onlyScalars)
             return true;
     }
     bool res = !item->onlyScalars;
@@ -2757,7 +2745,7 @@ CommonDataItem* CommonData::IsThisCommonUsedInProcedure(CommonDataItem* item, An
 {
     for (CommonDataItem* it = list; it != NULL; it = it->next) {
         if (it->proc == p) {
-            if (strcmp(it->name->identifier(), item->name->identifier()) == 0)
+            if (it->name == item->name)
                 return it;
         }
     }
