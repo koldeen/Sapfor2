@@ -59,7 +59,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
 
                         vector<Messages> &currM = allMessages[declF];
                         sprintf(buf, "More information is required about sizes of array '%s'", array->GetShortName().c_str());
-                        currM.push_back(Messages(ERROR, declL, buf));
+                        currM.push_back(Messages(ERROR, declL, buf, 1012));
                     }
                 }
                 ok = false;

@@ -491,7 +491,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
 
         char buf[256];
         sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf));
+        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf, 1017));
 
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
@@ -572,33 +572,43 @@ bool isEqExpressions(SgExpression *left, SgExpression *right, map<SgExpression*,
         return getStringExpr(left, collection)->second == getStringExpr(right, collection)->second;
 }
 
-void getCommonBlocksRef(map<string, vector<SgStatement*>> &commonBlocks, SgStatement *start, SgStatement *end)
+static string getCommonName(SgExpression *common)
+{
+    if (common->symbol())
+        return string(common->symbol()->identifier());
+    else
+        return string("spf_unnamed");
+}
+
+void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end)
 {
     while (start != end)
     {
         if (start->variant() == COMM_STAT)
         {
-            const string commonName(start->expr(0)->symbol()->identifier());
-            auto it = commonBlocks.find(commonName);
-            
-            if (it == commonBlocks.end())
-                it = commonBlocks.insert(it, make_pair(commonName, vector<SgStatement*>()));
-
-            it->second.push_back(start);
+            // fill all common blocks
+            for (SgExpression *exp = start->expr(0); exp; exp = exp->rhs())
+            {
+                const string commonName = getCommonName(exp);
+                auto it = commonBlocks.find(commonName);
+                if (it == commonBlocks.end())
+                    it = commonBlocks.insert(it, make_pair(commonName, vector<SgExpression*>()));
+                it->second.push_back(exp);
+            }
         }
         start = start->lexNext();
     }
 }
 
-static SgExpression* isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
+static SgExpression* isInCommon(const vector<SgExpression*> &commonBlocks, const char *arrayName, int &commonPos)
 {
-    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
+    commonPos = 0;
+    for (auto &common : commonBlocks)
     {
-        commonPos = 0;
-        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
-        {            
+        for (SgExpression *currCommon = common->lhs(); currCommon; currCommon = currCommon->rhs())
+        {
             if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
-                return exp;
+                return common;
             commonPos++;
         }
     }
@@ -606,7 +616,7 @@ static SgExpression* isInCommon(SgStatement *commonBlock, const char *arrayName,
 }
 
 map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
-tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &commonBlocks, SgStatement *decl, SgSymbol *symb)
+tuple<int, string, string> getUniqName(const map<string, vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb)
 {
     bool inCommon = false;
     bool needtoCheck = true;
@@ -638,23 +648,18 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &
     {
         for (auto &common : commonBlocks)
         {
-            for (auto &pos : common.second)
-            {
-                foundCommon = isInCommon(pos, symb->identifier(), commonPos);
-                if (foundCommon)
-                {
-                    inCommon = true;
-                    break;
-                }
-            }
+            foundCommon = isInCommon(common.second, symb->identifier(), commonPos);
             if (foundCommon)
+            {
+                inCommon = true;
                 break;
+            }
         }
     }
 
     tuple<int, string, string> retVal;
     if (inCommon)
-        retVal = make_tuple(commonPos, string("common_") + string(foundCommon->symbol()->identifier()), string(symb->identifier()));
+        retVal = make_tuple(commonPos, string("common_") + getCommonName(foundCommon), string(symb->identifier()));
     else
         retVal = make_tuple(decl->lineNumber(), string(decl->fileName()), string(symb->identifier()));
 
@@ -711,3 +716,181 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
 
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
+template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
+template const vector<int*> getAttributes(SgExpression *st, const set<int> dataType);
+
+static void addSymbolsToDefUse(const int type, SgExpression *ex, vector<DefUseList> &currentList, 
+                               pair<SgSymbol*, string> underCall, int funcPos,
+                               SgFile *file, SgStatement *inStat)
+{
+    if (ex)
+    {
+        bool next = true;
+        if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
+        {
+            if (ex->symbol())
+                currentList.push_back(DefUseList(type, inStat, file, underCall, make_pair(ex->symbol(), string(ex->symbol()->identifier())), funcPos));
+        }
+        else if (ex->variant() == FUNC_CALL)
+        {
+            underCall = make_pair(ex->symbol(), string(ex->symbol()->identifier()));
+            funcPos = 0;
+
+            for (SgExpression *list = ex->lhs(); list; list = list->rhs(), funcPos++)
+                addSymbolsToDefUse(type, list->lhs(), currentList, underCall, funcPos, file, inStat);            
+            next = false;
+        }
+
+        if (next)
+        {
+            addSymbolsToDefUse(type, ex->lhs(), currentList, underCall, funcPos, file, inStat);
+            addSymbolsToDefUse(type, ex->rhs(), currentList, underCall, funcPos, file, inStat);
+        }
+    }    
+}
+
+void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions)
+{
+    for (int f = 0; f < file->numberOfFunctions(); ++f)
+    {
+        //function header and entry points
+        map<string, vector<DefUseList>> currentLists;
+        vector<DefUseList> tmpList;
+
+        SgStatement *start = file->functions(f);
+        SgStatement *end = start->lastNodeOfStmt();
+        int pos;
+
+        currentLists[string(start->symbol()->identifier())] = vector<DefUseList>();
+        for (SgStatement *st = start->lexNext(); st != end; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+            {
+                tmpList.clear();
+                switch (st->variant())
+                {
+                case ASSIGN_STAT:
+                    for (auto &list : currentLists)
+                        list.second.push_back(DefUseList(0, st, file, make_pair((SgSymbol*)NULL, string("")), make_pair(st->expr(0)->symbol(), string(st->expr(0)->symbol()->identifier())), -1));
+
+                    addSymbolsToDefUse(1, st->expr(0)->lhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+                    addSymbolsToDefUse(1, st->expr(1)->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+
+                    addSymbolsToDefUse(1, st->expr(1), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+                    for (auto &list : currentLists)
+                        for (auto &elem : tmpList)
+                            list.second.push_back(elem);
+                    break;
+                case FOR_NODE:
+                    if (st->symbol())
+                        for (auto &list : currentLists)
+                            list.second.push_back(DefUseList(1, st, file, make_pair((SgSymbol*)NULL, string("")), make_pair(st->symbol(), string(st->symbol()->identifier())), -1));
+
+                    for (int i = 0; i < 3; ++i)
+                        addSymbolsToDefUse(1, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+
+                    for (auto &list : currentLists)
+                        for (auto &elem : tmpList)
+                            list.second.push_back(elem);
+                case LOGIF_NODE:
+                case CONT_STAT:
+                case IF_NODE:
+                case WHILE_NODE:
+                case DO_WHILE_NODE:
+                case GOTO_NODE:
+                case STOP_STAT:
+                case RETURN_STAT:
+                case RETURN_NODE:
+                case ELSEIF_NODE:
+                case ARITHIF_NODE:
+                case WHERE_NODE:
+                case WHERE_BLOCK_STMT:
+                case SWITCH_NODE:
+                case CASE_NODE:
+                case BREAK_NODE:
+                case EXIT_STMT:
+                case ASSGOTO_NODE:
+                case COMGOTO_NODE:
+                case WRITE_STAT:
+                case PRINT_STAT:
+                    for (int i = 0; i < 3; ++i)
+                        addSymbolsToDefUse(1, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+
+                    for (auto &list : currentLists)
+                        for (auto &elem : tmpList)
+                            list.second.push_back(elem);
+                    break;
+                case READ_STAT:
+                    for (int i = 0; i < 3; ++i)
+                        addSymbolsToDefUse(0, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
+
+                    for (auto &list : currentLists)
+                        for (auto &elem : tmpList)
+                            list.second.push_back(elem);
+                    break;
+                case PROC_STAT:
+                    pos = 0;
+                    for (SgExpression *ex = st->expr(0); ex; ex = ex->rhs(), pos++)
+                        addSymbolsToDefUse(1, ex->lhs(), tmpList, make_pair(st->symbol(), string(st->symbol()->identifier())), pos, file, st);
+
+                    for (auto &list : currentLists)
+                        for (auto &elem : tmpList)
+                            list.second.push_back(elem);
+                    break;
+                case ENTRY_STAT:
+                    currentLists[string(st->symbol()->identifier())] = vector<DefUseList>();
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        for (auto &list : currentLists)
+        {
+            auto it = defUseByFunctions.find(list.first);
+            if (it == defUseByFunctions.end())
+                it = defUseByFunctions.insert(it, make_pair(list.first, vector<DefUseList>()));
+        }
+
+        for (auto &list : currentLists)
+        {
+            auto it = defUseByFunctions.find(list.first);
+            for (auto &elem : list.second)
+                it->second.push_back(elem);
+        }
+    }
+}
+
+extern map<string, vector<DefUseList>> defUseByFunctions;
+set<string> getAllDefVars(const string &funcName)
+{
+    set<string> retVal;
+    for (auto &elem : defUseByFunctions[funcName])
+        if (elem.isDef())
+            retVal.insert(elem.getVar());
+    return retVal;
+}
+
+set<string> getAllUseVars(const string &funcName)
+{
+    set<string> retVal;
+
+    for (auto &elem : defUseByFunctions[funcName])
+        if (elem.isUse())
+            retVal.insert(elem.getVar());
+
+    return retVal;
+}
+
+const vector<DefUseList>& getAllDefUseVarsList(const string &funcName) { return defUseByFunctions[funcName]; }
+
+const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const string varName) 
+{
+    vector<DefUseList> retVal;
+    for (auto &elem : defUseByFunctions[funcName])
+        if (elem.getVar() == varName)
+            retVal.push_back(elem);    
+
+    return retVal;
+}

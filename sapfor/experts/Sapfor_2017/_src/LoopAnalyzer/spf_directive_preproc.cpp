@@ -86,7 +86,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
    string message;\
    __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
-   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message)); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, 1001)); \
 } while(0)
 
 static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
@@ -159,14 +159,14 @@ static bool checkPrivate(SgStatement *st,
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 else if (!defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
             }
@@ -224,14 +224,14 @@ static bool checkReduction(SgStatement *st,
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not used in loop", setElem->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 if (var == FOR_NODE && !defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not changed in loop", setElem->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
             }
@@ -285,7 +285,7 @@ static bool checkReduction(SgStatement *st,
 
                     string message;
                     __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1004));
 
                     retVal = false;
                 }
@@ -296,18 +296,18 @@ static bool checkReduction(SgStatement *st,
 
                     string message;
                     __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1005));
 
                     retVal = false;
                 }
             }
             else
             {
-                __spf_print(1, "'%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                __spf_print(1, "type of variable '%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "'%s' must be array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                __spf_printToBuf(message, "type of variable '%s' must be array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
 
                 retVal = false;
             }
@@ -349,7 +349,7 @@ static bool checkReduction(SgStatement *st,
 
                             string message;
                             __spf_printToBuf(message, "array size can't be computed");
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1007));
 
                             retVal = false;
                         }
@@ -360,7 +360,7 @@ static bool checkReduction(SgStatement *st,
 
                             string message;
                             __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
 
                             retVal = false;
                         }
@@ -406,7 +406,7 @@ static bool checkShadowAcross(SgStatement *st,
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
             //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
@@ -417,7 +417,7 @@ static bool checkShadowAcross(SgStatement *st,
                 __spf_print(1, "array '%s' on line %d is private\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                 retVal = false;
             }
             
@@ -434,16 +434,16 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
                     retVal = false;
                 }
             }
             else
             {
-                __spf_print(1, "'%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
-                __spf_printToBuf(message, "'%s' is not array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
 
@@ -454,7 +454,7 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "only positive numbers are supported");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1010));
                     retVal = false;
                 }
             }
@@ -554,7 +554,7 @@ static bool checkRemote(SgStatement *st,
                     __spf_print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                     retVal = false;
                 }
             }
@@ -598,7 +598,7 @@ static bool checkRemote(SgStatement *st,
                                 __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
                                 string message;
                                 __spf_printToBuf(message, "bad directive expression: too many DO variables");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
                                 retVal = false;
                             }
 
@@ -635,7 +635,7 @@ static bool checkRemote(SgStatement *st,
                                 __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());
                                 string message;
                                 __spf_printToBuf(message, "bad directive expression: only a * i + b");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
                                 retVal = false;
                             }
                         }
@@ -663,7 +663,7 @@ static bool checkRemote(SgStatement *st,
                 __spf_print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "no such expression '%s' on loop", remElem.second->unparse());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1111));
                 retVal = false;
             }
         }
@@ -1056,7 +1056,7 @@ void addAcrossToLoops(LoopGraph *topLoop,
 
             string message;
             __spf_printToBuf(message, "add across dependencies by array '%s' to loop", arrayS->identifier());
-            currMessages.push_back(Messages(NOTE, topLoop->lineNum, message));
+            currMessages.push_back(Messages(NOTE, topLoop->lineNum, message, 3001));
 
             if (k != acrossToAdd.size() - 1)
             {
@@ -1135,7 +1135,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
 
                 string message;
                 __spf_printToBuf(message, "add private scalar '%s' to loop on line %d", identifier.c_str(), topLoop->lineNum);
-                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3002));
 
                 if (k != addForCurrLoop.size() - 1)
                 {
@@ -1256,7 +1256,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
 
                     string message;
                     __spf_printToBuf(message, "add reduction scalar '%s' with operation '%s' to loop on line %d", addForCurrLoop[k]->varin->symbol()->identifier(), oper, topLoop->lineNum);
-                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3003));
                 }
                 else
                 {
@@ -1265,7 +1265,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
 
                     string message;
                     __spf_printToBuf(message, "unknown type of reduction scalar '%s'", addForCurrLoop[k]->varin->symbol()->identifier());
-                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message, 3004));
 
                     topLoop->hasUnknownScalarDep = true;
                     topLoop->linesOfScalarDep.push_back(addForCurrLoop[k]->stmtin->lineNumber());

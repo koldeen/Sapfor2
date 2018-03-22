@@ -391,14 +391,14 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
                 char buf[256];
-                sprintf(buf, "Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->region->GetName().c_str());
+                sprintf(buf, "Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", loops[i]->region->GetName().c_str());
 
                 auto itM = uniqMessages.find(buf);
                 if (itM == uniqMessages.end())
                 {
                     uniqMessages.insert(itM, buf);
 
-                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, buf));
+                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, buf, 1016));
                     __spf_print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
                 }
                 isNotOkey.insert(loops[i]->region);

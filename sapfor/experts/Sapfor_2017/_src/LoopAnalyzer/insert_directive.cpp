@@ -122,7 +122,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message));
+                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
@@ -638,7 +638,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message));
+                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
@@ -849,7 +849,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message));
+                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;

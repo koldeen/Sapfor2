@@ -9,8 +9,8 @@
 #define PRIVATE_ANALYSIS_NO_RECURSION_ANALYSIS 653
 
 #ifdef __SPF
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message);
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message);
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group);
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group);
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
@@ -194,8 +194,10 @@ class doLoopItem{
     bool plf;
     SgStatement* prs;
 public:
-    inline doLoopItem(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e) : label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL)
+    inline doLoopItem(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e) : label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL), parallel_depth(-1)
     { }
+    inline void HandleNewItem(doLoopItem* it)
+    { setParallelDepth(it->parallel_depth, it->prl, it->prs, it->pPl, it->plf); }
     inline void setNext(doLoopItem* n)
     { next = n; }
     inline void setNewLabel(int l)
@@ -293,6 +295,7 @@ struct VarItem
     VarItem* next;
 };
 
+class CArrayVarEntryInfo;
 
 class VarSet
 {
@@ -309,6 +312,7 @@ public:
     bool RecordBelong(CVarEntryInfo*);
     void LeaveOnlyRecords();
     void RemoveDoubtfulCommonVars(AnalysedCallsList*);
+    VarItem* GetArrayRef(CArrayVarEntryInfo*);
     //VarItem* belongs(SgVarRefExp*, bool os = false);
     VarItem* belongs(const CVarEntryInfo*, bool os = false);
     bool equal(VarSet*);
@@ -382,26 +386,34 @@ public:
     void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
 };
 
+struct ArraySubscriptData
+{
+    int coefs[2];
+    SgStatement* fs;
+};
+
 class CArrayVarEntryInfo : public CVarEntryInfo
 {
-    SgArrayRefExp* ref;
+    int subscripts;
+    ArraySubscriptData* data;
 public:
-    CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s), ref(r) {};
+    CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r);
+    CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d);
+    ~CArrayVarEntryInfo() { if (subscripts > 0) delete[] data; }
     bool CompareSubscripts(const CArrayVarEntryInfo&) const;
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, ref); }
-    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), ref); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol() && 
-        static_cast<const CArrayVarEntryInfo&>(rhs).ref && ref && CompareSubscripts(static_cast<const CArrayVarEntryInfo&>(rhs)); }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, data); }
+    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), subscripts, data); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol() &&
+        CompareSubscripts(static_cast<const CArrayVarEntryInfo&>(rhs)); }
+    friend CArrayVarEntryInfo* operator-(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
+    friend CArrayVarEntryInfo* operator+(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
+    CArrayVarEntryInfo& operator+=(const CArrayVarEntryInfo&);
+    CArrayVarEntryInfo& operator*=(const CArrayVarEntryInfo&);
+    friend CArrayVarEntryInfo* operator*(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
     CVarEntryInfo* GetLeftmostParent() { return this; }
-    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
-        //todo: FIX
-        /*
-        if (def == NULL || !def->belongs(this))
-            use->addToSet(this, st);
-        */
-    }
-    void RegisterDefinition(VarSet* def, SgStatement* st) { /*  def->addToSet(this, st); */ /* FIX */ };
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st);
+    void RegisterDefinition(VarSet* def, SgStatement* st);
 };
 
 class CBasicBlock;
@@ -693,10 +705,11 @@ struct CommonVarInfo
 
 struct CommonDataItem
 {
-    SgStatement* cb;
+    SgStatement *cb;
+    std::vector<SgExpression*> commonRefs;
     bool isUsable;
     bool onlyScalars;
-    SgSymbol* name;
+    std::string name;
     AnalysedCallsList* proc;
     AnalysedCallsList* first;
     CommonVarInfo* info;

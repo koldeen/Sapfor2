@@ -1555,26 +1555,27 @@ SgExprListExp * isSgExprListExp(SgExpression *pt)
 
 SgProject::SgProject(const char * proj_file_name)
 {
-  // first let init the library we need
+    // first let init the library we need
     if (!proj_file_name)
-      {
-        Message("Cannot open project: no file specified",0);
-#if 1
+    {
+        Message("Cannot open project: no file specified", 0);
+        exit(1);
+
+    }
+    if (open_proj_toolbox(proj_file_name, proj_file_name) < 0)
+    {
+        fprintf(stderr, "%s   ", proj_file_name);
+#if __SPF
+        throw -99;
+#else
+        Message("Cannot open project", 0);
         exit(1);
 #endif
-      }
-    if( open_proj_toolbox(proj_file_name, proj_file_name) < 0)
-      {
-        fprintf(stderr,"%s   ",proj_file_name);
-        Message("Cannot open project",0);
-#if 1
-        exit(1);
-#endif
-      }
+    }
     Init_Tool_Box();
 
-// we have to initialize some specific data for this interface 
-  CurrentProject = this;
+    // we have to initialize some specific data for this interface 
+    CurrentProject = this;
 }
 
 
@@ -4354,6 +4355,7 @@ SgDeclarationStatement * isSgDeclarationStatement (SgStatement *pt)
   switch(BIF_CODE(pt->thebif))
     {
     case VAR_DECL:
+    case VAR_DECL_90:
     case ENUM_DECL:
     case STRUCT_DECL:
     case CLASS_DECL:

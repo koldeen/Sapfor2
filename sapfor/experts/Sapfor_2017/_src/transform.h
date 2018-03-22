@@ -72,6 +72,7 @@ enum passes {
 
     FILL_COMMON_BLOCKS,
     PREDICT_SCHEME,
+    DEF_USE_STAGE1,
     EMPTY_PASS
 };
 
@@ -151,5 +152,6 @@ static void setPassValues()
     passNames[PRIVATE_CALL_GRAPH_STAGE4] = "PRIVATE_CALL_GRAPH_STAGE4";
     passNames[FILL_COMMON_BLOCKS] = "FILL_COMMON_BLOCKS";
     passNames[PREDICT_SCHEME] = "PREDICT_SCHEME";
+    passNames[DEF_USE_STAGE1] = "DEF_USE_STAGE1";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

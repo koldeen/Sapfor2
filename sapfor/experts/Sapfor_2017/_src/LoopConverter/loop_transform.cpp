@@ -115,8 +115,8 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 
                 char buf[256];
-                sprintf(buf, "loops on lines %d and %d were combined\n", current->lineNum, firstChild->lineNum);
-                messages.push_back(Messages(NOTE, current->lineNum, buf));
+                sprintf(buf, "loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
+                messages.push_back(Messages(NOTE, current->lineNum, buf, 2005));
             }
         }
     }
