@@ -123,6 +123,8 @@ namespace Distribution
             maxAvailMemory = 0;
         }
 
+        bool SaveGraphToFile(FILE *file);
+        bool LoadGraphFromFile(FILE *file);
         int AddToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const uint8_t linkType);
         void GetAllSimpleLoops(std::vector<std::vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint);
         int SortLoopsBySize(std::vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint);

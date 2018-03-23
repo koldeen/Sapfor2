@@ -4,6 +4,8 @@
 /*********************************************************************/
 #include "leak_detector.h"
 #include <stdio.h>
+#include <map>
+#include <string>
 
 #ifndef __GNUC__
 # include <stdlib.h>
@@ -24,9 +26,12 @@ extern "C" int number_of_ll_node;
 
 #undef USER
 
-#ifdef __SPF
+#if __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
+extern std::map<PTR_BFND, std::pair<std::string, int> > sgStats;
+extern std::map<PTR_LLND, std::pair<std::string, int> > sgExprs;
+extern void addToGlobalBufferAndPrint(const std::string &toPrint);
 #endif
 
 //
@@ -119,7 +124,7 @@ int allocatedForlabelTableClass;
 //
 // Some definition for this module
 //
-#define ALLOCATECHUNK 1000
+#define ALLOCATECHUNK 10000
 
 #define SORRY Message("Sorry, not implemented yet",0)
 
@@ -141,123 +146,122 @@ class SgVarDeclStmt;
 
 void InitializeTable()
 {
-  int i;
-  for (i=0 ; i < MAX_FILES; i++)
+    int i;
+    for (i = 0; i < MAX_FILES; i++)
     {
-      tablebfnd[i] = NULL;
-      tablellnd[i]= NULL;
-      tabletype[i]= NULL;
-      tablesymbol[i]= NULL;
-      tablelabel[i]= NULL;
+        tablebfnd[i] = NULL;
+        tablellnd[i] = NULL;
+        tabletype[i] = NULL;
+        tablesymbol[i] = NULL;
+        tablelabel[i] = NULL;
 
-      numtablebfnd[i]= 0;
-      numtablellnd[i]= 0;
-      numtabletype[i]= 0;
-      numtablesymbol[i]= 0;
-      numtablelabel[i]= 0;
-	
-      // FOR ATTRIBUTES;
-      tablebfndAttribute[i] = NULL;
-      tablellndAttribute[i]= NULL;
-      tabletypeAttribute[i]= NULL;
-      tablesymbolAttribute[i]= NULL;
-      tablelabelAttribute[i]= NULL;
+        numtablebfnd[i] = 0;
+        numtablellnd[i] = 0;
+        numtabletype[i] = 0;
+        numtablesymbol[i] = 0;
+        numtablelabel[i] = 0;
 
-      numtablebfndAttribute[i]= 0;
-      numtablellndAttribute[i]= 0;
-      numtabletypeAttribute[i]= 0;
-      numtablesymbolAttribute[i]= 0;
-      numtablelabelAttribute[i]= 0;
+        // FOR ATTRIBUTES;
+        tablebfndAttribute[i] = NULL;
+        tablellndAttribute[i] = NULL;
+        tabletypeAttribute[i] = NULL;
+        tablesymbolAttribute[i] = NULL;
+        tablelabelAttribute[i] = NULL;
+
+        numtablebfndAttribute[i] = 0;
+        numtablellndAttribute[i] = 0;
+        numtabletypeAttribute[i] = 0;
+        numtablesymbolAttribute[i] = 0;
+        numtablelabelAttribute[i] = 0;
     }
 
-  
-  fileTableClass =  NULL;
-  bfndTableClass =  NULL;
-  llndTableClass  = NULL;
-  typeTableClass  = NULL;
-  symbolTableClass  = NULL;
-  labelTableClass  =  NULL;
-  allocatedForfileTableClass = 0;
-  allocatedForbfndTableClass = 0;
-  allocatedForllndTableClass = 0;
-  allocatedFortypeTableClass = 0;
-  allocatedForsymbolTableClass =0;
-  allocatedForlabelTableClass = 0;
 
-  // FOR ATTRIBUTES;
-  fileTableAttribute =  NULL;
-  bfndTableAttribute =  NULL;
-  llndTableAttribute  = NULL;
-  typeTableAttribute  = NULL;
-  symbolTableAttribute  = NULL;
-  labelTableAttribute  =  NULL;
-  allocatedForfileTableAttribute = 0;
-  allocatedForbfndTableAttribute = 0;
-  allocatedForllndTableAttribute = 0;
-  allocatedFortypeTableAttribute = 0;
-  allocatedForsymbolTableAttribute =0;
-  allocatedForlabelTableAttribute = 0;
+    fileTableClass = NULL;
+    bfndTableClass = NULL;
+    llndTableClass = NULL;
+    typeTableClass = NULL;
+    symbolTableClass = NULL;
+    labelTableClass = NULL;
+    allocatedForfileTableClass = 0;
+    allocatedForbfndTableClass = 0;
+    allocatedForllndTableClass = 0;
+    allocatedFortypeTableClass = 0;
+    allocatedForsymbolTableClass = 0;
+    allocatedForlabelTableClass = 0;
+
+    // FOR ATTRIBUTES;
+    fileTableAttribute = NULL;
+    bfndTableAttribute = NULL;
+    llndTableAttribute = NULL;
+    typeTableAttribute = NULL;
+    symbolTableAttribute = NULL;
+    labelTableAttribute = NULL;
+    allocatedForfileTableAttribute = 0;
+    allocatedForbfndTableAttribute = 0;
+    allocatedForllndTableAttribute = 0;
+    allocatedFortypeTableAttribute = 0;
+    allocatedForsymbolTableAttribute = 0;
+    allocatedForlabelTableAttribute = 0;
 }
 
 
 void SwitchToFile(int i)
 {
-  if (i >= MAX_FILES)
+    if (i >= MAX_FILES)
     {
-      Message("Too many files",0);
-      exit(1);
+        Message("Too many files", 0);
+        exit(1);
     }
-  
- tablebfnd[CurrentFileNumber] = bfndTableClass;
- tablellnd[CurrentFileNumber]= llndTableClass;
- tabletype[CurrentFileNumber]= typeTableClass;
- tablesymbol[CurrentFileNumber]= symbolTableClass;
- tablelabel[CurrentFileNumber]= labelTableClass;
 
- numtablebfnd[CurrentFileNumber]= allocatedForbfndTableClass;
- numtablellnd[CurrentFileNumber]= allocatedForllndTableClass;
- numtabletype[CurrentFileNumber]= allocatedFortypeTableClass;
- numtablesymbol[CurrentFileNumber]= allocatedForsymbolTableClass;
- numtablelabel[CurrentFileNumber]= allocatedForlabelTableClass;
+    tablebfnd[CurrentFileNumber] = bfndTableClass;
+    tablellnd[CurrentFileNumber] = llndTableClass;
+    tabletype[CurrentFileNumber] = typeTableClass;
+    tablesymbol[CurrentFileNumber] = symbolTableClass;
+    tablelabel[CurrentFileNumber] = labelTableClass;
 
- bfndTableClass =  tablebfnd[i];
- llndTableClass  = tablellnd[i];
- typeTableClass  = tabletype[i];
- symbolTableClass  = tablesymbol[i];
- labelTableClass  =  tablelabel[i];
+    numtablebfnd[CurrentFileNumber] = allocatedForbfndTableClass;
+    numtablellnd[CurrentFileNumber] = allocatedForllndTableClass;
+    numtabletype[CurrentFileNumber] = allocatedFortypeTableClass;
+    numtablesymbol[CurrentFileNumber] = allocatedForsymbolTableClass;
+    numtablelabel[CurrentFileNumber] = allocatedForlabelTableClass;
 
- allocatedForbfndTableClass =  numtablebfnd[i];
- allocatedForllndTableClass = numtablellnd[i];
- allocatedFortypeTableClass = numtabletype[i];
- allocatedForsymbolTableClass =numtablesymbol[i];
- allocatedForlabelTableClass = numtablelabel[i];
- 
-  // FOR ATTRIBUTES
- tablebfndAttribute[CurrentFileNumber] = bfndTableAttribute;
- tablellndAttribute[CurrentFileNumber]= llndTableAttribute;
- tabletypeAttribute[CurrentFileNumber]= typeTableAttribute;
- tablesymbolAttribute[CurrentFileNumber]= symbolTableAttribute;
- tablelabelAttribute[CurrentFileNumber]= labelTableAttribute;
+    bfndTableClass = tablebfnd[i];
+    llndTableClass = tablellnd[i];
+    typeTableClass = tabletype[i];
+    symbolTableClass = tablesymbol[i];
+    labelTableClass = tablelabel[i];
 
- numtablebfndAttribute[CurrentFileNumber]= allocatedForbfndTableAttribute;
- numtablellndAttribute[CurrentFileNumber]= allocatedForllndTableAttribute;
- numtabletypeAttribute[CurrentFileNumber]= allocatedFortypeTableAttribute;
- numtablesymbolAttribute[CurrentFileNumber]= allocatedForsymbolTableAttribute;
- numtablelabelAttribute[CurrentFileNumber]= allocatedForlabelTableAttribute;
+    allocatedForbfndTableClass = numtablebfnd[i];
+    allocatedForllndTableClass = numtablellnd[i];
+    allocatedFortypeTableClass = numtabletype[i];
+    allocatedForsymbolTableClass = numtablesymbol[i];
+    allocatedForlabelTableClass = numtablelabel[i];
 
- bfndTableAttribute =  tablebfndAttribute[i];
- llndTableAttribute  = tablellndAttribute[i];
- typeTableAttribute  = tabletypeAttribute[i];
- symbolTableAttribute  = tablesymbolAttribute[i];
- labelTableAttribute  =  tablelabelAttribute[i];
+    // FOR ATTRIBUTES
+    tablebfndAttribute[CurrentFileNumber] = bfndTableAttribute;
+    tablellndAttribute[CurrentFileNumber] = llndTableAttribute;
+    tabletypeAttribute[CurrentFileNumber] = typeTableAttribute;
+    tablesymbolAttribute[CurrentFileNumber] = symbolTableAttribute;
+    tablelabelAttribute[CurrentFileNumber] = labelTableAttribute;
 
- allocatedForbfndTableAttribute =  numtablebfndAttribute[i];
- allocatedForllndTableAttribute = numtablellndAttribute[i];
- allocatedFortypeTableAttribute = numtabletypeAttribute[i];
- allocatedForsymbolTableAttribute =numtablesymbolAttribute[i];
- allocatedForlabelTableAttribute = numtablelabelAttribute[i];
- CurrentFileNumber = i;
+    numtablebfndAttribute[CurrentFileNumber] = allocatedForbfndTableAttribute;
+    numtablellndAttribute[CurrentFileNumber] = allocatedForllndTableAttribute;
+    numtabletypeAttribute[CurrentFileNumber] = allocatedFortypeTableAttribute;
+    numtablesymbolAttribute[CurrentFileNumber] = allocatedForsymbolTableAttribute;
+    numtablelabelAttribute[CurrentFileNumber] = allocatedForlabelTableAttribute;
 
+    bfndTableAttribute = tablebfndAttribute[i];
+    llndTableAttribute = tablellndAttribute[i];
+    typeTableAttribute = tabletypeAttribute[i];
+    symbolTableAttribute = tablesymbolAttribute[i];
+    labelTableAttribute = tablelabelAttribute[i];
+
+    allocatedForbfndTableAttribute = numtablebfndAttribute[i];
+    allocatedForllndTableAttribute = numtablellndAttribute[i];
+    allocatedFortypeTableAttribute = numtabletypeAttribute[i];
+    allocatedForsymbolTableAttribute = numtablesymbolAttribute[i];
+    allocatedForlabelTableAttribute = numtablelabelAttribute[i];
+    CurrentFileNumber = i;
 }
 
 /////////////////////////////////////////// FOR ATTRIBUTES //////////////////////////////////
@@ -836,101 +840,110 @@ void RemoveFromTableLlnd(void * pt);
 
 void RemoveFromTableLabel(void * pt)
 {
-  int i;
-  for (i=0 ; i < allocatedForlabelTableClass; i++)
+    int i;
+    for (i = 0; i < allocatedForlabelTableClass; i++)
     {
-      if (labelTableClass[i] == pt)
+        if (labelTableClass[i] == pt)
         {
-          labelTableClass[i] = NULL;
-          return;
+            labelTableClass[i] = NULL;
+            return;
         }
     }
 }
 
-
-
-void 
-SetMappingInTableForBfnd(PTR_BFND bif, void *pt)
+void SetMappingInTableForBfnd(PTR_BFND bif, void *pt)
 {
-  if (!bif)
-    return ;
-  while (allocatedForbfndTableClass <= BIF_ID(bif))
+    if (!bif)
+        return;
+    while (allocatedForbfndTableClass <= BIF_ID(bif))
     {
-      ReallocatebfndTableClass();
+        ReallocatebfndTableClass();
     }
-  bfndTableClass[BIF_ID(bif)] = pt;
+#if __SPF
+    std::map<PTR_BFND, std::pair<std::string, int> >::iterator it = sgStats.find(bif);
+    if (it != sgStats.end())
+    {
+        char buf[512];
+        sprintf(buf, "Internal error at line %d and file libSage++.cpp, this place was occupied\n", __LINE__);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
+    }
+#endif
+    bfndTableClass[BIF_ID(bif)] = pt;
 }
 
 
-void 
-SetMappingInTableForType(PTR_TYPE type, void *pt)
+void SetMappingInTableForType(PTR_TYPE type, void *pt)
 {
-  if (!type)
-    return ;
-  while (allocatedFortypeTableClass <= TYPE_ID(type))
+    if (!type)
+        return;
+    while (allocatedFortypeTableClass <= TYPE_ID(type))
     {
-      ReallocatetypeTableClass();
+        ReallocatetypeTableClass();
     }
-  typeTableClass[TYPE_ID(type)] = pt;
+    typeTableClass[TYPE_ID(type)] = pt;
 }
 
 
-void 
-SetMappingInTableForSymb(PTR_SYMB symb, void *pt)
+void SetMappingInTableForSymb(PTR_SYMB symb, void *pt)
 {
-  if (!symb)
-    return ;
-  while (allocatedForsymbolTableClass <= SYMB_ID(symb))
+    if (!symb)
+        return;
+    while (allocatedForsymbolTableClass <= SYMB_ID(symb))
     {
-      ReallocatesymbolTableClass();
+        ReallocatesymbolTableClass();
     }
-  symbolTableClass[SYMB_ID(symb)] = pt;
+    symbolTableClass[SYMB_ID(symb)] = pt;
 }
 
-void 
-SetMappingInTableForLabel(PTR_LABEL lab, void *pt)
+void SetMappingInTableForLabel(PTR_LABEL lab, void *pt)
 {
-  if (!lab)
-    return ;
-  while (allocatedForlabelTableClass <= LABEL_ID(lab))
+    if (!lab)
+        return;
+    while (allocatedForlabelTableClass <= LABEL_ID(lab))
     {
-      ReallocatelabelTableClass();
+        ReallocatelabelTableClass();
     }
-  labelTableClass[SYMB_ID(lab)] = pt;
+    labelTableClass[SYMB_ID(lab)] = pt;
 }
 
-
-
-void 
-SetMappingInTableForLlnd(PTR_LLND ll, void *pt)
+void SetMappingInTableForLlnd(PTR_LLND ll, void *pt)
 {
-  if (!ll)
-    return ;
-  while (allocatedForllndTableClass <= NODE_ID(ll))
+    if (!ll)
+        return;
+    while (allocatedForllndTableClass <= NODE_ID(ll))
     {
-      ReallocatellndTableClass();
+        ReallocatellndTableClass();
     }
-  llndTableClass[NODE_ID(ll)] = pt;
-}
-
-
-void 
-SetMappingInTableForFile(PTR_FILE file, void *pt)
-{
-  int id;
-  if (!file)
-    return ;
-  id = GetFileNum(FILE_FILENAME(file));
-  while (allocatedForfileTableClass <= id)
+#if __SPF
+    std::map<PTR_LLND, std::pair<std::string, int> >::iterator it = sgExprs.find(ll);
+    if (it != sgExprs.end())
     {
-      ReallocatefileTableClass();
+        char buf[512];
+        sprintf(buf, "Internal error at line %d and file libSage++.cpp, this place was occupied\n", __LINE__);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
     }
-  fileTableClass[id] = pt;
+#endif
+    llndTableClass[NODE_ID(ll)] = pt;
 }
 
 
-SgSymbol *
-GetMappingInTableForSymbol(PTR_SYMB symb)
+void SetMappingInTableForFile(PTR_FILE file, void *pt)
+{
+    int id;
+    if (!file)
+        return;
+    id = GetFileNum(FILE_FILENAME(file));
+    while (allocatedForfileTableClass <= id)
+    {
+        ReallocatefileTableClass();
+    }
+    fileTableClass[id] = pt;
+}
+
+
+SgSymbol *GetMappingInTableForSymbol(PTR_SYMB symb)
 {
   int id;
   if (!symb)
@@ -993,15 +1006,15 @@ GetMappingInTableForType(PTR_TYPE t)
 SgExpression *
 GetMappingInTableForLlnd(PTR_LLND ll)
 {
-  int id;
-  if (!ll)
-    return NULL;
-  id = NODE_ID(ll);
-  if (allocatedForllndTableClass <= id)    
+    int id;
+    if (!ll)
+        return NULL;
+    id = NODE_ID(ll);
+    if (allocatedForllndTableClass <= id)
     {
-      return NULL;
+        return NULL;
     }
-  return (SgExpression *) llndTableClass[id];
+    return (SgExpression *)llndTableClass[id];
 }
 
 
@@ -2505,24 +2518,18 @@ SgStatement *SgSymbol::declaredInStmt()
 
 int SgSymbol::attributes()
 {
-  return SYMB_ATTR(thesymb);
+    return SYMB_ATTR(thesymb);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::setAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) |= attribute;
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::removeAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) ^= attribute;
 }
-#endif
 
 SgStatement *SgSymbol::body()
 {

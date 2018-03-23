@@ -279,6 +279,7 @@ void doMacroExpand(SgFile *file, vector<Messages> &messages)
         set<string> macroNames;
         while (st != lastNode)
         {
+            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -313,7 +314,6 @@ void doMacroExpand(SgFile *file, vector<Messages> &messages)
     }
 }
 
-// mycode
 static void findIdxRef(SgExpression *exp, FuncInfo &currInfo)
 {
     if (exp)
@@ -531,7 +531,6 @@ void printParInfo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo)
 
     std::cout << std::endl;
 }
-// end of mycode
 
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
@@ -575,7 +574,6 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
         if (st->variant() != PROG_HEDR) {
             fillFuncParams(currInfo, commonBlocks, (SgProgHedrStmt*)st);
-            // mycode
             // Fill in names of function parameters
             SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
 
@@ -584,7 +582,6 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 currInfo->funcParams.identificators.push_back((procFuncHedr->parameter(i))->identifier());
                 currInfo->isParamUsedAsIndex.push_back(false);
             }
-            // end of mycode
         }
 
         if (isSPF_NoInline(st->lexNext()))
@@ -602,6 +599,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         set<string> macroNames;
         while (st != lastNode)
         {
+            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -644,16 +642,13 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                     processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
                 }
 
-                // mycode
                 // Add func call which we've just found
                 NestedFuncCall funcCall(st->symbol()->identifier());
                 currInfo->funcsCalledFromThis.push_back(funcCall);
 
                 // search for using pars of cur func in pars of called
                 //SgProgHedrStmt *hedrFuncProc = ((SgProgHedrStmt *)st);
-                recExpressionPrint(st->expr(0));
                 throughParams(st->expr(0), *currInfo);
-                // end of mycode
             }
             else
             {
@@ -661,9 +656,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                     if (st->expr(i))
                     {
                         findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
-                        // mycode
                         findParamUsedInFuncCalls(st->expr(i), *currInfo);
-                        // end of mycode
                     }
             }
 
@@ -682,13 +675,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 entryProcs.push_back(entryInfo);
             }
 
-            // mycode
             if (currInfo->isParamUsedAsIndex.size() != 0 && isSgExecutableStatement(st))
             {
                 for (char i = 0; i < 3; i++)
                     findArrayRef(st->expr(i), *currInfo);
             }
-            // end of mycode
 
             st = st->lexNext();
         }
@@ -898,7 +889,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                 {
                     SgStatement *decl = declaratedInStmt(symb);
                     set<string> privatesVars;
-                    tryToFindPrivateInAttributes(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    tryToFindPrivateInAttributes(decl, privatesVars);
+                    fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {
@@ -931,7 +923,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
 }
 
 static int findNoOfLoopVarInParameter(SgExpression *parList, const std::string &loopSymb) {
-    int parNo = 1;
+    int parNo = 0;
 
     for (SgExpression *par = parList; par != NULL; par = par->rhs())
     {
@@ -951,10 +943,8 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
     bool needInsert = false;
 
     bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier());
-    int parNo = findNoOfLoopVarInParameter(parList, loop->symbol()->identifier()) - 1; // Starts from 0
     if (hasLoopVar)
     {
-        //TODO: check array accesses by this variable,
         char buf[256];
         sprintf(buf, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters", func->funcName.c_str(), loop->lineNumber());
         if (needToAddErrors)
@@ -964,6 +954,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         if (needToAddErrors)
             __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
 
+        int parNo = findNoOfLoopVarInParameter(parList, loop->symbol()->identifier());
         if (func->isParamUsedAsIndex[parNo]) {
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
             if (needToAddErrors) {
@@ -1384,6 +1375,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     bool change = true;
+    // set nonDistr flag if all links not distr
     while (change)
     {
         change = false;
@@ -1393,15 +1385,16 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
 
             bool allNonDistr = true;
-            bool partlyNonDistr = false;
+            bool nonDistrSpfPrif = false;
             bool init = false;
             for (auto &realRef : realArrayRefs)
             {
                 if (realRef != array.second.first)
                 {
                     bool nonDistr = realRef->GetNonDistributeFlag();
+                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+                        nonDistrSpfPrif = true;
                     allNonDistr = allNonDistr && nonDistr;
-                    partlyNonDistr = partlyNonDistr || nonDistr;
                     init = true;
                 }
             }
@@ -1410,9 +1403,31 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             {
                 if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
                 {
-                    array.second.first->SetNonDistributeFlag(true);
+                    if (nonDistrSpfPrif)
+                        array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    else
+                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                     change = true;
                 }
+            }
+        }
+    }
+
+    //propagate distr state
+    change = true;
+    while (change)
+    {
+        change = false;
+        for (auto &array : declaratedArrays)
+        {
+            set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+
+            if (realArrayRefs.size() && (*realArrayRefs.begin()) != array.second.first &&
+                !(*realArrayRefs.begin())->GetNonDistributeFlag() && array.second.first->GetNonDistributeFlag())
+            {
+                array.second.first->SetNonDistributeFlag(DIST::DISTR);
+                change = true;
             }
         }
     }

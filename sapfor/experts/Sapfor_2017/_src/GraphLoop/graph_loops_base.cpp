@@ -301,38 +301,30 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
     }
 }
 
-static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
+bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
 {
-    sprintf(buf, " %d %d %d %d %d %d",
-        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize);
-}
-
-void convertToString(const LoopGraph *currLoop, string &result)
-{
-    if (currLoop)
+    ParallelRegion *currReg = loopInfo->region;
+    if (currReg == NULL || loopInfo->calculatedCountOfIters == 0 || loopInfo->hasLimitsToParallel())
     {
-        char buf[512];
-        result += " " + std::to_string(currLoop->calls.size());
-        for (int i = 0; i < currLoop->calls.size(); ++i)
-            result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
-        result += string(buf);
-
-        result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());
-        for (int i = 0; i < currLoop->linesOfExternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfExternalGoTo[i]);
-
-        result += " " + std::to_string(currLoop->linesOfInternalGoTo.size());
-        for (int i = 0; i < currLoop->linesOfInternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfInternalGoTo[i]);
-
-        result += " " + std::to_string(currLoop->linesOfIO.size());
-        for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfIO[i]);
-
-        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
-            convertToString(currLoop->childs[i], result);
+        __spf_print(1, "Skip loop on line %d\n", loopInfo->lineNum);
+        return false;
     }
+
+    const double currWeight = loopInfo->countOfIterNested;
+
+    DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
+    DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
+        
+    string fullLoopName = loopInfo->genLoopArrayName(inFunction);
+    string loopName = fullLoopName;
+
+    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction), NULL);
+
+    loopArray->ExtendDimSize(0, make_pair(loopInfo->startVal, loopInfo->endVal));
+    loopArray->setLoopArray(true);
+
+    allArrays.AddArrayToGraph(loopArray);
+    return true;
 }
 
 static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlanks)
@@ -434,12 +426,9 @@ static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, 
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (loops[i]->region)
-        {
-            if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-                loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-            multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
-        }
+        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
+            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
     }
 }
 

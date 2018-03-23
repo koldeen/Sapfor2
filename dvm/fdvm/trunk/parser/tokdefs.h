@@ -324,3 +324,10 @@
 #define SPF_NOINLINE 324
 #define SPF_PARALLEL_REG 325
 #define SPF_END_PARALLEL_REG 326
+#define CP_CREATE 327
+#define CP_LOAD 328
+#define CP_SAVE 329
+#define CP_WAIT 330
+#define FILES 331
+#define VARLIST 332
+#define STATUS 333

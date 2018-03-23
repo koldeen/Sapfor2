@@ -890,6 +890,9 @@ void FileStructure(SgFile *file)
     stat = file->firstStatement(); // file header   
     for (stat = stat->lexNext(); stat; stat = stat->lexNext())
     {
+#if __SPF
+		currProcessing.second = stat;
+#endif		
         if (stat->variant() == INTERFACE_STMT || stat->variant() == INTERFACE_ASSIGNMENT || stat->variant() == INTERFACE_OPERATOR)
         {
             stat = stat->lastNodeOfStmt(); //InterfaceBlock(stat);  
@@ -917,8 +920,13 @@ void doCallGraph(SgFile *file)
 
     // grab the first statement in the file.
     stat = file->firstStatement(); // file header  
-    for (stat = stat->lexNext(); stat; stat = end_of_unit->lexNext())
-        end_of_unit = ProgramUnit(stat);
+	for (stat = stat->lexNext(); stat; stat = end_of_unit->lexNext())
+	{
+#if __SPF
+		currProcessing.second = stat;
+#endif
+		end_of_unit = ProgramUnit(stat);
+	}
 
     // add the attribute (last statement of file) to first statement of file
     SgStatement **last = new (SgStatement *);

@@ -35,5 +35,5 @@ set(SOURCE_LIB
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 add_library(libSage++ STATIC ${SOURCE_LIB})
 
-add_subdirectory(../libDB ${CMAKE_CURRENT_BINARY_DIR}/libDB)
-target_link_libraries(libSage++ libDB)
+#add_subdirectory(../libDB ${CMAKE_CURRENT_BINARY_DIR}/libDB)
+#target_link_libraries(libSage++ libDB)

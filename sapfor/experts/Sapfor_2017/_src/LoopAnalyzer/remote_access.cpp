@@ -165,6 +165,24 @@ static bool inline hasParallelDirs(SgStatement *st)
     return false;
 }
 
+static bool inline hasAssignsToArray(SgStatement *st, const vector<SgExpression*> &remotes)
+{
+    set<string> arrayAccess;
+    
+    for (auto &elem : remotes)
+        if (elem->variant() == ARRAY_REF)
+            arrayAccess.insert(elem->symbol()->identifier());
+
+    SgStatement *last = st->lastNodeOfStmt();
+    for (; st != last; st = st->lexNext())
+        if (st->variant() == ASSIGN_STAT)
+            if (st->expr(0)->variant() == ARRAY_REF)
+                if (arrayAccess.find(st->expr(0)->symbol()->identifier()) != arrayAccess.end())
+                    return true;
+
+    return false;
+}
+
 template<int NUM>
 void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
@@ -207,7 +225,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             {
                 SgStatement *parent = toInsert->controlParent();
                 const int var = parent->variant();
-                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR || hasParallelDirs(parent))
+                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR || hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
                     break;
                 toInsert = parent;
             } while (1);
@@ -228,16 +246,16 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             int add = 0;
             for (int z = 0; z < remotes.size(); ++z, ++add)
             {
-                if (add != 0)
-                {
-                    exprList->setRhs(new SgExpression(EXPR_LIST));
-                    exprList = exprList->rhs();
-                }
-
                 string currRem = remotes[z]->unparse();
                 auto itR = exist.find(currRem);
                 if (itR == exist.end())
                 {
+                    if (add != 0)
+                    {
+                        exprList->setRhs(new SgExpression(EXPR_LIST));
+                        exprList = exprList->rhs();
+                    }
+
                     exprList->setLhs(remotes[z]);
                     exist.insert(itR, currRem);
                 }
@@ -380,7 +398,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                             const DIST::GraphCSR<int, double, attrType> &reducedG,
                             const DataDirective &data,
                             const vector<int> &currVar,
-                            const map<int, pair<SgForStmt*, set<string>>> &allLoops,
+                            const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
                             map<string, SgArrayRefExp*> &uniqRemotes,
                             vector<Messages> &messages,
                             const int regionId,

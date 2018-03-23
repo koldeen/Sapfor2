@@ -143,7 +143,7 @@ struct IND_ref_list {
 };
 
 struct coeffs {
-       SgSymbol *sc[10];
+       SgSymbol *sc[MAX_DIMS+2];
        int use;
 };
 
@@ -456,7 +456,7 @@ EXTERN SgStatement *where;//used in doAssignStmt: new statement is inserted befo
 EXTERN int nio;
 EXTERN SgSymbol *bufIO[Ntp],*IOstat;
 EXTERN int buf_use[Ntp];
-EXTERN SgSymbol *loop_var[8]; // for generatig DO statements
+EXTERN SgSymbol *loop_var[MAX_DIMS+1]; // for generatig DO statements
 EXTERN SgStatement *cur_func;  // current function 
 EXTERN int errcnt;  // counter of errors in file
 EXTERN int saveall; //= 1 if there is SAVE without name-list in current function(procedure) 
@@ -883,9 +883,12 @@ SgExpression *AddElementToList(SgExpression *list, SgExpression *e);
 SgExpression *ListUnion(SgExpression *list1, SgExpression *list2);
 SgExpression *TypeSize_RTS2(SgType *type);
 SgExpression *DeclaredShadowWidths(SgSymbol *ar);
+void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *eFunc[]);
 void Shadow_Add_Directive(SgStatement *stmt);
 SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el);
 SgSymbol *IOstatSymbol();
+void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list);
+int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -1684,6 +1687,7 @@ SgExpression *GetActualEdges_H(SgExpression *gref);
 //SgStatement *DoneShadow_GPU(int ish);
 SgStatement *ShadowRenew_H(SgExpression *gref);
 SgStatement *ShadowRenew_H2(SgExpression *head,int corner,int rank,SgExpression *shlist);
+SgStatement *IndirectShadowRenew(SgExpression *head, int axis, SgExpression *shadow_name);
 SgStatement *EndHostExec_GPU(int il);
 SgStatement *UpdateDVMArrayOnHost(SgSymbol *s);
 SgStatement *InsertRed_GPU(int il,int irv,SgExpression *base,SgExpression *loc_base,SgExpression *offset,SgExpression *loc_offset);
@@ -1773,9 +1777,10 @@ SgExpression *DvmhWgtBlock(SgSymbol *sw, SgExpression *en);
 SgExpression *DvmhGenBlock(SgSymbol *sg);
 SgExpression *DvmhMultBlock(SgExpression *em);
 SgExpression *DvmhIndirect(SgSymbol *smap);
+SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func);
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhRedistribute(SgSymbol *das, int rank, SgExpression *distr_list);
-SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, SgExpression *alignment_list);
+SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, int nr, SgExpression *alignment_list);
 SgStatement *DvmhRealign(SgExpression *objref, int new_sign, SgExpression *pattern_ref, int nr, SgExpression *align_list);
 SgStatement *IndirectLocalize(SgExpression *ref_array, SgExpression *target_array, int iaxis);
 SgExpression *DvmhExprScan(SgExpression *edummy);
@@ -2153,3 +2158,7 @@ public:
 };
 
 extern Options options;
+
+#if __SPF
+extern std::pair<SgFile*, SgStatement*> currProcessing;
+#endif

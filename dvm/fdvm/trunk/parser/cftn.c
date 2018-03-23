@@ -332,7 +332,10 @@ int main(int argc, char *argv[])
     d_line = 0;
     deb_mpi = 0;
     extend_source = 0;
-    nchars_per_line = 72 - 6; 
+    nchars_per_line = 72 - 6;
+#ifdef __SPF
+    int noProject = 0;
+#endif
     argv++;
 
     while ((argc > 1) && (*argv)[0] == '-')
@@ -542,6 +545,10 @@ int main(int argc, char *argv[])
             (void)fprintf(stderr, "parser version is \"%s\"\n", VERSION_NUMBER_INT);
             exit(0);
         }
+#ifdef __SPF
+        else if (!strcmp(argv[0], "-noProject"))
+            noProject = 1;        
+#endif
         /*   else if (!strcmp(argv[0],"-l"))
          *	 yylisting = 1;
         */
@@ -710,15 +717,20 @@ retry:
     }
 
     write_nodes(cur_file, outname);
-    fproj = ad ? fopen(proj_name, "a") : fopen(proj_name, "w");
-    if (fproj == NULL) {
-        /* (void) fprintf(stderr,"Can't open file %s for write\n",proj_name);
-            exit(1); */
-        errstr_fatal("Can't open file %s for write", proj_name, 6);
-    }
-    (void)fprintf(fproj, "%s\n", outname);
-    (void)fclose(fproj);
 
+#ifdef __SPF
+    if (noProject == 0)
+#endif
+    {
+        fproj = ad ? fopen(proj_name, "a") : fopen(proj_name, "w");
+        if (fproj == NULL) {
+            /* (void) fprintf(stderr,"Can't open file %s for write\n",proj_name);
+                exit(1); */
+            errstr_fatal("Can't open file %s for write", proj_name, 6);
+        }
+        (void)fprintf(fproj, "%s\n", outname);
+        (void)fclose(fproj);
+    }
     /* finish:*/
     exit(0);
 }

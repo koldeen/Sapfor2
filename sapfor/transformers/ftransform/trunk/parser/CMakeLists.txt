@@ -7,9 +7,6 @@ endif ()
 project(${project})
 message("processing ${project}")
 
-add_definitions("-D SYS5")
-add_definitions("-D YYDEBUG")
-
 # Read pathes to external sapfor directories
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../paths.txt")
     message("Found paths.txt, using custom paths.")
@@ -50,5 +47,11 @@ add_subdirectory(../libDB ${CMAKE_CURRENT_BINARY_DIR}/libDB_build)
 
 # if not default these must be set in ../sage_includes.txt
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
+add_definitions("-D __SPF")
+add_definitions("-D SYS5")
+add_definitions("-D YYDEBUG")
+
 add_executable(${project} ${SOURCE_EXE})
 target_link_libraries(${project} libDB)

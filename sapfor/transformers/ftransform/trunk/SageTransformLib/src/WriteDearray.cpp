@@ -51,7 +51,7 @@ vector<SgSymbol *> WriteDearray::removeArrayAccessInWrite(SgInputOutputStmt * wr
 		SgArrayRefExp * arrayRefExp;
 		if ((arrayRefExp = isSgArrayRefExp(exprI))) {
 			char * arrayName = arrayRefExp->symbol()->identifier();
-			char * tmpVarName = SageTransformUtils::getNewVariableName(arrayName);
+			const char * tmpVarName = SageTransformUtils::getNewVariableName(arrayName).c_str();
 			SgType * arrayBaseType = isSgArrayType(arrayRefExp->symbol()->type())->baseType();			
 			SgVariableSymb * tmpVar = SageTransformUtils::addScalarVariable(writeStmt->getScopeForDeclare(), tmpVarName, arrayBaseType);
 			result.push_back(tmpVar);

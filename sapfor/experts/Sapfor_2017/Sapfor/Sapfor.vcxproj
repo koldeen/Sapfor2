@@ -140,15 +140,14 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level2</WarningLevel>
       <PrecompiledHeader>
       </PrecompiledHeader>
-      <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG"  %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -185,9 +184,11 @@
     <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
+    <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
+    <ClCompile Include="..\_src\Predictor\PredictScheme.cpp" />
     <ClCompile Include="..\_src\PrivateAnalyzer\private_analyzer.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\annotationDriver.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\arrayRef.cpp" />
@@ -247,11 +248,13 @@
     <ClInclude Include="..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h" />
+    <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\PassManager.h" />
+    <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
     <ClInclude Include="..\_src\SapforData.h" />
     <ClInclude Include="..\_src\SgUtils.h" />
@@ -259,6 +262,7 @@
     <ClInclude Include="..\_src\types.h" />
     <ClInclude Include="..\_src\utils.h" />
     <ClInclude Include="..\_src\VerificationCode\verifications.h" />
+    <ClInclude Include="..\_src\version.h" />
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

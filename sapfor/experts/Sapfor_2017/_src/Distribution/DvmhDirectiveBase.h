@@ -6,8 +6,8 @@
 #include "Array.h"
 #include "Distribution.h"
 
-typedef enum lang { LANG_C, LANG_F } language;
-typedef enum dist { BLOCK, NONE } distType;
+typedef enum lang : int { LANG_C, LANG_F } language;
+typedef enum dist : int { BLOCK, NONE } distType;
 
 struct Directive
 {
@@ -17,12 +17,12 @@ struct Directive
     int col;
 
     Directive () { }
-    Directive(const Directive *dir)
+    Directive(const Directive &dir)
     {
-        langType = dir->langType;
-        file = dir->file;
-        line = dir->line;
-        col = dir->col;
+        langType = dir.langType;
+        file = dir.file;
+        line = dir.line;
+        col = dir.col;
     }
 };
 
@@ -48,6 +48,6 @@ public:
     std::vector<dist> distRule;
 
 public:
-    DistrVariantBase(std::vector<dist> distRule) : distRule(distRule) { }
+    DistrVariantBase(const std::vector<dist> &distRule) : distRule(distRule) { }
     std::string GenRuleBase() const;    
 };

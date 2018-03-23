@@ -38,9 +38,9 @@ public:
 //////////////////////////////////////////////////////////////
 
 class depGraph {
-    std::vector<depNode*> nodes;
-    const std::set<std::string> privVars;
+    std::vector<depNode*> nodes;    
 public:
+    const std::set<std::string> privVars;
     SgFile *file;
     Set *arrayRef;
     Set *induc;

@@ -37,6 +37,15 @@ struct ParallelRegion
 public:
     ParallelRegion(const int regionId, const std::string &originalName) : regionId(regionId), originalName(originalName) { }
 
+    ParallelRegion(const ParallelRegion &copy) : allArrays(copy.allArrays), G(copy.G), reducedG(copy.reducedG), dataDirectives(copy.dataDirectives)
+    {
+        regionId = copy.regionId;
+        originalName = copy.originalName;
+        lines = copy.lines;
+        functionsCall = copy.functionsCall;
+        currentVariant = copy.currentVariant;
+    }
+
     int AddLines(const std::pair<int, int> &linesToAdd, const std::string &file, const std::pair<Statement*, Statement*> *startEnd = NULL)
     {
         if (linesToAdd.first > linesToAdd.second)

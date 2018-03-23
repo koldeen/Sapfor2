@@ -63,10 +63,10 @@
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyUtils.cpp">
       <Filter>Файлы исходного кода\Dependency</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\dependency\DependencyType.cpp">
-      <Filter>Файлы исходного кода\Dependency</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\BaseTransform.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\transformers\ftransform\trunk\SageTransformLib\src\LoopWrapTransform.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
   </ItemGroup>

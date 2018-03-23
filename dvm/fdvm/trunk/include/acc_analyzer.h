@@ -10,9 +10,11 @@
 
 #ifdef __SPF
 extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message);
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message);
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
+bool IsPureProcedureACC(SgSymbol* s);
 #endif
 
 struct AnalysedCallsList;
@@ -70,7 +72,7 @@ public:
     inline int getBBno()
     { return bbno; }
 
-    inline void AddNextItem(ControlFlowItem *n) 
+    inline void AddNextItem(ControlFlowItem *n)
     { next = n; }
 
     inline void MakeParloopStart()
@@ -113,7 +115,7 @@ public:
     inline ControlFlowItem* getJump()
     { return jmp; }
 
-    inline ControlFlowItem* getNext() 
+    inline ControlFlowItem* getNext()
     { return next; }
 
     inline void setLeader()
@@ -171,7 +173,7 @@ public:
     void printDebugInfo();
 
 #endif
-    
+
     ~ControlFlowItem()
     {
         /*if (jmp != NULL)
@@ -186,6 +188,11 @@ class doLoopItem{
     ControlFlowItem* emptyAfter;
     bool current;
     doLoopItem* next;
+    int parallel_depth;
+    SgExpression* prl;
+    SgExpression* pPl;
+    bool plf;
+    SgStatement* prs;
 public:
     inline doLoopItem(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e) : label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL)
     { }
@@ -203,31 +210,6 @@ public:
     { return next; }
     inline int getLabel()
     { return label; }
-};
-
-class doLoops{
-    doLoopItem* first;
-    doLoopItem* current;
-    doLoopItem* findLoop(SgSymbol*);
-    int parallel_depth;
-    SgExpression* prl;
-    SgExpression* pPl;
-    bool plf;
-    SgStatement* prs;
-public:
-    inline doLoops() : first(NULL), current(NULL), parallel_depth(0)
-    { }
-    void addLoop(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e);
-    inline ControlFlowItem* getSourceForCycle()
-    { return current ? current->getSourceForCycle() : NULL; }
-    inline ControlFlowItem* getSourceForCycle(SgSymbol* loop)
-    { return loop ? findLoop(loop)->getSourceForCycle() : getSourceForCycle(); }
-    inline ControlFlowItem* getSourceForExit()
-    { return current ? current->getSourceForExit() : NULL; }
-    inline ControlFlowItem* getSourceForExit(SgSymbol* loop)
-    { return loop ? findLoop(loop)->getSourceForExit() : getSourceForExit(); }
-    ControlFlowItem* endLoop(ControlFlowItem* last);
-    ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);
     inline void setParallelDepth(int k, SgExpression* pl, SgStatement* ps, SgExpression* pPl, bool plf)
     { parallel_depth = k; prl = pl; prs = ps; this->pPl = pPl; this->plf = plf; }
     inline SgStatement* GetParallelStatement()
@@ -242,6 +224,36 @@ public:
     { return prl; }
     inline SgExpression* getExpressionToModifyPrivateList(bool* rhs)
     { if (rhs) *rhs = plf; return pPl; }
+};
+
+class doLoops{
+    doLoopItem* first;
+    doLoopItem* current;
+    doLoopItem* findLoop(SgSymbol*);
+public:
+    inline doLoops() : first(NULL), current(NULL)
+    { }
+    void addLoop(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e);
+    inline ControlFlowItem* getSourceForCycle()
+    { return current ? current->getSourceForCycle() : NULL; }
+    inline ControlFlowItem* getSourceForCycle(SgSymbol* loop)
+    { return loop ? findLoop(loop)->getSourceForCycle() : getSourceForCycle(); }
+    inline ControlFlowItem* getSourceForExit()
+    { return current ? current->getSourceForExit() : NULL; }
+    inline ControlFlowItem* getSourceForExit(SgSymbol* loop)
+    { return loop ? findLoop(loop)->getSourceForExit() : getSourceForExit(); }
+    ControlFlowItem* endLoop(ControlFlowItem* last);
+    ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);
+    inline void setParallelDepth(int k, SgExpression* pl, SgStatement* ps, SgExpression* pPl, bool plf)
+    { current->setParallelDepth(k, pl, ps, pPl, plf); }
+    inline SgStatement* GetParallelStatement()
+    { return current->GetParallelStatement(); }
+    inline bool isLastParallel()
+    {  return current && current->isLastParallel(); }
+    inline SgExpression* getPrivateList()
+    { return current->getPrivateList(); }
+    inline SgExpression* getExpressionToModifyPrivateList(bool* rhs)
+    { return current->getExpressionToModifyPrivateList(rhs); }
     inline ~doLoops();
 };
 
@@ -265,61 +277,10 @@ enum eVariableType
     VAR_REF_ARRAY_EXP
 };
 
-class CVarEntryInfo
-{
-    SgSymbol* symbol;
-    int references;
-public:
-    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) {};
-    virtual ~CVarEntryInfo() {};
-    virtual eVariableType GetVarType() const = 0;
-    virtual CVarEntryInfo* Clone(SgSymbol*) const = 0;
-    virtual CVarEntryInfo* Clone() const = 0;
-    virtual CVarEntryInfo* GetLeftmostParent() = 0;
-    SgSymbol* GetSymbol() const { return symbol; }
-    virtual bool operator==(const CVarEntryInfo& rhs) const = 0;
-    void AddReference() { references++; }
-    bool RemoveReference() { return --references == 0; }
-};
-
-class CScalarVarEntryInfo: public CVarEntryInfo
-{
-public:
-    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) {};
-    ~CScalarVarEntryInfo() {};
-    eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CScalarVarEntryInfo(s); }
-    CVarEntryInfo* Clone() const { return new CScalarVarEntryInfo(GetSymbol()); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_VAR_EXP && rhs.GetSymbol() == GetSymbol(); }
-    CVarEntryInfo* GetLeftmostParent() { return this; }
-};
-
-class CRecordVarEntryInfo : public CVarEntryInfo
-{
-    CVarEntryInfo* parent;
-public:
-    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) {};
-    ~CRecordVarEntryInfo()
-    {
-        if (parent->RemoveReference())
-            delete parent;
-    }
-    eVariableType GetVarType() const { return VAR_REF_RECORD_EXP; }
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CRecordVarEntryInfo(s, parent->Clone()); }
-    CVarEntryInfo* Clone() const { return new CRecordVarEntryInfo(GetSymbol(), parent->Clone()); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_RECORD_EXP && rhs.GetSymbol() == GetSymbol() &&
-        parent && static_cast<const CRecordVarEntryInfo&>(rhs).parent && *static_cast<const CRecordVarEntryInfo&>(rhs).parent == *parent; }
-    CVarEntryInfo* GetLeftmostParent() { return parent->GetLeftmostParent(); }
-};
-
-class CArrayVarEntryInfo : public CVarEntryInfo
-{
-public:
-    eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
-    CVarEntryInfo* GetLeftmostParent() { return this; }
-};
 
 #define PRIVATE_GET_LAST_ASSIGN 0
+
+class CVarEntryInfo;
 
 struct VarItem
 {
@@ -327,10 +288,11 @@ struct VarItem
     int file_id;
     //CLAStatementItem* lastAssignments;
 #if PRIVATE_GET_LAST_ASSIGN
-	std::list<SgStatement*> lastAssignments;
+    std::list<SgStatement*> lastAssignments;
 #endif
     VarItem* next;
 };
+
 
 class VarSet
 {
@@ -356,7 +318,90 @@ public:
     VarItem* getFirst();
     ~VarSet();
     inline bool isEmpty()
-    { return list == NULL; }
+    {
+        return list == NULL;
+    }
+};
+
+class CVarEntryInfo
+{
+    SgSymbol* symbol;
+    int references;
+public:
+    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) {};
+    virtual ~CVarEntryInfo() {};
+    virtual eVariableType GetVarType() const = 0;
+    virtual CVarEntryInfo* Clone(SgSymbol*) const = 0;
+    virtual CVarEntryInfo* Clone() const = 0;
+    virtual CVarEntryInfo* GetLeftmostParent() = 0;
+    virtual void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) = 0;
+    virtual void RegisterDefinition(VarSet* def, SgStatement* st) = 0;
+    SgSymbol* GetSymbol() const { return symbol; }
+    virtual bool operator==(const CVarEntryInfo& rhs) const = 0;
+    void AddReference() { references++; }
+    bool RemoveReference() { return --references == 0; }
+};
+
+class CScalarVarEntryInfo: public CVarEntryInfo
+{
+public:
+    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) {};
+    ~CScalarVarEntryInfo() {};
+    eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CScalarVarEntryInfo(s); }
+    CVarEntryInfo* Clone() const { return new CScalarVarEntryInfo(GetSymbol()); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_VAR_EXP && rhs.GetSymbol() == GetSymbol(); }
+    CVarEntryInfo* GetLeftmostParent() { return this; }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+};
+
+class CRecordVarEntryInfo : public CVarEntryInfo
+{
+    CVarEntryInfo* parent;
+public:
+    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) {};
+    ~CRecordVarEntryInfo()
+    {
+        if (parent->RemoveReference())
+            delete parent;
+    }
+    eVariableType GetVarType() const { return VAR_REF_RECORD_EXP; }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CRecordVarEntryInfo(s, parent->Clone()); }
+    CVarEntryInfo* Clone() const { return new CRecordVarEntryInfo(GetSymbol(), parent->Clone()); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_RECORD_EXP && rhs.GetSymbol() == GetSymbol() &&
+        parent && static_cast<const CRecordVarEntryInfo&>(rhs).parent && *static_cast<const CRecordVarEntryInfo&>(rhs).parent == *parent; }
+    CVarEntryInfo* GetLeftmostParent() { return parent->GetLeftmostParent(); }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+};
+
+class CArrayVarEntryInfo : public CVarEntryInfo
+{
+    SgArrayRefExp* ref;
+public:
+    CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s), ref(r) {};
+    bool CompareSubscripts(const CArrayVarEntryInfo&) const;
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, ref); }
+    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), ref); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol() && 
+        static_cast<const CArrayVarEntryInfo&>(rhs).ref && ref && CompareSubscripts(static_cast<const CArrayVarEntryInfo&>(rhs)); }
+    eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
+    CVarEntryInfo* GetLeftmostParent() { return this; }
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+        //todo: FIX
+        /*
+        if (def == NULL || !def->belongs(this))
+            use->addToSet(this, st);
+        */
+    }
+    void RegisterDefinition(VarSet* def, SgStatement* st) { /*  def->addToSet(this, st); */ /* FIX */ };
 };
 
 class CBasicBlock;
@@ -438,7 +483,7 @@ class CBasicBlock
     bool lv_undef;
     void setDefAndUse();
     char prev_status;
-    bool temp; 
+    bool temp;
     void addExprToUse(SgExpression* e, CExprList*);
     void AddOneExpressionToUse(SgExpression*, SgStatement*);
     void AddOneExpressionToDef(SgExpression*, SgStatement*);
@@ -526,18 +571,24 @@ public:
     bool ShouldThisBlockBeCheckedAgain(CVarEntryInfo* var) { return findentity && var && *var == *findentity; }
 
 #ifdef __SPF
+    AnalysedCallsList* getProc() { return proc; }
     void clearGenKill() { gen.clear(); kill.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SgSymbol* var, SgExpression* value);
     void addVarToKill(SgSymbol* var);
-    void checkFunctionCalls(SgExpression* exp);
-    void adjustGenAndKill(SgStatement* st);
-    void correctInDefs();
+    void checkFuncAndProcCalls(ControlFlowItem* cfi);
+    void adjustGenAndKill(ControlFlowItem* cfi);
+    std::set<SymbolKey>* getOutVars();
+    void correctInDefsSimple();
+    bool correctInDefsIterative();
     inline std::map<SymbolKey, SgExpression*>* getGen()
     { return &gen; }
 
     inline std::set<SymbolKey>* getKill()
     { return &kill; }
+
+    inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs)
+    { in_defs = *inDefs; }
 
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs()
     { return &in_defs; }
@@ -575,6 +626,7 @@ class ControlFlowGraph
     bool temp;
     bool main;
     int refs;
+    bool hasBeenAnalyzed;
     void liveAnalysis();
 public:
     ControlFlowGraph(bool temp, bool main, ControlFlowItem* item, ControlFlowItem* end);
@@ -583,6 +635,7 @@ public:
     VarSet* getUse();
     VarSet* getDef();
     void privateAnalyzer();
+    bool ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool);
     ActualDelayedData* ProcessDelayedPrivates(CommonData*, AnalysedCallsList*, CallAnalysisLog*);
     bool IsMain() { return main; } // change to refs
     void AddRef() { refs++; }
@@ -654,6 +707,7 @@ class CommonData
 {
     CommonDataItem* list;
 public:
+    CommonDataItem* getList() { return list; }
     void RegisterCommonBlock(SgStatement*, AnalysedCallsList*);
     void MarkEndOfCommon(AnalysedCallsList*);
     void MarkAsUsed(VarSet*, AnalysedCallsList*);
@@ -681,7 +735,7 @@ public:
     ~PrivateDelayedItem();
     void PrintWarnings();
     void MoveFromPrivateToLastPrivate(CVarEntryInfo*);
-    VarSet* getDetected() { return detected;  }
+    VarSet* getDetected() { return detected; }
     VarSet* getDelayed() { return delay; }
 };
 
@@ -717,11 +771,15 @@ struct ActualDelayedData
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, CommonData*);
 void FillCFGSets(ControlFlowGraph*);
 #ifdef __SPF
-void FillCFGInsAndOutsDefs(ControlFlowGraph*);
+void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+bool argIsReplaceable(int i, AnalysedCallsList* callData);
+void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term, std::set<SymbolKey>* allowedVars);
+void showDefsOfGraph(ControlFlowGraph *CGraph);
+bool symbolInExpression(SgSymbol *symbol, SgExpression *exp);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();

@@ -16,7 +16,6 @@
 #include "../errors.h"
 #include "../utils.h"
 #include "../GraphLoop/graph_loops.h"
-#include "../GraphLoop/graph_loops_func.h"
 
 using std::vector;
 using std::set;
@@ -164,7 +163,21 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
     map<DIST::Array*, int> trees;
     map<int, vector<DIST::Array*>> convTrees;
 
-    const int countTrees = reducedG.FindAllArraysTrees(trees, allArrays);
+    int countTrees = reducedG.FindAllArraysTrees(trees, allArrays);
+    //create one tree for all array that not found
+    for (auto &array : allArrays.GetArrays())
+    {
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+        for (auto &realArray : realRefs)
+        {
+            auto it = trees.find(realArray);
+            if (it == trees.end())
+                trees.insert(it, make_pair(realArray, ++countTrees));
+        }
+    }
+
     convertTrees(trees, convTrees, arrayLinksByFuncCalls);
         
     vector<DIST::Array*> arraysToDist;

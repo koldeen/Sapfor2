@@ -53,8 +53,7 @@ extern int isSymbolIntrinsic(SgSymbol *symb);
 // computes the definition for each file;
 /////////////////////////////////////////////////////////////////////
 
-void
-defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
+void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
 {
     SgExpression *expr1, *expr2;
     SgExpression *temp, *pt, *pt1;
@@ -62,9 +61,13 @@ defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression
     SgExprListExp *exprli;
     SgFunctionCallExp *fc;
     SgInputOutputStmt *iostmt;
+    SgCallStmt *callStat;
     int change;
     if (!stmt || !func)
         return;
+
+    *def = NULL;
+    *use = NULL;
 
     switch (stmt->variant())
     {
@@ -317,12 +320,34 @@ defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression
         else
             Message("internal error : IO statements not found\n", 0);
         break;
-
+    case PROC_STAT:
+        //TODO:
+        break;
+        callStat = (SgCallStmt*)stmt;
+        pt = callStat->expr(0);
+        if (pt)
+        {
+            *use = pt->symbRefs();
+            // if not an intrinsic, needs to be added to the def list;
+            if (!isSymbolIntrinsic(callStat->name()))
+                *def = pt->symbRefs();
+            
+            /*pt->unparsestdout();
+            printf("\n");
+            printf("%s %d\n", callStat->name()->identifier(), stmt->lineNumber());
+            if (*use)
+            {
+                (*use)->unparsestdout();
+                printf("\n");
+            }
+            printf("\n");*/
+        }        
+        break;
     case GOTO_NODE:
     case STOP_STAT:
     case RETURN_STAT:
     case RETURN_NODE:
-    case  ELSEIF_NODE:
+    case ELSEIF_NODE:
     case ARITHIF_NODE:
     case WHERE_NODE:
     case WHERE_BLOCK_STMT:
@@ -340,8 +365,7 @@ defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression
 }
 
 
-void
-initDefUseTable(SgStatement *func)
+void initDefUseTable(SgStatement *func)
 {
     SgStatement *last, *first, *lastfunc, *temp;
     SgExpression *def, *use, *pt;

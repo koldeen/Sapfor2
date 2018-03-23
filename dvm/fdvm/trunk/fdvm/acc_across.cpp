@@ -49,7 +49,7 @@ static unsigned countOfCopies;
 static std::vector<ParamsForAllVariants> allVariants;
 
 static const char *funcDvmhConvXYfortVer = "       attributes(device) subroutine dvmh_convert_XY_int(x,y,Rx,Ry,slash,idx)\n      implicit none\n      integer ,value:: x\n      integer ,value:: y\n      integer ,value:: Rx\n      integer ,value:: Ry\n      integer ,value:: slash\n      integer ,device:: idx  \n	  \n      if(slash .eq. 0) then\n	     if(Rx .eq. Ry) then\n		    if(x + y .lt. Rx) then\n			   idx = y + (1+x+y)*(x+y)/2\n            else\n			   idx = Rx*(Rx-1)+x-(2*Rx-x-y-1)*(2*Rx-x-y-2)/2\n            endif		 \n         elseif(Rx .lt. Ry) then\n		    if(x + y .lt. Rx) then\n               idx = y + ((1+x+y)*(x+y)) / 2\n            elseif(x + y .lt. Ry) then\n               idx = ((1+Rx)*Rx) / 2 + Rx - x - 1 + Rx * (x+y-Rx)\n            else\n               idx = Rx*Ry-Ry+y-(((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2))/2)\n            endif\n         else\n		    if(x + y .lt. Ry) then\n                idx = x + (1+x+y)*(x+y) / 2\n            elseif(x + y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + (Ry-y-1) + Ry * (x+y-Ry)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2)/2)\n            endif\n         endif\n      else\n	     if(Rx .eq. Ry) then\n            if(x + Rx-1-y .lt. Rx) then\n                idx = Rx-1-y + (x+Rx-y)*(x+Rx-1-y)/2\n            else\n                idx = Rx*(Rx-1) + x - (Rx-x+y)*(Rx-x+y-1)/2\n            endif\n         elseif(Rx .lt. Ry) then\n            if(x + Ry-1-y .lt. Rx) then		\n                idx = Ry-1-y + ((x+Ry-y)*(x+Ry-1-y)) / 2\n            elseif(x + Ry-1-y .lt. Ry) then\n                idx = ((1+Rx)*Rx)/2+Rx-x-1+Rx*(x+Ry-1-y-Rx)\n            else\n                idx = Rx*Ry-1-y-(((Rx+y-x)*(Rx+y-x-1))/2)\n            endif\n         else\n            if(x + Ry-1-y .lt. Ry) then\n                idx = x + (1+x+Ry-1-y)*(x+Ry-1-y)/2\n            elseif(x + Ry-1-y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + y + Ry * (x-y-1)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+y-x)*(Rx+y-x-1)/2)\n            endif\n         endif\n      endif\n      end subroutine\n";
-static const char *funcDvmhConvXYfortVerLong = "       attributes(device) subroutine dvmh_convert_XY_llong(x,y,Rx,Ry,slash,idx)\n      implicit none\n      integer*8 ,value:: x\n      integer*8 ,value:: y\n      integer*8 ,value:: Rx\n      integer*8 ,value:: Ry\n      integer*8 ,value:: slash\n      integer*8 ,device:: idx  \n	  \n      if(slash .eq. 0) then\n	     if(Rx .eq. Ry) then\n		    if(x + y .lt. Rx) then\n			   idx = y + (1+x+y)*(x+y)/2\n            else\n			   idx = Rx*(Rx-1)+x-(2*Rx-x-y-1)*(2*Rx-x-y-2)/2\n            endif		 \n         elseif(Rx .lt. Ry) then\n		    if(x + y .lt. Rx) then\n               idx = y + ((1+x+y)*(x+y)) / 2\n            elseif(x + y .lt. Ry) then\n               idx = ((1+Rx)*Rx) / 2 + Rx - x - 1 + Rx * (x+y-Rx)\n            else\n               idx = Rx*Ry-Ry+y-(((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2))/2)\n            endif\n         else\n		    if(x + y .lt. Ry) then\n                idx = x + (1+x+y)*(x+y) / 2\n            elseif(x + y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + (Ry-y-1) + Ry * (x+y-Ry)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2)/2)\n            endif\n         endif\n      else\n	     if(Rx .eq. Ry) then\n            if(x + Rx-1-y .lt. Rx) then\n                idx = Rx-1-y + (x+Rx-y)*(x+Rx-1-y)/2\n            else\n                idx = Rx*(Rx-1) + x - (Rx-x+y)*(Rx-x+y-1)/2\n            endif\n         elseif(Rx .lt. Ry) then\n            if(x + Ry-1-y .lt. Rx) then		\n                idx = Ry-1-y + ((x+Ry-y)*(x+Ry-1-y)) / 2\n            elseif(x + Ry-1-y .lt. Ry) then\n                idx = ((1+Rx)*Rx)/2+Rx-x-1+Rx*(x+Ry-1-y-Rx)\n            else\n                idx = Rx*Ry-1-y-(((Rx+y-x)*(Rx+y-x-1))/2)\n            endif\n         else\n            if(x + Ry-1-y .lt. Ry) then\n                idx = x + (1+x+Ry-1-y)*(x+Ry-1-y)/2\n            elseif(x + Ry-1-y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + y + Ry * (x-y-1)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+y-x)*(Rx+y-x-1)/2)\n            endif\n         endif\n      endif\n      end subroutine\n";
+static const char *funcDvmhConvXYfortVerLong = "       attributes(device) subroutine dvmh_convert_XY_llong(x,y,Rx,Ry,slash,idx)\n      implicit none\n      integer*8 ,value:: x\n      integer*8 ,value:: y\n      integer*8 ,value:: Rx\n      integer*8 ,value:: Ry\n      integer*8 ,value:: slash\n      integer*8 ,device:: idx  \n	  \n      if(slash .eq. 0) then\n	     if(Rx .eq. Ry) then\n		    if(x + y .lt. Rx) then\n			   idx = y + (1+x+y)*(x+y)/2\n            else\n			   idx = Rx*(Rx-1)+x-(2*Rx-x-y-1)*(2*Rx-x-y-2)/2\n            endif		 \n         elseif(Rx .lt. Ry) then\n		    if(x + y .lt. Rx) then\n               idx = y + ((1+x+y)*(x+y)) / 2\n            elseif(x + y .lt. Ry) then\n               idx = ((1+Rx)*Rx) / 2 + Rx - x - 1 + Rx * (x+y-Rx)\n            else\n               idx = Rx*Ry-Ry+y-(((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2))/2)\n            endif\n         else\n		    if(x + y .lt. Ry) then\n                idx = x + (1+x+y)*(x+y) / 2\n            elseif(x + y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + (Ry-y-1) + Ry * (x+y-Ry)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2)/2)\n            endif\n         endif\n      else\n	     if(Rx .eq. Ry) then\n            if(x + Rx-1-y .lt. Rx) then\n                idx = Rx-1-y + (x+Rx-y)*(x+Rx-1-y)/2\n            else\n                idx = Rx*(Rx-1) + x - (Rx-x+y)*(Rx-x+y-1)/2\n            endif\n         elseif(Rx .lt. Ry) then\n            if(x + Ry-1-y .lt. Rx) then		\n                idx = Ry-1-y + ((x+Ry-y)*(x+Ry-1-y)) / 2\n            elseif(x + Ry-1-y .lt. Ry) then\n                idx = ((1+Rx)*Rx)/2+Rx-x-1+Rx*(x+Ry-1-y-Rx)\n            else\n                idx = Rx*Ry-1-y-(((Rx+y-x)*(Rx+y-x-1))/2)\n            endif\n         else\n            if(x + Ry-1-y .lt. Ry) then\n                idx = x + (1+x+Ry-1-y)*(x+Ry-1-y)/2\n            elseif(x + Ry-1-y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + y + Ry * (x-y-1)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+y-x)*(Rx+y-x-1)/2)\n            endif\n         endif\n      endif\n      end subroutine\n" ;
 
 // local variables
 SgStatement *kernelScope, *block;
@@ -1641,6 +1641,53 @@ ArgsForKernel** Create_C_Adapter_Function_Across_OneThread(SgSymbol *sadapter, S
     return argsKernel;
 }
 
+static inline void insertReductionArgs(SgSymbol **reduction_ptr, SgSymbol **reduction_loc_ptr, 
+                                       SgSymbol **reduction_symb, SgSymbol **reduction_loc_symb,
+                                       SgFunctionCallExp *funcCallKernel, int &has_red_array)
+{
+    reduction_operation_list *rsl;
+    SgSymbol *s;
+    SgExpression *e;
+
+    int i = 0;
+    for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
+    {
+        if (rsl->redvar_size == 0) //reduction variable is scalar    
+        {
+            if (options.isOn(RTC))
+            {
+                SgVarRefExp *toAdd = new SgVarRefExp(reduction_symb[i]);
+                toAdd->addAttribute(RTC_NOT_REPLACE);
+                funcCallKernel->addArg(*toAdd);
+            }
+            else
+                funcCallKernel->addArg(*new SgVarRefExp(reduction_symb[i]));
+        }
+        else //TODO!!
+        {
+            has_red_array = 1;
+            for (int k = 0; k < rsl->redvar_size; ++k)
+                funcCallKernel->addArg(*new SgArrayRefExp(*reduction_symb[i], *new SgValueExp(k)));
+        }
+
+        if (options.isOn(C_CUDA))
+            funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
+        else
+            funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
+
+        //TODO!!
+        if (rsl->locvar)  //MAXLOC,MINLOC
+        {
+            for (int i = 0; i < rsl->number; ++i)
+                funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
+            s = s->next();
+            e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
+            funcCallKernel->addArg(*e);
+            s = s->next();
+        }
+    }
+}
+
 ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, SgSymbol *kernel_symb, const int loopV, const int acrossV,
                                                           const int allDims, SageSymbols **loopSymb, SageSymbols **loopAcrossSymb)
 {
@@ -1650,6 +1697,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
 
     SgSymbol **num_elems = new SgSymbol*[allDims + 1];
     SgSymbol **reduction_ptr = NULL, **reduction_loc_ptr = NULL, **addressingParams = NULL;
+    SgSymbol **reduction_symb = NULL, **reduction_loc_symb = NULL;
     SgSymbol *lowI, *highI, *idxI, *bIdxs;
     SgSymbol *elem, *red_blocks, *shared_mem, *stream_t;
     SgSymbol *M, *N, *M1, *M2, *M3, *q, *diag, *Emax, *Emin, *Allmin, *SE, *var1, *var2, *var3;
@@ -1781,7 +1829,10 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
             num_of_red_arrays++;
 
         reduction_ptr = new SgSymbol*[num_of_red_arrays];
+        reduction_symb = new SgSymbol*[num_of_red_arrays];
+
         reduction_loc_ptr = new SgSymbol*[num_of_red_arrays];
+        reduction_loc_symb = new SgSymbol*[num_of_red_arrays];
 
         for (er = red_list, ln = 0; er; er = er->rhs(), ++ln)
         {
@@ -1819,6 +1870,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
 
             stmt = makeSymbolDeclaration(s);
             st_hedr->insertStmtAfter(*stmt, *st_hedr);
+            reduction_symb[ln] = s;
             if (!ln)
                 red_first = s;
 
@@ -2579,49 +2631,9 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
                 for (int i = NumberOfCoeffs(sg); i > 0; i--)
                     funcCallKernel->addArg(*new SgArrayRefExp(*sg, *new SgValueExp(i)));
             }
+
             if (red_list)
-            {
-                reduction_operation_list *rsl;
-                int i = 0;
-                for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
-                {
-                    if (rsl->redvar_size == 0) //reduction variable is scalar   
-                    {
-                        if (options.isOn(RTC))
-                        {
-                            SgVarRefExp *toAdd = new SgVarRefExp(s);
-                            toAdd->addAttribute(RTC_NOT_REPLACE);
-                            funcCallKernel->addArg(*toAdd);
-                        }
-                        else
-                            funcCallKernel->addArg(*new SgVarRefExp(s));
-                    }                        
-                    else
-                    {
-                        int i;
-                        has_red_array = 1;
-                        for (i = 0; i < rsl->redvar_size; i++)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                    }
-                    s = s->next();
-
-                    if (options.isOn(C_CUDA))
-                        funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
-                    else
-                        funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
-
-                    if (rsl->locvar)  //MAXLOC, MINLOC
-                    {
-                        for (int i = 0; i < rsl->number; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                        s = s->next();
-                        e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
-                        funcCallKernel->addArg(*e);
-                        s = s->next();
-                    }
-                }
-            }
-
+                insertReductionArgs(reduction_ptr, reduction_loc_ptr, reduction_symb, reduction_loc_symb, funcCallKernel, has_red_array);
 
             for (int k = 0; k < MIN(loopV, 2); ++k)
                 funcCallKernel->addArg(*new SgVarRefExp(num_elems[k]));
@@ -2901,47 +2913,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
                     funcCallKernel->addArg(*new SgArrayRefExp(*sg, *new SgValueExp(i)));
             }
             if (red_list)
-            {
-                reduction_operation_list *rsl;
-                int i = 0;
-                for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
-                {
-                    if (rsl->redvar_size == 0) //reduction variable is scalar    
-                    {
-                        if (options.isOn(RTC))
-                        {
-                            SgVarRefExp *toAdd = new SgVarRefExp(s);
-                            toAdd->addAttribute(RTC_NOT_REPLACE);
-                            funcCallKernel->addArg(*toAdd);
-                        }
-                        else
-                            funcCallKernel->addArg(*new SgVarRefExp(s));
-                    }                        
-                    else
-                    {
-                        int i;
-                        has_red_array = 1;
-                        for (i = 0; i < rsl->redvar_size; i++)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                    }
-                    s = s->next();
-
-                    if (options.isOn(C_CUDA))
-                        funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
-                    else
-                        funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
-
-                    if (rsl->locvar)  //MAXLOC,MINLOC
-                    {
-                        for (int i = 0; i < rsl->number; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                        s = s->next();
-                        e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
-                        funcCallKernel->addArg(*e);
-                        s = s->next();
-                    }
-                }
-            }
+                insertReductionArgs(reduction_ptr, reduction_loc_ptr, reduction_symb, reduction_loc_symb, funcCallKernel, has_red_array);
 
             if (options.isOn(RTC)) // diag is modifiable value
             {
@@ -3099,46 +3071,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
                     funcCallKernel->addArg(*new SgArrayRefExp(*sg, *new SgValueExp(i)));
             }
             if (red_list)
-            {
-                reduction_operation_list *rsl;
-                int i = 0;
-                for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
-                {
-                    if (rsl->redvar_size == 0) //reduction variable is scalar
-                    {
-                        if (options.isOn(RTC))
-                        {
-                            SgVarRefExp *toAdd = new SgVarRefExp(s);
-                            toAdd->addAttribute(RTC_NOT_REPLACE);
-                            funcCallKernel->addArg(*toAdd);
-                        }
-                        else
-                            funcCallKernel->addArg(*new SgVarRefExp(s));
-                    }                        
-                    else
-                    {
-                        has_red_array = 1;
-                        for (int i = 0; i < rsl->redvar_size; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                    }
-                    s = s->next();
-
-                    if (options.isOn(C_CUDA))
-                        funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
-                    else
-                        funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
-
-                    if (rsl->locvar)  //MAXLOC,MINLOC
-                    {
-                        for (int i = 0; i < rsl->number; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                        s = s->next();
-                        e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
-                        funcCallKernel->addArg(*e);
-                        s = s->next();
-                    }
-                }
-            }
+                insertReductionArgs(reduction_ptr, reduction_loc_ptr, reduction_symb, reduction_loc_symb, funcCallKernel, has_red_array);
 
             if (options.isOn(RTC)) // q is modifiable value
             {
@@ -3230,46 +3163,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
                     funcCallKernel->addArg(*new SgArrayRefExp(*sg, *new SgValueExp(i)));
             }
             if (red_list)
-            {
-                reduction_operation_list *rsl;
-                int i = 0;
-                for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
-                {
-                    if (rsl->redvar_size == 0) //reduction variable is scalar
-                    {
-                        if (options.isOn(RTC))
-                        {
-                            SgVarRefExp *toAdd = new SgVarRefExp(s);
-                            toAdd->addAttribute(RTC_NOT_REPLACE);
-                            funcCallKernel->addArg(*toAdd);
-                        }
-                        else
-                            funcCallKernel->addArg(*new SgVarRefExp(s));                        
-                    }
-                    else
-                    {
-                        has_red_array = 1;
-                        for (int i = 0; i < rsl->redvar_size; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                    }
-                    s = s->next();
-
-                    if (options.isOn(C_CUDA))
-                        funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
-                    else
-                        funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
-
-                    if (rsl->locvar)  //MAXLOC,MINLOC
-                    {
-                        for (int i = 0; i < rsl->number; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                        s = s->next();
-                        e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
-                        funcCallKernel->addArg(*e);
-                        s = s->next();
-                    }
-                }
-            }
+                insertReductionArgs(reduction_ptr, reduction_loc_ptr, reduction_symb, reduction_loc_symb, funcCallKernel, has_red_array);
 
             if (options.isOn(RTC)) // elem is modifiable value
             {
@@ -3386,46 +3280,8 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
                     funcCallKernel->addArg(*new SgArrayRefExp(*sg, *new SgValueExp(i)));
             }
             if (red_list)
-            {
-                reduction_operation_list *rsl;
-                int i = 0;
-                for (rsl = red_struct_list, s = red_first; rsl; rsl = rsl->next, ++i)  //s!=s_blocks_info
-                {
-                    if (rsl->redvar_size == 0) //reduction variable is scalar   
-                    {
-                        if (options.isOn(RTC))
-                        {
-                            SgVarRefExp *toAdd = new SgVarRefExp(s);
-                            toAdd->addAttribute(RTC_NOT_REPLACE);
-                            funcCallKernel->addArg(*toAdd);
-                        }
-                        else
-                            funcCallKernel->addArg(*new SgVarRefExp(s));
-                    }
-                    else
-                    {
-                        has_red_array = 1;
-                        for (int i = 0; i < rsl->redvar_size; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                    }
-                    s = s->next();
+                insertReductionArgs(reduction_ptr, reduction_loc_ptr, reduction_symb, reduction_loc_symb, funcCallKernel, has_red_array);
 
-                    if (options.isOn(C_CUDA))
-                        funcCallKernel->addArg(*new SgVarRefExp(reduction_ptr[i]));
-                    else
-                        funcCallKernel->addArg(*new SgCastExp(*C_PointerType(new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(reduction_ptr[i])));
-
-                    if (rsl->locvar)  //MAXLOC,MINLOC
-                    {
-                        for (int i = 0; i < rsl->number; ++i)
-                            funcCallKernel->addArg(*new SgArrayRefExp(*s, *new SgValueExp(i)));
-                        s = s->next();
-                        e = new SgCastExp(*C_PointerType(options.isOn(C_CUDA) ? C_Type(rsl->locvar->type()) : new SgDescriptType(*SgTypeChar(), BIT_SIGNED)), *new SgVarRefExp(s));
-                        funcCallKernel->addArg(*e);
-                        s = s->next();
-                    }
-                }
-            }
             for (int i = 0; i < acrossV; ++i)
             {
                 if (options.isOn(RTC)) // across base is modifiable value
@@ -4137,7 +3993,9 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
     // end of creation args for kernel
 
     delete[]reduction_loc_ptr;
+    delete[]reduction_loc_symb;
     delete[]reduction_ptr;
+    delete[]reduction_symb;
     delete[]num_elems;
     mywarn("  end Adapter Function");
     return argsKernel;
