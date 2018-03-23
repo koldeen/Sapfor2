@@ -120,6 +120,8 @@ ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirect
         uniteReduction(first->reduction, second->reduction, result->reduction);
         uniteReduction(first->reductionLoc, second->reductionLoc, result->reductionLoc);
     }
+    else
+        result = new ParallelDirective(left);
     return result;
 }
 

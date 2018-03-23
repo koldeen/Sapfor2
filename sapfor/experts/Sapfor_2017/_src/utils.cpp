@@ -21,6 +21,7 @@
 
 #include "utils.h"
 #include "errors.h"
+#include "version.h"
 
 #include "GraphLoop/graph_loops.h"
 
@@ -105,6 +106,8 @@ void printHelp()
     printf(" -keepSPF keep SPF directives\n");
     printf(" -keepDVM keep DVM directives\n");
     printf(" -allVars get all parallel versions\n");
+    printf(" -Var N   get specific parallel version, N=1,2,..\n");
+    printf(" -q Q     quantity of analysis\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
@@ -236,9 +239,26 @@ void clearGlobalMessagesBuffer() { SPF_messages.clear();  }
 
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
 {
+    auto copySPF_messages = SPF_messages;
+    for (auto &byFile : copySPF_messages)
+    {
+        vector<Messages> newVal;
+        bool waschanged = false;
+        for (auto &message : byFile.second)
+        {
+            if (message.line > 0)
+                newVal.push_back(message);
+            else
+                waschanged = true;
+        }
+
+        if (waschanged)
+            byFile.second = newVal;
+    }
+
     string val = "";
-    val += std::to_string(SPF_messages.size());
-    for (auto it = SPF_messages.begin(); it != SPF_messages.end(); ++it)
+    val += std::to_string(copySPF_messages.size());
+    for (auto it = copySPF_messages.begin(); it != copySPF_messages.end(); ++it)
     {
         val += "|" + it->first + "|" + std::to_string(it->second.size());
         for (int k = 0; k < it->second.size(); ++k)
@@ -620,4 +640,12 @@ bool isAllRulesEqual(const vector<vector<int>> &allRules)
 bool isAllRulesEqual(const vector<const vector<pair<int, int>>*> &allRules)
 {
     return isAllRulesEqual_p(allRules);
+}
+
+static int newLineNumber = -2; // -1 is used for OMP
+int getNextNegativeLineNumber()
+{
+    int ret = newLineNumber;
+    newLineNumber--;
+    return ret;
 }

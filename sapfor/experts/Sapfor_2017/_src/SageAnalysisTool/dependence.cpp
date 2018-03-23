@@ -47,15 +47,6 @@ int TurnIfConstructionOf = 0;
 // try to process loop with negative step: inverse the iteration space
 #define PROCESS_LOOPS_WITH_NEG_STEP 1
 
-///////////////////////////////////////////////////////////////////////////
-// deallocation Set
-///////////////////////////////////////////////////////////////////////////
-
-// in that set we store everything that must be deallocated at some
-// point in the program
-
-Set *setForDealocatingMemory = NULL;
-
 // Needs to provide dummy function
 int dummyEqual(void *e1, void *e2)
 {
@@ -78,7 +69,7 @@ extern depGraph *currentDepGraph;
 // compute the data dependencies using the Omega Test....
 ///////////////////////////////////////////////////////////////////////////
 
-affine_expr *makeOmegaAffine(int size, var_id *induc, int *linear, int cst, int notaffine)
+affine_expr *makeOmegaAffine(int size, var_id *induc, int *linear, int cst, int notaffine, Set *setForDealocatingMemory)
 {
     int i, finalsize;
     affine_expr *ptaff, *init;
@@ -116,7 +107,8 @@ affine_expr *makeOmegaAffine(int size, var_id *induc, int *linear, int cst, int 
     return ptaff;
 }
 
-int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, Set *induc, var_id *inducom, context_iterator firstcontiter, char *name, int inif)
+int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, const Set *induc, var_id *inducom, 
+                    context_iterator firstcontiter, char *name, int inif, Set *setForDealocatingMemory)
 {
     int i, j;
     sub_iterator itern = NULL;
@@ -148,7 +140,7 @@ int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, Set *induc, var_id *i
         if (el1->isLinear[j] && !el1->scalar)
         {
             itern->isaffine = TRUE;
-            itern->affine = makeOmegaAffine(induc->size(), inducom, el1->linear[j], el1->cst[j], el1->isLinear[j]);
+            itern->affine = makeOmegaAffine(induc->size(), inducom, el1->linear[j], el1->cst[j], el1->isLinear[j], setForDealocatingMemory);
         }
         else
         {
@@ -229,7 +221,7 @@ int lexOrder(PT_ACCESSARRAY  el1, PT_ACCESSARRAY el2)
     return FALSE;
 }
 
-context_iterator makeOmegaIf(int depth, SgStatement  *stmt, context_iterator next, int  brelse)
+context_iterator makeOmegaIf(int depth, SgStatement  *stmt, context_iterator next, int brelse, Set *setForDealocatingMemory)
 {
     if_context ifstat;
     context_iterator contiter;
@@ -263,7 +255,7 @@ context_iterator makeOmegaIf(int depth, SgStatement  *stmt, context_iterator nex
 }
 
 // try to manage non nested loops;;;
-context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, Set *induc, var_id *inducom, SgSymbol **tsymb, int *inif)
+context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, const Set *induc, var_id *inducom, SgSymbol **tsymb, int *inif, Set *setForDealocatingMemory)
 {
     int i, j, inbrelse, k;
     PT_INDUCVAR ind, cur;
@@ -371,8 +363,7 @@ context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, Set *induc, var_id *inducom,
                             }
                         }
                         *inif = TRUE;
-                        firstcontiter = makeOmegaIf(cur->level, currentstmt->controlParent(),
-                            firstcontiter, inbrelse);
+                        firstcontiter = makeOmegaIf(cur->level, currentstmt->controlParent(), firstcontiter, inbrelse, setForDealocatingMemory);
                     }
                 }
                 // end of if statement;
@@ -405,7 +396,7 @@ context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, Set *induc, var_id *inducom,
                 linear[i] = 0;
             if (cur->lbound->linearRepresentation(linear, tsymb, &cst, induc->size()))
             {
-                loop->startl = makeOmegaAffine(induc->size(), inducom, linear, cst, 1);
+                loop->startl = makeOmegaAffine(induc->size(), inducom, linear, cst, 1, setForDealocatingMemory);
             }
             else
             {
@@ -420,7 +411,7 @@ context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, Set *induc, var_id *inducom,
                 linear[i] = 0;
             if (cur->ubound->linearRepresentation(linear, tsymb, &cst, induc->size()))
             {
-                loop->endl = makeOmegaAffine(induc->size(), inducom, linear, cst, 1);
+                loop->endl = makeOmegaAffine(induc->size(), inducom, linear, cst, 1, setForDealocatingMemory);
             }
             else
             {
@@ -519,8 +510,20 @@ int commonDepth(context_iterator iti1, context_iterator iti2)
     return depth;
 }
 
-int isDependent(PT_ACCESSARRAY  el1, PT_ACCESSARRAY el2, Set *induc)
+//from dep_analyzer.cpp
+extern bool isRemovableDependence(const depNode *toCheck, const std::set<std::string> &privVars);
+
+static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc, int &countOfNodes)
 {
+    ///////////////////////////////////////////////////////////////////////////
+    // deallocation Set
+    ///////////////////////////////////////////////////////////////////////////
+
+    // in that set we store everything that must be deallocated at some
+    // point in the program
+
+    Set *setForDealocatingMemory = NULL;
+
     int i, j;
     PT_INDUCVAR ind;
     SgExpression  *ex2;
@@ -607,11 +610,11 @@ int isDependent(PT_ACCESSARRAY  el1, PT_ACCESSARRAY el2, Set *induc)
     addToCollection(__LINE__, __FILE__, access1, 1);
     addToCollection(__LINE__, __FILE__, access2, 1);
 #endif
-    firstcontiter = fillOmegaLoop(el1, induc, inducom1, tsymb, &inif);
+    firstcontiter = fillOmegaLoop(el1, induc, inducom1, tsymb, &inif, setForDealocatingMemory);
     firstcontiter1 = firstcontiter;
-    nest1 = fillOmegaAccess(el1, access1, induc, inducom1, firstcontiter, "Access1", inif);
-    firstcontiter = fillOmegaLoop(el2, induc, inducom2, tsymb, &inif);
-    nest2 = fillOmegaAccess(el2, access2, induc, inducom2, firstcontiter, "Access2", inif);
+    nest1 = fillOmegaAccess(el1, access1, induc, inducom1, firstcontiter, "Access1", inif, setForDealocatingMemory);
+    firstcontiter = fillOmegaLoop(el2, induc, inducom2, tsymb, &inif, setForDealocatingMemory);
+    nest2 = fillOmegaAccess(el2, access2, induc, inducom2, firstcontiter, "Access2", inif, setForDealocatingMemory);
     access1->lexord = 2;
     access2->lexord = 1;
     if (!lexOrder(el1, el2))
@@ -656,12 +659,25 @@ int isDependent(PT_ACCESSARRAY  el1, PT_ACCESSARRAY el2, Set *induc)
     currentVarOut = el2->var;
 
     dd_omega_test(access1, access2, oitype, iotype, nest1, nest2, bnest);
+    
+    //check if dependensices is known;
+    int result = 0;
+    const std::vector<depNode*> &nodes = currentDepGraph->getNodes();
+    for (int z = countOfNodes; z < nodes.size(); ++z)
+    {
+        if (isRemovableDependence(nodes[z], currentDepGraph->privVars) == false)
+        {
+            result = 5;
+            break;
+        }
+    }
+    countOfNodes = nodes.size();
     // should delete all allocated space;
 #ifdef _WIN32
     removeFromCollection(setForDealocatingMemory);
 #endif
     delete setForDealocatingMemory;
-    return 1;
+    return result;
 }
 
 //
@@ -706,6 +722,8 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     // not needed anymore
     //  depset =  new Set(dependenceEqual, NULL, dependencePrint);
     WarningOutForNegativeStep = 0;
+
+    int countOfNodes = currentDepGraph->getNodes().size();
     for (i = 0; i < inset->size(); i++)
     {
 #if _WIN32 && NDEBUG
@@ -725,11 +743,18 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
                         (el1->rw || el2->rw) &&
                         (el1->var->symbol() == el2->var->symbol()))
                     {
-                        isDependent(el1, el2, induc);
+                        int res = isDependent(el1, el2, induc, countOfNodes);
+                        if (res == 5)
+                        {
+                            printf("Sapfor: return from computeLoopDependencies with 5 status with %d graph\n", countOfNodes);
+                            return NULL;
+                        }                            
                     }
                 }
             }
         }
     }
+    if (countOfNodes > 1000)
+        printf("Sapfor: return from computeLoopDependencies with %d graph\n", countOfNodes);
     return NULL;
 }

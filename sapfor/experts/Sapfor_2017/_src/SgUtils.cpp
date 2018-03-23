@@ -36,6 +36,22 @@ using std::make_pair;
 
 const char *tag[];
 
+static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
+{
+    bool retVal = false;
+
+    for (auto &elem : intervals)
+    {
+        if (toFind.first <= elem.first && toFind.second >= elem.second)
+        {
+            retVal = true;
+            break;
+        }
+    }
+
+    return retVal;
+}
+
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
 {
     fflush(NULL);
@@ -50,10 +66,11 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     }
 
     // name -> unparse comment
-    map<string, string> includeFiles;
-
+    map<string, pair<string, vector<pair<int, int>> > > includeFiles;
+    bool notClosed = false;
     // TODO: extend buff size in dynamic
     char buf[8192];
+    int lineBefore = 0;
     while (!feof(currFile))
     {
         char *read = fgets(buf, 8192, currFile);
@@ -96,87 +113,87 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
                 auto toInsert = includeFiles.find(inclName);
                 if (toInsert == includeFiles.end())
-                    includeFiles.insert(toInsert, make_pair(inclName, line));
+                {
+                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(line, vector<pair<int, int>>())));
+                    toInsert->second.second.push_back(make_pair(lineBefore, -1));
+                    notClosed = true;
+                }
+                else
+                {
+                    toInsert->second.second.push_back(make_pair(lineBefore, -1));
+                    notClosed = true;
+                }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
+            else
+            {
+                if (notClosed)
+                {
+                    for (auto &elem : includeFiles)
+                        for (auto &pair : elem.second.second)
+                            if (pair.second == -1)
+                                pair.second = lineBefore + 1;
+                    notClosed = false;
+                }
+            }
+            ++lineBefore;
         }
     }
 
-    vector<string> needDel;
 
-    for (int i = 0; i < funcNum; ++i)
+    const string fileN = file->filename();
+    //insert comment
+    lineBefore = -1;
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
-        SgStatement *st = file->functions(i);
-        SgStatement *lastNode = st->lastNodeOfStmt();
-
-        set<string> toInsert;
-        SgStatement *first = NULL;
-        bool start = false;
-
-        while (st != lastNode)
+        string currFileName = st->fileName();
+        if (currFileName != fileN)
         {
-            if (st == NULL)
-            {
-                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
+            allIncludeFiles.insert(currFileName);
+            auto it = includeFiles.find(currFileName);
 
-            if (strcmp(st->fileName(), fileName))
+            if (it != includeFiles.end())
             {
-                string fileToIns(st->fileName());
-                convertToLower(fileToIns);
+                pair<int, int> lines = make_pair(lineBefore, -1);
 
-                toInsert.insert(fileToIns);
-                allIncludeFiles.insert(fileToIns);
-                start = true;
-            }
-            else if (start && first == NULL)
-                first = st;
-            st = st->lexNext();
-        }
+                SgStatement *locSt = st->lexNext();
+                while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
+                    locSt = locSt->lexNext();
+                lines.second = locSt->lineNumber();
 
-        for (auto it = toInsert.begin(); it != toInsert.end(); ++it)
-        {
-            auto foundIt = includeFiles.find(*it);
-            if (foundIt != includeFiles.end())
-            {
-                if (first)
+                if (locSt && ifIntevalExists(it->second.second, lines))
                 {
-                    if (first->comments() == NULL)
-                        first->addComment(foundIt->second.c_str());
-                    else
+                    char *comm = locSt->comments();
+                    if (comm)
                     {
-                        const char *comments = first->comments();
-                        if (strstr(comments, foundIt->second.c_str()) == NULL)
-                            first->addComment(foundIt->second.c_str());
+                        if (string(locSt->comments()).find(it->second.first) == string::npos)
+                            locSt->addComment(it->second.first.c_str());
                     }
+                    else
+                        locSt->addComment(it->second.first.c_str());
                 }
-                else //TODO
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
-
-        // remove code from 'include' only from file, not from Sage structures
-        start = file->functions(i);
-        st = file->functions(i);
-        lastNode = st->lastNodeOfStmt();
-
-        while (st != lastNode)
+        else
+            lineBefore = st->lineNumber();
+    }
+    
+    vector<pair<SgStatement*, SgStatement*>> wasLinked;    
+    //remove
+    for (SgStatement *st = file->firstStatement(), *prev = NULL; st; )
+    {
+        if (st->fileName() != fileN)
         {
-            if (st == NULL)
-            {
-                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
-
-            if (strcmp(st->fileName(), fileName))
-            {
-                string toSplit(st->unparse());
-                convertToLower(toSplit);
-                splitString(toSplit, '\n', needDel);
-            }
-            st = st->lexNext();
+            SgStatement *toDel = st;
+            st = st->lastNodeOfStmt()->lexNext();
+            wasLinked.push_back(make_pair(prev, toDel->extractStmt()));
+            prev = toDel;
         }
+        else
+        {
+            prev = st;
+            st = st->lexNext();
+        }        
     }
 
     FILE *fOut = fopen(fout, "w");
@@ -184,44 +201,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     file->unparse(fOut);
     fclose(fOut);
-
-    if (needDel.size() > 0)
+    
+    //restore
+    int idx = 0;
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
-        fOut = fopen(fout, "r");
-
-        string currFile = "";
-        int idxDel = 0;
-        while (!feof(fOut))
+        if (idx < wasLinked.size())
         {
-            fgets(buf, 8192, fOut);
-            const int len = strlen(buf);
-            if (len > 0)
-                buf[len - 1] = '\0';
-
-            string toCmp(buf);
-            convertToLower(toCmp);
-            //printf("%s\n", toCmp.c_str());
-            if (needDel.size() > idxDel)
+            if (st == wasLinked[idx].first)
             {
-                if (needDel[idxDel] == toCmp)
-                    idxDel++;
-                else
-                {
-                    currFile += toCmp;
-                    currFile += "\n";
-                }
-            }
-            else
-            {
-                currFile += toCmp;
-                currFile += "\n";
+                st->insertStmtAfter(*wasLinked[idx].second, *st->controlParent());
+                idx++;
             }
         }
-        fclose(fOut);
-
-        fOut = fopen(fout, "w");
-        fwrite(currFile.c_str(), sizeof(char), currFile.length(), fOut);
-        fclose(fOut);
+        else
+            break;
     }
 }
 
@@ -306,8 +300,6 @@ static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR,
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
         }
-        else
-            ;// printf("%d_%d -> (NULL NULL)\n", lvl, exp->variant());
 
         if (lhs)
             recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
@@ -321,6 +313,8 @@ void recExpressionPrint(SgExpression *exp)
     printf("digraph G{\n");
     int allNum = 0;
     recExpressionPrint(exp, 0, "L", allNum, allNum);
+    if (allNum == 0)
+        printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
     printf("};\n");
     fflush(NULL);
 }
@@ -337,13 +331,11 @@ void initTags()
 void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
 {
     SgStatement *first = file->firstStatement();
-    vector<SgStatement*> functions;
+    set<SgStatement*> functions;
 
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
-        functions.push_back(file->functions(i));
-
-    int inV = functions.size() > 0 ? 0 : -1;
+        functions.insert(file->functions(i));
 
     while (first)
     {
@@ -354,13 +346,11 @@ void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
         }
         else
         {
-            if (inV >= 0)
+            if (functions.size())
             {
-                if (first == functions[inV])
-                {
-                    first = functions[inV]->lastNodeOfStmt();
-                    inV++;
-                }
+                auto it = functions.find(first);
+                if (it != functions.end())
+                    first = (*it)->lastNodeOfStmt();
             }
         }
 
@@ -383,46 +373,43 @@ bool isSPF_comment(SgStatement *st)
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 
-void tryToFindPrivateInAttributes(SgStatement *st, 
-                                  const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                                  const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
-                                  set<string> &privatesVars)
+void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
 {
-    for (int z = 0; z < st->numberOfAttributes(); ++z)
+    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
     {
-        SgAttribute *attr = st->getAttribute(z);
-        int type = st->attributeType(z);
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR)
+        if (data)
         {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
+            fillPrivatesFromComment(data, privatesVars);
+
+            // try to find reductions and set its symbols as private in 
+            // current loop analysis for correct scalar detection in 
+            // tryToFindDependencies() function
+            map<string, set<string>> reductions;
+            map<string, set<tuple<string, string, int>>> reductionsLoc;
+
+            fillReductionsFromComment(data, reductions);
+            fillReductionsFromComment(data, reductionsLoc);
+
+            for (auto &redList : reductions)
+                privatesVars.insert(redList.second.begin(), redList.second.end());
+
+            for (auto &redLocList : reductionsLoc)
             {
-                fillPrivatesFromComment(data, privatesVars);
-
-                // try to find reductions and set its symbols as private in 
-                // current loop analysis for correct scalar detection in 
-                // tryToFindDependencies() function
-                map<string, set<string>> reductions;
-                map<string, set<tuple<string, string, int>>> reductionsLoc;
-
-                fillReductionsFromComment(data, reductions);
-                fillReductionsFromComment(data, reductionsLoc);
-
-                for (auto &redList : reductions)
-                    privatesVars.insert(redList.second.begin(), redList.second.end());
-
-                for (auto &redLocList : reductionsLoc)
+                for (auto &groupList : redLocList.second)
                 {
-                    for (auto &groupList : redLocList.second)
-                    {
-                        privatesVars.insert(std::get<0>(groupList));
-                        privatesVars.insert(std::get<1>(groupList));
-                    }
+                    privatesVars.insert(std::get<0>(groupList));
+                    privatesVars.insert(std::get<1>(groupList));
                 }
             }
         }
     }
+}
 
+void fillNonDistrArraysAsPrivate(SgStatement *st,
+                                 const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                 const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
+                                 set<string> &privatesVars)
+{
     // fill as private all non distributed arrays
     auto it = declaratedArraysSt.find(st);
     if (it != declaratedArraysSt.end())
@@ -486,7 +473,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
             start = start->lexNext();
         }
     }
-
+    
     if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
@@ -509,7 +496,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    //return statement y priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
+    //return statement by priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
     if (inDecl.size() > 1)
     {
         for (int i = 0; i < inDecl.size(); ++i)
@@ -603,19 +590,19 @@ void getCommonBlocksRef(map<string, vector<SgStatement*>> &commonBlocks, SgState
     }
 }
 
-static bool isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
+static SgExpression* isInCommon(SgStatement *commonBlock, const char *arrayName, int &commonPos)
 {
-    SgExpression *exp = commonBlock->expr(0);
-    exp = exp->lhs();
-    commonPos = 0;
-    while (exp)
+    for (SgExpression *exp = commonBlock->expr(0); exp; exp = exp->rhs())
     {
-        if (!strcmp(exp->lhs()->symbol()->identifier(), arrayName))
-            return true;
-        commonPos++;
-        exp = exp->rhs();
+        commonPos = 0;
+        for (SgExpression *currCommon = exp->lhs(); currCommon; currCommon = currCommon->rhs())
+        {            
+            if (!strcmp(currCommon->lhs()->symbol()->identifier(), arrayName))
+                return exp;
+            commonPos++;
+        }
     }
-    return false;
+    return NULL;
 }
 
 map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
@@ -653,10 +640,10 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgStatement*>> &
         {
             for (auto &pos : common.second)
             {
-                inCommon = isInCommon(pos, symb->identifier(), commonPos);
-                if (inCommon)
+                foundCommon = isInCommon(pos, symb->identifier(), commonPos);
+                if (foundCommon)
                 {
-                    foundCommon = pos->expr(0);
+                    inCommon = true;
                     break;
                 }
             }
@@ -704,3 +691,23 @@ SgStatement* findMainUnit(SgProject *proj)
     }
     return mainUnit;
 }
+
+template<typename IN_TYPE, typename OUT_TYPE>
+const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
+{
+    vector<OUT_TYPE> outData;
+
+    for (int i = 0; i < st->numberOfAttributes(); ++i)
+    {
+        SgAttribute *attr = st->getAttribute(i);
+        const int type = st->attributeType(i);
+        if (dataType.find(type) != dataType.end())
+            if (attr->getAttributeData())
+                outData.push_back((OUT_TYPE)(attr->getAttributeData()));
+    }
+
+    return outData;
+}
+
+template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
+template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);

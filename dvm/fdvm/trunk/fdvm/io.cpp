@@ -1476,13 +1476,13 @@ return(len);
 
 SgExpression *SectionLength(SgExpression *ea, SgStatement *stmt, int err)
 {int i,rank;
- SgExpression *esize,*len, *el, *eup[7], *ein[7]; 
+ SgExpression *esize,*len, *el, *eup[MAX_DIMS], *ein[MAX_DIMS]; 
  //rank = ArraySectionRank(ea);
  rank = Rank(ea->symbol());  
  len = TypeLengthExpr(ea->symbol()->type()->baseType()); //length of one array element
 
   
- for(i=0,el=ea->lhs(); i<rank; i++,el=el->rhs()) {
+ for(i=0,el=ea->lhs(); i<rank && el; i++,el=el->rhs()) {
     //calculating size of i-th dimension
     UpperBoundInTriplet(el->lhs(),ea->symbol(),i,eup);
     LowerBoundInTriplet(el->lhs(),ea->symbol(),i,ein);
@@ -1606,19 +1606,20 @@ SgExpression *FirstArrayElement(SgSymbol *ar)
   return(e);
 }
   
-SgExpression *FirstElementOfSection(SgExpression *ea) //(SgSymbol *ar,SgExpression *elist) (SgExpression *ea)
-{SgExpression *el, *ein[7];
- int i;
+SgExpression *FirstElementOfSection(SgExpression *ea) 
+{SgExpression *el, *ein[MAX_DIMS];
+ int i,rank;
  SgExpression *esl, *e;
  SgSymbol * ar;
  ar = ea->symbol();
+ rank = Rank(ar);
  if(!ea->lhs()) //whole array
    return(FirstArrayElement(ar));
 
- for(el=ea->lhs(),i=0; el; el=el->rhs(),i++)    
+ for(el=ea->lhs(),i=0; el && i<rank; el=el->rhs(),i++)    
      LowerBoundInTriplet(el->lhs(),ar,i, ein);
  el = NULL;
- for (i = Rank(ar); i; i--){
+ for (i = rank; i; i--){
    esl = new SgExprListExp(*Exprn(ein[i-1]));
    esl->setRhs(el);
    el = esl;

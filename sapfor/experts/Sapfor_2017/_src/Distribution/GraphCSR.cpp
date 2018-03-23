@@ -683,22 +683,31 @@ namespace Distribution
 
         __spf_print(PRINT_TIMES && needPrint, "cycles find started\n");
         // find all cycles with dim >= 3
-        for (int t = 0; t < vertByTrees.size(); ++t)
+        try
         {
-            for (int k = 0; k < vertByTrees[t].size(); ++k)
+            for (int t = 0; t < vertByTrees.size(); ++t)
             {
-                const vType i = vertByTrees[t][k];
-                const vType currentV = i;
-                for (vType k = 0; k < numVerts; ++k)
-                    color[k] = WHITE;
+                for (int k = 0; k < vertByTrees[t].size(); ++k)
+                {
+                    const vType i = vertByTrees[t][k];
+                    const vType currentV = i;
+                    for (vType k = 0; k < numVerts; ++k)
+                        color[k] = WHITE;
 
-                findFrom = currentV;
-                __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
-                activeV[activeCounter++] = currentV;
-                FindLoop(cyclesTmp[t], currentV, currentV, numbers);
-                activeCounter--;
-                __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
+                    findFrom = currentV;
+                    __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
+                    activeV[activeCounter++] = currentV;
+                    FindLoop(cyclesTmp[t], currentV, currentV, numbers);
+                    activeCounter--;
+                    __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
+                }
             }
+        }
+        catch (int code)
+        {
+            if (code == -2)
+                __spf_print(1, "OUT OF MEMORY: max avail %lld\n", maxAvailMemory);
+            throw code;
         }
 
         int minSize = INT_MAX;
@@ -1511,6 +1520,9 @@ namespace Distribution
     void GraphCSR<vType, wType, attrType>::
          FindLinkWithMaxDim(const vType from, const Arrays<vType> &allArrays, pair<Array*, int> &result, set<int> &wasDone)
     {
+        if (numVerts == 0)
+            return;
+
         const vType v = localIdx[from];
         if (v == -1)
             return;
@@ -1688,6 +1700,114 @@ namespace Distribution
         }
 
         hardLinksWasUp = true;
+    }
+    
+    template<typename vType, typename wType, typename attrType>
+    bool GraphCSR<vType, wType, attrType>::
+        SaveGraphToFile(FILE *file)
+    {
+        fwrite(&numVerts, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        fwrite(&numEdges, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        fwrite(&lastNumOfV, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        auto tmpS = neighbors.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(neighbors.data(), sizeof(vType), neighbors.size(), file);
+        if (ferror(file)) return false;
+
+        tmpS = edges.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(edges.data(), sizeof(vType), edges.size(), file);
+        if (ferror(file)) return false;
+
+        tmpS = weights.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(weights.data(), sizeof(wType), weights.size(), file);
+        if (ferror(file)) return false;
+
+        tmpS = linkType.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(linkType.data(), sizeof(uint8_t), linkType.size(), file);
+        if (ferror(file)) return false;
+        
+        tmpS = attributes.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(attributes.data(), sizeof(attrType), attributes.size(), file);
+        if (ferror(file)) return false;
+
+        tmpS = localIdx.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(localIdx.data(), sizeof(vType), localIdx.size(), file);
+        if (ferror(file)) return false;
+
+        tmpS = globalIdx.size();
+        fwrite(&tmpS, sizeof(size_t), 1, file);
+        fwrite(globalIdx.data(), sizeof(vType), globalIdx.size(), file);
+        if (ferror(file)) return false;
+
+        return true;
+    }
+
+    template<typename type>
+    static inline void readStdVector(vector<type> &T, const size_t size, FILE *file)
+    {
+        type *tmp = new type[size];
+        fread(tmp, sizeof(type), size, file);
+        T.resize(size);
+        for (int i = 0; i < size; ++i)
+            T[i] = tmp[i];
+
+        delete []tmp;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    bool GraphCSR<vType, wType, attrType>::
+        LoadGraphFromFile(FILE *file)
+    {
+        fread(&numVerts, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        fread(&numEdges, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        fread(&lastNumOfV, sizeof(vType), 1, file);
+        if (ferror(file)) return false;
+
+        size_t tmpS;
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(neighbors, tmpS, file);        
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(edges, tmpS, file);
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(weights, tmpS, file);
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(linkType, tmpS, file);
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(attributes, tmpS, file);
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(localIdx, tmpS, file);
+        if (ferror(file)) return false;
+
+        fread(&(tmpS), sizeof(size_t), 1, file);
+        readStdVector(globalIdx, tmpS, file);
+        if (ferror(file)) return false;
+
+        return true;
     }
 
     template class GraphCSR<int, double, attrType>;

@@ -15,8 +15,6 @@
 #include <utility>
 #include <assert.h>
 
-#include "dvm.h"
-
 #include "../Distribution/DvmhDirective.h"
 #include "../GraphLoop/graph_loops.h"
 #include "DirectiveAnalyzer.h"
@@ -84,32 +82,10 @@ static void recUnite(vector<LoopGraph*> &loopGraph)
 }
 
 extern void createMapLoopGraph(std::map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
-void UniteNestedDirectives(SgFile *file, vector<LoopGraph*> &loopGraph)
+void UniteNestedDirectives(vector<LoopGraph*> &loopGraph)
 {
     recUnite(loopGraph);
 
     map<int, LoopGraph*> sortedLoopGraph;
     createMapLoopGraph(sortedLoopGraph, &loopGraph);
-
-    // DEBUG comment print
-    /*int funcNum = file->numberOfFunctions();
-    for (int i = 0; i < funcNum; ++i)
-    {
-        SgStatement *st = file->functions(i);
-        SgStatement *lastNode = st->lastNodeOfStmt();
-
-        while (st != lastNode)
-        {
-            if (st->variant() == FOR_NODE)
-            {
-                auto itFound = sortedLoopGraph.find(st->lineNumber());
-                if (itFound != sortedLoopGraph.end())
-                {
-                    if (itFound->second->directive)
-                        st->addComment(itFound->second->directive->genDirective().c_str());
-                }
-            }
-            st = st->lexNext();
-        }
-    }*/
 }

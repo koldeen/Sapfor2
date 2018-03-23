@@ -47,7 +47,6 @@ public:
     MapToArray() : underAcross(false) { }
 
 public:
-    tuple<int, string, string> uniqKey; 
     DIST::Array *arrayRef;
     int dimentionPos;
     int hasWrite;
@@ -58,9 +57,9 @@ public:
 static pair<pair<string, string>, vector<pair<int, int>>>* 
     findShadowArraysOrCreate(vector<pair<pair<string, string>, vector<pair<int, int>>>> &shadow, 
                              const vector<pair<pair<string, string>, vector<pair<int, int>>>> &across,
-                             SgSymbol *symb)
+                             DIST::Array *symb)
 {
-    const string arrayName = symb->identifier();
+    const string &arrayName = symb->GetShortName();
 
     bool existInAcross = false;
     for (int i = 0; i < across.size(); ++i)
@@ -86,18 +85,14 @@ static pair<pair<string, string>, vector<pair<int, int>>>*
     
     if (!cond)
     {
-        auto localIt = tableOfUniqNames.find(make_pair(symb->identifier(), declaratedInStmt(symb)->lineNumber()));
-        if (localIt == tableOfUniqNames.end())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        shadow.push_back(make_pair(make_pair(arrayName, getShortName(localIt->second)), vector<pair<int, int>>()));
+        shadow.push_back(make_pair(make_pair(arrayName, symb->GetName()), vector<pair<int, int>>()));
         toAdd = &shadow.back();
     }
 
     return toAdd;
 }
 
-static void addShadowFromAnalysis(ParallelDirective *dir, const map<SgSymbol*, ArrayInfo> &currAccesses)
+static void addShadowFromAnalysis(ParallelDirective *dir, const map<DIST::Array*, const ArrayInfo*> &currAccesses)
 {
     if (staticShadowAnalysis == 0)
         return;
@@ -105,19 +100,11 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<SgSymbol*, A
     vector<pair<pair<string, string>, vector<pair<int, int>>>> &shadow = dir->shadowRenew;
     const vector<pair<pair<string, string>, vector<pair<int, int>>>> &across = dir->across;
 
-    for (auto it = currAccesses.begin(); it != currAccesses.end(); ++it)
+    for (auto &access : currAccesses)
     {
-        SgArrayType *arType = isSgArrayType(it->first->type());
-        if (arType == NULL)
-        {
-            __spf_print(1, "ERROR: %d %s: array symbol has a type is not an array\n", __LINE__, convertFileName(__FILE__).c_str());
-            throw(-1);
-        }
+        const int dimSize = access.first->GetDimSize();
+        const ArrayInfo &currInfo = *(access.second);
 
-        const int dimSize = arType->dimension();
-        const ArrayInfo &currInfo = it->second;
-
-        SgSymbol *symb = OriginalSymbol(it->first);
         pair<pair<string, string>, vector<pair<int, int>>> *toAdd = NULL;
         
         bool needBreak = false;
@@ -135,7 +122,7 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<SgSymbol*, A
 
                     if (toAdd == NULL)
                     {
-                        toAdd = findShadowArraysOrCreate(shadow, across, symb);
+                        toAdd = findShadowArraysOrCreate(shadow, across, access.first);
                         if (toAdd == NULL)
                         {
                             needBreak = true;
@@ -159,53 +146,24 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<SgSymbol*, A
     }
 }
 
-static tuple<int, string, string> findInCreated(const DIST::Array *toFind, const map<tuple<int, string, string>, DIST::Array*> &createdArrays)
-{
-    for (auto it = createdArrays.begin(); it != createdArrays.end(); ++it)
-    {
-        if (it->second == toFind)
-            return it->first;
-    }
-
-    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    return tuple<int, string, string>();
-}
-
-static LoopGraph* createDirectiveForLoop(SgForStmt *currentLoop,
-                              MapToArray &mainArray,
-                              map<int, LoopGraph*> &sortedLoopGraph,
-                              const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                              const set<DIST::Array*> &acrossOutArrays)
+static LoopGraph* createDirectiveForLoop(LoopGraph *currentLoop, MapToArray &mainArray,
+                                         map<int, LoopGraph*> &sortedLoopGraph, const set<DIST::Array*> &acrossOutArrays)
 {
     const int pos = mainArray.dimentionPos;
     const pair<int, int> &mainAccess = mainArray.mainAccess;
 
     ParallelDirective *directive = new ParallelDirective();
+#if __SPF
     directive->langType = LANG_F;
-    directive->line = currentLoop->lineNumber();
+#else
+    directive->langType = LANG_C;
+#endif
+    directive->line = currentLoop->lineNum;
     directive->col = 0;
-    directive->file = currentLoop->fileName();
+    directive->file = currentLoop->fileName;
     
-    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
-    {
-        SgAttribute *attr = currentLoop->getAttribute(i);
-        int type = currentLoop->attributeType(i);
-
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
-        {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
-            {
-                fillPrivatesFromComment(data, directive->privates);
-                fillReductionsFromComment(data, directive->reduction);
-                fillReductionsFromComment(data, directive->reductionLoc);
-                fillShadowAcrossFromComment(SHADOW_OP, data, directive->shadowRenew);
-                fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
-                fillRemoteFromComment(data, directive->remoteAccess);
-            }
-        }
-    }
-
+    fillInfoFromDirectives(currentLoop, directive);
+    
     //remote from SHADOW all arrays from REMOTE
     for (auto it = directive->remoteAccess.begin(); it != directive->remoteAccess.end(); ++it)
     {
@@ -221,7 +179,7 @@ static LoopGraph* createDirectiveForLoop(SgForStmt *currentLoop,
         }
     }
 
-    directive->parallel.push_back(currentLoop->symbol()->identifier()); 
+    directive->parallel.push_back(currentLoop->loop->symbol()->identifier()); 
     directive->arrayRef = mainArray.arrayRef;
 
     DIST::Array *tmp = mainArray.arrayRef;
@@ -230,22 +188,21 @@ static LoopGraph* createDirectiveForLoop(SgForStmt *currentLoop,
         for (int i = 0; i < tmp->GetDimSize(); ++i)
         {
             if (i == pos)
-                directive->on.push_back(make_pair(currentLoop->symbol()->identifier(), mainAccess));
+                directive->on.push_back(make_pair(currentLoop->loop->symbol()->identifier(), mainAccess));
             else
                 directive->on.push_back(make_pair("*", make_pair(0, 0)));
         }
     }
          
-    auto itFound = sortedLoopGraph.find(currentLoop->lineNumber());
+    auto itFound = sortedLoopGraph.find(currentLoop->lineNum);
     if (itFound == sortedLoopGraph.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     itFound->second->directive = directive;
     for (auto it = itFound->second->readOpsArray.begin(); it != itFound->second->readOpsArray.end(); ++it)
     {
-        const tuple<int, string, string> &currArray = findInCreated(*it, createdArrays);
-        string shortName = getShortName(currArray);
-        string orignName = THIRD(currArray);
+        string shortName = (*it)->GetName();
+        string orignName = (*it)->GetShortName();
         pair<string, string> key = make_pair(orignName, shortName);
         bool found = false;
         for (int i = 0; i < directive->shadowRenew.size(); ++i)
@@ -271,14 +228,12 @@ static LoopGraph* createDirectiveForLoop(SgForStmt *currentLoop,
             if (found == false)
             {
                 directive->shadowRenew.push_back(make_pair(key, vector<pair<int, int>>()));
-                auto it = createdArrays.find(currArray);
-                if (it == createdArrays.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                const DIST::Array *arrayRef = it->second;
+
+                const DIST::Array *arrayRef = (*it);
                 for (int i = 0; i < arrayRef->GetDimSize(); ++i)
                     directive->shadowRenew.back().second.push_back(make_pair(0, 0));
             }
-        }        
+        }
     }
 
     if (itFound->second->directive)
@@ -302,129 +257,148 @@ static inline bool isUnderAcrossDir(const string &array, const vector<pair<pair<
     return underAcrossDir;
 }
 
-static bool checkForConflict(const map<SgSymbol*, ArrayInfo> &currAccesses, 
-                             const map<string, vector<SgStatement*>> &commonBlocks,
-                             const map<tuple<int, string, string>, DIST::Array*> &createdArrays, 
-                             SgForStmt *currentLoop,
-                             map<tuple<int, string, string>, pair<int, pair<int, int>>> &arrayWriteAcc,
+static inline pair<int, int> getShadowsAcross(const string &array, const int pos, 
+                                              const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
+{
+    pair<int, int> shadows = make_pair(0, 0);
+    for (int i = 0; i < acrossInfo.size(); ++i)
+    {
+        if (acrossInfo[i].first.first == array)
+        {
+            shadows = acrossInfo[i].second[pos];
+            break;
+        }
+    }
+
+    return shadows;
+}
+
+static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAccesses,
+                             const LoopGraph *currentLoop,
+                             map<DIST::Array*, pair<int, pair<int, int>>> &arrayWriteAcc,
                              const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo,
                              set<DIST::Array*> &acrossOutArrays)
 {
     bool hasConflict = false;
     
-    for (auto itArray = currAccesses.begin(); itArray != currAccesses.end(); itArray++)
+    for (auto &itArray : currAccesses)
     {
-        SgSymbol *currArr = itArray->first;
-        SgStatement *declStat = declaratedInStmt(currArr);
+        const ArrayInfo &currInfo = *(itArray.second);
+        const string &arrayName = itArray.first->GetShortName();
 
-        const ArrayInfo &currInfo = itArray->second;
-        const tuple<int, string, string> arrayUniqKey = getUniqName(commonBlocks, declStat, currArr);
-        
-        auto createdIt = createdArrays.find(arrayUniqKey);
-        if (createdIt != createdArrays.end())
+
+        int countOfWriteDims = 0;
+        int lastPosWrite = -1;
+        for (int i = 0; i < currInfo.dimSize; ++i)
         {
-            int countOfWriteDims = 0;
-            int lastPosWrite = -1;
-            for (int i = 0; i < currInfo.dimSize; ++i)
+            if (currInfo.writeOps[i].coefficients.size() != 0)
             {
-                if (currInfo.writeOps[i].coefficients.size() != 0)
-                {
-                    lastPosWrite = i;
-                    countOfWriteDims++;
-                }
-            }
-
-            if (countOfWriteDims > 1)
-            {
-                __spf_print(PRINT_DIR_RESULT, "    array %s was found for loop on line %d\n", currArr->identifier(), currentLoop->lineNumber());
-                __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
-                hasConflict = true;
-                lastPosWrite = -1;
-            }
-
-            if (lastPosWrite == -1)
-            {
-                __spf_print(PRINT_DIR_RESULT, "   no regular writes for array %s on loop\n", currArr->identifier());
-                continue;
-            }
-            else
-            {
-                set<pair<int, int>> uniqAccess;
-                const ArrayOp &acceses = currInfo.writeOps[lastPosWrite];
-                for (int k = 0; k < (int)acceses.coefficients.size(); ++k)
-                    uniqAccess.insert(make_pair(acceses.coefficients[k].first, acceses.coefficients[k].second));
-
-                bool underAcross = isUnderAcrossDir(currArr->identifier(), acrossInfo);
-                if (uniqAccess.size() > 1)
-                {
-                    if (!underAcross)
-                    {
-                        __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
-                        hasConflict = true;
-                        continue;
-                    }
-                    else
-                    {
-                        //TODO: imporve this
-                        //SgExpression *step = currentLoop->step();
-                        pair<int, int> needed;
-                        int init = 0;
-                        for (auto it = uniqAccess.begin(); it != uniqAccess.end(); ++it)
-                        {
-                            if (init == 0)
-                            {
-                                needed = *it;
-                                init = 1;
-                            }
-                            else
-                            {
-                                if ((*it).second == 0)
-                                {
-                                    needed = *it;
-                                    break;
-                                }
-                                else if (needed.second < (*it).second)
-                                    needed = *it;
-                            }
-                        }
-                        arrayWriteAcc.insert(make_pair(arrayUniqKey, make_pair(lastPosWrite, needed)));
-                        acrossOutArrays.insert(createdIt->second);
-                    }
-                }
-                else
-                    arrayWriteAcc.insert(make_pair(arrayUniqKey, make_pair(lastPosWrite, *uniqAccess.begin())));
-            }
-
-            int countOfReadDims = 0;
-            int lastPosRead = -1;
-            for (int i = 0; i < currInfo.dimSize; ++i)
-            {
-                if (currInfo.readOps[i].coefficients.size() != 0)
-                {
-                    lastPosRead = i;
-                    countOfReadDims++;
-                }
-            }
-
-            if (countOfReadDims > 1 && lastPosRead != lastPosWrite && !isUnderAcrossDir(currArr->identifier(), acrossInfo))
-            {
-                __spf_print(PRINT_DIR_RESULT, "    dependencies between read and write\n");
-                hasConflict = true;
-                continue;
+                lastPosWrite = i;
+                countOfWriteDims++;
             }
         }
-    }
 
+        if (countOfWriteDims > 1)
+        {
+            __spf_print(PRINT_DIR_RESULT, "    array %s was found for loop on line %d\n", arrayName.c_str(), currentLoop->lineNum);
+            __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
+            hasConflict = true;
+            lastPosWrite = -1;
+        }
+
+        if (lastPosWrite == -1)
+        {
+            __spf_print(PRINT_DIR_RESULT, "   no regular writes for array %s on loop\n", arrayName.c_str());
+            continue;
+        }
+        else
+        {
+            set<pair<int, int>> uniqAccess;
+            const ArrayOp &acceses = currInfo.writeOps[lastPosWrite];
+            for (int k = 0; k < (int)acceses.coefficients.size(); ++k)
+                uniqAccess.insert(make_pair(acceses.coefficients[k].first, acceses.coefficients[k].second));
+
+            bool underAcross = isUnderAcrossDir(arrayName.c_str(), acrossInfo);
+            if (uniqAccess.size() > 1)
+            {
+                if (!underAcross)
+                {
+                    __spf_print(PRINT_DIR_RESULT, "    conflicted writes\n");
+                    hasConflict = true;
+                    continue;
+                }
+                else
+                {
+                    int loopStep = currentLoop->stepVal;
+
+                    if (loopStep == 0)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    int shiftMin, shiftMax;
+                    bool init = false;
+                    for (auto &access : uniqAccess)
+                    {
+                        if (!init)
+                        {
+                            shiftMin = shiftMax = access.second;
+                            init = true;
+                        }
+                        else
+                        {
+                            shiftMin = std::min(shiftMin, access.second);
+                            shiftMax = std::max(shiftMax, access.second);
+                        }
+                    }
+
+                    pair<int, int> needed;// = (loopStep > 0) ? make_pair(0, shiftMin) : make_pair(0, shiftMax);
+                    pair<int, int> shiftSize = getShadowsAcross(arrayName.c_str(), lastPosWrite, acrossInfo);
+                    if (loopStep > 0)
+                        needed.second = shiftMax - shiftSize.second * loopStep;
+                    else
+                        needed.second = shiftMin - shiftSize.first * loopStep;
+
+                    //TODO: check
+                    for (auto &access : uniqAccess)
+                    {
+                        if (access.second == needed.second)
+                        {
+                            needed.first = access.first;
+                            break;
+                        }
+                    }
+                    if (needed.first == 0)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    arrayWriteAcc.insert(make_pair(itArray.first, make_pair(lastPosWrite, needed)));
+                    acrossOutArrays.insert(itArray.first);
+                }
+            }
+            else
+                arrayWriteAcc.insert(make_pair(itArray.first, make_pair(lastPosWrite, *uniqAccess.begin())));
+        }
+
+        int countOfReadDims = 0;
+        int lastPosRead = -1;
+        for (int i = 0; i < currInfo.dimSize; ++i)
+        {
+            if (currInfo.readOps[i].coefficients.size() != 0)
+            {
+                lastPosRead = i;
+                countOfReadDims++;
+            }
+        }
+
+        if (countOfReadDims > 1 && lastPosRead != lastPosWrite && !isUnderAcrossDir(arrayName, acrossInfo))
+        {
+            __spf_print(PRINT_DIR_RESULT, "    dependencies between read and write\n");
+            hasConflict = true;
+            continue;
+        }
+    }
     return hasConflict;
 }
 
-static void findRegularReads(const ArrayInfo &currInfo, 
-                             const DIST::Arrays<int> &allArrays,
-                             const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                             const tuple<int, string, string> arrayUniqKey,
-                             const int i,
-                             int &maxDim,
-                             MapToArray &mainArray)
+static void findRegularReads(const ArrayInfo &currInfo, DIST::Array *arrayUniqKey, const int i, int &maxDim, MapToArray &mainArray)
 {
     map<pair<int, int>, int> countAcc;
     for (int k = 0; k < (int)currInfo.readOps[i].coefficients.size(); ++k)
@@ -450,10 +424,10 @@ static void findRegularReads(const ArrayInfo &currInfo,
 
     bool needToUpdate = true;
     if (maxDim == -1)
-        maxDim = allArrays.GetArrayByName(getShortName(arrayUniqKey))->GetDimSize();
+        maxDim = arrayUniqKey->GetDimSize();
     else
     {
-        const int currDim = allArrays.GetArrayByName(getShortName(arrayUniqKey))->GetDimSize();
+        const int currDim = arrayUniqKey->GetDimSize();
         if (maxDim < currDim)
             maxDim = currDim;
         else
@@ -462,8 +436,7 @@ static void findRegularReads(const ArrayInfo &currInfo,
 
     if (needToUpdate)
     {
-        mainArray.uniqKey = arrayUniqKey;
-        mainArray.arrayRef = createdArrays.find(arrayUniqKey)->second;
+        mainArray.arrayRef = arrayUniqKey;
         mainArray.dimentionPos = i;
         k = 0;
         for (auto it = countAcc.begin(); it != countAcc.end(); ++it, ++k)
@@ -477,131 +450,86 @@ static void findRegularReads(const ArrayInfo &currInfo,
     }
 }
 
-static bool checkForDependence(const map<SgSymbol*, ArrayInfo> &currAccesses, 
-                               const map<string, vector<SgStatement*>> &commonBlocks,
-                               const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                               const DIST::Arrays<int> &allArrays,
-                               MapToArray &mainArray,
-                               const vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
+static bool checkForDependence(const map<DIST::Array*, const ArrayInfo*> &currAccesses, MapToArray &mainArray)
 {
     bool hasConflict = false;
 
     int maxDim = -1;
-    for (auto itArray = currAccesses.begin(); itArray != currAccesses.end(); itArray++)
+    for (auto &itArray : currAccesses)
     {
-        SgSymbol *currArr = itArray->first;
-        SgStatement *declStat = declaratedInStmt(currArr);
-
-        const ArrayInfo &currInfo = itArray->second;
-        const tuple<int, string, string> arrayUniqKey = getUniqName(commonBlocks, declStat, currArr);
-
-        if (createdArrays.find(arrayUniqKey) != createdArrays.end())
+        const ArrayInfo &currInfo = *(itArray.second);
+        for (int i = 0; i < currInfo.dimSize; ++i)
         {
-            for (int i = 0; i < currInfo.dimSize; ++i)
+            if (currInfo.readOps[i].coefficients.size() != 0)
             {
-                if (currInfo.readOps[i].coefficients.size() != 0)
-                {
-                    // no regular writes on loop, try to find regular reads
-                    if (!mainArray.hasWrite)
-                        findRegularReads(currInfo, allArrays, createdArrays, arrayUniqKey, i, maxDim, mainArray);
-                }
+                // no regular writes on loop, try to find regular reads
+                if (!mainArray.hasWrite)
+                    findRegularReads(currInfo, itArray.first, i, maxDim, mainArray);
             }
         }
     }
-
     return hasConflict;
 }
 
-static void fillArrays(SgForStmt *currentLoop, set<string> &uniqNames)
+static void fillArrays(LoopGraph *loopInfo, set<string> &uniqNames)
 {
-    ParallelDirective *directive = new ParallelDirective();
-    for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
-    {
-        SgAttribute *attr = currentLoop->getAttribute(i);
-        int type = currentLoop->attributeType(i);
+    vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
+    fillAcrossInfoFromDirectives(loopInfo, acrossInfo);
 
-        if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
-        {
-            SgStatement *data = (SgStatement *)(attr->getAttributeData());
-            if (data)
-                fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
-        }
-    }
-
-    for (int i = 0; i < directive->across.size(); ++i)
-        uniqNames.insert(directive->across[i].first.second);
-
-#ifdef _WIN32
-    removeFromCollection(directive);
-#endif
-    delete directive;
+    for (int i = 0; i < acrossInfo.size(); ++i)
+        uniqNames.insert(acrossInfo[i].first.second);
 }
 
-static void fillArraysWithAcrossStatus(SgForStmt *currentLoop, set<string> &uniqNames)
+static void fillArraysWithAcrossStatus(LoopGraph *loopInfo, set<string> &uniqNames)
 {
-    fillArrays(currentLoop, uniqNames);
+    fillArrays(loopInfo, uniqNames);
 
-    SgStatement *st = currentLoop->lexNext();
-    while (isSgForStmt(st))
+    LoopGraph *curr = loopInfo;
+    while (curr->perfectLoop > 1)
     {
-        fillArrays(isSgForStmt(st), uniqNames);
-        st = st->lexNext();
+        curr = curr->childs[0];
+        fillArrays(curr, uniqNames);
     }
 
-    st = currentLoop->lexPrev();
-    while (isSgForStmt(st))
+    LoopGraph *prev = loopInfo->parent;
+    while (prev && prev->perfectLoop > 1)
     {
-        fillArrays(isSgForStmt(st), uniqNames);
-        st = st->lexPrev();
-    }
+        fillArrays(prev, uniqNames);
+        prev = prev->parent;
+    }   
 }
 
-void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
-                              std::vector<ParallelRegion*> regions,
-                              const map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                              const map<string, vector<SgStatement*>> &commonBlocks,
-                              map<int, LoopGraph*> &sortedLoopGraph,
+void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfos,
+                              std::vector<ParallelRegion*> regions, map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
-    for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
+    for (auto &loopInfo : loopInfos)
     {
-        ParallelRegion *currReg = getRegionByLine(regions, it->first->fileName(), it->first->lineNumber());
+        ParallelRegion *currReg = getRegionByLine(regions, loopInfo.first->fileName.c_str(), loopInfo.first->lineNum);
         if (currReg == NULL)
         {
-            __spf_print(PRINT_PROF_INFO, "Skip loop on file %s and line %d\n", it->first->fileName(), it->first->lineNumber());
+            __spf_print(PRINT_PROF_INFO, "Skip loop on file %s and line %d\n", loopInfo.first->fileName.c_str(), loopInfo.first->lineNum);
             continue;
         }
 
         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
         DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
-
-        SgForStmt *currentLoop = it->first;
-        const map<SgSymbol*, ArrayInfo> &currAccesses = it->second;
-
+        
         vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
-        for (int i = 0; i < currentLoop->numberOfAttributes(); ++i)
-        {
-            SgAttribute *attr = currentLoop->getAttribute(i);
-            
-            int type = currentLoop->attributeType(i);
-            if (type == SPF_ANALYSIS_DIR || type == SPF_PARALLEL_DIR || type == SPF_TRANSFORM_DIR)
-            {
-                SgStatement *data = (SgStatement *)(attr->getAttributeData());
-                if (data)
-                    fillShadowAcrossFromComment(ACROSS_OP, data, acrossInfo);
-            }
-        }
-
+        fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
+        
         bool hasConflict = false;
         // uniqKey -> pair<position of access, pair<acces>> ///write acceses ///
-        map<tuple<int, string, string>, pair<int, pair<int, int>>> arrayWriteAcc;
+        map<DIST::Array*, pair<int, pair<int, int>>> arrayWriteAcc;
         // uniqKey -> ///read acceses ///
-        map<tuple<int, string, string>, vector<pair<int, int>>> arrayReadAcc;
+        map<DIST::Array*, vector<pair<int, int>>> arrayReadAcc;
         set<DIST::Array*> acrossOutArrays;
 
-        __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", currentLoop->lineNumber());
+        __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", loopInfo.first->lineNum);
+                
+        const map<DIST::Array*, const ArrayInfo*> &currAccesses = loopInfo.second;
         // find conflict and fill arrayWriteAcc
-        hasConflict = checkForConflict(currAccesses, commonBlocks, createdArrays, currentLoop, arrayWriteAcc, acrossInfo, acrossOutArrays);
+        hasConflict = checkForConflict(currAccesses, loopInfo.first, arrayWriteAcc, acrossInfo, acrossOutArrays);
 
         if (hasConflict)
             __spf_print(PRINT_DIR_RESULT, "    has conflict\n");
@@ -615,12 +543,11 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
             mainArray.mainAccess;
 
             set<string> uniqNamesWithAcross;
-            fillArraysWithAcrossStatus(currentLoop, uniqNamesWithAcross);
+            fillArraysWithAcrossStatus(loopInfo.first, uniqNamesWithAcross);
 
             if (arrayWriteAcc.size() == 1)
             {
-                mainArray.uniqKey = arrayWriteAcc.begin()->first;
-                mainArray.arrayRef = createdArrays.find(mainArray.uniqKey)->second;
+                mainArray.arrayRef = arrayWriteAcc.begin()->first;
                 mainArray.dimentionPos = arrayWriteAcc.begin()->second.first;
                 mainArray.mainAccess = arrayWriteAcc.begin()->second.second;
 
@@ -640,21 +567,21 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                 for (auto i = arrayWriteAcc.begin(); i != arrayWriteAcc.end(); ++i, ++k)
                 {
                     const auto uniqKey = i->first;
-                    const string &uniqName = getShortName(uniqKey);
+                    const string &uniqName = uniqKey->GetName();
 
                     //ACROSS arrays have priority state for all nested loops!
                     if (uniqNamesWithAcross.size() > 0)
                         if (uniqNamesWithAcross.find(uniqName) == uniqNamesWithAcross.end())
                             continue;
                     
-                    const int currDim = allArrays.GetArrayByName(uniqName)->GetDimSize();
+                    const int currDim = i->first->GetDimSize();
                     if (currDim < minDim)
                     {
                         minDim = currDim;
                         posDim = k;
                     }
-                    __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", THIRD(i->first).c_str(), i->second.second.first, i->second.second.second);
-                    accesses.push_back(make_pair(getShortName(uniqKey), i->second));
+                    __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", uniqKey->GetShortName().c_str(), i->second.second.first, i->second.second.second);
+                    accesses.push_back(make_pair(uniqKey->GetName(), i->second));
                 }
 
                 if (posDim == -1)
@@ -710,16 +637,15 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
                 {
                     k = 0;
                     pair<int, pair<int, int>> mainInfo;
-                    for (auto i = arrayWriteAcc.begin(); i != arrayWriteAcc.end(); ++i, ++k)
+                    for (auto array = arrayWriteAcc.begin(); array != arrayWriteAcc.end(); array++, ++k)
                     {
                         if (k == posDim)
                         {
-                            mainArray.uniqKey = i->first;                            
-                            mainArray.arrayRef = createdArrays.find(mainArray.uniqKey)->second;
-                            mainArray.dimentionPos = i->second.first;                           
-                            mainArray.mainAccess = i->second.second;
+                            mainArray.arrayRef = array->first;
+                            mainArray.dimentionPos = array->second.first;
+                            mainArray.mainAccess = array->second.second;
 
-                            mainInfo = i->second;
+                            mainInfo = array->second;
                             break;
                         }
                     }
@@ -739,11 +665,12 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
             // find dependencies and fill mainArray if no regular writes found
             // now OmegaTest is used for searching dependencies 
             if (!hasConflict)
-                hasConflict = checkForDependence(currAccesses, commonBlocks, createdArrays, allArrays, mainArray, acrossInfo);
+                hasConflict = checkForDependence(currAccesses, mainArray);
 
             if (!hasConflict &&
                 mainArray.arrayRef != NULL && mainArray.dimentionPos != -1 && 
-                !sortedLoopGraph[currentLoop->lineNumber()]->hasLimitsToParallel())
+                !sortedLoopGraph[loopInfo.first->lineNum]->hasLimitsToParallel() &&
+                loopInfo.first->lineNum > 0)
             {
                 DIST::Array *mainArrayOfLoop = mainArray.arrayRef;
                 //change array to template if ACROSS was not found
@@ -776,18 +703,18 @@ void createParallelDirectives(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &
 
                     mainArray.arrayRef = *templateLink.begin();
                     mainArray.mainAccess = std::make_pair(rules[mainArray.dimentionPos].first * mainArray.mainAccess.first, rules[mainArray.dimentionPos].second + mainArray.mainAccess.second);
-                    mainArray.dimentionPos = links[mainArray.dimentionPos];                    
+                    mainArray.dimentionPos = links[mainArray.dimentionPos];
                 }
 
                 ParallelDirective *parDir = NULL;
-                LoopGraph *loop = createDirectiveForLoop(currentLoop, mainArray, sortedLoopGraph, createdArrays, acrossOutArrays);
+                LoopGraph *loop = createDirectiveForLoop(loopInfo.first, mainArray, sortedLoopGraph, acrossOutArrays);
                 parDir = loop->directive;
                 if (parDir != NULL)
                 {
                     parDir->arrayRef2 = mainArrayOfLoop;
                     addShadowFromAnalysis(parDir, currAccesses);
 
-                    loop->directiveForLoop = new ParallelDirective(loop->directive);
+                    loop->directiveForLoop = new ParallelDirective(*loop->directive);
                 }
                 __spf_print(PRINT_DIR_RESULT, "   directive created\n");
             }
@@ -872,15 +799,70 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
+
+
+
+
+static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
+                                    const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                    DIST::GraphCSR<int, double, attrType> &reducedG,
+                                    DIST::Arrays<int> &allArrays)
+{
+    bool ok = true;
+    if (templ == NULL)
+        return false;
+
+    for (auto &array : links)
+    {
+        set<DIST::Array*> realArrayRef;
+        getRealArrayRefs(array.first, array.first, realArrayRef, arrayLinksByFuncCalls);
+
+        vector<vector<int>> AllLinks(realArrayRef.size());
+        int currL = 0;
+        for (auto &array : realArrayRef)
+        {
+            reducedG.FindLinksBetweenArrays(allArrays, array, templ, AllLinks[currL++]);
+            bool noneLink = true;
+            for (auto &elem : AllLinks[currL - 1])
+            {
+                if (elem != -1)
+                {
+                    noneLink = false;
+                    break;
+                }
+            }
+            if (noneLink == false)
+                break;
+        }
+
+        if (isAllRulesEqual(AllLinks))
+            array.second = AllLinks[0];
+
+        if (ok == false)
+            break;
+    }
+    return ok;
+}
+
 static bool checkCorrectness(const ParallelDirective &dir, 
                              const vector<pair<DIST::Array*, const DistrVariant*>> &distribution, 
                              DIST::GraphCSR<int, double, attrType> &reducedG,
                              DIST::Arrays<int> &allArrays,
-                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
+                             const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                             const set<DIST::Array*> &allArraysInLoop,
+                             vector<Messages> &messages, const int loopLine)
 {    
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
+    map<DIST::Array*, vector<int>> arrayLinksWithTmpl;
+
+    const DistrVariant *distRuleTempl = NULL;
+
+    for (auto &array : allArraysInLoop)
+        arrayLinksWithTmpl[array] = vector<int>();
+
     vector<int> links;
+    bool ok = true;
 
     for (int i = 0; i < distribution.size(); ++i)
     {
@@ -889,6 +871,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             distArray = &distribution[i];
             for (int z = 0; z < distArray->first->GetDimSize(); ++z)
                 links.push_back(z);
+            distRuleTempl = distribution[i].second;
             break;
         }
     }
@@ -924,6 +907,19 @@ static bool checkCorrectness(const ParallelDirective &dir,
 
             if (found)
             {
+                if (dir.arrayRef2->GetDimSize() != links.size())
+                {
+                    __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
+                                    dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+
+                    char buf[256];
+                    sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
+                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                    messages.push_back(Messages(ERROR, loopLine, buf));
+
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
                 vector<dist> derivedRule(dir.arrayRef2->GetDimSize());
                 for (int z = 0; z < links.size(); ++z)
                 {
@@ -939,6 +935,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 DistrVariant *tmp = new DistrVariant(derivedRule);
                 newDistArray->second = tmp;
                 distArray = newDistArray;
+                distRuleTempl = distribution[i].second;
                 break;
             }
         }
@@ -947,8 +944,10 @@ static bool checkCorrectness(const ParallelDirective &dir,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
+    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays);
+    
+    // check main array
     const vector<dist> &rule = distArray->second->distRule;
-    bool ok = true;
     for (int i = 0; i < rule.size(); ++i)
     {
         if (rule[i] == dist::BLOCK)
@@ -961,6 +960,37 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     break;
                 }
             }
+        }
+    }
+
+    for (auto &array : arrayLinksWithTmpl)
+    {
+        if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
+        {
+            vector<dist> derivedRule(array.first->GetDimSize());
+
+            for (int z = 0; z < array.second.size(); ++z)
+            {
+                if (array.second[z] != -1)
+                    derivedRule[z] = distRuleTempl->distRule[array.second[z]];
+                else
+                    derivedRule[z] = dist::NONE;
+            }
+
+            for (int i = 0; i < derivedRule.size(); ++i)
+            {
+                if (derivedRule[i] == dist::BLOCK)
+                {
+                    if (dir.on[array.second[i]].first == "*")
+                    {
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+
+            if (ok == false)
+                break;
         }
     }
 
@@ -1167,35 +1197,27 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *current = loopGraph[i];
+        currProcessing.second = current->loop;
+
         if (current->directive && current->hasLimitsToParallel() == false && (current->region == currParReg))
         {
             if (current->perfectLoop >= 1)
             {
                 bool topCheck = isOnlyTopPerfect(current, distribution);
                 ParallelDirective *parDirective = current->directive;
-                if (topCheck == false)
+                /* if (topCheck == false)
                 {  //try to unite loops and recheck
-                    bool result = false;
-                    /*try
-                    {
-                        result = createNestedLoops(current, depInfoForLoopGraph, messages);
-                    }
-                    catch (...)
-                    {
-                        __spf_print(1, "exception occurred during loop tighten\n");
-                        result = true;
-                    }*/
-
+                    bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
                     if (result)
                     {
                         parDirective = current->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(current, distribution);
                     }
-                }
+                } */
 
                 if (topCheck)
                 {
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls))
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, current->getAllArraysInLoop(), messages, current->lineNum))
                         addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId);
                 }
                 else

@@ -89,21 +89,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
     }
     int funcNum = file->numberOfFunctions();
 
-#if INSERT_AS_COMMENT
-    map<int, vector<string>> toInsertMap;
-    for (int i = 0; i < toInsert.size(); ++i)
-    {
-        auto it = toInsertMap.find(toInsert[i].first);
-        if (it == toInsertMap.end())
-        {
-            vector<string> tmp;
-            tmp.push_back(toInsert[i].second.first);
-            toInsertMap.insert(it, make_pair(toInsert[i].first, tmp));
-        }
-        else
-            it->second.push_back(toInsert[i].second.first);
-    }
-#else
     map<int, vector<vector<Expression*>>> toInsertMap;
     for (int i = 0; i < toInsert.size(); ++i)
     {
@@ -117,10 +102,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         else
             it->second.push_back(toInsert[i].second.second);
     }
-    removeDoubleRedistribute(toInsertMap);
 
+    removeDoubleRedistribute(toInsertMap);
     vector<SgStatement*> toDel;
-#endif    
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -130,6 +114,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         int numSt = 0;
         do
         {
+            currProcessing.second = st;
             if (numSt != 0)
                 st = st->lexNext();
 
@@ -148,25 +133,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                 auto it = toInsertMap.find(st->lineNumber());
                 if (it != toInsertMap.end())
                 {
-#if INSERT_AS_COMMENT
-                    string newComm = "";
-                    for (int i1 = 0; i1 < it->second.size(); ++i1)
-                        newComm += it->second[i1];
-
-                    if (extractDir == false)
-                        st->addComment(newComm.c_str());
-                    else
-                    {
-                        char *str = CMNT_STRING(BIF_CMNT(st->thebif));
-                        string source(str);
-                        removeSubstrFromStr(source, newComm);
-                        if (source.size() == 0)
-                            str[0] = '\0';
-                        else
-                            sprintf(str, "%s", source.c_str());
-                    }
-                    toInsertMap.erase(it);
-#else
                     if (extractDir == false)
                     {
                         for (int i1 = 0; i1 < it->second.size(); ++i1)
@@ -184,11 +150,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                         }
                     }
                     toInsertMap.erase(it);
-#endif
                 }
             }
 
-#if !INSERT_AS_COMMENT
             if (extractDir)
             {
                 const int var = st->variant();
@@ -213,21 +177,16 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     }
                 }
             }
-#endif
             numSt++;
         } while (st != lastNode);
 
-
-#if !INSERT_AS_COMMENT
         if (extractDir)
         {
             for (int k = 0; k < toDel.size(); ++k)
                 toDel[k]->deleteStmt();
         }
-#endif
     }
 }
-#undef INSERT_AS_COMMENT
 
 void removeDvmDirectives(SgFile *file)
 {
@@ -241,6 +200,7 @@ void removeDvmDirectives(SgFile *file)
 
         while (st != lastNode)
         {
+            currProcessing.second = st;
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -268,9 +228,9 @@ void removeDvmDirectives(SgFile *file)
         toDel[k]->deleteStmt();
 }
 
-static inline string genTamplateDelc(const DIST::Array *templ)
+static inline string genTamplateDelc(const DIST::Array *templ, const bool common = true)
 {
-    string templDecl = "!DVM$ TEMPLATE, COMMON :: ";
+    string templDecl = (common) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     const vector<pair<int, int>> &sizes = templ->GetSizes();
 
     templDecl += templ->GetShortName() + "(";
@@ -473,13 +433,11 @@ static vector<pair<pair<string, string>, vector<pair<int, int>>>>
 }
 
 static void createShadowSpec(const vector<LoopGraph*> &loopGraph, 
-                             vector<pair<pair<string, string>, vector<pair<int, int>>>> &shadowSpecs)
+                             vector<vector<pair<pair<string, string>, vector<pair<int, int>>>>> &shadowSpecs)
 {
     for (int i = 0; i < loopGraph.size(); ++i)
     {
-        for (int k = 0; k < loopGraph[i]->childs.size(); ++k)
-            createShadowSpec(loopGraph[i]->childs, shadowSpecs);
-
+        createShadowSpec(loopGraph[i]->childs, shadowSpecs);
         if (loopGraph[i]->directive == NULL)
             continue;
         if (loopGraph[i]->directive->shadowRenew.size() == 0 && loopGraph[i]->directive->across.size() == 0)
@@ -489,28 +447,11 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
         if (loopGraph[i]->directive->across.size() != loopGraph[i]->directive->acrossShifts.size())
             continue;
 
-        if (shadowSpecs.size() == 0)
-        {
-            shadowSpecs = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
+        vector<pair<pair<string, string>, vector<pair<int, int>>>> fullShadow = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
+        vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
 
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> tmp;
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
-
-            uniteVectors(shadowSpecs, fullAcross, tmp);
-            shadowSpecs = tmp;
-        }
-        else
-        {
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> tmp;
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullShadow = createFullShadowSpec(loopGraph[i]->directive->shadowRenew, loopGraph[i]->directive->shadowRenewShifts);
-            vector<pair<pair<string, string>, vector<pair<int, int>>>> fullAcross = createFullShadowSpec(loopGraph[i]->directive->across, loopGraph[i]->directive->acrossShifts);
-
-            uniteVectors(shadowSpecs, fullShadow, tmp);
-            shadowSpecs = tmp;
-            tmp.clear();
-            uniteVectors(shadowSpecs, fullAcross, tmp);
-            shadowSpecs = tmp;
-        }
+        shadowSpecs.push_back(fullShadow);
+        shadowSpecs.push_back(fullAcross);
     }
 }
 
@@ -522,6 +463,7 @@ static inline void extractComments(SgStatement *where, const string &what)
     sprintf(str, "%s", source.c_str());
 }
 
+//NOTE: this function inserts also local templates for parallel loop with out distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                         map<string, string> templateDeclInIncludes,
                                         const vector<string> &distrRules, const DIST::Arrays<int> &allArrays, 
@@ -548,7 +490,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
             const set<DIST::Array*> &arrays = allArrays.GetArrays();
             for (auto &array : arrays)
             {
-                if (array->isTemplate())
+                if (array->isTemplate() && !array->isLoopArray())
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     string templDecl = genTamplateDelc(array);
@@ -568,6 +510,52 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     }
 
                     if (needToInsert && includedToThisFile.find(fullDecl) == includedToThisFile.end())
+                    {
+                        if (extractDir)
+                            extractComments(nextSt, fullDecl);
+                        else
+                            nextSt->addComment(fullDecl.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    const set<DIST::Array*> &arrays = allArrays.GetArrays();
+    set<DIST::Array*> loopArrays;
+    for (auto &array : arrays)
+        if (array->isTemplate() && array->isLoopArray())
+            loopArrays.insert(array);
+    
+    if (loopArrays.size())
+    {
+        for (int i = 0; i < modulesAndFuncs.size(); ++i)
+        {
+            SgStatement *st = modulesAndFuncs[i];
+
+            string name = "";
+            if (st->variant() == PROG_HEDR || (st->variant() == FUNC_HEDR))
+                name = ((SgFuncHedrStmt*)st)->name().identifier();
+            else if (st->variant() == PROC_HEDR)
+                name = ((SgProcHedrStmt*)st)->name().identifier();
+
+            if (name == "")
+                continue;
+
+            for (auto &array : loopArrays)
+            {
+                const auto &location = array->GetLocation();
+                if (location.second == name)
+                {
+                    int templIdx = findTeplatePosition(array, dataDir);
+                    string templDecl = genTamplateDelc(array, false);
+                    string templDist = genTemplateDistr(array, distrRules, regionId, templIdx);
+                    string templDyn = "";
+
+                    string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));
+                    SgStatement *nextSt = st->lexNext();
+
+                    if (includedToThisFile.find(fullDecl) == includedToThisFile.end())
                     {
                         if (extractDir)
                             extractComments(nextSt, fullDecl);
@@ -790,24 +778,25 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 
                 if (dynamicArrays.size() > 0)
                 {
-                    vector<pair<pair<string, string>, vector<pair<int, int>>>> shadowSpecs;
+                    vector<vector<pair<pair<string, string>, vector<pair<int, int>>>>> shadowSpecsAll;
                     for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-                    {
                         if (it->second.size() > 0)
-                            createShadowSpec(it->second, shadowSpecs);
-                    }
+                            createShadowSpec(it->second, shadowSpecsAll);
 
-                    for (int i = 0; i < shadowSpecs.size(); ++i)
+                    for (auto &spec : shadowSpecsAll)
                     {
-                        auto dynArray = dynamicArraysStr.find(shadowSpecs[i].first.second);
-                        if (dynArray == dynamicArraysStr.end())
-                            continue;
-                         
-                        set<DIST::Array*> realArrayRefs;
-                        getRealArrayRefs(dynArray->second, dynArray->second, realArrayRefs, arrayLinksByFuncCalls);
+                        for (int i = 0; i < spec.size(); ++i)
+                        {
+                            auto dynArray = dynamicArraysStr.find(spec[i].first.second);
+                            if (dynArray == dynamicArraysStr.end())
+                                continue;
 
-                        for (auto &array : realArrayRefs)
-                            array->ExtendShadowSpec(shadowSpecs[i].second);
+                            set<DIST::Array*> realArrayRefs;
+                            getRealArrayRefs(dynArray->second, dynArray->second, realArrayRefs, arrayLinksByFuncCalls);
+
+                            for (auto &array : realArrayRefs)
+                                array->ExtendShadowSpec(spec[i].second);
+                        }
                     }
                 }
                 
@@ -895,7 +884,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
 
                 for (auto &array : declaratedDistrArrays)
                 {
-                    const vector<pair<int, int>> &currSpec = array->GetShadowSpec();
+                    const vector<pair<int, int>> currSpec = array->GetShadowSpec();
                     bool needToGen = false;
 
                     for (auto &elem : currSpec)
@@ -1053,11 +1042,13 @@ void insertDistributeDirsToParallelRegions(const vector<ParallelRegionLines> *cu
             if (insertAfter->variant() == CONTROL_END)
                 controlParentAfter = controlParentAfter->controlParent();
 
-            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+            while (insertBefore->lexPrev()->variant() == DVM_PARALLEL_ON_DIR || insertBefore->lexPrev()->variant() == DVM_REDISTRIBUTE_DIR)
                 insertBefore = insertBefore->lexPrev();
-
+            
             while (insertAfter->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
                 insertAfter = insertAfter->lexPrev();
+            while (insertAfter->lexNext()->variant() == DVM_REDISTRIBUTE_DIR)
+                insertAfter = insertAfter->lexNext();
 
             while (insertBefore && isSgExecutableStatement(insertBefore) == NULL)
                 insertBefore = insertBefore->lexNext();

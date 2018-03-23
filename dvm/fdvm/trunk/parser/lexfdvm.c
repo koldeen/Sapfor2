@@ -426,6 +426,7 @@ struct Keylist keys[] = {
 /*        {"extended", EXTENDED},*/
 /*        {"extend", EXTEND},*/
 	{"external", EXTERNAL},
+        {"files",FILES},
 	{"find", FIND},
         {"firstprivate", OMPDVM_FIRSTPRIVATE},/*OMP*/
         {"forall", FORALL},
@@ -562,7 +563,8 @@ struct Keylist keys[] = {
 /*        {"singleprocess", SINGLEPROCESS},*/
 /*        {"skippasteof", SKIPPASTEOF},*/
         {"stage", STAGE},
-        {"static", STATIC}, 
+        {"static", STATIC},
+        {"status", STATUS}, 
         {"stat", STAT}, 
 	{"stop", STOP},
 /*        {"submachine", SUBMACHINE},*/
@@ -579,6 +581,7 @@ struct Keylist keys[] = {
 	{"type", TYPE},
 /*        {"unlock", UNLOCK},*/              
 	{"use", USE},
+        {"varlist", VARLIST},
 	{"virtual", VIRTUAL},
         {"wait", WAIT},
         {"wgt_block", WGT_BLOCK},
@@ -2317,6 +2320,18 @@ analyz()
             }  else if (eqn(8, nextch, "critical")) { /*OMP*/
                  stkey = OMPDVM_CRITICAL;
                  nextch += 8;
+            }  else if (eqn(9, nextch, "cp_create")) { 
+                 stkey = CP_CREATE;
+                 nextch += 9;
+            }  else if (eqn(7, nextch, "cp_load")) { 
+                 stkey = CP_LOAD;
+                 nextch += 7;
+            }  else if (eqn(7, nextch, "cp_save")) { 
+                 stkey = CP_SAVE;
+                 nextch += 7;
+            }  else if (eqn(7, nextch, "cp_wait")) { 
+                 stkey = CP_WAIT;
+                 nextch += 7;
             }  else
                 stkey = UNKNOWN;
              break;

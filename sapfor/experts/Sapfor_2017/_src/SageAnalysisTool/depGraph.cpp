@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <map>
 #include <algorithm>
 
 #ifdef _WIN32
@@ -269,7 +270,6 @@ void depNode::displayDep() const
 ///////////////////////////////////////////////////////////////////////////////////////
 // Here are the methods of depGraph
 ///////////////////////////////////////////////////////////////////////////////////////
-
 depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string> &privVars) : privVars(privVars)
 {
     SgForStmt *doloop;
@@ -293,13 +293,13 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         induc = NULL;
         currentDepGraph = this;
         perfectNestedLevel = doloop->isPerfectLoopNest();
-        // We now compute the dependence Graph;  
+        // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
 #if _WIN32 && NDEBUG
         if (passDone == 2)
             throw boost::thread_interrupted();
-#endif
-        computeLoopDependencies(func, arrayRef, tsymb, induc);
+#endif        
+        computeLoopDependencies(func, arrayRef, tsymb, induc);      
         scalarRefAnalysis(loop);
     }
     else
@@ -533,8 +533,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
             {
             case T_INT:
                 return  IADDREDUCTION;
+            case T_COMPLEX:
             case T_FLOAT:
                 return SADDREDUCTION;
+            case T_DCOMPLEX:
             case T_DOUBLE:
                 return DADDREDUCTION;
             default:
@@ -545,10 +547,44 @@ int lookForOperationKind(PT_ACCESSARRAY access)
             {
             case T_INT:
                 return IMULREDUCTION;
+            case T_COMPLEX:
             case T_FLOAT:
                 return SMULREDUCTION;
+            case T_DCOMPLEX:
             case T_DOUBLE:
                 return DMULREDUCTION;
+            default:
+                return UNKNOWREDUCTION;
+            }
+        case AND_OP:
+            switch (sy->type()->variant())
+            {
+            case T_BOOL:
+                return ANDREDUCTION;
+            default:
+                return UNKNOWREDUCTION;
+            }
+        case OR_OP:
+            switch (sy->type()->variant())
+            {
+            case T_BOOL:
+                return ORREDUCTION;
+            default:
+                return UNKNOWREDUCTION;
+            }
+        case EQV_OP:
+            switch (sy->type()->variant())
+            {
+            case T_BOOL:
+                return EQVREDUCTION;
+            default:
+                return UNKNOWREDUCTION;
+            }
+        case NEQV_OP:
+            switch (sy->type()->variant())
+            {
+            case T_BOOL:
+                return NEQVREDUCTION;
             default:
                 return UNKNOWREDUCTION;
             }
@@ -559,8 +595,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 {
                 case T_INT:
                     return  IMAXREDUCTION;
+                case T_COMPLEX:
                 case T_FLOAT:
                     return  SMAXREDUCTION;
+                case T_DCOMPLEX:
                 case T_DOUBLE:
                     return DMAXREDUCTION;
                 }
@@ -571,8 +609,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 {
                 case T_INT:
                     return  IMINREDUCTION;
+                case T_COMPLEX:
                 case T_FLOAT:
                     return  SMINREDUCTION;
+                case T_DCOMPLEX:
                 case T_DOUBLE:
                     return DMINREDUCTION;
                 }
@@ -588,6 +628,20 @@ int lookForOperationKind(PT_ACCESSARRAY access)
 // does not compute yet the kind of the reduction
 //
 
+static bool setNewKind(int &reductionKind, const int newKind)
+{
+    bool needBreak = false;
+
+    if (reductionKind == UNKNOWREDUCTION)
+        reductionKind = newKind;
+    else if (reductionKind != newKind)
+    {
+        reductionKind = UNKNOWREDUCTION;
+        needBreak = true;
+    }
+    return needBreak;
+}
+
 int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStatement *loop)
 {
     PT_ACCESSARRAY  access2, lastaccess, firstaccess;
@@ -595,15 +649,20 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
     if (!loop)
     {
         Message("No loop given in isItReduction", 0);
-        return 0;
+        return UNKNOWREDUCTION;
     }
     if (!access1)
     {
         Message("internal error in isItReduction", 0);
-        return 0;
+        return UNKNOWREDUCTION;
     }
     // check how many accesses to the variable;
+
+    std::map<SgStatement*, set<PT_ACCESSARRAY>> accessesForStat;
+        
     firstaccess = (PT_ACCESSARRAY)arrayset->getElement(firstref);
+    accessesForStat[firstaccess->stmt].insert(firstaccess);
+
     nbaccess = 1;
     lastaccess = NULL;
     for (j = firstref + 1; (j < arrayset->size()); j++)
@@ -615,25 +674,141 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
         {
             nbaccess++;
             lastaccess = access2;
+            accessesForStat[lastaccess->stmt].insert(lastaccess);
         }
     }
 
-    if (nbaccess != 2)
-        return 0;
-    if (!lastaccess)
-        return 0;
-    if (firstaccess->stmt != lastaccess->stmt)
-        return 0;
-    // must be an assign statement;
-    if (!isSgAssignStmt(firstaccess->stmt))
-        return 0;
-    if (firstaccess->rw && lastaccess->rw)
-        return 0;
-    //look for the reduction operations;
-    if (firstaccess->rw)
-        return lookForOperationKind(lastaccess);
-    else
-        return lookForOperationKind(firstaccess);
+    //united to controlParent (IF, LOGIF_NODE, ...)
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+
+        bool done = false;
+        for (auto ACC = accessesForStat.begin(); ACC != accessesForStat.end(); ACC++)
+        {
+            for (auto ACC1 = accessesForStat.begin(); ACC1 != accessesForStat.end(); ACC1++)
+            {
+                if (ACC1->first == ACC->first)
+                    continue;
+
+                if (ACC1->first->variant() == ASSIGN_STAT)
+                {
+                    if (ACC1->first->controlParent() == ACC->first)
+                    {
+                        ACC->second.insert(ACC1->second.begin(), ACC1->second.end());
+                        accessesForStat.erase(ACC1);
+                        done = true;
+                        changes = true;
+                        break;
+                    }
+                }
+
+                if (ACC1->first->variant() == ASSIGN_STAT)
+                {
+                    if (ACC1->first->controlParent() == ACC1->first)
+                    {
+                        ACC1->second.insert(ACC->second.begin(), ACC->second.end());
+                        accessesForStat.erase(ACC);
+                        done = true;
+                        changes = true;
+                        break;
+                    }
+                }
+            }
+
+            if (done)
+                break;
+        }
+    }
+
+    for (auto &ACC : accessesForStat)
+    {
+        auto &elem = ACC.second;
+
+        // more then 2 accesses in one statement
+        if (elem.size() != 2)
+            return UNKNOWREDUCTION;
+        // must be an assign statement or IF/LOGIF_NODE;
+        if (ACC.first->variant() != ASSIGN_STAT &&
+            ACC.first->variant() != IF_NODE &&
+            ACC.first->variant() != LOGIF_NODE)
+        {
+            return UNKNOWREDUCTION;
+        }
+        firstaccess = *elem.begin();
+        lastaccess = *elem.rbegin();
+        // one of them must be read and another one - write
+        if (firstaccess->rw && lastaccess->rw)
+            return UNKNOWREDUCTION;
+    }
+
+    int reductionKind = UNKNOWREDUCTION;
+    for (auto &ACC : accessesForStat)
+    {
+        auto &elem = ACC.second;
+        firstaccess = *elem.begin();
+        lastaccess = *elem.rbegin();
+
+        if (ACC.first->variant() == ASSIGN_STAT)
+        {
+            int kind;
+            //look for the reduction operations;
+            if (firstaccess->rw)
+                kind = lookForOperationKind(lastaccess);
+            else
+                kind = lookForOperationKind(firstaccess);
+
+            if (setNewKind(reductionKind, kind))
+                break;
+        } // IF_NODE, LOGIF_NODE
+        else
+        {
+            if (firstaccess->stmt->variant() == ASSIGN_STAT)
+                std::swap(firstaccess, lastaccess);
+
+            SgExpression *cond = firstaccess->stmt->expr(0);
+            if (cond->lhs() == NULL || cond->rhs() == NULL)
+                return UNKNOWREDUCTION;
+
+            switch (cond->variant())
+            {
+            case LT_OP:
+            case LE_OP:
+                if (cond->lhs()->variant() == VAR_REF && cond->lhs()->symbol() == firstaccess->var->symbol())
+                {
+                    if (setNewKind(reductionKind, IMAXREDUCTION))
+                        return reductionKind;
+                }
+                else if (cond->rhs()->variant() == VAR_REF && cond->rhs()->symbol() == firstaccess->var->symbol())
+                {
+                    if (setNewKind(reductionKind, IMINREDUCTION))
+                        return reductionKind;
+                }
+                else
+                    return UNKNOWREDUCTION;
+                break;
+            case GT_OP:
+            case GE_OP:
+                if (cond->lhs()->variant() == VAR_REF && cond->lhs()->symbol() == firstaccess->var->symbol())
+                {
+                    if (setNewKind(reductionKind, IMINREDUCTION))
+                        return reductionKind;
+                }
+                else if (cond->rhs()->variant() == VAR_REF && cond->rhs()->symbol() == firstaccess->var->symbol())
+                {
+                    if (setNewKind(reductionKind, IMAXREDUCTION))
+                        return reductionKind;
+                }
+                else
+                    return UNKNOWREDUCTION;
+                break;
+            default:
+                return UNKNOWREDUCTION;
+            }
+        }
+    }
+    return reductionKind;
 }
 
 //
@@ -698,26 +873,22 @@ void depGraph::scalarRefAnalysis(SgStatement *loop)
                     {
                         if (thereisawrite >= 1)
                         {
-                            if (isItPrivate(i, access1, arrayRef, loop))
+                            int tp;
+                            if (tp = isItReduction(i, access1, arrayRef, loop))
+                                addAnEdge(access1->stmt, NULL, access1->var, NULL, REDUCTIONDEP, tp, NULL, NULL, 0);
+                            else if (isItPrivate(i, access1, arrayRef, loop))
                                 addAnEdge(access1->stmt, NULL, access1->var, NULL, PRIVATEDEP, 0, NULL, NULL, 0);
-                            else
-                            {
-                                int tp;
-                                if (tp = isItReduction(i, access1, arrayRef, loop))
-                                    addAnEdge(access1->stmt, NULL, access1->var, NULL, REDUCTIONDEP, tp, NULL, NULL, 0);
-                                else // scalar dep;
-                                    addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);
-                            }
+                            else // scalar dep;
+                                addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);                            
                         }
                         else //drop it;
                             addAnEdge(access1->stmt, NULL, access1->var, NULL, SCALARDEP, 0, NULL, NULL, 0);
                     }
-                    // else nothing to do this is safe......;
+                    // else nothing to do this is safe...;
                 }
             }
         }
     }
-
 }
 
 

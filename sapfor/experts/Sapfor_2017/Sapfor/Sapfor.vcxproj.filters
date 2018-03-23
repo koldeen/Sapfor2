@@ -37,9 +37,6 @@
     <Filter Include="Файлы исходного кода\ParallelizationRegions">
       <UniqueIdentifier>{f6496c18-040c-4db6-b4a8-4f2316a63375}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Файлы исходного кода\LoopConverter">
-      <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Файлы исходного кода\VisualizerCalls">
       <UniqueIdentifier>{1490a947-91cd-454f-9f02-3b5e3e613f45}</UniqueIdentifier>
     </Filter>
@@ -54,6 +51,12 @@
     </Filter>
     <Filter Include="Файлы исходного кода\Utils">
       <UniqueIdentifier>{a809578a-f5be-4f27-9fa5-fa4ec4af7355}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\CodeConverter">
+      <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\Predictor">
+      <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -118,7 +121,7 @@
       <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
     </ClCompile>
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp">
-      <Filter>Файлы исходного кода\LoopConverter</Filter>
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
     <ClCompile Include="..\_src\VisualizerCalls\get_information.cpp">
       <Filter>Файлы исходного кода\VisualizerCalls</Filter>
@@ -220,7 +223,7 @@
       <Filter>Файлы исходного кода\VerificationCode</Filter>
     </ClCompile>
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp">
-      <Filter>Файлы исходного кода\LoopConverter</Filter>
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
     <ClCompile Include="..\_src\utils.cpp">
       <Filter>Файлы исходного кода\Utils</Filter>
@@ -236,6 +239,12 @@
     </ClCompile>
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp">
       <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
+      <Filter>Файлы исходного кода\Predictor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -288,7 +297,7 @@
       <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h">
-      <Filter>Файлы исходного кода\LoopConverter</Filter>
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h">
       <Filter>Файлы исходного кода\VisualizerCalls</Filter>
@@ -300,7 +309,7 @@
       <Filter>Файлы исходного кода\ExpressionTransform</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h">
-      <Filter>Файлы исходного кода\LoopConverter</Filter>
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h">
       <Filter>Файлы исходного кода\GraphLoop</Filter>
@@ -340,6 +349,15 @@
     </ClInclude>
     <ClInclude Include="..\_src\SapforData.h">
       <Filter>Файлы исходного кода</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Predictor\PredictScheme.h">
+      <Filter>Файлы исходного кода\Predictor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\version.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

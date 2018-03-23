@@ -36,6 +36,8 @@
 #include "PrivateAnalyzer/private_analyzer.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
+#include "LoopConverter/array_assign_to_loop.h"
+#include "Predictor/PredictScheme.h"
 
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -50,7 +52,6 @@
 #include "dvm.h"
 #include "transform.h"
 #include "PassManager.h"
-#include "SapforData.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -59,6 +60,8 @@ int PASSES_DONE[EMPTY_PASS];
 bool PASSES_DONE_INIT = false;
 
 int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
+
+#include "SapforData.h"
 
 static SgProject *project = NULL;
 
@@ -117,6 +120,14 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
     currM.push_back(Messages(WARR, line, message));
 }
 
+extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message)
+{
+    vector<Messages> &currM = getMessagesForFile(fileName);
+    __spf_print(1, "NOTE: line %d: %s\n", line, message);
+
+    currM.push_back(Messages(NOTE, line, message));
+}
+
 static bool isDone(const int curr_regime)
 {
     if (PASSES_DONE[curr_regime] == 0)
@@ -131,6 +142,25 @@ static bool isDone(const int curr_regime)
 
     return false;
 }
+
+static void updateStatsByLine(const int id)
+{ 
+    statsByLine[id].clear();
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        statsByLine[id][make_pair(st->fileName(), st->lineNumber())] = st;
+
+}
+
+static void updateStatsExprs(const int id, const string &file)
+{
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        sgStats[st->thebif] = make_pair(file, id);
+    for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
+        sgExprs[ex->thellnd] = make_pair(file, id);
+}
+
+pair<SgFile*, SgStatement*> currProcessing;
+map<string, pair<SgFile*, int>> files;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {        
@@ -165,6 +195,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #if _WIN32
     double timeForPass = omp_get_wtime();
 #endif
+    
+    sgStats.clear();
+    sgExprs.clear();
+    for (int i = n - 1; i >= 0; --i)
+    {
+        SgFile *file = &(project.file(i));
+        current_file_id = i;
+        current_file = file;
+        updateStatsByLine(current_file_id);
+        updateStatsExprs(current_file_id, file->filename());
+    }
+
+    currProcessing.first = NULL; currProcessing.second = NULL;
     for (int i = n - 1; i >= 0; --i)
     {
 #if _WIN32 && NDEBUG
@@ -173,8 +216,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
-        const char *file_name = file->filename();
 
+        currProcessing.first = file; currProcessing.second = NULL;
+
+        const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
         if (curr_regime == CONVERT_TO_ENDDO)
@@ -188,6 +233,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             try
             {
+                //save current state
+                if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+                    states.push_back(new SapforState());
+
                 auto itFound = loopGraph.find(file_name);
                 auto itFound2 = allFuncInfo.find(file_name);
                 loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), DATA_DISTR, itFound2->second,
@@ -203,8 +252,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
-                declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
-            UniteNestedDirectives(file, itFound->second);
+                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+
+            currProcessing.second = NULL;
+            UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
         {
@@ -308,7 +359,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
+            currProcessing.second = NULL;
 
+            //clear shadow specs
+            for (auto &array : declaratedArrays)
+                array.second.first->ClearShadowSpecs();
+            
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
@@ -381,7 +437,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == PREPROC_SPF)
-            preprocess_spf_dirs(file, getMessagesForFile(file_name));
+        {
+            bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)
@@ -403,6 +463,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
+        else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
+            arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
@@ -495,13 +557,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                             auto currShadowP = shadow;
                             int numActiveSh = 0;
+
                             for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
                             {
                                 SgExpression *elem = iter->lhs();
+                                //if shadow has CORNER
+                                if (elem->variant() == ARRAY_OP)
+                                    elem = elem->lhs();
+
                                 if (elem->variant() == ARRAY_REF)
                                 {
                                     if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
                                     {
+                                        DIST::Array *currArray = NULL;
+                                        for (int i = 0; i < elem->numberOfAttributes() && currArray == NULL; ++i)
+                                            if (elem->attributeType(i) == ARRAY_REF)
+                                                currArray = (DIST::Array *)(elem->getAttribute(i)->getAttributeData());                                        
+
+                                        if (currArray == NULL)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        vector<pair<int, int>> toDel;
+                                        for (SgExpression *list = elem->lhs(); list; list = list->rhs())
+                                            toDel.push_back(make_pair(list->lhs()->lhs()->valueInteger(), list->lhs()->rhs()->valueInteger()));                                        
+                                        currArray->RemoveShadowSpec(toDel);
+
                                         if (currShadowP == shadow)
                                             shadow->setLhs(iter->rhs());
                                         else
@@ -532,8 +612,28 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == MACRO_EXPANSION)
-            doMacroExpand(file, getMessagesForFile(file_name));
-
+            doMacroExpand(file, getMessagesForFile(file_name));    
+        else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound != loopGraph.end())
+                reverseCreatedNestedLoops(file->filename(), itFound->second);
+        }
+        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
+            convertFromAssignToLoop(file, getMessagesForFile(file_name));
+        else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
+            restoreAssignsFromLoop(file);
+        else if (curr_regime == PREDICT_SCHEME)
+        {
+            auto itFound = loopGraph.find(file_name);
+            if (itFound == loopGraph.end())
+            {
+                auto tmp = vector<LoopGraph*>();
+                processFileToPredict(file, tmp);
+            }
+            else
+                processFileToPredict(file, itFound->second);
+        }
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -604,6 +704,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
+    currProcessing.first = NULL; currProcessing.second = NULL;
     if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)
@@ -686,7 +787,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         set<int> idxToDel;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
-            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0 || parallelRegions[z]->GetReducedGraph().GetNumberOfE() == 0)
+            if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
                 idxToDel.insert(z);
@@ -737,12 +838,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         // Debug:
         printParInfo(allFuncInfo);
-    }
-    else if (curr_regime == LOOP_GRAPH)
-    {
-        if (keepFiles)
-            printLoopGraph("_loopGraph.txt", loopGraph);
-        checkCountOfIter(loopGraph, SPF_messages);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -795,25 +890,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #endif
                 SgFile *file = &(project.file(i));
                 current_file_id = i;
+                current_file = file;
+
                 auto funcForFile = allFuncInfo.find(file->filename());
                 if (funcForFile != allFuncInfo.end())
                     PrivateAnalyzer(file, funcForFile->second);
             }
         }
     }
-    /*else if (curr_regime == SUBST_EXPR)
-    {
-        SgStatement *mainUnit = findMainUnit(&project);
-        if (mainUnit)
-            expressionAnalyzer(mainUnit);
-            Private_Vars_Analyzer(mainUnit);
-        else
-            ;//TODO: add warning or call for graphs
-    }*/
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
 
+        set<DIST::Array*> arraysDone;
+        
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
@@ -822,6 +912,53 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
+                //recalculate array sizes after expression substitution
+                for (auto &array : allArrays.GetArrays())
+                {
+                    auto itF = arraysDone.find(array);
+                    if (itF == arraysDone.end())
+                    {
+                        itF = arraysDone.insert(itF, array);
+                        Symbol *symb = array->GetDeclSymbol();
+                        if (symb)
+                        {
+                            auto &sizeInfo = array->GetSizes();
+                            bool needToUpdate = false;
+                            for (auto &elem : sizeInfo)
+                            {
+                                if (elem.first == elem.second)
+                                {
+                                    needToUpdate = true;
+                                    break;
+                                }
+                            }
+
+                            if (needToUpdate)
+                            {
+                                auto &declInfo = array->GetDeclInfo();
+                                bool wasSelect = false;
+                                for (auto &elem : declInfo)
+                                {
+                                    auto it = files.find(elem.first);
+                                    if (it != files.end())
+                                    {
+                                        CurrentProject->file(it->second.second);
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+                                if (!wasSelect)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                SgStatement *decl = declaratedInStmt(symb);
+                                vector<pair<int, int>> sizes;
+                                getArraySizes(sizes, symb, decl);
+                                array->SetSizes(sizes);
+                            }
+                        }
+                    }
+                }
+
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
             }
@@ -852,7 +989,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         __spf_print(1, "All lines in project %d\n", allLineSum);
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
+    {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
+
+        checkCountOfIter(loopGraph, SPF_messages);
+        if (keepFiles)
+            printLoopGraph("_loopGraph.txt", loopGraph);
+    }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
@@ -1021,8 +1164,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
     if (project == NULL)
         project = createProject(proj_name);
-
-    //Run dep passes anaysis before main pass
+        
+    //Run dep passes analysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
     if (itDep != passesDependencies.end())
         for (int k = 0; k < itDep->second.size(); ++k)
@@ -1061,36 +1204,34 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
         for (int i = 0; i < lastI; ++i)
         {
+            //if specific variant number is requested, skip all others
+            if (genSpecificVar >= 0 && i != genSpecificVar) 
+                continue;
+
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
+
             runAnalysis(*project, INSERT_PARALLEL_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
-
-            if (staticPrivateAnalysis)
-                runPass(PRIVATE_ANALYSIS_SPF, proj_name, folderName);
-
-            runPass(CREATE_REMOTES, proj_name, folderName);
-            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
 
             runPass(REVERT_SUBST_EXPR, proj_name, folderName);
+
+            runPass(CREATE_REMOTES, proj_name, folderName);
+
+            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+
+            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
+            runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
         }
     }
         break;
-    case CREATE_NESTED_LOOPS:
-        runAnalysis(*project, curr_regime, true, "", folderName);
-#ifdef _ARBU
-        //pass 18 CREATE_NESTED_LOOPS is not used as a pass, so can do here an unparse
-        if (folderName) {
-            runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
-        } else {
-            __spf_print(1, "Can not run UNPARSE_FILE after CREATE_NESTED_LOOPS - folder name is null\n");
-        }
-#endif
-        break;
+    case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
@@ -1112,6 +1253,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         else
             __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
         break;
+    case PRIVATE_ANALYSIS_SPF:
+        if (staticPrivateAnalysis)
+            runAnalysis(*project, curr_regime, false);
+        break;
     default:
         runAnalysis(*project, curr_regime, false);
         break;
@@ -1131,6 +1276,7 @@ int main(int argc, char**argv)
     {
         setPassValues();
         consoleMode = 1;
+        QUALITY = 100;
         printVersion();
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
@@ -1156,6 +1302,11 @@ int main(int argc, char**argv)
                 {
                     i++;
                     curr_regime = atoi(argv[i]);
+                }
+                else if (string(curr_arg) == "-q")
+                {
+                    i++;
+                    QUALITY = atoi(argv[i]);
                 }
                 else if (curr_arg[1] == 't')
                 {
@@ -1212,6 +1363,13 @@ int main(int argc, char**argv)
                     keepSpfDirs = 1;
                 else if (string(curr_arg) == "-allVars")
                     genAllVars = 1;
+                else if (string(curr_arg) == "-Var" || string(curr_arg) == "-var")
+                {
+                    //User sees variants starting from 1, internally they start from 0
+                    i++;
+                    genAllVars = 1;
+                    genSpecificVar = atoi(argv[i]) - 1;
+                }
                 else if (string(curr_arg) == "-F")
                 {
                     i++;

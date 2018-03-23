@@ -7,9 +7,6 @@ endif()
 project(${project})
 message("processing ${project}")
 
-set(project SageUtils)
-set(CMAKE_CXX_STANDARD 11)
-
 # Read pathes to external sapfor directories
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../paths.txt")
     message("Found paths.txt, using custom paths.")
@@ -33,14 +30,19 @@ set(SOURCE_LIB
         ./src/SageUtils.cpp
         ./src/SageTransformUtils.cpp
         ./src/decodeStmtVariant.cpp
+        ./src/LineReorderRecord.cpp
+        ./src/LineReorderer.cpp
         )
 set(EXT_PROJECTS_DIR ${PROJECT_SOURCE_DIR}/ext)
 
 include_directories(./include)
+include_directories(../CommonLib/include)
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Werror")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_library(SageUtils STATIC ${SOURCE_LIB})
 
-
-add_subdirectory(../libSage ${CMAKE_CURRENT_BINARY_DIR}/libSage)
-add_subdirectory(../libSage++ ${CMAKE_CURRENT_BINARY_DIR}/libSage++)
-target_link_libraries(SageUtils libSage libSage++)
+#add_subdirectory(../libSage ${CMAKE_CURRENT_BINARY_DIR}/libSage)
+#add_subdirectory(../libSage++ ${CMAKE_CURRENT_BINARY_DIR}/libSage++)
+#target_link_libraries(SageUtils libSage libSage++)

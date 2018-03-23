@@ -4021,8 +4021,7 @@ int *dist;
 
 static int omegaInitialized = 0;
 
-void
-initializeOmega()
+void initializeOmega()
 {
     int i;
     if (omegaInitialized)

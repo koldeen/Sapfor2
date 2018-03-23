@@ -187,17 +187,19 @@ vector<vector<vector<int>>> LoopTransformMerge::mergeGroups(
             stmt = stmt->lexNext();
         }
     }
-    SgForStmt *hostLoopOuter, *hostLoopInner;
+//    SgForStmt *hostLoopOuter;
+    SgForStmt *hostLoopInner;
     SgStatement *hostLoopInnerControlEnd;
-    SgForStmt *mergedLoopOuter, *mergedLoopInner;
+//    SgForStmt *mergedLoopOuter;
+    SgForStmt *mergedLoopInner;
     SgStatement *mergedLoopInnerControlEnd;
 
     for (uint host = 0; host < outerForLoopNodes.size(); ++host) {
         for (uint merged = host + 1; merged < outerForLoopNodes.size(); ++merged) {
-            hostLoopOuter = outerForLoopNodes.at(host);
+//            hostLoopOuter = outerForLoopNodes.at(host);
             hostLoopInner = innerForLoopNodes.at(host);
 
-            mergedLoopOuter = outerForLoopNodes.at(merged);
+//            mergedLoopOuter = outerForLoopNodes.at(merged);
             mergedLoopInner = innerForLoopNodes.at(merged);
 
             hostLoopInnerControlEnd = getLastLoopStatement(hostLoopInner);

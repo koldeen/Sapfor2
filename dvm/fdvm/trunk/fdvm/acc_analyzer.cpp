@@ -10,19 +10,16 @@ using std::map;
 using std::list;
 using std::make_pair;
 using std::set;
-
-#define __NEW_ALG 0
+using std::pair;
 
 #ifdef __SPF
-inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
+static void getText(const char *s, const char *t, int num, SgStatement *stmt, string &toPrint, int &line)
 {
-    string toPrint;
-
     char buf[1024];
-    sprintf(buf, s, t);    
+    sprintf(buf, s, t);
     toPrint = buf;
 
-    int line = stmt->lineNumber();
+    line = stmt->lineNumber();
     if (line == 0)
     {
         line = 1;
@@ -32,8 +29,65 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
             toPrint += " for this loop";
         }
     }
-    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());
+
+    if (stmt->variant() == SPF_ANALYSIS_DIR)
+        toPrint += " for this loop";
+}
+
+static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
+{    
+    bool ret = false;
+    if (stmt == NULL)
+        return ret;
+
+    int var = stmt->variant();    
+    if (var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR)
+        stmt = stmt->lexNext();
+        
+    SgForStmt *forS = isSgForStmt(stmt);
+    if (forS)
+    {
+        SgStatement *end = forS->lastNodeOfStmt();
+        for (; stmt != end && !ret; stmt = stmt->lexNext())
+            if (stmt->variant() == FOR_NODE)
+                if (isSgForStmt(stmt)->symbol()->identifier() == symb)
+                    ret = true;
+    }
+
+    return ret;
+}
+
+//from SapforData.h
+extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
+
+inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
+{
+    //TODO: is it correct?
+    if (stmt == NULL)
+        return;
+
+    if (num == PRIVATE_ANALYSIS_REMOVE_VAR)
+    {
+        auto nextStat = statsByLine[current_file_id].find(make_pair(stmt->fileName(), stmt->lineNumber()));
+        if (nextStat != statsByLine[current_file_id].end())
+        {
+            if (ifVarIsLoopSymb(nextStat->second, t))
+                return;
+        }
+    }
     
+    string toPrint;
+    int line;
+    getText(s, t, num, stmt, toPrint, line);
+    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());    
+}
+
+inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
+{
+    string toPrint;
+    int line;
+    getText(s, t, num, stmt, toPrint, line);
+    printLowLevelNote(stmt->fileName(), line, toPrint.c_str());
 }
 #endif
 
@@ -87,7 +141,8 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"sqrt", 1, { {1, NULL, INTRINSIC_IN} } },
     {"int", 1, { {1, NULL, INTRINSIC_IN} } },
     {"iabs", 1, { {1, NULL, INTRINSIC_IN} } },
-    {"fnpr", 4, { {1, NULL, INTRINSIC_IN},{ 2, NULL, INTRINSIC_IN },{ 3, NULL, INTRINSIC_IN },{ 4, NULL, INTRINSIC_IN } } }
+    {"fnpr", 4, { {1, NULL, INTRINSIC_IN},{ 2, NULL, INTRINSIC_IN },{ 3, NULL, INTRINSIC_IN },{ 4, NULL, INTRINSIC_IN } } },
+    {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
 static bool isIntrinsicFunctionNameACC(char* name)
@@ -97,6 +152,16 @@ static bool isIntrinsicFunctionNameACC(char* name)
 #else
     return false;
 #endif
+}
+
+int SwitchFile(int file_id)
+{
+    if (file_id == current_file_id)
+        return file_id;
+    int stored_file_id = current_file_id;
+    current_file_id = file_id;
+    current_file = &(CurrentProject->file(current_file_id));
+    return stored_file_id;
 }
 
 SgStatement * lastStmtOfDoACC(SgStatement *stdo)
@@ -117,13 +182,20 @@ RE: st = st->lastNodeOfStmt();
 
 }
 
+#ifdef __SPF
+bool IsPureProcedureACC(SgSymbol* s)
+#else
 static bool IsPureProcedureACC(SgSymbol* s)
+#endif
 {
     // is a copied function
     SgSymbol *shedr = NULL;
-//TODO: rewrite it for SAPFOR
+
 #ifndef __SPF 
     shedr = GetProcedureHeaderSymbol(s);
+#else
+    if (ATTR_NODE(s))
+        shedr = (GRAPHNODE(s)->symb);
 #endif
     if (shedr)
         return(shedr->attributes() & PURE_BIT);
@@ -622,12 +694,9 @@ void Private_Vars_Project_Analyzer()
     graph_node* node = node_list;
     while (node) {
         if (node->st_header) {
-            int stored_file_id = current_file_id;
-            current_file_id = node->file_id;
-            CurrentProject->file(current_file_id);
+            int stored_file_id = SwitchFile(node->file_id);
             Private_Vars_Function_Analyzer(node->st_header);
-            CurrentProject->file(stored_file_id);
-            current_file_id = stored_file_id;
+            SwitchFile(stored_file_id);
         }
         node = node->next;
     }
@@ -986,8 +1055,14 @@ AnalysedCallsList* CallData::getLinkToCall(SgExpression* e, SgStatement* s, Comm
         SgFunctionCallExp* f = isSgFunctionCallExp(e);
         if (isStatementFunction(f->funName()))
             return (AnalysedCallsList*)(-2);
-        g = GRAPHNODE(f->funName());
-        header = isSgFuncHedrStmt(GRAPHNODE(f->funName())->st_header);
+        if (ATTR_NODE(f->funName()) != NULL)
+            g = GRAPHNODE(f->funName());
+        if (g == NULL) {
+            is_correct = "no header for function";
+            failed_proc_name = f->funName()->identifier();
+            return (AnalysedCallsList*)(-1);
+        }
+        header = isSgFuncHedrStmt(g->st_header);
         name = f->funName();
         isFun = true;
     }
@@ -999,22 +1074,13 @@ AnalysedCallsList* CallData::getLinkToCall(SgExpression* e, SgStatement* s, Comm
     AnalysedCallsList* prev = currentProcedure;
     currentProcedure = p = AddHeader(header, isFun, name, g->file_id);
     if (!p->isIntrinsic) {
-        
-        int storedFile = current_file_id;
-        int newFile = g->file_id;
-        if (storedFile != newFile) {
-            CurrentProject->file(newFile);
-            current_file_id = newFile;
-        }
+        int stored = SwitchFile(g->file_id);
         
         ControlFlowGraph* graph = GetControlFlowGraphWithCalls(false, header, this, commons);
         //if (graph == NULL)
             //failed_proc_name = name->identifier();
         
-        if (storedFile != newFile) {
-            CurrentProject->file(storedFile);
-            current_file_id = storedFile;
-        }
+        SwitchFile(stored);
         
         AssociateGraphWithHeader(header, graph);
         commons->MarkEndOfCommon(p);
@@ -1023,7 +1089,7 @@ AnalysedCallsList* CallData::getLinkToCall(SgExpression* e, SgStatement* s, Comm
     return p;
 }
 
-static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, ControlFlowItem** last, CommonData* commons)
+static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, ControlFlowItem** last, CommonData* commons, SgStatement* os)
 {
     if (e == NULL) {
         *last = NULL;
@@ -1032,11 +1098,12 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
     SgFunctionCallExp* f = isSgFunctionCallExp(e);
     if (f) {
         ControlFlowItem* head = new ControlFlowItem(NULL, NULL, currentProcedure, calls->getLinkToCall(e, NULL, commons));
+        head->setOriginalStatement(os);
         ControlFlowItem* curl = head;
         head->setFunctionCall(f);
         ControlFlowItem* l1, *l2;
-        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs(), calls, &l1, commons);
-        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->rhs(), calls, &l2, commons);
+        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs(), calls, &l1, commons, os);
+        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->rhs(), calls, &l2, commons, os);
         *last = head;
         if (tail2 != NULL) {
             l2->AddNextItem(head);
@@ -1052,11 +1119,12 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
     f = isSgFunctionCallExp(e->lhs());
     if (f) {
         ControlFlowItem* head = new ControlFlowItem(NULL, NULL, currentProcedure, calls->getLinkToCall(e->lhs(), NULL, commons));
+        head->setOriginalStatement(os);
         head->setFunctionCall(f);
         ControlFlowItem* l1, *l2, *l3;
-        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs()->lhs(), calls, &l1, commons);
-        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->lhs()->rhs(), calls, &l2, commons);
-        ControlFlowItem* tail3 = GetFuncCallsForExpr(e->rhs(), calls, &l3, commons);
+        ControlFlowItem* tail1 = GetFuncCallsForExpr(e->lhs()->lhs(), calls, &l1, commons, os);
+        ControlFlowItem* tail2 = GetFuncCallsForExpr(e->lhs()->rhs(), calls, &l2, commons, os);
+        ControlFlowItem* tail3 = GetFuncCallsForExpr(e->rhs(), calls, &l3, commons, os);
         *last = head;
         if (tail2 != NULL) {
             l2->AddNextItem(head);
@@ -1064,7 +1132,7 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
         }
         if (tail1 != NULL) {
             l1->AddNextItem(head);
-            head = l1;
+            head = tail1;
         }
         if (tail3 != NULL) {
             (*last)->AddNextItem(tail3);
@@ -1072,14 +1140,14 @@ static ControlFlowItem* GetFuncCallsForExpr(SgExpression* e, CallData* calls, Co
         }
         return head;
     }
-    return GetFuncCallsForExpr(e->rhs(), calls, last, commons);
+    return GetFuncCallsForExpr(e->rhs(), calls, last, commons, os);
 }
 
 static ControlFlowItem* AddFunctionCalls(SgStatement* st, CallData* calls, ControlFlowItem** last, CommonData* commons)
 {
-    ControlFlowItem* retv = GetFuncCallsForExpr(st->expr(0), calls, last, commons);
+    ControlFlowItem* retv = GetFuncCallsForExpr(st->expr(0), calls, last, commons, st);
     ControlFlowItem* l2 = NULL;
-    ControlFlowItem* second = GetFuncCallsForExpr(st->expr(1), calls, &l2, commons);
+    ControlFlowItem* second = GetFuncCallsForExpr(st->expr(1), calls, &l2, commons, st);
     if (retv == NULL) {
         retv = second;
         *last = l2;
@@ -1089,7 +1157,7 @@ static ControlFlowItem* AddFunctionCalls(SgStatement* st, CallData* calls, Contr
         *last = l2;
     }
     ControlFlowItem* l3 = NULL;
-    ControlFlowItem* third = GetFuncCallsForExpr(st->expr(2), calls, &l3, commons);
+    ControlFlowItem* third = GetFuncCallsForExpr(st->expr(2), calls, &l3, commons, st);
     if (retv == NULL) {
         retv = third;
         *last = l3;
@@ -1142,6 +1210,8 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
         case PRINT_STAT:
         case READ_STAT:
         case WRITE_STAT:
+        case ALLOCATE_STMT:
+        case DEALLOCATE_STMT:
         {
             ControlFlowItem* cur = new ControlFlowItem(*stmt, NULL, currentProcedure, (*stmt)->variant() == PROC_STAT ? calls->getLinkToCall(NULL, *stmt, commons) : NULL);
             if (*pred != NULL)
@@ -1213,7 +1283,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
         case FOR_NODE:
         {
             SgForStmt* fst = isSgForStmt(*stmt);
-#if __SPF && __NEW_ALG
+#if __SPF
             SgStatement *p = NULL;
             for (int i = 0; i < fst->numberOfAttributes(); ++i)
             {
@@ -1232,7 +1302,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             SgExpression* pPl = NULL;
             bool pl_flag = true;
             if (isParLoop){
-#if __SPF && __NEW_ALG
+#if __SPF
                 SgExpression* el = p->expr(0);
 #else
                 SgExpression* el = p->expr(1);
@@ -1272,29 +1342,6 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             ControlFlowItem* loop_d = new ControlFlowItem(add, gotoEnd, currentProcedure);
             loop_d->setOriginalStatement(fst);
             ControlFlowItem* loop_emp = new ControlFlowItem(NULL, loop_d, currentProcedure);
-            if (isParLoop){
-#if __SPF && __NEW_ALG
-                // all loop has depth == 1 ? is it correct?
-                int k = 1;
-#else
-                SgExpression* par_des = p->expr(2);
-                int k = 0;
-                while (par_des != NULL && par_des->lhs() != NULL){
-                    k++;
-                    par_des = par_des->rhs();
-                }
-#endif
-                loops->setParallelDepth(k, pl, p, pPl, pl_flag);
-            }
-
-            if (loops->isLastParallel()){
-                SgExpression* ex = loops->getPrivateList();
-                emptyBeforeDo->MakeParloopStart();
-                bool f;
-                SgExpression* e = loops->getExpressionToModifyPrivateList(&f);
-                emptyBeforeDo->setPrivateList(ex, loops->GetParallelStatement(), e, f);
-                loop_d->MakeParloopEnd();
-            }
             SgVarRefExp* doName = (isSgVarRefExp((*stmt)->expr(2)));
             int lbl = -1;
             if (!isEndDo){
@@ -1305,6 +1352,29 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
                     lbl = end->label()->id();
             }
             loops->addLoop(lbl, doName ? doName->symbol() : NULL, loop_emp, emptyAfterDo);
+            if (isParLoop) {
+#if __SPF
+                // all loop has depth == 1 ? is it correct?
+                int k = 1;
+#else
+                SgExpression* par_des = p->expr(2);
+                int k = 0;
+                while (par_des != NULL && par_des->lhs() != NULL) {
+                    k++;
+                    par_des = par_des->rhs();
+                }
+#endif
+                loops->setParallelDepth(k, pl, p, pPl, pl_flag);
+            }
+
+            if (loops->isLastParallel()) {
+                SgExpression* ex = loops->getPrivateList();
+                emptyBeforeDo->MakeParloopStart();
+                bool f;
+                SgExpression* e = loops->getExpressionToModifyPrivateList(&f);
+                emptyBeforeDo->setPrivateList(ex, loops->GetParallelStatement(), e, f);
+                loop_d->MakeParloopEnd();
+            }
             if (isEndDo){
                 ControlFlowItem* body;
                 if ((body = getControlFlowList(fst->body(), NULL, &last, stmt, loops, calls, commons)) == NULL)
@@ -1420,7 +1490,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
     }
 }
 
-ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL)
+ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL), hasBeenAnalyzed(false)
 {
     int n = 0;
     ControlFlowItem* orig = list;
@@ -1473,13 +1543,21 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                 CBasicBlock* tmp2 = start;
                 for (int i = 1; i < target->getBBno() || i < list->getBBno(); i++)
                 {
-                    if (i < list->getBBno())
+                    if (i < list->getBBno()) {
                         tmp2 = tmp2->getLexNext();
-                    if (i < target->getBBno())
+                        if (!tmp2)
+                            break;
+                    }
+                    if (i < target->getBBno()) {
                         tmp1 = tmp1->getLexNext();
+                        if (!tmp1)
+                            break;
+                    }
                 }
-                tmp1->addToPrev(tmp2);
-                tmp2->addToSucc(tmp1);
+                if (tmp1 && tmp2) {
+                    tmp1->addToPrev(tmp2);
+                    tmp2->addToSucc(tmp1);
+                }
 //            }
         }
         list = list->getNext();
@@ -1572,8 +1650,120 @@ void CBasicBlock::markAsReached()
     }
 }
 
+bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool first)
+{
+    int stored_fid = SwitchFile(lstart->getProc()->file_id);
+    ControlFlowItem* lend;
+    if (is_correct != NULL)
+    {
+        const char* expanded_log;
+        char* tmp = NULL;
+        if (failed_proc_name)
+        {
+            tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
+            strcpy(tmp, is_correct);
+            strcat(tmp, ": ");
+            strcat(tmp, failed_proc_name);
+            expanded_log = tmp;
+        }
+        else
+            expanded_log = is_correct;
+
+        Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
+        if (tmp)
+            delete[] tmp;
+
+    }
+    else
+    {
+        while ((lend = p->containsParloopEnd()) == NULL)
+        {
+            p->PrivateAnalysisForAllCalls();
+            p = p->getLexNext();
+            ControlFlowItem* mstart;
+            if ((mstart = p->containsParloopStart()) != NULL)
+            {
+                CBasicBlock* mp = p;
+                if (first) {
+                    if (!ProcessOneParallelLoop(mstart, of, mp, false)) {
+                        SwitchFile(stored_fid);
+                        return false;
+                    }
+                }
+            }
+        }
+        CBasicBlock* afterParLoop = p->getLexNext()->getLexNext();
+        VarSet* l_pri = ControlFlowGraph(true, false, lstart, lend).getPrivate();
+        if (is_correct != NULL)
+        {
+            const char* expanded_log;
+            char* tmp = NULL;
+            if (failed_proc_name)
+            {
+                tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
+                strcpy(tmp, is_correct);
+                strcat(tmp, ": ");
+                strcat(tmp, failed_proc_name);
+                expanded_log = tmp;
+            }
+            else
+                expanded_log = is_correct;
+
+            Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
+            if (tmp)
+                delete[] tmp;
+            SwitchFile(stored_fid);
+            return false;
+        }
+        VarSet* p_pri = new VarSet();
+        SgExpression* ex_p = lstart->getPrivateList();
+        if (ex_p != NULL)
+            ex_p = ex_p->lhs();
+        for (; ex_p != NULL; ex_p = ex_p->rhs())
+        {
+            SgVarRefExp* pr;
+            if (pr = isSgVarRefExp(ex_p->lhs()))
+            {
+                CScalarVarEntryInfo* tmp = new CScalarVarEntryInfo(pr->symbol());
+                p_pri->addToSet(tmp, NULL);
+                delete tmp;
+            }
+            SgArrayRefExp* ar;
+            if (ar = isSgArrayRefExp(ex_p->lhs()))
+            {
+                CArrayVarEntryInfo* tmp = new CArrayVarEntryInfo(ar->symbol(), ar);
+                p_pri->addToSet(tmp, NULL);
+                delete tmp;
+            }
+        }
+
+        VarSet* live = afterParLoop->getLiveIn();
+        VarSet* adef = afterParLoop->getDef();
+        VarSet* pri = new VarSet();
+        VarSet* tmp = new VarSet();
+        VarSet* delay = new VarSet();
+        tmp->unite(l_pri, false);
+
+        for (VarItem* exp = tmp->getFirst(); exp != NULL; exp = tmp->getFirst())
+        {
+            if (!afterParLoop->IsVarDefinedAfterThisBlock(exp->var, false))
+                delay->addToSet(exp->var, NULL);
+            tmp->remove(exp->var);
+        }
+        delete tmp;
+        pri->unite(l_pri, false);
+        pri->minus(live);
+        privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
+        of->SetDelayedData(privateDelayedList);
+    }
+    SwitchFile(stored_fid);
+    return true;
+}
+
 void ControlFlowGraph::privateAnalyzer()
 {
+    if (hasBeenAnalyzed)
+        return;
     CBasicBlock* p = first;
     /*
     printf("GRAPH:\n");
@@ -1588,10 +1778,7 @@ void ControlFlowGraph::privateAnalyzer()
     }
     */
     p = first;
-
-    //if (is_correct) {
     liveAnalysis();
-    //}
     while (1) 
     {
         ControlFlowItem* lstart, *lend;
@@ -1599,95 +1786,14 @@ void ControlFlowGraph::privateAnalyzer()
         p->PrivateAnalysisForAllCalls();
         if ((lstart = p->containsParloopStart()) != NULL) 
         {
-            if (is_correct != NULL) 
-            {
-                const char* expanded_log;
-                char* tmp = NULL;
-                if (failed_proc_name) 
-                {
-                    tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
-                    strcpy(tmp, is_correct);
-                    strcat(tmp, ": ");
-                    strcat(tmp, failed_proc_name);
-                    expanded_log = tmp;
-                }
-                else 
-                    expanded_log = is_correct;
-                
-                Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
-                if (tmp)
-                    delete[] tmp;
-
-            }
-            else
-            {
-                while ((lend = p->containsParloopEnd()) == NULL) 
-                {
-                    p->PrivateAnalysisForAllCalls();
-                    p = p->getLexNext();
-                }
-                CBasicBlock* afterParLoop = p->getLexNext()->getLexNext();
-                VarSet* l_pri = ControlFlowGraph(true, false, lstart, lend).getPrivate();
-                if (is_correct != NULL) 
-                {
-                    const char* expanded_log;
-                    char* tmp = NULL;
-                    if (failed_proc_name)
-                    {
-                        tmp = new char[strlen(is_correct) + 2 + strlen(failed_proc_name) + 1];
-                        strcpy(tmp, is_correct);
-                        strcat(tmp, ": ");
-                        strcat(tmp, failed_proc_name);
-                        expanded_log = tmp;
-                    }
-                    else 
-                        expanded_log = is_correct;
-                    
-                    Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
-                    if (tmp)
-                        delete[] tmp;
-
-                    break;
-                }
-                VarSet* p_pri = new VarSet();
-                SgExpression* ex_p = lstart->getPrivateList();
-                if (ex_p != NULL)
-                    ex_p = ex_p->lhs();
-                for (; ex_p != NULL; ex_p = ex_p->rhs()) 
-                {
-                    SgVarRefExp* pr;
-                    if (pr = isSgVarRefExp(ex_p->lhs())) 
-                    {
-                        CScalarVarEntryInfo* tmp = new CScalarVarEntryInfo(pr->symbol());
-                        p_pri->addToSet(tmp, NULL);
-                        delete tmp;
-                    }
-                }
-
-                VarSet* live = afterParLoop->getLiveIn();
-                VarSet* adef = afterParLoop->getDef();
-                VarSet* pri = new VarSet();
-                VarSet* tmp = new VarSet();
-                VarSet* delay = new VarSet();
-                tmp->unite(l_pri, false);
-
-                for (VarItem* exp = tmp->getFirst(); exp != NULL; exp = tmp->getFirst()) 
-                {
-                    if (!afterParLoop->IsVarDefinedAfterThisBlock(exp->var, false))
-                        delay->addToSet(exp->var, NULL);
-                    tmp->remove(exp->var);
-                }
-                delete tmp;
-                pri->unite(l_pri, false);
-                pri->minus(live);
-                privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
-                of->SetDelayedData(privateDelayedList);
-            }
+            if (!ProcessOneParallelLoop(lstart, of, p, true))
+                break;
         }
         if (p == last)
             break;
         p = p->getLexNext();
     }
+    hasBeenAnalyzed = true;
 }
 
 /*#ifdef __SPF
@@ -1719,10 +1825,7 @@ void PrivateDelayedItem::PrintWarnings()
 {
     if (next)
         next->PrintWarnings();
-
-    int stored_fid = current_file_id;
-    CurrentProject->file(file_id);
-    current_file_id = file_id;
+    int stored_fid = SwitchFile(file_id);
     total_privates += detected->count();
     total_pl++;
     lp->minus(detected);
@@ -1742,7 +1845,7 @@ void PrivateDelayedItem::PrintWarnings()
         prl = new SgExpression(ACC_PRIVATE_OP);
         lst->setLhs(prl);
         lst->setRhs(NULL);
-#if __SPF && __NEW_ALG
+#if __SPF
         SgExpression* clauses = prs->expr(0);
 #else
         SgExpression* clauses = prs->expr(1);
@@ -1753,7 +1856,7 @@ void PrivateDelayedItem::PrintWarnings()
             clauses->setRhs(lst);
         }
         else {
-#if __SPF && __NEW_ALG
+#if __SPF
             prs->setExpression(0, *lst);
 #else
             prs->setExpression(1, *lst);
@@ -1769,13 +1872,10 @@ void PrivateDelayedItem::PrintWarnings()
         CVarEntryInfo* syb = var->var;
         int change_fid = var->file_id;
         test2->remove(syb);
-        int stored_fid = current_file_id;
-        CurrentProject->file(change_fid);
-        current_file_id = change_fid;
+        int stored_fid = SwitchFile(change_fid);
 
         Warning("var '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
-        current_file_id = stored_fid;
-        CurrentProject->file(stored_fid);
+        SwitchFile(stored_fid);
     }
     while (!test1->isEmpty()) {
         //printf("MISSING IN PRIVATE LIST: ");
@@ -1785,17 +1885,18 @@ void PrivateDelayedItem::PrintWarnings()
         CVarEntryInfo* syb = var->var;
         int change_fid = var->file_id;
         test1->remove(var->var);
-        int stored_fid = current_file_id;
-        CurrentProject->file(change_fid);
-        current_file_id = change_fid;
+        int stored_fid = SwitchFile(change_fid);
+#if __SPF
+        Note("add private scalar '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#else
         Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#endif
         SgExprListExp* nls = new SgExprListExp();
         SgVarRefExp* nvr = new SgVarRefExp(syb->GetSymbol());
         nls->setLhs(nvr);
         nls->setRhs(prl->lhs());
         prl->setLhs(nls);
-        current_file_id = stored_fid;
-        CurrentProject->file(stored_fid);
+        SwitchFile(stored_fid);
         
         /*printf("modified parallel stmt:\n");
         prs->unparsestdout();
@@ -1828,8 +1929,7 @@ void PrivateDelayedItem::PrintWarnings()
     if (lp)
         delete lp;
     
-    current_file_id = stored_fid;
-    CurrentProject->file(stored_fid);
+    SwitchFile(stored_fid);
 }
 //#endif
 
@@ -1877,7 +1977,6 @@ ControlFlowItem* doLoops::endLoop(ControlFlowItem* last)
     }
     last->AddNextItem(removed->getSourceForCycle());
     ControlFlowItem* empty = removed->getSourceForExit();
-
     delete removed;
     return empty;
 }
@@ -2070,14 +2169,11 @@ void CBasicBlock::PrivateAnalysisForAllCalls()
         if (c != NULL && c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c->header != NULL && !c->hasBeenAnalysed) {
             c->hasBeenAnalysed = true;
             
-            int stored_fid = current_file_id;
-            CurrentProject->file(c->file_id);
-            current_file_id = c->file_id;
+            int stored_fid = SwitchFile(c->file_id);
             
             c->graph->privateAnalyzer();
             
-            current_file_id = stored_fid;
-            CurrentProject->file(stored_fid);
+            SwitchFile(stored_fid);
             
         }
         is_correct = oic;
@@ -2315,42 +2411,45 @@ CRecordVarEntryInfo* AddRecordVarRef(SgRecordRefExp* ref)
         CVarEntryInfo* parent = new CScalarVarEntryInfo(isSgVarRefExp(ref->lhs())->symbol());
         return new CRecordVarEntryInfo(ref->rhs()->symbol(), parent);
     }
+    if (isSgArrayRefExp(ref->lhs())) {
+        CVarEntryInfo* parent = new CArrayVarEntryInfo(isSgArrayRefExp(ref->lhs())->symbol(), isSgArrayRefExp(ref->lhs()));
+        return new CRecordVarEntryInfo(ref->rhs()->symbol(), parent);
+    }
     return NULL;
 }
 
 void CBasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st)
 {
+    CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
     if ((r = isSgVarRefExp(ex)))
-    {
-        CScalarVarEntryInfo* var = new CScalarVarEntryInfo(r->symbol());
-        if (def == NULL || !def->belongs(var))
-            use->addToSet(var, st);
-        delete var;
-    }
+        var = new CScalarVarEntryInfo(r->symbol());
+    SgArrayRefExp* ar;
+    if ((ar = isSgArrayRefExp(ex)))
+        var = new CArrayVarEntryInfo(ar->symbol(), ar);
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
-    {
-        CRecordVarEntryInfo* var = AddRecordVarRef(rr);
-        if (var && (def == NULL || !def->belongs(var)))
-            use->addToSet(var, st);
+        var = AddRecordVarRef(rr);
+    if (var) {
+        var->RegisterUsage(def, use, st);
         delete var;
     }
 }
 
 void CBasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st)
 {
+    CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
-    if ((r = isSgVarRefExp(ex))) {
-        CScalarVarEntryInfo* var = new CScalarVarEntryInfo(r->symbol());
-        def->addToSet(var, st);
-        delete var;
-    }
+    if ((r = isSgVarRefExp(ex)))
+        var = new CScalarVarEntryInfo(r->symbol());
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
-    {
-        CRecordVarEntryInfo* var = AddRecordVarRef(rr);
-        def->addToSet(var, st);
+        var = AddRecordVarRef(rr);
+    SgArrayRefExp* ar;
+    if ((ar = isSgArrayRefExp(ex)))
+        var = new CArrayVarEntryInfo(ar->symbol(), ar);
+    if (var) {
+        var->RegisterDefinition(def, st);
         delete var;
     }
 }
@@ -2455,7 +2554,7 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
     }
     for (int i = 0; i < header->numberOfParameters(); i++) {
         SgSymbol* arg = header->parameter(i);
-        if (arg->attributes() & IN_BIT) {
+        if (arg->attributes() & (IN_BIT)) {
             SgExpression* ar = GetProcedureArgument(isF, f, i);
             addExprToUse(ar);
         }
@@ -2475,6 +2574,7 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
 
 bool AnalysedCallsList::isArgIn(int i)
 {
+    int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
     VarSet* use = graph->getUse();
     SgSymbol* par = h->parameter(i);
@@ -2483,12 +2583,15 @@ bool AnalysedCallsList::isArgIn(int i)
     if (use->belongs(var))
         result = true;
     delete var;
+    SwitchFile(stored);
     return result;
 }
 
 bool AnalysedCallsList::isArgOut(int i)
 {
+    int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
+    graph->privateAnalyzer();
     VarSet* def = graph->getDef();
     SgSymbol* par = h->parameter(i);
     CScalarVarEntryInfo* var = new CScalarVarEntryInfo(par);
@@ -2496,6 +2599,7 @@ bool AnalysedCallsList::isArgOut(int i)
     if (def->belongs(var))
         result = true;
     delete var;
+    SwitchFile(stored);
     return result;
 }
 
@@ -2524,13 +2628,10 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         return;
     }
     */
-    int stored_file_id = current_file_id;
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
-        current_file_id = c->file_id;
-        CurrentProject->file(current_file_id);
+        int stored_file_id = SwitchFile(c->file_id);
         c->graph->getPrivate(); //all sets actually
-        CurrentProject->file(stored_file_id);
-        current_file_id = stored_file_id;
+        SwitchFile(stored_file_id);
         if (proc && proc->header->variant() == PROC_HEDR && c->header->controlParent() == proc->header) {
             VarSet* use_c = new VarSet();
             use_c->unite(c->graph->getUse(), false);
@@ -2564,9 +2665,26 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
         if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i)) {
             addExprToUse(ar);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
+            }
         }
+
         if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i)) {
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
+
+            if (c->header)
+            {
+                if (isFun)
+                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
+            }
         }
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
@@ -2767,6 +2885,12 @@ VarSet* CBasicBlock::getUse()
         setDefAndUse();
     }
     return use;
+}
+
+bool CArrayVarEntryInfo::CompareSubscripts(const CArrayVarEntryInfo&) const
+{
+    //TODO
+    return false;
 }
 
 void VarSet::RemoveDoubtfulCommonVars(AnalysedCallsList* call)
@@ -3192,6 +3316,20 @@ void CallData::printControlFlows()
 }
 
 #ifdef __SPF
+bool symbolInExpression(SgSymbol *symbol, SgExpression *exp)
+{
+    if(exp->variant() == VAR_REF)
+        return strcmp(symbol->identifier(), exp->symbol()->identifier()) == 0;
+
+    bool hasSymbolInRHS = false;
+    if(exp->rhs())
+        hasSymbolInRHS = symbolInExpression(symbol, exp->rhs());
+    if((!hasSymbolInRHS) && exp->lhs())
+        return symbolInExpression(symbol, exp->lhs());
+    else
+        return false;
+}
+
 void CBasicBlock::addVarToGen(SgSymbol *var, SgExpression *value)
 {
     addVarToKill(var);
@@ -3208,48 +3346,83 @@ void CBasicBlock::addVarToKill(SgSymbol *var)
     for (auto it = gen.begin(); it != gen.end(); ++it)
         if (it->first == key)
             toDel.push_back(it);
+        else if(symbolInExpression(var, it->second))
+            toDel.push_back(it);
 
     for (int i = 0; i < toDel.size(); ++i)
         gen.erase(toDel[i]);
 }
 
-void CBasicBlock::checkFunctionCalls(SgExpression* exp) {
-
-    //TODO Не удалять переменные если функция не изменяет их
-    if(exp->variant() == FUNC_CALL)
-        for(SgExpression* exprList = exp->lhs(); exprList != NULL; exprList = exprList->rhs())
-        {
-            SgExpression* var = exprList->lhs();
-            if(var->variant() == VAR_REF)
-                addVarToKill(var->symbol());
-            else
-                checkFunctionCalls(var);
-        }
-    else
+void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
+    SgStatement* st = NULL;
+    AnalysedCallsList* callData = cfi->getCall();
+    SgFunctionCallExp* funcCall = NULL;
+    if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
     {
-        if(exp->rhs())
-            checkFunctionCalls(exp->rhs());
-        if(exp->lhs())
-            checkFunctionCalls(exp->lhs());
+        SgCallStmt* callStmt = isSgCallStmt(st);
+        for (int i = 0; i < callStmt->numberOfArgs(); ++i)
+        {
+            SgExpression* arg = callStmt->arg(i);
+            if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
+                addVarToKill(arg->symbol());
+        }
+    }
+    else if((funcCall = cfi->getFunctionCall()) != NULL) {
+        for(int i = 0; i < funcCall->numberOfArgs(); ++i) {
+            SgExpression* arg = funcCall->arg(i);
+            if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
+                addVarToKill(arg->symbol());
+        }
     }
 }
 
-void CBasicBlock::adjustGenAndKill(SgStatement *st)
+bool argIsReplaceable(int i, AnalysedCallsList* callData)
 {
-    if(st->variant() == ASSIGN_STAT)
-    {
-        SgExpression *left, *right;
-        left = st->expr(0);
-        right = st->expr(1);
-        checkFunctionCalls(right);
-        if(left->variant() == VAR_REF) // x = ...
-            addVarToGen(left->symbol(), right);
-        else // x[...] = ...
-            checkFunctionCalls(right);
-    }
-    else if(st->variant() == PROC_CALL)
-        checkFunctionCalls(st->expr(0));
+    if (callData == NULL)
+        return false;
+    SgProcHedrStmt* header = isSgProcHedrStmt(callData->header);
+    if (header == NULL)
+        return NULL;
+    if (header->parameter(i) == NULL)
+        return false;
+    int attr = header->parameter(i)->attributes();
 
+    if (callData->isArgOut(i) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+        return false;
+    else if (!(callData->isArgIn(i) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+        return false;
+    else
+        return true;
+}
+
+set<SymbolKey>* CBasicBlock::getOutVars()
+{
+    set<SymbolKey>* outVars = new set<SymbolKey>();
+    for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
+        outVars->insert(it->first);
+    return outVars;
+}
+
+void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
+{
+	SgStatement* st = cfi->getStatement();
+	if (st != NULL) {
+		if (st->variant() == ASSIGN_STAT) {
+			SgExpression *left, *right;
+			left = st->expr(0);
+			right = st->expr(1);
+//			checkFunctionCalls(right);
+			if (left->variant() == VAR_REF) // x = ...
+				addVarToGen(left->symbol(), right);
+/*			else // x[...] = ...
+			{
+				//checkFunctionCalls(left);
+				checkFunctionCalls(right);
+			}
+*/
+		}
+	}
+	checkFuncAndProcCalls(cfi);
 }
 
 void setGensAndKills(CBasicBlock *b)
@@ -3258,26 +3431,9 @@ void setGensAndKills(CBasicBlock *b)
     ControlFlowItem *till = b->getEnd()->getNext();
     while(cfi != till)
     {
-        SgStatement *st;
-        if((st = cfi->getStatement()) != NULL)
-            b->adjustGenAndKill(st);
+        b->adjustGenAndKill(cfi);
         cfi = cfi->getNext();
     }
-}
-
-
-bool symbolInExpression(SgSymbol *symbol,SgExpression *exp)
-{
-    if(exp->variant() == VAR_REF)
-        return strcmp(symbol->identifier(), exp->symbol()->identifier()) == 0;
-
-    bool hasSymbolInRHS = false;
-    if(exp->rhs())
-        hasSymbolInRHS = symbolInExpression(symbol, exp->rhs());
-    if((!hasSymbolInRHS) && exp->lhs())
-        return symbolInExpression(symbol, exp->lhs());
-    else
-        return false;
 }
 
 bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpression*> &term)
@@ -3293,15 +3449,18 @@ bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpress
     return mainChanged;
 }
 
-void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term)
+void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term, set<SymbolKey>* allowedVars)
 {
     for (auto it = term->begin(); it != term->end(); ++it)
     {
-        auto founded = main->find(it->first);
-        if (founded == main->end())
-            main->insert(founded, *it);
-        if(founded != main->end())
-            mergeExpressionMaps(founded->second, it->second);
+        if (!allowedVars || (allowedVars && allowedVars->find(it->first) != allowedVars->end()))
+        {
+            auto founded = main->find(it->first);
+            if (founded == main->end())
+                main->insert(founded, *it);
+            if (founded != main->end())
+                mergeExpressionMaps(founded->second, it->second);
+        }
     }
 }
 
@@ -3339,6 +3498,8 @@ bool addDefsFilteredByKill( map<SymbolKey, map<string, SgExpression*>> *main,
     return mainChanged;
 }
 
+
+
 void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
@@ -3356,11 +3517,22 @@ void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
     printf("\n");
 }
 
+void showDefs(map<SymbolKey, SgExpression*> *defs)
+{
+    printf("Defs: %d\n", (int)defs->size());
+    for(auto it = defs->begin(); it != defs->end();++it)
+    {
+        printf("--- %s = %s", it->first.getVar()->identifier(), it->second->unparse());
+        printf("\n");
+    }
+    printf("\n");
+}
+
 bool adjustInsAndOuts(CBasicBlock *b)
 {
     /*Updating IN*/
     for(BasicBlockItem* prev = b->getPrev(); prev != NULL; prev=prev->next)
-        mergeDefs(b->getInDefs(), prev->block->getOutDefs());
+        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
 
     /*Updating OUT, true, if OUT has been changed*/
     return addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
@@ -3387,12 +3559,34 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
             }
             cfi = cfi->getNext();
         }
+        if(!printed)
+        {
+            SgStatement* origStmt = NULL;
+            cfi = b->getStart();
+            while(cfi != till)
+            {
+                if((origStmt = cfi->getOriginalStatement()) != NULL)
+                {
+                    printed = true;
+                    printf("Original: ");
+                    origStmt->unparsestdout();
+                }
+                cfi = cfi->getNext();
+            }
+        }
+
         if (printed)
         {
             printf("\n In ");
-                showDefs(b->getInDefs());
+            showDefs(b->getInDefs());
+            printf("\n Gen");
+            showDefs(b->getGen());
+            printf("\n Kill %d\n ", b->getKill()->size());
+            for(auto it = b->getKill()->begin(); it!=b->getKill()->end(); ++it)
+                printf("%s ", it->getVar()->identifier());
+            printf("\n");
             printf("\n Out ");
-                showDefs(b->getOutDefs());
+            showDefs(b->getOutDefs());
         }
         b = b->getLexNext();
     }
@@ -3409,19 +3603,21 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
     }
 }
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
+void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs)
 {
     CBasicBlock *b = CGraph->getFirst();
     while(b != NULL)
     {
         setGensAndKills(b);
-        /*Инициализация OUT, оно равно gen блока*/
+        /*Initialization of OUT, it equals to GEN	*/
         initializeOutWithGen(b->getOutDefs(), b->getGen());
         b = b->getLexNext();
     }
 
+    if(inDefs != NULL)
+        CGraph->getFirst()->setInDefs(inDefs);
+
     bool setsChanged = true;
-    int i = 0;
     while(setsChanged)
     {
         setsChanged = false;
@@ -3466,35 +3662,98 @@ bool valueWithFunctionCall(SgExpression* exp) {
 }
 
 /*
- * Can't expand vars if:
+ * Can't expand var if:
  * 1. it has multiple values
  * 2. value has function call
- * 3. value has var within
+ * 3. value has itself within (recursion)
  */
-void CBasicBlock::correctInDefs() {
+void CBasicBlock::correctInDefsSimple() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
 
     for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
-        if(it->second.size() != 1)
+        if(it->second.size() != 1) //1
             toDel.push_back(it);
-        else if(valueWithFunctionCall(it->second.begin()->second))
+        else if(valueWithFunctionCall(it->second.begin()->second)) //2
             toDel.push_back(it);
-        else if(valueWithRecursion(it->first, it->second.begin()->second))
+        else if(valueWithRecursion(it->first, it->second.begin()->second)) //3
             toDel.push_back(it);
-
 
     for (int i = 0; i < toDel.size(); ++i)
         in_defs.erase(toDel[i]);
 }
 
 
+/*
+ * Can't expand var if
+ * value is not present in one of previous block
+ */
+bool CBasicBlock::correctInDefsIterative() {
+    bool changed = false;
+    BasicBlockItem *bi = getPrev();
+
+    if (bi)
+    {
+        set<SymbolKey> *allowedVars = bi->block->getOutVars();
+
+        for (bi = bi->next; bi != NULL; bi = bi->next)
+        {
+            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
+            for (auto it = allowedVars->begin(); it != allowedVars->end();)
+            {
+                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                    it = allowedVars->erase(it);
+                else
+                    ++it;
+            }
+            delete nextAllowedVars;
+        }
+//Clean inDefs
+        vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
+        for (auto it = in_defs.begin(); it != in_defs.end(); ++it)
+            if (allowedVars->find(it->first) == allowedVars->end())
+                toDel.push_back(it);
+
+        for (int i = 0; i < toDel.size(); ++i)
+            in_defs.erase(toDel[i]);
+
+//Clean outDefs
+        toDel.clear();
+        for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
+            if(allowedVars->find(it->first) == allowedVars->end()
+                    && gen.find(it->first) == gen.end())
+                toDel.push_back(it);
+
+        for (int i = 0; i < toDel.size(); ++i)
+            out_defs.erase(toDel[i]);
+
+        if(toDel.size() != 0)
+            changed = true;
+
+        delete allowedVars;
+    }
+
+    return changed;
+}
+
 void CorrectInDefs(ControlFlowGraph* CGraph)
 {
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
     {
-        b->correctInDefs();
+        b->correctInDefsSimple();
         b = b->getLexNext();
+    }
+
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+        b = CGraph->getFirst();
+        while (b != NULL)
+        {
+            changes |= b->correctInDefsIterative();
+            b = b->getLexNext();
+        }
     }
 }
 #endif
