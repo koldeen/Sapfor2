@@ -49,8 +49,8 @@ public:
     }
 
     explicit DefUseList(int type, SgStatement *place, SgFile *file,
-        std::pair<SgSymbol*, std::string> &inFuncParam,
-        std::pair<SgSymbol*, std::string> &varName, 
+        const std::pair<SgSymbol*, std::string> &inFuncParam,
+        const std::pair<SgSymbol*, std::string> &varName, 
         const int parameterPosition) :
         type(type), place(place), file(file), paramOfFunction(inFuncParam), varName(varName), parameterPosition(parameterPosition)
     {

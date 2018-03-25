@@ -514,10 +514,10 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
         DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
-        
+
         vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
         fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
-        
+
         bool hasConflict = false;
         // uniqKey -> pair<position of access, pair<acces>> ///write acceses ///
         map<DIST::Array*, pair<int, pair<int, int>>> arrayWriteAcc;
@@ -526,7 +526,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
         set<DIST::Array*> acrossOutArrays;
 
         __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", loopInfo.first->lineNum);
-                
+
         const map<DIST::Array*, const ArrayInfo*> &currAccesses = loopInfo.second;
         // find conflict and fill arrayWriteAcc
         hasConflict = checkForConflict(currAccesses, loopInfo.first, arrayWriteAcc, acrossInfo, acrossOutArrays);

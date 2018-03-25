@@ -30,12 +30,13 @@ struct FuncInfo
     std::string fileName;
     Statement *funcPointer;
     
-    std::set<std::string> callsFrom;
+    std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
     std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL    
     std::vector<FuncParam> actualParams;
+    std::map<std::string, std::set<std::string>> commonBlocks;
 
-    std::vector<FuncInfo*> callsTo;
+    std::vector<FuncInfo*> callsTo; //calls of this function
     FuncParam funcParams;
 
     bool doNotInline;

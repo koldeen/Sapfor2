@@ -354,6 +354,22 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         getCommonBlocksRef(commonBlocks, st, lastNode);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+
+        for(auto& item : commonBlocks)
+        {
+            auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
+            for(auto& list : item.second)
+            {
+                SgExpression* expr_list = list->lhs();
+                while(expr_list != NULL)
+                {
+                    SgExpression* var = expr_list->lhs();
+                    expr_list = expr_list->rhs();
+                    inserted.first->second.insert(var->symbol()->identifier());
+                }
+            }
+        }
+
         if (st->variant() != PROG_HEDR)
             fillFuncParams(currInfo, commonBlocks, (SgProgHedrStmt*)st);
 

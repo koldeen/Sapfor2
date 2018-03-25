@@ -749,6 +749,41 @@ static void addSymbolsToDefUse(const int type, SgExpression *ex, vector<DefUseLi
     }    
 }
 
+static void processLeftPartOfAssign(SgExpression *exp, map<string, vector<DefUseList>> &currentLists, SgFile *file, SgStatement *inStat)
+{
+    if (exp->symbol() && exp->variant() == VAR_REF) // simple assign
+    {
+        SgSymbol *tmp = exp->symbol();
+        for (auto &list : currentLists)
+            list.second.push_back(DefUseList(0, inStat, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, string(tmp->identifier())), -1));
+    }
+    //TODO
+    else // array ref and etc.
+    {
+        vector<DefUseList> tmpList;
+        if (exp->variant() == ARRAY_OP)
+        {            
+            SgSymbol *tmp = exp->lhs()->symbol();
+            for (auto &list : currentLists)
+                list.second.push_back(DefUseList(0, inStat, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, string(tmp->identifier())), -1));
+
+            addSymbolsToDefUse(1, exp->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, inStat);
+        }
+        else if (exp->variant() == ARRAY_REF)
+        {
+            SgSymbol *tmp = exp->symbol();
+            for (auto &list : currentLists)
+                list.second.push_back(DefUseList(0, inStat, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, string(tmp->identifier())), -1));
+
+            addSymbolsToDefUse(1, exp->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, inStat);
+        }
+
+        for (auto &list : currentLists)
+            for (auto &elem : tmpList)
+                list.second.push_back(elem);
+    }
+}
+
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions)
 {
     for (int f = 0; f < file->numberOfFunctions(); ++f)
@@ -770,8 +805,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
                 switch (st->variant())
                 {
                 case ASSIGN_STAT:
-                    for (auto &list : currentLists)
-                        list.second.push_back(DefUseList(0, st, file, make_pair((SgSymbol*)NULL, string("")), make_pair(st->expr(0)->symbol(), string(st->expr(0)->symbol()->identifier())), -1));
+                    processLeftPartOfAssign(st->expr(0), currentLists, file, st);
 
                     addSymbolsToDefUse(1, st->expr(0)->lhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);
                     addSymbolsToDefUse(1, st->expr(1)->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st);

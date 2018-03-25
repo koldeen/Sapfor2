@@ -257,10 +257,10 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 if (parentLoops.size() != 0 && (arrayRefString.first || side == LEFT))
                 {
-                    __spf_print(1, "WARN: array ref '%s' at line %d has not loop's variables\n", arrayRefString.second.c_str(), currLine);
+                    __spf_print(1, "WARN: array ref '%s' at line %d does not have loop variables\n", arrayRefString.second.c_str(), currLine);
 
                     string message;
-                    __spf_printToBuf(message, "array ref '%s' has not loop's variables", arrayRefString.second.c_str());
+                    __spf_printToBuf(message, "array ref '%s' does not have loop variables", arrayRefString.second.c_str());
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, message, 1021));
                 }
