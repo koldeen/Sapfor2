@@ -636,7 +636,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 processFileToPredict(file, itFound->second);
         }
         else if (curr_regime == DEF_USE_STAGE1)
-            constructDefUseStep1(file, defUseByFunctions);        
+            constructDefUseStep1(file, defUseByFunctions);
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -993,7 +993,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)
+        {
             printLoopGraph("_loopGraph.txt", loopGraph);
+            printParalleRegions("_parallelRegions.txt", parallelRegions);
+        }
     }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
@@ -1041,6 +1044,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 break;
             }
         }
+    }
+    else if (curr_regime == DEF_USE_STAGE1)
+    {
+        if (keepFiles)
+            printDefUseSets("_defUseList.txt", defUseByFunctions);        
     }
 
 #if _WIN32

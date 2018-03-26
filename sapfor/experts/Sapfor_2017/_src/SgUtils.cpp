@@ -928,3 +928,24 @@ const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const stri
 
     return retVal;
 }
+
+int printDefUseSets(const char *fileName, const map<string, vector<DefUseList>> &defUseLists)
+{
+    FILE *file = fopen(fileName, "w");
+    if (file == NULL)
+    {
+        __spf_print(1, "can not open file %s\n", fileName);
+        return -1;
+    }
+        
+    for (auto &elem : defUseLists)
+    {
+        fprintf(file, "*** Function %s\n", elem.first.c_str());
+        for (auto &inList : elem.second)
+            inList.print(file, true);
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return 0;
+}

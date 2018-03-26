@@ -457,7 +457,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
         SgStatement *firstExec = NULL;
         SgStatement *controlParFristExec = NULL;
         for (SgStatement *st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
-            if (isSgExecutableStatement(st->lexNext()))
+            if (isSgExecutableStatement(st))
                 firstExec = st;
 
         if (firstExec)
@@ -474,7 +474,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     if (completeInit)
                     {
                         SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
-                        firstExec->insertStmtAfter(*toAdd, *controlParFristExec);
+                        firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
 
                         toMove.push_back(make_pair(st, toAdd));
                         toAdd->setlineNumber(getNextNegativeLineNumber());

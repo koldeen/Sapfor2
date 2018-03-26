@@ -43,11 +43,6 @@ private:
     std::pair<SgSymbol*, std::string> varName;
 
 public:
-    DefUseList()
-    {
-
-    }
-
     explicit DefUseList(int type, SgStatement *place, SgFile *file,
         const std::pair<SgSymbol*, std::string> &inFuncParam,
         const std::pair<SgSymbol*, std::string> &varName, 
@@ -67,12 +62,25 @@ public:
     SgSymbol* getParamOfFunctionS() const { return paramOfFunction.first; }
     int getParameterPosition() const { return parameterPosition; }
 
-    void print() const
+    void print(FILE *fileOut = NULL, const bool onlyPositiveLine = false) const
     {
-        printf("%s: [file: %s line: %d], var '%s' ", (type == 0) ? "DEF" : "USE", file->filename(), place->lineNumber(), varName.second.c_str());
-        if (parameterPosition != -1)
-            printf(" under call of '%s' function on %d position of args", paramOfFunction.second.c_str(), parameterPosition);
-        printf("\n");
+        if (onlyPositiveLine && place->lineNumber() < 0)
+            return;
+        if (fileOut == NULL)
+        {            
+            printf("%s: [file: %s, line: %d], '%s' ", (type == 0) ? "DEF" : "USE", file->filename(), place->lineNumber(), varName.second.c_str());
+            if (parameterPosition != -1)
+                printf(" under call of '%s' function on %d position of args", paramOfFunction.second.c_str(), parameterPosition);
+            printf("\n");
+        }
+        else
+        {
+            fprintf(fileOut, "%s: [file: %s, line: %d], '%s' ", (type == 0) ? "DEF" : "USE", file->filename(), place->lineNumber(), varName.second.c_str());
+            if (parameterPosition != -1)
+                fprintf(fileOut, " under call of '%s' function on %d position of args", paramOfFunction.second.c_str(), parameterPosition);
+            fprintf(fileOut, "\n");
+        }
+
     }
 };
 
@@ -81,3 +89,4 @@ std::set<std::string> getAllDefVars(const std::string &funcName);
 std::set<std::string> getAllUseVars(const std::string &funcName);
 const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName);
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
+int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
