@@ -76,6 +76,56 @@ public:
     }
 };
 
+struct CommonBlock
+{
+private:
+    std::string name;
+    // std::vector<SgStatement*> places;
+    std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> detailVariables; // file, func -> vars
+    std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, int>>> variables; // fileName, funcName -> vars
+
+public:
+    CommonBlock()
+    {
+
+    }
+
+    explicit CommonBlock(std::string &name,
+        std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> &detailVariables,
+        std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, int>>> &variables) :
+        name(name), detailVariables(detailVariables), variables(variables)
+    {
+
+    }
+
+    std::string getName() const { return name; }
+    // std::vector<SgStatement*> getPlaces() const { return places; }
+    std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> getDetailVariables() const { return detailVariables; }
+    std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, int>>> getVariables() const { return variables; }
+
+    void addVariables(SgFile *file, SgStatement *func, std::vector<SgSymbol*> &newVariables)
+    {
+        auto pair = std::make_pair(file, func);
+        auto pairr = std::make_pair(std::string(file->filename()), std::string(func->symbol()->identifier()));
+        auto it = detailVariables.find(pair);
+        auto itt = variables.find(pairr);
+
+        if (it == detailVariables.end())
+        {
+            it = detailVariables.insert(it, std::make_pair(pair, std::vector<SgSymbol*>()));
+            itt = variables.insert(itt, std::make_pair(pairr, std::vector<std::pair<std::string, int>>()));
+        }
+
+        for (auto variable : newVariables)
+        {
+            // scolar(0), array(1), other(2)
+            int type = variable->variant() == VAR_REF ? 0 : variable->variant() == ARRAY_REF ? 1 : 2;
+            it->second.push_back(variable);
+            itt->second.push_back(std::make_pair(variable->identifier(), type));
+        }
+    }
+};
+
 void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
 std::set<std::string> getAllDefVars(const std::string &funcName);
 std::set<std::string> getAllUseVars(const std::string &funcName);
