@@ -7,6 +7,7 @@
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind);
 void recExpressionPrint(SgExpression *exp);
+SgExpression* recExpressionFind(SgExpression *exp, const int var);
 void removeSubstrFromStr(std::string &str, const std::string &del);
 void getModulesAndFunctions(SgFile *file, std::vector<SgStatement*> &modulesAndFunctions);
 void findModulesInFile(SgFile *file, std::vector<SgStatement*> &modules);

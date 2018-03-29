@@ -241,21 +241,20 @@ static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR,
             rNum = allNum + 2;
             allNum += 2;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-        }
+			printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+		}
         else if (lhs)
         {
             lNum = allNum + 1;
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-        }
+		}
         else if (rhs)
         {
             rNum = allNum + 1;
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-        }
-
+		}
         if (lhs)
             recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
         if (rhs)
@@ -272,6 +271,31 @@ void recExpressionPrint(SgExpression *exp)
         printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
     printf("};\n");
     fflush(NULL);
+}
+
+SgExpression* recExpressionFind(SgExpression *exp, const int var) {
+	printf("----recExpressionFind(PRIVATE_OP)\n");
+	if (exp) {
+		SgExpression *lhs = exp->lhs();
+		SgExpression *rhs = exp->rhs();
+		if (lhs) {
+			if (lhs->variant() == var) {
+				printf("Find_PRIV\n");
+				return lhs;
+			}
+		}
+		if (rhs) {
+			if (rhs->variant() == var) {
+				printf("Find_PRIV\n");
+				return rhs;
+			}
+		}
+		if (lhs)
+			recExpressionFind(lhs, var);
+		if (rhs)
+			recExpressionFind(rhs, var);
+	}
+	return NULL;
 }
 
 void initTags()

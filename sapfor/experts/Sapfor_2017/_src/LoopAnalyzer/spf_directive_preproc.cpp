@@ -866,11 +866,45 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     return noError;
 }
 
+void AddExp2tree(SgStatement *toAdd, SgExpression *exp) {
+	bool find_priv = false;
+	int priv_op = 936;	//tag[ACC_PRIVATE_OP]
+	SgExpression *mainExp = recExpressionFind(toAdd->expr(0), priv_op)->lhs(); //Always EXPR_LIST left?
+	SgExpression *addExp = recExpressionFind(exp, priv_op)->lhs();
+	if (mainExp && addExp) {
+		printf("This trees can be merge\n");
+		const int expr_list = 312;	//tag[EXPR_LIST]
+		SgExpression *copyExp = &(addExp->copy());
+		while (mainExp) {
+			SgExpression *lhs = mainExp->lhs();
+			SgExpression *rhs = mainExp->rhs();
+			if (!lhs) {
+				printf("Merge L\n");
+				mainExp->setLhs(copyExp);
+				return;
+			}
+			if (!rhs) {
+				printf("Merge R\n");
+				mainExp->setRhs(copyExp);
+				return;
+			}
+			if (lhs->variant() == expr_list) {
+				printf("down L\n");
+				mainExp = lhs;
+			}
+			if (rhs->variant() == expr_list) {
+				printf("down R\n");
+				mainExp = rhs;
+			}
+		}
+	}
+}
+
 void revertion_spf_dirs(SgFile *file) {
-	printf("----revertion_spf_dirs!!!\n");
+	//printf("----revertion_spf_dirs!!!\n");
 	int funcNum = file->numberOfFunctions();
 
-	printf("----funcNum=%d\n", funcNum);
+	//printf("----funcNum=%d\n", funcNum);
 	for (int i = 0; i < funcNum; i++) {
 		SgStatement *st = file->functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
@@ -885,38 +919,68 @@ void revertion_spf_dirs(SgFile *file) {
 			//analise attributes
 			SgAttribute *prev_atrib = NULL;
 			SgAttribute *atrib = st->getAttribute(0);
-			int countAttribute = 0;
-			//			if (atrib == NULL) {
-			//				printf("----Atrib==NULL\n");
-			//			}
-			while (atrib) {
-				printf("----countAttribute=%d\n", countAttribute++);
+	//		int countAttribute = 0;
+
+			if (atrib) {
+		//		printf("----countAttribute=%d\n", ++countAttribute);
 				if (isSPF_comment(atrib)) {
 					printf("----Find_SPF\n");
-					//return spf_dir
-				//	int var = atrib->getAttributeType();
-				//	SgStatement *toAdd = new SgStatement(var);
-					SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
-					SgStatement *toAdd = new SgStatement(data->variant(), NULL, data->symbol(), data->expr(0), data->expr(1), data->expr(2));
-				/*	SgExpression *expr = atrib->getExpression();
-					if (expr == NULL) {
-						printf("----Expt == NULL\n");
-					}   */
-//					recExpressionPrint(expr);
-				//	SgStatement *toAdd = new SgStatement(var, NULL, NULL, expr, NULL, NULL);
-					if (toAdd->expr(0)) {
-						recExpressionPrint(toAdd->expr(0));
+
+					//check previosly directives SPF_ANALYSIS
+					vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
+					printf("---size_sameAtt(SPF_ANALYSIS) == %d\n", sameAtt.size());
+					SgStatement *toAddExp = NULL;
+					int count = 0;
+					for (auto &elem: sameAtt){
+						printf("----Start return\n");
+						printf("----count_elem=%d\n", ++count);
+						if (toAddExp) {
+							printf("try find simple tree\n");
+							SgExpression* exp = elem->expr(0);
+							AddExp2tree(toAddExp, exp); //add new expr to current tree
+						}
+						else {
+							printf("first chain\n");
+							toAddExp = new SgStatement(elem->variant(), NULL, elem->symbol(), elem->expr(0), elem->expr(1), elem->expr(2));
+						}
+					}
+					if (toAddExp->expr(0)) {
+						recExpressionPrint(toAddExp->expr(0));
 					}
 					else {
-						printf("----toAdd->expr(0) == NULL\n");
+						printf("----toAddExp->expr(0) == NULL\n");
 					}
-					st->insertStmtBefore(*toAdd);
-					//delete atrib				
-				}
-				prev_atrib = atrib;
-				atrib = atrib->getNext();
+					st->insertStmtBefore(*toAddExp);
+
+					//check previosly directives SPF_PARALLEL
+					sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+					printf("---size_sameAtt(SPF_PARALLEL) == %d\n", sameAtt.size());
+					for (auto &elem : sameAtt) {
+						printf("----Start return\n");
+					}
+					//remaining directives			
+					sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+					printf("---size_sameAtt(OTHER) == %d\n", sameAtt.size());
+					for (auto &elem : sameAtt) {
+						printf("----Start return\n");
+						SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+						SgStatement *toAdd = new SgStatement(data->variant(), NULL, data->symbol(), data->expr(0), data->expr(1), data->expr(2));
+
+						if (toAdd->expr(0)) {
+							recExpressionPrint(toAdd->expr(0));
+						}
+						else {
+							printf("----toAddExp->expr(0) == NULL\n");
+						}
+						st->insertStmtBefore(*toAdd);
+					}
+					//delete atrib - without		
+				}		
+		//		prev_atrib = atrib;
+		//		atrib = atrib->getNext();
 			}
 
+			//hidded chain join to st
 			printf("----Count=%d\n", count++);
 			st = st->lexNext();
 		}
