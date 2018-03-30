@@ -83,6 +83,28 @@ enum varType
     other
 };
 
+struct Variable
+{
+private:
+    SgFile *file;
+    SgStatement *function;
+    SgSymbol *symbol;
+    std::string name;
+    varType type;
+public:
+    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, std::string &name, varType &type) :
+        file(file), function(function), symbol(symbol), name(name), type(type)
+    {
+
+    }
+
+    SgFile* getFile() const { return file; }
+    SgStatement* getFunction() const { return function; }
+    SgSymbol* getSymbol() const { return symbol; }
+    const std::string & getName() const { return name; }
+    const varType & getType() const { return type; }
+};
+
 struct CommonBlock
 {
 private:
