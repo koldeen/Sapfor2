@@ -79,7 +79,7 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
-    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str());    
+    printLowLevelWarnings(stmt->fileName(), line, toPrint.c_str(), 1029);
 }
 
 inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
@@ -87,7 +87,7 @@ inline void Note(const char *s, const char *t, int num, SgStatement *stmt)
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
-    printLowLevelNote(stmt->fileName(), line, toPrint.c_str());
+    printLowLevelNote(stmt->fileName(), line, toPrint.c_str(), 1030);
 }
 #endif
 
@@ -1583,50 +1583,56 @@ CommonDataItem* CommonData::IsThisCommonVar(VarItem* item, AnalysedCallsList* ca
     return NULL;
 }
 
-void CommonData::RegisterCommonBlock(SgStatement* st, AnalysedCallsList* cur)
+void CommonData::RegisterCommonBlock(SgStatement *st, AnalysedCallsList *cur)
 {
-    //todo: multiple common blocks in one procedure with same name
-    CommonDataItem* it = new CommonDataItem();
-    it->cb = st;
-    it->name = st->expr(0)->symbol();
-    it->isUsable = true;
-    it->proc = cur;
-    it->first = cur;
-    it->onlyScalars = true;
-    for (CommonDataItem* i = list; i != NULL; i = i->next)
+    //TODO: multiple common blocks in one procedure with same name
+    for (SgExpression *common = st->expr(0); common; common = common->rhs())
     {
-        if (i->name == it->name && i->isUsable) {
-            it->first = i->first;
-        }
-    }
-    SgExprListExp* vars = (SgExprListExp*)st->expr(0)->lhs();
-    it->info = NULL;
-    if (vars == NULL) 
-    {
-        delete it;
-        return;
-    }
+        bool newBlock = false;
+        SgExprListExp* vars = (SgExprListExp*)common->lhs();
+        if (vars == NULL)
+            continue;
 
-    for (int i = 0; i < vars->length(); i++) 
-    {
-        SgVarRefExp* e = isSgVarRefExp(vars->elem(i));
-        if (e && !IS_ARRAY(e->symbol())) 
+        const string currCommonName = (common->symbol()) ? common->symbol()->identifier() : "spf_unnamed";
+
+        CommonDataItem *it = new CommonDataItem();
+        it->cb = st;
+        it->name = currCommonName;
+        it->isUsable = true;
+        it->proc = cur;
+        it->first = cur;
+        it->onlyScalars = true;
+        newBlock = true;
+
+        it->commonRefs.push_back(common);
+        
+        for (CommonDataItem *i = list; i != NULL; i = i->next)
+            if (i->name == currCommonName && i->isUsable)
+                it->first = i->first;
+
+        for (int i = 0; i < vars->length(); ++i)
         {
-            CommonVarInfo* c = new CommonVarInfo();
-            c->var = new CScalarVarEntryInfo(e->symbol());
-            c->isPendingLastPrivate = false;
-            c->isInUse = false;
-            c->parent = it;
-            c->next = it->info;
-            it->info = c;
+            SgVarRefExp *e = isSgVarRefExp(vars->elem(i));
+            if (e && !IS_ARRAY(e->symbol()))
+            {
+                CommonVarInfo* c = new CommonVarInfo();
+                c->var = new CScalarVarEntryInfo(e->symbol());
+                c->isPendingLastPrivate = false;
+                c->isInUse = false;
+                c->parent = it;
+                c->next = it->info;
+                it->info = c;
+            }
+            else
+                it->onlyScalars = false;
         }
-        else {
-            it->onlyScalars = false;
+
+        if (newBlock)
+        {
+            it->next = list;
+            list = it;
         }
     }
-
-    it->next = list;
-    list = it;
 }
 
 void CommonData::MarkEndOfCommon(AnalysedCallsList* cur)
@@ -1873,8 +1879,8 @@ void PrivateDelayedItem::PrintWarnings()
         int change_fid = var->file_id;
         test2->remove(syb);
         int stored_fid = SwitchFile(change_fid);
-
-        Warning("var '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
+        if (syb->GetVarType() != VAR_REF_ARRAY_EXP)
+            Warning("var '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
         SwitchFile(stored_fid);
     }
     while (!test1->isEmpty()) {
@@ -1886,16 +1892,18 @@ void PrivateDelayedItem::PrintWarnings()
         int change_fid = var->file_id;
         test1->remove(var->var);
         int stored_fid = SwitchFile(change_fid);
+        if (syb->GetVarType() != VAR_REF_ARRAY_EXP) {
 #if __SPF
-        Note("add private scalar '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+            Note("add private scalar '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
-        Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+            Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #endif
-        SgExprListExp* nls = new SgExprListExp();
-        SgVarRefExp* nvr = new SgVarRefExp(syb->GetSymbol());
-        nls->setLhs(nvr);
-        nls->setRhs(prl->lhs());
-        prl->setLhs(nls);
+            SgExprListExp* nls = new SgExprListExp();
+            SgVarRefExp* nvr = new SgVarRefExp(syb->GetSymbol());
+            nls->setLhs(nvr);
+            nls->setRhs(prl->lhs());
+            prl->setLhs(nls);
+        }
         SwitchFile(stored_fid);
         
         /*printf("modified parallel stmt:\n");
@@ -1959,6 +1967,7 @@ void doLoops::addLoop(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e
         first = current = nl;
     else{
         current->setNext(nl);
+        nl->HandleNewItem(current);
         current = nl;
     }
 }
@@ -2663,29 +2672,11 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
     }
     for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) {
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
-        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i)) {
+        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i))
             addExprToUse(ar);
 
-            if (c->header)
-            {
-                if (isFun)
-                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
-                else
-                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(IN_BIT);
-            }
-        }
-
-        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i)) {
+        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i))
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
-
-            if (c->header)
-            {
-                if (isFun)
-                    ((SgFuncHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
-                else
-                    ((SgProcHedrStmt*)c->header)->parameter(i)->setAttribute(OUT_BIT);
-            }
-        }
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
         for (CommonVarSet* cu = c->graph->getCommonUse(); cu != NULL; cu = cu->next) {
@@ -2754,7 +2745,7 @@ CommonDataItem* CommonData::IsThisCommonUsedInProcedure(CommonDataItem* item, An
 {
     for (CommonDataItem* it = list; it != NULL; it = it->next) {
         if (it->proc == p) {
-            if (it->name == item->name && it->first == item->first)
+            if (it->name == item->name)
                 return it;
         }
     }
@@ -2887,10 +2878,104 @@ VarSet* CBasicBlock::getUse()
     return use;
 }
 
+#ifdef __SPF
+template<typename IN_TYPE, typename OUT_TYPE>
+const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
+#endif
+
+CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s)
+{
+    subscripts = r->numberOfSubscripts();
+    data = new ArraySubscriptData[subscripts];
+    for (int i = 0; i < subscripts; i++) {
+        data[i].coefs[0] = data[i].coefs[1] = 0;
+        data[i].fs = NULL;
+#ifdef __SPF
+        const std::vector<int*> coefs = getAttributes<SgExpression*, int*>(r->subscript(i), set<int>{ INT_VAL });
+        const std::vector<SgStatement*> fs = getAttributes<SgExpression*, SgStatement*>(r->subscript(i), set<int>{ FOR_NODE });
+        if (fs.size() == 1) {
+            data[i].fs = fs[0];
+            if (data[i].fs != NULL) {
+                if (coefs.size() == 1) {
+                    data[i].coefs[0] = coefs[0][0];
+                    data[i].coefs[1] = coefs[0][1];
+                }
+            }
+        }
+#endif
+        SgExpression* ex = r->subscript(i);
+        if (ex->variant() == INT_VAL) {
+            data[i].coefs[1] = ex->valueInteger();
+        }
+    }
+}
+
+CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub) 
+{ 
+    if (sub > 0) {
+        data = new ArraySubscriptData[sub];
+        for (int i = 0; i < sub; i++) {
+            data[i] = d[i];
+        }
+    }
+}
+
+VarItem* VarSet::GetArrayRef(CArrayVarEntryInfo* info)
+{
+    VarItem* it = list;
+    while (it != NULL) {
+        CVarEntryInfo* v = it->var;
+        if (v->GetVarType() == VAR_REF_ARRAY_EXP) {
+            if (OriginalSymbol(info->GetSymbol()) == OriginalSymbol(v->GetSymbol()))
+                return it;
+        }
+        it = it->next;
+    }
+    return NULL;
+}
+
+void CArrayVarEntryInfo::RegisterUsage(VarSet* def, VarSet* use, SgStatement* st)
+{
+    VarItem* it = def->GetArrayRef(this);
+    CArrayVarEntryInfo* add = this;
+    if (it != NULL) {
+        add = *this - *(CArrayVarEntryInfo*)(it->var);
+    }
+    if (def != NULL && add != NULL) {
+        def->addToSet(add, st);
+    }
+
+}
+
+CArrayVarEntryInfo* operator-(const CArrayVarEntryInfo& a, const CArrayVarEntryInfo& b)
+{
+    return NULL;
+}
+
+CArrayVarEntryInfo* operator+(const CArrayVarEntryInfo& a, const CArrayVarEntryInfo& b)
+{
+    return NULL;
+}
+
+void CArrayVarEntryInfo::RegisterDefinition(VarSet* def, SgStatement* st)
+{
+    def->addToSet(this, st);
+}
+
+CArrayVarEntryInfo& CArrayVarEntryInfo::operator*=(const CArrayVarEntryInfo& b)
+{
+    return *this;
+}
+
+CArrayVarEntryInfo& CArrayVarEntryInfo::operator+=(const CArrayVarEntryInfo& b)
+{
+    return *this;
+}
+
 bool CArrayVarEntryInfo::CompareSubscripts(const CArrayVarEntryInfo&) const
 {
     //TODO
-    return false;
+    return true;
 }
 
 void VarSet::RemoveDoubtfulCommonVars(AnalysedCallsList* call)
@@ -3022,23 +3107,36 @@ void VarSet::print()
 
 void VarSet::addToSet(CVarEntryInfo* var, SgStatement* source)
 {
-    VarItem* p = belongs(var, false);
-    if (!p)
-    {
-        p = new VarItem();
+    bool add = false;
+    if (var->GetVarType() != VAR_REF_ARRAY_EXP) {
+        VarItem* p = belongs(var, false);
+        add = p == NULL;
+#if PRIVATE_GET_LAST_ASSIGN
+        p->lastAssignments.clear();
+        p->lastAssignments.push_back(source);
+#endif
+        //delete p->lastAssignments;
+        //p->lastAssignments = new CLAStatementItem();
+        //p->lastAssignments->stmt = source;
+        //p->lastAssignments->next = NULL;
+    }
+    else {
+        CArrayVarEntryInfo* av = (CArrayVarEntryInfo*)var;
+        VarItem* p = GetArrayRef(av);
+        if (p == NULL)
+            add = true;
+        else {
+            CArrayVarEntryInfo* fv = (CArrayVarEntryInfo*)p->var;
+            *fv += *av;
+        }
+    }
+    if (add) {
+        VarItem* p = new VarItem();
         p->var = var->Clone();
         p->next = list;
         p->file_id = current_file_id;
         list = p;
     }
-#if PRIVATE_GET_LAST_ASSIGN
-    p->lastAssignments.clear();
-    p->lastAssignments.push_back(source);
-#endif
-    //delete p->lastAssignments;
-    //p->lastAssignments = new CLAStatementItem();
-    //p->lastAssignments->stmt = source;
-    //p->lastAssignments->next = NULL;
 }
 
 void VarSet::intersect(VarSet* set, bool la)

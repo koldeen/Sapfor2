@@ -496,11 +496,11 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
     //Do not expand common vars, now...
     string ident(var->symbol()->identifier());
-    for(CommonDataItem* commonVar = currentCommonVars; commonVar != NULL; commonVar = commonVar->next)
-        if(ident == string(commonVar->name->identifier()))
-            return NULL;
-
-
+    for(CommonDataItem *common = currentCommonVars; common != NULL; common = common->next)
+        for (CommonVarInfo *varInfo = common->info; varInfo != NULL; varInfo = varInfo->next)
+            if(ident == varInfo->var->GetSymbol()->identifier())
+                return NULL;
+    
 
     SgExpression* exp = NULL;
     //first, check previous defs within block
@@ -583,11 +583,11 @@ SgExpression* tryMakeInt(SgExpression* exp)
     return exp;
 }
 
-void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp)
+void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp, const int lineNumber)
 {
     SgExpression *oldExp = rightSide ? parent->rhs() : parent->lhs();
 
-    __spf_print(PRINT_PROF_INFO, "%s -> ", oldExp->unparse());
+    __spf_print(PRINT_PROF_INFO, "%d: %s -> ",lineNumber, oldExp->unparse());
     __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
     SgExpression* expToCopy = newExp->copyPtr();
     calculate(expToCopy);
@@ -611,7 +611,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
         if (newExp != NULL)
         {
             createBackup(parent, expNumber);
-            __spf_print(PRINT_PROF_INFO, "%s -> ", exp->unparse());
+            __spf_print(PRINT_PROF_INFO, "%d: %s -> ",parent->lineNumber(), exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
             SgExpression* expToCopy = newExp->copyPtr();
             calculate(expToCopy);
@@ -635,7 +635,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (newExp != NULL)
                     {
                         createBackup(parent, expNumber);
-                        setNewSubexpression(exp, true, newExp);
+                        setNewSubexpression(exp, true, newExp, parent->lineNumber());
                         wereReplacements = true;
                     }
                 }
@@ -651,7 +651,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                         if (newExp != NULL)
                         {
                             createBackup(parent, expNumber);
-                            setNewSubexpression(exp, false, newExp);
+                            setNewSubexpression(exp, false, newExp, parent->lineNumber());
                             wereReplacements = true;
                         }
                     }
@@ -684,7 +684,7 @@ bool needReplacements(SgExpression* exp, map<SymbolKey, std::vector<SgExpression
     }
 }
 
-bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
+bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBlock *b)
 {
     bool wereReplacements = false;
     SgExpression *lhs = exp->lhs(), *rhs = exp->rhs();
@@ -696,12 +696,12 @@ bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
             SgExpression* newExp = valueOfVar(lhs, b);
             if (newExp != NULL)
             {
-                setNewSubexpression(exp, false, newExp);
+                setNewSubexpression(exp, false, newExp, lineNumber);
                 wereReplacements = true;
             }
         }
         else
-            replaceVarsInCallArgument(lhs, b);
+            replaceVarsInCallArgument(lhs, lineNumber, b);
     }
     //We don't want expand arguments of other functions and other arguments
     if(rhs && rhs->variant() != FUNC_CALL && rhs->variant() != EXPR_LIST)
@@ -711,12 +711,12 @@ bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
             SgExpression* newExp = valueOfVar(rhs, b);
             if (newExp != NULL)
             {
-                setNewSubexpression(exp, true, newExp);
+                setNewSubexpression(exp, true, newExp, lineNumber);
                 wereReplacements = true;
             }
         }
         else
-            replaceVarsInCallArgument(rhs, b);
+            replaceVarsInCallArgument(rhs, lineNumber, b);
     }
 
     return wereReplacements;
@@ -725,7 +725,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, CBasicBlock *b)
 bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
 {
     bool wereReplacements = false;
-    int numberOfArgs = 0;
+    int numberOfArgs = 0, lineNumber = 0;
     SgExpression *args = NULL, *arg = NULL;
     SgFunctionCallExp *funcCall = NULL;
     SgStatement *st = cfi->getStatement();
@@ -740,6 +740,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         SgCallStmt *callStmt = isSgCallStmt(cfi->getStatement());
         args = callStmt->expr(0);
         numberOfArgs = callStmt->numberOfArgs();
+        lineNumber = callStmt->lineNumber();
     }
     else if ((funcCall = cfi->getFunctionCall()) != NULL) //functionCall
     {
@@ -748,6 +749,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
             if(st->expr(i)) // TODO: search for expression?
                 createBackup(st, i);
         args = funcCall->lhs();
+        lineNumber = st->lineNumber();
         numberOfArgs = funcCall->numberOfArgs();
     }
 
@@ -756,7 +758,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         {
             arg = args->lhs();
             if ((arg->variant() != VAR_REF) || argIsReplaceable(i, callData))
-                wereReplacements |= replaceVarsInCallArgument(args, b);
+                wereReplacements |= replaceVarsInCallArgument(args, lineNumber, b);
             args = args->rhs();
         }
 
@@ -796,6 +798,8 @@ bool replaceVarsInBlock(CBasicBlock* b)
             case PROC_STAT:
                 wereReplacements |= replaceCallArguments(cfi, b);
                 b->adjustGenAndKill(cfi);
+                break;
+            case READ_STAT:
                 break;
             default:
                 for (int i = 0; i < 3; ++i)

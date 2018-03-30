@@ -333,7 +333,7 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
 
         string message;
         __spf_printToBuf(message, "can not convert array assign to loop");
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message));
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message, 2001));
     }
     else
     {
@@ -442,6 +442,8 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     return retVal;
 }
 
+// functionality: convert A[(...)] = B[(...)] to loop 
+//                move (create copy) init assigns in DECL before the first executable
 void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
@@ -452,8 +454,35 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         vector<pair<SgStatement*, SgStatement*>> toMove;
 
+        SgStatement *firstExec = NULL;
+        SgStatement *controlParFristExec = NULL;
+        for (SgStatement *st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+            if (isSgExecutableStatement(st))
+                firstExec = st;
+
+        if (firstExec)
+            controlParFristExec = firstExec->controlParent();
+
         for ( ; st != lastNode; st = st->lexNext())
         {
+            if (firstExec && isSgDeclarationStatement(st))
+            {
+                SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
+                for (int k = 0; k < declStat->numberOfSymbols(); ++k)
+                {
+                    SgExpression *completeInit = declStat->completeInitialValue(k);
+                    if (completeInit)
+                    {
+                        SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                        firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+
+                        toMove.push_back(make_pair(st, toAdd));
+                        toAdd->setlineNumber(getNextNegativeLineNumber());
+                        toAdd->setLocalLineNumber(st->lineNumber());
+                    }
+                }
+            }
+
             currProcessing.second = st;
             if (st->variant() == ASSIGN_STAT)
             {

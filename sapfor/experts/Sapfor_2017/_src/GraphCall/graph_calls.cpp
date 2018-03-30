@@ -29,7 +29,7 @@ using std::to_string;
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 
-static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, vector<SgStatement*>> &commonBlocks)
+static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
 {
     SgType *type = par->type();
     if (type)
@@ -70,7 +70,7 @@ static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const m
         currParams->parametersT[i] = UNKNOWN_T;
 }
 
-static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgStatement*>> &commonBlocks, SgProgHedrStmt *procHeader)
+static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpression*>> &commonBlocks, SgProgHedrStmt *procHeader)
 {
     int numOfParams = procHeader->numberOfParameters();
 
@@ -82,7 +82,7 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgStatem
             fillParam(i, procHeader->parameter(i), currParams, commonBlocks);
 }
 
-static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgStatement*>> &commonBlocks, SgStatement *entryHeader)
+static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpression*>> &commonBlocks, SgStatement *entryHeader)
 {
     SgExpression *parList = entryHeader->expr(0);
     int numOfParams = 0;
@@ -120,7 +120,7 @@ string removeString(const string toRemove, const string inStr)
 
 #define DEBUG 0
 //TODO:: add values
-static void processActualParams(SgExpression *parList, const map<string, vector<SgStatement*>> &commonBlocks, FuncParam *currParams)
+static void processActualParams(SgExpression *parList, const map<string, vector<SgExpression*>> &commonBlocks, FuncParam *currParams)
 {
     int numOfPar = 0;
 
@@ -174,7 +174,7 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
 }
 
 static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
-                          const map<string, vector<SgStatement*>> &commonBlocks, const set<string> &macroNames)
+                          const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames)
 {
     if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
     {
@@ -260,7 +260,7 @@ static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpress
 
             string message;
             __spf_printToBuf(message, "substitute statement function with name '%s'", funcName.c_str());
-            messages.push_back(Messages(NOTE, parent->lineNumber(), message));
+            messages.push_back(Messages(NOTE, parent->lineNumber(), message, 2006));
         }
 
         doMacroExpand(parent, findIn, findIn->lhs(), 0, macroStats, macroNames, needToIterate, messages);
@@ -567,11 +567,27 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         auto it = allFuncInfo.find(fileName);
         if (it == allFuncInfo.end())
             it = allFuncInfo.insert(it, make_pair(fileName, vector<FuncInfo*>()));
-
-        map<string, vector<SgStatement*>> commonBlocks;
+        
+        map<string, vector<SgExpression*>> commonBlocks;
         getCommonBlocksRef(commonBlocks, st, lastNode);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+
+        for(auto& item : commonBlocks)
+        {
+            auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
+            for(auto& list : item.second)
+            {
+                SgExpression* expr_list = list->lhs();
+                while(expr_list != NULL)
+                {
+                    SgExpression* var = expr_list->lhs();
+                    expr_list = expr_list->rhs();
+                    inserted.first->second.insert(var->symbol()->identifier());
+                }
+            }
+        }
+
         if (st->variant() != PROG_HEDR) {
             fillFuncParams(currInfo, commonBlocks, (SgProgHedrStmt*)st);
             // Fill in names of function parameters
@@ -809,7 +825,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
         if (needToAddErrors)
         {
-            messages.push_back(Messages(NOTE, line, buf));
+            messages.push_back(Messages(NOTE, line, buf, 1013));
             __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
         }
         result = false;
@@ -832,7 +848,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, buf));
+                        messages.push_back(Messages(NOTE, line, buf, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
                     }
                     result = false;
@@ -851,7 +867,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, buf));
+                        messages.push_back(Messages(NOTE, line, buf, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
@@ -902,7 +918,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d",
                                         func->funcName.c_str(), symb->identifier(), loop->lineNumber());
 
-                                messages.push_back(Messages(ERROR, statLine, buf));
+                                messages.push_back(Messages(ERROR, statLine, buf, 1013));
                                 __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d\n",
                                       func->funcName.c_str(), symb->identifier(), loop->lineNumber());
                             }
@@ -947,8 +963,8 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
     {
         char buf[256];
         sprintf(buf, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters", func->funcName.c_str(), loop->lineNumber());
-        if (needToAddErrors)
-            messages.push_back(Messages(ERROR, funcOnLine, buf));
+        if (needToAddErrors)        
+            messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
         needInsert = true;
 
         if (needToAddErrors)
@@ -1261,7 +1277,7 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
 
                 char buf[512];
                 sprintf(buf, "Found recursive chain calls: %s, this function will be ignored", chain.c_str());
-                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, buf));
+                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, buf, 1014));
                 break;
             }
         }
@@ -1329,7 +1345,7 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
 
         for (auto &func : it.second)
             if (func->deadFunction)
-                itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project\n"));
+                itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project", 1015));
     }
 
     for (auto &it : mapFuncInfo)

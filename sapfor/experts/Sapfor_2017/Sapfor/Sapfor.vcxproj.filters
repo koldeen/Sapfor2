@@ -246,6 +246,9 @@
     <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -358,6 +361,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\version.h">
       <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

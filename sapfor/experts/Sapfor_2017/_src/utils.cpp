@@ -107,7 +107,7 @@ void printHelp()
     printf(" -keepDVM keep DVM directives\n");
     printf(" -allVars get all parallel versions\n");
     printf(" -Var N   get specific parallel version, N=1,2,..\n");
-    printf(" -q Q     quantity of analysis\n");
+    printf(" -q Q     quality of analysis\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
@@ -294,7 +294,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
             continue;
 
         string currFile = *it;
-        string newCurrFile = string(folderName) + "\\" + currFile;
+        string newCurrFile = string(folderName) + "/" + currFile;
         
         FILE *tryToOpen = fopen(newCurrFile.c_str(), "r");
         if (tryToOpen == NULL)

@@ -44,13 +44,14 @@ struct FuncInfo
     std::pair<int, int> linesNum;
     std::string fileName;
     Statement *funcPointer;
-
-    std::set<std::string> callsFrom;
+    
+    std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
     std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL
     std::vector<FuncParam> actualParams;
+    std::map<std::string, std::set<std::string>> commonBlocks;
 
-    std::vector<FuncInfo*> callsTo;
+    std::vector<FuncInfo*> callsTo; //calls of this function
     FuncParam funcParams;
     std::vector<bool> isParamUsedAsIndex;
     std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func;

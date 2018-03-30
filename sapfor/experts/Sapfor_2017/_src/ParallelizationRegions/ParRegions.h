@@ -26,6 +26,15 @@ struct ParallelRegionLines
 
     ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats) { }
 
+    void print(FILE *fileOut)
+    {
+        fprintf(fileOut, " [%d -- %d]", lines.first, lines.second);
+        if (stats.first && stats.second)
+            fprintf(fileOut, " explicit\n");
+        else
+            fprintf(fileOut, "\n");
+    }
+
     // <start, end> lines
     std::pair<int, int> lines;
     // <start, end> stats
@@ -153,6 +162,25 @@ public:
 
         dataDirectives.distrRules.clear();
         dataDirectives.alignRules.clear();
+    }
+
+    void print(FILE *fileOut)
+    {
+        fprintf(fileOut, "  regionId %d\n", regionId);
+        fprintf(fileOut, "  originalName '%s'\n", originalName.c_str());
+        fprintf(fileOut, "  functions call from %d:\n", (int)functionsCall.size());
+        for (auto &func : functionsCall)
+            fprintf(fileOut, "    '%s'\n", func.c_str());
+        fprintf(fileOut, "  total lines %d:\n", (int)lines.size());
+        for (auto &line : lines)
+        {
+            fprintf(fileOut, "    in file '%s':\n", line.first.c_str());
+            for (auto &elem : line.second)
+            {
+                fprintf(fileOut, "     ");
+                elem.print(fileOut);
+            }
+        }
     }
 
 private:

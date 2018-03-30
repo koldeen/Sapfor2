@@ -514,10 +514,10 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
         DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
-        
+
         vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
         fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
-        
+
         bool hasConflict = false;
         // uniqKey -> pair<position of access, pair<acces>> ///write acceses ///
         map<DIST::Array*, pair<int, pair<int, int>>> arrayWriteAcc;
@@ -526,7 +526,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
         set<DIST::Array*> acrossOutArrays;
 
         __spf_print(PRINT_DIR_RESULT, "  Loop on line %d:\n", loopInfo.first->lineNum);
-                
+
         const map<DIST::Array*, const ArrayInfo*> &currAccesses = loopInfo.second;
         // find conflict and fill arrayWriteAcc
         hasConflict = checkForConflict(currAccesses, loopInfo.first, arrayWriteAcc, acrossInfo, acrossOutArrays);
@@ -913,9 +913,9 @@ static bool checkCorrectness(const ParallelDirective &dir,
                                     dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 
                     char buf[256];
-                    sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
+                    sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
                                   dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
-                    messages.push_back(Messages(ERROR, loopLine, buf));
+                    messages.push_back(Messages(ERROR, loopLine, buf, 3007));
 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
