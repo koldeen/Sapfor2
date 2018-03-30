@@ -35,6 +35,7 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
     }
 
@@ -237,6 +238,8 @@ public:
     ParallelDirective *directive;        // united directive for nested loops
     ParallelDirective *oldDirective;     // save old directive for reverse
     ParallelDirective *directiveForLoop; // part of directive for loop
+    Statement *userDvmDirective;         // user's DVM PARALLEL directive
+
     ParallelRegion *region;
 
     Statement *loop;

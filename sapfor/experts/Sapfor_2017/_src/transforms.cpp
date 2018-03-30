@@ -310,16 +310,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
-            vector<int> errors;
-            DvmDirectiveChecker(file, errors);
-            if (errors.size() != 0)
+            if (keepDvmDirectives == 0)
             {
-                veriyOK = false;
-                vector<Messages> &currMessages = getMessagesForFile(file_name);
-                for (int z = 0; z < errors.size(); ++z)
+                map<string, vector<int>> errors; // file->lines
+                DvmDirectiveChecker(file, errors);
+                if (errors.size() != 0)
                 {
-                    __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", errors[z]);
-                    currMessages.push_back(Messages(ERROR, errors[z], "Active DVM directives are not supported yet", 1020));
+                    veriyOK = false;
+                    for (auto &err : errors)
+                    {
+                        vector<Messages> &currMessages = getMessagesForFile(err.first.c_str());
+                        for (auto &code : err.second)
+                        {
+                            __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
+                            currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet", 1020));
+                        }
+                    }
                 }
             }
         }
@@ -470,8 +476,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             fillRegionLines(file, parallelRegions);
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
-        else if (curr_regime == REMOVE_DVM_DIRS)
-            removeDvmDirectives(file);
+        else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
+            removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
         else if (curr_regime == SUBST_EXPR)
             expressionAnalyzer(file);
         else if (curr_regime == REVERT_SUBST_EXPR)
@@ -637,6 +643,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == DEF_USE_STAGE1)
             constructDefUseStep1(file, defUseByFunctions);
+        else if (curr_regime == DEF_USE_STAGE2)
+            constructDefUseStep2(file, defUseByFunctions);
+
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -688,7 +697,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 // copy includes that have not changed
                 if (folderName != NULL)
-                    copyIncludes(allIncludeFiles, commentsToInclude, folderName);
+                    copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
             }
         }
 
@@ -998,6 +1007,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
+    else if (curr_regime == LOOP_GRAPH)
+    {
+        if (keepFiles)
+            printLoopGraph("_loopGraph.txt", loopGraph);
+    }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
@@ -1243,6 +1257,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
+    case REMOVE_DVM_DIRS_TO_COMMENTS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case UNPARSE_FILE:
@@ -1368,6 +1383,8 @@ int main(int argc, char**argv)
                     keepFiles = 1;
                 else if (string(curr_arg) == "-keepSPF")
                     keepSpfDirs = 1;
+                else if (string(curr_arg) == "-keepDVM")
+                    keepDvmDirectives = 1;
                 else if (string(curr_arg) == "-allVars")
                     genAllVars = 1;
                 else if (string(curr_arg) == "-Var" || string(curr_arg) == "-var")

@@ -11,6 +11,11 @@
 #include <omp.h>
 #include <limits.h>
 
+#if _WIN32 && NDEBUG
+#include <boost/thread.hpp>
+extern int passDone;
+#endif
+
 using std::pair;
 using std::set;
 using std::make_pair;
@@ -162,6 +167,11 @@ namespace Distribution
             char buf[256];
             sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             addToGlobalBufferAndPrint(buf);
+            //printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
+#if _WIN32 && NDEBUG
+            if (passDone == 2)
+                throw boost::thread_interrupted();
+#endif
         }
         else
         {
@@ -186,7 +196,13 @@ namespace Distribution
                     localDelArcsShort.pop_back();
                 }
                 else
+                {
+#if _WIN32 && NDEBUG
+                    if (passDone == 2)
+                        throw boost::thread_interrupted();
+#endif
                     break;
+                }
             }
         }
     }

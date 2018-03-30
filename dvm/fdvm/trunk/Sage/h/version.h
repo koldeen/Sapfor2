@@ -1,2 +1,2 @@
-#define VERSION_NUMBER     "5.5"
-#define VERSION_NUMBER_INT "55"
+#define VERSION_NUMBER     "5.6"
+#define VERSION_NUMBER_INT "56"

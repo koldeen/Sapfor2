@@ -41,13 +41,14 @@ private:
     std::pair<SgSymbol*, std::string> paramOfFunction;
     int parameterPosition;
     std::pair<SgSymbol*, std::string> varName;
+    int parameterPositionInFunction;
 
 public:
     explicit DefUseList(int type, SgStatement *place, SgFile *file,
         const std::pair<SgSymbol*, std::string> &inFuncParam,
         const std::pair<SgSymbol*, std::string> &varName, 
-        const int parameterPosition) :
-        type(type), place(place), file(file), paramOfFunction(inFuncParam), varName(varName), parameterPosition(parameterPosition)
+        const int parameterPosition, const int paramenterPostionInFunction) :
+        type(type), place(place), file(file), paramOfFunction(inFuncParam), varName(varName), parameterPosition(parameterPosition), parameterPositionInFunction(paramenterPostionInFunction)
     {
 
     }
@@ -61,6 +62,7 @@ public:
     std::string getParamOfFunction() const { return paramOfFunction.second; }
     SgSymbol* getParamOfFunctionS() const { return paramOfFunction.first; }
     int getParameterPosition() const { return parameterPosition; }
+    int getParameterPositionInFunction() const { return parameterPositionInFunction; }
 
     void print(FILE *fileOut = NULL, const bool onlyPositiveLine = false) const
     {
@@ -70,14 +72,14 @@ public:
         {            
             printf("%s: [file: %s, line: %d], '%s' ", (type == 0) ? "DEF" : "USE", file->filename(), place->lineNumber(), varName.second.c_str());
             if (parameterPosition != -1)
-                printf(" under call of '%s' function on %d position of args", paramOfFunction.second.c_str(), parameterPosition);
+                printf(" under call of '%s' function on %d position of args (alt pos %d)", paramOfFunction.second.c_str(), parameterPosition, parameterPositionInFunction);
             printf("\n");
         }
         else
         {
             fprintf(fileOut, "%s: [file: %s, line: %d], '%s' ", (type == 0) ? "DEF" : "USE", file->filename(), place->lineNumber(), varName.second.c_str());
             if (parameterPosition != -1)
-                fprintf(fileOut, " under call of '%s' function on %d position of args", paramOfFunction.second.c_str(), parameterPosition);
+                fprintf(fileOut, " under call of '%s' function on %d position of args (alt pos %d)", paramOfFunction.second.c_str(), parameterPosition, parameterPositionInFunction);
             fprintf(fileOut, "\n");
         }
 
@@ -85,8 +87,10 @@ public:
 };
 
 void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
+void constructDefUseStep2(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
 std::set<std::string> getAllDefVars(const std::string &funcName);
 std::set<std::string> getAllUseVars(const std::string &funcName);
 const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName);
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
+

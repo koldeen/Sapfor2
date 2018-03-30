@@ -348,7 +348,10 @@ static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, cons
             fprintf(file, " [HAS I/O OPS]");
         if (childs[k]->region)
             fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
-        fprintf(file, "[IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
+        if (childs[k]->userDvmDirective)
+            fprintf(file, " [USER DVM]");
+
+        fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
         fprintf(file, "\n");
 
         for (int i = 0; i < (int)childs[k]->calls.size(); ++i)

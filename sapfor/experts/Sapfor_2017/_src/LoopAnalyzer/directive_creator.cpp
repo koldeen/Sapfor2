@@ -1129,7 +1129,7 @@ static pair<vector<int>, vector<pair<string, vector<Expression*>>>>
 
 static void addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
-                                  LoopGraph *current, const ParallelDirective *currParDir, const int regionId)
+                                  LoopGraph *current, const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
 {    
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
@@ -1168,6 +1168,12 @@ static void addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         redistSt[0] = new Expression(new SgExpression(EXPR_LIST, ref, NULL, NULL));
         redistSt[1] = new Expression(pointer);
         toInsert.push_back(make_pair(current->lineNumAfterLoop, make_pair(redist, redistSt)));
+                
+        __spf_print(1, "WARN: added redistribute for loop on line %d by array '%s' can significantly reduce performance\n", current->lineNum, distribution[idx].first->GetShortName().c_str());
+
+        char buf[512];
+        sprintf(buf, "Added redistribute for loop by array '%s' can significantly reduce performance", distribution[idx].first->GetShortName().c_str());
+        messages.push_back(Messages(WARR, current->lineNum, buf, 3009));
     }
 }
 
@@ -1218,10 +1224,10 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 if (topCheck)
                 {
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, current->getAllArraysInLoop(), messages, current->lineNum))
-                        addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId);
+                        addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId, messages);
                 }
                 else
-                    addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId);
+                    addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId, messages);
                 
                 vector<pair<DIST::Array*, const DistrVariant*>> newRules;
                 constructRules(newRules, distribution, current);

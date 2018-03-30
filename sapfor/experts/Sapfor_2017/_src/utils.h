@@ -23,7 +23,7 @@ const std::string& getGlobalBuffer();
 void convertGlobalBuffer(short *&result, int *&resultSize);
 void clearGlobalMessagesBuffer();
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize);
-void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName);
+void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName, int removeDvmDirs = 0);
 
 std::string splitDirective(const std::string &in);
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
