@@ -776,7 +776,7 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
     return 0;
 }
 
-static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
+static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb, int parNo, std::vector<int> &parsWithLoopSymb)
 {
     bool retVal = false;
 
@@ -784,12 +784,22 @@ static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
     {
         if (ex->variant() == VAR_REF)
             if (ex->symbol()->identifier() == loopSymb)
+            {
                 retVal = true;
 
+                bool alreadyPresent = false;
+                for (auto &par : parsWithLoopSymb)
+                    if (par == parNo)
+                        alreadyPresent = true;
+
+                if(!alreadyPresent)
+                    parsWithLoopSymb.push_back(parNo);
+            }
+
         if (ex->lhs())
-            retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb);
+            retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb, parNo, parsWithLoopSymb);
         if (ex->rhs())
-            retVal = retVal || findLoopVarInParameter(ex->rhs(), loopSymb);
+            retVal = retVal || findLoopVarInParameter(ex->rhs(), loopSymb, parNo + 1, parsWithLoopSymb);
     }
     return retVal;
 }
@@ -938,27 +948,13 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
     return ret;
 }
 
-static int findNoOfLoopVarInParameter(SgExpression *parList, const std::string &loopSymb) {
-    int parNo = 0;
-
-    for (SgExpression *par = parList; par != NULL; par = par->rhs())
-    {
-        if (par->lhs()->variant() == VAR_REF)
-            if (par->lhs()->symbol()->identifier() == loopSymb)
-                return parNo;
-
-        parNo++;
-    }
-
-    return 0;
-}
-
 static bool processParameterList(SgExpression *parList, SgForStmt *loop, const FuncInfo *func, const int funcOnLine, bool needToAddErrors,
                                  vector<Messages> &messages)
 {
     bool needInsert = false;
 
-    bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier());
+    std::vector<int> parsWithLoopSymb;
+    bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier(), 0, parsWithLoopSymb);
     if (hasLoopVar)
     {
         char buf[256];
@@ -970,13 +966,22 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         if (needToAddErrors)
             __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
 
-        int parNo = findNoOfLoopVarInParameter(parList, loop->symbol()->identifier());
-        if (func->isParamUsedAsIndex[parNo]) {
+        bool isLoopSymbUsedAsIndex = false;
+
+        for (auto &par : parsWithLoopSymb)
+            if (func->isParamUsedAsIndex[par])
+            {
+                isLoopSymbUsedAsIndex = true;
+                break;
+            }
+
+        if (isLoopSymbUsedAsIndex) {
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
             if (needToAddErrors) {
                 messages.push_back(Messages(ERROR, funcOnLine, buf));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop symbol as index of an array\n", func->funcName.c_str());
             }
+
             needInsert = true;
         }
     }
