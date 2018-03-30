@@ -818,7 +818,6 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     const string currFile = file->filename();
 
 	printf("----funcNum=%d\n", funcNum);
-
 	printf("----preprocess_spf_dirs!!!\n");
     
     bool noError = true;
@@ -837,7 +836,6 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-
             bool result = processStat(st, currFile, messagesForFile);
             noError = noError && result;
 
@@ -866,33 +864,39 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     return noError;
 }
 
-void AddExp2tree(SgStatement *toAdd, SgExpression *exp) {
-	bool find_priv = false;
-	int priv_op = 936;	//tag[ACC_PRIVATE_OP]
-	SgExpression *mainExp = recExpressionFind(toAdd->expr(0), priv_op)->lhs(); //Always EXPR_LIST left?
-	SgExpression *addExp = recExpressionFind(exp, priv_op)->lhs();
+void LinkTree(SgStatement *toAdd, SgExpression *exp) {
+	printf("LinkTree\n");
+	SgExpression *mainExp = toAdd->expr(0);
+	SgExpression *copyExp = &(exp->copy());
+	while (mainExp) {
+		SgExpression *rhs = mainExp->rhs();
+		if (!rhs) {
+			mainExp->setRhs(copyExp);
+			return;
+		}
+		if (rhs) {
+			printf("down R\n");
+			mainExp = rhs;
+		}
+	}
+}
+
+void AddExp2tree(SgExpression *mainExp, SgExpression *addExp) {
+	int var = mainExp->variant();
+	mainExp = mainExp->lhs();
+	addExp = addExp->lhs();
 	if (mainExp && addExp) {
 		printf("This trees can be merge\n");
-		const int expr_list = 312;	//tag[EXPR_LIST]
-		SgExpression *copyExp = &(addExp->copy());
+	//	const int expr_list = 312;	//tag[EXPR_LIST]
 		while (mainExp) {
 			SgExpression *lhs = mainExp->lhs();
 			SgExpression *rhs = mainExp->rhs();
-			if (!lhs) {
-				printf("Merge L\n");
-				mainExp->setLhs(copyExp);
-				return;
-			}
 			if (!rhs) {
 				printf("Merge R\n");
-				mainExp->setRhs(copyExp);
+				mainExp->setRhs(addExp);
 				return;
 			}
-			if (lhs->variant() == expr_list) {
-				printf("down L\n");
-				mainExp = lhs;
-			}
-			if (rhs->variant() == expr_list) {
+			else {
 				printf("down R\n");
 				mainExp = rhs;
 			}
@@ -900,11 +904,36 @@ void AddExp2tree(SgStatement *toAdd, SgExpression *exp) {
 	}
 }
 
+void OptimizeTree(SgExpression *exp) {
+	while (exp) {
+		SgExpression *checkExp = exp->lhs();
+		SgExpression *currExp = exp->rhs();
+
+		SgExpression *prevExp = exp;
+
+		int var = checkExp->variant();
+
+		while (currExp) {
+			SgExpression *lhs = currExp->lhs();
+			SgExpression *rhs = currExp->rhs();
+			if (lhs) {
+				if (lhs->variant() == var) {
+					printf("find simple var\n");
+					prevExp->setRhs(rhs);
+					AddExp2tree(checkExp,lhs);
+				}
+				else
+					prevExp = currExp;
+				currExp = rhs;
+			}
+		}	
+		exp = exp->rhs();
+	}
+}
+
 void revertion_spf_dirs(SgFile *file) {
-	//printf("----revertion_spf_dirs!!!\n");
 	int funcNum = file->numberOfFunctions();
 
-	//printf("----funcNum=%d\n", funcNum);
 	for (int i = 0; i < funcNum; i++) {
 		SgStatement *st = file->functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
@@ -915,29 +944,23 @@ void revertion_spf_dirs(SgFile *file) {
 				__spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
 				break;
 			}
-
 			//analise attributes
 			SgAttribute *prev_atrib = NULL;
 			SgAttribute *atrib = st->getAttribute(0);
-	//		int countAttribute = 0;
 
 			if (atrib) {
-		//		printf("----countAttribute=%d\n", ++countAttribute);
 				if (isSPF_comment(atrib)) {
 					printf("----Find_SPF\n");
-
 					//check previosly directives SPF_ANALYSIS
 					vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
 					printf("---size_sameAtt(SPF_ANALYSIS) == %d\n", sameAtt.size());
 					SgStatement *toAddExp = NULL;
 					int count = 0;
 					for (auto &elem: sameAtt){
-						printf("----Start return\n");
 						printf("----count_elem=%d\n", ++count);
 						if (toAddExp) {
-							printf("try find simple tree\n");
 							SgExpression* exp = elem->expr(0);
-							AddExp2tree(toAddExp, exp); //add new expr to current tree
+							LinkTree(toAddExp, exp);
 						}
 						else {
 							printf("first chain\n");
@@ -950,6 +973,9 @@ void revertion_spf_dirs(SgFile *file) {
 					else {
 						printf("----toAddExp->expr(0) == NULL\n");
 					}
+					OptimizeTree(toAddExp->expr(0));
+					recExpressionPrint(toAddExp->expr(0));
+
 					st->insertStmtBefore(*toAddExp);
 
 					//check previosly directives SPF_PARALLEL
@@ -974,10 +1000,7 @@ void revertion_spf_dirs(SgFile *file) {
 						}
 						st->insertStmtBefore(*toAdd);
 					}
-					//delete atrib - without		
 				}		
-		//		prev_atrib = atrib;
-		//		atrib = atrib->getNext();
 			}
 
 			//hidded chain join to st
