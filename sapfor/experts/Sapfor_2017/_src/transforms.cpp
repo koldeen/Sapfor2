@@ -837,7 +837,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         updateFuncInfo(allFuncInfo);
 
         // Debug:
-        printParInfo(allFuncInfo);
+        //printParInfo(allFuncInfo);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
