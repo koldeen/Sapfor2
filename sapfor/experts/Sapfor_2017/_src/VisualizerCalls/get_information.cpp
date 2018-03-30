@@ -733,6 +733,11 @@ int SPF_CorrectCodeStylePass(int *options, short *projName, short *folderName, s
     return simpleTransformPass(CORRECT_CODE_STYLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_RemoveDvmDirectives(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    return simpleTransformPass(REMOVE_DVM_DIRS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 extern set<string> filesToInclude;
 int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, char *filesToInclude, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {

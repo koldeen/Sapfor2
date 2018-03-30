@@ -51,7 +51,7 @@ std::map<std::string, std::vector<LoopGraph*>> loopGraph; // file -> Info
 std::map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 //
 
-//for directive creating
+//for directive creator
 std::map<std::string, std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>>> createdDirectives; //file -> directive to insert
 //
 

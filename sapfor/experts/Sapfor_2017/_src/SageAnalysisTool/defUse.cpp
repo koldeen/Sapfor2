@@ -321,17 +321,15 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             Message("internal error : IO statements not found\n", 0);
         break;
     case PROC_STAT:
-        //TODO:
-        break;
         callStat = (SgCallStmt*)stmt;
+        
         pt = callStat->expr(0);
         if (pt)
         {
             *use = pt->symbRefs();
             // if not an intrinsic, needs to be added to the def list;
             if (!isSymbolIntrinsic(callStat->name()))
-                *def = pt->symbRefs();
-            
+                *def = pt->symbRefs();            
             /*pt->unparsestdout();
             printf("\n");
             printf("%s %d\n", callStat->name()->identifier(), stmt->lineNumber());

@@ -264,3 +264,24 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
         loop->region = getRegionByLine(regions, loop->fileName, currLine);
     }
 }
+
+int printParalleRegions(const char *fileName, vector<ParallelRegion*> &regions)
+{
+    FILE *file = fopen(fileName, "w");
+    if (file == NULL)
+    {
+        __spf_print(1, "can not open file %s\n", fileName);
+        return -1;
+    }
+
+    int num = 0;
+    for (auto &elem : regions)
+    {
+        fprintf(file, "*** #%d Parallel Region\n", num);
+        elem->print(file);
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return 0;
+}

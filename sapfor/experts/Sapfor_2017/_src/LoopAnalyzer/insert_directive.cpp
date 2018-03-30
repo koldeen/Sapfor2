@@ -228,7 +228,7 @@ void removeDvmDirectives(SgFile *file)
         toDel[k]->deleteStmt();
 }
 
-static inline string genTamplateDelc(const DIST::Array *templ, const bool common = true)
+static inline string genTemplateDelc(const DIST::Array *templ, const bool common = true)
 {
     string templDecl = (common) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     const vector<pair<int, int>> &sizes = templ->GetSizes();
@@ -364,7 +364,7 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
         }
 
         int templIdx = findTeplatePosition(templ, dataDir);
-        string templDecl = genTamplateDelc(templ);
+        string templDecl = genTemplateDelc(templ);
         string templDist = genTemplateDistr(templ, distrRules, regionId, templIdx);
 
         return make_pair(make_tuple(templDecl, templDist, ""), "!DVM$ INHERIT\n");
@@ -372,7 +372,7 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
     else
     {
         int templIdx = findTeplatePosition(templ, dataDir);
-        string templDecl = genTamplateDelc(templ);
+        string templDecl = genTemplateDelc(templ);
         string templDist = genTemplateDistr(templ, distrRules, regionId, templIdx);
         string templDyn = "!DVM$ DYNAMIC " + templ->GetShortName() + "\n";
 
@@ -493,7 +493,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 if (array->isTemplate() && !array->isLoopArray())
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
-                    string templDecl = genTamplateDelc(array);
+                    string templDecl = genTemplateDelc(array);
                     string templDist = genTemplateDistr(array, distrRules, regionId, templIdx);
                     string templDyn = "!DVM$ DYNAMIC " + array->GetShortName() + "\n";
 
@@ -548,7 +548,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 if (location.second == name)
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
-                    string templDecl = genTamplateDelc(array, false);
+                    string templDecl = genTemplateDelc(array, false);
                     string templDist = genTemplateDistr(array, distrRules, regionId, templIdx);
                     string templDyn = "";
 
