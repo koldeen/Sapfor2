@@ -678,7 +678,7 @@ static bool checkRemote(SgStatement *st,
 }
 
 static bool checkParallelRegions(SgStatement *st,
-                                 const map<string, set<string>> &commonBlocks,
+                                 const map<string, CommonBlock> &commonBlocks,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -730,9 +730,9 @@ static bool checkParallelRegions(SgStatement *st,
             // common blocks checking
             for (auto &commonBlockPair : commonBlocks)
             {
-                for (auto &varName : commonBlockPair.second)
+                for (auto &variable : commonBlockPair.second.getVariables())
                 {
-                    if (varName == identSymbol->identifier())
+                    if (variable.getName() == identSymbol->identifier())
                     {
                         __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
@@ -833,7 +833,7 @@ static bool checkParallelRegions(SgStatement *st,
 }
 
 static inline bool processStat(SgStatement *st, const string &currFile,
-                               const map<string, set<string>> &commonBlocks,
+                               const map<string, CommonBlock> &commonBlocks,
                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -937,7 +937,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, set<string>> &commonBlocks, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
@@ -962,7 +962,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-bool preprocess_spf_dirs(SgFile *file, const map<string, set<string>> &commonBlocks, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();

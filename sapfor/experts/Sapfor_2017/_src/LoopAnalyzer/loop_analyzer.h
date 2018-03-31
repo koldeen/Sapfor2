@@ -10,6 +10,7 @@
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
 #include "../AstWrapper.h"
+#include "../SgUtils.h"
 
 #include "dvm.h"
 
@@ -113,7 +114,7 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
                                            const std::vector<Statement*> &reAlignRules);
 
 // spf_directive_preproc.cpp
-bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, std::set<std::string>> &commonBlocks, std::vector<Messages> &messagesForFile);
+bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
 void addAcrossToLoops(LoopGraph *topLoop, const std::map<SgSymbol*, std::tuple<int, int, int>> &acrossToAdd, 
                       const std::map<int, SgForStmt*> &allLoops, 
                       std::vector<Messages> &currMessages);

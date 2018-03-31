@@ -84,24 +84,22 @@ public:
     }
 };
 
-enum varType
-{
-    scalar,
-    array,
-    other
-};
+enum varType { SCALAR, ARRAY, ANOTHER };
 
 struct Variable
 {
 private:
     SgFile *file;
     SgStatement *function;
-    SgSymbol *symbol;
-    std::string name;
-    varType type;
+    SgSymbol *symbol; // variable symbol
+    std::string fileName;
+    std::string functionName;
+    std::string name; // variable name
+    varType type;     // variable type
 public:
-    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, std::string &name, varType &type) :
-        file(file), function(function), symbol(symbol), name(name), type(type)
+    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type) :
+        file(file), function(function), symbol(symbol), name(name), type(type),
+        fileName(std::string(file->filename())), functionName(std::string(function->symbol()->identifier()))
     {
 
     }
@@ -109,48 +107,58 @@ public:
     SgFile* getFile() const { return file; }
     SgStatement* getFunction() const { return function; }
     SgSymbol* getSymbol() const { return symbol; }
-    const std::string & getName() const { return name; }
-    const varType & getType() const { return type; }
+    const std::string& getFileName() const { return fileName; }
+    const std::string& getFunctionName() const { return functionName; }
+    const std::string& getName() const { return name; }
+    const varType getType() const { return type; }
 };
 
 struct CommonBlock
 {
 private:
     std::string name;
-    std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> detailVariables; // file, func -> vars
-    std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, varType>>> variables; // fileName, funcName -> vars
+    std::vector<Variable> variables;
 
 public:
-    explicit CommonBlock(std::string &name,
-        std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> &detailVariables,
-        std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, varType>>> &variables) :
-        name(name), detailVariables(detailVariables), variables(variables)
+    explicit CommonBlock(const std::string &name,
+        const std::vector<Variable> &variables) :
+        name(name), variables(variables)
     {
 
     }
 
-    const std::string & getName() const { return name; }
-    const std::map<std::pair<SgFile*, SgStatement*>, std::vector<SgSymbol*>> & getDetailVariables() const { return detailVariables; }
-    const std::map<std::pair<std::string, std::string>, std::vector<std::pair<std::string, varType>>> & getVariables() const { return variables; }
+    const std::string& getName() const { return name; }
+    const std::vector<Variable>& getVariables() const { return variables; }
 
-    void addVariables(SgFile *file, SgStatement *func, std::vector<SgSymbol*> &newVariables)
+    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const
     {
-        auto pair = std::make_pair(file, func);
-        auto pairr = std::make_pair(std::string(file->filename()), std::string(func->symbol()->identifier()));
-        auto it = detailVariables.find(pair);
-        auto itt = variables.find(pairr);
+        std::vector<Variable> mappedVariables;
 
-        if (it == detailVariables.end())
-        {
-            it = detailVariables.insert(it, std::make_pair(pair, std::vector<SgSymbol*>()));
-            itt = variables.insert(itt, std::make_pair(pairr, std::vector<std::pair<std::string, varType>>()));
-        }
+        for (auto &variable : variables)
+            if (variable.getFile() == file && variable.getFunction() == function)
+                mappedVariables.push_back(variable);
 
-        for (auto &variable : newVariables)
+        return mappedVariables;
+    }
+
+    const std::vector<Variable> getVariables(std::string &fileName, std::string &functionName) const
+    {
+        std::vector<Variable> mappedVariables;
+
+        for (auto &variable : variables)
+            if (variable.getFileName() == fileName && variable.getFunctionName() == functionName)
+                mappedVariables.push_back(variable);
+
+        return mappedVariables;
+    }
+
+    void addVariables(SgFile *file, SgStatement *function, const std::vector<SgSymbol*> &newVariables)
+    {
+        for (auto &varSymbol : newVariables)
         {
-            varType type = variable->variant() == VAR_REF ? scalar : variable->variant() == ARRAY_REF ? array : other;
-            it->second.push_back(variable);
-            itt->second.push_back(std::make_pair(variable->identifier(), type));
+            varType type = varSymbol->variant() == VAR_REF ? SCALAR : varSymbol->variant() == ARRAY_REF ? ARRAY : ANOTHER;
+            Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type);
+            variables.push_back(variable);
         }
     }
 };
