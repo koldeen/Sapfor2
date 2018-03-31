@@ -483,8 +483,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 SgStatement *start = file->functions(i);
                 SgStatement *end = start->lastNodeOfStmt();
 
-                for (SgStatement *st = start->lexNext(); st != end; st = st->lexNext())
-                    getCommonBlocksRef(commonBlocksRef, st, st->lastNodeOfStmt());
+                getCommonBlocksRef(commonBlocksRef, start->lexNext(), end);
 
                 for (auto &commonBlockRef : commonBlocksRef)
                 {
