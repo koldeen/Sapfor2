@@ -18,7 +18,7 @@ extern std::map<std::string, std::string> shortFileNames;
 
 int staticShadowAnalysis = 1; // always on
 int staticPrivateAnalysis = 0;
-int keepDvmDirectives = 1; // always on
+int keepDvmDirectives = 0;
 int keepFiles = 0;
 int keepSpfDirs = 0;
 int consoleMode = 0;

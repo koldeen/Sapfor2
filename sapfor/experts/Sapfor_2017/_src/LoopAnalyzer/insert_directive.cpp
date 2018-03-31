@@ -188,9 +188,56 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
     }
 }
 
-void removeDvmDirectives(SgFile *file)
+static void moveComment(SgStatement *elem, const string addNew = "")
+{
+    string comms = "";
+    if (elem->comments())
+        comms = elem->comments();
+    comms += addNew;
+
+    if (comms != "")
+    {
+        auto toAddComm = elem;
+        while (toAddComm)
+        {
+            toAddComm = toAddComm->lexNext();
+            if (toAddComm && !isDVM_stat(toAddComm))
+                break;
+        }
+        if (toAddComm->lexNext() == NULL)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        
+        string comms2 = "";
+        if (toAddComm->comments())
+            comms2 = toAddComm->comments();
+        comms += comms2;
+
+        if (comms != "")
+            toAddComm->setComments(comms.c_str());
+    }
+}
+
+static void replaceComment(string &dir, const char *firstChar)
+{
+    const string templ = firstChar + string("DVM$");
+    size_t offset = 0;
+    for (; ; )
+    {
+        offset = dir.find(templ, offset);
+        if (offset == string::npos)
+            break;
+        else
+        {
+            dir.insert(offset + 1, " ");
+            offset += 6;
+        }
+    }
+}
+
+void removeDvmDirectives(SgFile *file, const bool toComment)
 {
     vector<SgStatement*> toDel;
+    const string currFile = file->filename();
 
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
@@ -217,15 +264,46 @@ void removeDvmDirectives(SgFile *file)
                 (var >= 900 && var <= 949) ||
                 (var == 277 || var == 299))
             {
-                toDel.push_back(st);
+                if (st->fileName() == currFile)
+                    toDel.push_back(st);
             }
 
             st = st->lexNext();
         }
     }
 
-    for (int k = 0; k < toDel.size(); ++k)
-        toDel[k]->deleteStmt();
+    if (toComment)
+    {
+        for (auto &elem : toDel)
+        {
+            currProcessing.second = elem;
+
+            moveComment(elem);
+            elem->delComments();
+
+            char *tmp = elem->unparse();
+            if (tmp == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            string dir(tmp);
+            convertToUpper(dir);
+            
+            replaceComment(dir, "!");
+            replaceComment(dir, "C");
+            
+            moveComment(elem, dir);
+            elem->deleteStmt();
+        }
+    }
+    else
+    {
+        for (auto &elem : toDel)
+        {
+            currProcessing.second = elem;
+
+            moveComment(elem);
+            elem->deleteStmt();
+        }
+    }
 }
 
 static inline string genTemplateDelc(const DIST::Array *templ, const bool common = true)

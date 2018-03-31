@@ -738,6 +738,11 @@ int SPF_RemoveDvmDirectives(int *options, short *projName, short *folderName, sh
     return simpleTransformPass(REMOVE_DVM_DIRS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_RemoveDvmDirectivesToComments(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    return simpleTransformPass(REMOVE_DVM_DIRS_TO_COMMENTS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 extern set<string> filesToInclude;
 int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, char *filesToInclude, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {

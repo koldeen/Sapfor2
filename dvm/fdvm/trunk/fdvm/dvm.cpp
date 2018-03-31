@@ -3647,6 +3647,39 @@ EXEC_PART_:
             pstmt = addToStmtList(pstmt, stmt);  
             break;
 
+      case DVM_EXIT_INTERVAL_DIR:
+          if (perf_analysis > 1){
+            //generating call to 'einter' function of performance analizer
+	    // (exit from user interval)
+            
+            if(!St_frag){
+              err("Misplaced directive",103,stmt);
+              break;
+            }
+            interval_list *current_interval = St_frag;
+            SgExpression *el;                                 
+	    LINE_NUMBER_AFTER(stmt,stmt);
+            for(el=stmt->expr(0); el; el=el->rhs())
+            {               
+              if(ExpCompare(el->lhs(),current_interval->begin_st->expr(0)))
+              {
+                InsertNewStatementAfter(St_Einter(current_interval->No,current_interval->begin_st->lineNumber()), cur_st, stmt->controlParent());            
+                current_interval = current_interval->prev; 
+              }
+              else
+              {
+                err("Illegal interval number", 635, stmt);
+                break;
+              }
+            }
+            Extract_Stmt(stmt); // extracting DVM-directive           
+            stmt = cur_st;
+          }
+          else
+            //including the DVM  directive to list
+            pstmt = addToStmtList(pstmt, stmt);  
+            break;
+
        case DVM_MAP_DIR:
 	 {  int ind;
             SgExpression *ps,*am,*index;
@@ -4058,7 +4091,20 @@ EXEC_PART_:
             ReadWritePrint_Statement(stmt,WITH_ERR_MSG);
             stmt = cur_st;
             break;
-           
+/*
+       case DVM_CP_CREATE_DIR:
+            CP_Create_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+       case DVM_CP_SAVE_DIR:
+            CP_Save_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+       case DVM_CP_LOAD_DIR:
+            CP_Load_Statement(stmt, WITH_ERR_MSG);
+            stmt = cur_st;
+            break;
+*/           
        case FOR_NODE:
             if(inasynchr){ //inside the range  of ASYNCHRONOUS construct
 	      pstmt = addToStmtList(pstmt, stmt); // add to list of extracted statements

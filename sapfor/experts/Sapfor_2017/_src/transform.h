@@ -54,9 +54,10 @@ enum passes {
     LOOP_DATA_DEPENDENCIES,
     INSERT_INCLUDES,
     REMOVE_DVM_DIRS,
+    REMOVE_DVM_DIRS_TO_COMMENTS,
     VERIFY_DVM_DIRS,
 
-    SUBST_EXPR,    
+    SUBST_EXPR,
     REVERT_SUBST_EXPR,
     SUBST_EXPR_AND_UNPARSE,
         
@@ -73,6 +74,7 @@ enum passes {
     FILL_COMMON_BLOCKS,
     PREDICT_SCHEME,
     DEF_USE_STAGE1,
+    DEF_USE_STAGE2,
     EMPTY_PASS
 };
 
@@ -153,5 +155,7 @@ static void setPassValues()
     passNames[FILL_COMMON_BLOCKS] = "FILL_COMMON_BLOCKS";
     passNames[PREDICT_SCHEME] = "PREDICT_SCHEME";
     passNames[DEF_USE_STAGE1] = "DEF_USE_STAGE1";
+    passNames[DEF_USE_STAGE2] = "DEF_USE_STAGE2";
+    passNames[REMOVE_DVM_DIRS_TO_COMMENTS] = "REMOVE_DVM_DIRS_TO_COMMENTS";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

@@ -1005,7 +1005,8 @@ void expressionAnalyzer(SgFile *file)
             printf("\n");
             cvs = cvs->next;
         }
-
+*/
+/*
         CommonDataItem* commonVars = commons.getList();
         while(commonVars != NULL)
         {

@@ -106,7 +106,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const std::set<s
                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 
 void insertDistributionToFile(const char *origFile, const char *outFile, const std::map<int, std::set<std::string>> &commentsToInclude);
-void removeDvmDirectives(SgFile *file);
+void removeDvmDirectives(SgFile *file, const bool toComment);
 
 void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines> *currLines,
                                            const std::vector<Statement*> &reDistrRulesBefore,

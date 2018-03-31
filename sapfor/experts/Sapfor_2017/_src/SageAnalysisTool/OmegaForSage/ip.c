@@ -35,11 +35,11 @@ extern void removeFromCollection(void *pointer);
 #define GEQ_type 2
 #define keyMult 31
 #define indexMult 17
-#define abs(x) (x >= 0? (x) : -(x))
-#define max(x,y) (x>y?x:y)
-#define min(x,y) (x<y?x:y)
-#define setMax(m,x) {if (m < x) m = x;}
-#define setMin(m,x) if (m > x) m = x
+#define abs(x) ((x) >= 0 ? (x) : -(x))
+#define max(x,y) ((x) > (y) ? (x) : (y))
+#define min(x,y) ((x) < (y) ? (x) : (y))
+#define setMax(m,x) { if ((m) < (x)) m = (x); }
+#define setMin(m,x) { if ((m) > (x)) m = (x); }
 #ifndef TRUE
 #  define TRUE 1
 #endif

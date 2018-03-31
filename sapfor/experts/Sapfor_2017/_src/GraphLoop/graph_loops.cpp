@@ -452,6 +452,10 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 }
                 newLoop->loop = new Statement(st);
 
+                SgStatement *lexPrev = st->lexPrev();
+                if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
+                    newLoop->userDvmDirective = new Statement(lexPrev);
+
                 if (parentLoops.size() == 0)
                     loopGraph.push_back(newLoop);
                 else
