@@ -158,7 +158,24 @@ public:
     {
         for (auto &varSymbol : newVariables)
         {
-            varType type = varSymbol->variant() == VAR_REF ? SCALAR : varSymbol->variant() == ARRAY_REF ? ARRAY : ANOTHER;
+            varType type = ANOTHER;
+            SgStatement *declStatement = declaratedInStmt(varSymbol);
+            for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+            {
+                if (exp->lhs()->symbol() == varSymbol)
+                {
+                    switch (exp->lhs()->variant())
+                    {
+                    case VAR_REF:
+                        type = SCALAR;
+                        break;
+                    case ARRAY_REF:
+                        type = ARRAY;
+                        break;
+                    }
+                }
+            }
+
             Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type);
             variables.push_back(variable);
         }
@@ -172,4 +189,4 @@ std::set<std::string> getAllUseVars(const std::string &funcName);
 const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName);
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
-
+int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);

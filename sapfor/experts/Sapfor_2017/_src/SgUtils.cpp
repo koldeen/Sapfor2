@@ -1049,3 +1049,29 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
     }
 }
 
+int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &commonBlocks)
+{
+    FILE *file = fopen(fileName, "w");
+    if (file == NULL)
+    {
+        __spf_print(1, "can not open file %s\n", fileName);
+        return -1;
+    }
+
+    map<string, CommonBlock>::const_iterator it;
+    for (it = commonBlocks.begin(); it != commonBlocks.end(); ++it)
+    {
+        fprintf(file, "*** FILE %s\n", it->first.c_str());
+        fprintf(file, "[COMMON BLOCK] : '%s'\n", it->first.c_str());
+        fprintf(file, "[VARIABLES] : \n");
+
+        for (auto &var : it->second.getVariables())
+            fprintf(file, "[NAME] : '%s', [TYPE] : %d, [FILE] : '%s', [FUNCTION] : '%s'\n",
+                var.getName().c_str(), var.getType(), var.getFileName().c_str(), var.getFunctionName().c_str());
+
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return 0;
+}

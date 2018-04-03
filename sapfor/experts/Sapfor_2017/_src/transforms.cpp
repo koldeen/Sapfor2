@@ -500,12 +500,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(currCommon->lhs()->symbol());
 
-                        it->second.addVariables(file, file->functions(i), newVariables);
+                        it->second.addVariables(file, start, newVariables);
                     }
                 }
             }
 
             // TODO: add filling from BLOCK DATA
+            SgStatement *st = file->firstStatement();
+            while (st)
+            {
+                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
+                {
+
+                }
+                st = st->lastNodeOfStmt();
+                st = st->lexNext();
+            }
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
@@ -1044,6 +1054,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         if (keepFiles)
             printLoopGraph("_loopGraph.txt", loopGraph);
+    }
+    else if (curr_regime == FILL_COMMON_BLOCKS)
+    {
+        if (keepFiles)
+            printCommonBlocks("_commonBlocks.txt", commonBlocks);
     }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
