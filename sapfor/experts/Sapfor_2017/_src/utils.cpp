@@ -286,7 +286,8 @@ bool isSPF_comment(const string &bufStr)
     return spfStart;
 }
 
-void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, const char *folderName)
+void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
+                  const char *folderName, int removeDvmDirs)
 {
     for (auto it = allIncludeFiles.begin(); it != allIncludeFiles.end(); ++it)
     {
@@ -328,9 +329,21 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                 {
                     bool spfStart = isSPF_comment(bufStr);
                     if (spfStart)
-                        bufStr = "\n";
-                    fputs(bufStr.c_str(), copyFile);
-                    continue;
+                        bufStr = "\n";                    
+                }
+                //remove DVM dirs or //save DVM dirs as comment
+                if (removeDvmDirs == 1 || removeDvmDirs == 2)
+                {
+                    if (bufStr[0] == '!' || bufStr[0] == 'c')
+                    {
+                        if (bufStr[1] == 'd' && bufStr[2] == 'v' && bufStr[3] == 'm' && bufStr[4] == '$')
+                        {
+                            if (removeDvmDirs == 1)
+                                bufStr = "\n";
+                            else if (removeDvmDirs == 2)
+                                bufStr.insert(1, " ");
+                        }
+                    }
                 }
                 fputs(bufStr.c_str(), copyFile);
             }

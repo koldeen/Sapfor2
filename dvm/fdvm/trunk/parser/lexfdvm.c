@@ -2216,6 +2216,9 @@ analyz()
              if (eqn(11,  nextch,   "endinterval")) {
                 stkey = ENDINTERVAL;  hpf = 1;
                 nextch += 11;
+             }  else if (eqn(12, nextch, "exitinterval")) {
+                stkey = EXITINTERVAL;     hpf = 1;
+                nextch += 12;
              }  else if (eqn(8, nextch, "enddebug")) {
                 stkey = ENDDEBUG;     hpf = 1;
                 nextch += 8;

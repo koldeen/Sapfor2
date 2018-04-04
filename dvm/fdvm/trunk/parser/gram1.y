@@ -331,6 +331,7 @@
 %token FILES 331
 %token VARLIST 332
 %token STATUS 333
+%token EXITINTERVAL 334
 
 %{
 #include <string.h>
@@ -527,7 +528,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> dvm_task_region  dvm_end_task_region dvm_map dvm_on dvm_end_on
 %type <bf_node> dvm_reset dvm_prefetch dvm_indirect_access hpf_independent 
 %type <bf_node> dvm_debug_dir dvm_enddebug_dir dvm_traceon_dir dvm_traceoff_dir
-%type <bf_node> dvm_interval_dir dvm_endinterval_dir  dvm_barrier_dir dvm_check 
+%type <bf_node> dvm_interval_dir dvm_endinterval_dir dvm_exit_interval_dir dvm_barrier_dir dvm_check 
 %type <bf_node> dvm_io_mode_dir dvm_shadow_add dvm_localize
 %type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait
 %type <bf_node> dvm_asyncid dvm_f90 dvm_asynchronous dvm_endasynchronous dvm_asyncwait
@@ -4959,6 +4960,7 @@ dvm_exec: dvm_redistribute
         | dvm_enddebug_dir
         | dvm_interval_dir
         | dvm_endinterval_dir
+        | dvm_exit_interval_dir
         | dvm_traceon_dir
         | dvm_traceoff_dir
         | dvm_barrier_dir
@@ -6984,6 +6986,11 @@ interval_number:
                   $$ = $1;
                  }
                ;
+
+dvm_exit_interval_dir: EXITINTERVAL end_spec subscript_list 
+                      /* subscript_list - interval number list */ 
+       { $$ = get_bfnd(fi,DVM_EXIT_INTERVAL_DIR,SMNULL,$3,LLNULL,LLNULL);} 
+             ;
 
 dvm_endinterval_dir: ENDINTERVAL end_spec
             { $$ = get_bfnd(fi,DVM_ENDINTERVAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);} 

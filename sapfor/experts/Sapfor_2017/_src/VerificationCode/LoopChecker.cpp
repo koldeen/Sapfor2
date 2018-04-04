@@ -2,6 +2,9 @@
 
 #include <cstdio>
 #include <vector>
+#include <map>
+#include <string>
+#include <algorithm>
 
 #include "dvm.h"
 #include "verifications.h"
@@ -9,6 +12,10 @@
 #include "../SgUtils.h"
 
 using std::vector;
+using std::map;
+using std::pair;
+using std::string;
+using std::make_pair;
 
 void EndDoLoopChecker(SgFile *file, vector<int> &errors)
 {
@@ -39,7 +46,7 @@ void EndDoLoopChecker(SgFile *file, vector<int> &errors)
     }
 }
 
-void DvmDirectiveChecker(SgFile *file, vector<int> &errors)
+void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
 {
     int funcNum = file->numberOfFunctions();
 
@@ -48,33 +55,12 @@ void DvmDirectiveChecker(SgFile *file, vector<int> &errors)
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
-        while (st != lastNode)
+        for ( ; st != lastNode; st = st->lexNext())
         {
             currProcessing.second = st;
-            if (st == NULL)
-            {
-                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
             
             if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
-                errors.push_back(st->lineNumber());
-
-            //FOR DEBUGING DVM DIRS
-            /*if (st->variant() == DVM_PARALLEL_ON_DIR || st->variant() == DVM_REDISTRIBUTE_DIR)
-            {
-                st->unparsestdout();
-                for (int k = 0; k < 3; ++k)
-                {
-                    if (st->expr(k))
-                    {
-                        printf("EXP %d:\n", k);
-                        recExpressionPrint(st->expr(k));
-                    }
-                }
-            }*/
-
-            st = st->lexNext();
+                errors[st->fileName()].push_back(st->lineNumber());
         }
     }
 }

@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
+
+#if !__SPC
 #include "dvm.h"
+#endif
 
 enum typeMessage { WARR, ERROR, NOTE };
 
@@ -91,6 +94,14 @@ public:
     std::string value;
 };
 
+#if __SPC
+#define printInternalError(file, line) do {\
+    char buf[512];\
+    sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
+    addToGlobalBufferAndPrint(buf);\
+    throw(-1);\
+} while (0)
+#else
 #define printInternalError(file, line) do {\
     char buf[512];\
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
@@ -103,7 +114,7 @@ public:
     } \
     throw(-1);\
 } while (0)
-
+#endif
 
 #define checkNull(address, file, line) do { \
     if ((address) == NULL) \

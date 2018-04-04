@@ -202,4 +202,7 @@ private:
     DataDirective dataDirectives;
     std::vector<int> currentVariant;
     //
+
+    std::vector<Statement*> userDvmDistrDirs;
+    std::vector<Statement*> userDvmAlignDirs;
 };
