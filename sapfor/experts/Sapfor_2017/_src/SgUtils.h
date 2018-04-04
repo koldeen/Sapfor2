@@ -113,6 +113,12 @@ public:
     const std::string& getFunctionName() const { return functionName; }
     const std::string& getName() const { return name; }
     const varType getType() const { return type; }
+
+    void print(FILE *fileOut) const
+    {
+        fprintf(fileOut, "[NAME] : '%s', [TYPE] : %d, [FILE] : '%s', [FUNCTION] : '%s'\n",
+            name.c_str(), type, fileName.c_str(), functionName.c_str());
+    }
 };
 
 struct CommonBlock
@@ -178,6 +184,15 @@ public:
             Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type);
             variables.push_back(variable);
         }
+    }
+
+    void print(FILE *fileOut) const
+    {
+        fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
+        fprintf(fileOut, "[VARIABLES] : \n");
+
+        for (auto &var : variables)
+            var.print(fileOut);
     }
 };
 
