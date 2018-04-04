@@ -132,23 +132,22 @@ public:
     const std::string& getName() const { return name; }
     const std::vector<Variable>& getVariables() const { return variables; }
 
-    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const
+    bool fitFileAndFunction(SgFile *file, SgStatement *function, const Variable &variable) const
     {
-        std::vector<Variable> mappedVariables;
-
-        for (auto &variable : variables)
-            if (variable.getFile() == file && variable.getFunction() == function)
-                mappedVariables.push_back(variable);
-
-        return mappedVariables;
+        return variable.getFile() == file && variable.getFunction() == function;
+    }
+    bool fitFileAndFunction(std::string *fileName, std::string *functionName, const Variable &variable) const
+    {
+        return variable.getFileName() == *fileName && variable.getFunctionName() == *functionName;
     }
 
-    const std::vector<Variable> getVariables(std::string &fileName, std::string &functionName) const
+    template<typename fileType, typename functionType>
+    const std::vector<Variable> getVariables(fileType *file, functionType *function) const
     {
         std::vector<Variable> mappedVariables;
 
         for (auto &variable : variables)
-            if (variable.getFileName() == fileName && variable.getFunctionName() == functionName)
+            if (fitFileAndFunction(file, function, variable))
                 mappedVariables.push_back(variable);
 
         return mappedVariables;
