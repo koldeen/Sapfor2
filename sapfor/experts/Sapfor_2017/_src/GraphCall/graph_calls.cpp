@@ -776,7 +776,7 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
     return 0;
 }
 
-static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb, int parNo, std::vector<int> &parsWithLoopSymb)
+static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
 {
     bool retVal = false;
 
@@ -784,22 +784,12 @@ static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb, int
     {
         if (ex->variant() == VAR_REF)
             if (ex->symbol()->identifier() == loopSymb)
-            {
                 retVal = true;
 
-                bool alreadyPresent = false;
-                for (auto &par : parsWithLoopSymb)
-                    if (par == parNo)
-                        alreadyPresent = true;
-
-                if(!alreadyPresent)
-                    parsWithLoopSymb.push_back(parNo);
-            }
-
         if (ex->lhs())
-            retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb, parNo, parsWithLoopSymb);
+            retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb);
         if (ex->rhs())
-            retVal = retVal || findLoopVarInParameter(ex->rhs(), loopSymb, parNo + 1, parsWithLoopSymb);
+            retVal = retVal || findLoopVarInParameter(ex->rhs(), loopSymb);
     }
     return retVal;
 }
@@ -948,23 +938,27 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
     return ret;
 }
 
+static std::vector<int> findNoOfParWithLoopVar(SgExpression *pars, const string &loopSymb) {
+    std::vector<int> parsWithLoopSymb;
+
+    int parNo = 0;
+    for (SgExpression *par = pars; par != NULL; par = par->rhs(), parNo++) {
+        if (findLoopVarInParameter(par, loopSymb))
+            parsWithLoopSymb.push_back(parNo);
+    }
+
+    return parsWithLoopSymb;
+}
+
 static bool processParameterList(SgExpression *parList, SgForStmt *loop, const FuncInfo *func, const int funcOnLine, bool needToAddErrors,
                                  vector<Messages> &messages)
 {
     bool needInsert = false;
 
-    std::vector<int> parsWithLoopSymb;
-    bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier(), 0, parsWithLoopSymb);
+    bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier());
     if (hasLoopVar)
     {
-        char buf[256];
-        sprintf(buf, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters", func->funcName.c_str(), loop->lineNumber());
-        if (needToAddErrors)        
-            messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
-        needInsert = true;
-
-        if (needToAddErrors)
-            __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
+        std::vector<int> parsWithLoopSymb = findNoOfParWithLoopVar(parList, loop->symbol()->identifier());
 
         bool isLoopSymbUsedAsIndex = false;
 
@@ -976,6 +970,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             }
 
         if (isLoopSymbUsedAsIndex) {
+            char buf[256];
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
             if (needToAddErrors) {
                 messages.push_back(Messages(ERROR, funcOnLine, buf));
@@ -983,6 +978,17 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             }
 
             needInsert = true;
+        }
+        else {
+            char buf[256];
+            sprintf(buf, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters", func->funcName.c_str(), loop->lineNumber());
+            if (needToAddErrors)
+                messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
+            needInsert = true;
+
+            if (needToAddErrors)
+                __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
+
         }
     }
     else
