@@ -129,6 +129,18 @@ private:
     std::string name;
     std::vector<Variable> variables;
 
+    template<typename fileType, typename functionType>
+    const std::vector<Variable> getMappedVariables(fileType *file, functionType *function) const
+    {
+        std::vector<Variable> mappedVariables;
+
+        for (auto &variable : variables)
+            if (fitFileAndFunction(file, function, variable))
+                mappedVariables.push_back(variable);
+
+        return mappedVariables;
+    }
+
 public:
     explicit CommonBlock(const std::string &name,
         const std::vector<Variable> &variables) :
@@ -149,17 +161,8 @@ public:
         return variable.getFileName() == *fileName && variable.getFunctionName() == *functionName;
     }
 
-    template<typename fileType, typename functionType>
-    const std::vector<Variable> getVariables(fileType *file, functionType *function) const
-    {
-        std::vector<Variable> mappedVariables;
-
-        for (auto &variable : variables)
-            if (fitFileAndFunction(file, function, variable))
-                mappedVariables.push_back(variable);
-
-        return mappedVariables;
-    }
+    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const { return getMappedVariables(file, function); }
+    const std::vector<Variable> getVariables(std::string *file, std::string *function) const { return getMappedVariables(file, function); }
 
     void addVariables(SgFile *file, SgStatement *function, const std::vector<SgSymbol*> &newVariables)
     {
