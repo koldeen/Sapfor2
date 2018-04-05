@@ -712,11 +712,11 @@ static bool checkParallelRegions(SgStatement *st,
                         {
                             if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
                             {
-                                __spf_print(1, "variable '%s' on line %d was declarated on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
                                 string message;
-                                __spf_printToBuf(message, "variable '%s' on line %d was declarated", identSymbol->identifier(), iterator->lineNumber());
-                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
                                 retVal = false;
                             }
@@ -738,7 +738,7 @@ static bool checkParallelRegions(SgStatement *st,
 
                         string message;
                         __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identSymbol->identifier(), commonBlockPair.first.c_str());
-                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
 
                         retVal = false;
                     }
@@ -755,11 +755,11 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identSymbol->identifier(), st->lineNumber());
+                    __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identSymbol->identifier(), st->lineNumber());
 
                     string message;
-                    __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identSymbol->identifier());
-                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                    __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identSymbol->identifier());
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                     retVal = false;
                     break;
@@ -773,11 +773,11 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found)
             {
-                __spf_print(1, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
+                __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
             }
@@ -795,11 +795,11 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_END_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+                    __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
 
                     string message;
-                    __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
-                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                    __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                     retVal = false;
                     break;
@@ -813,11 +813,11 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found)
             {
-                __spf_print(1, "expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+                __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "expected 'SPF PARALLEL_REG_DIR'");
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message));
+                __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR'");
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
             }
