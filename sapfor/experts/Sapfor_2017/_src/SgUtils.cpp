@@ -1058,11 +1058,10 @@ int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &comm
         return -1;
     }
 
-    map<string, CommonBlock>::const_iterator it;
-    for (it = commonBlocks.begin(); it != commonBlocks.end(); ++it)
+    for (auto &commonBlock : commonBlocks)
     {
-        fprintf(file, "*** FILE %s\n", it->first.c_str());
-        it->second.print(file);
+        fprintf(file, "*** FILE %s\n", commonBlock.first.c_str());
+        commonBlock.second.print(file);
         fprintf(file, "\n");
     }
 

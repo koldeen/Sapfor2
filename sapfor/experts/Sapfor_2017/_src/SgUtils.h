@@ -98,9 +98,10 @@ private:
     std::string functionName;
     std::string name; // variable name
     varType type;     // variable type
+    int position;
 public:
-    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type) :
-        file(file), function(function), symbol(symbol), name(name), type(type),
+    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type, const int position) :
+        file(file), function(function), symbol(symbol), name(name), type(type), position(position),
         fileName(std::string(file->filename())), functionName(std::string(function->symbol()->identifier()))
     {
 
@@ -113,11 +114,12 @@ public:
     const std::string& getFunctionName() const { return functionName; }
     const std::string& getName() const { return name; }
     const varType getType() const { return type; }
+    const int getPosition() const { return position; }
 
     void print(FILE *fileOut) const
     {
-        fprintf(fileOut, "[NAME] : '%s', [TYPE] : %d, [FILE] : '%s', [FUNCTION] : '%s'\n",
-            name.c_str(), type, fileName.c_str(), functionName.c_str());
+        fprintf(fileOut, "[VARIABLE NAME] : '%s', [TYPE] : %d, [POSITION] : %d, [FILE] : '%s', [FUNCTION] : '%s'\n",
+            name.c_str(), type, position, fileName.c_str(), functionName.c_str());
     }
 };
 
@@ -161,6 +163,11 @@ public:
 
     void addVariables(SgFile *file, SgStatement *function, const std::vector<SgSymbol*> &newVariables)
     {
+        int nextPosition = 0;
+
+        for (auto &var : getVariables())
+            nextPosition = std::max(nextPosition, var.getPosition());
+
         for (auto &varSymbol : newVariables)
         {
             varType type = ANOTHER;
@@ -181,15 +188,15 @@ public:
                 }
             }
 
-            Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type);
+            Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type, nextPosition);
             variables.push_back(variable);
+            ++nextPosition;
         }
     }
 
     void print(FILE *fileOut) const
     {
         fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
-        fprintf(fileOut, "[VARIABLES] : \n");
 
         for (auto &var : variables)
             var.print(fileOut);
