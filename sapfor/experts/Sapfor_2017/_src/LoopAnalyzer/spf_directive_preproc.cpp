@@ -33,7 +33,6 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     toAdd->setlineNumber(toAttr->lineNumber());
 
 
-	recExpressionPrint(toAttr->expr(0));
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
     if (toAttr->comments())
@@ -707,7 +706,6 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
         cond = (isSPF_comment(prev) && prevVar != SPF_END_PARALLEL_REG_DIR);
         if (cond)
         {
-			printf("----Find_SPF\n");
             addToattribute(prev, st, prevVar);
 
             if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
@@ -817,18 +815,14 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
 
-	printf("----preprocess_spf_dirs!!!\n");
-    
     bool noError = true;
 
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-		int count = 0;
         while (st != lastNode)
         {
-			count ++;
             currProcessing.second = NULL;
             if (st == NULL)
             {
@@ -844,17 +838,6 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                     addToattribute(next, st, SPF_END_PARALLEL_REG_DIR);
             st = st->lexNext();
         }
-		printf("----Count=%d\n", count);
-		printf("----After----\n");
-		st = file->functions(i);
-		lastNode = st->lastNodeOfStmt();
-		count = 0;
-		while (st != lastNode)
-		{
-			count++;
-			st = st->lexNext();
-		}
-		printf("----Count=%d\n", count);
 	}
 
     vector<SgStatement*> modules;
@@ -865,7 +848,6 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 }
 
 void LinkTree(SgExpression *mainExp, SgExpression *exp) {
-//	printf("LinkTree\n");
 	SgExpression *copyExp = &(exp->copy());
 	while (mainExp) {
 		SgExpression *rhs = mainExp->rhs();
@@ -893,7 +875,6 @@ void OptimizeTree(SgExpression *exp) {
 			SgExpression *rhs = currExp->rhs();
 			if (lhs) {
 				if (lhs->variant() == var) {
-				//	printf("find simple var\n");
 					prevExp->setRhs(rhs);
 					LinkTree(checkExp->lhs(),lhs->lhs());
 				}
@@ -917,15 +898,7 @@ SgStatement* GetOneAttribute(vector<SgStatement*> sameAtt) {
 			toAddExp = &(elem->copy());
 		}
 	}
-	if (toAddExp->expr(0)) {
-		recExpressionPrint(toAddExp->expr(0));
-	}
-	else {
-		printf("----toAddExp->expr(0) == NULL\n");
-	}
 	OptimizeTree(toAddExp->expr(0));
-	recExpressionPrint(toAddExp->expr(0));
-
 	return toAddExp;
 }
 
@@ -948,64 +921,30 @@ void revertion_spf_dirs(SgFile *file) {
 
 			if (atrib) {
 				//check previosly directives SPF_ANALYSIS
-				printf("\n----Count=%d\n", count);
 				vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
-				printf("---size_sameAtt(SPF_ANALYSIS) == %d\n", sameAtt.size());
 				
 				SgStatement* toAddExp = GetOneAttribute(sameAtt);
 				st->insertStmtBefore(*toAddExp);
 				
 				//check previosly directives SPF_PARALLEL
 				sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
-				printf("---size_sameAtt(SPF_PARALLEL) == %d\n", sameAtt.size());
 				for (auto &elem : sameAtt) {
 					SgStatement* toAddExp = GetOneAttribute(sameAtt);
 					st->insertStmtBefore(*toAddExp);
 				}
 				//remaining directives			
 				sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
-				printf("---size_sameAtt(OTHER) == %d\n", sameAtt.size());
 				for (auto &elem : sameAtt) {
-					printf("----Start return\n");
 					SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
 					SgStatement *toAdd = &(data->copy());
 
-					if (toAdd->expr(0)) {
-						recExpressionPrint(toAdd->expr(0));
-					}
-					else {
-						printf("----toAddExp->expr(0) == NULL\n");
-					}
 					st->insertStmtBefore(*toAdd);
 				}
 			}
 
-			//hidded chain join to st
 			st = st->lexNext();
 		}
-		printf("----Count=%d\n", count);
 	}
-
-/////////////  Check chain with revert spf_dir  /////////////////////////
-	printf("----After\n");
-	for (int i = 0; i < funcNum; i++) {
-		SgStatement *st = file->functions(i);
-		SgStatement *lastNode = st->lastNodeOfStmt();
-
-		int count = 0;
-		while (st != lastNode) {
-			count++;
-			if (st == NULL) {
-				__spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
-				break;
-			}
-			if (isSPF_comment(st)) 
-				printf("----SPFdir(Count=%d)\n", count);
-			st = st->lexNext();
-		}
-		printf("----Count=%d\n", count);
-	}
-//////////////////////////////////////////////////////////////////////////
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,

@@ -426,7 +426,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 		else if (curr_regime == REVERT_SPF_DIRS) {
-			printf("----REVERT_SPF_DIRS_inAnalysts!!!\n");
 			revertion_spf_dirs(file);
 		}
         else if (curr_regime == PREPROC_SPF)
