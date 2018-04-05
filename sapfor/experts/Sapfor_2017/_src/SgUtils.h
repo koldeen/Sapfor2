@@ -129,6 +129,15 @@ private:
     std::string name;
     std::vector<Variable> variables;
 
+    bool fitFileAndFunction(SgFile *file, SgStatement *function, const Variable &variable) const
+    {
+        return variable.getFile() == file && variable.getFunction() == function;
+    }
+    bool fitFileAndFunction(std::string *fileName, std::string *functionName, const Variable &variable) const
+    {
+        return variable.getFileName() == *fileName && variable.getFunctionName() == *functionName;
+    }
+
     template<typename fileType, typename functionType>
     const std::vector<Variable> getMappedVariables(fileType *file, functionType *function) const
     {
@@ -151,15 +160,6 @@ public:
 
     const std::string& getName() const { return name; }
     const std::vector<Variable>& getVariables() const { return variables; }
-
-    bool fitFileAndFunction(SgFile *file, SgStatement *function, const Variable &variable) const
-    {
-        return variable.getFile() == file && variable.getFunction() == function;
-    }
-    bool fitFileAndFunction(std::string *fileName, std::string *functionName, const Variable &variable) const
-    {
-        return variable.getFileName() == *fileName && variable.getFunctionName() == *functionName;
-    }
 
     const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const { return getMappedVariables(file, function); }
     const std::vector<Variable> getVariables(std::string *file, std::string *function) const { return getMappedVariables(file, function); }
