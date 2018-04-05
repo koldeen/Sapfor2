@@ -273,31 +273,6 @@ void recExpressionPrint(SgExpression *exp)
     fflush(NULL);
 }
 
-SgExpression* recExpressionFind(SgExpression *exp, const int var) {
-	printf("----recExpressionFind(PRIVATE_OP)\n");
-	if (exp) {
-		SgExpression *lhs = exp->lhs();
-		SgExpression *rhs = exp->rhs();
-		if (lhs) {
-			if (lhs->variant() == var) {
-				printf("Find_PRIV\n");
-				return lhs;
-			}
-		}
-		if (rhs) {
-			if (rhs->variant() == var) {
-				printf("Find_PRIV\n");
-				return rhs;
-			}
-		}
-		if (lhs)
-			recExpressionFind(lhs, var);
-		if (rhs)
-			recExpressionFind(rhs, var);
-	}
-	return NULL;
-}
-
 void initTags()
 {
     for (int i = 0; i < MAXTAGS; i++)
