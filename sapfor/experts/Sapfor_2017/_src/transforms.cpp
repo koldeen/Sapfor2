@@ -496,9 +496,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                     for (auto &commonBlock : commonBlockRef.second)
                     {
-                        vector<SgSymbol*> newVariables;
-                        for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
-                            newVariables.push_back(currCommon->lhs()->symbol());
+                        int position = 0;
+                        vector<pair<SgSymbol*, int>> newVariables;
+						for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
+							newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
                         it->second.addVariables(file, start, newVariables);
                     }

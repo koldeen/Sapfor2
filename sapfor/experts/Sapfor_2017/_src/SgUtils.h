@@ -118,8 +118,7 @@ public:
 
     void print(FILE *fileOut) const
     {
-        fprintf(fileOut, "[VARIABLE NAME] : '%s', [TYPE] : %d, [POSITION] : %d, [FILE] : '%s', [FUNCTION] : '%s'\n",
-            name.c_str(), type, position, fileName.c_str(), functionName.c_str());
+        fprintf(fileOut, "'%s', %s, %d\n", name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER", position);
     }
 };
 
@@ -128,27 +127,6 @@ struct CommonBlock
 private:
     std::string name;
     std::vector<Variable> variables;
-
-    bool fitFileAndFunction(SgFile *file, SgStatement *function, const Variable &variable) const
-    {
-        return variable.getFile() == file && variable.getFunction() == function;
-    }
-    bool fitFileAndFunction(std::string *fileName, std::string *functionName, const Variable &variable) const
-    {
-        return variable.getFileName() == *fileName && variable.getFunctionName() == *functionName;
-    }
-
-    template<typename fileType, typename functionType>
-    const std::vector<Variable> getMappedVariables(fileType *file, functionType *function) const
-    {
-        std::vector<Variable> mappedVariables;
-
-        for (auto &variable : variables)
-            if (fitFileAndFunction(file, function, variable))
-                mappedVariables.push_back(variable);
-
-        return mappedVariables;
-    }
 
 public:
     explicit CommonBlock(const std::string &name,
@@ -161,23 +139,30 @@ public:
     const std::string& getName() const { return name; }
     const std::vector<Variable>& getVariables() const { return variables; }
 
-    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const { return getMappedVariables(file, function); }
-    const std::vector<Variable> getVariables(std::string *file, std::string *function) const { return getMappedVariables(file, function); }
+    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const
+	{
+		return getVariables(std::string(file->filename()), std::string(function->symbol()->identifier()));
+	}
+    const std::vector<Variable> getVariables(const std::string &file, const std::string &function) const
+	{
+		std::vector<Variable> mappedVariables;
 
-    void addVariables(SgFile *file, SgStatement *function, const std::vector<SgSymbol*> &newVariables)
+		for (auto &variable : variables)
+			if (variable.getFileName() == file && variable.getFunctionName() == function)
+				mappedVariables.push_back(variable);
+
+		return mappedVariables;
+	}
+
+    void addVariables(SgFile *file, SgStatement *function, const std::vector<std::pair<SgSymbol*, int>> &newVariables)
     {
-        int nextPosition = 0;
-
-        for (auto &var : getVariables())
-            nextPosition = std::max(nextPosition, var.getPosition());
-
-        for (auto &varSymbol : newVariables)
+        for (auto &varPair : newVariables)
         {
             varType type = ANOTHER;
-            SgStatement *declStatement = declaratedInStmt(varSymbol);
+            SgStatement *declStatement = declaratedInStmt(varPair.first);
             for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
             {
-                if (exp->lhs()->symbol() == varSymbol)
+                if (exp->lhs()->symbol() == varPair.first)
                 {
                     switch (exp->lhs()->variant())
                     {
@@ -187,22 +172,51 @@ public:
                     case ARRAY_REF:
                         type = ARRAY;
                         break;
+                    default:
+                        type = ANOTHER;
+                        break;
                     }
+
+                    break;
                 }
             }
 
-            Variable variable(file, function, varSymbol, std::string(varSymbol->identifier()), type, nextPosition);
+            Variable variable(file, function, varPair.first, std::string(varPair.first->identifier()), type, varPair.second);
             variables.push_back(variable);
-            ++nextPosition;
         }
     }
+
+	std::map<std::pair<std::string, std::string>, std::vector<Variable>> getMappedVariables() const
+	{
+		std::map<std::pair<std::string, std::string>, std::vector<Variable>> mappedVariables;
+
+		for (auto &variable : variables)
+		{
+			auto pair = std::make_pair(variable.getFileName(), variable.getFunctionName());
+			auto it = mappedVariables.find(pair);
+			if (it == mappedVariables.end())
+			{
+				it = mappedVariables.insert(it, std::make_pair(pair, std::vector<Variable>()));
+			}
+
+			it->second.push_back(variable);
+		}
+
+		return mappedVariables;
+	}
 
     void print(FILE *fileOut) const
     {
         fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
 
-        for (auto &var : variables)
-            var.print(fileOut);
+		auto mappedVariables = getMappedVariables();
+		for (auto &varPair : mappedVariables)
+		{
+			fprintf(fileOut, "[FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
+			fprintf(fileOut, "[VARIABLE NAME], [TYPE], [POSITION] : \n");
+			for (auto &var : varPair.second)
+				var.print(fileOut);
+		}
     }
 };
 
