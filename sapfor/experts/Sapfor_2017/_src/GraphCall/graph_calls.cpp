@@ -942,7 +942,8 @@ static std::vector<int> findNoOfParWithLoopVar(SgExpression *pars, const string 
     std::vector<int> parsWithLoopSymb;
 
     int parNo = 0;
-    for (SgExpression *par = pars; par != NULL; par = par->rhs(), parNo++) {
+    for (SgExpression *par = pars; par != NULL; par = par->rhs(), parNo++)
+    {
         if (findLoopVarInParameter(par, loopSymb))
             parsWithLoopSymb.push_back(parNo);
     }
@@ -963,32 +964,25 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         bool isLoopSymbUsedAsIndex = false;
 
         for (auto &par : parsWithLoopSymb)
+        {
             if (func->isParamUsedAsIndex[par])
             {
                 isLoopSymbUsedAsIndex = true;
                 break;
             }
+        }
 
-        if (isLoopSymbUsedAsIndex) {
+        if (isLoopSymbUsedAsIndex)
+        {
             char buf[256];
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
-            if (needToAddErrors) {
+            if (needToAddErrors)
+            {
                 messages.push_back(Messages(ERROR, funcOnLine, buf));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop symbol as index of an array\n", func->funcName.c_str());
             }
 
             needInsert = true;
-        }
-        else {
-            char buf[256];
-            sprintf(buf, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters", func->funcName.c_str(), loop->lineNumber());
-            if (needToAddErrors)
-                messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
-            needInsert = true;
-
-            if (needToAddErrors)
-                __spf_print(1, "Function '%s' needs to be inlined due to pass loop symbol on line %d through function's parameters\n", func->funcName.c_str(), loop->lineNumber());
-
         }
     }
     else
