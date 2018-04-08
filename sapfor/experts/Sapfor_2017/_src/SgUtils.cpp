@@ -303,7 +303,6 @@ static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR,
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
         }
-
         if (lhs)
             recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
         if (rhs)
@@ -370,9 +369,8 @@ void getModulesAndFunctions(SgFile *file, vector<SgStatement*> &modulesAndFuncti
     findModulesInFile(file, modulesAndFunctions);
 }
 
-bool isSPF_comment(SgStatement *st)
-{
-    const int var = st->variant();
+bool isSPF_comment(const int var)
+{    
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 

@@ -18,7 +18,7 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
                                  std::set<std::string> &privatesVars);
 
 SgStatement* declaratedInStmt(SgSymbol *toFind);
-bool isSPF_comment(SgStatement *st);
+bool isSPF_comment(const int variant);
 void initTags();
 bool isDVM_stat(SgStatement *st);
 bool isSPF_stat(SgStatement *st);

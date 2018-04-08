@@ -8,10 +8,10 @@
 #include "../utils.h"
 
 typedef enum parF { NONE_T, ARRAY_T, 
-                    SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T, 
+                    SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,
                     UNKNOWN_T } paramType;
 struct FuncParam
-{    
+{
     void init(const int numPar)
     {
         parameters.resize(numPar);
@@ -19,8 +19,23 @@ struct FuncParam
         std::fill(parametersT.begin(), parametersT.end(), NONE_T);
     }
 
+    std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;
+};
+
+struct NestedFuncCall {
+    std::string CalledFuncName;
+    std::vector<std::vector<int>> NoOfParamUsedForCall;
+
+    NestedFuncCall(std::string funcName) :
+        CalledFuncName(funcName)
+    {}
+
+    NestedFuncCall(std::string funcName, int ParsNum) :
+        CalledFuncName(funcName),
+        NoOfParamUsedForCall(std::vector<std::vector<int>>(ParsNum))
+    {}
 };
 
 struct FuncInfo
@@ -32,23 +47,27 @@ struct FuncInfo
     
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
-    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL    
+    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL
     std::vector<FuncParam> actualParams;
     std::map<std::string, std::set<std::string>> commonBlocks;
 
     std::vector<FuncInfo*> callsTo; //calls of this function
     FuncParam funcParams;
+    std::vector<bool> isParamUsedAsIndex;
+    std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func;
+                                                     // if FuncsCalledFromThis[func_call_idx].
+                                                    // NoOfParamUsedForCall.size() == 0 - no params of cur func used
 
     bool doNotInline;
     bool doNotAnalyze;
     bool needToInline;
     bool deadFunction;
 
-    FuncInfo() : 
+    FuncInfo() :
         doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false) { }
 
-    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) : 
-        funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL), 
+    FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
+        funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :

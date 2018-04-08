@@ -119,12 +119,13 @@ set(SOURCE_EXE
         _src/VisualizerCalls/get_information.cpp
         _src/directive_parser.cpp
         _src/SgUtils.cpp
+	_src/Predictor/PredictScheme.cpp
         _src/transforms.cpp
         _src/utils.cpp)
 
 add_executable(Sapfor_2017 ${SOURCE_EXE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
 #commented for debugging
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_definitions("-D __SPF")

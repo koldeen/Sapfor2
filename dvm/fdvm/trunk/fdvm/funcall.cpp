@@ -3821,25 +3821,26 @@ SgExpression *DvmhReplicated()
 
 }
 
-SgExpression *DvmhBlock()
+SgExpression *DvmhBlock(int axis)
 {
-  // generates function call:     DvmType dvmh_distribution_block()
+  // generates function call:     DvmType dvmh_distribution_block(DvmType pMpsAxis)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_BLOCK]);
-  fmask[DVMH_BLOCK] = 1;  
+  fmask[DVMH_BLOCK] = 1;
+  fe->addArg(*ConstRef(axis));  
   return fe;  
 
 }
 
-SgExpression *DvmhWgtBlock(SgSymbol *sw, SgExpression *en)
+SgExpression *DvmhWgtBlock(int axis, SgSymbol *sw, SgExpression *en)
 {
   // generates function call:
-  //       DvmType dvmh_distribution_wgtblock(const DvmType *pElemType, const void *arrayAddr, const DvmType *pElemCount)
+  //       DvmType dvmh_distribution_wgtblock(DvmType pMpsAxis, const DvmType *pElemType, const void *arrayAddr, const DvmType *pElemCount)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_WGTBLOCK]);
   fmask[DVMH_WGTBLOCK] = 1;
   SgType *t = (isSgArrayType(sw->type())) ? sw->type()->baseType() : sw->type();
-
+  fe->addArg(*ConstRef(axis));  
   fe->addArg(*ConstRef( TestType_RTS2(t) ));
   fe->addArg(*new SgArrayRefExp(*sw));
   fe->addArg(*en);    //DvmType_Ref(en)
@@ -3848,26 +3849,27 @@ SgExpression *DvmhWgtBlock(SgSymbol *sw, SgExpression *en)
 }
 
 
-SgExpression *DvmhGenBlock(SgSymbol *sg)
+SgExpression *DvmhGenBlock(int axis, SgSymbol *sg)
 {
   // generates function call:
-  //    DvmType dvmh_distribution_genblock(const DvmType *pElemType, const void *arrayAddr)
+  //    DvmType dvmh_distribution_genblock(DvmType pMpsAxis, const DvmType *pElemType, const void *arrayAddr)
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_GENBLOCK]);
   fmask[DVMH_GENBLOCK] = 1;
   SgType *t = (isSgArrayType(sg->type())) ? sg->type()->baseType() : sg->type();
+  fe->addArg(*ConstRef(axis));  
   fe->addArg(*ConstRef( TestType_RTS2(t)));
   fe->addArg(*new SgArrayRefExp(*sg));
   return fe;  
 
 }
 
-SgExpression *DvmhMultBlock(SgExpression *em)
+SgExpression *DvmhMultBlock(int axis, SgExpression *em)
 {
-  // generates function call:  DvmType dvmh_distribution_multblock(const DvmType *pMultBlock)
+  // generates function call:  DvmType dvmh_distribution_multblock(DvmType pMpsAxis, const DvmType *pMultBlock)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_MULTBLOCK]);
   fmask[DVMH_MULTBLOCK] = 1;
-
+  fe->addArg(*ConstRef(axis));  
   fe->addArg(*em); // *DvmType_Ref(em));
   
   return fe;  
@@ -3876,14 +3878,15 @@ SgExpression *DvmhMultBlock(SgExpression *em)
 
 #define rt_UNKNOWN (-1)  /*RTS2*/
 
-SgExpression *DvmhIndirect(SgSymbol *smap)
+SgExpression *DvmhIndirect(int axis, SgSymbol *smap)
 {
   // generates function call:
-  //      DvmType dvmh_distribution_indirect(const DvmType *pElemType, const void *arrayAddr)
+  //      DvmType dvmh_distribution_indirect(DvmType pMpsAxis, const DvmType *pElemType, const void *arrayAddr)
 
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_INDIRECT]);
   fmask[DVMH_INDIRECT] = 1;
   SgType *t = (isSgArrayType(smap->type())) ? smap->type()->baseType() : smap->type();
+  fe->addArg(*ConstRef(axis));  
   fe->addArg(HEADER(smap) ? *SignConstRef(rt_UNKNOWN) : *ConstRef( TestType_RTS2(t)));
   fe->addArg(*new SgArrayRefExp(*smap));
   
@@ -3891,11 +3894,12 @@ SgExpression *DvmhIndirect(SgSymbol *smap)
 
 }
 
-SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func)
+SgExpression *DvmhDerived(int axis, SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func)
 { //generating function call:
-  //      DvmType dvmh_distribution_derived(const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)  
+  //      DvmType dvmh_distribution_derived(DvmType pMpsAxis, const DvmType *pDerivedRhsHelper, const DvmType *pCountingHandlerHelper, const DvmType *pFillingHandlerHelper)  
   SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DVMH_DERIVED]);
-  fmask[DVMH_DERIVED] = 1;  
+  fmask[DVMH_DERIVED] = 1;
+  fe->addArg(*ConstRef(axis));    
   fe->addArg(*derived_rhs);
   fe->addArg(*counter_func);
   fe->addArg(*filler_func);

@@ -32,6 +32,7 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     SgStatement *toAdd = new SgStatement(toAttr->variant(), NULL, toAttr->symbol(), toAttr->expr(0), toAttr->expr(1), toAttr->expr(2));
     toAdd->setlineNumber(toAttr->lineNumber());
 
+
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
     if (toAttr->comments())
@@ -845,7 +846,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     }
 
     // ignore SPF statements
-    if (isSPF_comment(st))
+    if (isSPF_comment(st->variant()))
         return retVal;
 
     bool cond = false;
@@ -854,7 +855,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     {
         SgStatement *prev = iterator->lexPrev();
         const int prevVar = prev->variant();
-        cond = (isSPF_comment(prev) && prevVar != SPF_END_PARALLEL_REG_DIR);
+        cond = (isSPF_comment(prev->variant()) && prevVar != SPF_END_PARALLEL_REG_DIR);
         if (cond)
         {
             addToattribute(prev, st, prevVar);
@@ -966,14 +967,13 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
-    
+
     bool noError = true;
 
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-
         while (st != lastNode)
         {
             currProcessing.second = NULL;
@@ -999,6 +999,118 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
     bool result = processModules(modules, currFile, commonBlocks, messagesForFile);
     noError = noError && result;
     return noError;
+}
+
+static void LinkTree(SgExpression *mainExp, SgExpression *exp) 
+{
+    SgExpression *copyExp = &(exp->copy());
+    SgExpression *rhs = mainExp->rhs();
+    while (rhs) 
+    {
+        SgExpression *a = rhs;
+        rhs = mainExp->rhs();
+        mainExp = a;
+    }
+    mainExp->setRhs(copyExp);
+}       
+
+static void OptimizeTree(SgExpression *exp) 
+{
+    while (exp) 
+    {
+        SgExpression *checkExp = exp->lhs();
+        SgExpression *currExp = exp->rhs();
+
+        SgExpression *prevExp = exp;
+        int var = checkExp->variant();
+
+        while (currExp) 
+        {
+            SgExpression *lhs = currExp->lhs();
+            SgExpression *rhs = currExp->rhs();
+            if (lhs) 
+            {
+                if (lhs->variant() == var) 
+                {
+                    prevExp->setRhs(rhs);
+                    LinkTree(checkExp->lhs(), lhs->lhs());
+                }
+                else
+                    prevExp = currExp;
+                currExp = rhs;
+            }
+        }
+        exp = exp->rhs();
+    }
+}
+
+SgStatement* GetOneAttribute(vector<SgStatement*> sameAtt) 
+{
+    SgStatement *toAddExp = NULL;
+    for (auto &elem : sameAtt) 
+    {
+        if (toAddExp) 
+        {
+            SgExpression *exp = elem->expr(0);
+            LinkTree(toAddExp->expr(0), exp);
+        }
+        else
+            toAddExp = &(elem->copy());
+    }
+    OptimizeTree(toAddExp->expr(0));
+    return toAddExp;
+}
+
+void revertion_spf_dirs(SgFile *file) 
+{
+    int funcNum = file->numberOfFunctions();
+
+    for (int i = 0; i < funcNum; i++) 
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+
+        int count = 0;
+        while (st != lastNode) 
+        {
+            count++;
+            if (st == NULL) 
+            {
+                __spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
+                break;
+            }
+            //analyze attributes
+            SgAttribute *atrib = st->getAttribute(0);
+
+            if (atrib) 
+            {
+                //check previosly directives SPF_ANALYSIS
+                vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
+
+                SgStatement *toAddExp = GetOneAttribute(sameAtt);
+                st->insertStmtBefore(*toAddExp);
+
+                //check previosly directives SPF_PARALLEL
+                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+                for (auto &elem : sameAtt) 
+                {
+                    SgStatement *toAddExp = GetOneAttribute(sameAtt);
+                    st->insertStmtBefore(*toAddExp);
+                }
+
+                //remaining directives            
+                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                for (auto &elem : sameAtt) 
+                {
+                    SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                    SgStatement *toAdd = &(data->copy());
+
+                    st->insertStmtBefore(*toAdd);
+                }
+            }
+            st = st->lexNext();
+        }
+    }
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,
