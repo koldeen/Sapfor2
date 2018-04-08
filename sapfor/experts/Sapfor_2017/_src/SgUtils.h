@@ -118,7 +118,7 @@ public:
 
     void print(FILE *fileOut) const
     {
-        fprintf(fileOut, "'%s', %s, %d\n", name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER", position);
+        fprintf(fileOut, "    '%s', %s, %d\n", name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER", position);
     }
 };
 
@@ -154,35 +154,51 @@ public:
 		return mappedVariables;
 	}
 
+	bool hasVariable(const std::string &name) const
+	{
+		for (auto &variable : variables)
+			if (variable.getName() == name)
+				return true;
+
+		return false;
+	}
+	bool hasVariable(SgSymbol *symbol) const
+	{
+		return hasVariable(std::string(symbol->identifier()));
+	}
+
     void addVariables(SgFile *file, SgStatement *function, const std::vector<std::pair<SgSymbol*, int>> &newVariables)
     {
         for (auto &varPair : newVariables)
         {
-            varType type = ANOTHER;
-            SgStatement *declStatement = declaratedInStmt(varPair.first);
-            for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
-            {
-                if (exp->lhs()->symbol() == varPair.first)
-                {
-                    switch (exp->lhs()->variant())
-                    {
-                    case VAR_REF:
-                        type = SCALAR;
-                        break;
-                    case ARRAY_REF:
-                        type = ARRAY;
-                        break;
-                    default:
-                        type = ANOTHER;
-                        break;
-                    }
+			if (!hasVariable(varPair.first))
+			{
+				varType type = ANOTHER;
+				SgStatement *declStatement = declaratedInStmt(varPair.first);
+				for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+				{
+					if (exp->lhs()->symbol() == varPair.first)
+					{
+						switch (exp->lhs()->variant())
+						{
+						case VAR_REF:
+							type = SCALAR;
+							break;
+						case ARRAY_REF:
+							type = ARRAY;
+							break;
+						default:
+							type = ANOTHER;
+							break;
+						}
 
-                    break;
-                }
-            }
+						break;
+					}
+				}
 
-            Variable variable(file, function, varPair.first, std::string(varPair.first->identifier()), type, varPair.second);
-            variables.push_back(variable);
+				Variable variable(file, function, varPair.first, std::string(varPair.first->identifier()), type, varPair.second);
+				variables.push_back(variable);
+			}
         }
     }
 
@@ -212,8 +228,8 @@ public:
 		auto mappedVariables = getMappedVariables();
 		for (auto &varPair : mappedVariables)
 		{
-			fprintf(fileOut, "[FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
-			fprintf(fileOut, "[VARIABLE NAME], [TYPE], [POSITION] : \n");
+			fprintf(fileOut, "  [FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
+			fprintf(fileOut, "    [VARIABLE NAME], [TYPE], [POSITION] : \n");
 			for (auto &var : varPair.second)
 				var.print(fileOut);
 		}

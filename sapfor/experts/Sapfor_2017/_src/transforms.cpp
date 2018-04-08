@@ -494,9 +494,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         it = commonBlocks.insert(it, make_pair(commonBlockRef.first, newCommonBlock));
                     }
 
+                    int position = 0;
                     for (auto &commonBlock : commonBlockRef.second)
                     {
-                        int position = 0;
                         vector<pair<SgSymbol*, int>> newVariables;
 						for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
 							newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
