@@ -1416,6 +1416,7 @@ int main(int argc, char**argv)
         runPass(curr_regime, proj_name, folderName);
         if (printText)
             runPass(UNPARSE_FILE, proj_name, folderName);
+
     }
     catch (...)
     {

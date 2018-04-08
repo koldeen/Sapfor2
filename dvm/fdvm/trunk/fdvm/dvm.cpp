@@ -6747,7 +6747,7 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
 
   SgExpression *e, *efm, *ed, *nblk[MAX_DIMS], *dist_format, *multiple[MAX_DIMS], *numb[MAX_DIMS];
   SgSymbol *genbl[MAX_DIMS];
-  int iaxis, i, axis[MAX_DIMS], param[MAX_DIMS], tp;
+  int iaxis, i, axis[MAX_DIMS], param[MAX_DIMS], tp, mps_axis;
   SgValueExp M1(1);
 //looking through the dist_format_list and
 // creating AxisArray and DistrParamArray
@@ -6755,6 +6755,7 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
   nblock = 0;
   gen_block = 0;
   mult_block = 0;
+  mps_axis = 0;
   iaxis = ndvm;
   if(distr_list)
      *distr_list = NULL;
@@ -6775,18 +6776,19 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
      ndis++;
      if(efm->variant() == BLOCK_OP) {
         nblock++;
+        mps_axis++;
         if(!( efm->symbol() ) ) // case: BLOCK or MULT_BLOCK                               
         {
            if( !efm->rhs() ) // case: BLOCK 
            {
               if(distr_list)
-                 *distr_list = AddElementToList(*distr_list,DvmhBlock()); 
+                 *distr_list = AddElementToList(*distr_list,DvmhBlock(mps_axis)); 
                               
 	      multiple[ndis-1] = &M1;
            }
            else {            // case: MULT_BLOCK (k)
               if(distr_list)
-                 *distr_list = AddElementToList(*distr_list,DvmhMultBlock(DVM000(iaxis+ndis-1))); 
+                 *distr_list = AddElementToList(*distr_list,DvmhMultBlock(mps_axis, DVM000(iaxis+ndis-1))); 
               multiple[ndis-1] = numb[ndis-1] = efm->rhs();
               mult_block = 1;              
           }  
@@ -6800,7 +6802,7 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
           else 
             gen_block = 1;
           if(distr_list)
-            *distr_list = AddElementToList(*distr_list,DvmhGenBlock(efm->symbol())); 
+            *distr_list = AddElementToList(*distr_list,DvmhGenBlock(mps_axis, efm->symbol())); 
           multiple[ndis-1] = &M1;
           axis[ndis-1]  = ndis;
           param[ndis-1] = 0;
@@ -6818,7 +6820,7 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
           else 
             gen_block = 2;
           if(distr_list)
-            *distr_list = AddElementToList(*distr_list,DvmhWgtBlock(efm->symbol(),DVM000(iaxis+ndis-1))); 
+            *distr_list = AddElementToList(*distr_list,DvmhWgtBlock(mps_axis, efm->symbol(),DVM000(iaxis+ndis-1))); 
           multiple[ndis-1] = &M1;
           axis[ndis-1]  = ndis;
           param[ndis-1] = 0;
@@ -6839,16 +6841,17 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
         */
      } else if(efm->variant() == INDIRECT_OP)
      {
+        mps_axis++;
         if(distr_list)
         {
            if(efm->symbol())  // case INDIRECT(map)
-              *distr_list = AddElementToList(*distr_list,DvmhIndirect(efm->symbol()));
+              *distr_list = AddElementToList(*distr_list,DvmhIndirect(mps_axis, efm->symbol()));
            else               // case  DERIVED(...)
            {
               SgExpression *eFunc[2];
               SgExpression *edrv = efm->lhs(); // efm->lhs()->variant()  == DERIVED_OP
               DerivedSpecification(edrv, stdis, eFunc);
-              *distr_list = AddElementToList(*distr_list,DvmhDerived(DvmhDerivedRhs(edrv->rhs()),eFunc[0],eFunc[1]));
+              *distr_list = AddElementToList(*distr_list,DvmhDerived(mps_axis, DvmhDerivedRhs(edrv->rhs()),eFunc[0],eFunc[1]));
            }
         }
      } else        // variant ==KEYWORD_VAL  ("*")
