@@ -19,6 +19,7 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
 
 SgStatement* declaratedInStmt(SgSymbol *toFind);
 bool isSPF_comment(SgStatement *st);
+bool isSPF_comment(SgAttribute *a);
 void initTags();
 bool isDVM_stat(SgStatement *st);
 bool isSPF_stat(SgStatement *st);

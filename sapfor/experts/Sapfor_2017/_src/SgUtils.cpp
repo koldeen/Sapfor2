@@ -289,21 +289,20 @@ static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR,
             rNum = allNum + 2;
             allNum += 2;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-        }
+			printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+		}
         else if (lhs)
         {
             lNum = allNum + 1;
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-        }
+		}
         else if (rhs)
         {
             rNum = allNum + 1;
             allNum++;
             printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-        }
-
+		}
         if (lhs)
             recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
         if (rhs)
@@ -374,6 +373,12 @@ bool isSPF_comment(SgStatement *st)
 {
     const int var = st->variant();
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
+}
+
+bool isSPF_comment(SgAttribute *a)
+{
+	const int var = a->getAttributeType();
+	return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 
 void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
