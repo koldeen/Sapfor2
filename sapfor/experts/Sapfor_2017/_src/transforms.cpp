@@ -443,9 +443,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getMessagesForFile(file_name), declaratedArrays);
             }
         }
-		else if (curr_regime == REVERT_SPF_DIRS) {
-			revertion_spf_dirs(file);
-		}
+        else if (curr_regime == REVERT_SPF_DIRS)
+            revertion_spf_dirs(file);
         else if (curr_regime == PREPROC_SPF)
         {
             bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
