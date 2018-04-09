@@ -700,11 +700,8 @@ static bool checkParallelRegions(SgStatement *st,
             for (; iterator != end && retVal; iterator = iterator->lexNext())
 			{
                 if (isSPF_stat(iterator) || isDVM_stat(iterator))
-                {
-                    iterator = iterator->lexNext();
                     continue;
-                }
-
+                
 				if (!isSgExecutableStatement(iterator))
 				{
                     for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
@@ -746,7 +743,7 @@ static bool checkParallelRegions(SgStatement *st,
                 }
             }
 
-            // finding SPF_END_PARALLEL_REG_DIR
+            // try to find SPF_END_PARALLEL_REG_DIR
             iterator = st->lexNext();
             bool found = false;
 
@@ -786,10 +783,10 @@ static bool checkParallelRegions(SgStatement *st,
         else
         {
             // type == SPF_END_PARALLEL_REG_DIR
-            // finding SPF_PARALLEL_REG_DIR
+            // try to find SPF_PARALLEL_REG_DIR
             SgStatement *iterator = st->lexPrev();
             bool found = false;
-
+            
             for (; iterator && retVal && !found; iterator = iterator->lexPrev())
             {
                 const int var = iterator->variant();
