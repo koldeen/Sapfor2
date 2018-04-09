@@ -128,6 +128,8 @@ private:
     std::string name;
     std::vector<Variable> variables;
 
+    Variable* hasVariable(const std::string &name);
+    Variable* hasVariable(SgSymbol *symbol);
 public:
     explicit CommonBlock(const std::string &name,
         const std::vector<Variable> &variables) :
@@ -139,101 +141,12 @@ public:
     const std::string& getName() const { return name; }
     const std::vector<Variable>& getVariables() const { return variables; }
 
-    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const
-	{
-		return getVariables(std::string(file->filename()), std::string(function->symbol()->identifier()));
-	}
-    const std::vector<Variable> getVariables(const std::string &file, const std::string &function) const
-	{
-		std::vector<Variable> mappedVariables;
+    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const;
+    const std::vector<Variable> getVariables(const std::string &file, const std::string &function) const;
 
-		for (auto &variable : variables)
-			if (variable.getFileName() == file && variable.getFunctionName() == function)
-				mappedVariables.push_back(variable);
-
-		return mappedVariables;
-	}
-
-	bool hasVariable(const std::string &name) const
-	{
-		for (auto &variable : variables)
-			if (variable.getName() == name)
-				return true;
-
-		return false;
-	}
-	bool hasVariable(SgSymbol *symbol) const
-	{
-		return hasVariable(std::string(symbol->identifier()));
-	}
-
-    void addVariables(SgFile *file, SgStatement *function, const std::vector<std::pair<SgSymbol*, int>> &newVariables)
-    {
-        for (auto &varPair : newVariables)
-        {
-			if (!hasVariable(varPair.first))
-			{
-				varType type = ANOTHER;
-				SgStatement *declStatement = declaratedInStmt(varPair.first);
-				for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
-				{
-					if (exp->lhs()->symbol() == varPair.first)
-					{
-						switch (exp->lhs()->variant())
-						{
-						case VAR_REF:
-							type = SCALAR;
-							break;
-						case ARRAY_REF:
-							type = ARRAY;
-							break;
-						default:
-							type = ANOTHER;
-							break;
-						}
-
-						break;
-					}
-				}
-
-				Variable variable(file, function, varPair.first, std::string(varPair.first->identifier()), type, varPair.second);
-				variables.push_back(variable);
-			}
-        }
-    }
-
-	std::map<std::pair<std::string, std::string>, std::vector<Variable>> getMappedVariables() const
-	{
-		std::map<std::pair<std::string, std::string>, std::vector<Variable>> mappedVariables;
-
-		for (auto &variable : variables)
-		{
-			auto pair = std::make_pair(variable.getFileName(), variable.getFunctionName());
-			auto it = mappedVariables.find(pair);
-			if (it == mappedVariables.end())
-			{
-				it = mappedVariables.insert(it, std::make_pair(pair, std::vector<Variable>()));
-			}
-
-			it->second.push_back(variable);
-		}
-
-		return mappedVariables;
-	}
-
-    void print(FILE *fileOut) const
-    {
-        fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
-
-		auto mappedVariables = getMappedVariables();
-		for (auto &varPair : mappedVariables)
-		{
-			fprintf(fileOut, "  [FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
-			fprintf(fileOut, "    [VARIABLE NAME], [TYPE], [POSITION] : \n");
-			for (auto &var : varPair.second)
-				var.print(fileOut);
-		}
-    }
+    void addVariables(SgFile *file, SgStatement *function, const std::vector<std::pair<SgSymbol*, int>> &newVariables);
+    std::map<std::pair<std::string, std::string>, std::vector<Variable>> getMappedVariables() const;
+    void print(FILE *fileOut) const;    
 };
 
 void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);

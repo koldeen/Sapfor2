@@ -488,7 +488,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
 
         auto itM = SPF_messages.find(start->fileName());
         if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, std::make_pair(start->fileName(), vector<Messages>()));
+            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
         char buf[256];
         sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
@@ -559,7 +559,7 @@ static map<SgExpression*, string>::const_iterator getStringExpr(SgExpression *ex
 {
     auto it = collection.find(ex);
     if (it == collection.end())
-        it = collection.insert(it, std::make_pair(ex, ex->unparse()));
+        it = collection.insert(it, make_pair(ex, ex->unparse()));
     return it;
 }
 
@@ -1066,3 +1066,101 @@ int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &comm
     fclose(file);
     return 0;
 }
+
+// CommonBlock::
+Variable* CommonBlock::hasVariable(const string &name)
+{
+    for (auto &variable : variables)
+        if (variable.getName() == name)
+            return &variable;
+
+    return false;
+}
+
+Variable* CommonBlock::hasVariable(SgSymbol *symbol)
+{
+    return hasVariable(string(symbol->identifier()));
+}
+
+const vector<Variable> CommonBlock::getVariables(SgFile *file, SgStatement *function) const
+{
+    return getVariables(string(file->filename()), string(function->symbol()->identifier()));
+}
+
+const vector<Variable> CommonBlock::getVariables(const string &file, const string &function) const
+{
+    vector<Variable> mappedVariables;
+
+    for (auto &variable : variables)
+        if (variable.getFileName() == file && variable.getFunctionName() == function)
+            mappedVariables.push_back(variable);
+
+    return mappedVariables;
+}
+
+void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
+{
+    for (auto &varPair : newVariables)
+    {
+        if (!hasVariable(varPair.first))
+        {
+            varType type = ANOTHER;
+            SgStatement *declStatement = declaratedInStmt(varPair.first);
+            for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+            {
+                if (exp->lhs()->symbol() == varPair.first)
+                {
+                    switch (exp->lhs()->variant())
+                    {
+                    case VAR_REF:
+                        type = SCALAR;
+                        break;
+                    case ARRAY_REF:
+                        type = ARRAY;
+                        break;
+                    default:
+                        type = ANOTHER;
+                        break;
+                    }
+                    break;
+                }
+            }
+
+            Variable variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second);
+            variables.push_back(variable);
+        }
+    }
+}
+
+map<pair<string, string>, vector<Variable>> CommonBlock::getMappedVariables() const
+{
+    map<pair<string, string>, vector<Variable>> mappedVariables;
+
+    for (auto &variable : variables)
+    {
+        auto pair = make_pair(variable.getFileName(), variable.getFunctionName());
+        auto it = mappedVariables.find(pair);
+        if (it == mappedVariables.end())
+            it = mappedVariables.insert(it, make_pair(pair, vector<Variable>()));
+        
+        it->second.push_back(variable);
+    }
+
+    return mappedVariables;
+}
+
+void CommonBlock::print(FILE *fileOut) const
+{
+    fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
+
+    auto mappedVariables = getMappedVariables();
+    for (auto &varPair : mappedVariables)
+    {
+        fprintf(fileOut, "  [FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
+        fprintf(fileOut, "    [VARIABLE NAME], [TYPE], [POSITION] : \n");
+        for (auto &var : varPair.second)
+            var.print(fileOut);
+    }
+}
+
+// END of CommonBlock::
