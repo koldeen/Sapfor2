@@ -690,20 +690,20 @@ static bool checkParallelRegions(SgStatement *st,
         {
             SgSymbol *identSymbol = st->symbol();
 
-			// declaration checking
+            // declaration checking
             SgStatement *iterator = st;
-			SgStatement *end = st;
+            SgStatement *end = st;
 
-			while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
-				iterator = iterator->controlParent();
+            while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+                iterator = iterator->controlParent();
 
             for (; iterator != end && retVal; iterator = iterator->lexNext())
-			{
+            {
                 if (isSPF_stat(iterator) || isDVM_stat(iterator))
                     continue;
                 
-				if (!isSgExecutableStatement(iterator))
-				{
+                if (!isSgExecutableStatement(iterator))
+                {
                     for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                     {
                         for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
@@ -720,10 +720,10 @@ static bool checkParallelRegions(SgStatement *st,
                             }
                         }
                     }
-				}
-				else
-					break;
-			}
+                }
+                else
+                    break;
+            }
 
             // common blocks checking
             for (auto &commonBlockPair : commonBlocks)
@@ -827,7 +827,7 @@ static bool checkParallelRegions(SgStatement *st,
         retVal = false;
     }
 
-	return retVal;
+    return retVal;
 }
 
 static inline bool processStat(SgStatement *st, const string &currFile,
