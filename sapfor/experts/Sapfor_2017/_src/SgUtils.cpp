@@ -488,7 +488,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
 
         auto itM = SPF_messages.find(start->fileName());
         if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, std::make_pair(start->fileName(), vector<Messages>()));
+            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
         char buf[256];
         sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
@@ -559,7 +559,7 @@ static map<SgExpression*, string>::const_iterator getStringExpr(SgExpression *ex
 {
     auto it = collection.find(ex);
     if (it == collection.end())
-        it = collection.insert(it, std::make_pair(ex, ex->unparse()));
+        it = collection.insert(it, make_pair(ex, ex->unparse()));
     return it;
 }
 
@@ -1047,3 +1047,104 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
     }
 }
 
+int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &commonBlocks)
+{
+    FILE *file = fopen(fileName, "w");
+    if (file == NULL)
+    {
+        __spf_print(1, "can not open file %s\n", fileName);
+        return -1;
+    }
+
+    for (auto &commonBlock : commonBlocks)
+    {
+        fprintf(file, "*** COMMON BLOCK '%s'\n", commonBlock.first.c_str());
+        commonBlock.second.print(file);
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return 0;
+}
+
+// CommonBlock::
+Variable* CommonBlock::hasVariable(const string &name, const varType type, const int position)
+{
+    for (auto &variable : variables)
+        if (variable.getName() == name && variable.getType() == type && variable.getPosition() == position)
+            return &variable;
+
+    return NULL;
+}
+
+Variable* CommonBlock::hasVariable(SgSymbol *symbol, const varType type, const int position)
+{
+    return hasVariable(string(symbol->identifier()), type, position);
+}
+
+const vector<const Variable*> CommonBlock::getVariables(SgFile *file, SgStatement *function) const 
+{
+    return getVariables(string(file->filename()), string(function->symbol()->identifier()));
+}
+
+const vector<const Variable*> CommonBlock::getVariables(const string &file, const string &function) const
+{
+    vector<const Variable*> retVariables;
+    
+    for (auto &variable : variables)
+        if (variable.hasUse(file, function))
+            retVariables.push_back(&variable);
+    
+    return retVariables;
+}
+
+void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
+{
+    for (auto &varPair : newVariables)
+    {        
+        SgStatement *declStatement = declaratedInStmt(varPair.first);
+
+        varType type = ANOTHER;
+        for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+        {
+            if (exp->lhs()->symbol() == varPair.first)
+            {
+                switch (exp->lhs()->variant())
+                {
+                case VAR_REF:
+                    type = SCALAR;
+                    break;
+                case ARRAY_REF:
+                    type = ARRAY;
+                    break;
+                default:
+                    type = ANOTHER;
+                    break;
+                }
+                break;
+            }
+        }
+
+        Variable *exist = hasVariable(varPair.first, type, varPair.second);
+        if (exist)
+            exist->addUse(file, function);        
+        else
+            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
+    }
+}
+
+void CommonBlock::print(FILE *fileOut) const
+{
+    fprintf(fileOut, "  [POSITION], [VARIABLE NAME], [TYPE]: \n");
+    for (auto &var: variables)
+    {        
+        var.print(fileOut);
+        fprintf(fileOut, "      USE in [FILE, FUNCTION]:");
+
+        for (auto &use : var.getAllUse())
+            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());        
+        fprintf(fileOut, "\n");            
+    }
+}
+
+// END of CommonBlock::

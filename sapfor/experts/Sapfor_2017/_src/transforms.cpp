@@ -447,7 +447,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             revertion_spf_dirs(file);
         else if (curr_regime == PREPROC_SPF)
         {
-            bool noError = preprocess_spf_dirs(file, getMessagesForFile(file_name));
+            bool noError = preprocess_spf_dirs(file, commonBlocks, getMessagesForFile(file_name));
             if (!noError)
                 internalExit = 1;
         }
@@ -476,6 +476,50 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions);
+        else if (curr_regime == FILL_COMMON_BLOCKS)
+        {
+            // fillCommonBlocks(file, commonBlocks);
+            for (int i = 0; i < file->numberOfFunctions(); ++i)
+            {
+                map<string, vector<SgExpression*>> commonBlocksRef;
+                SgStatement *start = file->functions(i);
+                SgStatement *end = start->lastNodeOfStmt();
+
+                getCommonBlocksRef(commonBlocksRef, start->lexNext(), end);
+
+                for (auto &commonBlockRef : commonBlocksRef)
+                {
+                    auto it = commonBlocks.find(commonBlockRef.first);
+                    if (it == commonBlocks.end())
+                    {
+                        CommonBlock newCommonBlock(commonBlockRef.first, vector<Variable>());
+                        it = commonBlocks.insert(it, make_pair(commonBlockRef.first, newCommonBlock));
+                    }
+
+                    int position = 0;
+                    for (auto &commonBlock : commonBlockRef.second)
+                    {
+                        vector<pair<SgSymbol*, int>> newVariables;
+						for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
+							newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
+
+                        it->second.addVariables(file, start, newVariables);
+                    }
+                }
+            }
+
+            // TODO: add filling from BLOCK DATA
+            SgStatement *st = file->firstStatement();
+            while (st)
+            {
+                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
+                {
+
+                }
+                st = st->lastNodeOfStmt();
+                st = st->lexNext();
+            }
+        }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
@@ -1014,6 +1058,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         if (keepFiles)
             printLoopGraph("_loopGraph.txt", loopGraph);
+    }
+    else if (curr_regime == FILL_COMMON_BLOCKS)
+    {
+        if (keepFiles)
+            printCommonBlocks("_commonBlocks.txt", commonBlocks);
     }
     else if (curr_regime == REVERT_SUBST_EXPR)
         PASSES_DONE[SUBST_EXPR] = 0;
