@@ -5516,7 +5516,9 @@ derived_elem_list: derived_elem
              ;
 
 derived_elem: expr
-            { $$ = $1;} 
+              { $$ = $1;}
+            | expr COLON expr
+              { $$ = make_llnd(fi,DDOT, $1, $3, SMNULL);} 
             ;
 
 target_spec: derived_target 

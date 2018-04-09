@@ -345,7 +345,7 @@ static bool checkReduction(SgStatement *st,
 
                         if (err != 0)
                         {
-                            // Expression can not be computed                        
+                            // Expression can not be computed
                             __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
 
                             string message;
@@ -1078,31 +1078,41 @@ void revertion_spf_dirs(SgFile *file)
             }
             //analyze attributes
             SgAttribute *atrib = st->getAttribute(0);
+            SgStatement *toAdd = NULL;
 
             if (atrib) 
             {
                 //check previosly directives SPF_ANALYSIS
                 vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
 
-                SgStatement *toAddExp = GetOneAttribute(sameAtt);
-                st->insertStmtBefore(*toAddExp);
-
-                //check previosly directives SPF_PARALLEL
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
-                for (auto &elem : sameAtt) 
+                if (sameAtt.size())
                 {
-                    SgStatement *toAddExp = GetOneAttribute(sameAtt);
-                    st->insertStmtBefore(*toAddExp);
+                    toAdd = GetOneAttribute(sameAtt);
+                    st->insertStmtBefore(*toAdd);
                 }
 
-                //remaining directives            
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
-                for (auto &elem : sameAtt) 
+                //check previosly directives SPF_PARALLEL
+                if (sameAtt.size())
                 {
-                    SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
-                    SgStatement *toAdd = &(data->copy());
+                    sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+                    for (auto &elem : sameAtt)
+                    {
+                        toAdd = GetOneAttribute(sameAtt);
+                        st->insertStmtBefore(*toAdd);
+                    }
+                }
 
-                    st->insertStmtBefore(*toAdd);
+                //remaining directives
+                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                if (sameAtt.size())
+                {
+                    for (auto &elem : sameAtt)
+                    {
+                        SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                        SgStatement *toAdd = &(data->copy());
+
+                        st->insertStmtBefore(*toAdd);
+                    }
                 }
             }
             st = st->lexNext();

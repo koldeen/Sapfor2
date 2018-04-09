@@ -29,13 +29,15 @@ static SgConstantSymb *device_const[Ndev], *const_LONG, *intent_const[Nintent], 
 static SgSymbol *red_offset_symb, *sync_proc_symb, *mem_use_loc_array[8];
 static SgSymbol *adapter_symb, *hostproc_symb, *s_offset_type, *s_of_cudaindex_type;
 static symb_list *acc_func_list, *acc_registered_list, *non_dvm_list, *parallel_on_list;
-static symb_list *assigned_var_list;
+static symb_list *assigned_var_list, *range_index_list;
 static SgSymbol *Imem_k, *Rmem_k, *Dmem_k, *Cmem_k, *DCmem_k, *Lmem_k, *Chmem_k;
 static SgSymbol *fdim3;
 static SgSymbol *s_ibof, *s_CudaIndexType_k, *s_warpsize, *s_blockDims;
 static SgSymbol *s_rest_blocks, *s_cur_blocks, *s_add_blocks, *s_begin[MAX_LOOP_LEVEL];
 static SgSymbol *s_end[MAX_LOOP_LEVEL], *s_blocksS_k[MAX_LOOP_LEVEL];
 static SgType *type_DvmType, *type_CudaIndexType, *type_with_len_DvmType, *type_FortranDvmType, *CudaIndexType_k;
+static int loopIndexCount;
+
 
 //------ C ----------
 static const char *red_kernel_func_names[] = {
@@ -6002,39 +6004,75 @@ SgStatement * makeSymbolDeclarationWithInit_F90(SgSymbol *s, SgExpression *einit
     return(st);
 }
 
-SgStatement *CreateLoopBody_ForCounter(SgSymbol *s_elemBuf,SgSymbol *s_elemCount)
+SgSymbol *LoopIndex(SgStatement *body, SgStatement *func)
 {
-    SgExpression *e = new SgVarRefExp(*s_elemCount);
-    SgStatement *body = new SgAssignStmt(*e,*e + *new SgValueExp(1));
+    loopIndexCount++;
+    char *sname = (char *)malloc(6+10+1); 
+    sprintf(sname, "%s%d", "subexp", loopIndexCount);
+    SgSymbol *si = new SgSymbol(VARIABLE_NAME, sname, *func);
+    range_index_list = AddToSymbList(range_index_list, si);
+    return si; 
+}
+
+SgStatement *CreateLoopForRange(SgStatement *body, SgExpression *eRange, SgExpression *e, int flag_filler, SgStatement *func)
+{
+    SgSymbol *s_index = LoopIndex(body,func); 
+    SgStatement *loop = new SgForStmt(*s_index, *eRange->lhs(), *eRange->rhs(), *body); 
+    if(flag_filler)
+        if(isSgAssignStmt(body) && !e)        
+            ((SgAssignStmt *) body)->replaceRhs(*new SgVarRefExp(*s_index));
+        else
+            e->setLhs(*new SgVarRefExp(*s_index));
+
+    return loop;
+}
+
+SgStatement *CreateLoopNestForElement(SgStatement *body, SgExpression *edrv, SgExpression *e, int flag_filler, SgStatement *func)
+{
+    if(isSgArrayRefExp(edrv))
+    {
+       for(SgExpression *el=edrv->lhs(); el; el=el->rhs())
+           body = CreateLoopNestForElement(body, el->lhs(), el, flag_filler, func);
+    }
+    else if(isSgSubscriptExp(edrv))
+    {    body = CreateLoopForRange(body, edrv, e, flag_filler, func);
+         body = CreateLoopNestForElement(body, edrv->lhs(), e, flag_filler, func);
+         body = CreateLoopNestForElement(body, edrv->rhs(), e, flag_filler, func);
+    }
+    else
+       return body;
+
     return (body);
 }
 
-SgStatement *CreateLoopBody_ForFiller(SgSymbol *s_elemBuf,SgSymbol *s_elemIndex)
+SgStatement * CreateBodyForElememt(SgSymbol *s_elemCount,SgSymbol *s_elemBuf,SgSymbol *s_elemIndex, SgExpression *edrv, int flag_filler)
 {
-    SgExpression *e = new SgVarRefExp(*s_elemIndex);
+    SgExpression *e = flag_filler ? new SgVarRefExp(*s_elemIndex) : new SgVarRefExp(*s_elemCount); 
     SgStatement *body = new SgAssignStmt(*e,*e + *new SgValueExp(1));
+
+    if(flag_filler)
+    {
+        SgStatement *st = new SgAssignStmt(*new SgArrayRefExp(*s_elemBuf,*new SgVarRefExp(*s_elemIndex)),*edrv); //*DvmType_Ref(edrv));
+        st->setLexNext(*body);
+        body = st;
+    }
     return (body);
 }
 
 SgStatement *CreateLoopBody_Indirect(SgSymbol *s_elemCount,SgSymbol *s_elemBuf,SgSymbol *s_elemIndex,SgExpression *derived_elem_list,int flag_filler)
-{
+{ 
     SgStatement *loop_body = NULL,*current_st=NULL;
     for(SgExpression *el=derived_elem_list; el; el=el->rhs())
-    {
-       SgExpression *e = flag_filler ? new SgVarRefExp(*s_elemIndex) : new SgVarRefExp(*s_elemCount); 
-       SgStatement *body = new SgAssignStmt(*e,*e + *new SgValueExp(1));
-
-       if(flag_filler)
-       {
-          SgStatement *st = new SgAssignStmt(*new SgArrayRefExp(*s_elemBuf,*new SgVarRefExp(*s_elemIndex)),*DvmType_Ref(el->lhs()));
-          st->setLexNext(*body);
-          body = st;
-       }
-       if(loop_body)
-          current_st -> setLexNext(*body);
-       else
-          loop_body = body;
-       current_st = body->lexNext() ? body->lexNext() : body ;
+    {        
+        SgStatement *body = CreateBodyForElememt(s_elemCount,s_elemBuf,s_elemIndex, el->lhs(), flag_filler);
+        body = CreateLoopNestForElement(body,el->lhs(),NULL,flag_filler,s_elemCount->scope());
+        if(loop_body)
+            current_st -> setLexNext(*body);
+        else
+            loop_body = body;      
+        current_st = body;
+        while(current_st->lexNext())
+            current_st = current_st->lexNext();        
     }
     return (loop_body); 
 }
@@ -6043,7 +6081,6 @@ SgStatement *CreateLoopNest_Indirect(SgSymbol *s_low_bound, SgSymbol *s_high_bou
 {   SgStatement *stl = body; 
     symb_list *sl = dummy_index_list;
     int i = 0;
-        //for(i=rank; i>0; i--) 
     for ( ; sl; sl=sl->next)
           i++;
     for (sl= dummy_index_list; sl; sl=sl->next,i--)  
@@ -6053,6 +6090,8 @@ SgStatement *CreateLoopNest_Indirect(SgSymbol *s_low_bound, SgSymbol *s_high_bou
 
 void CreateProcedureBody_Indirect(SgStatement *after,SgSymbol *s_low_bound,SgSymbol *s_high_bound,symb_list *dummy_index_list,SgSymbol *s_elemBuf,SgSymbol *s_elemCount,SgSymbol *s_elemIndex,SgExpression *derived_elem_list,int flag_filler)
 {
+    loopIndexCount = 0;
+    range_index_list = NULL;
     after->insertStmtAfter(*CreateLoopNest_Indirect(s_low_bound,s_high_bound,dummy_index_list,CreateLoopBody_Indirect(s_elemCount,s_elemBuf,s_elemIndex,derived_elem_list,flag_filler)),*after->controlParent());
 }
 
@@ -6113,9 +6152,8 @@ SgStatement *CreateIndirectDistributionProcedure(SgSymbol *sProc,symb_list *para
 
     // make declarations of dummy-idexes and s_elemIndex
     for(symb_list *sl=dummy_index_list; sl; sl=sl->next)
-    {
        AddListToList(el,new SgExprListExp(*new SgVarRefExp(*sl->symb)));
-    } 
+     
     if(flag_filler)
     {
        stmt = makeSymbolDeclarationWithInit_F90(s_elemIndex,new SgValueExp(0));
@@ -6125,6 +6163,12 @@ SgStatement *CreateIndirectDistributionProcedure(SgSymbol *sProc,symb_list *para
 
     SgStatement *cur = st_end->lexPrev();
     CreateProcedureBody_Indirect(cur,s_low_bound,s_high_bound,dummy_index_list,s_elemBuf,s_elemCount,s_elemIndex,derived_elem_list,flag_filler);
+
+    // add range indexes declarations (to declaration statement for dummy indexes)
+
+    for(symb_list *sl=range_index_list; sl; sl=sl->next)
+        AddListToList(el,new SgExprListExp(*new SgVarRefExp(*sl->symb))); 
+    
     return (st_hedr);
 }
 

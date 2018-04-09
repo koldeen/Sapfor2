@@ -184,16 +184,21 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
 
     bool stepIsEqual = false;
     int valL = 0, valR = 0;
+
+    if (get<2>(rightBounds))
+        if (get<2>(rightBounds)->isInteger())
+            valR = get<2>(rightBounds)->valueInteger();
+
+    if (get<2>(leftBounds))
+        if (get<2>(leftBounds)->isInteger())
+            valL = get<2>(leftBounds)->valueInteger();
+
     if (get<2>(rightBounds) && get<2>(leftBounds))
     {
         if (string(get<2>(rightBounds)->unparse()) == string(get<2>(leftBounds)->unparse()))
             stepIsEqual = true;
         else
         {
-            if (get<2>(rightBounds)->isInteger())
-                valR = get<2>(rightBounds)->valueInteger();
-            if (get<2>(leftBounds)->isInteger())
-                valL = get<2>(leftBounds)->valueInteger();
             if ((valR < 0 && valL < 0) || (valR < 0 && valL > 0))
             {
                 valR = -valR;
@@ -210,8 +215,7 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
                 idxVar = &(*idxVar * *new SgValueExp(valR));
         }
         else
-            idxVar = &(*idxVar * get<2>(rightBounds)->copy());
-        
+            idxVar = &(*idxVar * get<2>(rightBounds)->copy());        
     }
 
     if (get<2>(leftBounds) && !stepIsEqual)
@@ -307,10 +311,14 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 fixedLeft[i] = true;
 
         if (!fixedLeft[i])
-            leftSections.push_back(bounds);        
+            leftSections.push_back(bounds);
         ex = ex->rhs();
     }
 
+    //fill default
+    if (leftSubs == 0)
+        leftSections = leftBound;
+    
     ex = subsR;
     for (int i = 0; i < rightSubs; ++i)
     {
@@ -326,6 +334,10 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
             rightSections.push_back(bounds);
         ex = ex->rhs();
     }
+
+    //fill default
+    if (rightSubs == 0)
+        rightSections = rightBound;
 
     if (leftSections.size() != rightSections.size())
     {
@@ -373,11 +385,71 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i)), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
         }
                 
-        if (leftSubs == 0)
+        if (leftSubs == 0 && rightSubs == 0)
         {
             // A = B
             for (int i = 0; i < leftSections.size(); ++i)
                 leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+
+            for (int i = 0; i < rightSections.size(); ++i)
+            {
+                SgExpression *shift = &(get<0>(rightSections[i])->copy() - get<0>(leftSections[i])->copy());
+
+                int res;
+                int err = CalculateInteger(shift, res);
+                if (err == 0)
+                {
+                    if (res != 0)
+                        shift = new SgValueExp(res);
+                    else
+                        shift = NULL;
+                }
+                if (shift)
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
+                else
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+            }
+        }
+        else if (leftSubs == 0 && rightSubs != 0)
+        {
+            // A = B( : : : )
+            for (int i = 0; i < leftSections.size(); ++i)
+                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+
+            ex = subsR;
+            for (int i = 0, freeIdx = 0; i < rightSubs; ++i, subsR = subsR->rhs())
+            {
+                if (!fixedRight[i])
+                {
+                    if (!needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
+                    {
+                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
+                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift);
+                    }
+                    else
+                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx]);
+                    ++freeIdx;
+                }
+            }
+        }
+        else if (leftSubs != 0 && rightSubs == 0)
+        {
+            // A( : : : ) = B
+            ex = subsL;
+            for (int i = 0, freeIdx = 0; i < leftSubs; ++i, subsL = subsL->rhs())
+            {
+                if (!fixedLeft[i])
+                {
+                    if (needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
+                    {
+                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
+                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift);
+                    }
+                    else
+                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx]);
+                    ++freeIdx;
+                }
+            }
 
             for (int i = 0; i < rightSections.size(); ++i)
             {

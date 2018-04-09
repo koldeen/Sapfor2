@@ -8421,56 +8421,54 @@ int is_derived_dummy(SgSymbol *s, symb_list *dummy_list)
   return 0;
 }
 
-symb_list *DerivedElementAnalysis(SgExpression *e, symb_list *dummy_list, symb_list *arg_list, SgStatement *stmt, int &nArg)
+symb_list *DerivedElementAnalysis(SgExpression *e, symb_list *dummy_list, symb_list *arg_list, SgStatement *stmt)
 {
   if(!e)
      return (arg_list);
   if(isSgValueExp(e))
      return (arg_list);
-  if(isSgArrayRefExp(e) )  //!!! look trough the tree
-  {
-     if(HEADER(e->symbol()))
-     {
-        arg_list = AddNewToSymbList(arg_list,e->symbol());
-        nArg++;
-        nArg++;
-     }
-     else
-        Error("Illegal use of array '%s' in DERIVED/SHADOW_ADD, not implemented yet",e->symbol()->identifier(), 629, stmt);      
-     return (arg_list);
-  }
-  
+
   if(isSgVarRefExp(e) && !is_derived_dummy(e->symbol(),dummy_list) || e->variant() == CONST_REF)
   {
      arg_list = AddNewToSymbList(arg_list,e->symbol());
-     nArg++;
      return (arg_list); 
   }
-  arg_list = DerivedElementAnalysis(e->lhs(), dummy_list, arg_list, stmt, nArg);   
-  arg_list = DerivedElementAnalysis(e->rhs(), dummy_list, arg_list, stmt, nArg);
+
+  if(isSgArrayRefExp(e) )  //!!! look trough the tree
+  {
+     if(HEADER(e->symbol()))
+        arg_list = AddNewToSymbList(arg_list,e->symbol());
+     else
+        Error("Illegal use of array '%s' in DERIVED/SHADOW_ADD, not implemented yet",e->symbol()->identifier(), 629, stmt);      
+     arg_list = DerivedElementAnalysis(e->lhs(), dummy_list, arg_list, stmt);
+     return (arg_list);
+  }
+  
+  arg_list = DerivedElementAnalysis(e->lhs(), dummy_list, arg_list, stmt);   
+  arg_list = DerivedElementAnalysis(e->rhs(), dummy_list, arg_list, stmt);
   return (arg_list);   
 }
 
-symb_list *DerivedLhsAnalysis(SgExpression *derived_op, symb_list *dummy_list, SgStatement *stmt, int &nArg)
+symb_list *DerivedLhsAnalysis(SgExpression *derived_op, symb_list *dummy_list, SgStatement *stmt)
 {
-
   SgExpression *el,*e;
   symb_list *arg_list = NULL, *sl;
   SgExpression *elhs = derived_op->lhs(); //derived_elem_list
   // looking through the lhs of derived_op (derived_elem_list)
-  nArg = 0;
+  
   for(el=elhs; el; el=el->rhs())
   {
      e = el->lhs();  // derived_elem
-     arg_list = DerivedElementAnalysis(e, dummy_list, arg_list, stmt, nArg);
+     arg_list = DerivedElementAnalysis(e, dummy_list, arg_list, stmt);
   }
   return (arg_list);   
 }
 
-SgExpression *FillerActualArgumentList(symb_list *paramList,SgStatement *st_filler)
+SgExpression *FillerActualArgumentList(symb_list *paramList, int &nArg)
 {
   SgExpression *arg_expr_list = NULL;
   symb_list *sl;
+  nArg = 0;
   for (sl = paramList; sl; sl=sl->next)
   { 
      if(isSgArrayType(sl->symb->type()))
@@ -8479,25 +8477,30 @@ SgExpression *FillerActualArgumentList(symb_list *paramList,SgStatement *st_fill
           continue; 
         arg_expr_list = AddListToList(arg_expr_list,new SgExprListExp(*new SgArrayRefExp(*sl->symb)));
         arg_expr_list = AddListToList(arg_expr_list,ElementOfAddrArgumentList(sl->symb));
+        nArg+=2;
      }
      else
+     {
         arg_expr_list = AddListToList(arg_expr_list,new SgExprListExp(*new SgVarRefExp(*sl->symb)));
+        nArg++;
+     }
   }
   return arg_expr_list;
 }
 
 void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *eFunc[])
 {
-  int narg = 0,nd = 0;
+  int narg = 0, nd = 0;
   symb_list *dummy_list   = DerivedRhsAnalysis(edrv,stmt,nd);
-  symb_list *paramList    = DerivedLhsAnalysis(edrv,dummy_list,stmt,narg);
+  symb_list *paramList    = DerivedLhsAnalysis(edrv,dummy_list,stmt); 
   SgSymbol *sf_counter    = IndirectFunctionSymbol(stmt,"counter");
   SgSymbol *sf_filler     = IndirectFunctionSymbol(stmt,"filler");
-  SgStatement *st_counter = CreateIndirectDistributionProcedure(sf_counter, NULL, dummy_list,edrv->lhs(),0);
-  SgStatement *st_filler  = CreateIndirectDistributionProcedure(sf_filler, paramList, dummy_list, edrv->lhs(),1);
+  SgStatement *st_counter = CreateIndirectDistributionProcedure(sf_counter, paramList, dummy_list, edrv->lhs(), 0);
+  SgStatement *st_filler  = CreateIndirectDistributionProcedure(sf_filler,  paramList, dummy_list, edrv->lhs(), 1);
   st_counter->addComment(Indirect_ProcedureComment(stmt->lineNumber())); 
-  eFunc[0] = HandlerFunc (sf_counter, 0, NULL);  // counter function
-  eFunc[1] = HandlerFunc (sf_filler, narg, FillerActualArgumentList(paramList,st_filler)); // filler function
+  SgExpression *argument_list = FillerActualArgumentList(paramList,narg);  
+  eFunc[0] = HandlerFunc (sf_counter, narg, argument_list);  // counter function
+  eFunc[1] = HandlerFunc (sf_filler,  narg, &argument_list->copy()); // filler function
   return;
 }
 

@@ -444,7 +444,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REVERT_SPF_DIRS)
-            revertion_spf_dirs(file);
+        {
+            if (keepSpfDirs)
+                revertion_spf_dirs(file);
+            else
+                __spf_print(1, "ignore SPF REVERT\n");
+        }
         else if (curr_regime == PREPROC_SPF)
         {
             bool noError = preprocess_spf_dirs(file, commonBlocks, getMessagesForFile(file_name));
@@ -500,8 +505,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     for (auto &commonBlock : commonBlockRef.second)
                     {
                         vector<pair<SgSymbol*, int>> newVariables;
-						for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
-							newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
+                        for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
+                            newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
                         it->second.addVariables(file, start, newVariables);
                     }
