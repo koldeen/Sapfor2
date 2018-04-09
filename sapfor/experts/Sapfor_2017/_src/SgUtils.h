@@ -88,37 +88,74 @@ public:
 
 enum varType { SCALAR, ARRAY, ANOTHER };
 
-struct Variable
+struct CommonVariableUse
 {
 private:
-    SgFile *file;
-    SgStatement *function;
-    SgSymbol *symbol; // variable symbol
     std::string fileName;
     std::string functionName;
-    std::string name; // variable name
-    varType type;     // variable type
-    int position;
+
+    SgFile *file;
+    SgStatement *function;
 public:
-    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type, const int position) :
-        file(file), function(function), symbol(symbol), name(name), type(type), position(position),
+    explicit CommonVariableUse(SgFile *file, SgStatement *function) :
+        file(file), function(function), 
         fileName(std::string(file->filename())), functionName(std::string(function->symbol()->identifier()))
     {
 
     }
 
-    SgFile* getFile() const { return file; }
-    SgStatement* getFunction() const { return function; }
-    SgSymbol* getSymbol() const { return symbol; }
     const std::string& getFileName() const { return fileName; }
     const std::string& getFunctionName() const { return functionName; }
+    SgFile* getFile() const { return file; }
+    SgStatement* getFunction() const { return function; }
+};
+
+struct Variable
+{
+private:
+    std::vector<CommonVariableUse> allUse;
+    SgSymbol *symbol; // variable symbol
+    std::string name; // variable name
+    varType type;     // variable type
+    int position;
+public:
+    explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type, const int position) :
+        symbol(symbol), name(name), type(type), position(position)
+    {
+        allUse.push_back(CommonVariableUse(file, function));
+    }
+
+    SgSymbol* getSymbol() const { return symbol; }    
+    const std::vector<CommonVariableUse>& getAllUse() const { return allUse; }
     const std::string& getName() const { return name; }
     const varType getType() const { return type; }
     const int getPosition() const { return position; }
 
+    void addUse(SgFile *file, SgStatement *function)
+    {
+        for (auto &use : allUse)
+        {
+            if (use.getFile() == file && use.getFunction() == function)
+                return;
+        }
+
+        allUse.push_back(CommonVariableUse(file, function));
+    }
+
+    bool hasUse(const std::string &file, const std::string &function) const
+    {
+        for (auto &use : allUse)
+        {
+            if (use.getFileName() == file && use.getFunctionName() == function)
+                return true;
+        }
+
+        return false;
+    }
+
     void print(FILE *fileOut) const
     {
-        fprintf(fileOut, "    '%s', %s, %d\n", name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER", position);
+        fprintf(fileOut, "  %3d, '%s', %s\n", position, name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER");
     }
 };
 
@@ -128,8 +165,8 @@ private:
     std::string name;
     std::vector<Variable> variables;
 
-    Variable* hasVariable(const std::string &name);
-    Variable* hasVariable(SgSymbol *symbol);
+    Variable* hasVariable(const std::string &name, const varType type, const int position);
+    Variable* hasVariable(SgSymbol *symbol, const varType type, const int position);
 public:
     explicit CommonBlock(const std::string &name,
         const std::vector<Variable> &variables) :
@@ -141,11 +178,10 @@ public:
     const std::string& getName() const { return name; }
     const std::vector<Variable>& getVariables() const { return variables; }
 
-    const std::vector<Variable> getVariables(SgFile *file, SgStatement *function) const;
-    const std::vector<Variable> getVariables(const std::string &file, const std::string &function) const;
+    const std::vector<const Variable*> getVariables(SgFile *file, SgStatement *function) const;
+    const std::vector<const Variable*> getVariables(const std::string &file, const std::string &function) const;
 
     void addVariables(SgFile *file, SgStatement *function, const std::vector<std::pair<SgSymbol*, int>> &newVariables);
-    std::map<std::pair<std::string, std::string>, std::vector<Variable>> getMappedVariables() const;
     void print(FILE *fileOut) const;    
 };
 

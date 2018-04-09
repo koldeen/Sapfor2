@@ -1058,7 +1058,7 @@ int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &comm
 
     for (auto &commonBlock : commonBlocks)
     {
-        fprintf(file, "*** FILE %s\n", commonBlock.first.c_str());
+        fprintf(file, "*** COMMON BLOCK '%s'\n", commonBlock.first.c_str());
         commonBlock.second.print(file);
         fprintf(file, "\n");
     }
@@ -1068,98 +1068,82 @@ int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &comm
 }
 
 // CommonBlock::
-Variable* CommonBlock::hasVariable(const string &name)
+Variable* CommonBlock::hasVariable(const string &name, const varType type, const int position)
 {
     for (auto &variable : variables)
-        if (variable.getName() == name)
+        if (variable.getName() == name && variable.getType() == type && variable.getPosition() == position)
             return &variable;
 
-    return false;
+    return NULL;
 }
 
-Variable* CommonBlock::hasVariable(SgSymbol *symbol)
+Variable* CommonBlock::hasVariable(SgSymbol *symbol, const varType type, const int position)
 {
-    return hasVariable(string(symbol->identifier()));
+    return hasVariable(string(symbol->identifier()), type, position);
 }
 
-const vector<Variable> CommonBlock::getVariables(SgFile *file, SgStatement *function) const
+const vector<const Variable*> CommonBlock::getVariables(SgFile *file, SgStatement *function) const 
 {
     return getVariables(string(file->filename()), string(function->symbol()->identifier()));
 }
 
-const vector<Variable> CommonBlock::getVariables(const string &file, const string &function) const
+const vector<const Variable*> CommonBlock::getVariables(const string &file, const string &function) const
 {
-    vector<Variable> mappedVariables;
-
+    vector<const Variable*> retVariables;
+    
     for (auto &variable : variables)
-        if (variable.getFileName() == file && variable.getFunctionName() == function)
-            mappedVariables.push_back(variable);
-
-    return mappedVariables;
+        if (variable.hasUse(file, function))
+            retVariables.push_back(&variable);
+    
+    return retVariables;
 }
 
 void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
 {
     for (auto &varPair : newVariables)
-    {
-        if (!hasVariable(varPair.first))
+    {        
+        SgStatement *declStatement = declaratedInStmt(varPair.first);
+
+        varType type = ANOTHER;
+        for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
         {
-            varType type = ANOTHER;
-            SgStatement *declStatement = declaratedInStmt(varPair.first);
-            for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+            if (exp->lhs()->symbol() == varPair.first)
             {
-                if (exp->lhs()->symbol() == varPair.first)
+                switch (exp->lhs()->variant())
                 {
-                    switch (exp->lhs()->variant())
-                    {
-                    case VAR_REF:
-                        type = SCALAR;
-                        break;
-                    case ARRAY_REF:
-                        type = ARRAY;
-                        break;
-                    default:
-                        type = ANOTHER;
-                        break;
-                    }
+                case VAR_REF:
+                    type = SCALAR;
+                    break;
+                case ARRAY_REF:
+                    type = ARRAY;
+                    break;
+                default:
+                    type = ANOTHER;
                     break;
                 }
+                break;
             }
-
-            Variable variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second);
-            variables.push_back(variable);
         }
+
+        Variable *exist = hasVariable(varPair.first, type, varPair.second);
+        if (exist)
+            exist->addUse(file, function);        
+        else
+            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
     }
-}
-
-map<pair<string, string>, vector<Variable>> CommonBlock::getMappedVariables() const
-{
-    map<pair<string, string>, vector<Variable>> mappedVariables;
-
-    for (auto &variable : variables)
-    {
-        auto pair = make_pair(variable.getFileName(), variable.getFunctionName());
-        auto it = mappedVariables.find(pair);
-        if (it == mappedVariables.end())
-            it = mappedVariables.insert(it, make_pair(pair, vector<Variable>()));
-        
-        it->second.push_back(variable);
-    }
-
-    return mappedVariables;
 }
 
 void CommonBlock::print(FILE *fileOut) const
 {
-    fprintf(fileOut, "[COMMON BLOCK] : '%s'\n", name.c_str());
+    fprintf(fileOut, "  [POSITION], [VARIABLE NAME], [TYPE]: \n");
+    for (auto &var: variables)
+    {        
+        var.print(fileOut);
+        fprintf(fileOut, "      USE in [FILE, FUNCTION]:");
 
-    auto mappedVariables = getMappedVariables();
-    for (auto &varPair : mappedVariables)
-    {
-        fprintf(fileOut, "  [FILE] : '%s', [FUNCTION] : '%s'\n", varPair.first.first.c_str(), varPair.first.second.c_str());
-        fprintf(fileOut, "    [VARIABLE NAME], [TYPE], [POSITION] : \n");
-        for (auto &var : varPair.second)
-            var.print(fileOut);
+        for (auto &use : var.getAllUse())
+            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());        
+        fprintf(fileOut, "\n");            
     }
 }
 
