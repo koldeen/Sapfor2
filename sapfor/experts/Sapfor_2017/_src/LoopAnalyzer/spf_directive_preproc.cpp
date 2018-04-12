@@ -838,7 +838,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                     addToattribute(next, st, SPF_END_PARALLEL_REG_DIR);
             st = st->lexNext();
         }
-	}
+    }
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
@@ -847,99 +847,116 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
     return noError;
 }
 
-static void LinkTree(SgExpression *mainExp, SgExpression *exp) {
-	SgExpression *copyExp = &(exp->copy());
-	SgExpression *rhs = mainExp->rhs();
-	while (rhs) {
-		SgExpression *a = rhs;
-		rhs = mainExp->rhs();
-		mainExp = a;
-	}
+static void LinkTree(SgExpression *mainExp, SgExpression *exp) 
+{
+    SgExpression *copyExp = &(exp->copy());
+    SgExpression *rhs = mainExp->rhs();
+    while (rhs) 
+    {
+        SgExpression *a = rhs;
+        rhs = mainExp->rhs();
+        mainExp = a;
+    }
     mainExp->setRhs(copyExp);
 }		
 
-static void OptimizeTree(SgExpression *exp) {
-	while (exp) {
-		SgExpression *checkExp = exp->lhs();
-		SgExpression *currExp = exp->rhs();
+static void OptimizeTree(SgExpression *exp) 
+{
+    while (exp) 
+    {
+        SgExpression *checkExp = exp->lhs();
+        SgExpression *currExp = exp->rhs();
 
-		SgExpression *prevExp = exp;
+        SgExpression *prevExp = exp;
 
-		int var = checkExp->variant();
+        int var = checkExp->variant();
 
-		while (currExp) {
-			SgExpression *lhs = currExp->lhs();
-			SgExpression *rhs = currExp->rhs();
-			if (lhs) {
-				if (lhs->variant() == var) {
-					prevExp->setRhs(rhs);
-					LinkTree(checkExp->lhs(), lhs->lhs());
-				}
-				else
-					prevExp = currExp;
-				currExp = rhs;
-			}
-		}
-		exp = exp->rhs();
-	}
+        while (currExp) 
+        {
+            SgExpression *lhs = currExp->lhs();
+            SgExpression *rhs = currExp->rhs();
+            if (lhs) 
+            {
+                if (lhs->variant() == var) 
+                {
+                    prevExp->setRhs(rhs);
+                    LinkTree(checkExp->lhs(), lhs->lhs());
+                }
+                else
+                    prevExp = currExp;
+                currExp = rhs;
+            }
+        }
+        exp = exp->rhs();
+    }
 }
 
-SgStatement *GetOneAttribute(vector<SgStatement*> sameAtt) {
-	SgStatement *toAddExp = NULL;
-	for (auto &elem : sameAtt) {
-		if (toAddExp) {
-			SgExpression *exp = elem->expr(0);
-			LinkTree(toAddExp->expr(0), exp);
-		}
-		else
-			toAddExp = &(elem->copy());
-	}
-	OptimizeTree(toAddExp->expr(0));
-	return toAddExp;
+SgStatement *GetOneAttribute(vector<SgStatement*> sameAtt) 
+{
+    SgStatement *toAddExp = NULL;
+    for (auto &elem : sameAtt) 
+    {
+        if (toAddExp) 
+        {
+            SgExpression *exp = elem->expr(0);
+            LinkTree(toAddExp->expr(0), exp);
+        }
+        else
+            toAddExp = &(elem->copy());
+    }
+    OptimizeTree(toAddExp->expr(0));
+    return toAddExp;
 }
 
-void revertion_spf_dirs(SgFile *file) {
-	int funcNum = file->numberOfFunctions();
+void revertion_spf_dirs(SgFile *file) 
+{
+    int funcNum = file->numberOfFunctions();
 
-	for (int i = 0; i < funcNum; i++) {
-		SgStatement *st = file->functions(i);
-		SgStatement *lastNode = st->lastNodeOfStmt();
+    for (int i = 0; i < funcNum; i++) 
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
 
-		int count = 0;
-		while (st != lastNode) {
-			count++;
-			if (st == NULL) {
-				__spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
-				break;
-			}
-			//analise attributes
-			SgAttribute *atrib = st->getAttribute(0);
+        int count = 0;
+        while (st != lastNode) 
+        {
+            count++;
+            if (st == NULL) 
+            {
+                __spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
+                break;
+            }
+            //analise attributes
+            SgAttribute *atrib = st->getAttribute(0);
 
-			if (atrib) {
-				//check previosly directives SPF_ANALYSIS
-		        vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
+            if (atrib) 
+            {
+                //check previosly directives SPF_ANALYSIS
+                vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
 
-				SgStatement *toAddExp = GetOneAttribute(sameAtt);
-				st->insertStmtBefore(*toAddExp);
+                SgStatement *toAddExp = GetOneAttribute(sameAtt);
+                st->insertStmtBefore(*toAddExp);
 
-				//check previosly directives SPF_PARALLEL
+                //check previosly directives SPF_PARALLEL
                 sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
-				for (auto &elem : sameAtt) {
-					SgStatement *toAddExp = GetOneAttribute(sameAtt);
-					st->insertStmtBefore(*toAddExp);
-				}
-				//remaining directives            
-				sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
-				for (auto &elem : sameAtt) {
-					SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
-					SgStatement *toAdd = &(data->copy());
+                for (auto &elem : sameAtt) 
+                {
+                    SgStatement *toAddExp = GetOneAttribute(sameAtt);
+                    st->insertStmtBefore(*toAddExp);
+                }
+                //remaining directives            
+                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                for (auto &elem : sameAtt) 
+                {
+                    SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                    SgStatement *toAdd = &(data->copy());
 
-					st->insertStmtBefore(*toAdd);
-				}
-			}
-			st = st->lexNext();
-		}
-	}
+                    st->insertStmtBefore(*toAdd);
+                }
+            }
+            st = st->lexNext();
+        }
+    }
 }
 
 void addAcrossToLoops(LoopGraph *topLoop,

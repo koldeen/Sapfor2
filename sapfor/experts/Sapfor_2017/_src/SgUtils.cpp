@@ -331,12 +331,6 @@ bool isSPF_comment(SgStatement *st)
     return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
 }
 
-bool isSPF_comment(SgAttribute *a)
-{
-	const int var = a->getAttributeType();
-	return var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_DIR || var == SPF_TRANSFORM_DIR || var == SPF_PARALLEL_REG_DIR || var == SPF_END_PARALLEL_REG_DIR;
-}
-
 void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
 {
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
