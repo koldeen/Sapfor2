@@ -785,9 +785,10 @@ static bool checkParallelRegions(SgStatement *st,
             // type == SPF_END_PARALLEL_REG_DIR
             // try to find SPF_PARALLEL_REG_DIR
             SgStatement *iterator = st->lexPrev();
+            SgStatement *end = st->controlParent();
             bool found = false;
             
-            for (; iterator && retVal && !found; iterator = iterator->lexPrev())
+            for (; iterator != end && retVal && !found; iterator = iterator->lexPrev())
             {
                 const int var = iterator->variant();
                 if (var == SPF_END_PARALLEL_REG_DIR)
