@@ -44,9 +44,43 @@ static bool isInCommon(const map<string, CommonBlock> &commonBlocks, const strin
     return false;
 }
 
-void fillRegionArrays(vector<ParallelRegion*> &regions,
-                      const map<string, CommonBlock> &commonBlocks)
+static void recursiveFill(SgExpression *exp,
+                          const string &fileName,
+                          const map<string, CommonBlock> &commonBlocks,
+                          map<string, set<string>> &localArrayFound,
+                          set<string> &commonArrayFound)
 {
+    if (exp)
+    {
+        if (exp->variant() == ARRAY_REF)
+        {
+            string arrayName = string(exp->symbol()->identifier());
+            __spf_print(1, "***'%s' is array\n", arrayName.c_str()); // remove this line
+
+            if (isInCommon(commonBlocks, arrayName))
+                commonArrayFound.insert(arrayName);
+            else
+            {
+                auto it = localArrayFound.find(fileName);
+                if (it == localArrayFound.end())
+                    //localArrayFound.insert(it, make_pair(fileName, set<string>()));
+                {
+                    set<string> newSet;
+                    localArrayFound.insert(it, make_pair(fileName, newSet));
+                }
+
+                it->second.insert(arrayName);
+            }
+        }
+
+        recursiveFill(exp->rhs(), fileName, commonBlocks, localArrayFound, commonArrayFound);
+        recursiveFill(exp->lhs(), fileName, commonBlocks, localArrayFound, commonArrayFound);
+    }
+}
+
+void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, CommonBlock> &commonBlocks)
+{
+    __spf_print(1, "***RUN fillRegionArrays()\n"); // remove this line
     for (auto &region : regions)
     {
         map<string, set<string>> localArrayFound;
@@ -54,42 +88,28 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
 
         for (auto &fileLines : region->GetAllLines())
         {
-            // ÏÅÐÅÊËÞ×ÈÒÜÑß ÍÀ ÔÀÉË
-            for (auto &regionLines : fileLines.second)
+            // switch to current file
+            if (switchToFile(fileLines.first) != -1)
             {
-                int iteratorLine = regionLines.lines.first;
-                int endLine = regionLines.lines.second;
-                SgStatement *iterator = regionLines.stats.first;
-                SgStatement *end = regionLines.stats.second;
-
-                // ÑÅÉ×ÀÑ ÏÐÎÕÎÄ ÏÎ ßÂÍÛÌ ÑÒÐÎÊÀÌ, À ÍÓÆÅÍ ÏÎ ÂÑÅÌ
-                for (; iterator != end; iterator = iterator->lexNext())
+                __spf_print(1, "***file switched\n"); // remove this line
+                for (auto &regionLines : fileLines.second)
                 {
-                    for (int i = 0; i < 3; ++i)
+                    int iteratorLine = regionLines.lines.first;
+                    int endLine = regionLines.lines.second;
+                    SgStatement *iterator = regionLines.stats.first;
+                    SgStatement *end = regionLines.stats.second;
+
+                    // ÑÅÉ×ÀÑ ÏÐÎÕÎÄ ÏÎ ßÂÍÛÌ ÑÒÐÎÊÀÌ, À ÍÓÆÅÍ ÏÎ ÂÑÅÌ
+                    for (; iterator && iterator != end; iterator = iterator->lexNext())
                     {
-                        SgExpression *exp = iterator->expr(i);
-                        while (exp)
+                        if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                            continue;
+
+                        for (int i = 0; i < 3; ++i)
                         {
-                            if (exp->lhs())
-                            {
-                                if (exp->lhs()->variant() == ARRAY)
-                                {
-                                    string arrayName = string(exp->lhs()->symbol()->identifier());
-
-                                    if (isInCommon(commonBlocks, arrayName))
-                                        commonArrayFound.insert(arrayName);
-                                    else
-                                    {
-                                        auto it = localArrayFound.find(fileLines.first);
-                                        if (it == localArrayFound.end())
-                                            localArrayFound.insert(it, make_pair(fileLines.first, set<string>()));
-
-                                        it->second.insert(arrayName);
-                                    }
-                                    __spf_print(1, "***'%s' is array\n", arrayName.c_str()); // remove this line
-                                }
-                            }
-                            exp = exp->rhs();
+                            SgExpression *exp = iterator->expr(i);
+                            recursiveFill(exp, fileLines.first, commonBlocks, localArrayFound, commonArrayFound);
+                            // if (exp) recExpressionPrint(exp); // remove
                         }
                     }
                 }

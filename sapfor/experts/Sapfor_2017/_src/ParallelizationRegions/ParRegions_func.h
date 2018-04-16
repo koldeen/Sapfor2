@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ParRegions.h"
+#include "resolve_par_reg_conflicts.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 
