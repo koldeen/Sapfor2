@@ -765,6 +765,22 @@ static bool checkParallelRegions(SgStatement *st,
                 else if (var == SPF_END_PARALLEL_REG_DIR)
                 {
                     found = true;
+
+                    if (iterator->controlParent() != st->controlParent())
+                    {
+                        __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
+                            identSymbol->identifier(), st->lineNumber());
+
+                        string message;
+                        __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line",
+                            identSymbol->identifier());
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                        found = true;
+                        retVal = false;
+                        break;
+                    }
+
                     break;
                 }
             }
@@ -806,6 +822,19 @@ static bool checkParallelRegions(SgStatement *st,
                 else if (var == SPF_PARALLEL_REG_DIR)
                 {
                     found = true;
+
+                    if (iterator->controlParent() != st->controlParent())
+                    {
+                        __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
+
+                        string message;
+                        __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope");
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                        retVal = false;
+                        break;
+                    }
+
                     break;
                 }
             }
