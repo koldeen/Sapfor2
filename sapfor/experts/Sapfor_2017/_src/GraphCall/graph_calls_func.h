@@ -14,9 +14,9 @@ std::string convertToString(const FuncInfo *currFunc);
 void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messagesForFile);
 void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages);
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
+                                            const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 bool isPassFullArray(SgExpression *ex);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
-void printParInfo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
+void printParInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);

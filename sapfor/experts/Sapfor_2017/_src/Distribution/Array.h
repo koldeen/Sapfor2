@@ -263,7 +263,7 @@ namespace Distribution
                 for (auto &elem : group)
                 {
                     shadowSpec[dimN].first = std::max(shadowSpec[dimN].first, elem.first);
-                    shadowSpec[dimN].second = std::max(shadowSpec[dimN].first, elem.second);
+                    shadowSpec[dimN].second = std::max(shadowSpec[dimN].second, elem.second);
                 }
                 ++dimN;
             }

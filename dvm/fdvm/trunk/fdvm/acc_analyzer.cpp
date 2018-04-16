@@ -3414,10 +3414,12 @@ void CallData::printControlFlows()
 }
 
 #ifdef __SPF
-bool symbolInExpression(SgSymbol *symbol, SgExpression *exp)
+CommonVarsOverseer *overseerPtr = NULL;
+
+bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
     if(exp->variant() == VAR_REF)
-        return strcmp(symbol->identifier(), exp->symbol()->identifier()) == 0;
+        return strcmp(symbol.getVar()->identifier(), exp->symbol()->identifier()) == 0;
 
     bool hasSymbolInRHS = false;
     if(exp->rhs())
@@ -3434,9 +3436,8 @@ void CBasicBlock::addVarToGen(SgSymbol *var, SgExpression *value)
     gen.insert(make_pair(var, value));
 }
 
-void CBasicBlock::addVarToKill(SgSymbol *var)
+void CBasicBlock::addVarToKill(const SymbolKey &key)
 {
-    SymbolKey key = SymbolKey(var);
     kill.insert(key);
 
     vector<map<SymbolKey, SgExpression*>::const_iterator> toDel;
@@ -3444,7 +3445,7 @@ void CBasicBlock::addVarToKill(SgSymbol *var)
     for (auto it = gen.begin(); it != gen.end(); ++it)
         if (it->first == key)
             toDel.push_back(it);
-        else if(symbolInExpression(var, it->second))
+        else if(symbolInExpression(key, it->second))
             toDel.push_back(it);
 
     for (int i = 0; i < toDel.size(); ++i)
@@ -3455,6 +3456,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
     SgStatement* st = NULL;
     AnalysedCallsList* callData = cfi->getCall();
     SgFunctionCallExp* funcCall = NULL;
+    set<string>* varsToKill = NULL;
     if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
     {
         SgCallStmt* callStmt = isSgCallStmt(st);
@@ -3464,6 +3466,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
             if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
                 addVarToKill(arg->symbol());
         }
+        varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
     }
     else if((funcCall = cfi->getFunctionCall()) != NULL) {
         for(int i = 0; i < funcCall->numberOfArgs(); ++i) {
@@ -3471,7 +3474,13 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
             if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
                 addVarToKill(arg->symbol());
         }
+        varsToKill = overseerPtr->killedVars(funcCall->symbol()->identifier());
     }
+
+    if(varsToKill)
+        for(auto var : *varsToKill)
+            addVarToKill(var);
+
 }
 
 bool argIsReplaceable(int i, AnalysedCallsList* callData)
@@ -3701,8 +3710,9 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
     }
 }
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs)
+void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs, CommonVarsOverseer *overseer_Ptr)
 {
+    overseerPtr = overseer_Ptr;
     CBasicBlock *b = CGraph->getFirst();
     while(b != NULL)
     {
@@ -3732,7 +3742,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::ma
     //showDefsOfGraph(CGraph);
 }
 
-bool valueWithRecursion(SymbolKey var, SgExpression* exp)
+bool valueWithRecursion(SymbolKey var, SgExpression *exp)
 {
     if(exp->variant() == VAR_REF)
         return var == exp->symbol();
@@ -3746,7 +3756,7 @@ bool valueWithRecursion(SymbolKey var, SgExpression* exp)
     return recursionFounded;
 }
 
-bool valueWithFunctionCall(SgExpression* exp) {
+bool valueWithFunctionCall(SgExpression *exp) {
     if(exp->variant() == FUNC_CALL)
         return true;
 
@@ -3759,11 +3769,26 @@ bool valueWithFunctionCall(SgExpression* exp) {
     return funcFounded;
 }
 
+bool valueWithArrayReference(SgExpression *exp)
+{
+    if(exp->variant() == ARRAY_REF)
+        return true;
+
+    bool arrayFounded = false;
+    if(exp->rhs())
+        arrayFounded = valueWithArrayReference(exp->rhs());
+    if(exp->lhs() && !arrayFounded)
+        arrayFounded = valueWithArrayReference(exp->lhs());
+
+    return arrayFounded;
+}
+
 /*
  * Can't expand var if:
  * 1. it has multiple values
  * 2. value has function call
  * 3. value has itself within (recursion)
+ * 4. value has array reference
  */
 void CBasicBlock::correctInDefsSimple() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
@@ -3774,6 +3799,8 @@ void CBasicBlock::correctInDefsSimple() {
         else if(valueWithFunctionCall(it->second.begin()->second)) //2
             toDel.push_back(it);
         else if(valueWithRecursion(it->first, it->second.begin()->second)) //3
+            toDel.push_back(it);
+        else if (valueWithArrayReference(it->second.begin()->second))//4
             toDel.push_back(it);
 
     for (int i = 0; i < toDel.size(); ++i)

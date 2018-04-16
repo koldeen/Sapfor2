@@ -3,7 +3,7 @@
 #include "dvm.h"
 #include "utils.h"
 #include "Distribution/Distribution.h"
-
+#include "GraphCall/graph_calls.h"
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind);
 void recExpressionPrint(SgExpression *exp);
@@ -16,6 +16,10 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
                                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                                  std::set<std::string> &privatesVars);
+
+DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName,
+                                    const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                    const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt);
 
 SgStatement* declaratedInStmt(SgSymbol *toFind);
 bool isSPF_comment(const int variant);
@@ -185,7 +189,7 @@ public:
     void print(FILE *fileOut) const;    
 };
 
-void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
+void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 void constructDefUseStep2(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
 std::set<std::string> getAllDefVars(const std::string &funcName);
 std::set<std::string> getAllUseVars(const std::string &funcName);
@@ -193,3 +197,5 @@ const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName)
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
 int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);
+int switchToFile(const std::string &name);
+SgStatement* getStatementByFileAndLine(const std::string &fName, const int lineNum);

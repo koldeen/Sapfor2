@@ -7,10 +7,12 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <queue>
 #include <iterator>
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../utils.h"
 #include "../SgUtils.h"
@@ -25,6 +27,7 @@ using std::vector;
 using std::string;
 using std::iterator;
 using std::make_pair;
+using std::queue;
 
 #define PRINT_PROF_INFO 0
 /*
@@ -44,6 +47,8 @@ set<SgStatement*> visitedStatements;
 GraphsKeeper graphsKeeper;
 
 CommonDataItem* currentCommonVars = NULL;
+CommonVarsOverseer overseer;
+
 
 void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, map<SymbolKey, map<string, SgExpression*>>* inDefs)
 {
@@ -508,6 +513,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     if (founded != b->getGen()->end())
         if (!valueWithFunctionCall(founded->second))
             if (!valueWithRecursion(founded->first, founded->second))
+                if(!valueWithArrayReference(founded->second))
                 exp = founded->second;
 
     if (exp == NULL)
@@ -522,7 +528,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         //we have to check if this value was killed by gen inside block
         if (exp != NULL)
             for (auto it = b->getGen()->begin(); it != b->getGen()->end(); ++it)
-                if (symbolInExpression(it->first.getVar(), exp))
+                if (symbolInExpression(it->first, exp))
                 {
                     exp = NULL;
                     break;
@@ -831,7 +837,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
         wereReplacements = false;
         visitedStatements.clear();
         ClearCFGInsAndOutsDefs(CGraph);
-        FillCFGInsAndOutsDefs(CGraph, graphsKeeper.getInDefsFor(CGraph));
+        FillCFGInsAndOutsDefs(CGraph, graphsKeeper.getInDefsFor(CGraph), &overseer);
         CorrectInDefs(CGraph);
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -943,9 +949,63 @@ void expressionAnalyzer(SgStatement *function)
     SwitchToFile(prevFile);
 }
 
-void expressionAnalyzer(SgFile *file)
+void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
 {
-    __spf_print(PRINT_PROF_INFO, "Expression analyzer!\n");
+    std::vector<FuncCallSE> funcCalls;
+    for(auto &file : allFuncInfo)
+        for(auto& funcInfo : file.second)
+            funcCalls.push_back(FuncCallSE(funcInfo->funcName, funcInfo->callsFrom));
+
+    for (auto &commonBlock : commonBlocks)
+        for (auto var : commonBlock.second.getVariables())
+            if (var.getType() == SCALAR)
+                for (auto fun : var.getAllUse())
+                {
+                    bool deffed = false;
+                    auto func = fun.getFunctionName();
+                    auto foundedDefUse = defUseByFunctions.find(func);
+                    if (foundedDefUse != defUseByFunctions.end())
+                        for (auto varDefUse : foundedDefUse->second)
+                            if (varDefUse.isDef() && varDefUse.getVar() == var.getName())
+                            {
+                                deffed = true;
+                                break;
+                            }
+                    if (deffed)
+                    {
+                        queue<string> killerFuncs = queue<string>();
+                        set<string> processed = set<string>();
+                        killerFuncs.push(fun.getFunctionName());
+                        while (!killerFuncs.empty())
+                        {
+                            string& curFunc = killerFuncs.front();
+                            processed.insert(curFunc);
+                            killerFuncs.pop();
+                            for (auto &file : allFuncInfo)
+                                for (auto& funcInfo : file.second)
+                                    if (funcInfo->callsFrom.find(curFunc) != funcInfo->callsFrom.end() &&
+                                            processed.find(funcInfo->funcName) == processed.end())
+                                        killerFuncs.push(funcInfo->funcName);
+                            overseer.addKilledVar(var.getName(), fun.getFunctionName());
+                        }
+                    }
+                }
+/*
+    for(auto func : overseer.funcKillsVars)
+    {
+        printf("func %s kills: ", func.first.c_str());
+        for(auto& var : func.second)
+            printf("%s ", var.c_str());
+        printf("\n");
+    }
+*/
+    overseer.riseInited();
+}
+
+void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
+{
+    if(!overseer.isInited())
+        initOverseer(defUseByFunctions, commonBlocks, allFuncInfo);
 
     int funcNum = file->numberOfFunctions();
     __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
@@ -992,6 +1052,7 @@ void expressionAnalyzer(SgFile *file)
         currentCommonVars = commons.getList();
 
         ExpandExpressions(CGraph);
+
 /*        printf("!");
         CommonVarSet* cvs = CGraph->getCommonDef();
         while(cvs)

@@ -105,10 +105,8 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpres
 void createMapOfFunc(const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, FuncInfo*> &mapFuncInfo)
 {
     for (auto it = allFuncInfo.begin(); it != allFuncInfo.end(); ++it)
-    {
         for (int k = 0; k < it->second.size(); ++k)
             mapFuncInfo[it->second[k]->funcName] = it->second[k];
-    }
 }
 
 string removeString(const string toRemove, const string inStr)
@@ -340,9 +338,25 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
     {
         if (exp->variant() == ARRAY_REF)
         {
-            // Through all indexes
-            for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
-                findIdxRef(exp->lhs(), currInfo);
+            DIST::Array *arrayRef = NULL;
+            SgSymbol *symbS = OriginalSymbol(exp->symbol());
+            const string symb = symbS->identifier();
+
+            if (symbS)
+                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb, declaratedArrays, declaratedArraysSt);
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            if (arrayRef)
+            {
+                // only distributed arrays were added
+                if (arrayRef->GetNonDistributeFlag() == false)
+                {
+                    // Through all indexes
+                    for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
+                        findIdxRef(exp->lhs(), currInfo);
+                }
+            }
         }
         else
         {
@@ -352,7 +366,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
     }
 }
 
-static void findParamInParam(SgExpression *exp, FuncInfo &currInfo) {
+static void findParamInParam(SgExpression *exp, FuncInfo &currInfo) 
+{
     // Searching through expression, which parameter presented with
     if (exp)
     {
@@ -426,19 +441,16 @@ static void findParamUsedInFuncCalls(SgExpression *exp, FuncInfo &currInfo)
 
 void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
 {
-    bool changesDone;
+    bool changesDone = false;
+    map<string, FuncInfo*> mapFuncInfo;
+    createMapOfFunc(allFuncInfo, mapFuncInfo);
 
     do
     {
-        map<string, FuncInfo*> mapFuncInfo;
-        createMapOfFunc(allFuncInfo, mapFuncInfo);
-
         changesDone = false;
-
         for (auto &it : mapFuncInfo)
         {
             FuncInfo *currInfo = it.second;
-
             for(auto &funcCall : currInfo->funcsCalledFromThis)
             {
                 // Find pointer to info of called function
@@ -470,16 +482,14 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                         parNo++;
                     }
                 }
-                else
-                {
-                    // Error! No funcInfo of called func
-                }
+                //else // Error! No funcInfo of called func
+                //     ;
             }
         }
     } while (changesDone);
 }
 
-void printParInfo(map<string, vector<FuncInfo*>> &allFuncInfo)
+void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     cout << "*********Which parameters of current function are used in func calls inside it*********" << endl;
     for (auto &file1 : allFuncInfo)

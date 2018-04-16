@@ -378,6 +378,13 @@ void addNumberOfFileToAttribute(SgProject *project)
 
 #ifdef __SPF
         files[currF->filename()] = std::make_pair(currF, i);
+
+        // fill private info for all statements
+        for (SgStatement *st = currF->firstStatement(); st; st = st->lexNext())
+        {
+            st->setFileId(i);
+            st->setProject(project);
+        }
 #endif
     }
 }
