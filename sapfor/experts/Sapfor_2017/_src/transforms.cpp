@@ -65,6 +65,8 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 #include "SapforData.h"
 
 static SgProject *project = NULL;
+// for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
+static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
 void deleteAllAllocatedData()
 {
@@ -77,6 +79,11 @@ void deleteAllAllocatedData()
         for (auto &toDel : it.second)
             delete toDel;
     allFuncInfo.clear();
+
+    for (auto &elem : temporaryAllFuncInfo)
+        for (auto &toDel : elem.second)
+            delete toDel;
+    temporaryAllFuncInfo.clear();
 
     for (auto &loop : loopGraph)
         for (auto &toDel : loop.second)
@@ -164,7 +171,7 @@ pair<SgFile*, SgStatement*> currProcessing;
 map<string, pair<SgFile*, int>> files;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
-{        
+{    
     if (PASSES_DONE_INIT == false)
     {
         for (int i = 0; i < EMPTY_PASS; ++i)
@@ -207,7 +214,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         updateStatsByLine(current_file_id);
         updateStatsExprs(current_file_id, file->filename());
     }
-
     currProcessing.first = NULL; currProcessing.second = NULL;
     for (int i = n - 1; i >= 0; --i)
     {
@@ -446,9 +452,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REVERT_SPF_DIRS)
         {
             if (keepSpfDirs)
-                revertion_spf_dirs(file);
+                revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
             else
                 __spf_print(1, "ignore SPF REVERT\n");
+        }
+        else if (curr_regime == CLEAR_SPF_DIRS)
+        {
+            vector<SgStatement*> toDel;
+            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            {
+                if (isSPF_stat(st)) // except sapfor parallel regions
+                    if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
+                        toDel.push_back(st);
+            }
+
+            for (auto &elem : toDel)
+                elem->deleteStmt();
         }
         else if (curr_regime == PREPROC_SPF)
         {
@@ -530,7 +549,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
             removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
         else if (curr_regime == SUBST_EXPR)
-            expressionAnalyzer(file);
+            expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo);
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename());
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -693,7 +712,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 processFileToPredict(file, itFound->second);
         }
         else if (curr_regime == DEF_USE_STAGE1)
-            constructDefUseStep1(file, defUseByFunctions);
+            constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
         else if (curr_regime == DEF_USE_STAGE2)
             constructDefUseStep2(file, defUseByFunctions);
 
@@ -1002,7 +1021,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                     auto it = files.find(elem.first);
                                     if (it != files.end())
                                     {
-                                        CurrentProject->file(it->second.second);
+                                        SgFile *tmpfile = &(CurrentProject->file(it->second.second));
+                                        current_file = tmpfile;
+                                        current_file_id = it->second.second;
                                         wasSelect = true;
                                         break;
                                     }
@@ -1299,6 +1320,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
+            runPass(REVERT_SPF_DIRS, proj_name, folderName);
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
             runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
@@ -1306,6 +1328,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
+            runPass(CLEAR_SPF_DIRS, proj_name, folderName);
         }
     }
         break;
@@ -1386,6 +1409,11 @@ int main(int argc, char**argv)
                 {
                     i++;
                     QUALITY = atoi(argv[i]);
+                    if (QUALITY <= 0 || QUALITY > 100)
+                    {
+                        __spf_print(1, "QUALITY must be in [0..100] interval, set default value 100");
+                        QUALITY = 100;
+                    }
                 }
                 else if (curr_arg[1] == 't')
                 {

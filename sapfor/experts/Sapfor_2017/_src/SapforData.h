@@ -85,7 +85,7 @@ map<string, vector<DefUseList>> defUseByFunctions;
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 
-std::map<int, std::map<std::pair<std::string, int>, SgStatement*>> statsByLine;
+std::map<int, std::map<std::pair<std::string, int>, SgStatement*>> statsByLine; // fileID -> [ map<FileName, line>, SgSt*]
 std::map<PTR_BFND, std::pair<std::string, int>> sgStats;
 std::map<PTR_LLND, std::pair<std::string, int>> sgExprs;
 

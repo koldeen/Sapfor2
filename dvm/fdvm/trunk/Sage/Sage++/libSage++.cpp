@@ -1581,26 +1581,26 @@ SgProject::SgProject(const char * proj_file_name)
 
 SgFile &SgProject::file(int i)
 {
-  PTR_FILE file;
-  SgFile *pt = NULL;
-  file = GetFileWithNum(i);
-  SetCurrentFileTo(file);
-  SwitchToFile(GetFileNumWithPt(file));
-  if (!file)
+    PTR_FILE file;
+    SgFile *pt = NULL;
+    file = GetFileWithNum(i);
+    SetCurrentFileTo(file);
+    SwitchToFile(GetFileNumWithPt(file));
+    if (!file)
     {
-      Message("SgProject::file; File not found",0);
-      return *pt;
+        Message("SgProject::file; File not found", 0);
+        return *pt;
     }
-  pt =  GetMappingInTableForFile(file);
-  if (pt)
-    return *pt;
-  else
+    pt = GetMappingInTableForFile(file);
+    if (pt)
+        return *pt;
+    else
     {
-      pt = new SgFile(FILE_FILENAME(file));
+        pt = new SgFile(FILE_FILENAME(file));
 #ifdef __SPF   
-      addToCollection(__LINE__, __FILE__, pt, 1);
+        addToCollection(__LINE__, __FILE__, pt, 1);
 #endif
-      return *pt;
+        return *pt;
     }
 }
 

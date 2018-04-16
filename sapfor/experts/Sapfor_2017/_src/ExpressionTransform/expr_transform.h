@@ -7,6 +7,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../GraphCall/graph_calls.h"
+#include "../SgUtils.h"
 
 #include "acc_analyzer.h"
 
@@ -20,7 +21,10 @@ SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
 void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
-void expressionAnalyzer(SgFile *file);
+void expressionAnalyzer(SgFile *file,
+        std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
+        std::map<std::string, CommonBlock> &commonBlocks,
+        std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
 void expressionAnalyzer(SgStatement *function);
 
 void calculate(SgExpression *&exp);

@@ -76,6 +76,7 @@ enum passes {
     DEF_USE_STAGE1,
     DEF_USE_STAGE2,
     REVERT_SPF_DIRS,
+    CLEAR_SPF_DIRS,
     EMPTY_PASS
 };
 
@@ -159,5 +160,6 @@ static void setPassValues()
     passNames[DEF_USE_STAGE2] = "DEF_USE_STAGE2";
     passNames[REMOVE_DVM_DIRS_TO_COMMENTS] = "REMOVE_DVM_DIRS_TO_COMMENTS";
     passNames[REVERT_SPF_DIRS] = "REVERT_SPF_DIRS";
+    passNames[CLEAR_SPF_DIRS] = "CLEAR_SPF_DIRS";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

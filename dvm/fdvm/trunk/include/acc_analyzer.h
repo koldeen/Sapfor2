@@ -449,6 +449,7 @@ private:
     SgSymbol* var;
 public:
     SymbolKey(SgSymbol* v): var(v) {}
+    SymbolKey(std::string& varName): var(new SgSymbol(VARIABLE_NAME, varName.c_str())) {}
 
     inline SgSymbol* getVar() const { return var; }
 
@@ -587,7 +588,7 @@ public:
     void clearGenKill() { gen.clear(); kill.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SgSymbol* var, SgExpression* value);
-    void addVarToKill(SgSymbol* var);
+    void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
     std::set<SymbolKey>* getOutVars();
@@ -781,18 +782,56 @@ struct ActualDelayedData
     void RemoveVarFromCommonList(CommonVarSet*);
 };
 
+#ifdef __SPF
+struct FuncCallSE
+{
+    std::string funcName;
+    std::set<std::string> calls;
+    FuncCallSE(std::string &n, std::set<std::string>& v): funcName(n), calls(v) {}
+};
+
+class CommonVarsOverseer
+{
+private:
+    bool inited;
+public:
+    std::map<std::string, std::set<std::string>> funcKillsVars;
+    CommonVarsOverseer(): inited(false), funcKillsVars(std::map<std::string, std::set<std::string>>()) {}
+    bool isInited() { return inited; }
+    void riseInited() { inited = true; }
+    void addKilledVar(std::string varName, std::string funcName)
+    {
+        auto founded = funcKillsVars.find(funcName);
+        if(founded == funcKillsVars.end())
+            funcKillsVars.insert(founded, std::make_pair(funcName, std::set<std::string>()))->second.insert(varName);
+        else
+            founded->second.insert(varName);
+    }
+
+    std::set<std::string>* killedVars(const std::string& funcName)
+    {
+        auto founded = funcKillsVars.find(funcName);
+        if(founded == funcKillsVars.end())
+            return NULL;
+        return &(founded->second);
+    }
+};
+
+#endif
+
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, CommonData*);
 void FillCFGSets(ControlFlowGraph*);
 #ifdef __SPF
-void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs);
+void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(SymbolKey, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+bool valueWithArrayReference(SgExpression *exp);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
 void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term, std::set<SymbolKey>* allowedVars);
 void showDefsOfGraph(ControlFlowGraph *CGraph);
-bool symbolInExpression(SgSymbol *symbol, SgExpression *exp);
+bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 #endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
 AnalysedCallsList* GetCurrentProcedure();

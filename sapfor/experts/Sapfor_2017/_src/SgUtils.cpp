@@ -425,6 +425,26 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
     }
 }
 
+DIST::Array* getArrayFromDeclarated(SgStatement *st, const string &arrayName,
+                                    const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                                    const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt)
+{
+    DIST::Array *found = NULL;
+
+    auto it = declaratedArraysSt.find(st);
+    if (it != declaratedArraysSt.end())
+    {
+        for (auto itSet = it->second.begin(); itSet != it->second.end() && !found; ++itSet)
+        {
+            auto itD = declaratedArrays.find(*itSet);
+            if (itD != declaratedArrays.end())
+                if (itD->second.first->GetShortName() == arrayName)
+                    found = itD->second.first;
+        }
+    }
+    return found;
+}
+
 static bool findSymbol(SgExpression *declLst, const string &toFind)
 {
     bool ret = false;
@@ -548,7 +568,6 @@ bool isSPF_stat(SgStatement *st)
     bool ret = false;
 
     const int var = st->variant();
-
     //for details see dvm_tag.h
     if (var >= 950 && var <= 956)
         ret = true;
@@ -719,6 +738,7 @@ template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<int*> getAttributes(SgExpression *st, const set<int> dataType);
+template const vector<FuncInfo*> getAttributes(SgStatement *st, const set<int> dataType);
 
 static int isParameterOneOfThese(const string& name, const vector<string>& names)
 {
@@ -809,15 +829,17 @@ static void processLeftPartOfAssign(SgExpression *exp, map<string, vector<DefUse
     }
 }
 
-void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions)
+void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-
-    map<string, vector<FuncInfo*>> allFuncInfo;
-    functionAnalyzer(file, allFuncInfo);
+    map<string, vector<FuncInfo*>> curFileFuncInfo;
+    functionAnalyzer(file, curFileFuncInfo);
+    auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
+    for(auto& it : curFileFuncInfo.begin()->second)
+        whereToCopy.first->second.push_back(it);
 
     map<string, FuncInfo*> funcToFuncInfo = map<string, FuncInfo*>();
-    for (int i = 0; i < allFuncInfo.begin()->second.size(); ++i)
-        funcToFuncInfo.insert(make_pair(allFuncInfo.begin()->second[i]->funcName, allFuncInfo.begin()->second[i]));
+    for (int i = 0; i < curFileFuncInfo.begin()->second.size(); ++i)
+        funcToFuncInfo.insert(make_pair(curFileFuncInfo.begin()->second[i]->funcName, curFileFuncInfo.begin()->second[i]));
 
     for (int f = 0; f < file->numberOfFunctions(); ++f)
     {
@@ -833,8 +855,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         auto founded = funcToFuncInfo.find(start->symbol()->identifier());
         start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
 
-        //TODO: there are also functions and program !! need to be fix
-        SgProcHedrStmt *header = isSgProcHedrStmt(start);
+        SgProgHedrStmt *header = isSgProgHedrStmt(start);
         if (header)
             for (int i = 0; i < header->numberOfParameters(); ++i)
                 parameterNames.push_back(header->parameter(i)->identifier());
@@ -1034,8 +1055,7 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
 
     for (int f = 0; f < file->numberOfFunctions(); ++f)
     {
-        //TODO: there are also functions and program !! need to be fix
-        SgProcHedrStmt *header = isSgProcHedrStmt(file->functions(f));
+        SgProgHedrStmt *header = isSgProgHedrStmt(file->functions(f));
         if (header == NULL)
             continue;
 
@@ -1148,3 +1168,37 @@ void CommonBlock::print(FILE *fileOut) const
 }
 
 // END of CommonBlock::
+
+extern map<string, pair<SgFile*, int>> files;
+int switchToFile(const string &name)
+{
+    auto it = files.find(name);
+    if (it == files.end())
+        return -1;
+    else
+    {
+        if (current_file_id != it->second.second)
+        {
+            SgFile *file = &(CurrentProject->file(it->second.second));
+            current_file_id = it->second.second;
+            current_file = file;
+        }
+    }
+
+    return it->second.second;
+}
+
+extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
+SgStatement* getStatementByFileAndLine(const string &fName, const int lineNum)
+{
+    const int fildID = switchToFile(fName);
+    auto itID = statsByLine.find(fildID);
+    if (itID == statsByLine.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto itPair = itID->second.find(make_pair(fName, lineNum));
+    if (itPair == itID->second.end())
+        return NULL;
+    else
+        return itPair->second;
+}

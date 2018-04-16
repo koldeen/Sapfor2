@@ -1043,9 +1043,20 @@ static void OptimizeTree(SgExpression *exp)
 
 SgStatement* GetOneAttribute(vector<SgStatement*> sameAtt) 
 {
+    set<string> uniqAttrs;
     SgStatement *toAddExp = NULL;
     for (auto &elem : sameAtt) 
     {
+        if (elem->expr(0) == NULL)
+            continue;
+
+        const string currAtr(elem->unparse());
+        auto it = uniqAttrs.find(currAtr);
+        if (it == uniqAttrs.end())
+            uniqAttrs.insert(it, currAtr);
+        else
+            continue;
+
         if (toAddExp) 
         {
             SgExpression *exp = elem->expr(0);
@@ -1054,12 +1065,58 @@ SgStatement* GetOneAttribute(vector<SgStatement*> sameAtt)
         else
             toAddExp = &(elem->copy());
     }
-    OptimizeTree(toAddExp->expr(0));
+    
+    if (toAddExp)
+        OptimizeTree(toAddExp->expr(0));
     return toAddExp;
 }
 
-void revertion_spf_dirs(SgFile *file) 
+void revertion_spf_dirs(SgFile *file,
+    map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+    map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
+    const string fileName(file->filename());
+
+    for (auto &allStats : declaratedArraysSt)
+    {
+        if (allStats.first->fileName() == fileName)
+        {
+            SgStatement *toAttr = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, NULL, NULL, NULL);            
+
+            SgExpression *tmp = new SgExpression(ACC_PRIVATE_OP);
+            SgExpression *exprList = new SgExpression(EXPR_LIST, tmp, NULL, NULL);
+            toAttr->setExpression(0, *exprList);
+            exprList = exprList->lhs();
+
+            exprList->setLhs(new SgExpression(EXPR_LIST));
+            exprList = exprList->lhs();
+
+            int added = 0;
+
+            for (auto &elem : allStats.second)
+            {
+                auto it = declaratedArrays.find(elem);
+                if (it == declaratedArrays.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (it->second.first->GetNonDistributeFlag())
+                {
+                    if (added != 0)
+                    {
+                        exprList->setRhs(new SgExpression(EXPR_LIST));
+                        exprList = exprList->rhs();
+                    }
+
+                    ++added;
+                    exprList->setLhs(*new SgVarRefExp(it->second.first->GetDeclSymbol()));
+                }
+            }
+
+            if (added)
+                allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
+        }
+    }
+
     int funcNum = file->numberOfFunctions();
 
     for (int i = 0; i < funcNum; i++) 
@@ -1088,7 +1145,8 @@ void revertion_spf_dirs(SgFile *file)
                 if (sameAtt.size())
                 {
                     toAdd = GetOneAttribute(sameAtt);
-                    st->insertStmtBefore(*toAdd);
+                    if (toAdd)
+                        st->insertStmtBefore(*toAdd);
                 }
 
                 //check previosly directives SPF_PARALLEL
@@ -1097,7 +1155,8 @@ void revertion_spf_dirs(SgFile *file)
                     sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
                     for (auto &elem : sameAtt)
                     {
-                        toAdd = GetOneAttribute(sameAtt);
+                        if (toAdd)
+                            toAdd = GetOneAttribute(sameAtt);
                         st->insertStmtBefore(*toAdd);
                     }
                 }
@@ -1111,7 +1170,8 @@ void revertion_spf_dirs(SgFile *file)
                         SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
                         SgStatement *toAdd = &(data->copy());
 
-                        st->insertStmtBefore(*toAdd);
+                        if (toAdd)
+                            st->insertStmtBefore(*toAdd);
                     }
                 }
             }
@@ -1273,7 +1333,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
 static bool addReductionToList(const char *oper, SgExpression *exprList, SgExpression *varin)
 {
     SgExpression *tmp3 = new SgKeywordValExp(oper);
-    SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, varin, NULL);
+    SgExpression *tmp4 = new SgExpression(ARRAY_OP, tmp3, varin, NULL);
     exprList->setLhs(tmp4);
     return true;
 }
