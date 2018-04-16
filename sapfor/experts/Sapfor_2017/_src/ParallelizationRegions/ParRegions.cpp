@@ -168,7 +168,7 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
                 regFound.insert(regions[i]);
 
         if (regFound.size() == 0)
-            return 0;
+            return NULL;
         else if (regFound.size() == 1)
             return *regFound.begin();
         else

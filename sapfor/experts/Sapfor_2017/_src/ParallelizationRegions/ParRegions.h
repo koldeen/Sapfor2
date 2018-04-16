@@ -191,6 +191,12 @@ private:
     std::map<std::string, std::vector<ParallelRegionLines>> lines;
     std::set<std::string> functionsCall;
 
+    // for RESOLVE_PAR_REGIONS
+    std::set<std::string> allFunctionsCall;
+    std::set<std::string> usedCommonArrays;
+    std::map<std::string, std::set<std::string>> usedLocalArrays; // func -> arrays
+    std::set<std::string> crossedFunctions;
+
     // for LOOP_ANALYZER_DATA_DIST
     DIST::GraphCSR<int, double, attrType> G;
     DIST::Arrays<int> allArrays;
