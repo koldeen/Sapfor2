@@ -101,9 +101,9 @@ public:
     const DataDirective& GetDataDir() const { return dataDirectives; }
     DataDirective& GetDataDirToModify() { return dataDirectives; }
 
-    const std::set<std::string>& GetAllFuncCalls() const { return functionsCall; }
+    const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
 
-    bool hasThisLine(const int line, const std::string &file) const
+    bool HasThisLine(const int line, const std::string &file) const
     {
         bool retVal = false;
         auto it = lines.find(file);
@@ -155,7 +155,7 @@ public:
         return retVal;
     }
 
-    void cleanData()
+    void CleanData()
     {
         reducedG.cleanData();
         currentVariant.clear();

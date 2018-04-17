@@ -130,7 +130,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(REVERT_SPF_DIRS) <= list({ CONVERT_TO_ENDDO, CORRECT_CODE_STYLE, INSERT_INCLUDES, REMOVE_DVM_DIRS, REMOVE_DVM_DIRS_TO_COMMENTS });
 
-    list({ PREPROC_SPF, CLEAR_SPF_DIRS }) <= Pass(REVERT_SPF_DIRS) <= Pass(UNPARSE_FILE);
+    Pass(CLEAR_SPF_DIRS) <= Pass(REVERT_SPF_DIRS) <= Pass(UNPARSE_FILE);
 
     list({ CORRECT_VAR_DECL, REVERT_SUBST_EXPR }) << list({ INSERT_INCLUDES, INSERT_INCLUDES, UNPARSE_FILE });
 
