@@ -27,7 +27,7 @@ set<ParallelRegion*> getRegionByLine2(const vector<ParallelRegion*> &regions, co
     else if (regions.size() > 0)
     {
         for (int i = 0; i < regions.size(); ++i)
-            if (regions[i]->hasThisLine(line, file))
+            if (regions[i]->HasThisLine(line, file))
                 regFound.insert(regions[i]);
 
         return regFound;
