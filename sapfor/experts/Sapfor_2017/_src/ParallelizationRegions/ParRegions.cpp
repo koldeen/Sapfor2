@@ -234,6 +234,7 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
                 if (it != funcMap.end())
                 {
                     regions[i]->AddLines(it->second->linesNum, it->second->fileName);
+                    regions[i]->AddAllFuncCalls(elem);
                     toPrint += elem + " ";
                 }
             }

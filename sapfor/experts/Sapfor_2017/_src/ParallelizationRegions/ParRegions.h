@@ -72,7 +72,13 @@ public:
         return 0;
     }
 
-    void AddFuncCalls(const std::string &func) { functionsCall.insert(func); }
+    void AddFuncCalls(const std::string &func)
+    {
+        functionsCall.insert(func);
+        allFunctionsCall.insert(func);
+    }
+
+    void AddAllFuncCalls(const std::string &func) { allFunctionsCall.insert(func); }
 
     int GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
@@ -102,6 +108,8 @@ public:
     DataDirective& GetDataDirToModify() { return dataDirectives; }
 
     const std::set<std::string>& GetAllFuncCalls() const { return functionsCall; }
+
+    //const std::set<std::string>& GetAllFuncCalls() const { return allFunctionsCall; }
 
     void AddLocalArray(const std::string &functionName, const std::string &arrayName)
     {

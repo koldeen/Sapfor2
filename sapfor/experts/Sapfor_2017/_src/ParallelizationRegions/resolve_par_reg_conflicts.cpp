@@ -75,6 +75,9 @@ static void recursiveFill(SgExpression *exp,
 
 void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, CommonBlock> &commonBlocks)
 {
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        return;
+
     for (auto &region : regions)
     {
         map<string, set<string>> localArrayFound;
@@ -91,11 +94,12 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                     // int endLine = regionLines.lines.second;
                     SgStatement *iterator = regionLines.stats.first;
                     SgStatement *end = regionLines.stats.second;
+                    string functionName = "";
 
                     while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
                         iterator = iterator->controlParent();
 
-                    string functionName = iterator->symbol()->identifier();
+                    functionName = iterator->symbol()->identifier();
                     iterator = regionLines.stats.first;
 
                     // need to check implicit lines too!
