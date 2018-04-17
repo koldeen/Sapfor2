@@ -25,7 +25,7 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-        int lastLine = 0;
+        int lastLine = 1;
         while (st != lastNode)
         {
             currProcessing.second = st;
@@ -38,11 +38,10 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
             if (st->fileName() == fileName)
                 lastLine = st->lineNumber();
 
-            if (isSgExecutableStatement(st) && !isSPF_stat(st) && !isDVM_stat(st))
-            {
+            if (isSgExecutableStatement(st) && !isSPF_stat(st) && !isDVM_stat(st))            
                 if (st->fileName() != fileName)
                     errors.insert(std::make_pair(st->fileName(), lastLine));
-            }
+
             st = st->lexNext();
         }
     }

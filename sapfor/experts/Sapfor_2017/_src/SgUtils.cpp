@@ -856,7 +856,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
-        if (header)
+        if (header && start->variant() != PROG_HEDR)
             for (int i = 0; i < header->numberOfParameters(); ++i)
                 parameterNames.push_back(header->parameter(i)->identifier());
 
@@ -1056,7 +1056,7 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
     for (int f = 0; f < file->numberOfFunctions(); ++f)
     {
         SgProgHedrStmt *header = isSgProgHedrStmt(file->functions(f));
-        if (header == NULL)
+        if (header == NULL || header->variant() == PROG_HEDR)
             continue;
 
         for (int i = 0; i < header->numberOfParameters(); ++i)

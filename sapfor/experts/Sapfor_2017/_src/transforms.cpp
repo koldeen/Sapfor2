@@ -454,20 +454,25 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (keepSpfDirs)
                 revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
             else
-                __spf_print(1, "ignore SPF REVERT\n");
+                __spf_print(1, "   ignore SPF REVERT\n");
         }
         else if (curr_regime == CLEAR_SPF_DIRS)
         {
-            vector<SgStatement*> toDel;
-            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            if (keepSpfDirs)
             {
-                if (isSPF_stat(st)) // except sapfor parallel regions
-                    if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
-                        toDel.push_back(st);
-            }
+                vector<SgStatement*> toDel;
+                for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                {
+                    if (isSPF_stat(st)) // except sapfor parallel regions
+                        if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
+                            toDel.push_back(st);
+                }
 
-            for (auto &elem : toDel)
-                elem->deleteStmt();
+                for (auto &elem : toDel)
+                    elem->deleteStmt();
+            }
+            else
+                __spf_print(1, "   ignore CLEAR SPF DIRS\n");
         }
         else if (curr_regime == PREPROC_SPF)
         {

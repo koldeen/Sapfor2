@@ -164,7 +164,7 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
         set<ParallelRegion*> regFound;
 
         for (int i = 0; i < regions.size(); ++i)
-            if (regions[i]->hasThisLine(line, file))
+            if (regions[i]->HasThisLine(line, file))
                 regFound.insert(regions[i]);
 
         if (regFound.size() == 0)
@@ -202,7 +202,7 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<F
         if (regions[i]->GetName() != "DEFAULT")
         {
             set<string> uniqFuncCalls;
-            for (auto &elem : regions[i]->GetAllFuncCalls())
+            for (auto &elem : regions[i]->GetFuncCalls())
                 uniqFuncCalls.insert(elem);
 
             bool wasChanged = 1;
