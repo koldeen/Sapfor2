@@ -45,7 +45,7 @@ static bool isInCommon(const map<string, CommonBlock> &commonBlocks, const strin
 }
 
 static void recursiveFill(SgExpression *exp,
-                          const string &fileName,
+                          const string &functionName,
                           const map<string, CommonBlock> &commonBlocks,
                           map<string, set<string>> &localArrayFound,
                           set<string> &commonArrayFound)
@@ -55,32 +55,26 @@ static void recursiveFill(SgExpression *exp,
         if (exp->variant() == ARRAY_REF)
         {
             string arrayName = string(exp->symbol()->identifier());
-            __spf_print(1, "***'%s' is array\n", arrayName.c_str()); // remove this line
 
             if (isInCommon(commonBlocks, arrayName))
                 commonArrayFound.insert(arrayName);
             else
             {
-                auto it = localArrayFound.find(fileName);
+                auto it = localArrayFound.find(functionName);
                 if (it == localArrayFound.end())
-                    //localArrayFound.insert(it, make_pair(fileName, set<string>()));
-                {
-                    set<string> newSet;
-                    localArrayFound.insert(it, make_pair(fileName, newSet));
-                }
+                    it = localArrayFound.insert(it, make_pair(functionName, set<string>()));
 
                 it->second.insert(arrayName);
             }
         }
 
-        recursiveFill(exp->rhs(), fileName, commonBlocks, localArrayFound, commonArrayFound);
-        recursiveFill(exp->lhs(), fileName, commonBlocks, localArrayFound, commonArrayFound);
+        recursiveFill(exp->rhs(), functionName, commonBlocks, localArrayFound, commonArrayFound);
+        recursiveFill(exp->lhs(), functionName, commonBlocks, localArrayFound, commonArrayFound);
     }
 }
 
 void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, CommonBlock> &commonBlocks)
 {
-    __spf_print(1, "***RUN fillRegionArrays()\n"); // remove this line
     for (auto &region : regions)
     {
         map<string, set<string>> localArrayFound;
@@ -91,33 +85,55 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
             // switch to current file
             if (switchToFile(fileLines.first) != -1)
             {
-                __spf_print(1, "***file switched\n"); // remove this line
                 for (auto &regionLines : fileLines.second)
                 {
-                    int iteratorLine = regionLines.lines.first;
-                    int endLine = regionLines.lines.second;
+                    // int iteratorLine = regionLines.lines.first;
+                    // int endLine = regionLines.lines.second;
                     SgStatement *iterator = regionLines.stats.first;
                     SgStatement *end = regionLines.stats.second;
 
-                    // ÑÅÉ×ÀÑ ÏÐÎÕÎÄ ÏÎ ßÂÍÛÌ ÑÒÐÎÊÀÌ, À ÍÓÆÅÍ ÏÎ ÂÑÅÌ
+                    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+                        iterator = iterator->controlParent();
+
+                    string functionName = iterator->symbol()->identifier();
+                    iterator = regionLines.stats.first;
+
+                    // need to check implicit lines too!
                     for (; iterator && iterator != end; iterator = iterator->lexNext())
                     {
                         if (isSPF_stat(iterator) || isDVM_stat(iterator))
                             continue;
 
                         for (int i = 0; i < 3; ++i)
-                        {
-                            SgExpression *exp = iterator->expr(i);
-                            recursiveFill(exp, fileLines.first, commonBlocks, localArrayFound, commonArrayFound);
-                            // if (exp) recExpressionPrint(exp); // remove
-                        }
+                            recursiveFill(iterator->expr(i), functionName, commonBlocks, localArrayFound, commonArrayFound);
                     }
                 }
             }
         }
 
-        //region.addUsedLocalArrays(); map<string, set<string>> usedLocalArrays
-        //region.addUsedCommonArrays(); set<string> usedCommonArrays;
+        string toPrint = "";
+        for (auto &elem : localArrayFound)
+        {
+            toPrint += "function '" + elem.first + "': ";
+            for (auto &arrayName : elem.second)
+            {
+                region->AddLocalArray(elem.first, arrayName);
+                toPrint += arrayName + " ";
+            }
+        }
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
+
+        toPrint = "";
+        for (auto &elem : commonArrayFound)
+        {
+            region->AddCommonArray(elem);
+            toPrint += elem + " ";
+        }
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
     }
 }
 

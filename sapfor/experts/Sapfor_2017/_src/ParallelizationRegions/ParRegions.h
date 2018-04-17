@@ -103,6 +103,17 @@ public:
 
     const std::set<std::string>& GetAllFuncCalls() const { return functionsCall; }
 
+    void AddLocalArray(const std::string &functionName, const std::string &arrayName)
+    {
+        auto it = usedLocalArrays.find(functionName);
+        if (it == usedLocalArrays.end())
+            it = usedLocalArrays.insert(it, make_pair(functionName, std::set<std::string>()));
+
+        it->second.insert(arrayName);
+    }
+
+    void AddCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
+
     bool hasThisLine(const int line, const std::string &file) const
     {
         bool retVal = false;
