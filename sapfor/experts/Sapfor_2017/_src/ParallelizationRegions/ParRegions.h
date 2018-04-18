@@ -80,6 +80,8 @@ public:
 
     void AddAllFuncCalls(const std::string &func) { allFunctionsCall.insert(func); }
 
+    void AddCrossedFunc(const std::string &func) { crossedFunctions.insert(func); }
+
     int GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
     const std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLines() const { return lines; }
@@ -110,6 +112,12 @@ public:
     const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
 
     const std::set<std::string>& GetAllFuncCalls() const { return allFunctionsCall; }
+
+    const std::set<std::string>& GetCrossedFuncs() const { return crossedFunctions; }
+
+    const std::map<std::string, std::set<std::string>>& GetLocalArrays() const { return usedLocalArrays; }
+
+    const std::set<std::string>& GetCommonArrays() const { return usedCommonArrays; }
 
     void AddLocalArray(const std::string &functionName, const std::string &arrayName)
     {

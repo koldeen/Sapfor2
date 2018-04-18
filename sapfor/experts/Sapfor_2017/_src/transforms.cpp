@@ -1078,6 +1078,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
         fillRegionArrays(parallelRegions, commonBlocks);
+        fillRegionFunctions(parallelRegions, allFuncInfo);
 
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)

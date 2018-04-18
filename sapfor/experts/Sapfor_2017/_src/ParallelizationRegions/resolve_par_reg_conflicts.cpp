@@ -7,6 +7,8 @@
 #include "resolve_par_reg_conflicts.h"
 #include "SgUtils.h"
 
+#include "../GraphCall/graph_calls_func.h"
+
 using std::map;
 using std::pair;
 //using std::tuple;
@@ -96,6 +98,10 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                     SgStatement *end = regionLines.stats.second;
                     string functionName = "";
 
+                    // implicit lines
+                    if (!iterator)
+                        continue;
+
                     while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
                         iterator = iterator->controlParent();
 
@@ -143,7 +149,32 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
 
 void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> allFuncInfo)
 {
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        return;
 
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    for (auto &region : regions)
+    {
+        for (auto &functionName : region->GetAllFuncCalls())
+        {
+            auto func = funcMap.find(functionName);
+            if (func != funcMap.end())
+            {
+                auto callingRegions = getRegionByLine2(regions, func->second->fileName, func->second->linesNum.first);
+                if (callingRegions.size() > 1)
+                    region->AddCrossedFunc(functionName);
+            }
+        }
+
+        string toPrint = "";
+        for (auto &elem : region->GetCrossedFuncs())
+            toPrint += elem + " ";
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
+    }
 }
 
 void resolveRegions(const vector<ParallelRegion*> &regions)
