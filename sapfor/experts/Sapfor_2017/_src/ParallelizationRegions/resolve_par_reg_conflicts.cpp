@@ -17,6 +17,9 @@ using std::vector;
 using std::string;
 using std::make_pair;
 
+extern set<string> allUsedCommonArrays;
+extern set<string> allCommonFunctions;
+
 set<ParallelRegion*> getRegionByLine2(const vector<ParallelRegion*> &regions, const string &file, const int line)
 {
     set<ParallelRegion*> regFound;
@@ -59,7 +62,10 @@ static void recursiveFill(SgExpression *exp,
             string arrayName = string(exp->symbol()->identifier());
 
             if (isInCommon(commonBlocks, arrayName))
+            {
                 commonArrayFound.insert(arrayName);
+                allUsedCommonArrays.insert(arrayName);
+            }
             else
             {
                 auto it = localArrayFound.find(functionName);
@@ -145,6 +151,13 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
         if (toPrint != "")
             __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
     }
+
+    string toPrint = "";
+    for (auto &elem : allUsedCommonArrays)
+        toPrint += elem + " ";
+
+    if (toPrint != "")
+        __spf_print(1, "all common arrays: %s\n", toPrint.c_str());
 }
 
 void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> allFuncInfo)
@@ -152,6 +165,7 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
 
+    // funcName -> funcInfo
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
@@ -175,6 +189,28 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         if (toPrint != "")
             __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
     }
+
+    for (auto &funcPair : funcMap)
+    {
+        bool callsFromRegion = false;
+        bool callsFromCode = false;
+
+        for (auto &call : funcPair.second->callsTo)
+            if (getRegionByLine2(regions, call->fileName, call->linesNum.first).size())
+                callsFromRegion = true;
+            else
+                callsFromCode = true;
+
+        if (callsFromCode && callsFromRegion)
+            allCommonFunctions.insert(funcPair.first);
+    }
+
+    string toPrint = "";
+    for (auto &elem : allCommonFunctions)
+        toPrint += elem + " ";
+
+    if (toPrint != "")
+        __spf_print(1, "all common functions: %s\n", toPrint.c_str());
 }
 
 void resolveRegions(const vector<ParallelRegion*> &regions)
