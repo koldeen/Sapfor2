@@ -38,6 +38,10 @@ void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<Loop
     {
         for (int i = 0; i < (int)loopGraph->size(); ++i)
         {
+            auto it = sortedLoopGraph.find((*loopGraph)[i]->lineNum);
+            if (it != sortedLoopGraph.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
             sortedLoopGraph[(*loopGraph)[i]->lineNum] = (*loopGraph)[i];
             createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->childs));
         }

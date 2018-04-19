@@ -12,6 +12,7 @@
 #include "ParRegions.h"
 #include "../utils.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../GraphLoop/graph_loops.h"
 
 using std::vector;
 using std::string;
@@ -19,6 +20,8 @@ using std::pair;
 using std::make_pair;
 using std::map;
 using std::set;
+
+extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<LoopGraph*> *loopGraph);
 
 static map<string, int> regionIdByName;
 static map<string, ParallelRegion*> regionByName;
@@ -66,7 +69,81 @@ static void updateRegionInfo(SgStatement *st, map<string, pair<Statement*, State
         findFuncCalls(st->expr(z), funcCallFromReg);
 }
 
-void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
+static void fillArrayNamesInReg(set<string> &usedArrayInRegion, SgExpression *exp)
+{
+    if (exp)
+    {
+        if (exp->variant() == ARRAY_REF && OriginalSymbol(exp->symbol()))
+            usedArrayInRegion.insert(OriginalSymbol(exp->symbol())->identifier());
+
+        fillArrayNamesInReg(usedArrayInRegion, exp->lhs());
+        fillArrayNamesInReg(usedArrayInRegion, exp->rhs());
+    }
+}
+
+static bool filterUserDirectives(set<string> &usedArrayInRegion, vector<Statement*> &userDvmDirs, vector<Statement*> &userDvmDirsF)
+{
+    vector<Statement*> filtered;
+    bool changed = false;
+    for (auto &distr : userDvmDirs)
+    {
+        set<string> usedIndir;
+        for (int i = 0; i < 3; ++i)
+            fillArrayNamesInReg(usedIndir, distr->GetOriginal()->expr(i));
+
+        bool ok = false;
+        for (auto &elem : usedIndir)
+        {
+            if (usedArrayInRegion.find(elem) != usedArrayInRegion.end())
+            {
+                ok = true;
+                break;
+            }
+        }
+
+        if (ok)
+        {
+            usedArrayInRegion.insert(usedIndir.begin(), usedIndir.end());
+            userDvmDirsF.push_back(distr);
+            changed = true;
+        }
+        else
+            filtered.push_back(distr);
+    }
+    userDvmDirs = filtered;
+
+    return changed;
+}
+
+static void filterUserDirectives(ParallelRegion *currReg, set<string> usedArrayInRegion, vector<Statement*> userDvmDistrDirs,
+                                 vector<Statement*> userDvmAlignDirs, vector<Statement*> userDvmShadowDirs)
+{
+    vector<Statement*> userDvmDistrDirsF;
+    vector<Statement*> userDvmAlignDirsF;
+    vector<Statement*> userDvmShadowDirsF;
+
+    bool changed = false;
+    do
+    {
+        changed = false;
+
+        bool ret = filterUserDirectives(usedArrayInRegion, userDvmDistrDirs, userDvmDistrDirsF);
+        changed = changed || ret;
+
+        ret = filterUserDirectives(usedArrayInRegion, userDvmAlignDirs, userDvmAlignDirsF);
+        changed = changed || ret;
+
+        ret = filterUserDirectives(usedArrayInRegion, userDvmShadowDirs, userDvmShadowDirsF);
+        changed = changed || ret;
+                
+    } while (changed);
+
+    currReg->AddUserDirectives(userDvmDistrDirsF, DVM_DISTRIBUTE_DIR);
+    currReg->AddUserDirectives(userDvmAlignDirsF, DVM_ALIGN_DIR);
+    currReg->AddUserDirectives(userDvmShadowDirsF, DVM_SHADOW_DIR);
+}
+
+void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> &loops)
 {
     //fill default
     SgStatement *st = file->firstStatement();
@@ -82,6 +159,9 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
 
     defaultR->AddLines(lines, file->filename());
 
+    map<int, LoopGraph*> allLoopsInFile;
+    createMapLoopGraph(allLoopsInFile, &loops);
+
     //fill user's
     int funcNum = file->numberOfFunctions();
     string regionName = "";
@@ -92,6 +172,14 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
 
     for (int i = 0; i < funcNum; ++i)
     {
+        vector<Statement*> userDvmDistrDirs;
+        vector<Statement*> userDvmAlignDirs;
+        vector<Statement*> userDvmShadowDirs;
+        vector<Statement*> userDvmRealignDirs;
+        vector<Statement*> userDvmRedistrDirs;
+
+        set<string> usedArrayInRegion;
+
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
@@ -115,6 +203,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
                     SgStatement *data = (SgStatement *)(attr->getAttributeData());
                     lines.second = data->lineNumber();
                     regionStarted = false;
+
                     if (regionName == "")
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -142,14 +231,60 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions)
                     for (auto &func : funcCallFromReg)
                         currReg->AddFuncCalls(func);
 
+                    filterUserDirectives(currReg, usedArrayInRegion, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs);
+                    currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
+                    currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
+
                     startEnd.clear();
                     lines_.clear();
                     funcCallFromReg.clear();
+
+                    userDvmRealignDirs.clear();
+                    userDvmRedistrDirs.clear();
+
+                    usedArrayInRegion.clear();
                 }
             }
 
             if (regionStarted)
+            {
                 updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
+                for (int i = 0; i < 3; ++i)
+                    fillArrayNamesInReg(usedArrayInRegion, st->expr(i));
+            }
+
+            switch (st->variant())
+            {
+            case DVM_DISTRIBUTE_DIR:
+                userDvmDistrDirs.push_back(new Statement(st));
+                break;
+            case DVM_ALIGN_DIR:
+                userDvmAlignDirs.push_back(new Statement(st));
+                break;
+            case DVM_SHADOW_DIR:
+                userDvmShadowDirs.push_back(new Statement(st));
+                break;
+            case DVM_REALIGN_DIR:
+                if (regionStarted)
+                    userDvmRealignDirs.push_back(new Statement(st));
+                break;
+            case DVM_REDISTRIBUTE_DIR:
+                if (regionStarted)
+                    userDvmRedistrDirs.push_back(new Statement(st));
+                break;
+            case DVM_PARALLEL_ON_DIR:
+                if (st->lexNext()->variant() == FOR_NODE)
+                {
+                    SgForStmt *forStat = (SgForStmt*)(st->lexNext());
+                    auto it = allLoopsInFile.find(forStat->lineNumber());
+                    if (it != allLoopsInFile.end())
+                        it->second->userDvmDirective = new Statement(st);
+                }
+                break;
+            default:
+                break;
+            }
+
             st = st->lexNext();
         }
     }
@@ -192,7 +327,7 @@ static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops
         getAllLoops(elem->childs, loops);
 }
 
-void fillRegionLinesStep2(vector<ParallelRegion*> &regions, map<string, vector<FuncInfo*>> allFuncInfo, map<string, vector<LoopGraph*>> &loopGraph)
+void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<LoopGraph*>> &loopGraph)
 {
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
