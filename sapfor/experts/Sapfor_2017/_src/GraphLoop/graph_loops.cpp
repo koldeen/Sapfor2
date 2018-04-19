@@ -503,7 +503,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 
 void LoopGraph::recalculatePerfect()
 {
-    perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+    perfectLoop = ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest();
     for (auto &loop : childs)
         loop->recalculatePerfect();
 }

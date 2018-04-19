@@ -210,6 +210,23 @@ public:
         }
     }
 
+    void AddUserDirectives(const std::vector<Statement*> &dirs, const int type)
+    {
+        if (dirs.size() == 0)
+            return;
+
+        if (type == DVM_DISTRIBUTE_DIR)
+            userDvmDistrDirs.insert(userDvmDistrDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_ALIGN_DIR)
+            userDvmAlignDirs.insert(userDvmAlignDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_SHADOW_DIR)
+            userDvmShadowDirs.insert(userDvmShadowDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_REALIGN_DIR)
+            userDvmRealignDirs.insert(userDvmRealignDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_DISTRIBUTE_DIR)
+            userDvmRedistrDirs.insert(userDvmRedistrDirs.end(), dirs.begin(), dirs.end());
+    }
+
 private:
     int regionId;
     //name in program
@@ -238,4 +255,7 @@ private:
 
     std::vector<Statement*> userDvmDistrDirs;
     std::vector<Statement*> userDvmAlignDirs;
+    std::vector<Statement*> userDvmShadowDirs;
+    std::vector<Statement*> userDvmRealignDirs;
+    std::vector<Statement*> userDvmRedistrDirs;
 };

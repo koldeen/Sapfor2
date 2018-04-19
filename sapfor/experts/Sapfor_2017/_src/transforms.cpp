@@ -489,7 +489,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             auto itFound2 = allFuncInfo.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), REMOTE_ACC, itFound2->second,
-                declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
         }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -504,7 +504,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
             arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
-            fillRegionLines(file, parallelRegions);
+            fillRegionLines(file, parallelRegions, loopGraph[file_name]);
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);

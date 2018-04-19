@@ -98,7 +98,12 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpres
     {
         SgExpression *p = parList;
         for (int i = 0; i < numOfParams; ++i, p = p->rhs())
+        {
             fillParam(i, p->lhs()->symbol(), currParams, commonBlocks);
+
+            currInfo->funcParams.identificators.push_back(p->lhs()->symbol()->identifier());
+            currInfo->isParamUsedAsIndex.push_back(false);
+        }
     }
 }
 
@@ -148,21 +153,13 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
                     ((int*)currParams->parameters[num])[0] = ex->valueInteger();
                 }
                 else if (var == FLOAT_VAL)
-                {
                     currParams->parametersT[num] = SCALAR_FLOAT_T;
-                }
                 else if (var == DOUBLE_VAL)
-                {
                     currParams->parametersT[num] = SCALAR_DOUBLE_T;
-                }
                 else if (var == CHAR_VAL)
-                {
                     currParams->parametersT[num] = SCALAR_CHAR_T;
-                }
                 else if (var == BOOL_VAL)
-                {
                     currParams->parametersT[num] = SCALAR_BOOL_T;
-                }
                 else
                     currParams->parametersT[num] = UNKNOWN_T;
 
@@ -594,11 +591,12 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
         if (st->variant() != PROG_HEDR) 
         {
-            fillFuncParams(currInfo, commonBlocks, (SgProgHedrStmt*)st);
-            // Fill in names of function parameters
             SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
 
-            for (int i = 0; i < procFuncHedr->numberOfParameters(); i++)
+            fillFuncParams(currInfo, commonBlocks, procFuncHedr);
+            
+            // Fill in names of function parameters
+            for (int i = 0; i < procFuncHedr->numberOfParameters(); ++i)
             {
                 currInfo->funcParams.identificators.push_back((procFuncHedr->parameter(i))->identifier());
                 currInfo->isParamUsedAsIndex.push_back(false);
@@ -661,24 +659,25 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
                     proc->actualParams.push_back(FuncParam());
                     processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
+
+                    // Add func call which we've just found
+                    NestedFuncCall funcCall(st->symbol()->identifier());
+                    proc->funcsCalledFromThis.push_back(funcCall);
+
+                    // search for using pars of cur func in pars of called
+                    throughParams(st->expr(0), *proc);
                 }
-
-                // Add func call which we've just found
-                NestedFuncCall funcCall(st->symbol()->identifier());
-                currInfo->funcsCalledFromThis.push_back(funcCall);
-
-                // search for using pars of cur func in pars of called
-                //SgProgHedrStmt *hedrFuncProc = ((SgProgHedrStmt *)st);
-                throughParams(st->expr(0), *currInfo);
             }
             else
             {
                 for (int i = 0; i < 3; ++i)
                     if (st->expr(i))
-                    {
                         findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
-                        findParamUsedInFuncCalls(st->expr(i), *currInfo);
-                    }
+
+                for (auto &proc : entryProcs)
+                    for (int i = 0; i < 3; ++i)
+                        if (st->expr(i))
+                            findParamUsedInFuncCalls(st->expr(i), *proc);
             }
 
             if (st->variant() == ENTRY_STAT)
@@ -696,11 +695,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 entryProcs.push_back(entryInfo);
             }
 
-            if (currInfo->isParamUsedAsIndex.size() != 0 && isSgExecutableStatement(st))
-            {
-                for (char i = 0; i < 3; i++)
-                    findArrayRef(st->expr(i), *currInfo);
-            }
+            if (isSgExecutableStatement(st))
+                for (auto &proc : entryProcs)
+                    if (proc->isParamUsedAsIndex.size())
+                        for (int i = 0; i < 3; i++)
+                            findArrayRef(st->expr(i), *proc);
 
             st = st->lexNext();
         }

@@ -3,39 +3,43 @@
 #if !__SPC
 #include "dvm.h"
 
-class Statement : public SgStatement
+template<typename T>
+class Base
 {
     void *orig;
 public:
-    explicit Statement(SgStatement *init) : SgStatement(*init) { orig = init; }
+    explicit Base(T init) { orig = init; }
+    T GetOriginal() const { return (T)orig; }
 };
 
-class Expression : public SgExpression
+class Statement : public SgStatement, public Base<SgStatement*>
 {
-    void *orig;
 public:
-    explicit Expression(SgExpression *init) : SgExpression(*init) { orig = init; }
+    explicit Statement(SgStatement *init) : SgStatement(*init), Base(init) { }
 };
 
-class File : public SgFile
+class Expression : public SgExpression, public Base<SgExpression*>
 {
-    void *orig;
 public:
-    explicit File(SgFile *init) : SgFile(*init) { orig = init; }
+    explicit Expression(SgExpression *init) : SgExpression(*init), Base(init) { }
 };
 
-class ArrayRefExp : public SgArrayRefExp
+class File : public SgFile, public Base<SgFile*>
 {
-    void *orig;
 public:
-    explicit ArrayRefExp(SgArrayRefExp *init) : SgArrayRefExp(*init) { orig = init; }
+    explicit File(SgFile *init) : SgFile(*init), Base(init) { }
 };
 
-class Symbol : public SgSymbol
+class ArrayRefExp : public SgArrayRefExp, public Base<SgArrayRefExp*>
 {
-    void *orig;
 public:
-    explicit Symbol(SgSymbol *init) : SgSymbol(*init) { orig = init; }
+    explicit ArrayRefExp(SgArrayRefExp *init) : SgArrayRefExp(*init), Base(init) { }
+};
+
+class Symbol : public SgSymbol, public Base<SgSymbol*>
+{
+public:
+    explicit Symbol(SgSymbol *init) : SgSymbol(*init), Base(init) { }
 };
 #else
 
