@@ -415,6 +415,7 @@ int printParalleRegions(const char *fileName, vector<ParallelRegion*> &regions)
         fprintf(file, "*** #%d Parallel Region\n", num);
         elem->print(file);
         fprintf(file, "\n");
+        ++num;
     }
 
     fclose(file);
