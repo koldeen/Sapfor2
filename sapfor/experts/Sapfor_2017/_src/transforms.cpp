@@ -1077,8 +1077,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
     {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
-        fillRegionArrays(parallelRegions, commonBlocks, allUsedCommonArrays);
-        fillRegionFunctions(parallelRegions, allFuncInfo, allCommonFunctions);
 
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)
@@ -1086,6 +1084,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printLoopGraph("_loopGraph.txt", loopGraph);
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
+    }
+    else if (curr_regime == CHECK_PAR_REGIONS)
+    {
+        fillRegionArrays(parallelRegions, commonBlocks, allUsedCommonArrays);
+        fillRegionFunctions(parallelRegions, allFuncInfo, allCommonFunctions);
+
+        bool noError = checkRegions(parallelRegions, SPF_messages);
+        if (!noError)
+            internalExit = 1;
+    }
+    else if (curr_regime == RESOLVE_PAR_REGIONS)
+    {
+        resolveRegions(parallelRegions);
     }
     else if (curr_regime == LOOP_GRAPH)
     {

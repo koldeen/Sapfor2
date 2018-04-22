@@ -36,18 +36,19 @@ static bool recursiveFindCall(SgExpression *exp, const FuncInfo* func)
 {
     if (exp)
     {
-        if (exp->variant() == PROG_HEDR || exp->variant() == PROC_HEDR || exp->variant() == FUNC_HEDR)
+        //if(exp->variant() == PROG_HEDR || exp->variant() == PROC_HEDR || exp->variant() == FUNC_HEDR)
+        if (exp->variant() == FUNC_CALL || exp->variant() == PROC_CALL)
             if (func->funcName == exp->symbol()->identifier())
                 return true;
 
         return recursiveFindCall(exp->rhs(), func) || recursiveFindCall(exp->lhs(), func);
     }
+
+    return false;
 }
 
 static void findCall(const FuncInfo* funcFrom, const FuncInfo* funcTo, bool &callsFromRegion, bool &callsFromCode)
 {
-    set<ParallelRegion*> regFound;
-
     if (switchToFile(funcTo->fileName) != -1)
     {
         bool isRegion = false;
@@ -261,9 +262,43 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         __spf_print(1, "all common functions: %s\n", toPrint.c_str());
 }
 
-bool checkRegions(const vector<ParallelRegion*> &regions)
+bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
 {
-    return true;
+    bool noError = true;
+
+    // check
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            for (auto &regionLine : fileLines.second)
+            {
+                if (!isImplicit(regionLine))
+                {
+                    for (auto &regionLine2 : fileLines.second)
+                    {
+                        if (isImplicit(regionLine2) && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
+                        {
+                            __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
+                                        fileLines.first.c_str(), regionLine2.lines.first);
+                            string message;
+                            __spf_printToBuf(message, "parallel region '%s' is included in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
+
+                            auto itM = SPF_messages.find(fileLines.first);
+                            if (itM == SPF_messages.end())
+                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
+
+                            itM->second.push_back(Messages(ERROR, regionLine2.lines.first, message, 1033));
+
+                            noError = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return noError;
 }
 
 void resolveRegions(const vector<ParallelRegion*> &regions)

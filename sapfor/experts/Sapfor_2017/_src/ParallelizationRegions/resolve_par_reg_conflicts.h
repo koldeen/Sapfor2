@@ -8,4 +8,5 @@ std::set<ParallelRegion*> getRegionByLine2(const std::vector<ParallelRegion*> &r
 void fillRegionArrays(std::vector<ParallelRegion*> &regions, const std::map<std::string, CommonBlock> &commonBlocks, std::set<std::string> &allUsedCommonArrays);
 void fillRegionFunctions(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> allFuncInfo, std::set<std::string> &allCommonFunctions);
 bool checkRegions(const std::vector<ParallelRegion*> &regions);
+bool checkRegions(const std::vector<ParallelRegion*> &regions, std::map<std::string, std::vector<Messages>> &SPF_messages);
 void resolveRegions(const std::vector<ParallelRegion*> &regions);
