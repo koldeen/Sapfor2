@@ -684,7 +684,7 @@ static bool checkParallelRegions(SgStatement *st,
 {
     bool retVal = true;
 
-    if (isSgExecutableStatement(st->lexNext()))
+    if (isSgExecutableStatement(st->lexNext()) || st->lexNext()->variant() == ENTRY_STAT)
     {
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
@@ -704,19 +704,23 @@ static bool checkParallelRegions(SgStatement *st,
                 
                 if (!isSgExecutableStatement(iterator))
                 {
-                    for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
+                    //if (isSgVarDeclStmt(iterator) || iterator->variant() == COMM_STAT || iterator->variant() == DATA_DECL)
+                    if (isSgVarDeclStmt(iterator) || iterator->variant() == COMM_STAT)
                     {
-                        for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
+                        for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
-                            if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
+                            for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
                             {
-                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+                                if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
+                                {
+                                    __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                string message;
-                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
-                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
+                                    string message;
+                                    __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
-                                retVal = false;
+                                    retVal = false;
+                                }
                             }
                         }
                     }
