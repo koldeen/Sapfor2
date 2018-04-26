@@ -410,7 +410,7 @@ static bool checkShadowAcross(SgStatement *st,
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
-            //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
+
             notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
             if (!notPrivCond)
@@ -704,8 +704,7 @@ static bool checkParallelRegions(SgStatement *st,
                 
                 if (!isSgExecutableStatement(iterator))
                 {
-                    //if (isSgVarDeclStmt(iterator) || iterator->variant() == COMM_STAT || iterator->variant() == DATA_DECL)
-                    if (isSgVarDeclStmt(iterator) || iterator->variant() == COMM_STAT)
+                    if (iterator->variant() == VAR_DECL || iterator->variant() == VAR_DECL_90)
                     {
                         for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
