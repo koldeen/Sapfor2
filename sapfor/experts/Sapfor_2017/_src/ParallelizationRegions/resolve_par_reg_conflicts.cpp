@@ -82,6 +82,73 @@ static void findCall(const FuncInfo* funcFrom, const FuncInfo* funcTo, bool &cal
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
+static FuncInfo* getFuncInfo(const map<string, FuncInfo*> funcMap, string &funcName)
+{
+    auto it = funcMap.find(funcName);
+    if (it == funcMap.end())
+        return NULL;
+
+    return it->second;
+}
+
+static void fillRegionCover(FuncInfo* func, const map<string, FuncInfo*> &funcMap)
+{
+    if (func->funcPointer->variant() != ENTRY_STAT)
+    {
+        if (switchToFile(func->fileName) != -1)
+        {
+            SgStatement *iterator = func->funcPointer;
+            FuncInfo *entry = NULL;
+            bool isFuncCovered = true;
+            bool isEntryCovered = true;
+            bool isRegion = false;
+
+            for (; !isSgExecutableStatement(iterator) && !isSPF_stat(iterator) && iterator->variant() != ENTRY_STAT; iterator = iterator->lexNext())
+            {
+                // skip not executable and not necessary statements
+            }
+
+            for (; iterator->lineNumber() < func->linesNum.second; iterator = iterator->lexNext())
+            {
+                switch (iterator->variant())
+                {
+                case SPF_PARALLEL_REG_DIR:
+                    isRegion = true;
+                    continue;
+                case SPF_END_PARALLEL_REG_DIR:
+                    isRegion = false;
+                    continue;
+                case ENTRY_STAT:
+                    if (entry && isEntryCovered)
+                        entry->setIsCoveredByRegion();
+
+                    entry = getFuncInfo(funcMap, string(iterator->symbol()->identifier()));
+                    isEntryCovered = true;
+                    continue;
+                default:
+                    if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                        continue;
+
+                    if (!isRegion)
+                    {
+                        isFuncCovered = false;
+                        isEntryCovered = false;
+                    }
+                    break;
+                }
+            }
+
+            if (isEntryCovered)
+                entry->setIsCoveredByRegion();
+
+            if (isFuncCovered)
+                func->setIsCoveredByRegion();
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+}
+
 static bool isInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
 {
     for (auto &commonBlockPair : commonBlocks)
@@ -246,6 +313,10 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
     {
         bool callsFromRegion = false;
         bool callsFromCode = false;
+
+        fillRegionCover(funcPair.second, funcMap);
+        __spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
+                    funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // remove
 
         for (auto &call : funcPair.second->callsTo)
             findCall(funcPair.second, call, callsFromRegion, callsFromCode);

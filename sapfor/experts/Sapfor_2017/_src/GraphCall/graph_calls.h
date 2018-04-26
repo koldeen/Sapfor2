@@ -63,16 +63,19 @@ struct FuncInfo
     bool needToInline;
     bool deadFunction;
 
+    // for RESOLVE_PAR_REGIONS
+    bool isCoveredByRegion;
+
     FuncInfo() :
-        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false) { }
+        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), isCoveredByRegion(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
-        doNotAnalyze(false), needToInline(false), deadFunction(false) { }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), isCoveredByRegion(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
-        doNotAnalyze(false), needToInline(false), deadFunction(false) { fileName = pointer->fileName(); }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), isCoveredByRegion(false) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {
@@ -84,4 +87,6 @@ struct FuncInfo
         }
         return result;
     }
+
+    void setIsCoveredByRegion() { isCoveredByRegion = true; }
 };
