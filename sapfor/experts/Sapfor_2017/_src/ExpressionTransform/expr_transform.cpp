@@ -53,13 +53,13 @@ void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* pa
             auto founded = it->in_defs.find(parentGraph);
             if (founded == it->in_defs.end())
                 it->in_defs.insert(founded, make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-            mergeDefs(&(founded->second), inDefs);
+            mergeDefs(&(founded->second), inDefs, NULL);
             return;
         }
 
     graphs.push_back(GraphAdjustmentItem(targetGraph));
     graphs[graphs.size() - 1].in_defs.insert(make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-    mergeDefs(&(graphs[graphs.size() - 1].in_defs.begin()->second), inDefs);
+    mergeDefs(&(graphs[graphs.size() - 1].in_defs.begin()->second), inDefs, NULL);
     graphs[graphs.size() - 1].in_defs.begin();
 
 }
@@ -85,7 +85,7 @@ map<SymbolKey, map<string, SgExpression*>>* GraphsKeeper::getInDefsFor(ControlFl
         if (graphs[i].CGraph == CGraph)
         {
             for (auto it = graphs[i].in_defs.begin(); it != graphs[i].in_defs.end(); ++it)
-                mergeDefs(result, &(it->second));
+                mergeDefs(result, &(it->second), NULL);
         }
     }
     return result;
