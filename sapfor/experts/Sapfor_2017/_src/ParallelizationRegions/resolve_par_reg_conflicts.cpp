@@ -66,6 +66,10 @@ static void findCall(const FuncInfo* funcFrom, const FuncInfo* funcTo, bool &cal
 
             bool retVal = false;
 
+            if (iterator->variant() == PROC_STAT || iterator->variant() == FUNC_STAT)
+                if (iterator->symbol()->identifier() == funcFrom->funcName)
+                    retVal = true;
+
             for (int i = 0; i < 3; ++i)
                 retVal = retVal || recursiveFindCall(iterator->expr(i), funcFrom);
 
@@ -315,8 +319,8 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         bool callsFromCode = false;
 
         fillRegionCover(funcPair.second, funcMap);
-        __spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
-                    funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // remove
+        //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
+        //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // remove
 
         for (auto &call : funcPair.second->callsTo)
             findCall(funcPair.second, call, callsFromRegion, callsFromCode);
