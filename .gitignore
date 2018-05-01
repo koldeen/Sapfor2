@@ -1,4 +1,6 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
+sapfor/experts/Sapfor_2017/.idea/
+sapfor/experts/Sapfor_2017/cmake-build-debug/
 sapfor/experts/Sapfor_2017/.vs/
 sapfor/experts/Sapfor_2017/_bin/
 sapfor/experts/Sapfor_2017/_lib/

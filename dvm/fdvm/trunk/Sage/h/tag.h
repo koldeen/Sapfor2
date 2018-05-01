@@ -235,7 +235,7 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ DVM_CP_LOAD_DIR ] = "DVM_CP_LOAD_DIR";
   tag [ DVM_CP_SAVE_DIR ] = "DVM_CP_SAVE_DIR";
   tag [ DVM_CP_WAIT_DIR ] = "DVM_CP_WAIT_DIR";
-     
+  tag [ DVM_EXIT_INTERVAL_DIR ] = "DVM_EXIT_INTERVAL_DIR";
 /***************** variant tags for low level nodes ********************/
 
   tag [ INT_VAL ] = "INT_VAL";
@@ -601,3 +601,4 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ SPF_PARALLEL_REG_DIR ] = "SPF_PARALLEL_REG_DIR";
   tag [ SPF_END_PARALLEL_REG_DIR ] = "SPF_END_PARALLEL_REG_DIR";
   tag [ SPF_REGION_NAME ] = "SPF_REGION_NAME";
+  tag [ SPF_FUNC_INFO_ATTRIBUTE ] = "SPF_FUNC_INFO_ATTRIBUTE";

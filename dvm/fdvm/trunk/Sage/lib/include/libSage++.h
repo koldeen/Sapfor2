@@ -103,130 +103,161 @@ class  SgFile{
 
 };
 
+
+extern SgFile *current_file;    //current file
+extern int current_file_id;     //number of current file 
+
 // Discuss about control parent, BIF structure etc
-class  SgStatement{
-  public:
-  PTR_BFND thebif;
-  SgStatement(int variant); 
-  SgStatement(PTR_BFND bif);
-  SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3);
-  SgStatement(SgStatement &);
-  // info about statement
-  inline int lineNumber();          // source text line number
-  inline int localLineNumber();
-  inline int id();                  // unique id;
-  inline int variant();             // the type of the statement
-  SgExpression *expr(int i); // i = 0,1,2 returns the i-th expression.
+class  SgStatement 
+{
+private:
+    int fileID;
+    SgProject *project;
 
-  inline int hasSymbol();  // returns TRUE if tmt has symbol, FALSE otherwise
-  // returns the symbol field. Used by loop headers to point to the
-  // loop variable symbol; Used by function and subroutine headers to
-  // point to the function or subroutine name.
-  SgSymbol *symbol();        // returns the symbol field.
-  inline char *fileName();
-  inline void setFileName(char *newFile);
+public:
+    PTR_BFND thebif;
+    SgStatement(int variant);
+    SgStatement(PTR_BFND bif);
+    SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3);
+    SgStatement(SgStatement &);
+    // info about statement
+    inline int lineNumber();          // source text line number
+    inline int localLineNumber();
+    inline int id();                  // unique id;
+    inline int variant();             // the type of the statement
+    SgExpression *expr(int i); // i = 0,1,2 returns the i-th expression.
 
-  inline int hasLabel();     // returns 1 if there is a label on the stmt.
-  SgLabel *label();          // the label
+    inline int hasSymbol();  // returns TRUE if tmt has symbol, FALSE otherwise
+    // returns the symbol field. Used by loop headers to point to the
+    // loop variable symbol; Used by function and subroutine headers to
+    // point to the function or subroutine name.
+    SgSymbol *symbol();        // returns the symbol field.
+    inline char *fileName();
+    inline void setFileName(char *newFile);
 
-  // modifying the info.
-  inline void setlineNumber(const int n); // change the line number info
-  inline void setLocalLineNumber(const int n);
-  inline void setId(int n);         // cannot change the id info
-  inline void setVariant(int n);    // change the type of the statement
-  void setExpression (int i, SgExpression &e); // change the i-th expression
-  inline void setLabel(SgLabel &l); // change the label
-  inline void setSymbol(SgSymbol &s); // change the symbol
+    inline int hasLabel();     // returns 1 if there is a label on the stmt.
+    SgLabel *label();          // the label
 
-  // Control structure
-  inline SgStatement *lexNext();   // the next statement in lexical order.
-  inline SgStatement *lexPrev();   // the previous stmt in lexical order.
-  inline SgStatement *controlParent(); // the enclosing control statement
+    // modifying the info.
+    inline void setlineNumber(const int n); // change the line number info
+    inline void setLocalLineNumber(const int n);
+    inline void setId(int n);         // cannot change the id info
+    inline void setVariant(int n);    // change the type of the statement
+    void setExpression(int i, SgExpression &e); // change the i-th expression
+    inline void setLabel(SgLabel &l); // change the label
+    inline void setSymbol(SgSymbol &s); // change the symbol
 
-  inline void setLexNext(SgStatement &s); // change the lexical ordering
-  void setControlParent(SgStatement &s); // change the control parent.
-  void setControlParent(SgStatement *s); // change the control parent.
+    // Control structure
+    inline SgStatement *lexNext();   // the next statement in lexical order.
+    inline SgStatement *lexPrev();   // the previous stmt in lexical order.
+    inline SgStatement *controlParent(); // the enclosing control statement
 
-// Access statement using the tree structure
-// Describe BLOB lists here?
+    inline void setLexNext(SgStatement &s); // change the lexical ordering
+    void setControlParent(SgStatement &s); // change the control parent.
+    void setControlParent(SgStatement *s); // change the control parent.
 
-  inline int numberOfChildrenList1();
-  inline int numberOfChildrenList2();
-  inline SgStatement *childList1(int i);
-  inline SgStatement *childList2(int i);
-  SgStatement *nextInChildList();
+  // Access statement using the tree structure
+  // Describe BLOB lists here?
 
-  inline SgStatement *lastDeclaration(); 
-  inline SgStatement *lastExecutable();  
-  inline SgStatement *lastNodeOfStmt();
-  inline SgStatement *nodeBefore();
-  inline void insertStmtBefore(SgStatement &s);
-  inline void insertStmtBefore(SgStatement &s, SgStatement &cp); 
-  void insertStmtAfter(SgStatement &s);
-  void insertStmtAfter(SgStatement &s, SgStatement &cp);
-  inline SgStatement *extractStmt();
-  inline SgStatement *extractStmtBody();
-  inline void replaceWithStmt(SgStatement &s);
-  inline void deleteStmt();
-  inline SgStatement  &copy (void);
-  inline SgStatement  *copyPtr (void);
-  inline SgStatement  &copyOne (void);
-  inline SgStatement  *copyOnePtr (void);
-  inline SgStatement  &copyBlock (void);
-  inline SgStatement  *copyBlockPtr (void);
-  inline SgStatement  *copyBlockPtr (int saveLabelId);
-  inline int isIncludedInStmt(SgStatement &s);
-  inline void replaceSymbByExp(SgSymbol &symb, SgExpression &exp);
-  inline void replaceSymbBySymb(SgSymbol &symb, SgSymbol &newsymb);
-  inline void replaceSymbBySymbSameName(SgSymbol &symb, SgSymbol &newsymb);
-  inline void replaceTypeInStmt(SgType &old, SgType &newtype);
-  char* unparse();
-  inline void unparsestdout();
-  void sunparse(char *buffer); //unparsing functions.
-  inline char *comments();      //preceding comment lines.
-  void addComment(const char *com);
-  void addComment(char *com);
-  /* ajm: setComments: set ALL of the node's comments */
-  inline void setComments (char *comments);
-  inline void setComments (const char *comments);
-  inline void delComments();
-  int numberOfComments(); //number of preceeding comments. CAREFUL! 
+    inline int numberOfChildrenList1();
+    inline int numberOfChildrenList2();
+    inline SgStatement *childList1(int i);
+    inline SgStatement *childList2(int i);
+    SgStatement *nextInChildList();
 
-  int hasAnnotations();   //1 if there are annotations; 0 otherwise
-  ~SgStatement();
-  // These function must be removed. Doesn't make sense here.
-  int IsSymbolInScope(SgSymbol &symb); // TRUE if symbol is in scope
-  int IsSymbolReferenced(SgSymbol &symb);
-  inline SgStatement *getScopeForDeclare(); // return where a variable can be declared;
+    inline SgStatement *lastDeclaration();
+    inline SgStatement *lastExecutable();
+    inline SgStatement *lastNodeOfStmt();
+    inline SgStatement *nodeBefore();
+    inline void insertStmtBefore(SgStatement &s);
+    inline void insertStmtBefore(SgStatement &s, SgStatement &cp);
+    void insertStmtAfter(SgStatement &s);
+    void insertStmtAfter(SgStatement &s, SgStatement &cp);
+    inline SgStatement *extractStmt();
+    inline SgStatement *extractStmtBody();
+    inline void replaceWithStmt(SgStatement &s);
+    inline void deleteStmt();
+    inline SgStatement  &copy(void);
+    inline SgStatement  *copyPtr(void);
+    inline SgStatement  &copyOne(void);
+    inline SgStatement  *copyOnePtr(void);
+    inline SgStatement  &copyBlock(void);
+    inline SgStatement  *copyBlockPtr(void);
+    inline SgStatement  *copyBlockPtr(int saveLabelId);
+    inline int isIncludedInStmt(SgStatement &s);
+    inline void replaceSymbByExp(SgSymbol &symb, SgExpression &exp);
+    inline void replaceSymbBySymb(SgSymbol &symb, SgSymbol &newsymb);
+    inline void replaceSymbBySymbSameName(SgSymbol &symb, SgSymbol &newsymb);
+    inline void replaceTypeInStmt(SgType &old, SgType &newtype);
+    char* unparse();
+    inline void unparsestdout();
+    void sunparse(char *buffer); //unparsing functions.
+    inline char *comments();      //preceding comment lines.
+    void addComment(const char *com);
+    void addComment(char *com);
+    /* ajm: setComments: set ALL of the node's comments */
+    inline void setComments(char *comments);
+    inline void setComments(const char *comments);
+    inline void delComments();
+    int numberOfComments(); //number of preceeding comments. CAREFUL! 
 
-  /////////////// FOR ATTRIBUTES //////////////////////////
+    int hasAnnotations();   //1 if there are annotations; 0 otherwise
+    ~SgStatement();
+    // These function must be removed. Doesn't make sense here.
+    int IsSymbolInScope(SgSymbol &symb); // TRUE if symbol is in scope
+    int IsSymbolReferenced(SgSymbol &symb);
+    inline SgStatement *getScopeForDeclare(); // return where a variable can be declared;
 
-  int numberOfAttributes();
-  int numberOfAttributes(int type); // of a specified type;
-  void *attributeValue(int i); 
-  int  attributeType(int i); 
-  void *attributeValue(int i,int type); // only considering one type attribute
-  void *deleteAttribute(int i); 
-  void addAttribute(int type, void *a, int size); // void * can be NULL;
-  void addAttribute(int type); //void * is NULL;
-  void addAttribute(void *a, int size); //no type specifed;
-  void addAttribute(SgAttribute *att);
-  SgAttribute *getAttribute(int i);
-  SgAttribute *getAttribute(int i,int type);
+    /////////////// FOR ATTRIBUTES //////////////////////////
 
-  //////////// FOR DECL_SPECS (friend, inline, extern, static) ////////////
+    int numberOfAttributes();
+    int numberOfAttributes(int type); // of a specified type;
+    void *attributeValue(int i);
+    int  attributeType(int i);
+    void *attributeValue(int i, int type); // only considering one type attribute
+    void *deleteAttribute(int i);
+    void addAttribute(int type, void *a, int size); // void * can be NULL;
+    void addAttribute(int type); //void * is NULL;
+    void addAttribute(void *a, int size); //no type specifed;
+    void addAttribute(SgAttribute *att);
+    SgAttribute *getAttribute(int i);
+    SgAttribute *getAttribute(int i, int type);
 
-  inline void addDeclSpec(int type);   //type should be one of BIT_EXTERN,
-                                //BIT_INLINE, BIT_FRIEND, BIT_STATIC
-  inline void clearDeclSpec();        //resets the decl_specs field to zero
-  inline int isFriend();               //returns non-zero if friend modifier set
-                                //returns zero otherwise
-  inline int isInline();
-  inline int isExtern();
-  inline int isStatic();
+    //////////// FOR DECL_SPECS (friend, inline, extern, static) ////////////
+
+    inline void addDeclSpec(int type);   //type should be one of BIT_EXTERN,
+                                  //BIT_INLINE, BIT_FRIEND, BIT_STATIC
+    inline void clearDeclSpec();        //resets the decl_specs field to zero
+    inline int isFriend();               //returns non-zero if friend modifier set
+                                  //returns zero otherwise
+    inline int isInline();
+    inline int isExtern();
+    inline int isStatic();
+
+    // new opportunities were added by Kolganov A.S. 16.04.2018
+    inline int getFileId() const { return fileID; }
+    inline void setFileId(const int newFileId) { fileID = newFileId; }
+
+    inline SgProject* getProject() const { return project; }
+    inline void setProject(SgProject *newProj) { project = newProj; }
+
+    inline bool switchToFile()
+    {
+        if (fileID == -1 || project == NULL)
+            return false;
+
+        if (current_file_id != fileID)
+        {
+            SgFile *file = &(project->file(fileID));
+            current_file_id = fileID;
+            current_file = file;
+        }
+        return true;
+    }
 };
 
-class  SgExpression{    
+class  SgExpression
+{    
 public:
   PTR_LLND thellnd;
   // generic expression class.

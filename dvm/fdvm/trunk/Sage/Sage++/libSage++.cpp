@@ -1555,51 +1555,52 @@ SgExprListExp * isSgExprListExp(SgExpression *pt)
 
 SgProject::SgProject(const char * proj_file_name)
 {
-  // first let init the library we need
+    // first let init the library we need
     if (!proj_file_name)
-      {
-        Message("Cannot open project: no file specified",0);
-#if 1
+    {
+        Message("Cannot open project: no file specified", 0);
+        exit(1);
+
+    }
+    if (open_proj_toolbox(proj_file_name, proj_file_name) < 0)
+    {
+        fprintf(stderr, "%s   ", proj_file_name);
+#if __SPF
+        throw -99;
+#else
+        Message("Cannot open project", 0);
         exit(1);
 #endif
-      }
-    if( open_proj_toolbox(proj_file_name, proj_file_name) < 0)
-      {
-        fprintf(stderr,"%s   ",proj_file_name);
-        Message("Cannot open project",0);
-#if 1
-        exit(1);
-#endif
-      }
+    }
     Init_Tool_Box();
 
-// we have to initialize some specific data for this interface 
-  CurrentProject = this;
+    // we have to initialize some specific data for this interface 
+    CurrentProject = this;
 }
 
 
 SgFile &SgProject::file(int i)
 {
-  PTR_FILE file;
-  SgFile *pt = NULL;
-  file = GetFileWithNum(i);
-  SetCurrentFileTo(file);
-  SwitchToFile(GetFileNumWithPt(file));
-  if (!file)
+    PTR_FILE file;
+    SgFile *pt = NULL;
+    file = GetFileWithNum(i);
+    SetCurrentFileTo(file);
+    SwitchToFile(GetFileNumWithPt(file));
+    if (!file)
     {
-      Message("SgProject::file; File not found",0);
-      return *pt;
+        Message("SgProject::file; File not found", 0);
+        return *pt;
     }
-  pt =  GetMappingInTableForFile(file);
-  if (pt)
-    return *pt;
-  else
+    pt = GetMappingInTableForFile(file);
+    if (pt)
+        return *pt;
+    else
     {
-      pt = new SgFile(FILE_FILENAME(file));
+        pt = new SgFile(FILE_FILENAME(file));
 #ifdef __SPF   
-      addToCollection(__LINE__, __FILE__, pt, 1);
+        addToCollection(__LINE__, __FILE__, pt, 1);
 #endif
-      return *pt;
+        return *pt;
     }
 }
 
@@ -4354,6 +4355,7 @@ SgDeclarationStatement * isSgDeclarationStatement (SgStatement *pt)
   switch(BIF_CODE(pt->thebif))
     {
     case VAR_DECL:
+    case VAR_DECL_90:
     case ENUM_DECL:
     case STRUCT_DECL:
     case CLASS_DECL:

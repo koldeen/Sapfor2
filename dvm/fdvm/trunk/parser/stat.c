@@ -891,6 +891,7 @@ set_stat_list(old_list, stat)
             case (DVM_OWN_DIR):
             case (DVM_INTERVAL_DIR):
             case (DVM_ENDINTERVAL_DIR):
+            case (DVM_EXIT_INTERVAL_DIR):
             case (DVM_DEBUG_DIR):
             case (DVM_ENDDEBUG_DIR):
             case (DVM_TRACEON_DIR):  
