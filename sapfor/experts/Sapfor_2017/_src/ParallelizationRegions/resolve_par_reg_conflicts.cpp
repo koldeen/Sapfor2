@@ -9,6 +9,10 @@
 
 #include "../GraphCall/graph_calls_func.h"
 
+//#include "../../../../dvm/fdvm/trunk/InlineExpansion/inline.h"
+//extern struct graph_node;
+//extern graph_node *CloneNode(graph_node *gnode);
+
 using std::map;
 using std::pair;
 using std::set;
@@ -376,7 +380,31 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
     return noError;
 }
 
-void resolveRegions(const vector<ParallelRegion*> &regions)
+static void copyFunction(ParallelRegion *region, const map<string, vector<FuncInfo*>> &allFuncInfo, const string &funcName, const string &suffix)
 {
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
 
+    // CloneNode();
+}
+
+void resolveRegions(const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, const set<string> &allCommonFunctions)
+{
+    for (auto &region : regions)
+    {
+        if (region->GetCrossedFuncs().size())
+        {
+            for (auto &crossedFunc : region->GetCrossedFuncs())
+            {
+                copyFunction(region, allFuncInfo, crossedFunc, region->GetName());
+            }
+        }
+        else if (allCommonFunctions.size())
+        {
+            for (auto &commonFunc : allCommonFunctions)
+            {
+                copyFunction(region, allFuncInfo, commonFunc, string("_copy"));
+            }
+        }
+    }
 }
