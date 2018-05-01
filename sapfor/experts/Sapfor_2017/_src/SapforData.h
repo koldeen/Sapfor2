@@ -24,6 +24,7 @@ int keepSpfDirs = 0;
 int consoleMode = 0;
 int genAllVars = 0; //generate ALL distribution variants
 int genSpecificVar = -1; //generate specific distribution variant
+int ignoreDvmChecker = 0; // temporary flag
 uint64_t currentAvailMemory = 0;
 static int activeState = 0;
 

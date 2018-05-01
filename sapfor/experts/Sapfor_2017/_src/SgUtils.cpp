@@ -425,9 +425,10 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
     }
 }
 
-DIST::Array* getArrayFromDeclarated(SgStatement *st, const string &arrayName,
-                                    const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                                    const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt)
+extern  map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
+extern  map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
+
+DIST::Array* getArrayFromDeclarated(SgStatement *st, const string &arrayName)
 {
     DIST::Array *found = NULL;
 

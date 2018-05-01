@@ -170,6 +170,16 @@ public:
         }
     }
 
+    void propagateUserDvmDir()
+    {
+        for (auto &loop : childs)
+        {
+            if (loop->userDvmDirective == NULL)
+                loop->userDvmDirective = userDvmDirective;
+            loop->propagateUserDvmDir();
+        }
+    }
+
     std::string genLoopArrayName(const std::string &funcName) const
     {
         return funcName + "_loop_" + std::to_string(lineNum);

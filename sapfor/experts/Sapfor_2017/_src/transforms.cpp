@@ -319,7 +319,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (keepDvmDirectives == 0)
             {
                 map<string, vector<int>> errors; // file->lines
-                DvmDirectiveChecker(file, errors);
+                if (ignoreDvmChecker == 0)
+                    DvmDirectiveChecker(file, errors);
+
+                __spf_print(1, "  ignoreDvmChecker = %d\n", ignoreDvmChecker);
                 if (errors.size() != 0)
                 {
                     veriyOK = false;
@@ -807,6 +810,47 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             usedArrays.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
 
+            if (currReg->HasUserDvmDirs())
+            {
+                bool error = false;
+                if (currReg->GetUsersDirecites(DVM_REALIGN_DIR)->size())
+                {
+                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_REALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls);
+                    error = error || ret;
+                }
+                else if (currReg->GetUsersDirecites(DVM_ALIGN_DIR)->size())
+                {
+                    bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls);
+                    error = error || ret;
+                }
+                else
+                    error = true;
+
+                if (error)
+                {
+                    string message;
+                    __spf_printToBuf(message, "Can not build align graph from user's DVM directives in this region");
+                    for (auto &lines : currReg->GetAllLines())
+                    {
+                        const auto &vecLines = lines.second;
+                        const string &fileName = lines.first;
+
+                        auto messages = getMessagesForFile(fileName.c_str());
+                        for (auto &line : vecLines)
+                        {
+                            if (line.stats.first && line.stats.second)
+                            {
+                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), message, 1036));
+
+                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n", 
+                                            fileName.c_str(), line.stats.first->lineNumber());
+                            }
+                        }
+                    }
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
+            
             G.SetMaxAvailMemory(currentAvailMemory);
 
             const int allArraysNum = allArrays.GetArrays().size();
@@ -1490,9 +1534,9 @@ int main(int argc, char**argv)
                     folderName = argv[i];
                 }
                 else if (string(curr_arg) == "-print")
-                {
                     printText = true;
-                }
+                else if (string(curr_arg) == "-useDvm")
+                    ignoreDvmChecker = 1;
                 break;
             default:
                 break;

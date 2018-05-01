@@ -1537,6 +1537,13 @@ static void findArrayRefs(SgExpression *ex,
                 if (itDecl == declaratedArraysSt.end())
                     itDecl = declaratedArraysSt.insert(itDecl, make_pair(decl, set<tuple<int, string, string>>()));
                 itDecl->second.insert(uniqKey);
+
+                if (decl->variant() == DVM_VAR_DECL)
+                {
+                    const string tmp(decl->unparse());
+                    if (tmp.find("!DVM$ TEMPLATE") != string::npos)
+                        itNew->second.first->SetTemplateFlag(true);
+                }
             }
         }
     }

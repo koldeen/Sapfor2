@@ -499,6 +499,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
         }
         __spf_print(DEBUG, "Function ended\n");
     }
+
+    for (auto &loop : loopGraph)
+        loop->propagateUserDvmDir();
 }
 
 void LoopGraph::recalculatePerfect()
