@@ -165,6 +165,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
     int countTrees = reducedG.FindAllArraysTrees(trees, allArrays);
     //create one tree for all array that not found
+    bool hasTemplates = false;
     for (auto &array : allArrays.GetArrays())
     {
         set<DIST::Array*> realRefs;
@@ -172,24 +173,41 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
         for (auto &realArray : realRefs)
         {
+            hasTemplates = hasTemplates || realArray->isTemplate();
             auto it = trees.find(realArray);
             if (it == trees.end())
                 trees.insert(it, make_pair(realArray, ++countTrees));
         }
     }
 
-    convertTrees(trees, convTrees, arrayLinksByFuncCalls);
-        
     vector<DIST::Array*> arraysToDist;
-    for (auto i = convTrees.begin(); i != convTrees.end(); ++i)
+    if (hasTemplates == false)
     {
-        std::sort(i->second.begin(), i->second.end(), ArraySortFunc);
-        DIST::Array *distrArray = GetArrayWithMaximumDim(i->second);
-        checkNull(distrArray, convertFileName(__FILE__).c_str(), __LINE__);
+        convertTrees(trees, convTrees, arrayLinksByFuncCalls);
+        for (auto i = convTrees.begin(); i != convTrees.end(); ++i)
+        {
+            std::sort(i->second.begin(), i->second.end(), ArraySortFunc);
+            DIST::Array *distrArray = GetArrayWithMaximumDim(i->second);
+            checkNull(distrArray, convertFileName(__FILE__).c_str(), __LINE__);
 
-        DIST::Array *templ = createTemplate(distrArray, reducedG, allArrays);
-        checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
-        arraysToDist.push_back(templ);
+            DIST::Array *templ = createTemplate(distrArray, reducedG, allArrays);
+            checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
+            arraysToDist.push_back(templ);
+        }
+    }
+    else
+    {
+        for (auto &array : allArrays.GetArrays())
+        {
+            set<DIST::Array*> realRefs;
+            getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+            for (auto &realArray : realRefs)
+            {
+                if (realArray->isTemplate())
+                    arraysToDist.push_back(realArray);
+            }
+        }
     }
 
     dataDirectives.createDirstributionVariants(arraysToDist);
@@ -296,15 +314,24 @@ static bool comparator(const pair<DIST::Array*, pair<AssignType, set<DIST::Array
 int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
                     const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
-    if (dataDirectives.distrRules.size() == 0)
-        return 1;
-
     set<DIST::Array*> distArrays;
-    for (int i = 0; i < dataDirectives.distrRules.size(); ++i)
-        distArrays.insert(dataDirectives.distrRules[i].first);
-
-    const set<DIST::Array*> &arrays = allArrays.GetArrays();    
+    const set<DIST::Array*> &arrays = allArrays.GetArrays();
     vector<pair<DIST::Array*, pair<AssignType, set<DIST::Array*>>>> alignInfo;
+
+    if (dataDirectives.distrRules.size() == 0)
+    {
+        for (auto &array : arrays)
+            if (array->isTemplate())
+                distArrays.insert(array);
+
+        if (distArrays.size() == 0)
+            return 1;
+    }
+    else
+    {
+        for (int i = 0; i < dataDirectives.distrRules.size(); ++i)
+            distArrays.insert(dataDirectives.distrRules[i].first);
+    }
 
     for (auto it = arrays.begin(); it != arrays.end(); ++it)
     {        
