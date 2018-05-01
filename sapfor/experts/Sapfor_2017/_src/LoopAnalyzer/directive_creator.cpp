@@ -25,7 +25,7 @@
 #include "../AstWrapper.h"
 
 #define PRINT_DIR_RESULT 0
-#define PRINT_PROF_INFO  0
+#define PRINT_PROF_INFO  1
 
 #define FIRST(x)  get<0>(x)
 #define SECOND(x) get<1>(x)
@@ -506,7 +506,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
     for (auto &loopInfo : loopInfos)
     {
         ParallelRegion *currReg = getRegionByLine(regions, loopInfo.first->fileName.c_str(), loopInfo.first->lineNum);
-        if (currReg == NULL)
+        if (currReg == NULL || loopInfo.first->userDvmDirective != NULL)
         {
             __spf_print(PRINT_PROF_INFO, "Skip loop on file %s and line %d\n", loopInfo.first->fileName.c_str(), loopInfo.first->lineNum);
             continue;
@@ -1202,40 +1202,43 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 {
     for (int i = 0; i < loopGraph.size(); ++i)
     {
-        LoopGraph *current = loopGraph[i];
-        currProcessing.second = current->loop;
+        LoopGraph *loop = loopGraph[i];
+        currProcessing.second = loop->loop;
 
-        if (current->directive && current->hasLimitsToParallel() == false && (current->region == currParReg))
+        if (loop->directive && 
+            (loop->hasLimitsToParallel() == false) && 
+            (loop->region == currParReg) && 
+            (loop->userDvmDirective == NULL))
         {
-            if (current->perfectLoop >= 1)
+            if (loop->perfectLoop >= 1)
             {
-                bool topCheck = isOnlyTopPerfect(current, distribution);
-                ParallelDirective *parDirective = current->directive;
+                bool topCheck = isOnlyTopPerfect(loop, distribution);
+                ParallelDirective *parDirective = loop->directive;
                 /* if (topCheck == false)
                 {  //try to unite loops and recheck
-                    bool result = createNestedLoops(current, depInfoForLoopGraph, messages);
+                    bool result = createNestedLoops(loop, depInfoForLoopGraph, messages);
                     if (result)
                     {
-                        parDirective = current->recalculateParallelDirective();
-                        topCheck = isOnlyTopPerfect(current, distribution);
+                        parDirective = loop->recalculateParallelDirective();
+                        topCheck = isOnlyTopPerfect(loop, distribution);
                     }
                 } */
 
                 if (topCheck)
                 {
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, current->getAllArraysInLoop(), messages, current->lineNum))
-                        addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId, messages);
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum))
+                        addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                 }
                 else
-                    addRedistributionDirs(file, distribution, toInsert, current, parDirective, regionId, messages);
+                    addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                 
                 vector<pair<DIST::Array*, const DistrVariant*>> newRules;
-                constructRules(newRules, distribution, current);
+                constructRules(newRules, distribution, loop);
 
                 // insert parallel dir                            
                 pair<string, vector<Expression*>> dir = 
-                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, current->acrossOutAttribute, current->readOps, regionId);
-                toInsert.push_back(make_pair(current->lineNum, dir));
+                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, regionId);
+                toInsert.push_back(make_pair(loop->lineNum, dir));
             }
         }
         else //TODO: add checker for indexing in this loop

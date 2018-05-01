@@ -3106,14 +3106,14 @@ SgStatement *RegionDestroyRb(int irgn, SgExpression *bufref)
   return(call);
 }
 
-
-
 SgStatement *ActualScalar(SgSymbol *s)
 {  //generating Subroutine Call:  
    //    dvmh_actual_variable(addr) 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[ACTUAL_SCALAR]);  
-  fmask[ACTUAL_SCALAR] = 2;
+   //  or when RTS2 is used
+   //    dvmh_actual_variable2(const void *addr)
+  int fNum = INTERFACE_RTS2 ? ACTUAL_SCALAR_2 : ACTUAL_SCALAR;
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
   
   call -> addArg(*new SgVarRefExp(s));
   
@@ -3134,6 +3134,20 @@ SgStatement *ActualSubVariable(SgSymbol *s, int ilow, int ihigh)
   return(call);
 }
 
+SgStatement *ActualSubVariable_2(SgSymbol *s, int rank, SgExpression *index_list)
+{  //generating Subroutine Call:  
+   //    dvmh_actual_subvariable2(const void *addr, const DvmType *pRank, /* const DvmType *pIndexLow, const DvmType *pIndexHigh */...)
+
+  SgCallStmt *call = new SgCallStmt(*fdvm[ACTUAL_SUBVAR_2]);  
+  fmask[ACTUAL_SUBVAR_2] = 2;
+  
+  call -> addArg(*new SgVarRefExp(s));
+  call -> addArg(*ConstRef(rank));
+  AddListToList(call->expr(0),index_list);    
+  return(call);
+}
+
+
 SgStatement *ActualSubArray(SgSymbol *ar, int ilow, int ihigh)
 {  //generating Subroutine Call:  
    //    dvmh_actual_subarray(dvmDesc[], lowIndex[], highIndex[]) 
@@ -3147,12 +3161,27 @@ SgStatement *ActualSubArray(SgSymbol *ar, int ilow, int ihigh)
   return(call);
 }
 
+SgStatement *ActualSubArray_2(SgSymbol *ar, int rank, SgExpression *index_list)
+{  //generating Subroutine Call:  
+   //    dvmh_actual_subarray2(const DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pIndexLow, const DvmType *pIndexHigh */...) 
+
+  SgCallStmt *call = new SgCallStmt(*fdvm[ACTUAL_SUBARRAY_2]);  
+  fmask[ACTUAL_SUBARRAY_2] = 2;
+  
+  call -> addArg(*HeaderRef(ar));
+  call -> addArg(*ConstRef(rank));
+  AddListToList(call->expr(0),index_list);
+  return(call);
+}
+
 SgStatement *ActualArray(SgSymbol *ar)
 {  //generating Subroutine Call:  
    //    dvmh_actual_array(dvmDesc[]) 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[ACTUAL_ARRAY]);  
-  fmask[ACTUAL_ARRAY] = 2;
+   //  or when RTS2 is used
+   //    dvmh_actual_array2(const DvmType dvmDesc[])
+  int fNum = INTERFACE_RTS2 ? ACTUAL_ARRAY_2 : ACTUAL_ARRAY;
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
   
   call -> addArg(*HeaderRef(ar));
   return(call);
@@ -3161,19 +3190,22 @@ SgStatement *ActualArray(SgSymbol *ar)
 SgStatement *ActualAll()
 {  //generating Subroutine Call:  
    //    dvmh_actual_all() 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[ACTUAL_ALL]);  
-  fmask[ACTUAL_ALL] = 2;
+   //  or when RTS2 is used
+   //    dvmh_actual_all2() 
+  int fNum = INTERFACE_RTS2 ? ACTUAL_ALL_2 : ACTUAL_ALL;
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
   return(call);
 }
-
 
 SgStatement *GetActualScalar(SgSymbol *s)
 {  //generating Subroutine Call:  
    //    dvmh_get_actual_variable(addr) 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[GET_ACTUAL_SCALAR]);  
-  fmask[GET_ACTUAL_SCALAR] = 2;
+   //  or when RTS2 is used
+   //    dvmh_get_actual_variable2(void *addr)
+  int fNum = INTERFACE_RTS2 ? GET_ACTUAL_SCALAR_2 : GET_ACTUAL_SCALAR;
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
   
   call -> addArg(*new SgVarRefExp(s));
   
@@ -3190,10 +3222,22 @@ SgStatement *GetActualSubVariable(SgSymbol *s, int ilow, int ihigh)
   call -> addArg(*new SgVarRefExp(s));
   call -> addArg(*DVM000(ilow));
   call -> addArg(*DVM000(ihigh));
-  
+ 
   return(call);
 }
 
+SgStatement *GetActualSubVariable_2(SgSymbol *s, int rank, SgExpression *index_list)
+{  //generating Subroutine Call:  
+   //    dvmh_get_actual_subvariable2(void *addr, const DvmType *pRank, /* const DvmType *pIndexLow, const DvmType *pIndexHigh */...); 
+
+  SgCallStmt *call = new SgCallStmt(*fdvm[GET_ACTUAL_SUBVAR_2]);  
+  fmask[GET_ACTUAL_SUBVAR_2] = 2;
+  
+  call -> addArg(*new SgVarRefExp(s));
+  call -> addArg(*ConstRef(rank));
+  AddListToList(call->expr(0),index_list);  
+  return(call);
+}
 
 SgStatement *GetActualSubArray(SgSymbol *ar, int ilow, int ihigh)
 {  //generating Subroutine Call:  
@@ -3208,12 +3252,26 @@ SgStatement *GetActualSubArray(SgSymbol *ar, int ilow, int ihigh)
   return(call);
 }
 
+SgStatement *GetActualSubArray_2(SgSymbol *ar, int rank, SgExpression *index_list)
+{  //generating Subroutine Call:  
+   //    dvmh_get_actual_subarray2_(const DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pIndexLow, const DvmType *pIndexHigh */...)
+  SgCallStmt *call = new SgCallStmt(*fdvm[GET_ACTUAL_SUBARR_2]);  
+  fmask[GET_ACTUAL_SUBARR_2] = 2;
+  
+  call -> addArg(*HeaderRef(ar));
+  call -> addArg(*ConstRef(rank));
+  AddListToList(call->expr(0),index_list);  
+  return(call);
+}
+
 SgStatement *GetActualArray(SgExpression *objref)
 {  //generating Subroutine Call:  
-   //    dvmh_get_actual_array(dvmDesc[]) 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[GET_ACTUAL_ARRAY]);  
-  fmask[GET_ACTUAL_ARRAY] = 2;
+   //    dvmh_get_actual_array(dvmDesc[])
+   //  or when RTS2 is used
+   //    dvmh_get_actual_array2(const DvmType dvmDesc[]) 
+  int fNum = INTERFACE_RTS2 ? GET_ACTUAL_ARR_2 : GET_ACTUAL_ARRAY; 
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
   
   call -> addArg(*objref); //(*HeaderRef(ar));
   return(call);
@@ -3222,9 +3280,11 @@ SgStatement *GetActualArray(SgExpression *objref)
 SgStatement *GetActualAll()
 {  //generating Subroutine Call:  
    //    dvmh_get_actual_all() 
-
-  SgCallStmt *call = new SgCallStmt(*fdvm[GET_ACTUAL_ALL]);  
-  fmask[GET_ACTUAL_ALL] = 2;
+   //  or when RTS2 is used
+   //    dvmh_get_actual_all2()
+  int fNum = INTERFACE_RTS2 ? GET_ACTUAL_ALL_2 : GET_ACTUAL_ALL;
+  SgCallStmt *call = new SgCallStmt(*fdvm[fNum]);  
+  fmask[fNum] = 2;
 
   return(call);
 }

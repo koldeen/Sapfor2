@@ -17,9 +17,7 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
                                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                                  std::set<std::string> &privatesVars);
 
-DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName,
-                                    const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                                    const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt);
+DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName);
 
 SgStatement* declaratedInStmt(SgSymbol *toFind);
 bool isSPF_comment(const int variant);

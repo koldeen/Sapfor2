@@ -223,8 +223,33 @@ public:
             userDvmShadowDirs.insert(userDvmShadowDirs.end(), dirs.begin(), dirs.end());
         else if (type == DVM_REALIGN_DIR)
             userDvmRealignDirs.insert(userDvmRealignDirs.end(), dirs.begin(), dirs.end());
-        else if (type == DVM_DISTRIBUTE_DIR)
+        else if (type == DVM_REDISTRIBUTE_DIR)
             userDvmRedistrDirs.insert(userDvmRedistrDirs.end(), dirs.begin(), dirs.end());
+    }
+
+    const std::vector<Statement*>* GetUsersDirecites(const int type) const
+    {
+        if (type == DVM_DISTRIBUTE_DIR)
+            return &userDvmDistrDirs;
+        else if (type == DVM_ALIGN_DIR)
+            return &userDvmAlignDirs;
+        else if (type == DVM_SHADOW_DIR)
+            return &userDvmShadowDirs;
+        else if (type == DVM_REALIGN_DIR)
+            return &userDvmRealignDirs;
+        else if (type == DVM_REDISTRIBUTE_DIR)
+            return &userDvmRedistrDirs;
+        else
+            return NULL;
+    }
+
+    bool HasUserDvmDirs() const 
+    {
+        return userDvmDistrDirs.size()   != 0 ||
+               userDvmAlignDirs.size()   != 0 ||
+               userDvmShadowDirs.size()  != 0 ||
+               userDvmRealignDirs.size() != 0 ||
+               userDvmRedistrDirs.size() != 0;
     }
 
 private:

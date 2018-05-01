@@ -340,7 +340,7 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
             const string symb = symbS->identifier();
 
             if (symbS)
-                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb, declaratedArrays, declaratedArraysSt);
+                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb);
             else
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -670,15 +670,15 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             }
             else
             {
-                for (int i = 0; i < 3; ++i)
-                    if (st->expr(i))
-                        findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);
-
                 for (auto &proc : entryProcs)
                     for (int i = 0; i < 3; ++i)
                         if (st->expr(i))
                             findParamUsedInFuncCalls(st->expr(i), *proc);
             }
+
+            for (int i = 0; i < 3; ++i)
+                if (st->expr(i))
+                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);            
 
             if (st->variant() == ENTRY_STAT)
             {

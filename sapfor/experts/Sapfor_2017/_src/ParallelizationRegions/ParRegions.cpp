@@ -11,8 +11,10 @@
 #include "dvm.h"
 #include "ParRegions.h"
 #include "../utils.h"
+#include "../SgUtils.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../Distribution/Distribution.h"
 
 using std::vector;
 using std::string;
@@ -421,4 +423,171 @@ int printParalleRegions(const char *fileName, vector<ParallelRegion*> &regions)
 
     fclose(file);
     return 0;
+}
+
+static void fillMultOp(SgExpression *ex, pair<string, pair<int, int>> &retVal)
+{
+    if (ex->lhs()->variant() == INT_VAL || ex->lhs()->variant() == MINUS_OP) // -+a * X
+    {
+        retVal.first = ex->rhs()->symbol()->identifier();
+        retVal.second.first = ex->lhs()->valueInteger();
+    }
+    else if (ex->lhs()->variant() == VAR_REF) // X * -+a
+    {
+        retVal.first = ex->lhs()->symbol()->identifier();
+        retVal.second.first = ex->rhs()->valueInteger();
+    }
+}
+
+static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
+{
+    pair<string, pair<int, int>> retVal;
+
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF)
+        {
+            retVal.first = ex->symbol()->identifier();
+            retVal.second = make_pair(1, 0);
+        }
+        else if (ex->variant() == MULT_OP) // a * X
+            fillMultOp(ex, retVal);
+        else if (ex->variant() == ADD_OP || ex->variant() == SUBT_OP) // a * X +- b
+        {
+            int minus = (ex->variant() == ADD_OP) ? 1 : -1;
+            if (ex->lhs()->variant() == MULT_OP) // a * X +- b
+            {
+                fillMultOp(ex->lhs(), retVal);
+                retVal.second.second = ex->rhs()->valueInteger() * minus;
+            }
+            else if (ex->lhs()->variant() == INT_VAL) // b +- [a *] X
+            {
+                if (ex->rhs()->variant() == MULT_OP)
+                    fillMultOp(ex->rhs(), retVal);
+                else
+                {
+                    retVal.first = ex->rhs()->symbol()->identifier();
+                    retVal.second.first = minus;
+                }
+                retVal.second.second = ex->lhs()->valueInteger() * minus;
+            }
+        }
+        else if (ex->variant() == KEYWORD_VAL)
+        {
+            SgKeywordValExp *keyVal = (SgKeywordValExp*)ex;
+            if (keyVal->value())
+                retVal = make_pair(keyVal->value(), make_pair(0, 0));
+        }
+    }
+    return retVal;
+}
+
+static void fillTemplate(SgExpression *ex, vector<pair<string, pair<int, int>>> &templateArray)
+{
+    for (SgExpression *list = ex; list; list = list->rhs())
+        templateArray.push_back(parseExpression(list->lhs()));
+}
+
+static int getTemplateDemention(const string &val, const vector<pair<string, pair<int, int>>> &alignWithTemplate)
+{
+    int ret = -1;
+    for (int k = 0; k < alignWithTemplate.size(); ++k)
+    {
+        if (alignWithTemplate[k].first == val)
+        {
+            ret = k;
+            break;
+        }
+    }
+    return ret;
+}
+
+bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DIST::GraphCSR<int, double, attrType> &G, 
+                                  DIST::Arrays<int> &allArrays, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    if (userDvmAlignDirs.size())
+    {
+        G.cleanData();
+
+        int t = 0;
+        for (auto &dir : userDvmAlignDirs)
+        {
+            vector<DIST::Array*> alignArrays;
+            
+            vector<pair<string, pair<int, int>>> alignTemplate;
+
+            DIST::Array* alignWithArray = NULL;
+            vector<pair<string, pair<int, int>>> alignWithTemplate;
+
+            if (dir->expr(0) == NULL)
+                return true;
+
+            for (SgExpression *ex = dir->expr(0); ex; ex = ex->rhs())
+            {
+                SgExpression *val = ex->lhs();
+                if (val->variant() == ARRAY_REF && val->symbol())
+                {
+                    DIST::Array *newValue = getArrayFromDeclarated(declaratedInStmt(val->symbol()), val->symbol()->identifier());
+                    if (newValue)
+                        alignArrays.push_back(newValue);
+                    else
+                        return true;
+                }
+            }
+
+            map<DIST::Array*, set<DIST::Array*>> realAlignArrayRefs;
+            for (auto &access : alignArrays)
+                getRealArrayRefs(access, access, realAlignArrayRefs[access], arrayLinksByFuncCalls);
+
+            set<DIST::Array*> realAlignArrayRefsSet;
+            for (auto &elem : realAlignArrayRefs)
+                realAlignArrayRefsSet.insert(elem.second.begin(), elem.second.end());
+
+            if (dir->expr(1))
+                fillTemplate(dir->expr(1), alignTemplate);
+            else
+                return true;
+
+            if (dir->expr(2))
+            {
+                SgExpression *ex = dir->expr(2);
+                if (ex->variant() == ARRAY_REF && ex->symbol())
+                {
+                    alignWithArray = getArrayFromDeclarated(declaratedInStmt(ex->symbol()), ex->symbol()->identifier());
+                    if (alignWithArray == NULL)
+                        return true;
+                    fillTemplate(ex->lhs(), alignWithTemplate);
+                }
+            }
+            else
+                return true;
+                        
+            /*dir->unparsestdout();
+            printf("DIR #%d\n", t++);
+            for (int i = 0; i < 3; ++i)
+            {
+                if (dir->expr(i))
+                {
+                    printf(" EXP #%d\n", i);
+                    recExpressionPrint(dir->expr(i));
+                }
+            }
+            printf("\n");*/
+
+            for (int i = 0; i < alignTemplate.size(); ++i)
+            {
+                if (alignTemplate[i].first != "*")
+                {
+                    int dimT = getTemplateDemention(alignTemplate[i].first, alignWithTemplate);
+                    if (dimT == -1)
+                        return true;
+                    //AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+                    for (auto &arrays : realAlignArrayRefsSet)
+                        DIST::AddArrayAccess(G, allArrays, arrays, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
+                }
+            }
+        }
+    }
+
+    return false;
 }
