@@ -537,15 +537,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
 
-            // TODO: add filling from BLOCK DATA
+            // filling from BLOCK DATA
             SgStatement *st = file->firstStatement();
+
             while (st)
             {
                 if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
                 {
+                    string blockDataName = st->symbol()->identifier();
 
+                    SgStatement *iterator = st->lexNext();
+                    SgStatement *end = st->lastNodeOfStmt();
+
+                    for (; iterator != end; iterator = iterator->lexNext())
+                    {
+
+                    }
                 }
-                st = st->lastNodeOfStmt();
                 st = st->lexNext();
             }
         }
