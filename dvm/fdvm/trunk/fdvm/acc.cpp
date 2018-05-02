@@ -1,4 +1,3 @@
-
 /*********************************************************************/
 /*  Fortran DVM+OpenMP+ACC                                           */
 /*                                                                   */
@@ -1245,10 +1244,15 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
                 }
                 else
                 {
-                    ilow = ndvm;
-                    ihigh = SectionBounds(e);
-                    doCallAfter(ActualSubArray(s, ilow, ihigh)); //inserting after current statement 
-                    continue;
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(ActualSubArray_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(ActualSubArray(s, ilow, ihigh)); //inserting after current statement 
+                     }
+                     continue;
                 }
             }
             else
@@ -1303,9 +1307,14 @@ SgStatement *ACC_GET_ACTUAL_Directive(SgStatement *stmt)
                 }
                 else
                 {
-                    ilow = ndvm;
-                    ihigh = SectionBounds(e);
-                    doCallAfter(GetActualSubArray(s, ilow, ihigh)); //inserting after current statement 
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(GetActualSubArray_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(GetActualSubArray(s, ilow, ihigh)); //inserting after current statement
+                    } 
                     continue;
                 }
 
