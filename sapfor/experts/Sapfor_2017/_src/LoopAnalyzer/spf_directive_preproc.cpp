@@ -708,18 +708,15 @@ static bool checkParallelRegions(SgStatement *st,
                     {
                         for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
-                            for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
+                            if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
                             {
-                                if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
-                                {
-                                    __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                    string message;
-                                    __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
-                                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
+                                string message;
+                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
-                                    retVal = false;
-                                }
+                                retVal = false;
                             }
                         }
                     }
