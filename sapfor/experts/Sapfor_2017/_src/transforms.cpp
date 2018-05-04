@@ -511,15 +511,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
-            vector<pair<SgStatement*, map<string, vector<SgExpression*>>>> commonBlocksRefs;
+            vector<pair<SgStatement*, SgStatement*>> lines;
 
             for (int i = 0; i < file->numberOfFunctions(); ++i)
             {
-                SgStatement *iterator = file->functions(i);
-                SgStatement *end = iterator->lastNodeOfStmt();
+                SgStatement *start = file->functions(i);
+                SgStatement *end = start->lastNodeOfStmt();
 
-                auto it = commonBlocksRefs.insert(commonBlocksRefs.begin(), make_pair(iterator, map<string, vector<SgExpression*>>()));
-                getCommonBlocksRef(it->second, iterator->lexNext(), end);
+                lines.push_back(make_pair(start, end));
             }
 
             // filling from BLOCK DATA
@@ -529,11 +528,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             {
                 if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
                 {
-                    SgStatement *iterator = st->lexNext();
+                    SgStatement *start = st->lexNext();
                     SgStatement *end = st->lastNodeOfStmt();
-
-                    auto it = commonBlocksRefs.insert(commonBlocksRefs.begin(), make_pair(st, map<string, vector<SgExpression*>>()));
-                    getCommonBlocksRef(it->second, iterator->lexNext(), end);
 
                     st = st->lastNodeOfStmt();
                 }
@@ -541,9 +537,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 st = st->lexNext();
             }
 
-            for (auto &commonBlocksRefPair : commonBlocksRefs)
+            for (auto &startEnd : lines)
             {
-                for (auto &commonBlockRef : commonBlocksRefPair.second)
+                map<string, vector<SgExpression*>> commonBlocksRef;
+
+                getCommonBlocksRef(commonBlocksRef, startEnd.first, startEnd.second);
+
+                // adding found common variables
+                for (auto &commonBlockRef : commonBlocksRef)
                 {
                     auto it = commonBlocks.find(commonBlockRef.first);
                     if (it == commonBlocks.end())
@@ -559,7 +560,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
-                        it->second.addVariables(file, commonBlocksRefPair.first, newVariables);
+                        it->second.addVariables(file, startEnd.first, newVariables);
                     }
                 }
             }
