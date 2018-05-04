@@ -40,8 +40,7 @@ static bool recursiveFindCall(SgExpression *exp, const FuncInfo* func)
 {
     if (exp)
     {
-        //if(exp->variant() == PROG_HEDR || exp->variant() == PROC_HEDR || exp->variant() == FUNC_HEDR)
-        if (exp->variant() == FUNC_CALL || exp->variant() == PROC_CALL)
+        if (exp->variant() == FUNC_CALL)
             if (func->funcName == exp->symbol()->identifier())
                 return true;
 
@@ -70,7 +69,7 @@ static void findCall(const FuncInfo* funcFrom, const FuncInfo* funcTo, bool &cal
 
             bool retVal = false;
 
-            if (iterator->variant() == PROC_STAT || iterator->variant() == FUNC_STAT)
+            if (iterator->variant() == PROC_STAT)
                 if (iterator->symbol()->identifier() == funcFrom->funcName)
                     retVal = true;
 

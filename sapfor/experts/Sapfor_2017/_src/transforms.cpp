@@ -514,10 +514,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (int i = 0; i < file->numberOfFunctions(); ++i)
             {
                 map<string, vector<SgExpression*>> commonBlocksRef;
-                SgStatement *start = file->functions(i);
-                SgStatement *end = start->lastNodeOfStmt();
+                SgStatement *iterator = file->functions(i);
+                SgStatement *end = iterator->lastNodeOfStmt();
 
-                getCommonBlocksRef(commonBlocksRef, start->lexNext(), end);
+                getCommonBlocksRef(commonBlocksRef, iterator->lexNext(), end);
 
                 for (auto &commonBlockRef : commonBlocksRef)
                 {
@@ -535,7 +535,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
-                        it->second.addVariables(file, start, newVariables);
+                        it->second.addVariables(file, iterator, newVariables);
                     }
                 }
             }
@@ -543,21 +543,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             // filling from BLOCK DATA
             SgStatement *st = file->firstStatement();
 
-            while (st)
+            while (st && st->variant() != BLOCK_DATA)
+                st = st->lexNext();
+
+            if (st) //BLOCK_DATA header
             {
-                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
+                map<string, vector<SgExpression*>> commonBlocksRef;
+                SgStatement *iterator = st->lexNext();
+                SgStatement *end = st->lastNodeOfStmt();
+
+                getCommonBlocksRef(commonBlocksRef, iterator->lexNext(), end);
+
+                for (auto &commonBlockRef : commonBlocksRef)
                 {
-                    string blockDataName = st->symbol()->identifier();
-
-                    SgStatement *iterator = st->lexNext();
-                    SgStatement *end = st->lastNodeOfStmt();
-
-                    for (; iterator != end; iterator = iterator->lexNext())
+                    auto it = commonBlocks.find(commonBlockRef.first);
+                    if (it == commonBlocks.end())
                     {
+                        CommonBlock newCommonBlock(commonBlockRef.first, vector<Variable>());
+                        it = commonBlocks.insert(it, make_pair(commonBlockRef.first, newCommonBlock));
+                    }
 
+                    int position = 0;
+                    for (auto &commonBlock : commonBlockRef.second)
+                    {
+                        vector<pair<SgSymbol*, int>> newVariables;
+                        for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
+                            newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
+
+                        it->second.addVariables(file, st, newVariables);
                     }
                 }
-                st = st->lexNext();
             }
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
