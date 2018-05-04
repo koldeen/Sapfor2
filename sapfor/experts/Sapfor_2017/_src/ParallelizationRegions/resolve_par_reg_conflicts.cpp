@@ -9,10 +9,6 @@
 
 #include "../GraphCall/graph_calls_func.h"
 
-//#include "../../../../dvm/fdvm/trunk/InlineExpansion/inline.h"
-//extern struct graph_node;
-//extern graph_node *CloneNode(graph_node *gnode);
-
 using std::map;
 using std::pair;
 using std::set;
@@ -89,7 +85,7 @@ static void findCall(const FuncInfo* funcFrom, const FuncInfo* funcTo, bool &cal
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> funcMap, string &funcName)
+static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
 {
     auto it = funcMap.find(funcName);
     if (it == funcMap.end())
@@ -384,7 +380,13 @@ static void copyFunction(ParallelRegion *region, const map<string, vector<FuncIn
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
-    // CloneNode();
+    auto func = getFuncInfo(funcMap, funcName);
+    if (func)
+    {
+        // copySubprogram();
+        // CloneNode();
+        
+    }
 }
 
 void resolveRegions(const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, const set<string> &allCommonFunctions)
