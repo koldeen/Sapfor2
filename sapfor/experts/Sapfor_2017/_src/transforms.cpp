@@ -511,15 +511,39 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
+            vector<pair<SgStatement*, map<string, vector<SgExpression*>>>> commonBlocksRefs;
+
             for (int i = 0; i < file->numberOfFunctions(); ++i)
             {
-                map<string, vector<SgExpression*>> commonBlocksRef;
                 SgStatement *iterator = file->functions(i);
                 SgStatement *end = iterator->lastNodeOfStmt();
 
-                getCommonBlocksRef(commonBlocksRef, iterator->lexNext(), end);
+                auto it = commonBlocksRefs.insert(commonBlocksRefs.begin(), make_pair(iterator, map<string, vector<SgExpression*>>()));
+                getCommonBlocksRef(it->second, iterator->lexNext(), end);
+            }
 
-                for (auto &commonBlockRef : commonBlocksRef)
+            // filling from BLOCK DATA
+            SgStatement *st = file->firstStatement();
+
+            while (st)
+            {
+                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
+                {
+                    SgStatement *iterator = st->lexNext();
+                    SgStatement *end = st->lastNodeOfStmt();
+
+                    auto it = commonBlocksRefs.insert(commonBlocksRefs.begin(), make_pair(st, map<string, vector<SgExpression*>>()));
+                    getCommonBlocksRef(it->second, iterator->lexNext(), end);
+
+                    st = st->lastNodeOfStmt();
+                }
+
+                st = st->lexNext();
+            }
+
+            for (auto &commonBlocksRefPair : commonBlocksRefs)
+            {
+                for (auto &commonBlockRef : commonBlocksRefPair.second)
                 {
                     auto it = commonBlocks.find(commonBlockRef.first);
                     if (it == commonBlocks.end())
@@ -535,48 +559,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
-                        it->second.addVariables(file, iterator, newVariables);
+                        it->second.addVariables(file, commonBlocksRefPair.first, newVariables);
                     }
                 }
-            }
-
-            // filling from BLOCK DATA
-            SgStatement *st = file->firstStatement();
-
-            while (st)
-            {
-                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
-                {
-                    map<string, vector<SgExpression*>> commonBlocksRef;
-                    SgStatement *iterator = st->lexNext();
-                    SgStatement *end = st->lastNodeOfStmt();
-
-                    getCommonBlocksRef(commonBlocksRef, iterator->lexNext(), end);
-
-                    for (auto &commonBlockRef : commonBlocksRef)
-                    {
-                        auto it = commonBlocks.find(commonBlockRef.first);
-                        if (it == commonBlocks.end())
-                        {
-                            CommonBlock newCommonBlock(commonBlockRef.first, vector<Variable>());
-                            it = commonBlocks.insert(it, make_pair(commonBlockRef.first, newCommonBlock));
-                        }
-
-                        int position = 0;
-                        for (auto &commonBlock : commonBlockRef.second)
-                        {
-                            vector<pair<SgSymbol*, int>> newVariables;
-                            for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
-                                newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
-
-                            it->second.addVariables(file, st, newVariables);
-                        }
-                    }
-
-                    st = st->lastNodeOfStmt();
-                }
-
-                st = st->lexNext();
             }
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
