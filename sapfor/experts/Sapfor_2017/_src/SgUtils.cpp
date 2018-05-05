@@ -1121,38 +1121,35 @@ const vector<const Variable*> CommonBlock::getVariables(const string &file, cons
 
 static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 {
-    if (ex)
+    if (ex && type == ANOTHER)
     {
-        bool needBreak = false;
-        switch (ex->variant())
+        if (ex->symbol() && ex->symbol()->identifier() == toFind)
         {
-        case VAR_REF:
-            type = SCALAR;
-            needBreak = true;
-            break;
-        case ARRAY_REF:
-            type = ARRAY;
-            needBreak = true;
-            break;
-        case INT_VAL:
-        case FLOAT_VAL:
-        case DOUBLE_VAL:
-        case BOOL_VAL:
-        case CHAR_VAL:
-        case STRING_VAL:
-        case CONST_REF:
-            type = CONST;
-            needBreak = true;
-            break;
-        default:
-            break;
+            switch (ex->variant())
+            {
+            case VAR_REF:
+                type = SCALAR;
+                break;
+            case ARRAY_REF:
+                type = ARRAY;
+                break;
+            case INT_VAL:
+            case FLOAT_VAL:
+            case DOUBLE_VAL:
+            case BOOL_VAL:
+            case CHAR_VAL:
+            case STRING_VAL:
+            case CONST_REF:
+                type = CONST;
+                break;
+            default:
+                type = ANOTHER;
+                break;
+            }
         }
 
-        if (!needBreak)
-        {
-            findDeclType(ex->lhs(), type, toFind);
-            findDeclType(ex->rhs(), type, toFind);
-        }
+        findDeclType(ex->lhs(), type, toFind);
+        findDeclType(ex->rhs(), type, toFind);
     }
 }
 
