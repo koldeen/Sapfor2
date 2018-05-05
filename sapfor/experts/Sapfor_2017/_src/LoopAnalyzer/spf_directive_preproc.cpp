@@ -102,7 +102,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*>
         }
         else
         {
-            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == false)
+            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == NULL)
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef, funcCalls);
             else
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
