@@ -1124,28 +1124,31 @@ static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
     if (ex)
     {
         bool needBreak = false;
-        switch (ex->variant())
+        if (ex->symbol() && ex->symbol()->identifier() == toFind)
         {
-        case VAR_REF:
-            type = SCALAR;
-            needBreak = true;
-            break;
-        case ARRAY_REF:
-            type = ARRAY;
-            needBreak = true;
-            break;
-        case INT_VAL:
-        case FLOAT_VAL:
-        case DOUBLE_VAL:
-        case BOOL_VAL:
-        case CHAR_VAL:
-        case STRING_VAL:
-        case CONST_REF:
-            type = CONST;
-            needBreak = true;
-            break;
-        default:
-            break;
+            switch (ex->variant())
+            {
+            case VAR_REF:
+                type = SCALAR;
+                needBreak = true;
+                break;
+            case ARRAY_REF:
+                type = ARRAY;
+                needBreak = true;
+                break;
+            case INT_VAL:
+            case FLOAT_VAL:
+            case DOUBLE_VAL:
+            case BOOL_VAL:
+            case CHAR_VAL:
+            case STRING_VAL:
+            case CONST_REF:
+                type = CONST;
+                needBreak = true;
+                break;
+            default:
+                break;
+            }
         }
 
         if (!needBreak)
