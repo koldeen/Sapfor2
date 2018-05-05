@@ -383,9 +383,18 @@ static void copyFunction(ParallelRegion *region, const map<string, vector<FuncIn
     auto func = getFuncInfo(funcMap, funcName);
     if (func)
     {
-        // copySubprogram();
-        // CloneNode();
-        
+        if (switchToFile(func->fileName) != -1)
+        {
+            SgSymbol *funcSymb = func->funcPointer->symbol();
+            __spf_print(1, "function name: '%s'\n", funcSymb->identifier()); // remove
+            __spf_print(1, "  scope line: %d\n", funcSymb->scope()->lineNumber()); // remove
+            string newFuncName = string(funcSymb->identifier()) + suffix;
+            __spf_print(1, "new function name '%s'\n", newFuncName.c_str()); // remove
+            SgSymbol *newFuncSymb = new SgSymbol(funcSymb->variant(), newFuncName.c_str(), funcSymb->type(), funcSymb->scope());
+            *newFuncSymb = funcSymb->copySubprogram(*(func->funcPointer));
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 }
 

@@ -1124,33 +1124,39 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
     for (auto &varPair : newVariables)
     {        
         SgStatement *declStatement = declaratedInStmt(varPair.first);
-
         varType type = ANOTHER;
+
         for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
         {
-            if (exp->lhs()->symbol() == varPair.first)
+            for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp; currExp = currExp->rhs())
             {
-                switch (exp->lhs()->variant())
+                if (currExp->lhs()->symbol() == varPair.first)
                 {
-                case VAR_REF:
-                    type = SCALAR;
-                    break;
-                case ARRAY_REF:
-                    type = ARRAY;
-                    break;
-                default:
-                    type = ANOTHER;
+                    switch (currExp->lhs()->variant())
+                    {
+                    case VAR_REF:
+                        type = SCALAR;
+                        break;
+                    case ARRAY_REF:
+                        type = ARRAY;
+                        break;
+                    case CONST_REF:
+                        type = CONST;
+                        break;
+                    default:
+                        type = ANOTHER;
+                        break;
+                    }
                     break;
                 }
-                break;
             }
         }
 
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
-            exist->addUse(file, function);        
+            exist->addUse(file, function);
         else
-            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
+            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));
     }
 }
 

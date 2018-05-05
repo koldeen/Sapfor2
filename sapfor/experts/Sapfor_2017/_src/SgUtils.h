@@ -88,7 +88,7 @@ public:
     }
 };
 
-enum varType { SCALAR, ARRAY, ANOTHER };
+enum varType { SCALAR, ARRAY, CONST, ANOTHER };
 
 struct CommonVariableUse
 {
@@ -157,7 +157,7 @@ public:
 
     void print(FILE *fileOut) const
     {
-        fprintf(fileOut, "  %3d, '%s', %s\n", position, name.c_str(), type == SCALAR ? "SCALAR" : type == ARRAY ? "ARRAY" : "ANOTHER");
+        fprintf(fileOut, "  %3d, '%s', %s\n", position, name.c_str(), type == SCALAR ? "SCALAR" : (type == ARRAY ? "ARRAY" : (type == CONST ? "CONST" : "ANOTHER")));
     }
 };
 

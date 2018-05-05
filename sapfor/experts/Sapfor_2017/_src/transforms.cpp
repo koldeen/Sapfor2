@@ -514,12 +514,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             vector<pair<SgStatement*, SgStatement*>> lines; // lines for getCommonBlocksRef()
 
             for (int i = 0; i < file->numberOfFunctions(); ++i)
-            {
-                SgStatement *start = file->functions(i);
-                SgStatement *end = start->lastNodeOfStmt();
-
-                lines.push_back(make_pair(start, end));
-            }
+                lines.push_back(make_pair(file->functions(i), file->functions(i)->lastNodeOfStmt()));
 
             // filling from BLOCK DATA
             SgStatement *st = file->firstStatement();
@@ -528,14 +523,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             {
                 if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
                 {
-                    SgStatement *start = st;
-                    SgStatement *end = st->lastNodeOfStmt();
-
-                    lines.push_back(make_pair(start, end));
-
+                    lines.push_back(make_pair(st, st->lastNodeOfStmt()));
                     st = st->lastNodeOfStmt();
                 }
-
                 st = st->lexNext();
             }
 
