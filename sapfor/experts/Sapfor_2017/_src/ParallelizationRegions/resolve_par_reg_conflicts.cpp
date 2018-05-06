@@ -165,10 +165,9 @@ static bool isInCommon(const map<string, CommonBlock> &commonBlocks, const strin
 static bool isImplicit(const ParallelRegionLines &regionLines) { return regionLines.stats.first == NULL && regionLines.stats.second == NULL; }
 
 static void recursiveFill(SgExpression *exp,
+                          ParallelRegion *region,
                           const string &functionName,
                           const map<string, CommonBlock> &commonBlocks,
-                          map<string, set<string>> &localArrayFound,
-                          set<string> &commonArrayFound,
                           set<string> &allUsedCommonArrays)
 {
     if (exp)
@@ -179,21 +178,15 @@ static void recursiveFill(SgExpression *exp,
 
             if (isInCommon(commonBlocks, arrayName))
             {
-                commonArrayFound.insert(arrayName);
+                region->AddCommonArray(arrayName);
                 allUsedCommonArrays.insert(arrayName);
             }
             else
-            {
-                auto it = localArrayFound.find(functionName);
-                if (it == localArrayFound.end())
-                    it = localArrayFound.insert(it, make_pair(functionName, set<string>()));
-
-                it->second.insert(arrayName);
-            }
+                region->AddLocalArray(functionName, arrayName);
         }
 
-        recursiveFill(exp->rhs(), functionName, commonBlocks, localArrayFound, commonArrayFound, allUsedCommonArrays);
-        recursiveFill(exp->lhs(), functionName, commonBlocks, localArrayFound, commonArrayFound, allUsedCommonArrays);
+        recursiveFill(exp->rhs(), region, functionName, commonBlocks, allUsedCommonArrays);
+        recursiveFill(exp->lhs(), region, functionName, commonBlocks, allUsedCommonArrays);
     }
 }
 
@@ -241,45 +234,14 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                             continue;
 
                         for (int i = 0; i < 3; ++i)
-                            recursiveFill(iterator->expr(i), functionName, commonBlocks, localArrayFound, commonArrayFound, allUsedCommonArrays);
+                            recursiveFill(iterator->expr(i), region, functionName, commonBlocks, allUsedCommonArrays);
                     }
                 }
             }
             else
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
-
-        string toPrint = "";
-        for (auto &elem : localArrayFound)
-        {
-            toPrint += "function '" + elem.first + "': ";
-            for (auto &arrayName : elem.second)
-            {
-                region->AddLocalArray(elem.first, arrayName);
-                toPrint += arrayName + " ";
-            }
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
-
-        toPrint = "";
-        for (auto &elem : commonArrayFound)
-        {
-            region->AddCommonArray(elem);
-            toPrint += elem + " ";
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
     }
-
-    string toPrint = "";
-    for (auto &elem : allUsedCommonArrays)
-        toPrint += elem + " ";
-
-    if (toPrint != "")
-        __spf_print(1, "all common arrays: %s\n", toPrint.c_str());
 }
 
 void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> allFuncInfo, set<string> &allCommonFunctions)
@@ -303,13 +265,6 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
                     region->AddCrossedFunc(functionName);
             }
         }
-
-        string toPrint = "";
-        for (auto &elem : region->GetCrossedFuncs())
-            toPrint += elem + " ";
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
     }
 
     for (auto &funcPair : funcMap)
@@ -327,13 +282,6 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         if (callsFromCode && callsFromRegion)
             allCommonFunctions.insert(funcPair.first);
     }
-
-    string toPrint = "";
-    for (auto &elem : allCommonFunctions)
-        toPrint += elem + " ";
-
-    if (toPrint != "")
-        __spf_print(1, "all common functions: %s\n", toPrint.c_str());
 }
 
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
@@ -375,46 +323,216 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
     return noError;
 }
 
-static void copyFunction(ParallelRegion *region, const map<string, vector<FuncInfo*>> &allFuncInfo, const string &funcName, const string &suffix)
+static void copyLocalArray(const string &arrayName, const map<string, FuncInfo*> &funcMap)
 {
-    map<string, FuncInfo*> funcMap;
-    createMapOfFunc(allFuncInfo, funcMap);
+    
+}
 
+static void copyCommonArray(const string &arrayName, const map<string, FuncInfo*> &funcMap)
+{
+    
+}
+
+static void copyFunction(ParallelRegion *region,
+                         const string &funcName,
+                         const string &suffix,
+                         const map<string, FuncInfo*> &funcMap)
+{
     auto func = getFuncInfo(funcMap, funcName);
     if (func)
     {
         if (switchToFile(func->fileName) != -1)
         {
             SgSymbol *funcSymb = func->funcPointer->symbol();
+            SgSymbol *newFuncSymb = NULL;
+            string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
+
             __spf_print(1, "function name: '%s'\n", funcSymb->identifier()); // remove
             __spf_print(1, "  scope line: %d\n", funcSymb->scope()->lineNumber()); // remove
-            string newFuncName = string(funcSymb->identifier()) + suffix;
             __spf_print(1, "new function name '%s'\n", newFuncName.c_str()); // remove
-            SgSymbol *newFuncSymb = new SgSymbol(funcSymb->variant(), newFuncName.c_str(), funcSymb->type(), funcSymb->scope());
+
+            newFuncSymb = new SgSymbol(funcSymb->variant(), newFuncName.c_str(), funcSymb->type(), funcSymb->scope());
             *newFuncSymb = funcSymb->copySubprogram(*(func->funcPointer));
+
+            region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 }
 
-void resolveRegions(const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, const set<string> &allCommonFunctions)
+void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
+                              const map<string, FuncInfo*> &funcMap,
+                              const set<string> &allCommonFunctions,
+                              const set<string> &allUsedCommonArrays)
 {
     for (auto &region : regions)
     {
+        // creating new functions
         if (region->GetCrossedFuncs().size())
-        {
             for (auto &crossedFunc : region->GetCrossedFuncs())
-            {
-                copyFunction(region, allFuncInfo, crossedFunc, region->GetName());
-            }
-        }
-        else if (allCommonFunctions.size())
-        {
+                copyFunction(region, crossedFunc, region->GetName(), funcMap);
+
+        if (allCommonFunctions.size())
             for (auto &commonFunc : allCommonFunctions)
+                copyFunction(region, commonFunc, string("copy"), funcMap);
+
+        // creating new arrays
+        for (auto &elem : region->GetLocalArrays())
+            for (auto &localArray : elem.second)
+                copyLocalArray(localArray, funcMap);
+    }
+
+    // creating common-blocks
+    for (auto &commonArray : allUsedCommonArrays)
+        copyCommonArray(commonArray, funcMap);
+}
+
+static void recursiveReplace(SgExpression *exp, const ParallelRegion *region, SgSymbol *from, SgSymbol *to)
+{
+    if (exp)
+    {
+        if (exp->symbol() && exp->symbol() == from)
+            exp->setSymbol(to);
+
+        recursiveReplace(exp->lhs(), region, from, to);
+        recursiveReplace(exp->rhs(), region, from, to);
+    }
+}
+
+void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
+                               const map<string, FuncInfo*> &funcMap,
+                               const set<string> &allCommonFunctions)
+{
+    for (auto &region : regions)
+    {
+        auto regionSymbols = region->GetReplacedSymbols();
+
+        for (auto &fileLines : region->GetAllLines())
+        {
+            // switch to current file
+            if (switchToFile(fileLines.first) != -1)
             {
-                copyFunction(region, allFuncInfo, commonFunc, string("_copy"));
+                for (auto &regionLines : fileLines.second)
+                {
+                    SgStatement *iterator = regionLines.stats.first;
+                    SgStatement *end = regionLines.stats.second;
+
+                    // explicit lines
+                    if (!isImplicit(regionLines))
+                    {
+                        for (; iterator && iterator != end; iterator = iterator->lexNext())
+                        {
+                            for (int i = 0; i < 3; ++i)
+                            {
+                                // recursiveReplace(iterator->expr(i), region);
+                            }
+                        }
+                    }
+                }
             }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
+}
+
+void printCheckRegions(const vector<ParallelRegion*> &regions, set<string> &allUsedCommonArrays, const set<string> &allCommonFunctions)
+{
+    for (auto &region : regions)
+    {
+        string toPrint = "";
+        for (auto &elem : region->GetLocalArrays())
+        {
+            toPrint += "function '" + elem.first + "': ";
+            for (auto &arrayName : elem.second)
+            {
+                toPrint += arrayName + " ";
+            }
+        }
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
+
+        toPrint = "";
+        for (auto &elem : region->GetCommonArrays())
+        {
+            toPrint += elem + " ";
+        }
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
+
+        toPrint = "";
+        for (auto &elem : region->GetCrossedFuncs())
+            toPrint += elem + " ";
+
+        if (toPrint != "")
+            __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
+    }
+
+    string toPrint = "";
+    for (auto &elem : allUsedCommonArrays)
+        toPrint += elem + " ";
+
+    if (toPrint != "")
+        __spf_print(1, "all common arrays: %s\n", toPrint.c_str());
+
+    toPrint = "";
+    for (auto &elem : allCommonFunctions)
+        toPrint += elem + " ";
+
+    if (toPrint != "")
+        __spf_print(1, "all common functions: %s\n", toPrint.c_str());
+}
+
+int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, set<string> &allUsedCommonArrays, const set<string> &allCommonFunctions)
+{
+    FILE *file = fopen(fileName, "w");
+    if (file == NULL)
+    {
+        __spf_print(1, "can not open file %s\n", fileName);
+        return -1;
+    }
+
+    for (auto &region : regions)
+    {
+        fprintf(file, "*** REGION '%s'\n", region->GetName().c_str());
+        fprintf(file, "  COMMON ARRAYS:");
+
+        for (auto &elem : region->GetCommonArrays())
+            fprintf(file, " %s", elem.c_str());
+
+        fprintf(file, "\n");
+        fprintf(file, "  LOCAL ARRAYS in [FUNC, ARRAY]:");
+
+        for (auto &elem : region->GetLocalArrays())
+            for (auto &arrayName : elem.second)
+                fprintf(file, " [%s, %s]", elem.first.c_str(), arrayName.c_str());
+
+        fprintf(file, "\n");
+        fprintf(file, "  CROSSED FUNCTIONS:");
+
+        for (auto &elem : region->GetCrossedFuncs())
+            fprintf(file, " %s", elem.c_str());
+
+        fprintf(file, "\n\n");
+    }
+
+    fprintf(file, "*** SUMMARY\n");
+    fprintf(file, "  ALL GLOBAL ARRAYS:");
+
+    for (auto &elem: allUsedCommonArrays)
+        fprintf(file, " %s", elem.c_str());
+
+    fprintf(file, "\n");
+    fprintf(file, "  ALL COMMON FUNCTIONS:");
+
+    for (auto &elem : allCommonFunctions)
+        fprintf(file, " %s", elem.c_str());
+
+    fprintf(file, "\n");
+
+    fclose(file);
+    return 0;
 }

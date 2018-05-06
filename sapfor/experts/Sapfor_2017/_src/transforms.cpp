@@ -1142,10 +1142,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         bool noError = checkRegions(parallelRegions, SPF_messages);
         if (!noError)
             internalExit = 1;
+
+        if (keepFiles)
+        {
+            printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions);
+            printCheckRegions(parallelRegions, allUsedCommonArrays, allCommonFunctions);
+        }
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveRegions(parallelRegions, allFuncInfo, allCommonFunctions);
+        map<string, FuncInfo*> funcMap;
+        createMapOfFunc(allFuncInfo, funcMap);
+
+        createFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions, allUsedCommonArrays);
+        replaceFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions);
     }
     else if (curr_regime == LOOP_GRAPH)
     {

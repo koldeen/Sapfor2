@@ -119,6 +119,8 @@ public:
 
     const std::set<std::string>& GetCommonArrays() const { return usedCommonArrays; }
 
+    const std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& GetReplacedSymbols() const { return replacedSymbols; }
+
     void AddLocalArray(const std::string &functionName, const std::string &arrayName)
     {
         auto it = usedLocalArrays.find(functionName);
@@ -129,6 +131,15 @@ public:
     }
 
     void AddCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
+
+    void AddReplacedSymbols(const std::string &functionName, SgSymbol *origin, SgSymbol *copy)
+    {
+        auto it = replacedSymbols.find(functionName);
+        if (it == replacedSymbols.end())
+            it = replacedSymbols.insert(it, std::make_pair(functionName, std::vector<std::pair<SgSymbol*, SgSymbol*>>()));
+
+        it->second.push_back(std::make_pair(origin, copy));
+    }
 
     bool HasThisLine(const int line, const std::string &file) const
     {
@@ -265,6 +276,7 @@ private:
     std::set<std::string> usedCommonArrays;
     std::map<std::string, std::set<std::string>> usedLocalArrays; // func -> arrays
     std::set<std::string> crossedFunctions;
+    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func -> origin symbol, new symbol
 
     // for LOOP_ANALYZER_DATA_DIST
     DIST::GraphCSR<int, double, attrType> G;
