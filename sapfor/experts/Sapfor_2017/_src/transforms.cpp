@@ -511,14 +511,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
+            vector<pair<SgStatement*, SgStatement*>> lines; // lines for getCommonBlocksRef()
+
             for (int i = 0; i < file->numberOfFunctions(); ++i)
+                lines.push_back(make_pair(file->functions(i), file->functions(i)->lastNodeOfStmt()));
+
+            // filling from BLOCK DATA
+            SgStatement *st = file->firstStatement();
+
+            while (st)
+            {
+                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
+                {
+                    lines.push_back(make_pair(st, st->lastNodeOfStmt()));
+                    st = st->lastNodeOfStmt();
+                }
+                st = st->lexNext();
+            }
+
+            for (auto &startEnd : lines)
             {
                 map<string, vector<SgExpression*>> commonBlocksRef;
-                SgStatement *start = file->functions(i);
-                SgStatement *end = start->lastNodeOfStmt();
 
-                getCommonBlocksRef(commonBlocksRef, start->lexNext(), end);
+                getCommonBlocksRef(commonBlocksRef, startEnd.first, startEnd.second);
 
+                // adding found common variables
                 for (auto &commonBlockRef : commonBlocksRef)
                 {
                     auto it = commonBlocks.find(commonBlockRef.first);
@@ -535,29 +552,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
-                        it->second.addVariables(file, start, newVariables);
+                        it->second.addVariables(file, startEnd.first, newVariables);
                     }
                 }
-            }
-
-            // filling from BLOCK DATA
-            SgStatement *st = file->firstStatement();
-
-            while (st)
-            {
-                if (st->variant() == BLOCK_DATA) //BLOCK_DATA header
-                {
-                    string blockDataName = st->symbol()->identifier();
-
-                    SgStatement *iterator = st->lexNext();
-                    SgStatement *end = st->lastNodeOfStmt();
-
-                    for (; iterator != end; iterator = iterator->lexNext())
-                    {
-
-                    }
-                }
-                st = st->lexNext();
             }
         }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
