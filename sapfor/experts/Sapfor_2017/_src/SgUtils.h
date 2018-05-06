@@ -88,7 +88,7 @@ public:
     }
 };
 
-enum varType { SCALAR, ARRAY, ANOTHER };
+enum varType { SCALAR, ARRAY, CONST, ANOTHER };
 
 struct CommonVariableUse
 {

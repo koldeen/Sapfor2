@@ -1119,6 +1119,40 @@ const vector<const Variable*> CommonBlock::getVariables(const string &file, cons
     return retVariables;
 }
 
+static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
+{
+    if (ex && type == ANOTHER)
+    {
+        if (ex->symbol() && ex->symbol()->identifier() == toFind)
+        {
+            switch (ex->variant())
+            {
+            case VAR_REF:
+                type = SCALAR;
+                break;
+            case ARRAY_REF:
+                type = ARRAY;
+                break;
+            case INT_VAL:
+            case FLOAT_VAL:
+            case DOUBLE_VAL:
+            case BOOL_VAL:
+            case CHAR_VAL:
+            case STRING_VAL:
+            case CONST_REF:
+                type = CONST;
+                break;
+            default:
+                type = ANOTHER;
+                break;
+            }
+        }
+
+        findDeclType(ex->lhs(), type, toFind);
+        findDeclType(ex->rhs(), type, toFind);
+    }
+}
+
 void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
 {
     for (auto &varPair : newVariables)
@@ -1126,29 +1160,15 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
         SgStatement *declStatement = declaratedInStmt(varPair.first);
 
         varType type = ANOTHER;
-        for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+        for (int i = 0; i < 3; ++i)
         {
-            if (exp->lhs()->symbol() == varPair.first)
-            {
-                switch (exp->lhs()->variant())
-                {
-                case VAR_REF:
-                    type = SCALAR;
-                    break;
-                case ARRAY_REF:
-                    type = ARRAY;
-                    break;
-                default:
-                    type = ANOTHER;
-                    break;
-                }
+            findDeclType(declStatement->expr(i), type, varPair.first->identifier());
+            if (type != ANOTHER)
                 break;
-            }
         }
-
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
-            exist->addUse(file, function);        
+            exist->addUse(file, function);
         else
             variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
     }
