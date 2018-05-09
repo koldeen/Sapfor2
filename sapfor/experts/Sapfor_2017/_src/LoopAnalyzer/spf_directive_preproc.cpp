@@ -136,7 +136,7 @@ static bool checkPrivate(SgStatement *st,
 
     if (!isSgExecutableStatement(st) || var == FOR_NODE)
     {
-        SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+        SgStatement *iterator = st;
         SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
         set<SgSymbol*> varDef;
         set<SgSymbol*> varUse;
