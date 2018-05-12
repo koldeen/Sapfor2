@@ -543,6 +543,62 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
         return inDecl[0];
 }
 
+vector<SgStatement*> allDeclaratedInStmt(SgSymbol *toFind)
+{
+    vector<SgStatement*> inDecl;
+    SgStatement *start = toFind->scope();
+
+    if (start)
+    {
+        SgStatement *end = start->lastNodeOfStmt();
+        while (start != end)
+        {
+            //error ?
+            if (start == NULL)
+                break;
+
+            //printf("%d\n", start->variant());
+            if (start->variant() == VAR_DECL ||
+                start->variant() == VAR_DECL_90 ||
+                start->variant() == ALLOCATABLE_STMT ||
+                start->variant() == DIM_STAT)
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    SgExpression *declLst = start->expr(i);
+                    if (findSymbol(declLst, toFind->identifier()))
+                        inDecl.push_back(start);
+                }
+            }
+            start = start->lexNext();
+        }
+    }
+
+    if (inDecl.size() == 0)
+    {
+        SgStatement *lowLevelDecl = toFind->declaredInStmt();
+        if (lowLevelDecl)
+            inDecl.push_back(lowLevelDecl);
+    }
+
+    if (inDecl.size() == 0)
+    {
+        __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
+
+        auto itM = SPF_messages.find(start->fileName());
+        if (itM == SPF_messages.end())
+            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
+
+        char buf[256];
+        sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
+        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf, 1017));
+
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    return inDecl;
+}
+
 bool isDVM_stat(SgStatement *st)
 {
     bool ret = false;
