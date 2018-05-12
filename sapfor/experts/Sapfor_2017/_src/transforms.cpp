@@ -1156,6 +1156,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         createFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions, allUsedCommonArrays);
         replaceFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions);
+        insertArraysCopy(parallelRegions, funcMap);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
