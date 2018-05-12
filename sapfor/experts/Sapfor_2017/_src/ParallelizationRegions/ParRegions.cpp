@@ -320,6 +320,22 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
     return NULL;
 }
 
+set<ParallelRegion*> getAllRegionsByLine(const vector<ParallelRegion*> &regions, const string &file, const int line)
+{
+    set<ParallelRegion*> regFound;
+
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        regFound.insert(regions[0]);
+    else if (regions.size() > 0)
+    {
+        for (int i = 0; i < regions.size(); ++i)
+            if (regions[i]->HasThisLine(line, file))
+                regFound.insert(regions[i]);
+    }
+
+    return regFound;
+}
+
 static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops)
 {
     for (auto &elem : loopGraph)

@@ -41,6 +41,38 @@ struct ParallelRegionLines
     std::pair<Statement*, Statement*> stats;
 };
 
+struct ParallelRegionArray
+{
+private:
+    std::string name;
+    SgSymbol *origSymbol;
+    SgSymbol *copySymbol;
+    std::vector<SgStatement*> declStatements;
+    std::vector<ParallelRegionLines*> allLines;
+public:
+    explicit ParallelRegionArray(std::string &name, SgSymbol *origSymbol, SgSymbol *copySymbol, std::vector<SgStatement*> &declStatements,
+                                 ParallelRegionLines *lines) :
+        name(name), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
+    {
+        allLines.push_back(lines);
+    }
+
+    const std::string& getName() const { return name; }
+    SgSymbol* getOrigSymbol() const { return origSymbol; }
+    SgSymbol* getCopySymbol() const { return copySymbol; }
+    const std::vector<SgStatement*>& getDeclStatements() const { return declStatements; }
+    const std::vector<ParallelRegionLines*>& getAllLines() { return allLines; }
+
+    void addLines(ParallelRegionLines *newLines)
+    {
+        for (auto &lines : allLines)
+            if (lines == newLines)
+                return;
+
+        allLines.push_back(newLines);
+    }
+};
+
 struct ParallelRegion
 {
 public:
@@ -115,13 +147,17 @@ public:
 
     const std::set<std::string>& GetCrossedFuncs() const { return crossedFunctions; }
 
-    const std::map<std::string, std::set<std::string>>& GetLocalArrays() const { return usedLocalArrays; }
+    const std::map<std::string, std::set<std::string>>& GetUsedLocalArrays() const { return usedLocalArrays; }
 
-    const std::set<std::string>& GetCommonArrays() const { return usedCommonArrays; }
+    const std::map<std::string, std::map<std::string, ParallelRegionArray>>& GetLocalArrays() const { return localArrays; }
+
+    const std::set<std::string>& GetUsedCommonArrays() const { return usedCommonArrays; }
+
+    const std::map<std::string, ParallelRegionArray>& GetCommonArrays() const { return commonArrays; }
 
     const std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& GetReplacedSymbols() const { return replacedSymbols; }
 
-    void AddLocalArray(const std::string &functionName, const std::string &arrayName)
+    void AddUsedLocalArray(const std::string &functionName, const std::string &arrayName)
     {
         auto it = usedLocalArrays.find(functionName);
         if (it == usedLocalArrays.end())
@@ -130,7 +166,17 @@ public:
         it->second.insert(arrayName);
     }
 
-    void AddCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
+    void AddLocalArray(const std::string &functionName, const std::string &arrayName)
+    {
+
+    }
+
+    void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
+
+    void AddCommonArray(const std::string &arrayName)
+    {
+
+    }
 
     void AddReplacedSymbols(const std::string &functionName, SgSymbol *origin, SgSymbol *copy)
     {
@@ -276,7 +322,11 @@ private:
     std::set<std::string> usedCommonArrays;
     std::map<std::string, std::set<std::string>> usedLocalArrays; // func -> arrays
     std::set<std::string> crossedFunctions;
-    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func -> origin symbol, new symbol
+    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func -> (origin symbol, new symbol)
+
+    std::map<std::string, ParallelRegionArray> commonArrays; // name -> array
+    std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> name -> array
+    //
 
     // for LOOP_ANALYZER_DATA_DIST
     DIST::GraphCSR<int, double, attrType> G;
