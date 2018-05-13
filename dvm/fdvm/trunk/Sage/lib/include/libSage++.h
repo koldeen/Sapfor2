@@ -7,9 +7,8 @@
 #define LIBSAGEXX_H 1
 
 #include <string.h>
-
-
-
+#include <map>
+#include <string>
 
 /* includes the attributes data structure */
 
@@ -40,67 +39,72 @@ class  SgProject {
   SgFile &file(int i);   
   inline char *fileName(int i); 
   inline int Fortranlanguage(); 
-  inline int Clanguage();                         
+  inline int Clanguage();
   void addFile(char * dep_file_name);
   void deleteFile(SgFile * file);
 };
 
-class  SgFile{
-  public:
-  PTR_FILE filept;
-  SgFile(char* file_name); // the file must exist.
-  SgFile(int Language, const char* file_name); // for new empty file objects.
-  ~SgFile();
-  SgFile(SgFile &);
-  inline int languageType();
-  inline void saveDepFile(const char *dep_file);
-  inline void unparse(FILE *filedisc);
-  inline void unparsestdout();   
-  inline void unparseS(FILE *filedisc, int size);
-  const char* filename();
+class  SgFile {
+private:
+    static std::map<std::string, std::pair<SgFile*, int> > files;
 
-  inline SgStatement *mainProgram();
-  SgStatement *functions(int i);
-  inline int numberOfFunctions();
-  SgStatement *getStruct(int i);
-  inline int numberOfStructs();
+public:
+    PTR_FILE filept;
+    SgFile(char* file_name); // the file must exist.
+    SgFile(int Language, const char* file_name); // for new empty file objects.
+    ~SgFile();
+    SgFile(SgFile &);
+    inline int languageType();
+    inline void saveDepFile(const char *dep_file);
+    inline void unparse(FILE *filedisc);
+    inline void unparsestdout();
+    inline void unparseS(FILE *filedisc, int size);
+    const char* filename();
 
-  inline SgStatement *firstStatement();
-  inline SgSymbol *firstSymbol();
-  inline SgType *firstType();
-  inline SgExpression *firstExpression();
+    inline SgStatement *mainProgram();
+    SgStatement *functions(int i);
+    inline int numberOfFunctions();
+    SgStatement *getStruct(int i);
+    inline int numberOfStructs();
 
-  inline SgExpression *SgExpressionWithId(int i);
-  inline SgStatement *SgStatementWithId( int id);
-  inline SgStatement *SgStatementAtLine(int lineno);
-  inline SgSymbol *SgSymbolWithId( int id);
-  inline SgType *SgTypeWithId( int id);
-  // for attributes;
-  void saveAttributes(char *file);
-  void saveAttributes(char *file, void  (*savefunction)(void *dat,FILE *f)); 
-  void readAttributes(char *file);
-  void readAttributes(char *file, void * (*readfunction)(FILE *f));
-  int numberOfAttributes();
-  SgAttribute *attribute(int i);
+    inline SgStatement *firstStatement();
+    inline SgSymbol *firstSymbol();
+    inline SgType *firstType();
+    inline SgExpression *firstExpression();
 
-  /***** Kataev 15.07.2013 *****/
-  int numberOfFileAttributes();
-  int numberOfAttributes(int type); // of a specified type;
-  void *attributeValue(int i); 
-  int  attributeType(int i); 
-  void *attributeValue(int i,int type); // only considering one type attribute
-  void *deleteAttribute(int i); 
-  void addAttribute(int type, void *a, int size); // void * can be NULL;
-  void addAttribute(int type); //void * is NULL;
-  void addAttribute(void *a, int size); //no type specifed;
-  void addAttribute(SgAttribute *att);
-  SgAttribute *getAttribute(int i);
-  SgAttribute *getAttribute(int i,int type);
-  /*****************************/
+    inline SgExpression *SgExpressionWithId(int i);
+    inline SgStatement *SgStatementWithId(int id);
+    inline SgStatement *SgStatementAtLine(int lineno);
+    inline SgSymbol *SgSymbolWithId(int id);
+    inline SgType *SgTypeWithId(int id);
+    // for attributes;
+    void saveAttributes(char *file);
+    void saveAttributes(char *file, void(*savefunction)(void *dat, FILE *f));
+    void readAttributes(char *file);
+    void readAttributes(char *file, void * (*readfunction)(FILE *f));
+    int numberOfAttributes();
+    SgAttribute *attribute(int i);
 
-  int expressionGarbageCollection(int deleteExpressionNode, int verbose);
- //int SgFile::expressionGarbageCollection(int deleteExpressionNode, int verbose);
+    /***** Kataev 15.07.2013 *****/
+    int numberOfFileAttributes();
+    int numberOfAttributes(int type); // of a specified type;
+    void *attributeValue(int i);
+    int  attributeType(int i);
+    void *attributeValue(int i, int type); // only considering one type attribute
+    void *deleteAttribute(int i);
+    void addAttribute(int type, void *a, int size); // void * can be NULL;
+    void addAttribute(int type); //void * is NULL;
+    void addAttribute(void *a, int size); //no type specifed;
+    void addAttribute(SgAttribute *att);
+    SgAttribute *getAttribute(int i);
+    SgAttribute *getAttribute(int i, int type);
+    /*****************************/
 
+    int expressionGarbageCollection(int deleteExpressionNode, int verbose);
+    //int SgFile::expressionGarbageCollection(int deleteExpressionNode, int verbose);
+
+    static int switchToFile(const std::string &name);
+    static void addFile(const std::pair<SgFile*, int> &toAdd);    
 };
 
 
@@ -114,6 +118,12 @@ private:
     int fileID;
     SgProject *project;
 
+    // fileID -> [ map<FileName, line>, SgSt*]
+    static std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > statsByLine;
+    static void updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate);
+    static std::map<SgExpression*, SgStatement*> parentStatsForExpression;
+    static void updateStatsByExpression();
+    static void updateStatsByExpression(SgStatement *where, SgExpression *what);
 public:
     PTR_BFND thebif;
     SgStatement(int variant);
@@ -254,6 +264,12 @@ public:
         }
         return true;
     }
+
+    static SgStatement* getStatementByFileAndLine(const std::string &fName, const int lineNum);
+    static void cleanStatsByLine() { statsByLine.clear(); }
+
+    static SgStatement* getStatmentByExpression(SgExpression*);
+    static void cleanParentStatsForExprs() { parentStatsForExpression.clear(); }
 };
 
 class  SgExpression

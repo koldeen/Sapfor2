@@ -985,7 +985,10 @@ set<string> getAllUseVars(const string &funcName)
     return retVal;
 }
 
-const vector<DefUseList>& getAllDefUseVarsList(const string &funcName) { return defUseByFunctions[funcName]; }
+const vector<DefUseList>& getAllDefUseVarsList(const string &funcName) 
+{
+    return defUseByFunctions[funcName]; 
+}
 
 const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const string varName) 
 {
@@ -1183,43 +1186,9 @@ void CommonBlock::print(FILE *fileOut) const
         fprintf(fileOut, "      USE in [FILE, FUNCTION]:");
 
         for (auto &use : var.getAllUse())
-            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());        
-        fprintf(fileOut, "\n");            
+            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());
+        fprintf(fileOut, "\n");
     }
 }
 
 // END of CommonBlock::
-
-extern map<string, pair<SgFile*, int>> files;
-int switchToFile(const string &name)
-{
-    auto it = files.find(name);
-    if (it == files.end())
-        return -1;
-    else
-    {
-        if (current_file_id != it->second.second)
-        {
-            SgFile *file = &(CurrentProject->file(it->second.second));
-            current_file_id = it->second.second;
-            current_file = file;
-        }
-    }
-
-    return it->second.second;
-}
-
-extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
-SgStatement* getStatementByFileAndLine(const string &fName, const int lineNum)
-{
-    const int fildID = switchToFile(fName);
-    auto itID = statsByLine.find(fildID);
-    if (itID == statsByLine.end())
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    auto itPair = itID->second.find(make_pair(fName, lineNum));
-    if (itPair == itID->second.end())
-        return NULL;
-    else
-        return itPair->second;
-}
