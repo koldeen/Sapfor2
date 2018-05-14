@@ -1769,6 +1769,7 @@ void SgStatement::updateStatsByExpression()
                 updateStatsByExpression(st, st->expr(z));
     }
 
+    CurrentProject->file(current_file_id);
     current_file_id = save_id;
     current_file = save;
 }
