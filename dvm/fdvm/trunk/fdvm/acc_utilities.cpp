@@ -359,7 +359,6 @@ SgSymbol *OriginalSymbol(SgSymbol *s)
 
 #ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
-extern std::map<std::string, std::pair<SgFile*, int> > files;
 #endif
 
 void addNumberOfFileToAttribute(SgProject *project)
@@ -376,8 +375,7 @@ void addNumberOfFileToAttribute(SgProject *project)
         num[0] = i;
         currF->addAttribute(SG_FILE_ATTR, num, sizeof(int));
 
-#ifdef __SPF
-        files[currF->filename()] = std::make_pair(currF, i);
+        SgFile::addFile(std::make_pair(currF, i));
 
         // fill private info for all statements
         for (SgStatement *st = currF->firstStatement(); st; st = st->lexNext())
@@ -385,7 +383,6 @@ void addNumberOfFileToAttribute(SgProject *project)
             st->setFileId(i);
             st->setProject(project);
         }
-#endif
     }
 }
 

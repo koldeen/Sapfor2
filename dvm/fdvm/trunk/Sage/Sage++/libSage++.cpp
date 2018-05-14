@@ -1691,10 +1691,102 @@ SgFile::SgFile(int Language, const char * dep_file_name)
 #endif
 }
 
+std::map<std::string, std::pair<SgFile*, int> > SgFile::files;
+int SgFile::switchToFile(const std::string &name)
+{
+    std::map<std::string, std::pair<SgFile*, int> >::iterator it = files.find(name);
+    if (it == files.end())
+        return -1;
+    else
+    {
+        if (current_file_id != it->second.second)
+        {
+            SgFile *file = &(CurrentProject->file(it->second.second));
+            current_file_id = it->second.second;
+            current_file = file;
+        }
+    }
 
-     
+    return it->second.second;
+}
 
-SgStatement * SgFile::functions(int i)
+void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
+{
+    files[toAdd.first->filename()] = toAdd;
+}
+
+
+std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > SgStatement::statsByLine;
+std::map<SgExpression*, SgStatement*> SgStatement::parentStatsForExpression;
+
+void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate)
+{
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        toUpdate[std::make_pair(st->fileName(), st->lineNumber())] = st;
+}
+
+SgStatement* SgStatement::getStatementByFileAndLine(const std::string &fName, const int lineNum)
+{
+    const int fildID = SgFile::switchToFile(fName);
+    std::map<int, std::map<std::pair<std::string, int>, SgStatement*> >::iterator itID = statsByLine.find(fildID);
+    if (itID == statsByLine.end())
+        itID = statsByLine.insert(itID, std::make_pair(fildID, std::map<std::pair<std::string, int>, SgStatement*>()));
+
+    if (itID->second.size() == 0)
+        updateStatsByLine(itID->second);
+    
+    std::map<std::pair<std::string, int>, SgStatement*>::iterator itPair = itID->second.find(make_pair(fName, lineNum));
+    if (itPair == itID->second.end())
+        return NULL;
+    else
+        return itPair->second;
+}
+
+void SgStatement::updateStatsByExpression(SgStatement *where, SgExpression *what)
+{
+    if (what)
+    {
+        parentStatsForExpression[what] = where;
+
+        updateStatsByExpression(where, what->lhs());
+        updateStatsByExpression(where, what->rhs());
+    }
+}
+
+void SgStatement::updateStatsByExpression()
+{
+    SgFile* save = current_file;
+    const int save_id = current_file_id;
+
+    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(CurrentProject->file(i));
+        current_file_id = i;
+        current_file = file;
+
+        for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            for (int z = 0; z < 3; ++z)
+                updateStatsByExpression(st, st->expr(z));
+    }
+
+    CurrentProject->file(save_id);
+    current_file_id = save_id;
+    current_file = save;
+}
+
+SgStatement* SgStatement::getStatmentByExpression(SgExpression *toFind)
+{
+    if (parentStatsForExpression.size() == 0)
+        updateStatsByExpression();
+
+    std::map<SgExpression*, SgStatement*>::iterator itS = parentStatsForExpression.find(toFind);
+    if (itS == parentStatsForExpression.end())
+        return NULL;
+    else
+        return itS->second;
+}
+
+SgStatement* SgFile::functions(int i)
 {
   PTR_BFND bif;
   SgStatement *pt = NULL;
