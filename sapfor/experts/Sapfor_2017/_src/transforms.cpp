@@ -21,6 +21,7 @@
 #include "Distribution/GraphCSR.h"
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
+//#include "Distribution/RegionInsertor.h"
 
 #include "errors.h"
 #include "SgUtils.h"
@@ -231,6 +232,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (curr_regime == CONVERT_TO_ENDDO)
             ConverToEndDo(file, getMessagesForFile(file_name));
+        else if (curr_regime == INSERT_REGIONS)
+        {
+            RegionInsertor regionInsertor(file);
+            regionInsertor.insert();
+        }
         else if (curr_regime == UNROLL_LOOPS)
         {
             __spf_print(DEBUG_LVL1, "  it is not implemented yet\n");
@@ -1504,6 +1510,9 @@ int main(int argc, char**argv)
                         curr_regime = REMOVE_DVM_DIRS;
                     else if (par == 18)
                         curr_regime = CREATE_NESTED_LOOPS;
+                    else if (par == 19)
+                        curr_regime = INSERT_REGIONS;
+                    
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp();
