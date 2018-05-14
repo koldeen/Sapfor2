@@ -152,14 +152,6 @@ static bool isDone(const int curr_regime)
     return false;
 }
 
-static void updateStatsByLine(const int id)
-{ 
-    statsByLine[id].clear();
-    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
-        statsByLine[id][make_pair(st->fileName(), st->lineNumber())] = st;
-
-}
-
 static void updateStatsExprs(const int id, const string &file)
 {
     for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
@@ -169,7 +161,6 @@ static void updateStatsExprs(const int id, const string &file)
 }
 
 pair<SgFile*, SgStatement*> currProcessing;
-map<string, pair<SgFile*, int>> files;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
 {    
@@ -207,12 +198,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     
     sgStats.clear();
     sgExprs.clear();
+    SgStatement::cleanStatsByLine();
+    SgStatement::cleanParentStatsForExprs();
+
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
         current_file_id = i;
         current_file = file;
-        updateStatsByLine(current_file_id);
         updateStatsExprs(current_file_id, file->filename());
     }
     currProcessing.first = NULL; currProcessing.second = NULL;
@@ -1073,12 +1066,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                 bool wasSelect = false;
                                 for (auto &elem : declInfo)
                                 {
-                                    auto it = files.find(elem.first);
-                                    if (it != files.end())
+                                    int fileId = SgFile::switchToFile(elem.first);
+                                    if (fileId != -1)
                                     {
-                                        SgFile *tmpfile = &(CurrentProject->file(it->second.second));
+                                        SgFile *tmpfile = &(CurrentProject->file(fileId));
                                         current_file = tmpfile;
-                                        current_file_id = it->second.second;
+                                        current_file_id = fileId;
                                         wasSelect = true;
                                         break;
                                     }

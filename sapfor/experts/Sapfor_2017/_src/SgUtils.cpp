@@ -985,7 +985,10 @@ set<string> getAllUseVars(const string &funcName)
     return retVal;
 }
 
-const vector<DefUseList>& getAllDefUseVarsList(const string &funcName) { return defUseByFunctions[funcName]; }
+const vector<DefUseList>& getAllDefUseVarsList(const string &funcName) 
+{
+    return defUseByFunctions[funcName]; 
+}
 
 const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const string varName) 
 {
@@ -1119,6 +1122,40 @@ const vector<const Variable*> CommonBlock::getVariables(const string &file, cons
     return retVariables;
 }
 
+static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
+{
+    if (ex && type == ANOTHER)
+    {
+        if (ex->symbol() && ex->symbol()->identifier() == toFind)
+        {
+            switch (ex->variant())
+            {
+            case VAR_REF:
+                type = SCALAR;
+                break;
+            case ARRAY_REF:
+                type = ARRAY;
+                break;
+            case INT_VAL:
+            case FLOAT_VAL:
+            case DOUBLE_VAL:
+            case BOOL_VAL:
+            case CHAR_VAL:
+            case STRING_VAL:
+            case CONST_REF:
+                type = CONST;
+                break;
+            default:
+                type = ANOTHER;
+                break;
+            }
+        }
+
+        findDeclType(ex->lhs(), type, toFind);
+        findDeclType(ex->rhs(), type, toFind);
+    }
+}
+
 void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector<pair<SgSymbol*, int>> &newVariables)
 {
     for (auto &varPair : newVariables)
@@ -1126,29 +1163,15 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
         SgStatement *declStatement = declaratedInStmt(varPair.first);
 
         varType type = ANOTHER;
-        for (SgExpression *exp = declStatement->expr(0); exp; exp = exp->rhs())
+        for (int i = 0; i < 3; ++i)
         {
-            if (exp->lhs()->symbol() == varPair.first)
-            {
-                switch (exp->lhs()->variant())
-                {
-                case VAR_REF:
-                    type = SCALAR;
-                    break;
-                case ARRAY_REF:
-                    type = ARRAY;
-                    break;
-                default:
-                    type = ANOTHER;
-                    break;
-                }
+            findDeclType(declStatement->expr(i), type, varPair.first->identifier());
+            if (type != ANOTHER)
                 break;
-            }
         }
-
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
-            exist->addUse(file, function);        
+            exist->addUse(file, function);
         else
             variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
     }
@@ -1163,43 +1186,9 @@ void CommonBlock::print(FILE *fileOut) const
         fprintf(fileOut, "      USE in [FILE, FUNCTION]:");
 
         for (auto &use : var.getAllUse())
-            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());        
-        fprintf(fileOut, "\n");            
+            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());
+        fprintf(fileOut, "\n");
     }
 }
 
 // END of CommonBlock::
-
-extern map<string, pair<SgFile*, int>> files;
-int switchToFile(const string &name)
-{
-    auto it = files.find(name);
-    if (it == files.end())
-        return -1;
-    else
-    {
-        if (current_file_id != it->second.second)
-        {
-            SgFile *file = &(CurrentProject->file(it->second.second));
-            current_file_id = it->second.second;
-            current_file = file;
-        }
-    }
-
-    return it->second.second;
-}
-
-extern map<int, map<pair<string, int>, SgStatement*>> statsByLine;
-SgStatement* getStatementByFileAndLine(const string &fName, const int lineNum)
-{
-    const int fildID = switchToFile(fName);
-    auto itID = statsByLine.find(fildID);
-    if (itID == statsByLine.end())
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    auto itPair = itID->second.find(make_pair(fName, lineNum));
-    if (itPair == itID->second.end())
-        return NULL;
-    else
-        return itPair->second;
-}
