@@ -34,11 +34,11 @@ static bool recursiveFindCall(SgExpression *exp, const string &funcName)
 
 static void findCall(const FuncInfo *funcFrom, const FuncInfo *funcTo, bool &callsFromRegion, bool &callsFromCode)
 {
-    if (switchToFile(funcTo->fileName) != -1)
+    if (SgFile::switchToFile(funcTo->fileName) != -1)
     {
         bool isRegion = false;
         SgStatement *iterator = funcTo->funcPointer->GetOriginal();
-        SgStatement *end = getStatementByFileAndLine(funcTo->fileName, funcTo->linesNum.second);
+        SgStatement *end = SgStatement::getStatementByFileAndLine(funcTo->fileName, funcTo->linesNum.second);
 
         for (; iterator != end; iterator = iterator->lexNext())
         {
@@ -86,7 +86,7 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
 {
     if (func->funcPointer->variant() != ENTRY_STAT)
     {
-        if (switchToFile(func->fileName) != -1)
+        if (SgFile::switchToFile(func->fileName) != -1)
         {
             SgStatement *iterator = func->funcPointer;
             FuncInfo *entry = NULL;
@@ -197,8 +197,8 @@ static void recursiveFill(SgExpression *exp,
             }
         }
 
-        recursiveFill(exp->rhs(), region, lines, functionName, commonBlocks, allUsedCommonArrays);
-        recursiveFill(exp->lhs(), region, lines, functionName, commonBlocks, allUsedCommonArrays);
+        recursiveFill(exp->rhs(), region, lines, functionName, commonBlocks, allUsedCommonArrays, allCommonArrays);
+        recursiveFill(exp->lhs(), region, lines, functionName, commonBlocks, allUsedCommonArrays, allCommonArrays);
     }
 }
 
@@ -212,7 +212,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
         for (auto &fileLines : region->GetAllLines())
         {
             // switch to current file
-            if (switchToFile(fileLines.first) != -1)
+            if (SgFile::switchToFile(fileLines.first) != -1)
             {
                 for (ParallelRegionLines &regionLines : fileLines.second)
                 {
@@ -223,8 +223,8 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                     // implicit lines
                     if (isImplicit(regionLines))
                     {
-                        iterator = getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
-                        end = getStatementByFileAndLine(fileLines.first, regionLines.lines.second);
+                        iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
+                        end = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.second);
                     }
 
                     while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
@@ -233,7 +233,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                     functionName = iterator->symbol()->identifier();
 
                     if (isImplicit(regionLines))
-                        iterator = getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
+                        iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                     else
                         iterator = regionLines.stats.first;
 
@@ -350,7 +350,7 @@ static void copyFunction(ParallelRegion *region,
     auto func = getFuncInfo(funcMap, funcName);
     if (func)
     {
-        if (switchToFile(func->fileName) != -1)
+        if (SgFile::switchToFile(func->fileName) != -1)
         {
             SgSymbol *funcSymb = func->funcPointer->symbol();
             SgSymbol *newFuncSymb = NULL;
@@ -421,7 +421,7 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
         for (auto &fileLines : region->GetAllLines())
         {
             // switch to current file
-            if (switchToFile(fileLines.first) != -1)
+            if (SgFile::switchToFile(fileLines.first) != -1)
             {
                 auto it = regionSymbols.find(fileLines.first);
                 if (it != regionSymbols.end())
@@ -464,7 +464,7 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions, const map<string, 
             string funcName = funcArrays.first;
             auto func = getFuncInfo(funcMap, funcName);
 
-            if (switchToFile(func->fileName) != -1)
+            if (SgFile::switchToFile(func->fileName) != -1)
             {
                 for (auto &arrayName : funcArrays.second)
                 {
