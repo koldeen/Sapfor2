@@ -160,7 +160,7 @@ static bool isImplicit(const ParallelRegionLines &regionLines)
 
 static void recursiveFill(SgExpression *exp,
                           ParallelRegion *region,
-                          ParallelRegionLines *lines,
+                          const ParallelRegionLines &lines,
                           const string &functionName,
                           const map<string, CommonBlock> &commonBlocks,
                           set<string> &allUsedCommonArrays,
@@ -184,7 +184,7 @@ static void recursiveFill(SgExpression *exp,
                 if (it == allCommonArrays.end())
                 {
                     vector<SgStatement*> declStatemets;
-                    declaratedInStmt(arraySymbol, true, &declStatemets);
+                    declaratedInStmt(arraySymbol, &declStatemets);
                     allCommonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, arraySymbol, NULL, declStatemets, lines)));
                 }
             }
@@ -214,7 +214,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
             // switch to current file
             if (SgFile::switchToFile(fileLines.first) != -1)
             {
-                for (ParallelRegionLines &regionLines : fileLines.second)
+                for (auto &regionLines : fileLines.second)
                 {
                     SgStatement *iterator = regionLines.stats.first;
                     SgStatement *end = regionLines.stats.second;
@@ -243,7 +243,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                             continue;
 
                         for (int i = 0; i < 3; ++i)
-                            recursiveFill(iterator->expr(i), region, &regionLines, functionName, commonBlocks, allUsedCommonArrays, allCommonArrays);
+                            recursiveFill(iterator->expr(i), region, regionLines, functionName, commonBlocks, allUsedCommonArrays, allCommonArrays);
                     }
                 }
             }

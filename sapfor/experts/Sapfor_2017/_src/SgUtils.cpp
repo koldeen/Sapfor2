@@ -465,7 +465,7 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 }
 
 extern map<string, vector<Messages>> SPF_messages;
-SgStatement* declaratedInStmt(SgSymbol *toFind, bool findAll, vector<SgStatement*> *allDecls)
+SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
 {
     vector<SgStatement*> inDecl;
     SgStatement *start = toFind->scope();
@@ -518,7 +518,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, bool findAll, vector<SgStatement
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    if (findAll && allDecls)
+    if (allDecls)
         *allDecls = inDecl;
 
     //return statement by priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
