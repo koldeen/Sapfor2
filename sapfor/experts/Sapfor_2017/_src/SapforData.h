@@ -56,7 +56,7 @@ std::map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 std::set<std::string> allUsedCommonArrays;
 std::set<std::string> allCommonFunctions;
 
-std::set<ParallelRegionArray> allCommonArrays;
+std::map<std::string, ParallelRegionArray> allCommonArrays;
 //
 
 //for directive creator

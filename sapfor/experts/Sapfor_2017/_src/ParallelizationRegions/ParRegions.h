@@ -11,6 +11,8 @@
 #include "../Distribution/Distribution.h"
 #include "../AstWrapper.h"
 
+#include "../SgUtils.h"
+
 struct ParallelRegionLines
 {
     ParallelRegionLines() 
@@ -50,7 +52,7 @@ private:
     std::vector<SgStatement*> declStatements;
     std::vector<ParallelRegionLines*> allLines;
 public:
-    explicit ParallelRegionArray(std::string &name, SgSymbol *origSymbol, SgSymbol *copySymbol, std::vector<SgStatement*> &declStatements,
+    explicit ParallelRegionArray(const std::string &name, SgSymbol *origSymbol, SgSymbol *copySymbol, std::vector<SgStatement*> &declStatements,
                                  ParallelRegionLines *lines) :
         name(name), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
     {
@@ -71,6 +73,8 @@ public:
 
         allLines.push_back(newLines);
     }
+
+    void setCopySymbol(SgSymbol *copySymbol) { this->copySymbol = copySymbol; }
 };
 
 struct ParallelRegion
@@ -166,16 +170,44 @@ public:
         it->second.insert(arrayName);
     }
 
-    void AddLocalArray(const std::string &functionName, const std::string &arrayName)
+    void AddLocalArray(const std::string &functionName,
+                       const std::string &arrayName, SgSymbol *origSymbol, SgSymbol *copySymbol, ParallelRegionLines *lines)
     {
+        auto it = localArrays.find(functionName);
+        if (it == localArrays.end())
+        {
+            std::vector<SgStatement*> declStatemets;
+            declaratedInStmt(origSymbol, true, &declStatemets);
+            it = localArrays.insert(it, std::make_pair(functionName, std::map<std::string, ParallelRegionArray>()));
+            it->second.insert(std::make_pair(arrayName, ParallelRegionArray(arrayName, origSymbol, copySymbol, declStatemets, lines)));
+            return;
+        }
 
+        auto itt = it->second.find(arrayName);
+        if (itt == it->second.end())
+        {
+            std::vector<SgStatement*> declStatemets;
+            declaratedInStmt(origSymbol, true, &declStatemets);
+            itt = it->second.insert(itt, std::make_pair(arrayName, ParallelRegionArray(arrayName, origSymbol, copySymbol, declStatemets, lines)));
+            return;
+        }
+        itt->second.addLines(lines);
     }
 
     void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
 
-    void AddCommonArray(const std::string &arrayName)
+    void AddCommonArray(const std::string &arrayName, SgSymbol *origSymbol, SgSymbol *copySymbol, ParallelRegionLines *lines)
     {
+        auto it = commonArrays.find(arrayName);
+        if (it != commonArrays.end())
+        {
+            it->second.addLines(lines);
+            return;
+        }
 
+        std::vector<SgStatement*> declStatemets;
+        declaratedInStmt(origSymbol, true, &declStatemets);
+        commonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, origSymbol, copySymbol, declStatemets, lines)));
     }
 
     void AddReplacedSymbols(const std::string &functionName, SgSymbol *origin, SgSymbol *copy)

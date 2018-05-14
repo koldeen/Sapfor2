@@ -1136,7 +1136,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == CHECK_PAR_REGIONS)
     {
-        fillRegionArrays(parallelRegions, commonBlocks, allUsedCommonArrays);
+        fillRegionArrays(parallelRegions, commonBlocks, allUsedCommonArrays, allCommonArrays);
         fillRegionFunctions(parallelRegions, allFuncInfo, allCommonFunctions);
 
         bool noError = checkRegions(parallelRegions, SPF_messages);
