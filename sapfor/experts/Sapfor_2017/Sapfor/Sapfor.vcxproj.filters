@@ -56,7 +56,17 @@
       <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы исходного кода\Predictor">
+    <Filter Include="Файлы исходного кода\Predictor">
       <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+      <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DynamicAnalysis">
+      <UniqueIdentifier>{a82de782-3d7a-41af-ae52-17d2df316c89}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DvmhRegions">
+      <UniqueIdentifier>{64beaa51-0198-4f14-8f9f-ecb4d6a0fc04}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
