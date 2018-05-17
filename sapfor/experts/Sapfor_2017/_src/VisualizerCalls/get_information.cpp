@@ -39,20 +39,11 @@ using std::to_string;
 
 static void setOptions(const int *options)
 {
-    if (options[STATIC_SHADOW_ANALYSIS] == 1)
-        staticShadowAnalysis = 1;
-
-    if (options[STATIC_PRIVATE_ANALYSIS] == 1)
-        staticPrivateAnalysis = 1;
-
-    if (options[FREE_FORM] == 1)
-        out_free_form = 1;
-
-    if (options[KEEP_DVM_DIRECTIVES] == 1)
-        keepDvmDirectives = 1;
-
-    if (options[KEEP_SPF_DIRECTIVES] == 1)
-        keepSpfDirs = 1;
+    staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
+    staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
+    out_free_form = options[FREE_FORM];
+    keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
+    keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
 }
 
 static int strLen(const short *shString)

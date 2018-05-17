@@ -1180,7 +1180,7 @@ int isACCdirective(SgStatement *stmt)
 SgStatement *ACC_Directive(SgStatement *stmt)
 {
     if (!ACC_program)       // by option -noH regime
-        return(stmt);                                 //printf(" %d \n",stmt->lineNumber());
+        return(stmt);                                
     switch (stmt->variant()) {
     case(ACC_REGION_DIR) :
         return(ACC_REGION_Directive(stmt));
@@ -1233,7 +1233,7 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
             doCallAfter(ActualScalar(s));
             continue;
         }
-        if (isSgArrayRefExp(e))
+        if (isSgArrayRefExp(e) && isSgArrayType(s->type()))
         {
             if (HEADER(s)) //is distributed array reference
             {
@@ -1252,15 +1252,28 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
                         ihigh = SectionBounds(e);
                         doCallAfter(ActualSubArray(s, ilow, ihigh)); //inserting after current statement 
                      }
-                     continue;
                 }
             }
             else
             {//if(isSgArrayType(s->type()))  //may be T_STRING
                 //Warning("%s is not DVM-array",s->identifier(),606,cur_region->region_dir);
-                doCallAfter(ActualScalar(s));
-                continue;
+                //doCallAfter(ActualScalar(s));
+                //continue;
+                if (!e->lhs())  //whole array
+                    doCallAfter(ActualScalar(s));   //inserting after current statement
+                else
+                {
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(ActualSubVariable_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(ActualSubVariable(s, ilow, ihigh)); //inserting after current statement
+                    } 
+                }
             }
+            continue;
         }
         /* scalar in list is variable name !!!
          if(isSgRecordrefExp(e) || e->variant()==ARRAY_OP)  //structure component or substring
@@ -1269,6 +1282,8 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
          continue;
          }
          */
+        err("Illegal element of list",636, stmt);
+        break;
     }
     return(cur_st);
 }
@@ -1295,16 +1310,13 @@ SgStatement *ACC_GET_ACTUAL_Directive(SgStatement *stmt)
             doCallAfter(GetActualScalar(s));   //inserting after current statement
             continue;
         }
-        if (isSgArrayRefExp(e))
+        if (isSgArrayRefExp(e) && isSgArrayType(s->type()))   // array reference
         {
             if (HEADER(s)) //is distributed array reference
 
-            {
+            {                   
                 if (!e->lhs())  //whole array
-                {
                     doCallAfter(GetActualArray(HeaderRef(s)));   //inserting after current statement
-                    continue;
-                }
                 else
                 {
                     if(INTERFACE_RTS2)                  
@@ -1315,17 +1327,29 @@ SgStatement *ACC_GET_ACTUAL_Directive(SgStatement *stmt)
                         ihigh = SectionBounds(e);
                         doCallAfter(GetActualSubArray(s, ilow, ihigh)); //inserting after current statement
                     } 
-                    continue;
                 }
-
             }
-            else
-            {//Warning("%s is not DVM-array",s->identifier(),606,cur_region->region_dir);
-                doCallAfter(GetActualScalar(s));   //inserting after current statement
-                continue;
+            else  // is not distributed array reference
+            {
+                if (!e->lhs())  //whole array
+                    doCallAfter(GetActualScalar(s));   //inserting after current statement
+                else
+                {
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(GetActualSubVariable_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(GetActualSubVariable(s, ilow, ihigh)); //inserting after current statement
+                    } 
+                }
             }
+            continue;
         }
-    }
+        err("Illegal element of list",636, stmt);
+        break;
+    }   
     return(cur_st);
 }
 
