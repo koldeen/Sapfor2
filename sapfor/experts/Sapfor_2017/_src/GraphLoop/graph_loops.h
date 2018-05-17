@@ -219,7 +219,9 @@ public:
 
     bool hasUnknownScalarDep;
     std::vector<int> linesOfScalarDep;
-    
+
+    bool hasImpureCalls;
+
     bool hasUnknownArrayDep;
 
     bool hasUnknownArrayAssigns;

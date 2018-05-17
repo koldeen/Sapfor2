@@ -21,7 +21,7 @@
 #include "Distribution/GraphCSR.h"
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
-//#include "Distribution/RegionInsertor.h"
+#include "DvmhRegions/DvmhRegionInsertor.h"
 
 #include "errors.h"
 #include "SgUtils.h"
@@ -227,8 +227,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             ConverToEndDo(file, getMessagesForFile(file_name));
         else if (curr_regime == INSERT_REGIONS)
         {
-            RegionInsertor regionInsertor(file);
-            regionInsertor.insert();
+        	auto itLoopGraphFound = loopGraph.find(file_name);
+            auto itFuncGraphFound = allFuncInfo.find(file_name);
+
+        	if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end()) {
+				DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
+				regionInsertor.insertDirectives();
+        	}
+
+        	for (auto &funcInfo: itFuncGraphFound->second) {
+        		std::cout << funcInfo->funcName << " " << funcInfo->usesIO << std::endl;
+        	}
+        	for (int i = 0; i < file->numberOfFunctions(); i++) {
+        		file->functions(i)->unparsestdout();
+        	}
         }
         else if (curr_regime == UNROLL_LOOPS)
         {

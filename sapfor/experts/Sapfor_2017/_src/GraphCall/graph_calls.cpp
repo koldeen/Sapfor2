@@ -457,6 +457,20 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                 {
                     FuncInfo *calledFunc = itCalledFunc->second;
 
+                    // check for io usage
+                    if (calledFunc->usesIO && !currInfo->usesIO) {
+                    	currInfo->usesIO = true;
+                    	changesDone = true;
+                    }
+
+                    // check for pureness
+                    if (!calledFunc->isPure && currInfo->isPure) {
+                    	currInfo->isPure = false;
+                    	changesDone = true;
+                    }
+
+                    // check for using parameter as index
+
                     // Iterate through all pars of the call
                     int parNo = 0;
 
@@ -533,6 +547,19 @@ void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
+static bool isStmtIO(SgStatement *st)
+{
+	bool isIO = false;
+
+	const std::set<int> ioIDs = { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT };
+
+    int var = st->variant();
+    if (ioIDs.find(var) != ioIDs.end())
+        isIO = true;
+
+	return isIO;
+}
+
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     int funcNum = file->numberOfFunctions();
@@ -573,6 +600,13 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         getCommonBlocksRef(commonBlocks, st, lastNode);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+
+        currInfo->usesIO = false;
+
+        if (commonBlocks.size() != 0)
+        	currInfo->isPure = false;
+        else
+        	currInfo->isPure = true;
 
         for(auto& item : commonBlocks)
         {
@@ -648,6 +682,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 break;
             }
 
+            currInfo->usesIO |= isStmtIO(st);
+
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
             {
@@ -667,6 +703,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                     // search for using pars of cur func in pars of called
                     throughParams(st->expr(0), *proc);
                 }
+
             }
             else
             {

@@ -49,3 +49,13 @@ dvm/tools/
 dvm/CMakeLists.txt
 dvm/.svn/
 dvm/fdvm/branches/
+#these are temporary, remove later
+dvm.proj
+.cproject
+*.dep
+.project
+**/*.o
+sapfor/experts/Sapfor_2017/Sapfor/dvm.proj 
+sapfor/experts/Sapfor_2017/Sapfor/nbproject/
+sapfor/experts/Sapfor_2017/Sapfor/test.dep
+#till here

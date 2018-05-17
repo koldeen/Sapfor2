@@ -58,6 +58,8 @@ struct FuncInfo
                                                      // if FuncsCalledFromThis[func_call_idx].
                                                     // NoOfParamUsedForCall.size() == 0 - no params of cur func used
 
+    bool usesIO; // same for IO usage as stated below
+    bool isPure; // does this func or funcs called from this have common block[s]
     bool doNotInline;
     bool doNotAnalyze;
     bool needToInline;

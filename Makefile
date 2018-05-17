@@ -2,18 +2,18 @@
 # Makefile for Sapfor 2017 
 ########################################################################
 
-LIBDIR = ../_lib
-BINDIR = ../_bin
-SRCDIR = ../_src
+LIBDIR = sapfor/experts/Sapfor_2017/_lib
+BINDIR = sapfor/experts/Sapfor_2017/_bin
+SRCDIR = sapfor/experts/Sapfor_2017/_src
 
 CXX = g++
 CC  = gcc
 CFLAGS = -O3 -D__SPF
 STD=c++11
 
-REPO_FDVM_BASE      = ../../../../dvm/fdvm/trunk/
-REPO_SPF_BASE       = ../_src/
-REPO_TRANSFORM_BASE = ../../../transformers/ftransform/trunk/
+REPO_FDVM_BASE      = dvm/fdvm/trunk/
+REPO_SPF_BASE       = sapfor/experts/Sapfor_2017/_src/
+REPO_TRANSFORM_BASE = sapfor/transformers/ftransform/trunk/
 
 
 SAGE_BASE_DIR = $(REPO_FDVM_BASE)Sage/
@@ -229,7 +229,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o transforms.o CorrectVarDecl.o 
 			 annotationDriver.o arrayRef.o computeInducVar.o constanteProp.o  controlFlow.o defUse.o dependence.o depGraph.o \
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
-			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o
+			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o DvmhRegionInsertor.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/trCommonLib.a
@@ -379,6 +379,8 @@ refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.c
 sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c
 	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
+DvmhRegionInsertor.o: $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.cpp $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 clean:
 	rm -rf *.o
 

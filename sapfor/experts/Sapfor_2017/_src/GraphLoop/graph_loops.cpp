@@ -438,6 +438,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
+                newLoop->hasImpureCalls = false;
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 
@@ -484,6 +485,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             {
                 string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
                 currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
+                currLoop->hasImpureCalls = true; // has at least one potentially impure call
             }
             else if (currLoop)
             {
