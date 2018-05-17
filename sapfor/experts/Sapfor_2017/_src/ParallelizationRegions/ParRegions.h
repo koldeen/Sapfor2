@@ -65,7 +65,7 @@ public:
     SgSymbol* getOrigSymbol() const { return origSymbol; }
     SgSymbol* getCopySymbol() const { return copySymbol; }
     const std::vector<SgStatement*>& getDeclStatements() const { return declStatements; }
-    const std::vector<ParallelRegionLines>& getAllLines() { return allLines; }
+    const std::vector<ParallelRegionLines>& getAllLines() const { return allLines; }
 
     void addLines(const ParallelRegionLines &newLines)
     {

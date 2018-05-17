@@ -1138,8 +1138,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (keepFiles)
         {
-            printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions);
-            printCheckRegions(parallelRegions, allUsedCommonArrays, allCommonFunctions);
+            printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            printCheckRegions(parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
         }
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
