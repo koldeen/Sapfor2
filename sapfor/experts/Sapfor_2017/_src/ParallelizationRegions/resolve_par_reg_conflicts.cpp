@@ -578,13 +578,13 @@ void printCheckRegions(const vector<ParallelRegion*> &regions, const set<string>
             for (auto &nameArray : funcArrays.second)
             {
                 toPrint += " " + nameArray.first;
-                toPrint += " [";
+                toPrint += " ";
                 for (auto &lines : nameArray.second.getAllLines())
                 {
-                    toPrint += " " + lines.lines.first;
-                    toPrint += "-" + lines.lines.second;
+                    toPrint += "[" + std::to_string(lines.lines.first);
+                    toPrint += "-" + std::to_string(lines.lines.second);
+                    toPrint += "]";
                 }
-                toPrint += " ]";
             }
         }
 
@@ -674,13 +674,13 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
         {
             for (auto &nameArray : funcArrays.second)
             {
-                string toPrint = "[";
+                string toPrint = "";
                 for (auto &lines : nameArray.second.getAllLines())
                 {
-                    toPrint += " " + lines.lines.first;
-                    toPrint += "-" + lines.lines.second;
+                    toPrint += "[" + std::to_string(lines.lines.first);
+                    toPrint += "-" + std::to_string(lines.lines.second);
+                    toPrint += "]";
                 }
-                toPrint += " ]";
 
                 fprintf(file, "    [%s, %s, %s]\n", funcArrays.first.c_str(), nameArray.first.c_str(), toPrint.c_str());
             }
