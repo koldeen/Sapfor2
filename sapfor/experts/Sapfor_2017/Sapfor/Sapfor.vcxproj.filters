@@ -56,10 +56,6 @@
       <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы исходного кода\Predictor">
-    <Filter Include="Файлы исходного кода\Predictor">
-      <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
       <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы исходного кода\DynamicAnalysis">
