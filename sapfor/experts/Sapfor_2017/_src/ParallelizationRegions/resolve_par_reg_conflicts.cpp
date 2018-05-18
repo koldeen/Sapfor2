@@ -361,10 +361,11 @@ static void copyFunction(ParallelRegion *region,
             __spf_print(1, "  scope line: %d\n", funcSymb->scope()->lineNumber()); // remove
             __spf_print(1, "new function name '%s'\n", newFuncName.c_str()); // remove
 
-            SgFile *file = &CurrentProject->file(func->funcPointer->getFileId());
+            //SgFile *file = &CurrentProject->file(func->funcPointer->getFileId());
+            SgFile *file = &CurrentProject->file(func->funcPointer->GetOriginal()->getFileId());
+            //SgFile *file2 = &func->funcPointer->getProject()->file(func->funcPointer->getFileId());
+            SgFile *file2 = &func->funcPointer->getProject()->file(func->funcPointer->GetOriginal()->getFileId());
 
-            SgFile *file2 = &func->funcPointer->getProject()->file(func->funcPointer->getFileId());
-            
             //newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
             newFuncSymb = &(funcSymb->copySubprogram(*(file2->firstStatement())));
             //newFuncSymb = &(funcSymb->copySubprogram(*(func->funcPointer)));
