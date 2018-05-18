@@ -477,9 +477,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 vector<SgStatement*> toDel;
                 for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
                 {
-                    if (isSPF_stat(st)) // except sapfor parallel regions
+                    if (isSPF_stat(st)) // except sapfor parallel regions and if attributes dont move
+                    {
                         if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
-                            toDel.push_back(st);
+                        {
+                            if (getAttributes<SgStatement*, SgStatement*>(st->lexNext(), set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }).size() > 0)
+                                toDel.push_back(st);
+                        }
+                    }
                 }
 
                 for (auto &elem : toDel)
