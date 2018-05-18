@@ -173,6 +173,7 @@
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInsertor.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp" />
@@ -242,6 +243,7 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
+    <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInsertor.h" />
     <ClInclude Include="..\_src\errors.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />

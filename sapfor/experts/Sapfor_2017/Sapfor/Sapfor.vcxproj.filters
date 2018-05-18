@@ -56,10 +56,6 @@
       <UniqueIdentifier>{0b376fe9-1401-4c81-aa82-b0ae2e4e67cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы исходного кода\Predictor">
-    <Filter Include="Файлы исходного кода\Predictor">
-      <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
       <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы исходного кода\DynamicAnalysis">
@@ -259,6 +255,9 @@
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInsertor.cpp">
+      <Filter>Файлы исходного кода\DvmhRegions</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -374,6 +373,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInsertor.h">
+      <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
