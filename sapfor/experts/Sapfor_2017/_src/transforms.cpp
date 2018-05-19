@@ -39,6 +39,8 @@
 #include "LoopConverter/array_assign_to_loop.h"
 #include "Predictor/PredictScheme.h"
 
+#include "CreateInterTree/CreateInterTree.h"
+
 #include "SageAnalysisTool/depInterfaceExt.h"
 
 #ifdef _WIN32
@@ -708,6 +710,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             convertFromAssignToLoop(file, getMessagesForFile(file_name));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
+        else if (curr_regime == CREATE_INTER_TREE)
+            createInterTree(file);
         else if (curr_regime == PREDICT_SCHEME)
         {
             auto itFound = loopGraph.find(file_name);
@@ -1408,6 +1412,21 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (staticPrivateAnalysis)
             runAnalysis(*project, curr_regime, false);
         break;
+    case CREATE_INTER_TREE:
+        {
+            std::vector<std::string> filenames;
+            int files_num = project->numberOfFiles();
+            for(int i = files_num - 1; i >= 0; i--)
+            {
+                std::string filename = project->file(i).filename();
+                filename.append(".gcov");
+                filenames.push_back(filename);
+            } 
+
+            runAnalysis(*project, curr_regime, false);
+            assignCallsToAllFiles(filenames);
+        }
+        break;    
     default:
         runAnalysis(*project, curr_regime, false);
         break;
@@ -1504,6 +1523,8 @@ int main(int argc, char**argv)
                         curr_regime = REMOVE_DVM_DIRS;
                     else if (par == 18)
                         curr_regime = CREATE_NESTED_LOOPS;
+                    else if (par == 19)
+                        curr_regime = CREATE_INTER_TREE;
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp();
