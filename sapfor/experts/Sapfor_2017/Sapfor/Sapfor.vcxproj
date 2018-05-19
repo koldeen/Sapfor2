@@ -160,7 +160,6 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
-    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
     <ClCompile Include="..\_src\directive_parser.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
@@ -232,7 +231,6 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
     <ClInclude Include="..\_src\AstWrapper.h" />
-    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h" />
     <ClInclude Include="..\_src\directive_parser.h" />
     <ClInclude Include="..\_src\Distribution\Array.h" />

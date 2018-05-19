@@ -58,9 +58,6 @@
     <Filter Include="Файлы исходного кода\Predictor">
       <UniqueIdentifier>{0c9689db-d010-48bb-8713-b18fb43d45f4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="CreateIntervalsTree">
-      <UniqueIdentifier>{c26e2185-b3c8-4160-8e9e-c48b59ef234f}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\transforms.cpp">
@@ -249,13 +246,8 @@
     <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClCompile>
-<<<<<<< HEAD
-    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp">
-      <Filter>CreateIntervalsTree</Filter>
-=======
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
->>>>>>> origin
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -370,13 +362,8 @@
     <ClInclude Include="..\_src\version.h">
       <Filter>Файлы исходного кода\Utils</Filter>
     </ClInclude>
-<<<<<<< HEAD
-    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h">
-      <Filter>CreateIntervalsTree</Filter>
-=======
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
->>>>>>> origin
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

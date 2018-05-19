@@ -1,0 +1,691 @@
+#include "../leak_detector.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+#include "../types.h"
+#include "DvmhDirective.h"
+#include "../errors.h"
+#include "../SgUtils.h"
+#include "../transform.h"
+
+#include "dvm.h"
+
+using std::vector;
+using std::tuple;
+using std::get;
+using std::string;
+using std::pair;
+using std::set;
+using std::map;
+
+using std::set_union;
+using std::make_pair;
+using std::min;
+using std::max;
+
+static inline void genSubscripts(const vector<pair<int, int>> &shadowRenew, const vector<pair<int, int>> &shadowRenewShifts, SgArrayRefExp *&newArrayRef)
+{
+    for (int z = 0; z < shadowRenew.size(); ++z)
+    {
+        SgValueExp *tmp = new SgValueExp(shadowRenew[z].first + shadowRenewShifts[z].first);
+        SgValueExp *tmp1 = new SgValueExp(shadowRenew[z].second + shadowRenewShifts[z].second);
+        SgExpression *toAdd = new SgExpression(DDOT, tmp, tmp1, NULL);
+        newArrayRef->addSubscript(*toAdd);
+    }
+}
+
+static inline SgExpression* createAndSetNext(const int side, const int variant, SgExpression *p)
+{
+    if (side == LEFT)
+    {
+        SgExpression *tmp = new SgExpression(variant);
+        p->setLhs(tmp);
+        return p->lhs();
+    }
+    else if (side == RIGHT)
+    {
+        SgExpression *tmp = new SgExpression(variant);
+        p->setRhs(tmp);
+        return p->rhs();
+    }
+
+    return NULL;
+}
+
+static SgExpression* genComplexExpr(const pair<string, string> &digitConv, const int digit)
+{
+    SgExpression *tmp;
+    if (digitConv.first == " - ")
+        tmp = new SgUnaryExp(MINUS_OP, *new SgValueExp(-digit));
+    else
+        tmp = new SgValueExp(digit);
+    return tmp;
+}
+
+static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<int, int> expr)
+{
+    SgExpression *retVal;
+    SgSymbol *symbLetter = findSymbolOrCreate(file, letter);
+    if (expr.first == 0 && expr.second == 0)
+        retVal = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+    else if (expr.second == 0)
+    {
+        if (expr.first == 1)
+            retVal = new SgVarRefExp(symbLetter);
+        else
+        {
+            pair<string, string> digit2 = convertDigitToPositive(expr.first);
+
+            SgVarRefExp *tmp = new SgVarRefExp(symbLetter);
+            retVal = new SgExpression(MULT_OP, genComplexExpr(digit2, expr.first), tmp, NULL);
+        }
+    }
+    else
+    {
+        pair<string, string> digit1 = convertDigitToPositive(expr.second);
+        SgExpression *d1 = genComplexExpr(digit1, expr.second);
+        if (expr.first == 1)
+        {
+            SgVarRefExp *tmp = new SgVarRefExp(symbLetter);
+            retVal = new SgExpression(ADD_OP, tmp, d1, NULL);
+        }
+        else
+        {
+            pair<string, string> digit2 = convertDigitToPositive(expr.first);
+            SgExpression *d2 = genComplexExpr(digit2, expr.first);
+
+            SgVarRefExp *tmp = new SgVarRefExp(symbLetter);
+            SgExpression *tmp1 = new SgExpression(MULT_OP, d2, tmp, NULL);
+            retVal = new SgExpression(ADD_OP, tmp1, d1, NULL);
+        }
+    }
+    return retVal;
+}
+
+pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+                                                           const vector<AlignRule> &alignRules,
+                                                           DIST::GraphCSR<int, double, attrType> &reducedG,
+                                                           DIST::Arrays<int> &allArrays,
+                                                           const std::set<DIST::Array*> &acrossOutAttribute,
+                                                           const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const int regionId)
+{
+    string directive = "";
+    vector<Expression*> dirStatement = { NULL, NULL, NULL };
+
+    if (langType == LANG_F)
+    {
+        SgExpression *expr = new SgExpression(EXPR_LIST);
+        SgExpression *p = expr;
+
+        directive += "!DVM$ PARALLEL(";
+        for (int i = 0; i < (int)parallel.size(); ++i)
+        {
+            if (i == 0)
+                directive += parallel[i];
+            else
+                directive += "," + parallel[i];
+            SgVarRefExp *tmp = new SgVarRefExp(findSymbolOrCreate(file, parallel[i]));
+            p->setLhs(tmp);
+            if (i != (int)parallel.size() - 1)
+                p = createAndSetNext(RIGHT, EXPR_LIST, p);
+            else
+                p->setRhs(NULL);
+        }
+        directive += ") ON " + arrayRef->GetShortName() + "(";
+        dirStatement[2] = new Expression(expr);
+
+        SgSymbol *symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName());
+        //create array type for DVMH template
+        if (arrayRef->isTemplate())
+        {
+            SgArrayType *typeA = new SgArrayType(*SgTypeDouble());
+            symbForPar->setType(typeA);
+        }
+
+        SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
+        for (int i = 0; i < (int)on.size(); ++i)
+        {            
+            const pair<int, int> &coeffs = on[i].second;
+            assert( (coeffs.first != 0 && on[i].first != "*") || on[i].first == "*");
+
+            if (i != 0)
+                directive += ",";
+
+            if (on[i].first == "*")
+            {
+                directive += "*";
+                SgVarRefExp *varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                arrayExpr->addSubscript(*varExpr);
+            }
+            else
+            {
+                directive += genStringExpr(on[i].first, coeffs);
+                arrayExpr->addSubscript(*genSgExpr(file, on[i].first, coeffs));
+            }
+        }
+        directive += ")";
+        dirStatement[0] = new Expression(arrayExpr);
+
+        expr = new SgExpression(EXPR_LIST);
+        p = expr;
+
+        dirStatement[1] = NULL;
+        if (privates.size() != 0)
+        {
+            p = createAndSetNext(LEFT, ACC_PRIVATE_OP, p);
+            p = createAndSetNext(LEFT, EXPR_LIST, p);
+
+            directive += ", PRIVATE(";
+            int k = 0;
+            for (auto &privVar : privates)
+            {
+                if (k != 0)
+                    directive += "," + string(privVar->identifier());
+                else
+                    directive += privVar->identifier();
+
+                SgVarRefExp *varExpr = new SgVarRefExp(privVar);
+                p->setLhs(varExpr);
+                if (k != privates.size() - 1)
+                    p = createAndSetNext(RIGHT, EXPR_LIST, p);
+
+                ++k;
+            }
+            directive += ")";
+            dirStatement[1] = new Expression(expr);
+        }
+
+        set<DIST::Array*> arraysInAcross;
+        if (across.size() != 0)
+        {
+            if (acrossShifts.size() == 0)
+            {
+                acrossShifts.resize(across.size());
+                for (int i = 0; i < across.size(); ++i)
+                    acrossShifts[i].resize(across[i].second.size());
+            }
+
+            //TODO: add "OUT" key for string representation
+            string acrossAdd = ", ACROSS(";
+            int inserted = 0;
+            SgExpression *acr_out = new SgExpression(EXPR_LIST);
+            SgExpression *p_out = acr_out;
+
+            SgExpression *acr_in = new SgExpression(EXPR_LIST);
+            SgExpression *p_in = acr_in;
+
+            SgExpression *acr_op = NULL;
+            int inCount = 0;
+            int outCount = 0;
+            for (int i1 = 0; i1 < (int)across.size(); ++i1)
+            {
+                DIST::Array *currArray = allArrays.GetArrayByName(across[i1].first.second);
+                if (currArray == NULL)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                bool isOut = acrossOutAttribute.find(currArray) != acrossOutAttribute.end();
+                string bounds = genBounds(alignRules, across[i1], acrossShifts[i1], reducedG, allArrays, readOps, true, regionId, distribution, arraysInAcross);
+                if (bounds != "")
+                {
+                    if (inserted != 0)
+                    {
+                        acrossAdd += ",";
+                        if (isOut)
+                        {
+                            if (outCount > 0)
+                                p_out = createAndSetNext(RIGHT, EXPR_LIST, p_out);
+                            outCount++;
+                            p = p_out;
+                        }
+                        else
+                        {
+                            if (inCount > 0)
+                                p_in = createAndSetNext(RIGHT, EXPR_LIST, p_in);
+                            inCount++;
+                            p = p_in;
+                        }
+                    }
+                    else if (inserted == 0)
+                    {
+                        if (dirStatement[1] != NULL)
+                            expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                        acr_op = createAndSetNext(LEFT, ACROSS_OP, expr);
+
+                        if (isOut)
+                        {
+                            outCount++;
+                            p = p_out;
+                        }
+                        else
+                        {
+                            inCount++;
+                            p = p_in;
+                        }
+                    }
+
+                    acrossAdd += across[i1].first.first + "(" + bounds + ")";
+
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, across[i1].first.first));
+                    genSubscripts(across[i1].second, acrossShifts[i1], newArrayRef);
+                    p->setLhs(newArrayRef);
+                    inserted++;
+                }
+            }
+            acrossAdd += ")";
+
+            if (inserted > 0)
+            {
+                directive += acrossAdd;
+
+                if (dirStatement[1] == NULL)
+                    dirStatement[1] = new Expression(expr);
+
+                if (acrossOutAttribute.size() > 0)
+                {
+                    SgExpression *tmp = new SgExpression(DDOT, new SgKeywordValExp("OUT"), acr_out, NULL);
+                    acr_op->setLhs(*tmp);
+                    if (inCount != 0)
+                        acr_op->setRhs(acr_in);
+                }
+                else
+                    acr_op->setLhs(acr_in);
+            }
+        }
+
+        //TODO: add optimization of CORNER SHADOW_RENEW
+        if (shadowRenew.size() != 0)
+        {            
+            if (shadowRenewShifts.size() == 0)
+            {
+                shadowRenewShifts.resize(shadowRenew.size());
+                for (int i = 0; i < shadowRenew.size(); ++i)
+                    shadowRenewShifts[i].resize(shadowRenew[i].second.size());
+            }
+                        
+            string shadowAdd = ", SHADOW_RENEW(";
+            int inserted = 0;
+            for (int i1 = 0; i1 < (int)shadowRenew.size(); ++i1)
+            {
+                const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross);
+                if (bounds != "")
+                {
+                    DIST::Array *currArray = allArrays.GetArrayByName(shadowRenew[i1].first.second);
+
+                    if (inserted != 0)
+                    {
+                        shadowAdd += ",";
+                        p = createAndSetNext(RIGHT, EXPR_LIST, p);
+                    }
+                    else if (inserted == 0)
+                    {
+                        if (dirStatement[1] != NULL)
+                        {
+                            expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                            p = expr;
+                        }
+
+                        p = createAndSetNext(LEFT, SHADOW_RENEW_OP, p);
+                        p = createAndSetNext(LEFT, EXPR_LIST, p);
+                    }
+
+                    shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first));
+                    newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
+                    genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);
+
+                    if (shadowRenew[i1].second.size() > 1)
+                    {
+                        SgExpression *tmp = new SgExpression(ARRAY_OP, newArrayRef, NULL, NULL);
+                        p->setLhs(*tmp);
+
+                        shadowAdd += "(CORNER)";
+                        SgKeywordValExp *tmp1 = new SgKeywordValExp("CORNER");
+                        p->lhs()->setRhs(tmp1);
+                    }
+                    else
+                        p->setLhs(newArrayRef);
+
+                    inserted++;
+                }
+            }
+            shadowAdd += ")";
+            if (inserted > 0)
+            {
+                directive += shadowAdd;
+                if (dirStatement[1] == NULL)
+                    dirStatement[1] = new Expression(expr);
+            }
+        }
+        
+        if (reduction.size() != 0)
+        {
+            if (dirStatement[1] != NULL)
+            {
+                expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                p = expr;
+            }
+
+            p = createAndSetNext(LEFT, REDUCTION_OP, p);
+            p = createAndSetNext(LEFT, EXPR_LIST, p);
+
+            directive += ", REDUCTION(";
+            int k = 0;
+            for (auto it = reduction.begin(); it != reduction.end(); ++it)
+            {
+                const string &nameGroup = it->first;
+                for (auto &list : it->second)
+                {
+                    if (k != 0)
+                    {
+                        directive += ",";
+                        p = createAndSetNext(RIGHT, EXPR_LIST, p);
+                    }
+
+                    directive += nameGroup + "(" + list + ")";
+
+                    SgVarRefExp *tmp2 = new SgVarRefExp(findSymbolOrCreate(file, list));
+                    SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup), *tmp2);
+
+                    p->setLhs(tmp1);
+                    ++k;
+                }
+            }
+            if (reductionLoc.size() != 0)
+                directive += ", ";
+            else
+            {
+                directive += ")";
+
+                if (dirStatement[1] == NULL)
+                    dirStatement[1] = new Expression(expr);
+            }
+        }
+   
+        if (reductionLoc.size() != 0)
+        {
+            if (dirStatement[1] != NULL && reduction.size() == 0)
+            {
+                expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                p = expr;
+            }
+
+            if (reduction.size() == 0)
+            {
+                p = createAndSetNext(LEFT, REDUCTION_OP, p);
+                p = createAndSetNext(LEFT, EXPR_LIST, p);
+                directive += ", REDUCTION(";
+            }
+            else
+                p = createAndSetNext(RIGHT, EXPR_LIST, p);
+
+            int k = 0;
+            for (auto it = reductionLoc.begin(); it != reductionLoc.end(); ++it)
+            {
+                const string &nameGroup = it->first;
+                for (auto &list : it->second)
+                {
+                    if (k != 0)
+                    {
+                        directive += ",";
+                        p = createAndSetNext(RIGHT, EXPR_LIST, p);
+                    }
+
+                    directive += nameGroup + "(" + get<0>(list) + ", " + get<1>(list) + ", " + std::to_string(get<2>(list)) + ")";
+
+                    SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup));
+
+                    tmp1->addArg(*new SgVarRefExp(findSymbolOrCreate(file, get<0>(list))));
+                    tmp1->addArg(*new SgVarRefExp(findSymbolOrCreate(file, get<1>(list))));
+                    tmp1->addArg(*new SgValueExp(get<2>(list)));
+
+                    p->setLhs(tmp1);
+                    ++k;
+                }
+            }
+            directive += ")";
+
+            if (dirStatement[1] == NULL)
+                dirStatement[1] = new Expression(expr);
+        }
+
+        if (remoteAccess.size() != 0)
+        {
+            if (dirStatement[1] != NULL)
+            {
+                expr = createAndSetNext(RIGHT, EXPR_LIST, expr);
+                p = expr;
+            }
+
+            p = createAndSetNext(LEFT, REMOTE_ACCESS_OP, p);
+            p = createAndSetNext(LEFT, EXPR_LIST, p);
+
+            directive += ", REMOTE_ACCESS(";
+            int k = 0;
+            for (auto it = remoteAccess.begin(); it != remoteAccess.end(); ++it, ++k)
+            {
+                directive += it->first.first + "(";
+                directive += it->first.second + ")";
+
+                SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first), *it->second);
+                p->setLhs(tmp);
+
+                if (k != remoteAccess.size() - 1)
+                {
+                    directive += ",";
+                    p = createAndSetNext(RIGHT, EXPR_LIST, p);
+                }
+            }
+            directive += ")";
+
+            if (dirStatement[1] == NULL)
+                dirStatement[1] = new Expression(expr);
+        }
+    }
+    else
+    {
+        //TODO for C LANG
+    }
+    directive += "\n";
+    return make_pair(directive, dirStatement);
+}
+
+void DistrVariant::GenRule(File *file, Expression *rule) const
+{    
+    for (int i = 0; i < distRule.size(); ++i)
+    {
+        SgVarRefExp *toSet = NULL;
+        if (distRule[i] == dist::NONE)
+        {
+            toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+            rule->setLhs(toSet);
+        }
+        else if (distRule[i] == dist::BLOCK)
+        {
+            toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+            rule->setLhs(toSet);
+        }
+
+        if (i != distRule.size() - 1)
+        {
+            SgExpression *list = new SgExpression(EXPR_LIST);
+            rule->setRhs(list);
+            rule = new Expression(rule->rhs());
+        }        
+    }       
+}
+
+vector<Expression*> DistrVariant::GenRuleSt(File *file) const
+{
+    vector<Expression*> retVal;
+    
+    for (int i = 0; i < distRule.size(); ++i)
+    {
+        SgVarRefExp *toSet = NULL;
+        if (distRule[i] == dist::NONE)        
+        {
+            toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+            retVal.push_back(new Expression(toSet));
+        }
+        else if (distRule[i] == dist::BLOCK)
+        {
+            toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+            retVal.push_back(new Expression(toSet));
+        }
+    }
+    return retVal;
+}
+
+vector<Statement*> DataDirective::GenRule(File *file, const vector<int> &rules, const int variant) const
+{
+    vector<Statement*> retVal;
+    if (distrRules.size() < rules.size())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    
+    for (int i = 0; i < rules.size(); ++i)
+    {
+        if (rules[i] < distrRules[i].second.size())
+        {
+            string tmp = distrRules[i].first->GetShortName();
+            SgStatement *dir = new SgStatement(variant, NULL, NULL, NULL, NULL, NULL);
+            SgVarRefExp *dirstRef = new SgVarRefExp(*findSymbolOrCreate(file, tmp));
+            SgExpression *rule = new SgExpression(EXPR_LIST);
+            
+            distrRules[i].second[rules[i]].GenRule(file, new Expression(rule));
+
+            SgExpression *toAdd = new SgExpression(EXPR_LIST, dirstRef, NULL, NULL);
+            dir->setExpression(0, *toAdd);
+            dir->setExpression(1, *rule);
+            retVal.push_back(new Statement(dir));
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    return retVal;
+}
+
+vector<Statement*> DataDirective::GenAlignsRules(File *file, const int variant) const
+{
+    vector<Statement*> retVal;
+    for (int i = 0; i < alignRules.size(); ++i)
+    {
+        Statement *newRule = alignRules[i].GenRule(file, variant);
+        if (newRule)
+            retVal.push_back(newRule);
+    }
+    return retVal;
+}
+
+Statement* AlignRule::GenRule(File *file, const int variant) const
+{
+    // local and realign
+    if (alignArray->GetLocation().first == 0 && variant == DVM_REALIGN_DIR)
+        return NULL;
+
+    SgStatement *retVal = new SgStatement(variant, NULL, NULL, NULL, NULL, NULL);
+
+    SgVarRefExp *alignRef = new SgVarRefExp(findSymbolOrCreate(file, alignArray->GetShortName()));
+    SgExpression *list = new SgExpression(EXPR_LIST, alignRef, NULL, NULL);
+    retVal->setExpression(0, *list);
+
+    SgExpression *alignList = new SgExpression(EXPR_LIST);
+    retVal->setExpression(1, *alignList);
+    for (int i = 0; i < alignRule.size(); ++i)
+    {
+        alignList->setLhs(genSgExpr(file, alignNames[i], alignRule[i]));        
+        if (i != alignRule.size() - 1)
+        {
+            list = new SgExpression(EXPR_LIST);
+            alignList->setRhs(list);
+            alignList = alignList->rhs();
+        }
+    }
+
+    SgSymbol *sAlignWith = &(findSymbolOrCreate(file, alignWith->GetShortName())->copy());
+    SgArrayType *arrayType = new SgArrayType(*SgTypeInt());    
+    sAlignWith->setType(arrayType);
+    SgArrayRefExp *alignWithRef = new SgArrayRefExp(*sAlignWith);
+
+    vector<SgExpression*> alignEachDim(alignWith->GetDimSize());
+    for (int i = 0; i < alignWith->GetDimSize(); ++i)
+        alignEachDim[i] = new SgVarRefExp(findSymbolOrCreate(file, "*"));    
+
+    for (int i = 0; i < alignRuleWith.size(); ++i)
+        alignEachDim[alignRuleWith[i].first] = genSgExpr(file, alignNames[i], alignRuleWith[i].second);
+
+    for (int i = 0; i < alignWith->GetDimSize(); ++i)
+        alignWithRef->addSubscript(*alignEachDim[i]);
+    retVal->setExpression(2, *alignWithRef);
+
+    return new Statement(retVal);
+}
+
+pair<SgExpression*, SgExpression*> genShadowSpec(SgFile *file, const pair<string, const vector<pair<int, int>>> &shadowSpecs)
+{
+    pair<SgExpression*, SgExpression*> result;
+
+    SgVarRefExp *tmp = new SgVarRefExp(findSymbolOrCreate(file, shadowSpecs.first));
+    result.first = new SgExpression(EXPR_LIST, tmp, NULL, NULL, NULL);
+
+    SgExpression *listEx = new SgExpression(EXPR_LIST);
+    result.second = listEx;
+    bool needInsert = false;
+    for (int k = 0; k < shadowSpecs.second.size(); ++k)
+    {        
+        const int leftVal = shadowSpecs.second[k].first;
+        const int rightVal = shadowSpecs.second[k].second;
+
+        SgValueExp *tmp1 = new SgValueExp(leftVal);
+        SgValueExp *tmp2 = new SgValueExp(rightVal);
+        SgExpression *currDim = new SgExpression(DDOT, tmp1, tmp2, NULL);
+
+        listEx->setLhs(currDim);
+        if (shadowSpecs.second[k].first != 0 || shadowSpecs.second[k].second != 0)
+            needInsert = true;
+        
+        if (k != shadowSpecs.second.size() - 1)
+        {
+            SgExpression *tmp = new SgExpression(EXPR_LIST);
+            listEx->setRhs(tmp);
+            listEx = listEx->rhs();
+        }
+    }
+    
+    if (needInsert)
+        return result;
+    else
+        return make_pair<SgExpression*, SgExpression*>(NULL, NULL);
+}
+
+//TODO: check this
+void correctShadowSpec(SgExpression *listEx, const vector<pair<int, int>> &shadowSpecs)
+{    
+    for (int k = 0; k < shadowSpecs.size(); ++k)
+    {
+        const int leftVal = shadowSpecs[k].first;
+        const int rightVal = shadowSpecs[k].second;
+        
+        if (listEx)
+        {
+            if (listEx->lhs())
+            {
+                if (listEx->lhs()->lhs())
+                    if (listEx->lhs()->lhs()->valueInteger() < leftVal)
+                        ((SgValueExp*)(listEx->lhs()->lhs()))->setValue(leftVal);
+
+                if (listEx->lhs()->rhs())
+                    if (listEx->lhs()->rhs()->valueInteger() < rightVal)
+                        ((SgValueExp*)(listEx->lhs()->rhs()))->setValue(rightVal);
+            }
+        }
+        else
+            break;
+        listEx = listEx->rhs();        
+    }
+}
