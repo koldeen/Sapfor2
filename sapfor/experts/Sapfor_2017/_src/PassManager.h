@@ -74,16 +74,24 @@ public:
 
 static void depsToGraphViz(const map<passes, vector<passes>> &passDepsIn)
 {
-    printf("digraph G {");
-    for (auto it = passDepsIn.begin(); it != passDepsIn.end(); ++it)
+    FILE *file = fopen("pass_tree.txt", "w");
+    if (!file)
+        printf("ERROR in creating 'pass_tree.txt' file\n");
+    else
     {
-        for (int k = 0; k < it->second.size(); ++k)
-            printf("\"%s\" -> \"%s\";\n", passNames[it->first], passNames[it->second[k]]);
+        fprintf(file, "digraph G {");
+        for (auto it = passDepsIn.begin(); it != passDepsIn.end(); ++it)
+        {
+            for (int k = 0; k < it->second.size(); ++k)
+                fprintf(file, "\"%s\" -> \"%s\";\n", passNames[it->first], passNames[it->second[k]]);
+        }
+        fprintf(file, "}\n");
+        fclose(file);
+        printf("write to 'pass_tree.txt' file complited\n");
     }
-    printf("}\n");
 }
 
-void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes> &passesIgnoreStateDone)
+void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes> &passesIgnoreStateDone, bool printTree = false)
 {
     if (passDepsIn.size() != 0)
         return;
@@ -139,8 +147,11 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
                                    REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS });
         
     //only for print
-    //list({ CREATE_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF, CREATE_REMOTES, REVERT_SUBST_EXPR, UNPARSE_FILE, EXTRACT_PARALLEL_DIRS }) <= Pass(INSERT_PARALLEL_DIRS);
-    //depsToGraphViz(passDepsIn);
-    //exit(0);
+    if (printTree)
+    {
+        list({ CREATE_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF, CREATE_REMOTES, REVERT_SUBST_EXPR, UNPARSE_FILE, EXTRACT_PARALLEL_DIRS }) <= Pass(INSERT_PARALLEL_DIRS);
+        depsToGraphViz(passDepsIn);
+        exit(0);
+    }
 }
 #undef list

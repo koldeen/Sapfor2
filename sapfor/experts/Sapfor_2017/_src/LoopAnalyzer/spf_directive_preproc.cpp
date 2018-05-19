@@ -1164,7 +1164,7 @@ void revertion_spf_dirs(SgFile *file,
             SgAttribute *atrib = st->getAttribute(0);
             SgStatement *toAdd = NULL;
 
-            if (atrib) 
+            if (atrib && st->fileName() == fileName)
             {
                 //check previosly directives SPF_ANALYSIS
                 vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
