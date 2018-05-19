@@ -96,6 +96,8 @@ static ControlFlowItem* ifItem(SgStatement*, ControlFlowItem*, SgStatement** las
 static void setLeaders(ControlFlowItem*);
 static void clearList(ControlFlowItem*);
 static void fillLabelJumps(ControlFlowItem*);
+static SgExpression* GetProcedureArgument(bool isF, void* f, int i);
+static int GetNumberOfArguments(bool isF, void* f);
 #if ACCAN_DEBUG
 static void printControlFlowList(ControlFlowItem*, ControlFlowItem* last = NULL);
 #endif
@@ -110,6 +112,7 @@ const char* failed_proc_name = NULL;
 static PrivateDelayedItem* privateDelayedList = NULL;
 static AnalysedCallsList* currentProcedure = NULL;
 static AnalysedCallsList* mainProcedure = NULL;
+static DoLoopDataList* doLoopList = NULL;
 static CommonData* pCommons;
 static CallData* pCalls;
 
@@ -274,12 +277,15 @@ SgExpression* VarsKeeper::GetValueOfVar(SgExpression* var)
 //#endif
 */
 
-void SetUpVars(CommonData* commons, CallData* calls, AnalysedCallsList* m)
+
+
+void SetUpVars(CommonData* commons, CallData* calls, AnalysedCallsList* m, DoLoopDataList* list)
 {
     pCommons = commons;
     pCalls = calls;
     currentProcedure = m;
     mainProcedure = currentProcedure;
+    doLoopList = list;
 }
 
 AnalysedCallsList* GetCurrentProcedure()
@@ -296,8 +302,11 @@ void Private_Vars_Analyzer(SgStatement* start)
 #endif
     CallData calls;
     CommonData commons;
+    DoLoopDataList doloopList;
     pCommons = &commons;
     pCalls = &calls;
+    doLoopList = &doloopList;
+
     currentProcedure = calls.AddHeader(start, false, start->symbol(), current_file_id);
     mainProcedure = currentProcedure;
     //stage 1: preparing graph data
@@ -518,7 +527,7 @@ static void ClearMemoryAfterDelay(ActualDelayedData* d)
 
 static void FillPrivates(ControlFlowGraph* graph)
 {
-    ActualDelayedData* d = graph->ProcessDelayedPrivates(pCommons, mainProcedure, NULL);
+    ActualDelayedData* d = graph->ProcessDelayedPrivates(pCommons, mainProcedure, NULL, NULL, false, -1);
     ClearMemoryAfterDelay(d);
     if (privateDelayedList)
         privateDelayedList->PrintWarnings();
@@ -529,8 +538,14 @@ ActualDelayedData* CBasicBlock::GetDelayedDataForCall(CallAnalysisLog* log)
     for (ControlFlowItem* it = start; it != NULL && (!it->isLeader() || it == start); it = it->getNext())
     {
         AnalysedCallsList* c = it->getCall();
+        void* cf = it->getFunctionCall();
+        bool isFun = true;
+        if (!cf) {
+            cf = it->getStatement();
+            isFun = false;
+        }
         if (c != NULL && c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c->graph != NULL)
-            return c->graph->ProcessDelayedPrivates(pCommons, c, log);
+            return c->graph->ProcessDelayedPrivates(pCommons, c, log, cf, isFun, it->getProc()->file_id);
     }
     return NULL;
 }
@@ -580,7 +595,26 @@ void ActualDelayedData::MoveVarFromPrivateToLastPrivate(CVarEntryInfo* var, Comm
     }
 }
 
-ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons, AnalysedCallsList* call, CallAnalysisLog* log)
+int IsThisVariableAParameterOfSubroutine(AnalysedCallsList* lst, SgSymbol* s)
+{
+    if (!lst->header)
+        return -1;
+    int stored = SwitchFile(lst->file_id);
+    SgProcHedrStmt* h = isSgProcHedrStmt(lst->header);
+    if (!h)
+        return -1;
+    for (int i = 0; i < h->numberOfParameters(); i++) {
+        SgSymbol* par = h->parameter(i);
+        if (par == s) {
+            SwitchFile(stored);
+            return i;
+        }
+    }
+    SwitchFile(stored);
+    return -1;
+}
+
+ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons, AnalysedCallsList* call, CallAnalysisLog* log, void* c, bool isFun, int file_id)
 {
     for (CallAnalysisLog* i = log; i != NULL; i = i->prev) {
         if (i->el == call) {
@@ -609,6 +643,27 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
                 while (!bu->isEmpty()) {
                     if (IS_BY_USE(bu->getFirst()->var->GetSymbol()))
                         tbu->addToSet(bu->getFirst()->var, NULL);
+                    else {
+                        CVarEntryInfo* old = bu->getFirst()->var;
+                        int arg_id = IsThisVariableAParameterOfSubroutine(call, bu->getFirst()->var->GetSymbol());
+                        if (arg_id != -1 && c != NULL) {
+                            int stored = SwitchFile(file_id);
+                            SgExpression* exp = GetProcedureArgument(isFun, c, arg_id);
+                            if (isSgVarRefExp(exp) || isSgArrayRefExp(exp)) {
+                                SgSymbol* sym = exp->symbol();
+                                CVarEntryInfo* v;
+                                if (isSgVarRefExp(exp)) {
+                                    v = new CScalarVarEntryInfo(sym);
+                                }
+                                else {
+                                    v = old->Clone(sym);
+                                }
+                                tbu->addToSet(v, NULL);
+                            }
+                            SwitchFile(stored);
+                            
+                        }
+                    }
                     bu->remove(bu->getFirst()->var);
                 }
                 data->buse = tbu;
@@ -637,7 +692,7 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
                 if (!i)
                     continue;
                 CVarEntryInfo* var = i->var;
-                if (bb->getLexNext()->getLiveIn()->belongs(var) && calldata->original->getDelayed()->belongs(cvd->var)) {
+                if (bb->getLexNext()->getLiveIn()->belongs(var->GetSymbol()) && calldata->original->getDelayed()->belongs(cvd->var)) {
                     calldata->MoveVarFromPrivateToLastPrivate(cvd->var, t, NULL);
                 }
                 if (bb->IsVarDefinedAfterThisBlock(var, false)) {
@@ -648,7 +703,7 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
             if (log->el->header == calldata->call->header) {
                 VarSet* pr = new VarSet();
                 pr->unite(calldata->original->getDelayed(), false);
-                pr->intersect(bb->getLexNext()->getLiveIn(), false);
+                pr->intersect(bb->getLexNext()->getLiveIn(), false, true);
                 for (VarItem* exp = pr->getFirst(); exp != NULL; pr->getFirst()) {
                     calldata->MoveVarFromPrivateToLastPrivate(exp->var, NULL, NULL);
                     pr->remove(exp->var);
@@ -660,7 +715,7 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
             while (!tmp_use->isEmpty()) {
                 VarItem* v = tmp_use->getFirst();
                 CVarEntryInfo* tmp = v->var->Clone(OriginalSymbol(v->var->GetSymbol()));
-                if (bb->getLexNext()->getLiveIn()->belongs(tmp, true)) {
+                if (bb->getLexNext()->getLiveIn()->belongs(tmp->GetSymbol(), true)) {
                     calldata->MoveVarFromPrivateToLastPrivate(v->var, NULL, calldata->buse);
                 }
                 if (bb->IsVarDefinedAfterThisBlock(v->var, true)) {
@@ -1166,6 +1221,28 @@ static ControlFlowItem* AddFunctionCalls(SgStatement* st, CallData* calls, Contr
     return retv;
 }
 
+void DoLoopDataList::AddLoop(int file_id, SgStatement* st, SgExpression* l, SgExpression* r, SgExpression* step, SgSymbol* lv)
+{
+    DoLoopDataItem* nt = new DoLoopDataItem();
+    nt->file_id = file_id;
+    nt->statement = st;
+    nt->l = l;
+    nt->r = r;
+    nt->st = step;
+    nt->loop_var = lv;
+    nt->next = list;
+    list = nt;
+}
+
+DoLoopDataList::~DoLoopDataList()
+{
+    while (list != NULL) {
+        DoLoopDataItem* t = list->next;
+        delete list;
+        list = t;
+    }
+}
+
 static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem** pred, ControlFlowItem **list, ControlFlowItem* oldcur, doLoops* loops, CallData* calls, CommonData* commons)
 {
     ControlFlowItem* lastf;
@@ -1320,14 +1397,20 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             bool isEndDo = fst->isEnddoLoop();
             SgExpression* lh = new SgVarRefExp(fst->symbol());
             SgStatement* fa = new SgAssignStmt(*lh, *fst->start());
+            bool needs_goto = true;
+            if (fst->start()->variant() == INT_VAL && fst->end()->variant() == INT_VAL && fst->start()->valueInteger() < fst->end()->valueInteger())
+                needs_goto = false;
             //fa->setLabel(*(*stmt)->label());
             ControlFlowItem* last;
             ControlFlowItem* emptyAfterDo = new ControlFlowItem(currentProcedure);
             ControlFlowItem* emptyBeforeDo = new ControlFlowItem(currentProcedure);
-            SgExpression* sendc = new SgExpression(GT_OP, new SgVarRefExp(fst->symbol()), fst->end(), NULL);
-            ControlFlowItem* gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure);
-            gotoEndInitial->setOriginalStatement(fst);
-            ControlFlowItem* stcf = new ControlFlowItem(fa, gotoEndInitial, currentProcedure);
+            ControlFlowItem* gotoEndInitial = NULL;
+            if (needs_goto) {
+                SgExpression* sendc = new SgExpression(GT_OP, new SgVarRefExp(fst->symbol()), fst->end(), NULL);
+                gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure);
+                gotoEndInitial->setOriginalStatement(fst);
+            }
+            ControlFlowItem* stcf = new ControlFlowItem(fa, needs_goto ? gotoEndInitial : emptyBeforeDo, currentProcedure);
             stcf->setOriginalStatement(fst);
             stcf->setLabel((*stmt)->label());
             SgExpression* rh = new SgExpression(ADD_OP, new SgVarRefExp(fst->symbol()), new SgValueExp(1), NULL);
@@ -1349,6 +1432,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
                     lbl = end->label()->id();
             }
             loops->addLoop(lbl, doName ? doName->symbol() : NULL, loop_emp, emptyAfterDo);
+            doLoopList->AddLoop(current_file_id, *stmt, fst->start(), fst->end(), fst->step(), fst->symbol());
             if (isParLoop) {
 #if __SPF
                 // all loop has depth == 1 ? is it correct?
@@ -1580,6 +1664,15 @@ CommonDataItem* CommonData::IsThisCommonVar(VarItem* item, AnalysedCallsList* ca
     return NULL;
 }
 
+CommonDataItem* CommonData::GetItemForName(const std::string& name, AnalysedCallsList* call)
+{
+    for (CommonDataItem* it = list; it != NULL; it = it->next) {
+        if (it->name == name && it->proc == call)
+            return it;
+    }
+    return NULL;
+}
+
 void CommonData::RegisterCommonBlock(SgStatement *st, AnalysedCallsList *cur)
 {
     //TODO: multiple common blocks in one procedure with same name
@@ -1592,20 +1685,22 @@ void CommonData::RegisterCommonBlock(SgStatement *st, AnalysedCallsList *cur)
 
         const string currCommonName = (common->symbol()) ? common->symbol()->identifier() : "spf_unnamed";
 
-        CommonDataItem *it = new CommonDataItem();
-        it->cb = st;
-        it->name = currCommonName;
-        it->isUsable = true;
-        it->proc = cur;
-        it->first = cur;
-        it->onlyScalars = true;
-        newBlock = true;
+        CommonDataItem* it = GetItemForName(currCommonName, cur);
+        if (!it) {
+            it = new CommonDataItem();
+            it->cb = st;
+            it->name = currCommonName;
+            it->isUsable = true;
+            it->proc = cur;
+            it->first = cur;
+            it->onlyScalars = true;
+            newBlock = true;
 
+            for (CommonDataItem *i = list; i != NULL; i = i->next)
+                if (i->name == currCommonName && i->isUsable)
+                    it->first = i->first;
+        }
         it->commonRefs.push_back(common);
-        
-        for (CommonDataItem *i = list; i != NULL; i = i->next)
-            if (i->name == currCommonName && i->isUsable)
-                it->first = i->first;
 
         for (int i = 0; i < vars->length(); ++i)
         {
@@ -1620,8 +1715,19 @@ void CommonData::RegisterCommonBlock(SgStatement *st, AnalysedCallsList *cur)
                 c->next = it->info;
                 it->info = c;
             }
-            else
+            else if (isSgArrayRefExp(vars->elem(i))) {
                 it->onlyScalars = false;
+            }
+            else {
+                CommonVarInfo* c = new CommonVarInfo();
+                c->var = new CArrayVarEntryInfo(vars->elem(i)->symbol(), isSgArrayRefExp(vars->elem(i)));
+                c->isPendingLastPrivate = false;
+                c->isInUse = false;
+                c->parent = it;
+                c->next = it->info;
+                it->info = c;
+                it->onlyScalars = false;
+            }
         }
 
         if (newBlock)
@@ -1755,7 +1861,7 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
         }
         delete tmp;
         pri->unite(l_pri, false);
-        pri->minus(live);
+        pri->minus(live, true);
         privateDelayedList = new PrivateDelayedItem(pri, p_pri, l_pri, lstart, privateDelayedList, this, delay, current_file_id);
         of->SetDelayedData(privateDelayedList);
     }
@@ -1824,6 +1930,32 @@ void PrivateDelayedItem::PrintWarnings()
 }
 #else*/
 
+bool CArrayVarEntryInfo::HasActiveElements() const
+{
+    bool result = false;
+    if (disabled)
+        return false;
+    if (subscripts == 0)
+        return true;
+    for (int i = 0; i < subscripts; i++) {
+        if (!data[i].defined)
+            return false;
+        if (data[i].left_bound != data[i].right_bound)
+            result = true;
+        if (data[i].left_bound == data[i].right_bound && data[i].bound_modifiers[0] <= data[i].bound_modifiers[1])
+            result = true;
+    }
+    return result;
+}
+
+void CArrayVarEntryInfo::MakeInactive()
+{
+    for (int i = 0; i < subscripts; i++) {
+        data[i].left_bound = data[i].right_bound = NULL;
+        data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
+    }
+}
+
 void PrivateDelayedItem::PrintWarnings()
 {
     if (next)
@@ -1867,17 +1999,24 @@ void PrivateDelayedItem::PrintWarnings()
         }
     }
     SgExpression* op = prl;
+
     while (!test2->isEmpty()) {
         //printf("EXTRA IN PRIVATE LIST: ");
         //test2->print();
         extra = 1;
         VarItem* var = test2->getFirst();
-        CVarEntryInfo* syb = var->var;
+        CVarEntryInfo* syb = var->var->Clone();
         int change_fid = var->file_id;
-        test2->remove(syb);
+        test2->remove(var->var);
         int stored_fid = SwitchFile(change_fid);
         if (syb->GetVarType() != VAR_REF_ARRAY_EXP)
             Warning("var '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
+        else {
+            CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
+            if (tt->HasActiveElements())
+                Warning("array '%s' from private list wasn't classified as private", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_REMOVE_VAR, lstart->getPrivateListStatement());
+        }
+        delete(syb);
         SwitchFile(stored_fid);
     }
     while (!test1->isEmpty()) {
@@ -1885,7 +2024,7 @@ void PrivateDelayedItem::PrintWarnings()
         //test1->print();
         missing = 1;
         VarItem* var = test1->getFirst();
-        CVarEntryInfo* syb = var->var;
+        CVarEntryInfo* syb = var->var->Clone();
         int change_fid = var->file_id;
         test1->remove(var->var);
         int stored_fid = SwitchFile(change_fid);
@@ -1901,6 +2040,17 @@ void PrivateDelayedItem::PrintWarnings()
             nls->setRhs(prl->lhs());
             prl->setLhs(nls);
         }
+        else {
+            CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
+            if (tt->HasActiveElements()) {
+#if __SPF
+                Note("**add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#else
+                //Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+#endif
+            }
+        }
+        delete(syb);
         SwitchFile(stored_fid);
         
         /*printf("modified parallel stmt:\n");
@@ -2042,7 +2192,7 @@ VarSet* ControlFlowGraph::getPrivate()
         //getUse()->print();
 
         //res->minus(getUse()); //test!
-        res->minusFinalize(getUse());
+        res->minusFinalize(getUse(), true);
         pri = res;
     }
     return pri;
@@ -2338,7 +2488,7 @@ VarSet* CBasicBlock::getMrdIn(bool la)
                     first = false;
                 }
                 else
-                    res->intersect(b->getMrdOut(la), la);
+                    res->intersect(b->getMrdOut(la), la, false);
             }
             p = p->next;
         }
@@ -2424,15 +2574,21 @@ CRecordVarEntryInfo* AddRecordVarRef(SgRecordRefExp* ref)
     return NULL;
 }
 
-void CBasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st)
+void CBasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st, CArrayVarEntryInfo* v)
 {
     CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
     if ((r = isSgVarRefExp(ex)))
         var = new CScalarVarEntryInfo(r->symbol());
     SgArrayRefExp* ar;
-    if ((ar = isSgArrayRefExp(ex)))
-        var = new CArrayVarEntryInfo(ar->symbol(), ar);
+    if ((ar = isSgArrayRefExp(ex))) {
+        if (!v)
+            var = new CArrayVarEntryInfo(ar->symbol(), ar);
+        else {
+            var = v->Clone();
+            var->SwitchSymbol(ar->symbol());
+        }
+    }
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
         var = AddRecordVarRef(rr);
@@ -2442,7 +2598,7 @@ void CBasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st)
     }
 }
 
-void CBasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st)
+void CBasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st, CArrayVarEntryInfo* v)
 {
     CVarEntryInfo* var = NULL;
     SgVarRefExp* r;
@@ -2452,15 +2608,21 @@ void CBasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st)
     if ((rr = isSgRecordRefExp(ex)))
         var = AddRecordVarRef(rr);
     SgArrayRefExp* ar;
-    if ((ar = isSgArrayRefExp(ex)))
-        var = new CArrayVarEntryInfo(ar->symbol(), ar);
+    if ((ar = isSgArrayRefExp(ex))) {
+        if (!v)
+            var = new CArrayVarEntryInfo(ar->symbol(), ar);
+        else {
+            var = v->Clone();
+            var->SwitchSymbol(ar->symbol());
+        }
+    }
     if (var) {
-        var->RegisterDefinition(def, st);
+        var->RegisterDefinition(def, use, st);
         delete var;
     }
 }
 
-void CBasicBlock::addExprToUse(SgExpression* ex, CExprList* lst = NULL)
+void CBasicBlock::addExprToUse(SgExpression* ex, CArrayVarEntryInfo* v = NULL, CExprList* lst = NULL)
 {
     if (ex != NULL)
     {
@@ -2470,11 +2632,11 @@ void CBasicBlock::addExprToUse(SgExpression* ex, CExprList* lst = NULL)
         SgFunctionCallExp* f = isSgFunctionCallExp(ex);
         if (!f) {
             if (!IsPresentInExprList(ex->lhs(), cur))
-                addExprToUse(ex->lhs(), cur);
+                addExprToUse(ex->lhs(), v, cur);
             if (!isSgUnaryExp(ex))
                 if (!IsPresentInExprList(ex->rhs(), cur))
-                    addExprToUse(ex->rhs(), cur);
-            AddOneExpressionToUse(ex, NULL);
+                    addExprToUse(ex->rhs(), v, cur);
+            AddOneExpressionToUse(ex, NULL, v);
         }
         delete cur;
         /*
@@ -2508,7 +2670,7 @@ void CBasicBlock::ProcessIntrinsicProcedure(bool isF, int narg, void* f, const c
         }else{
             addExprToUse(ar);
         }
-        AddOneExpressionToDef(CheckIntrinsicParameterFlag(name, i, ar, INTRINSIC_OUT), NULL);
+        AddOneExpressionToDef(CheckIntrinsicParameterFlag(name, i, ar, INTRINSIC_OUT), NULL, NULL);
     }
 }
 
@@ -2517,7 +2679,7 @@ void CBasicBlock::ProcessProcedureWithoutBody(bool isF, void* f, bool out)
     for (int i = 0; i < GetNumberOfArguments(isF, f); i++){
         addExprToUse(GetProcedureArgument(isF, f, i));
         if (out)
-            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL);
+            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
     }
 }
 
@@ -2531,7 +2693,7 @@ SgSymbol* CBasicBlock::GetProcedureName(bool isFunc, void* f)
     return pc->name();
 }
 
-int CBasicBlock::GetNumberOfArguments(bool isF, void* f)
+int GetNumberOfArguments(bool isF, void* f)
 {
     if (isF) {
         SgFunctionCallExp* fc = (SgFunctionCallExp*)f;
@@ -2541,7 +2703,7 @@ int CBasicBlock::GetNumberOfArguments(bool isF, void* f)
     return pc->numberOfArgs();
 }
 
-SgExpression* CBasicBlock::GetProcedureArgument(bool isF, void* f, int i)
+SgExpression* GetProcedureArgument(bool isF, void* f, int i)
 {
     if (isF) {
         SgFunctionCallExp* fc = (SgFunctionCallExp*)f;
@@ -2565,11 +2727,11 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
             addExprToUse(ar);
         }
         else if (arg->attributes() & (OUT_BIT)) {
-            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL);
+            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
         }
         else if (arg->attributes() & (INOUT_BIT)) {
             addExprToUse(GetProcedureArgument(isF, f, i));
-            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL);
+            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
         }
         else {
             is_correct = "no bitflag set for pure procedure";
@@ -2578,33 +2740,45 @@ void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void*
     }
 }
 
-bool AnalysedCallsList::isArgIn(int i)
+bool AnalysedCallsList::isArgIn(int i, CArrayVarEntryInfo** p)
 {
     int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
     VarSet* use = graph->getUse();
     SgSymbol* par = h->parameter(i);
+    /*
     CScalarVarEntryInfo* var = new CScalarVarEntryInfo(par);
     bool result = false;
     if (use->belongs(var))
         result = true;
     delete var;
+    */
+    VarItem* result = use->belongs(par);
+    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) {
+        *p = (CArrayVarEntryInfo*)result->var;
+    }
     SwitchFile(stored);
     return result;
 }
 
-bool AnalysedCallsList::isArgOut(int i)
+bool AnalysedCallsList::isArgOut(int i, CArrayVarEntryInfo** p)
 {
     int stored = SwitchFile(this->file_id);
     SgProcHedrStmt* h = isSgProcHedrStmt(header);
     graph->privateAnalyzer();
     VarSet* def = graph->getDef();
     SgSymbol* par = h->parameter(i);
+    /*
     CScalarVarEntryInfo* var = new CScalarVarEntryInfo(par);
     bool result = false;
     if (def->belongs(var))
         result = true;
     delete var;
+    */
+    VarItem* result = def->belongs(par);
+    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) {
+        *p = (CArrayVarEntryInfo*)result->var;
+    }
     SwitchFile(stored);
     return result;
 }
@@ -2669,11 +2843,12 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
     }
     for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) {
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
-        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i))
-            addExprToUse(ar);
-
-        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i))
-            AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL);
+        CArrayVarEntryInfo* tp = NULL;
+        if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i, &tp))
+            addExprToUse(ar, tp);
+        tp = NULL;
+        if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i, &tp))
+            AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL, tp);
     }
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
         for (CommonVarSet* cu = c->graph->getCommonUse(); cu != NULL; cu = cu->next) {
@@ -2799,7 +2974,7 @@ void CBasicBlock::setDefAndUse()
                         SgExpression* l = s->lhs();
                         SgExpression* r = s->rhs();
                         addExprToUse(r);
-                        AddOneExpressionToDef(l, st);
+                        AddOneExpressionToDef(l, st, NULL);
                         break;
                     }
                 case PRINT_STAT:
@@ -2811,7 +2986,7 @@ void CBasicBlock::setDefAndUse()
                             SgExpression* ex = s->itemList();
                             while (ex && ex->lhs()) {
                                 if (st->variant() == READ_STAT) {
-                                    AddOneExpressionToDef(ex->lhs(), st);
+                                    AddOneExpressionToDef(ex->lhs(), st, NULL);
                                 }
                                 else {
                                     addExprToUse(ex->lhs());
@@ -2880,35 +3055,113 @@ template<typename IN_TYPE, typename OUT_TYPE>
 const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
 #endif
 
+DoLoopDataItem* DoLoopDataList::FindLoop(SgStatement* st)
+{
+    DoLoopDataItem* it = list;
+    while (it != NULL) {
+        if (it->statement == st)
+            return it;
+        it = it->next;
+    }
+    return NULL;
+}
+
+bool GetExpressionAndCoefficientOfBound(SgExpression* exp, SgExpression** end, int* coef)
+{
+    if (exp->variant() == SUBT_OP) {
+        if (exp->rhs() && exp->rhs()->variant() == INT_VAL) {
+            *end = exp->lhs();
+            *coef = -exp->rhs()->valueInteger();
+            return true;
+        }
+    }
+    if (exp->variant() == ADD_OP) {
+        if (exp->lhs() && exp->lhs()->variant() == INT_VAL) {
+            *end = exp->rhs();
+            *coef = exp->lhs()->valueInteger();
+            return true;
+        }
+        if (exp->rhs() && exp->rhs()->variant() == INT_VAL) {
+            *end = exp->lhs();
+            *coef = exp->lhs()->valueInteger();
+            return true;
+        }
+    }
+    return false;
+}
+
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s)
 {
-    subscripts = r->numberOfSubscripts();
-    data = new ArraySubscriptData[subscripts];
+    disabled = false;
+    if (!r)
+        subscripts = 0;
+    else
+        subscripts = r->numberOfSubscripts();
+    if (subscripts)
+        data = new ArraySubscriptData[subscripts];
+    else
+        data = NULL;
     for (int i = 0; i < subscripts; i++) {
+        data[i].defined = false;
+        data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
+        data[i].step = 1;
+        data[i].left_bound = data[i].right_bound = NULL;
         data[i].coefs[0] = data[i].coefs[1] = 0;
-        data[i].fs = NULL;
+        data[i].loop = NULL;
 #ifdef __SPF
         const std::vector<int*> coefs = getAttributes<SgExpression*, int*>(r->subscript(i), set<int>{ INT_VAL });
         const std::vector<SgStatement*> fs = getAttributes<SgExpression*, SgStatement*>(r->subscript(i), set<int>{ FOR_NODE });
         if (fs.size() == 1) {
-            data[i].fs = fs[0];
-            if (data[i].fs != NULL) {
+            data[i].loop = doLoopList->FindLoop(fs[0]);
+            if (data[i].loop != NULL) {
                 if (coefs.size() == 1) {
+                    data[i].defined = true;
+                    data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = coefs[0][1];
                     data[i].coefs[0] = coefs[0][0];
                     data[i].coefs[1] = coefs[0][1];
+                    data[i].step = coefs[0][0];
+                    int tmp;
+                    SgExpression* et;
+                    if (GetExpressionAndCoefficientOfBound(data[i].loop->l, &et, &tmp)) {
+                        data[i].left_bound = et;
+                        data[i].bound_modifiers[0] += tmp;
+                    }
+                    else {
+                        data[i].left_bound = data[i].loop->l;
+                    }
+                    if (GetExpressionAndCoefficientOfBound(data[i].loop->r, &et, &tmp)) {
+                        data[i].right_bound = et;
+                        data[i].bound_modifiers[1] += tmp;
+                    }
+                    else {
+                        data[i].right_bound = data[i].loop->r;
+                    }
                 }
             }
         }
 #endif
-        SgExpression* ex = r->subscript(i);
-        if (ex->variant() == INT_VAL) {
-            data[i].coefs[1] = ex->valueInteger();
+        if (!data[i].defined) {
+            SgExpression* ex = r->subscript(i);
+            if (ex->variant() == INT_VAL) {
+                //data[i].coefs[0] = 0;
+                //data[i].coefs[1] = 0;
+                data[i].bound_modifiers[0] = ex->valueInteger();
+                data[i].bound_modifiers[1] = ex->valueInteger();
+                data[i].defined = true;
+            }
+            else {
+                data[i].bound_modifiers[0] = 0;
+                data[i].bound_modifiers[1] = 0;
+                data[i].left_bound = data[i].right_bound = ex;
+                data[i].defined = true;
+            }
         }
     }
 }
 
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub) 
 { 
+    disabled = false;
     if (sub > 0) {
         data = new ArraySubscriptData[sub];
         for (int i = 0; i < sub; i++) {
@@ -2938,41 +3191,189 @@ void CArrayVarEntryInfo::RegisterUsage(VarSet* def, VarSet* use, SgStatement* st
     if (it != NULL) {
         add = *this - *(CArrayVarEntryInfo*)(it->var);
     }
-    if (def != NULL && add != NULL) {
-        def->addToSet(add, st);
+    if (use != NULL && add != NULL && add->HasActiveElements()) {
+        use->addToSet(add, st);
     }
+    if (add != this)
+        delete add;
 
+}
+
+CArrayVarEntryInfo& CArrayVarEntryInfo::operator-=(const CArrayVarEntryInfo& b)
+{
+    if (subscripts == 0){
+        if (b.HasActiveElements()) {
+            disabled = true;
+        }
+        return *this;
+    }
+    if (b.subscripts == 0) {
+        if (HasActiveElements()) {
+            MakeInactive();
+        }
+        return *this;
+    }
+    if (subscripts != b.subscripts || !data || !b.data || !data->defined || !b.data->defined) {
+        return *this;
+    }
+    for (int i = 0; i < subscripts; i++) {
+        if (b.data[i].left_bound == NULL) {
+            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
+                if (data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] == b.data[i].bound_modifiers[0]) {
+                    data[i].bound_modifiers[0]++;
+                    continue;
+                }
+            }
+        }
+        if (data[i].left_bound == NULL && b.data[i].left_bound == NULL &&
+            data[i].right_bound == NULL && b.data[i].right_bound == NULL) {
+            if (data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) {
+                data[i].bound_modifiers[1] = b.data[i].bound_modifiers[0] - 1;
+                continue;
+            }
+            if (data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) {
+                data[i].bound_modifiers[0] = b.data[i].bound_modifiers[1] + 1;
+                continue;
+            }
+            data[i].defined = false;
+        }
+        if (data[i].left_bound == b.data[i].left_bound && data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) {
+            data[i].bound_modifiers[0] = data[i].bound_modifiers[0];
+            data[i].bound_modifiers[1] = b.data[i].bound_modifiers[0] - 1;
+            data[i].right_bound = data[i].left_bound;
+        }
+        if (data[i].right_bound == b.data[i].right_bound && data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) {
+            data[i].bound_modifiers[0] = b.data[i].bound_modifiers[1] + 1;
+            data[i].bound_modifiers[1] = data[i].bound_modifiers[1];
+            data[i].left_bound = data[i].right_bound;
+        }
+        if (b.data[i].left_bound == NULL && b.data[i].right_bound == NULL && 
+            (data[i].left_bound != NULL || data[i].right_bound != NULL))
+            continue;
+        
+        else {
+            data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
+            data[i].left_bound = NULL;
+            data[i].right_bound = NULL;
+            data[i].defined = false;
+            //empty set
+        }
+    }
+    return *this;
 }
 
 CArrayVarEntryInfo* operator-(const CArrayVarEntryInfo& a, const CArrayVarEntryInfo& b)
 {
-    return NULL;
+    //return NULL;
+    CArrayVarEntryInfo* nv = (CArrayVarEntryInfo*)a.Clone();
+    *nv -= b;
+    return nv;
 }
 
 CArrayVarEntryInfo* operator+(const CArrayVarEntryInfo& a, const CArrayVarEntryInfo& b)
 {
-    return NULL;
+    CArrayVarEntryInfo* nv = (CArrayVarEntryInfo*)a.Clone();
+    *nv += b;
+    return nv;
 }
 
-void CArrayVarEntryInfo::RegisterDefinition(VarSet* def, SgStatement* st)
+void CArrayVarEntryInfo::RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st)
 {
     def->addToSet(this, st);
+    use->PossiblyAffectArrayEntry(this);
+}
+
+void VarSet::PossiblyAffectArrayEntry(CArrayVarEntryInfo* var)
+{
+    VarItem* it = GetArrayRef(var);
+    if (!it)
+        return;
+    ((CArrayVarEntryInfo*)(it->var))->ProcessChangesToUsedEntry(var);
+}
+
+void CArrayVarEntryInfo::ProcessChangesToUsedEntry(CArrayVarEntryInfo* var)
+{
+    if (disabled || var->disabled || subscripts != var->subscripts)
+        return;
+    for (int i = 0; i < subscripts; i++) {
+        if (!data[i].defined)
+            continue;
+        if (data[i].loop == var->data[i].loop && data[i].loop != NULL) {
+            if (data[i].coefs[0] == var->data[i].coefs[0]){
+                if (data[i].coefs[1] < var->data[i].coefs[1]) {
+                    if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
+                        data[i].bound_modifiers[0] = data[i].left_bound->valueInteger() + data[i].bound_modifiers[0];
+                        data[i].bound_modifiers[1] = data[i].left_bound->valueInteger() + var->data[i].coefs[1] - 1;
+                        data[i].left_bound = data[i].right_bound = NULL;
+                    }
+                    else {
+                        //maybe add something, not sure
+                    }
+                }
+            }
+        }
+    }
 }
 
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator*=(const CArrayVarEntryInfo& b)
 {
+    //return *this;
+    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data || !b.data || !data->defined || !b.data->defined) {
+        return *this;
+    }
+    for (int i = 0; i < subscripts; i++) {
+        if (b.disabled) {
+            data[i].left_bound = data[i].right_bound = NULL;
+        }
+        if (data[i].left_bound == b.data[i].left_bound) {
+            data[i].bound_modifiers[0] = std::max(data[i].bound_modifiers[0], b.data[i].bound_modifiers[0]);
+        }
+
+        if (data[i].right_bound == b.data[i].right_bound) {
+            data[i].bound_modifiers[1] = std::min(data[i].bound_modifiers[1], b.data[i].bound_modifiers[1]);
+        }
+    }
     return *this;
 }
 
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator+=(const CArrayVarEntryInfo& b)
 {
-    return *this;
-}
+    //return *this;
+    if (disabled && !b.disabled) {
+        for (int i = 0; i < subscripts; i++)
+            data[i] = b.data[i];
+        disabled = false;
+        return *this;
+    }
 
-bool CArrayVarEntryInfo::CompareSubscripts(const CArrayVarEntryInfo&) const
-{
-    //TODO
-    return true;
+    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data || !b.data || disabled || b.disabled) {
+        return *this;
+    }
+    for (int i = 0; i < subscripts; i++) {
+
+        if (data[i].left_bound == b.data[i].left_bound) {
+            data[i].bound_modifiers[0] = std::min(data[i].bound_modifiers[0], b.data[i].bound_modifiers[0]);
+        }
+
+        if (data[i].right_bound == b.data[i].right_bound) {
+            data[i].bound_modifiers[1] = std::max(data[i].bound_modifiers[1], b.data[i].bound_modifiers[1]);
+        }
+        if (data[i].left_bound == NULL && data[i].right_bound == NULL && (b.data[i].left_bound != NULL || b.data[i].right_bound != NULL)) {
+            ArraySubscriptData tmp = data[i];
+            data[i] = b.data[i];
+            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
+                if (tmp.bound_modifiers[1] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] - 1) {
+                    data[i].bound_modifiers[0] -= (1 + tmp.bound_modifiers[1] - tmp.bound_modifiers[0]);
+                }
+            }
+            if (data[i].right_bound && data[i].right_bound->variant() == INT_VAL) {
+                if (tmp.bound_modifiers[0] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[1] + 1) {
+                    data[i].bound_modifiers[1] += (1 + tmp.bound_modifiers[1] - tmp.bound_modifiers[0]);
+                }
+            }
+        }
+    }
+    return *this;
 }
 
 void VarSet::RemoveDoubtfulCommonVars(AnalysedCallsList* call)
@@ -3056,6 +3457,22 @@ VarItem* VarSet::belongs(const CVarEntryInfo* var, bool os)
     return NULL;
 }
 
+VarItem* VarSet::belongs(SgSymbol* s, bool os)
+{
+    VarItem* l = list;
+    while (l != NULL)
+    {
+        if ((l->var->GetSymbol() == s))
+            if (l->var->GetVarType() == VAR_REF_ARRAY_EXP)
+                return ((CArrayVarEntryInfo*)(l->var))->HasActiveElements() ? l : NULL;
+            return l;
+        if (os && OriginalSymbol(l->var->GetSymbol()) == OriginalSymbol(s))
+            return l;
+        l = l->next;
+    }
+    return NULL;
+}
+
 /*
 VarItem* VarSet::belongs(SgVarRefExp* var, bool os)
 {
@@ -3089,7 +3506,8 @@ void VarSet::print()
     VarItem* l = list;
     while (l != NULL)
     {
-        printf("%s ", l->var->GetSymbol()->identifier());
+        if (l->var->GetVarType() != VAR_REF_ARRAY_EXP || ((CArrayVarEntryInfo*)(l->var))->HasActiveElements())
+            printf("%s ", l->var->GetSymbol()->identifier());
 #if PRIVATE_GET_LAST_ASSIGN
         printf("last assignments: %d\n", l->lastAssignments.size());
         for (list<SgStatement*>::iterator it = l->lastAssignments.begin(); it != l->lastAssignments.end(); it++){
@@ -3136,7 +3554,7 @@ void VarSet::addToSet(CVarEntryInfo* var, SgStatement* source)
     }
 }
 
-void VarSet::intersect(VarSet* set, bool la)
+void VarSet::intersect(VarSet* set, bool la, bool array_mode = false)
 {
     VarItem* p = list;
     VarItem* prev = NULL;
@@ -3159,6 +3577,12 @@ void VarSet::intersect(VarSet* set, bool la)
             if (la)
                 p->lastAssignments.insert(p->lastAssignments.end(), n->lastAssignments.begin(), n->lastAssignments.end());
 #endif
+            if (p->var->GetVarType() == VAR_REF_ARRAY_EXP) {
+                if (!array_mode)
+                    *(CArrayVarEntryInfo*)(p->var) *= *(CArrayVarEntryInfo*)(n->var);
+                else
+                    *(CArrayVarEntryInfo*)(p->var) += *(CArrayVarEntryInfo*)(n->var);
+            }
             prev = p;
         }
         p = p->next;
@@ -3200,15 +3624,19 @@ void VarSet::remove(const CVarEntryInfo* var)
     }
 }
 
-void VarSet::minus(VarSet* set)
+void VarSet::minus(VarSet* set, bool complete)
 {
     VarItem* p = list;
     VarItem* prev = NULL;
     while (p != NULL)
     {
-        if (set->belongs(p->var))
+        VarItem* d = set->belongs(p->var);
+        if (d && (p->var->GetVarType() != VAR_REF_ARRAY_EXP || ((CArrayVarEntryInfo*)(d->var))->HasActiveElements()))
         {
-            if (prev == NULL)
+            if (p->var->GetVarType() == VAR_REF_ARRAY_EXP && !complete) {
+                *(CArrayVarEntryInfo*)(p->var) -= *(CArrayVarEntryInfo*)(d->var);
+            }
+            else if (prev == NULL)
                 list = list->next;
             else
             {
@@ -3239,9 +3667,9 @@ bool VarSet::RecordBelong(CVarEntryInfo* rec)
     return false;
 }
 
-void VarSet::minusFinalize(VarSet* set)
+void VarSet::minusFinalize(VarSet* set, bool complete)
 {
-    minus(set);
+    minus(set, complete);
     VarItem* p = list;
     VarItem* prev = NULL;
     while (p != NULL)
@@ -3289,8 +3717,12 @@ void VarSet::unite(VarSet* set, bool la)
         if (!n)
         {
             n = new VarItem();
-            n->var = arg2->var;
-            n->var->AddReference();
+            if (arg2->var->GetVarType() == VAR_REF_ARRAY_EXP)
+                n->var = arg2->var->Clone();
+            else {
+                n->var = arg2->var;
+                n->var->AddReference();
+            }
             n->next = list;
             n->file_id = arg2->file_id;
 #if PRIVATE_GET_LAST_ASSIGN
@@ -3311,6 +3743,9 @@ void VarSet::unite(VarSet* set, bool la)
             //counter++;
             //if (counter % 100 == 0)
                 //printf("%d!\n", counter);
+            if (n->var->GetVarType() == VAR_REF_ARRAY_EXP) {
+                *(CArrayVarEntryInfo*)(n->var) += *(CArrayVarEntryInfo*)(arg2->var);
+            }
         }
         arg2 = arg2->next;
     }
@@ -3491,9 +3926,9 @@ bool argIsReplaceable(int i, AnalysedCallsList* callData)
         return false;
     int attr = header->parameter(i)->attributes();
 
-    if (callData->isArgOut(i) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+    if (callData->isArgOut(i, NULL) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
         return false;
-    else if (!(callData->isArgIn(i) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+    else if (!(callData->isArgIn(i, NULL) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
         return false;
     else
         return true;

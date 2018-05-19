@@ -931,7 +931,8 @@ void expressionAnalyzer(SgStatement *function)
 
     CallData calls;
     CommonData commons;
-    SetUpVars(&commons, &calls, calls.AddHeader(function, false, function->symbol(), current_file_id));
+    DoLoopDataList dldl;
+    SetUpVars(&commons, &calls, calls.AddHeader(function, false, function->symbol(), current_file_id), &dldl);
     //stage 1: preparing graph data
     ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, function, &calls, &commons);
     calls.AssociateGraphWithHeader(function, CGraph);
@@ -1042,7 +1043,8 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
 
         CallData calls;
         CommonData commons;
-        SetUpVars(&commons, &calls, calls.AddHeader(st, false, st->symbol(), current_file_id));
+        DoLoopDataList dldl;
+        SetUpVars(&commons, &calls, calls.AddHeader(st, false, st->symbol(), current_file_id), &dldl);
         //stage 1: preparing graph data
         ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, st, &calls, &commons);
         calls.AssociateGraphWithHeader(st, CGraph);

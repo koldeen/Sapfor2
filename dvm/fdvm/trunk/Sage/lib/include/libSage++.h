@@ -265,6 +265,14 @@ public:
         return true;
     }
 
+    inline SgFile* getFile() const 
+    { 
+        if (fileID == -1 || project == NULL)
+            return NULL;
+        else
+            return &(project->file(fileID)); 
+    }
+
     static SgStatement* getStatementByFileAndLine(const std::string &fName, const int lineNum);
     static void cleanStatsByLine() { statsByLine.clear(); }
 

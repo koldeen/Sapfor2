@@ -305,16 +305,18 @@ public:
     {}
 
     void addToSet(CVarEntryInfo*, SgStatement*);
-    void intersect(VarSet*, bool);
+    void PossiblyAffectArrayEntry(CArrayVarEntryInfo*);
+    void intersect(VarSet*, bool, bool);
     void unite(VarSet*, bool);
-    void minus(VarSet*);
-    void minusFinalize(VarSet*);
+    void minus(VarSet*, bool complete = false);
+    void minusFinalize(VarSet*, bool complete = false);
     bool RecordBelong(CVarEntryInfo*);
     void LeaveOnlyRecords();
     void RemoveDoubtfulCommonVars(AnalysedCallsList*);
     VarItem* GetArrayRef(CArrayVarEntryInfo*);
     //VarItem* belongs(SgVarRefExp*, bool os = false);
     VarItem* belongs(const CVarEntryInfo*, bool os = false);
+    VarItem* belongs(SgSymbol*, bool os = false);
     bool equal(VarSet*);
     int count();
     void print();
@@ -326,6 +328,28 @@ public:
         return list == NULL;
     }
 };
+
+struct DoLoopDataItem
+{
+    int file_id;
+    SgStatement* statement;
+    SgExpression* l;
+    SgExpression* r;
+    SgExpression* st;
+    SgSymbol* loop_var;
+    DoLoopDataItem* next;
+};
+
+class DoLoopDataList {
+    DoLoopDataItem* list;
+public:
+    DoLoopDataList() : list(NULL) {}
+    void AddLoop(int file_id, SgStatement* st, SgExpression* l, SgExpression* r, SgExpression* step, SgSymbol* lv);
+    DoLoopDataItem* FindLoop(SgStatement* st);
+    ~DoLoopDataList();
+};
+
+struct ArraySubscriptData;
 
 class CVarEntryInfo
 {
@@ -339,11 +363,12 @@ public:
     virtual CVarEntryInfo* Clone() const = 0;
     virtual CVarEntryInfo* GetLeftmostParent() = 0;
     virtual void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) = 0;
-    virtual void RegisterDefinition(VarSet* def, SgStatement* st) = 0;
+    virtual void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) = 0;
     SgSymbol* GetSymbol() const { return symbol; }
     virtual bool operator==(const CVarEntryInfo& rhs) const = 0;
     void AddReference() { references++; }
     bool RemoveReference() { return --references == 0; }
+    void SwitchSymbol(SgSymbol* s) { symbol = s; }
 };
 
 class CScalarVarEntryInfo: public CVarEntryInfo
@@ -360,7 +385,7 @@ public:
         if (def == NULL || !def->belongs(this))
             use->addToSet(this, st);
     }
-    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); };
 };
 
 class CRecordVarEntryInfo : public CVarEntryInfo
@@ -383,37 +408,45 @@ public:
         if (def == NULL || !def->belongs(this))
             use->addToSet(this, st);
     }
-    void RegisterDefinition(VarSet* def, SgStatement* st) { def->addToSet(this, st); };
+    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); };
 };
 
 struct ArraySubscriptData
 {
+    bool defined;
+    int bound_modifiers[2];
+    int step;
     int coefs[2];
-    SgStatement* fs;
+    DoLoopDataItem* loop;
+    SgExpression* left_bound;
+    SgExpression* right_bound;
 };
 
 class CArrayVarEntryInfo : public CVarEntryInfo
 {
     int subscripts;
+    bool disabled;
     ArraySubscriptData* data;
 public:
     CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r);
     CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d);
     ~CArrayVarEntryInfo() { if (subscripts > 0) delete[] data; }
-    bool CompareSubscripts(const CArrayVarEntryInfo&) const;
     CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, data); }
     CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), subscripts, data); }
-    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol() &&
-        CompareSubscripts(static_cast<const CArrayVarEntryInfo&>(rhs)); }
+    bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol(); }
     friend CArrayVarEntryInfo* operator-(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     friend CArrayVarEntryInfo* operator+(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     CArrayVarEntryInfo& operator+=(const CArrayVarEntryInfo&);
+    CArrayVarEntryInfo& operator-=(const CArrayVarEntryInfo&);
     CArrayVarEntryInfo& operator*=(const CArrayVarEntryInfo&);
     friend CArrayVarEntryInfo* operator*(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
     CVarEntryInfo* GetLeftmostParent() { return this; }
     void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st);
-    void RegisterDefinition(VarSet* def, SgStatement* st);
+    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st);
+    bool HasActiveElements() const;
+    void MakeInactive();
+    void ProcessChangesToUsedEntry(CArrayVarEntryInfo*);
 };
 
 class CBasicBlock;
@@ -497,9 +530,9 @@ class CBasicBlock
     void setDefAndUse();
     char prev_status;
     bool temp;
-    void addExprToUse(SgExpression* e, CExprList*);
-    void AddOneExpressionToUse(SgExpression*, SgStatement*);
-    void AddOneExpressionToDef(SgExpression*, SgStatement*);
+    void addExprToUse(SgExpression* e, CArrayVarEntryInfo*, CExprList*);
+    void AddOneExpressionToUse(SgExpression*, SgStatement*, CArrayVarEntryInfo*);
+    void AddOneExpressionToDef(SgExpression*, SgStatement*, CArrayVarEntryInfo*);
     PrivateDelayedItem* privdata;
     CVarEntryInfo* findentity;
 #ifdef __SPF
@@ -575,8 +608,8 @@ public:
     void ProcessIntrinsicProcedure(bool, int narg, void* f, const char*);
     void ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList* c);
     void ProcessProcedureWithoutBody(bool, void*, bool);
-    SgExpression* GetProcedureArgument(bool, void*, int);
-    int GetNumberOfArguments(bool, void*);
+    //SgExpression* GetProcedureArgument(bool, void*, int);
+    //int GetNumberOfArguments(bool, void*);
     SgSymbol* GetProcedureName(bool, void*);
     void PrivateAnalysisForAllCalls();
     ActualDelayedData* GetDelayedDataForCall(CallAnalysisLog*);
@@ -649,7 +682,7 @@ public:
     VarSet* getDef();
     void privateAnalyzer();
     bool ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlock* of, CBasicBlock*& p, bool);
-    ActualDelayedData* ProcessDelayedPrivates(CommonData*, AnalysedCallsList*, CallAnalysisLog*);
+    ActualDelayedData* ProcessDelayedPrivates(CommonData*, AnalysedCallsList*, CallAnalysisLog*, void*, bool, int);
     bool IsMain() { return main; } // change to refs
     void AddRef() { refs++; }
     bool RemoveRef() { return --refs == 0; }
@@ -671,8 +704,8 @@ struct AnalysedCallsList {
     bool isCurrent;
     int file_id;
     AnalysedCallsList(SgStatement* h, bool intr, bool pure, bool fun, const char* name, int fid) { header = h; isIntrinsic = intr; isPure = pure; isFunction = fun; hasBeenAnalysed = false; graph = NULL; funName = name; file_id = fid; }
-    bool isArgIn(int num);
-    bool isArgOut(int num);
+    bool isArgIn(int num, CArrayVarEntryInfo**);
+    bool isArgOut(int num, CArrayVarEntryInfo**);
     const char* funName;
     bool IsIntrinsic()
     { return isIntrinsic; }
@@ -728,6 +761,7 @@ public:
     bool CanHaveNonScalarVars(CommonDataItem*);
     //void ProcessDelayedPrivates(PrivateDelayedItem*);
     CommonDataItem* IsThisCommonUsedInProcedure(CommonDataItem*, AnalysedCallsList*);
+    CommonDataItem* GetItemForName(const std::string&, AnalysedCallsList*);
     CommonVarSet* GetCommonsForVarSet(VarSet*, AnalysedCallsList*);
     CommonDataItem* IsThisCommonVar(VarItem*, AnalysedCallsList*);
     CommonData() : list(NULL) {}
@@ -833,5 +867,5 @@ void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, 
 void showDefsOfGraph(ControlFlowGraph *CGraph);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 #endif
-void SetUpVars(CommonData*, CallData*, AnalysedCallsList*);
+void SetUpVars(CommonData*, CallData*, AnalysedCallsList*, DoLoopDataList*);
 AnalysedCallsList* GetCurrentProcedure();

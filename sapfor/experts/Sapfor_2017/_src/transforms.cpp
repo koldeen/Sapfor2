@@ -1566,6 +1566,8 @@ int main(int argc, char**argv)
                     printText = true;
                 else if (string(curr_arg) == "-useDvm")
                     ignoreDvmChecker = 1;
+                else if (string(curr_arg) == "-passTree")
+                    InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
                 break;
             default:
                 break;
