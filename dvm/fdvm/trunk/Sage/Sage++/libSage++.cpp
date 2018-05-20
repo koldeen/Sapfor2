@@ -7367,9 +7367,15 @@ void SgSymbol::addAttribute(void *a, int size)
 
 void SgSymbol::changeName(const char *name)
 {
-    if (strlen(name))
+    if (name)
     {
-        free(SYMB_IDENT(thesymb));
+        if (SYMB_IDENT(thesymb))
+        {
+#ifdef __SPF
+            removeFromCollection(SYMB_IDENT(thesymb));
+#endif
+            free(SYMB_IDENT(thesymb));
+        }
 
         char *str = (char *)xmalloc(strlen(name) + 1);
         strcpy(str, name);
