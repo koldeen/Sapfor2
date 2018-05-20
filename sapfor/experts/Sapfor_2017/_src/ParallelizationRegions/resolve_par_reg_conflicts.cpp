@@ -357,20 +357,19 @@ static void copyFunction(ParallelRegion *region,
             SgSymbol *newFuncSymb = NULL;
             string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
 
-            __spf_print(1, "function name: '%s'\n", funcSymb->identifier()); // remove
-            __spf_print(1, "  scope line: %d\n", funcSymb->scope()->lineNumber()); // remove
-            __spf_print(1, "new function name '%s'\n", newFuncName.c_str()); // remove
+            __spf_print(1, "function '%s' -> '%s' (scope: %d)\n", funcSymb->identifier(), newFuncName.c_str(), funcSymb->scope()->lineNumber()); // remove
 
-            //SgFile *file = &CurrentProject->file(func->funcPointer->getFileId());
-            SgFile *file = &CurrentProject->file(func->funcPointer->GetOriginal()->getFileId());
-            //SgFile *file2 = &func->funcPointer->getProject()->file(func->funcPointer->getFileId());
-            SgFile *file2 = &func->funcPointer->getProject()->file(func->funcPointer->GetOriginal()->getFileId());
+            SgFile *file = func->funcPointer->GetOriginal()->getFile();
+            newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
+            newFuncSymb->changeName(newFuncName.c_str());
 
-            //newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
+            /*
+            SgFile *file2 = &CurrentProject->file(func->funcPointer->GetOriginal()->getFileId());
             newFuncSymb = &(funcSymb->copySubprogram(*(file2->firstStatement())));
-            //newFuncSymb = &(funcSymb->copySubprogram(*(func->funcPointer)));
 
-            // TODO: set new name
+            SgFile *file3 = &func->funcPointer->getProject()->file(func->funcPointer->GetOriginal()->getFileId());
+            newFuncSymb = &(funcSymb->copySubprogram(*(file3->firstStatement())));
+            */
 
             region->AddReplacedSymbols(func->funcName, funcSymb, newFuncSymb);
         }
@@ -386,14 +385,19 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
 {
     for (auto &region : regions)
     {
-        // creating new functions
-        if (region->GetCrossedFuncs().size())
-            for (auto &crossedFunc : region->GetCrossedFuncs())
-                copyFunction(region, crossedFunc, region->GetName(), funcMap);
+        __spf_print(1, "[%s]:\n", region->GetName().c_str()); // remove
+        auto crossedFuncs = region->GetCrossedFuncs();
 
-        if (allCommonFunctions.size())
-            for (auto &commonFunc : allCommonFunctions)
-                copyFunction(region, commonFunc, string("copy"), funcMap);
+        // creating new functions
+        for (auto &crossedFunc : crossedFuncs)
+            copyFunction(region, crossedFunc, region->GetName(), funcMap);
+
+        for (auto &commonFunc : allCommonFunctions)
+        {
+            auto it = crossedFuncs.find(commonFunc);
+            if (it == crossedFuncs.end())
+                copyFunction(region, commonFunc, region->GetName(), funcMap);
+        }
 
         // creating new arrays
         for (auto &elem : region->GetUsedLocalArrays())

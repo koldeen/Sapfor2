@@ -349,12 +349,12 @@ private:
     // for RESOLVE_PAR_REGIONS
     std::set<std::string> allFunctionsCall;
     std::set<std::string> usedCommonArrays;
-    std::map<std::string, std::set<std::string>> usedLocalArrays; // func -> arrays
+    std::map<std::string, std::set<std::string>> usedLocalArrays; // func name -> array names
     std::set<std::string> crossedFunctions;
-    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func -> (origin symbol, new symbol)
+    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func name -> (origin symbol, new symbol)
 
-    std::map<std::string, ParallelRegionArray> commonArrays; // name -> array
-    std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> name -> array
+    std::map<std::string, ParallelRegionArray> commonArrays; // array name -> array
+    std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> array name -> array
     //
 
     // for LOOP_ANALYZER_DATA_DIST

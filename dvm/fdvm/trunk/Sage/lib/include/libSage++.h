@@ -442,6 +442,7 @@ public:
   void addAttribute(int type); //void * is NULL;
   void addAttribute(void *a, int size); //no type specifed;
   void addAttribute(SgAttribute *att);
+  void changeName(const char *); // set new name
   SgAttribute *getAttribute(int i);
   SgAttribute *getAttribute(int i,int type);
 };

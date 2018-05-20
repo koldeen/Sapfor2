@@ -7365,6 +7365,17 @@ void SgSymbol::addAttribute(void *a, int size)
   addAttribute(0, a, size);
 }
 
+void SgSymbol::changeName(const char *name)
+{
+    if (strlen(name))
+    {
+        free(SYMB_IDENT(thesymb));
+
+        char *str = (char *)xmalloc(strlen(name) + 1);
+        strcpy(str, name);
+        SYMB_IDENT(thesymb) = str;
+    }
+}
 
 
 ////////////////// ATTRIBUTE FOR SgType /////////////////////

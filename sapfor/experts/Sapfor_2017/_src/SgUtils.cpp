@@ -1196,3 +1196,27 @@ void CommonBlock::print(FILE *fileOut) const
 }
 
 // END of CommonBlock::
+
+// acc.cpp from DDVM:
+SgStatement* makeSymbolDeclaration(SgSymbol *s)
+{
+    SgStatement * st;
+
+    st = new SgStatement(VAR_DECL);
+    st->setExpression(0, *new SgExprListExp(*SgMakeDeclExp(s, s->type())));
+
+    return(st);
+}
+
+SgExpression* addDeclExpList(SgSymbol *s, SgExpression *el)
+{
+    SgExpression *e, *l;
+    e = new SgExprListExp(*SgMakeDeclExp(s, s->type()));
+    for (l = el; l->rhs(); l = l->rhs())
+        ;
+
+    l->setRhs(e);
+
+    return(e);
+}
+// END of acc.cpp from DDVM:
