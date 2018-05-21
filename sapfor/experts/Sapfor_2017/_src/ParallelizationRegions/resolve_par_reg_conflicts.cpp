@@ -348,8 +348,13 @@ static void copyLocalArray(ParallelRegion *region,
         if (SgFile::switchToFile(func->fileName) != -1)
         {
             string newArrName = arrayName + string("_") + suffix;
+            SgSymbol *arrSymb = array.getOrigSymbol();
             SgSymbol *newArrSymb = NULL;
 
+            newArrSymb = &arrSymb->copy();
+            newArrSymb->changeName(newArrName.c_str());
+
+            SgStatement *decl = declaratedInStmt(arrSymb);
 
         }
         else
@@ -380,7 +385,7 @@ static void copyFunction(ParallelRegion *region,
         if (SgFile::switchToFile(func->fileName) != -1)
         {
             // create copy function symbol and copy function for original function
-            SgSymbol *funcSymb = func->funcPointer->symbol();
+            SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
             SgSymbol *newFuncSymb = NULL;
             string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
 
@@ -396,11 +401,14 @@ static void copyFunction(ParallelRegion *region,
 
             region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
-            __spf_print(1, "added '%s and '%s'\n", funcSymb->identifier(), newFuncSymb->identifier()); // remove
+            __spf_print(1, "add (%s, %s) and function for file %s\n",
+                        funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
 
             // create copy function symbol for other calling functions
             for (auto &callTo : func->callsTo)
             {
+                // TODO: create symbol copy only in file with regions
+
                 if (SgFile::switchToFile(callTo->fileName) != -1)
                 {
                     auto detailedCallInfo = callTo->GetDetailedCallInfo(funcName);
@@ -408,17 +416,16 @@ static void copyFunction(ParallelRegion *region,
                     funcSymb = detailedCallInfo[0].second == PROC_STAT ?
                         ((SgStatement *)detailedCallInfo[0].first)->symbol() :
                         ((SgExpression *)detailedCallInfo[0].first)->symbol();
-                    newFuncSymb = new SgSymbol(*funcSymb);
+                    newFuncSymb = &funcSymb->copy();
                     newFuncSymb->changeName(newFuncName.c_str());
 
-                    __spf_print(1, "added '%s and '%s' for file\n", funcSymb->identifier(), newFuncSymb->identifier()); // remove
+                    __spf_print(1, "add (%s, %s) for file %s\n",
+                                funcSymb->identifier(), newFuncSymb->identifier(), callTo->fileName.c_str()); // remove
 
                     region->AddReplacedSymbols(callTo->fileName, funcSymb, newFuncSymb);
                 }
                 else
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                break;
             }
         }
         else
@@ -460,14 +467,15 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
     }
 }
 
-static void recursiveReplace(SgExpression *exp, SgSymbol *from, SgSymbol *to)
+static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to)
 {
     if (exp)
     {
         // Alex, TODO: exp->symbol()->identifier()
-        if (exp->symbol() && exp->symbol() == from)
+        // if (exp->symbol() && exp->symbol() == from)
+        if (exp->symbol() && exp->symbol()->identifier() == from)
         {
-            __spf_print(1, "replace '%s' to '%s'\n", from->identifier(), to->identifier()); // remove
+            __spf_print(1, "replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
             exp->setSymbol(to);
         }
 
@@ -505,7 +513,7 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                             {
                                 for (auto &fromTo : it->second)
                                 {
-                                    if (iterator->symbol() && iterator->symbol() == fromTo.first)
+                                    if (iterator->symbol() && iterator->symbol()->identifier() == string(fromTo.first->identifier()))
                                     {
                                         __spf_print(1, "replace '%s' to '%s' in file %s on line %d\n",
                                                     fromTo.first->identifier(), fromTo.second->identifier(),
@@ -515,7 +523,7 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                     }
 
                                     for (int i = 0; i < 3; ++i)
-                                        recursiveReplace(iterator->expr(i), fromTo.first, fromTo.second);
+                                        recursiveReplace(iterator->expr(i), fromTo.first->identifier(), fromTo.second);
                                 }
                             }
                         }
