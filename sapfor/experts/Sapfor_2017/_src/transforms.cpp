@@ -1152,9 +1152,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         map<string, FuncInfo*> funcMap;
         createMapOfFunc(allFuncInfo, funcMap);
 
-        createFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions, allUsedCommonArrays);
-        replaceFunctionsAndArrays(parallelRegions, funcMap, allCommonFunctions);
-        insertArraysCopy(parallelRegions, funcMap);
+        createFunctionsAndArrays(parallelRegions, allFuncInfo, funcMap, allCommonFunctions, allUsedCommonArrays);
+        replaceFunctionsAndArrays(parallelRegions, allFuncInfo, funcMap, allCommonFunctions);
+        insertArraysCopy(parallelRegions, allFuncInfo, funcMap);
     }
     else if (curr_regime == LOOP_GRAPH)
     {

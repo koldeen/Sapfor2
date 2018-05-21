@@ -49,19 +49,21 @@ struct ParallelRegionArray
 {
 private:
     std::string name;
+    std::string fileName;
     SgSymbol *origSymbol;
     SgSymbol *copySymbol;
     std::vector<SgStatement*> declStatements;
     std::vector<ParallelRegionLines> allLines;
 public:
-    explicit ParallelRegionArray(const std::string &name, SgSymbol *origSymbol, SgSymbol *copySymbol, std::vector<SgStatement*> &declStatements,
-                                 const ParallelRegionLines &lines) :
-        name(name), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
+    explicit ParallelRegionArray(const std::string &name, const std::string &fileName, SgSymbol *origSymbol, SgSymbol *copySymbol,
+                                 const ParallelRegionLines &lines, std::vector<SgStatement*> &declStatements) :
+        name(name), fileName(fileName), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
     {
         allLines.push_back(lines);
     }
 
     const std::string& getName() const { return name; }
+    const std::string& getFileName() const { return fileName; }
     SgSymbol* getOrigSymbol() const { return origSymbol; }
     SgSymbol* getCopySymbol() const { return copySymbol; }
     const std::vector<SgStatement*>& getDeclStatements() const { return declStatements; }
@@ -173,7 +175,11 @@ public:
     }
 
     void AddLocalArray(const std::string &functionName,
-                       const std::string &arrayName, SgSymbol *origSymbol, SgSymbol *copySymbol, const ParallelRegionLines &lines)
+                       const std::string &arrayName,
+                       const std::string &fileName,
+                       SgSymbol *origSymbol,
+                       SgSymbol *copySymbol,
+                       const ParallelRegionLines &lines)
     {
         auto it = localArrays.find(functionName);
         if (it == localArrays.end())
@@ -184,7 +190,7 @@ public:
         {
             std::vector<SgStatement*> declStatemets;
             declaratedInStmt(origSymbol, &declStatemets);
-            itt = it->second.insert(itt, std::make_pair(arrayName, ParallelRegionArray(arrayName, origSymbol, copySymbol, declStatemets, lines)));
+            itt = it->second.insert(itt, std::make_pair(arrayName, ParallelRegionArray(arrayName, fileName, origSymbol, copySymbol, lines, declStatemets)));
             return;
         }
 
@@ -193,7 +199,11 @@ public:
 
     void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
 
-    void AddCommonArray(const std::string &arrayName, SgSymbol *origSymbol, SgSymbol *copySymbol, const ParallelRegionLines &lines)
+    void AddCommonArray(const std::string &arrayName,
+                        const std::string &fileName,
+                        SgSymbol *origSymbol,
+                        SgSymbol *copySymbol,
+                        const ParallelRegionLines &lines)
     {
         auto it = commonArrays.find(arrayName);
         if (it != commonArrays.end())
@@ -204,7 +214,7 @@ public:
 
         std::vector<SgStatement*> declStatemets;
         declaratedInStmt(origSymbol, &declStatemets);
-        commonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, origSymbol, copySymbol, declStatemets, lines)));
+        commonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, fileName, origSymbol, copySymbol, lines, declStatemets)));
     }
 
     void AddReplacedSymbols(const std::string &functionName, SgSymbol *origin, SgSymbol *copy)
@@ -351,7 +361,8 @@ private:
     std::set<std::string> usedCommonArrays;
     std::map<std::string, std::set<std::string>> usedLocalArrays; // func name -> array names
     std::set<std::string> crossedFunctions;
-    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func name -> (origin symbol, new symbol)
+    //std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // func name -> (origin symbol, new symbol)
+    std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>> replacedSymbols; // file name -> (origin symbol, new symbol)
 
     std::map<std::string, ParallelRegionArray> commonArrays; // array name -> array
     std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> array name -> array

@@ -1197,10 +1197,10 @@ void CommonBlock::print(FILE *fileOut) const
 
 // END of CommonBlock::
 
-// acc.cpp from DDVM:
+// from acc.cpp in FDVM
 SgStatement* makeSymbolDeclaration(SgSymbol *s)
 {
-    SgStatement * st;
+    SgStatement *st;
 
     st = new SgStatement(VAR_DECL);
     st->setExpression(0, *new SgExprListExp(*SgMakeDeclExp(s, s->type())));
@@ -1219,4 +1219,3 @@ SgExpression* addDeclExpList(SgSymbol *s, SgExpression *el)
 
     return(e);
 }
-// END of acc.cpp from DDVM:

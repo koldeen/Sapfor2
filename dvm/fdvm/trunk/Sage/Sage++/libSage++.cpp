@@ -7365,6 +7365,7 @@ void SgSymbol::addAttribute(void *a, int size)
   addAttribute(0, a, size);
 }
 
+
 void SgSymbol::changeName(const char *name)
 {
     if (name)
