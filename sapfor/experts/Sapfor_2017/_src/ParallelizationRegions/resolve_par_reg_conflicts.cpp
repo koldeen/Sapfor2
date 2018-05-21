@@ -388,39 +388,37 @@ static void copyFunction(ParallelRegion *region,
                         newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber()); // remove
 
             SgFile *file = func->funcPointer->GetOriginal()->getFile();
+
             newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
+            newFuncSymb = &newFuncSymb->copy();
             newFuncSymb->changeName(newFuncName.c_str());
+            file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
             region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
+            __spf_print(1, "added '%s and '%s'\n", funcSymb->identifier(), newFuncSymb->identifier()); // remove
+
             // create copy function symbol for other calling functions
-            for (auto &funcInfo : allFuncInfo)
+            for (auto &callTo : func->callsTo)
             {
-                for (auto &curFunc : funcInfo.second)
+                if (SgFile::switchToFile(callTo->fileName) != -1)
                 {
-                    for (auto &callTo : func->callsTo)
-                    {
-                        if (curFunc == callTo)
-                        {
-                            if (SgFile::switchToFile(callTo->fileName) != -1)
-                            {
-                                auto detailedCallInfo = callTo->GetDetailedCallInfo(funcName);
+                    auto detailedCallInfo = callTo->GetDetailedCallInfo(funcName);
 
-                                funcSymb = detailedCallInfo[0].second == PROC_STAT ?
-                                    ((SgStatement *)detailedCallInfo[0].first)->symbol() :
-                                    ((SgExpression *)detailedCallInfo[0].first)->symbol();
-                                newFuncSymb = new SgSymbol(*funcSymb);
-                                newFuncSymb->changeName(newFuncName.c_str());
+                    funcSymb = detailedCallInfo[0].second == PROC_STAT ?
+                        ((SgStatement *)detailedCallInfo[0].first)->symbol() :
+                        ((SgExpression *)detailedCallInfo[0].first)->symbol();
+                    newFuncSymb = new SgSymbol(*funcSymb);
+                    newFuncSymb->changeName(newFuncName.c_str());
 
-                                region->AddReplacedSymbols(callTo->fileName, funcSymb, newFuncSymb);
-                            }
-                            else
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    __spf_print(1, "added '%s and '%s' for file\n", funcSymb->identifier(), newFuncSymb->identifier()); // remove
 
-                            break;
-                        }
-                    }
+                    region->AddReplacedSymbols(callTo->fileName, funcSymb, newFuncSymb);
                 }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                break;
             }
         }
         else
@@ -437,6 +435,7 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
     for (auto &region : regions)
     {
         __spf_print(1, "[%s]:\n", region->GetName().c_str()); // remove
+
         auto crossedFuncs = region->GetCrossedFuncs();
 
         // creating new functions
@@ -465,6 +464,7 @@ static void recursiveReplace(SgExpression *exp, SgSymbol *from, SgSymbol *to)
 {
     if (exp)
     {
+        // Alex, TODO: exp->symbol()->identifier()
         if (exp->symbol() && exp->symbol() == from)
         {
             __spf_print(1, "replace '%s' to '%s'\n", from->identifier(), to->identifier()); // remove
@@ -503,13 +503,14 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
 
                             for (; iterator && iterator != end; iterator = iterator->lexNext())
                             {
-                                for (auto fromTo : it->second)
+                                for (auto &fromTo : it->second)
                                 {
                                     if (iterator->symbol() && iterator->symbol() == fromTo.first)
                                     {
                                         __spf_print(1, "replace '%s' to '%s' in file %s on line %d\n",
                                                     fromTo.first->identifier(), fromTo.second->identifier(),
                                                     fileLines.first.c_str(), iterator->lineNumber()); // remove
+
                                         iterator->setSymbol(*fromTo.second);
                                     }
 
