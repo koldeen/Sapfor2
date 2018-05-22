@@ -391,6 +391,8 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     vector<int> matched(numOfSubs);
     std::fill(wasFound.begin(), wasFound.end(), 0);
     std::fill(matched.begin(), matched.end(), -1);
+    int maxMatched = 0;
+    int sumMatched = 0;
 
     for (int i = 0; i < numOfSubs; ++i)
     {
@@ -398,8 +400,9 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         for (int k = 0; k < matchToLoops.size(); ++k)
             wasFound[matchToLoops[k]]++;
 
-        if (matchToLoops.size())
-            matched[i] = 0;
+        matched[i] = matchToLoops.size();
+        sumMatched += matchToLoops.size();
+        maxMatched = std::max(maxMatched, (int)matchToLoops.size());
         currExp = currExp->rhs();
     }
     
@@ -440,10 +443,13 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
         if (ifUnknownFound && (currRegime == REMOTE_ACC))
         {
-            for (int i = 0; i < wasFound.size(); ++i)
-                if (wasFound[i] != 1)
-                    for (int k = 0; k < numOfSubs; ++k)
-                        addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
+            if (sumMatched != numOfSubs && maxMatched != 1)
+            {
+                for (int i = 0; i < wasFound.size(); ++i)
+                    if (wasFound[i] != 1)
+                        for (int k = 0; k < numOfSubs; ++k)
+                            addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
+            }
         }
     }
 }

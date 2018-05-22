@@ -149,19 +149,27 @@ static bool hasSections(SgArrayRefExp *array)
 
 static bool needSwap(SgExpression *leftStep, SgExpression *rightStep)
 {
-    if (leftStep == NULL || rightStep == NULL)
-        return false;
-
     pair<bool, int> left, right;
-    if (leftStep->isInteger())
-        left = make_pair(true, leftStep->valueInteger());
-    else
-        left.first = false;
 
-    if (rightStep->isInteger())
-        right = make_pair(true, rightStep->valueInteger());
+    if (leftStep == NULL)
+        left = make_pair(true, 1);
     else
-        right.first = false;
+    {
+        if (leftStep->isInteger())
+            left = make_pair(true, leftStep->valueInteger());
+        else
+            left.first = false;
+    }
+
+    if (rightStep == NULL)
+        right = make_pair(true, 1);
+    else
+    {
+        if (rightStep->isInteger())
+            right = make_pair(true, rightStep->valueInteger());
+        else
+            right.first = false;
+    }
 
     if (right.first && left.first)
         if (left.second > right.second)
@@ -230,7 +238,29 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
     }
 
     if (get<0>(rightBounds))
-        shift = &(get<0>(rightBounds)->copy() - get<0>(leftBounds)->copy());
+    {
+        int stepL = -1;
+        if (get<2>(leftBounds))
+        {
+            if (get<2>(leftBounds)->isInteger())
+                stepL = get<2>(leftBounds)->valueInteger();
+        }
+        else
+            stepL = 1;
+
+        if (stepL > 1)
+        {
+            if (get<2>(rightBounds))
+                shift = &(get<0>(rightBounds)->copy() - (get<0>(leftBounds)->copy() * get<2>(rightBounds)->copy() / get<2>(leftBounds)->copy()));
+            else
+                shift = &(get<0>(rightBounds)->copy() - (get<0>(leftBounds)->copy() / get<2>(leftBounds)->copy()));
+        }
+        else if (stepL == 1)
+        {
+            if (get<2>(rightBounds))
+                shift = &(get<0>(rightBounds)->copy() - (get<0>(leftBounds)->copy() * get<2>(rightBounds)->copy()));
+        }
+    }
 
     int res;
     int err = CalculateInteger(shift, res);

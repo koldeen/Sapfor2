@@ -2463,7 +2463,7 @@ bool CBasicBlock::stepLVIn()
 {
     if (old_lv_in)
         delete old_lv_in;
-    
+
     old_lv_in = lv_in;
     lv_in = NULL;
     getLVIn();
@@ -3488,13 +3488,13 @@ bool VarSet::equal(VarSet* p2)
     VarItem* prev = NULL;
     while (p != NULL)
     {
-        if (!p2->belongs(p->var))
+        if (!p2->belongs(p->var) && (p->var->GetVarType() != VAR_REF_ARRAY_EXP || ((CArrayVarEntryInfo*)(p->var))->HasActiveElements()))
             return false;
         p = p->next;
     }
     p = p2->list;
     while (p != NULL) {
-        if (!belongs(p->var))
+        if (!belongs(p->var) && (p->var->GetVarType() != VAR_REF_ARRAY_EXP || ((CArrayVarEntryInfo*)(p->var))->HasActiveElements()))
             return false;
         p = p->next;
     }
