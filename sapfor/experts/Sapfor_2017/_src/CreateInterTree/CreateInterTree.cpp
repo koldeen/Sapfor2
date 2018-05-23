@@ -5,19 +5,24 @@ std::vector<FileIntervals> fileIntervals;
 //Debug funcs
 void printTree(Interval* inter, int depth = 0)
 {
+	if(!(inter->ifInclude))
+		return;
+
     for(int i = 0; i < depth; i++) std::cout << "  ";
     std::cout << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << " " << std::endl;
 
     for(int i = 0; i < inter->includes.size(); i++)
         printTree(inter->includes[i], depth + 1);
 
-    for(int i = 0; i < depth; i++) std::cout << "  ";
     for(int i = 0; i < inter->ends.size(); i++)
+    {
+    	for(int j = 0; j < depth; j++) std::cout << "  ";
         std::cout << "End " << i << " " << tag[inter->ends[i]->variant()] << std::endl;
+    }
 }
 
 //Tree creation funcs
-bool checkIfHasCall(SgExpression* exp)
+static bool checkIfHasCall(SgExpression* exp)
 {
     if(exp)
     {
@@ -30,7 +35,7 @@ bool checkIfHasCall(SgExpression* exp)
     return false;
 }
 
-void findIntervals(Interval* interval, SgStatement* &currentSt)
+static void findIntervals(Interval* interval, SgStatement* &currentSt)
 {
     bool if_has_call;
     int currentVar;
@@ -42,11 +47,20 @@ void findIntervals(Interval* interval, SgStatement* &currentSt)
         if_has_call = checkIfHasCall(currentSt->expr(0)) || checkIfHasCall(currentSt->expr(1)) || checkIfHasCall(currentSt->expr(2));
         currentVar = currentSt->variant();
 
-        if(currentVar == RETURN_STAT)
+        if(currentVar == GOTO_NODE)
+        {
+        	continue;
+        }
+
+        if(currentVar == RETURN_STAT || currentVar == EXIT_STMT)
         	interval->ends.push_back(currentSt);
 
-        if((currentVar != FOR_NODE && currentVar != PROG_HEDR && currentVar != FUNC_HEDR && currentVar != PROC_HEDR & currentVar != PROC_STAT && !if_has_call)
-         || currentSt == interval->ends[0])
+        if(currentSt == interval->ends[0])
+        {
+        	continue;
+        }
+
+        if(currentVar != FOR_NODE && currentVar != PROG_HEDR && currentVar != FUNC_HEDR && currentVar != PROC_HEDR & currentVar != PROC_STAT && !if_has_call)
             continue;
 
         Interval* inter = new Interval();
@@ -80,7 +94,7 @@ void createInterTree(SgFile *file)
 }
 
 //Interval insertion funcs
-void insertTree(Interval* interval, int &i_inter)
+static void insertTree(Interval* interval, int &i_inter)
 {
     SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
     SgExpression* expr = new SgValueExp(i_inter);
@@ -109,7 +123,7 @@ void insertIntervals()
 }
 
 //Profiling funcs
-std::vector<FileProfile> parseProfiles(std::vector<std::string> &filenames)
+static std::vector<FileProfile> parseProfiles(std::vector<std::string> &filenames)
 {
     std::vector<FileProfile> fileProfiles;
     std::ifstream file;
@@ -146,33 +160,62 @@ std::vector<FileProfile> parseProfiles(std::vector<std::string> &filenames)
     return fileProfiles;
 }
 
-int assignRec(Interval* inter, FileProfile &fp)
+static void assignRec(Interval* inter, FileProfile &fp)
 {
-    if(inter->includes.size() > 0)
-    {
-        for(int i = 0; i < inter->includes.size(); i++)
-            inter->calls += assignRec(inter->includes[i], fp);
-        return inter->calls;
-    }
+    for(int i = 0; i < inter->includes.size(); i++)
+        assignRec(inter->includes[i], fp);
 
-    return (inter->calls = fp.profile[inter->begin->lineNumber()]);
+    inter->calls = fp.profile[inter->begin->lineNumber()];
 }
 
-void assignCallsToFile(FileIntervals &fi, FileProfile &fp)
+static void assignCallsToFile(FileIntervals &fi, FileProfile &fp)
 {
     for(int i = 0; i < fi.intervals.size(); i++)
-        fi.intervals[i]->calls = assignRec(fi.intervals[i], fp);
+    {
+        fi.intervals[i]->calls = fp.profile[fi.intervals[i]->begin->lineNumber()];
+        assignRec(fi.intervals[i], fp);
+    }
 }
 
-void assignCallsToAllFiles(std::vector<std::string> &filenames)
+void assignCallsToAllFiles(std::vector<std::string> filenames)
 {
+	for(int i = 0; i < filenames.size(); i++)
+		filenames[i] = filenames[i].append(".gcov");
+
     std::vector<FileProfile> fileProfiles = parseProfiles(filenames);
 
     for(int i = 0; i < fileIntervals.size(); i++)
-    {
         assignCallsToFile(fileIntervals[i], fileProfiles[i]);
-        
+}
+
+//Deleting intervals funcs
+static void removeNode(Interval* inter, int threshold)
+{
+    std::vector<Interval*> &func = inter->includes;
+    for(int i = 0; i < func.size(); i++)
+       if(func[i]->calls > threshold)
+       {
+            for(int j = 0; j < func[i]->includes.size(); j++)
+                func.push_back(func[i]->includes[j]);
+            func[i]->ifInclude = false;
+        } 
+        else
+            removeNode(func[i], threshold);
+}
+
+static void removeFromFile(FileIntervals &fi, int threshold)
+{
+	for(int i = 0; i < fi.intervals.size(); i++)
+	   removeNode(fi.intervals[i], threshold);
+}
+
+void removeNodes(int threshold)
+{
+	for(int i = 0; i < fileIntervals.size(); i++)
+	{
+		removeFromFile(fileIntervals[i], threshold);
+		
         for(int j = 0; j < fileIntervals[i].intervals.size(); j++)
             printTree(fileIntervals[i].intervals[j]);
-    }
+	}
 }

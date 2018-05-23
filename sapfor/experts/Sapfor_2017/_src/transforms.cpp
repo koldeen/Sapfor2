@@ -1419,12 +1419,12 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             for(int i = files_num - 1; i >= 0; i--)
             {
                 std::string filename = project->file(i).filename();
-                filename.append(".gcov");
                 filenames.push_back(filename);
             } 
 
             runAnalysis(*project, curr_regime, false);
             assignCallsToAllFiles(filenames);
+            removeNodes(50000);
         }
         break;    
     default:

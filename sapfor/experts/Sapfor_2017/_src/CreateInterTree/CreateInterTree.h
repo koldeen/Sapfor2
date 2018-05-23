@@ -11,6 +11,7 @@
 struct Interval
 {
 	int calls = 0;
+	bool ifInclude = true;
     SgStatement* begin;
     std::vector<SgStatement*> ends;
 
@@ -29,5 +30,7 @@ struct FileIntervals
 };
 
 void createInterTree(SgFile*);
-void assignCallsToAllFiles(std::vector<std::string> &filenames);
+void printTree(Interval* inter, int depth);
+void assignCallsToAllFiles(std::vector<std::string> filenames);
+void removeNodes(int threshold);
 void insertIntervals();
