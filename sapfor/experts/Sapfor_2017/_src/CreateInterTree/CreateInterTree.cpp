@@ -5,8 +5,8 @@ std::vector<FileIntervals> fileIntervals;
 //Debug funcs
 void printTree(Interval* inter, int depth = 0)
 {
-	if(!(inter->ifInclude))
-		return;
+    if(!(inter->ifInclude))
+        return;
 
     for(int i = 0; i < depth; i++) std::cout << "  ";
     std::cout << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << " " << std::endl;
@@ -16,7 +16,7 @@ void printTree(Interval* inter, int depth = 0)
 
     for(int i = 0; i < inter->ends.size(); i++)
     {
-    	for(int j = 0; j < depth; j++) std::cout << "  ";
+        for(int j = 0; j < depth; j++) std::cout << "  ";
         std::cout << "End " << i << " " << tag[inter->ends[i]->variant()] << std::endl;
     }
 }
@@ -49,15 +49,15 @@ static void findIntervals(Interval* interval, SgStatement* &currentSt)
 
         if(currentVar == GOTO_NODE)
         {
-        	continue;
+            continue;
         }
 
         if(currentVar == RETURN_STAT || currentVar == EXIT_STMT)
-        	interval->ends.push_back(currentSt);
+            interval->ends.push_back(currentSt);
 
         if(currentSt == interval->ends[0])
         {
-        	continue;
+            continue;
         }
 
         if(currentVar != FOR_NODE && currentVar != PROG_HEDR && currentVar != FUNC_HEDR && currentVar != PROC_HEDR & currentVar != PROC_STAT && !if_has_call)
@@ -179,8 +179,8 @@ static void assignCallsToFile(FileIntervals &fi, FileProfile &fp)
 
 void assignCallsToAllFiles(std::vector<std::string> filenames)
 {
-	for(int i = 0; i < filenames.size(); i++)
-		filenames[i] = filenames[i].append(".gcov");
+    for(int i = 0; i < filenames.size(); i++)
+        filenames[i] = filenames[i].append(".gcov");
 
     std::vector<FileProfile> fileProfiles = parseProfiles(filenames);
 
@@ -205,17 +205,12 @@ static void removeNode(Interval* inter, int threshold)
 
 static void removeFromFile(FileIntervals &fi, int threshold)
 {
-	for(int i = 0; i < fi.intervals.size(); i++)
-	   removeNode(fi.intervals[i], threshold);
+    for(int i = 0; i < fi.intervals.size(); i++)
+        removeNode(fi.intervals[i], threshold);
 }
 
 void removeNodes(int threshold)
 {
-	for(int i = 0; i < fileIntervals.size(); i++)
-	{
-		removeFromFile(fileIntervals[i], threshold);
-		
-        for(int j = 0; j < fileIntervals[i].intervals.size(); j++)
-            printTree(fileIntervals[i].intervals[j]);
-	}
+    for(int i = 0; i < fileIntervals.size(); i++)
+        removeFromFile(fileIntervals[i], threshold);
 }
