@@ -516,7 +516,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (int i = 0; i < file->numberOfFunctions(); ++i)
                 lines.push_back(make_pair(file->functions(i), file->functions(i)->lastNodeOfStmt()));
 
-            // filling from BLOCK DATA
+            // try to fill from BLOCK DATA
             SgStatement *st = file->firstStatement();
 
             while (st)
