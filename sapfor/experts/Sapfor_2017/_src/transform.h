@@ -70,6 +70,8 @@ enum passes {
 
     CONVERT_ASSIGN_TO_LOOP,
     CONVERT_LOOP_TO_ASSIGN,
+    RESTORE_LOOP_FROM_ASSIGN,
+    RESTORE_LOOP_FROM_ASSIGN_BACK,
 
     FILL_COMMON_BLOCKS,
     PREDICT_SCHEME,
@@ -161,5 +163,7 @@ static void setPassValues()
     passNames[REMOVE_DVM_DIRS_TO_COMMENTS] = "REMOVE_DVM_DIRS_TO_COMMENTS";
     passNames[REVERT_SPF_DIRS] = "REVERT_SPF_DIRS";
     passNames[CLEAR_SPF_DIRS] = "CLEAR_SPF_DIRS";
+    passNames[RESTORE_LOOP_FROM_ASSIGN] = "RESTORE_LOOP_FROM_ASSIGN";
+    passNames[RESTORE_LOOP_FROM_ASSIGN_BACK] = "RESTORE_LOOP_FROM_ASSIGN_BACK";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

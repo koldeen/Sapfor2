@@ -1506,7 +1506,13 @@ static void findArrayRefs(SgExpression *ex,
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<int, string> arrayLocation;
                 if (symb != ex->symbol())
-                    arrayLocation = make_pair(2, "MODULE"); //TODO: find module name
+                {
+                    SgStatement *scope = symb->scope();
+                    if (scope)
+                        arrayLocation = make_pair(2, scope->symbol()->identifier());
+                    else //TODO: find module name with another way
+                        arrayLocation = make_pair(2, "UNREC_MODULE_NAME");
+                }
                 else if (get<1>(uniqKey).find("common_") != string::npos)
                     arrayLocation = make_pair(1, get<1>(uniqKey).substr(strlen("common_")));
                 else

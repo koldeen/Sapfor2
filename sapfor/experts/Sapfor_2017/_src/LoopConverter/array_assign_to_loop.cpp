@@ -178,17 +178,17 @@ static bool needSwap(SgExpression *leftStep, SgExpression *rightStep)
     return false;
 }
 
-static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds)
+static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, const tuple<SgExpression*, SgExpression*, SgExpression*> &bounds, SgStatement *scope)
 {
-    subsL->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep))));
+    subsL->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep), SgTypeInt(), scope)));
 }
 
 static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep, 
                             const tuple<SgExpression*, SgExpression*, SgExpression*> &leftBounds,
                             const tuple<SgExpression*, SgExpression*, SgExpression*> &rightBounds,
-                            SgExpression *shift)
+                            SgExpression *shift, SgStatement *scope)
 {
-    SgExpression *idxVar = new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep)));
+    SgExpression *idxVar = new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(deep), SgTypeInt(), scope));
 
     bool stepIsEqual = false;
     int valL = 0, valR = 0;
@@ -262,7 +262,7 @@ static void insertMinorPart(SgExpression *subsR, SgFile *file, const int deep,
         }
     }
 
-    int res;
+    int res;    
     int err = CalculateInteger(shift, res);
     if (err == 0)
     {
@@ -301,10 +301,10 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftBound;
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> rightBound;
 
-    bool resL = fillBounds(leftPart->symbol(), leftBound);
-    bool resR = fillBounds(rightPart->symbol(), rightBound);
+    bool resL = fillBounds(OriginalSymbol(leftPart->symbol()), leftBound);
+    bool resR = fillBounds(OriginalSymbol(rightPart->symbol()), rightBound);
 
-    if (!resL && !resR)
+    if (!resL || !resR)
         return NULL;
 
     SgForStmt *retVal = NULL;
@@ -320,6 +320,14 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     int rIdx = 0;
     bool bodyInserted = false;
 
+    SgStatement *scope = assign;
+    //XXX
+    while (true)
+    {
+        if (assign->variant() == PROG_HEDR || assign->variant() == FUNC_HEDR || assign->variant() == PROC_HEDR)
+            break;
+        assign = assign->controlParent();
+    }
 
     vector<bool> fixedLeft(leftBound.size()), fixedRight(rightBound.size());
     for (int i = 0; i < leftBound.size(); ++i)
@@ -410,16 +418,16 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 body = retVal;
 
             if (get<2>(forBounds[i])) // has step
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i)), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), get<2>(forBounds[i])->copy(), *body);
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), get<2>(forBounds[i])->copy(), *body);
             else
-                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i)), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
         }
                 
         if (leftSubs == 0 && rightSubs == 0)
         {
             // A = B
             for (int i = 0; i < leftSections.size(); ++i)
-                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)));
 
             for (int i = 0; i < rightSections.size(); ++i)
             {
@@ -435,16 +443,16 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                         shift = NULL;
                 }
                 if (shift)
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shift);
                 else
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)));
             }
         }
         else if (leftSubs == 0 && rightSubs != 0)
         {
             // A = B( : : : )
             for (int i = 0; i < leftSections.size(); ++i)
-                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)));
 
             ex = subsR;
             for (int i = 0, freeIdx = 0; i < rightSubs; ++i, subsR = subsR->rhs())
@@ -453,11 +461,11 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 {
                     if (!needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
                     {
-                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
-                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift);
+                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
+                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift, scope);
                     }
                     else
-                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx]);
+                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx], scope);
                     ++freeIdx;
                 }
             }
@@ -471,12 +479,12 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 if (!fixedLeft[i])
                 {
                     if (needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
-                    {
-                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
-                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift);
+                    {                        
+                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
+                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift, scope);
                     }
                     else
-                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx]);
+                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx], scope);
                     ++freeIdx;
                 }
             }
@@ -495,9 +503,9 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                         shift = NULL;
                 }
                 if (shift)
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))) + *shift);
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shift);
                 else
-                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i))));
+                    rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)));
             }
         }
         else
@@ -510,11 +518,11 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 {
                     if (needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
                     {
-                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
-                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift);
+                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
+                        insertMinorPart(subsL, file, freeIdx, rightSections[freeIdx], leftSections[freeIdx], shift, scope);
                     }
                     else
-                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx]);
+                        insertMainPart(subsL, file, freeIdx, leftSections[freeIdx], scope);
                     ++freeIdx;
                 }
             }
@@ -525,12 +533,12 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                 if (!fixedRight[i])
                 {
                     if (!needSwap(get<2>(leftSections[freeIdx]), get<2>(rightSections[freeIdx])))
-                    {
-                        SgExpression *shift = &(get<0>(leftSections[freeIdx])->copy() - get<0>(rightSections[freeIdx])->copy());
-                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift);
+                    {                        
+                        SgExpression *shift = &(get<0>(rightSections[freeIdx])->copy() - get<0>(leftSections[freeIdx])->copy());
+                        insertMinorPart(subsR, file, freeIdx, leftSections[freeIdx], rightSections[freeIdx], shift, scope);
                     }
                     else
-                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx]);
+                        insertMainPart(subsR, file, freeIdx, rightSections[freeIdx], scope);
                     ++freeIdx;
                 }
             }
@@ -608,6 +616,117 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         for (auto &move : toMove)
             move.first->addAttribute(ASSIGN_STAT, move.second, sizeof(SgStatement*));
+    }
+}
+
+static bool isUnderParallelLoop(SgStatement *st)
+{
+    bool isUnder = false;
+
+    while (st)
+    {
+        const int var = st->variant();
+        if (var == FUNC_HEDR || var == PROG_HEDR || var == PROC_HEDR)
+            break;
+
+        if (var == FOR_NODE)
+        {
+            auto prev = st->lexPrev();
+            if (prev->variant() == DVM_PARALLEL_ON_DIR)
+            {
+                isUnder = true;
+                break;
+            }
+        }
+        st = st->controlParent();
+    }
+    return isUnder;
+}
+
+static void addToDeclSet(SgExpression *exp, set<SgSymbol*> &symbolSet)
+{
+    if (exp)
+    {
+        if (exp->symbol())
+            symbolSet.insert(OriginalSymbol(exp->symbol()));
+
+        if (exp->lhs())
+            addToDeclSet(exp->lhs(), symbolSet);
+        if (exp->rhs())
+            addToDeclSet(exp->lhs(), symbolSet);
+    }
+}
+
+void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
+{
+    int funcNum = file->numberOfFunctions();
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+
+        vector<pair<SgStatement*, SgStatement*>> toMove;
+        set<SgSymbol*> newDeclarations;
+        set<SgSymbol*> declaratedInFunction;
+
+        SgStatement *lastDeclarated = NULL;
+        for (st = file->functions(i); st != lastNode; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            
+            for (int i = 0; i < 3; ++i)
+                addToDeclSet(st->expr(i), declaratedInFunction);
+
+            if (st->fileName() == file->filename())
+                lastDeclarated = st;
+        }
+
+        for (st = file->functions(i); st != lastNode; st = st->lexNext())
+        {            
+            currProcessing.second = st;
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
+            {
+                if (reversed)
+                {
+                    if (data->lineNumber() > 0)
+                    {
+                        toMove.push_back(make_pair(st, data));
+                        st->insertStmtAfter(*data, *st->controlParent());
+
+                        data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
+                    }
+                }
+                else
+                {
+                    if (data->lineNumber() < 0 && isUnderParallelLoop(st))
+                    {
+                        toMove.push_back(make_pair(st, data));
+                        st->insertStmtAfter(*data, *st->controlParent());
+
+                        data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
+
+                        for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())                        
+                            if (st_loc->variant() == FOR_NODE)
+                                newDeclarations.insert(st_loc->symbol());
+                    }
+                }
+            }
+        }
+
+        for (auto &move : toMove)
+            move.first->extractStmt();
+
+        //insert new declaration of symbols for converted loops
+        for (auto &toDecl : newDeclarations)
+        {
+            auto found = declaratedInFunction.find(toDecl);
+            if (found == declaratedInFunction.end())
+            {
+                auto toInsert = toDecl->makeVarDeclStmt();
+                lastDeclarated->insertStmtAfter(*toInsert, *st->controlParent());
+            }
+        }
     }
 }
 

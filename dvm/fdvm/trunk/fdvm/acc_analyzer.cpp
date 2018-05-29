@@ -1280,6 +1280,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             return (*pred = emptyAfterIf);
         }
         case ASSIGN_STAT:
+        case POINTER_ASSIGN_STAT:
         case PROC_STAT:
         case PRINT_STAT:
         case READ_STAT:
@@ -3850,7 +3851,7 @@ CommonVarsOverseer *overseerPtr = NULL;
 
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
-    if(exp->variant() == VAR_REF)
+    if(exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
         return strcmp(symbol.getVar()->identifier(), exp->symbol()->identifier()) == 0;
 
     bool hasSymbolInRHS = false;
@@ -3895,7 +3896,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
         for (int i = 0; i < callStmt->numberOfArgs(); ++i)
         {
             SgExpression* arg = callStmt->arg(i);
-            if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
+            if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
                 addVarToKill(arg->symbol());
         }
         varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
@@ -3903,7 +3904,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
     else if((funcCall = cfi->getFunctionCall()) != NULL) {
         for(int i = 0; i < funcCall->numberOfArgs(); ++i) {
             SgExpression* arg = funcCall->arg(i);
-            if ((arg->variant() == VAR_REF) && (!argIsReplaceable(i, callData)))
+            if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
                 addVarToKill(arg->symbol());
         }
         varsToKill = overseerPtr->killedVars(funcCall->symbol()->identifier());
@@ -3945,22 +3946,17 @@ set<SymbolKey>* CBasicBlock::getOutVars()
 void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
 {
 	SgStatement* st = cfi->getStatement();
-	if (st != NULL) {
+	if (st != NULL) 
 		if (st->variant() == ASSIGN_STAT) {
 			SgExpression *left, *right;
 			left = st->expr(0);
 			right = st->expr(1);
-//			checkFunctionCalls(right);
 			if (left->variant() == VAR_REF) // x = ...
 				addVarToGen(left->symbol(), right);
-/*			else // x[...] = ...
-			{
-				//checkFunctionCalls(left);
-				checkFunctionCalls(right);
-			}
-*/
+			else if(left->variant() == ARRAY_REF)
+			    addVarToKill(left->symbol());
 		}
-	}
+	
 	checkFuncAndProcCalls(cfi);
 }
 
@@ -4201,26 +4197,11 @@ bool valueWithFunctionCall(SgExpression *exp) {
     return funcFounded;
 }
 
-bool valueWithArrayReference(SgExpression *exp)
-{
-    if(exp->variant() == ARRAY_REF)
-        return true;
-
-    bool arrayFounded = false;
-    if(exp->rhs())
-        arrayFounded = valueWithArrayReference(exp->rhs());
-    if(exp->lhs() && !arrayFounded)
-        arrayFounded = valueWithArrayReference(exp->lhs());
-
-    return arrayFounded;
-}
-
 /*
  * Can't expand var if:
  * 1. it has multiple values
  * 2. value has function call
  * 3. value has itself within (recursion)
- * 4. value has array reference
  */
 void CBasicBlock::correctInDefsSimple() {
     vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
@@ -4232,11 +4213,10 @@ void CBasicBlock::correctInDefsSimple() {
             toDel.push_back(it);
         else if(valueWithRecursion(it->first, it->second.begin()->second)) //3
             toDel.push_back(it);
-        else if (valueWithArrayReference(it->second.begin()->second))//4
-            toDel.push_back(it);
 
     for (int i = 0; i < toDel.size(); ++i)
         in_defs.erase(toDel[i]);
+
 }
 
 

@@ -222,28 +222,59 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     }
 }
 
-static map<string, SgSymbol*> createdSymbols;
+static map<string, vector<SgSymbol*>> createdSymbols;
 
-SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind)
+SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, SgStatement *scope)
 {
     SgSymbol *symb = file->firstSymbol();
 
     while (symb)
     {
         if (symb->identifier() == toFind)
-            return symb;
+        {
+            if (symb->scope() == scope && symb->type()->equivalentToType(type))
+                return symb;
+        }
         symb = symb->next();
     }
 
     auto result = createdSymbols.find(toFind);
+
     if (result == createdSymbols.end())
+        result = createdSymbols.insert(result, make_pair(toFind, vector<SgSymbol*>()));
+
+    SgSymbol *newS = NULL;
+    for (auto &symbs : result->second)
     {
-        SgSymbol *newS = new SgSymbol(VARIABLE_NAME, toFind.c_str());
-        createdSymbols.insert(result, make_pair(toFind, newS));
-        return newS;
+        if (symbs->scope() == scope && scope)
+        {
+            if (symbs->type() && type)
+            {
+                if (symbs->type()->equivalentToType(type))
+                {
+                    newS = symbs;
+                    break;
+                }
+            }
+            else
+            {
+                newS = symbs;
+                break;
+            }
+        }
+        else
+        {
+            newS = symbs;
+            break;
+        }
     }
-    else
-        return result->second;
+
+    if (newS == NULL)
+    {
+        newS = new SgSymbol(VARIABLE_NAME, toFind.c_str(), type, scope);
+        result->second.push_back(newS);
+    }    
+    return newS;
 }
 
 static string getValue(SgExpression *exp)
@@ -467,6 +498,9 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 extern map<string, vector<Messages>> SPF_messages;
 SgStatement* declaratedInStmt(SgSymbol *toFind)
 {
+    //need to call this function for MODULE symbols!
+    toFind = OriginalSymbol(toFind);
+
     vector<SgStatement*> inDecl;
     SgStatement *start = toFind->scope();
 

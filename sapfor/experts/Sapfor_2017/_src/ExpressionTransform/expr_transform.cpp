@@ -46,14 +46,11 @@ map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
 set<SgStatement*> visitedStatements;
 GraphsKeeper graphsKeeper;
 
-CommonDataItem* currentCommonVars = NULL;
 CommonVarsOverseer overseer;
 
 
 void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, map<SymbolKey, map<string, SgExpression*>>* inDefs)
 {
-    //TODO
-
     for (auto it = graphs.begin(); it != graphs.end(); ++it)
         if (it->CGraph == targetGraph)
         {
@@ -499,21 +496,12 @@ void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *
 
 SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
-    //Do not expand common vars, now...
-    string ident(var->symbol()->identifier());
-    for(CommonDataItem *common = currentCommonVars; common != NULL; common = common->next)
-        for (CommonVarInfo *varInfo = common->info; varInfo != NULL; varInfo = varInfo->next)
-            if(ident == varInfo->var->GetSymbol()->identifier())
-                return NULL;
-    
-
     SgExpression* exp = NULL;
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
     if (founded != b->getGen()->end())
         if (!valueWithFunctionCall(founded->second))
             if (!valueWithRecursion(founded->first, founded->second))
-                if(!valueWithArrayReference(founded->second))
                 exp = founded->second;
 
     if (exp == NULL)
@@ -806,6 +794,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+            case POINTER_ASSIGN_STAT:
                 break;
             default:
                 for (int i = 0; i < 3; ++i)
@@ -991,15 +980,6 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
                         }
                     }
                 }
-/*
-    for(auto func : overseer.funcKillsVars)
-    {
-        printf("func %s kills: ", func.first.c_str());
-        for(auto& var : func.second)
-            printf("%s ", var.c_str());
-        printf("\n");
-    }
-*/
     overseer.riseInited();
 }
 
@@ -1050,8 +1030,6 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
         calls.AssociateGraphWithHeader(st, CGraph);
         commons.MarkEndOfCommon(GetCurrentProcedure());
         //calls.printControlFlows();
-
-        currentCommonVars = commons.getList();
 
         ExpandExpressions(CGraph);
 

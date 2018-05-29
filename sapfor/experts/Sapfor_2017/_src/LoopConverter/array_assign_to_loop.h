@@ -6,3 +6,4 @@
 
 void convertFromAssignToLoop(SgFile *file, std::vector<Messages> &messagesForFile);
 void restoreAssignsFromLoop(SgFile *file);
+void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed = false);

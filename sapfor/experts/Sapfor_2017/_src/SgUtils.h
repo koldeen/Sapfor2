@@ -5,7 +5,7 @@
 #include "Distribution/Distribution.h"
 #include "GraphCall/graph_calls.h"
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles);
-SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind);
+SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);
 void getModulesAndFunctions(SgFile *file, std::vector<SgStatement*> &modulesAndFunctions);

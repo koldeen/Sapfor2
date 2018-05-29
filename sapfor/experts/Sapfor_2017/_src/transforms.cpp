@@ -721,7 +721,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
         else if (curr_regime == DEF_USE_STAGE2)
             constructDefUseStep2(file, defUseByFunctions);
-
+        else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN)
+            restoreConvertedLoopForParallelLoops(file);
+        else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
+            restoreConvertedLoopForParallelLoops(file, true);
 
         if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
         {
@@ -1368,6 +1371,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(REVERT_SPF_DIRS, proj_name, folderName);
+            runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
+
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
             runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
@@ -1376,6 +1381,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
             runPass(CLEAR_SPF_DIRS, proj_name, folderName);
+            runPass(RESTORE_LOOP_FROM_ASSIGN_BACK, proj_name, folderName);
         }
     }
         break;
