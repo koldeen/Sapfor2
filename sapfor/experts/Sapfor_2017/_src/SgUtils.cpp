@@ -1217,10 +1217,11 @@ void CommonBlock::print(FILE *fileOut) const
     for (auto &var: variables)
     {        
         var.print(fileOut);
-        fprintf(fileOut, "      USE in [FILE, FUNCTION]:");
+        fprintf(fileOut, "      USE in [FILE, FUNC / BLOCK_DATA]:");
 
         for (auto &use : var.getAllUse())
-            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), use.getFunctionName().c_str());
+            fprintf(fileOut, " [%s, %s]", use.getFileName().c_str(), 
+                                          use.isBlockDataUse() ? ("BD_" + use.getFunctionName()).c_str() : ("F_" + use.getFunctionName()).c_str());
         fprintf(fileOut, "\n");
     }
 }

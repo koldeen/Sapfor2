@@ -98,16 +98,21 @@ private:
 
     SgFile *file;
     SgStatement *function;
+    bool isBlockData;
 public:
     explicit CommonVariableUse(SgFile *file, SgStatement *function) :
         file(file), function(function), 
         fileName(std::string(file->filename())), functionName(std::string(function->symbol()->identifier()))
     {
-
+        if (function->variant() == BLOCK_DATA)
+            isBlockData = true;
+        else
+            isBlockData = false;
     }
 
     const std::string& getFileName() const { return fileName; }
     const std::string& getFunctionName() const { return functionName; }
+    bool isBlockDataUse() const { return isBlockData; }
     SgFile* getFile() const { return file; }
     SgStatement* getFunction() const { return function; }
 };

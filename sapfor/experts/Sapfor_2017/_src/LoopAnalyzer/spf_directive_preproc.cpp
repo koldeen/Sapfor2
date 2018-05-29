@@ -410,7 +410,7 @@ static bool checkShadowAcross(SgStatement *st,
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
-            //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
+
             notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
             if (!notPrivCond)
@@ -684,7 +684,7 @@ static bool checkParallelRegions(SgStatement *st,
 {
     bool retVal = true;
 
-    if (isSgExecutableStatement(st->lexNext()))
+    if (isSgExecutableStatement(st->lexNext()) || st->lexNext()->variant() == ENTRY_STAT)
     {
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
@@ -704,11 +704,11 @@ static bool checkParallelRegions(SgStatement *st,
                 
                 if (!isSgExecutableStatement(iterator))
                 {
-                    for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
+                    if (iterator->variant() == VAR_DECL || iterator->variant() == VAR_DECL_90)
                     {
-                        for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
+                        for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
-                            if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
+                            if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
                             {
                                 __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
