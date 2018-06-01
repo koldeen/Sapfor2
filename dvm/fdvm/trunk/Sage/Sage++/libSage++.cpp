@@ -1854,6 +1854,9 @@ SgStatement::SgStatement(int variant)
         thebif = (PTR_BFND)newNode(variant);
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1867,6 +1870,10 @@ SgStatement::SgStatement(SgStatement &s)
     thebif = s.thebif;
 
 #if __SPF
+    fileID = s.getFileId();
+    project = s.getProject();
+    unparseIgnore = s.getUnparseIgnore();
+
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
 }
@@ -1892,6 +1899,9 @@ SgStatement::SgStatement(PTR_BFND bif)
     thebif = bif;
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -8185,6 +8195,9 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
         break;
     }
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif

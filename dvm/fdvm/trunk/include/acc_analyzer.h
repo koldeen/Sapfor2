@@ -429,10 +429,10 @@ class CArrayVarEntryInfo : public CVarEntryInfo
     ArraySubscriptData* data;
 public:
     CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r);
-    CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d);
+    CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscriptData* d);
     ~CArrayVarEntryInfo() { if (subscripts > 0) delete[] data; }
-    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, data); }
-    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), subscripts, data); }
+    CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, disabled, data); }
+    CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), subscripts, disabled, data); }
     bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol(); }
     friend CArrayVarEntryInfo* operator-(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     friend CArrayVarEntryInfo* operator+(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
@@ -641,6 +641,8 @@ public:
 
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getOutDefs()
     { return &out_defs; }
+
+    void getReachedDefs(std::map<SymbolKey, std::set<SgExpression*>>& defs, SgStatement* stmt);
 #endif
 };
 

@@ -1076,7 +1076,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                         {
                             if (under_dvm_dir)
                             {
-                                if (contrlParent == under_dvm_dir->first)
+                                if (contrlParent == under_dvm_dir->first && under_dvm_dir->second->userDvmDirective == NULL)
                                 {
                                     ParallelRegion *currReg = getRegionByLine(regions, under_dvm_dir->first->fileName(), under_dvm_dir->first->lineNumber());
                                     if (currReg)

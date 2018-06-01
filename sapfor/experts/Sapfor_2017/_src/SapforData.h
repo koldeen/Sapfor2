@@ -80,6 +80,10 @@ std::map<std::string, CommonBlock> commonBlocks; // name -> commonBlock
 
 std::map<std::string, std::vector<Messages>> SPF_messages; //file ->messages
 
+//for PARALLEL REGIONS + DVM_CHECKER
+std::map<std::string, std::vector<int>> dvmDirErrors; // file->lines
+//
+
 //for DEF USE
 map<string, vector<DefUseList>> defUseByFunctions;
 

@@ -1665,7 +1665,7 @@ CommonDataItem* CommonData::IsThisCommonVar(VarItem* item, AnalysedCallsList* ca
     return NULL;
 }
 
-CommonDataItem* CommonData::GetItemForName(const std::string& name, AnalysedCallsList* call)
+CommonDataItem* CommonData::GetItemForName(const string &name, AnalysedCallsList *call)
 {
     for (CommonDataItem* it = list; it != NULL; it = it->next) {
         if (it->name == name && it->proc == call)
@@ -1951,6 +1951,7 @@ bool CArrayVarEntryInfo::HasActiveElements() const
 
 void CArrayVarEntryInfo::MakeInactive()
 {
+    disabled = true;
     for (int i = 0; i < subscripts; i++) {
         data[i].left_bound = data[i].right_bound = NULL;
         data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
@@ -2041,14 +2042,21 @@ void PrivateDelayedItem::PrintWarnings()
             nls->setRhs(prl->lhs());
             prl->setLhs(nls);
         }
-        else {
+        else 
+        {
             CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
-            if (tt->HasActiveElements()) {
+            if (tt->HasActiveElements()) 
+            {
 #if __SPF
-                Note("**add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+                Note("add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
                 //Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #endif
+                SgExprListExp *nls = new SgExprListExp();
+                SgArrayRefExp *nvr = new SgArrayRefExp(*syb->GetSymbol());
+                nls->setLhs(nvr);
+                nls->setRhs(prl->lhs());
+                prl->setLhs(nls);
             }
         }
         delete(syb);
@@ -3053,7 +3061,7 @@ VarSet* CBasicBlock::getUse()
 
 #ifdef __SPF
 template<typename IN_TYPE, typename OUT_TYPE>
-const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
+const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType);
 #endif
 
 DoLoopDataItem* DoLoopDataList::FindLoop(SgStatement* st)
@@ -3110,8 +3118,8 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
         data[i].coefs[0] = data[i].coefs[1] = 0;
         data[i].loop = NULL;
 #ifdef __SPF
-        const std::vector<int*> coefs = getAttributes<SgExpression*, int*>(r->subscript(i), set<int>{ INT_VAL });
-        const std::vector<SgStatement*> fs = getAttributes<SgExpression*, SgStatement*>(r->subscript(i), set<int>{ FOR_NODE });
+        const vector<int*> coefs = getAttributes<SgExpression*, int*>(r->subscript(i), set<int>{ INT_VAL });
+        const vector<SgStatement*> fs = getAttributes<SgExpression*, SgStatement*>(r->subscript(i), set<int>{ FOR_NODE });
         if (fs.size() == 1) {
             data[i].loop = doLoopList->FindLoop(fs[0]);
             if (data[i].loop != NULL) {
@@ -3160,9 +3168,8 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
     }
 }
 
-CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub) 
+CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub), disabled(ds)
 { 
-    disabled = false;
     if (sub > 0) {
         data = new ArraySubscriptData[sub];
         for (int i = 0; i < sub; i++) {
@@ -3340,7 +3347,7 @@ CArrayVarEntryInfo& CArrayVarEntryInfo::operator*=(const CArrayVarEntryInfo& b)
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator+=(const CArrayVarEntryInfo& b)
 {
     //return *this;
-    if (disabled && !b.disabled) {
+    if (disabled && !b.disabled && b.data) {
         for (int i = 0; i < subscripts; i++)
             data[i] = b.data[i];
         disabled = false;
@@ -3960,6 +3967,43 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
 	checkFuncAndProcCalls(cfi);
 }
 
+void CBasicBlock::getReachedDefs(map<SymbolKey, set<SgExpression*>> &defs, SgStatement *stmt)
+{
+    ControlFlowItem *cfi = getStart();
+    ControlFlowItem *till = getEnd()->getNext();
+    bool founded = false;
+    while(cfi != till)
+    {
+       if(cfi->getStatement() == stmt || cfi->getOriginalStatement() == stmt)
+       {
+           founded = true;
+           break;
+       }
+       adjustGenAndKill(cfi);
+       cfi = cfi->getNext();
+    }
+
+    defs.clear();
+    if(founded)
+    {
+        for(auto &it : gen)
+            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second);
+
+        for (auto &it : in_defs)
+        {
+            if (kill.find(it.first) == kill.end())
+            {
+                auto founded = defs.find(it.first);
+                if (founded == defs.end())
+                    founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
+
+                for (auto &exp : it.second)
+                    founded->second.insert(exp.second);
+            }
+        }
+    }
+}
+
 void setGensAndKills(CBasicBlock *b)
 {
     ControlFlowItem *cfi = b->getStart();
@@ -4138,7 +4182,7 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
     }
 }
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs, CommonVarsOverseer *overseer_Ptr)
+void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, SgExpression*>> *inDefs, CommonVarsOverseer *overseer_Ptr)
 {
     overseerPtr = overseer_Ptr;
     CBasicBlock *b = CGraph->getFirst();

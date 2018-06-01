@@ -513,10 +513,10 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
             //thanks to CorrectInDefs(ControlFlowGraph*) function
             exp = founded_inDefs->second.begin()->second;
 
-        //we have to check if this value was killed by gen inside block
+        //we have to check if this value was killed inside block
         if (exp != NULL)
-            for (auto it = b->getGen()->begin(); it != b->getGen()->end(); ++it)
-                if (symbolInExpression(it->first, exp))
+            for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
+                if (symbolInExpression(*it, exp))
                 {
                     exp = NULL;
                     break;
@@ -947,15 +947,15 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
             funcCalls.push_back(FuncCallSE(funcInfo->funcName, funcInfo->callsFrom));
 
     for (auto &commonBlock : commonBlocks)
-        for (auto var : commonBlock.second.getVariables())
+        for (auto &var : commonBlock.second.getVariables())
             if (var.getType() == SCALAR)
-                for (auto fun : var.getAllUse())
+                for (auto &fun : var.getAllUse())
                 {
                     bool deffed = false;
                     auto func = fun.getFunctionName();
                     auto foundedDefUse = defUseByFunctions.find(func);
                     if (foundedDefUse != defUseByFunctions.end())
-                        for (auto varDefUse : foundedDefUse->second)
+                        for (auto &varDefUse : foundedDefUse->second)
                             if (varDefUse.isDef() && varDefUse.getVar() == var.getName())
                             {
                                 deffed = true;
@@ -972,7 +972,7 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
                             processed.insert(curFunc);
                             killerFuncs.pop();
                             for (auto &file : allFuncInfo)
-                                for (auto& funcInfo : file.second)
+                                for (auto &funcInfo : file.second)
                                     if (funcInfo->callsFrom.find(curFunc) != funcInfo->callsFrom.end() &&
                                             processed.find(funcInfo->funcName) == processed.end())
                                         killerFuncs.push(funcInfo->funcName);
@@ -1033,76 +1033,6 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
 
         ExpandExpressions(CGraph);
 
-/*        printf("!");
-        CommonVarSet* cvs = CGraph->getCommonDef();
-        while(cvs)
-        {
-            CommonVarInfo* cvi = cvs->cvd;
-            while(cvi)
-            {
-                printf("%s ", cvi->var->GetSymbol()->identifier());
-                cvi = cvi->next;
-            }
-            printf("\n");
-            cvs = cvs->next;
-        }
-*/
-/*
-        CommonDataItem* commonVars = commons.getList();
-        while(commonVars != NULL)
-        {
-            printf("%s ", commonVars->name->identifier());
-            commonVars = commonVars->next;
-        }
-        printf("\n");
-*/
-//        showDefsOfGraph(CGraph);
-        /*
-         st = file->firstStatement();
-         while(st != NULL)
-         {
-         st->unparsestdout();
-         st = st->nextInChildList();
-         }*/
-/*
-         CBasicBlock* b = CGraph->getFirst();
-        while (b != NULL)
-        {
-            printf("Block:\n");
-            SgStatement* st = NULL;
-            SgExpression* exp = NULL;
-            ControlFlowItem *cfi = b->getStart(), *till = b->getEnd()->getNext();
-            while (cfi != till)
-            {
-                printf("cfi: ");
-                if (cfi->getFunctionCall())
-                {
-                    //if (cfi->getOriginalStatement())
-                    //    cfi->getOriginalStatement()->unparsestdout();
-                    printf("->%d %s'%s'%d <- ", cfi->getOriginalStatement(), cfi->getFunctionCall()->unparse(), cfi->getCall()->funName, cfi->getCall()->graph);
-                }
-                AnalysedCallsList* list = cfi->getCall();
-                //                if ((st = cfi->getOriginalStatement()) != NULL)
-                //              {
-                //              printf("%d-%d: %s ",st->lineNumber(), st->variant(), st->unparse());
-                //          }
-                //        else
-                if ((st = cfi->getStatement()) != NULL)
-                {
-                    printf("%d-%d: %s ", st->lineNumber(), st->variant(), st->unparse());
-                    while (list != NULL)
-                    {
-                        printf("--%s'%d ", list->funName, list->graph);
-                        list = list->next;
-                    }
-                    printf("\n");
-                }
-                cfi = cfi->getNext();
-            }
-            printf("\n");
-            b = b->getLexNext();
-        }
-*/
         delete CGraph;
     }
 }

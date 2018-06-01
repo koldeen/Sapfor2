@@ -324,9 +324,9 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     //XXX
     while (true)
     {
-        if (assign->variant() == PROG_HEDR || assign->variant() == FUNC_HEDR || assign->variant() == PROC_HEDR)
+        if (scope->variant() == PROG_HEDR || scope->variant() == FUNC_HEDR || scope->variant() == PROC_HEDR)
             break;
-        assign = assign->controlParent();
+        scope = scope->controlParent();
     }
 
     vector<bool> fixedLeft(leftBound.size()), fixedRight(rightBound.size());

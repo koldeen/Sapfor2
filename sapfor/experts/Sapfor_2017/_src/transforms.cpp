@@ -311,15 +311,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (keepDvmDirectives == 0)
             {
-                map<string, vector<int>> errors; // file->lines
-                if (ignoreDvmChecker == 0)
-                    DvmDirectiveChecker(file, errors);
+                DvmDirectiveChecker(file, dvmDirErrors);
 
                 __spf_print(1, "  ignoreDvmChecker = %d\n", ignoreDvmChecker);
-                if (errors.size() != 0)
+
+                if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 {
                     veriyOK = false;
-                    for (auto &err : errors)
+                    for (auto &err : dvmDirErrors)
                     {
                         vector<Messages> &currMessages = getMessagesForFile(err.first.c_str());
                         for (auto &code : err.second)
@@ -377,6 +376,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
+
                 const DataDirective &dataDirectives = currReg->GetDataDir();
                 const vector<int> &currentVariant = currReg->GetCurrentVariant();
                 const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
@@ -404,6 +404,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     for (int z = 0; z < parallelRegions.size(); ++z)
                     {
                         ParallelRegion *currReg = parallelRegions[z];
+
                         const DataDirective &dataDirectives = currReg->GetDataDir();
                         const vector<int> &currentVariant = currReg->GetCurrentVariant();
                         vector<int> variantZero(currentVariant.size());
@@ -1128,6 +1129,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
 
+        if (ignoreDvmChecker == 1)
+        {
+            if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT" && dvmDirErrors.size())
+            {
+                for (auto &err : dvmDirErrors)
+                {
+                    vector<Messages> &currMessages = getMessagesForFile(err.first.c_str());
+                    for (auto &code : err.second)
+                    {
+                        __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet for only one DEFAULT parallel region\n", code);
+                        currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet for only one DEFAULT parallel region", 1020));
+                    }
+                }
+                throw(-1);
+            }
+        }
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)
         {

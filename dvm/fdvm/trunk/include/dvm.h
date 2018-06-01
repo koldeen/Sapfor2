@@ -1722,7 +1722,7 @@ SgStatement *ActualArray(SgSymbol *ar);
 SgStatement *GetActualArray(SgExpression *objref);
 SgStatement *GetActualSubVariable(SgSymbol *s, int ilow, int ihigh);
 SgStatement *GetActualSubVariable_2(SgSymbol *s, int rank, SgExpression *index_list);
-SgStatement *CreateDvmArray(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) ;
+SgStatement *CreateDvmArrayHeader(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) ;
 SgStatement *HandleConsistent(SgExpression *gref);
 SgExpression *HasLocalElement(SgSymbol *s_loop_ref,SgSymbol *ar, SgSymbol *IndAr);
 SgExpression *HasLocalElement_H2(SgSymbol *s_loop_ref, SgSymbol*ar, int n, SgExpression *index_list);
@@ -1792,6 +1792,8 @@ SgExpression *DvmhExprConstant(SgExpression *e);
 SgExpression *DvmhExprIgnore();
 SgExpression *DvmhDerivedRhs(SgExpression *erhs);
 SgStatement *ShadowAdd(SgExpression *templ, int iaxis, SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func, SgExpression *shadow_name, int nl, SgExpression *array_list);
+SgStatement *CreateDvmArrayHeader_2(SgSymbol *ar, SgExpression *array_header,  int rank,  SgExpression *shape_list);
+SgStatement *ForgetHeader(SgExpression *objref);
 
 /*  io.cpp      */
 void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);

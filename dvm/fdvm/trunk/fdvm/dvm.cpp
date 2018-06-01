@@ -337,7 +337,7 @@ int main(int argc, char *argv[]){
         (void)fprintf(stderr, "Warning: -noH option is set to -mp mode\n");
         ACC_program = 0;
     }
-    if (parloop_by_handler == 2)
+    if (parloop_by_handler == 2 && !options.isOn(O_HOST))
        (void)fprintf(stderr, "Warning: -Ohost option is set to -Opl2 mode\n");
     
     if (v_print)
@@ -5675,7 +5675,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
     else if(!IS_POINTER(als))
       size_array = doDvmShapeList(als,node->align_stmt);  
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(als))));
-    align_rule_list = doAlignRules(node->symb,node->align_stmt,0,nr);
+    align_rule_list = (ia & POSTPONE_BIT) ? NULL : doAlignRules(node->symb,node->align_stmt,0,nr);
     if( root && align_rule_list)     //!(ia & POSTPONE_BIT) 
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
     if(IS_SAVE(als))
@@ -13209,7 +13209,7 @@ void ConsistentArrayList  (SgExpression *el,SgExpression *gref, SgStatement *st,
 
        // call crtraf (ArrayHeader,ExtHdrSign,Base,Rank,TypeSize,SizeArray, StaticSign, ReDistrSign, Memory)  
 
-       doCallAfter(CreateDvmArray(var, header, size_array, rank, sign, re_sign)); 
+       doCallAfter(CreateDvmArrayHeader(var, header, size_array, rank, sign, re_sign)); 
        where = cur_st;
        doSizeFunctionArray(var,st); 
        cur_st = where;

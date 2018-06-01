@@ -257,6 +257,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
             switch (st->variant())
             {
+            case DVM_VAR_DECL:
             case DVM_DISTRIBUTE_DIR:
                 userDvmDistrDirs.push_back(new Statement(st));
                 break;

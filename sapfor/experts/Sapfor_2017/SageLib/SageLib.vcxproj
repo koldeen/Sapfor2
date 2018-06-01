@@ -23,7 +23,7 @@
     <ProjectGuid>{E654E155-F159-449B-9338-BC4F8E83DD65}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>SageLib</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

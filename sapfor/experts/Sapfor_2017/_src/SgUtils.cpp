@@ -181,23 +181,12 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             lineBefore = st->lineNumber();
     }
     
-    vector<pair<SgStatement*, SgStatement*>> wasLinked;    
+    vector<pair<SgStatement*, SgStatement*>> wasLinked;
     //remove
-    for (SgStatement *st = file->firstStatement(), *prev = NULL; st; )
-    {
-        if (st->fileName() != fileN)
-        {
-            SgStatement *toDel = st;
-            st = st->lastNodeOfStmt()->lexNext();
-            wasLinked.push_back(make_pair(prev, toDel->extractStmt()));
-            prev = toDel;
-        }
-        else
-        {
-            prev = st;
-            st = st->lexNext();
-        }        
-    }
+    //XXX: use Sage hack!!
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+        if (st->fileName() != fileN || st->getUnparseIgnore())
+            st->setVariant(-1 * st->variant());
 
     FILE *fOut = fopen(fout, "w");
     if (fOut == NULL)
@@ -206,20 +195,10 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     fclose(fOut);
     
     //restore
-    int idx = 0;
+    //XXX: use Sage hack!!
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
-    {
-        if (idx < wasLinked.size())
-        {
-            if (st == wasLinked[idx].first)
-            {
-                st->insertStmtAfter(*wasLinked[idx].second, *st->controlParent());
-                idx++;
-            }
-        }
-        else
-            break;
-    }
+        if (st->fileName() != fileN && st->variant() < 0 || st->getUnparseIgnore())
+            st->setVariant(-1 * st->variant());
 }
 
 static map<string, vector<SgSymbol*>> createdSymbols;

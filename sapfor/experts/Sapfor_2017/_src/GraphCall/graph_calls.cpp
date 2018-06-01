@@ -982,7 +982,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
             if (needToAddErrors)
             {
-                messages.push_back(Messages(ERROR, funcOnLine, buf));
+                messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop symbol as index of an array\n", func->funcName.c_str());
             }
 
