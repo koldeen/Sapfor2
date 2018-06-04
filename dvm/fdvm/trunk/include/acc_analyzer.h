@@ -430,7 +430,7 @@ class CArrayVarEntryInfo : public CVarEntryInfo
 public:
     CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r);
     CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscriptData* d);
-    ~CArrayVarEntryInfo() { if (subscripts > 0) delete[] data; }
+    ~CArrayVarEntryInfo() { if (subscripts > 0) { delete[] data; data = NULL; } }
     CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, disabled, data); }
     CVarEntryInfo* Clone() const { return new CArrayVarEntryInfo(GetSymbol(), subscripts, disabled, data); }
     bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_ARRAY_EXP && rhs.GetSymbol() == GetSymbol(); }

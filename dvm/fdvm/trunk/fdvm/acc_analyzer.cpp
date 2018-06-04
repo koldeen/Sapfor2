@@ -2047,6 +2047,7 @@ void PrivateDelayedItem::PrintWarnings()
             CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
             if (tt->HasActiveElements()) 
             {
+#if 0 // TODO: need to check all situation before commit it to release 
 #if __SPF
                 Note("add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
@@ -2057,6 +2058,7 @@ void PrivateDelayedItem::PrintWarnings()
                 nls->setLhs(nvr);
                 nls->setRhs(prl->lhs());
                 prl->setLhs(nls);
+#endif
             }
         }
         delete(syb);
@@ -3176,6 +3178,8 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscr
             data[i] = d[i];
         }
     }
+    else
+        data = NULL;
 }
 
 VarItem* VarSet::GetArrayRef(CArrayVarEntryInfo* info)

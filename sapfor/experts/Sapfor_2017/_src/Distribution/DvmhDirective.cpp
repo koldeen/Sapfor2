@@ -119,6 +119,9 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
 
     if (langType == LANG_F)
     {
+        SgStatement *scope = file->GetOriginal()->firstStatement();
+        SgArrayType *typeArrayInt = new SgArrayType(*SgTypeInt());
+        
         SgExpression *expr = new SgExpression(EXPR_LIST);
         SgExpression *p = expr;
 
@@ -270,7 +273,7 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
 
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, across[i1].first.first));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope));
                     genSubscripts(across[i1].second, acrossShifts[i1], newArrayRef);
                     p->setLhs(newArrayRef);
                     inserted++;
@@ -334,7 +337,7 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
                     }
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first, typeArrayInt, scope));
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);
@@ -471,8 +474,8 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
             {
                 directive += it->first.first + "(";
                 directive += it->first.second + ")";
-
-                SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first), *it->second);
+                                
+                SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), *it->second);
                 p->setLhs(tmp);
 
                 if (k != remoteAccess.size() - 1)
