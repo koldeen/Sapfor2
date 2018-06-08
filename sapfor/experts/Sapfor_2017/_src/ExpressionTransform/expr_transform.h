@@ -21,6 +21,7 @@ SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
 void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
+SgExpression* CalculateInteger(SgExpression *expr);
 void expressionAnalyzer(SgFile *file,
         std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
         std::map<std::string, CommonBlock> &commonBlocks,

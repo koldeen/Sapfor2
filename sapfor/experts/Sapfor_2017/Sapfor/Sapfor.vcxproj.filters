@@ -64,6 +64,9 @@
     <Filter Include="Файлы исходного кода\DvmhRegions">
       <UniqueIdentifier>{64beaa51-0198-4f14-8f9f-ecb4d6a0fc04}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы исходного кода\Inliner">
+      <UniqueIdentifier>{6adb59da-08fb-4506-a8b1-37527a084d54}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\transforms.cpp">
@@ -254,6 +257,9 @@
     </ClCompile>
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp">
+      <Filter>Файлы исходного кода\Inliner</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

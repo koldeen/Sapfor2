@@ -413,6 +413,17 @@ int CalculateInteger(SgExpression *expr, int &result)
     }
 }
 
+SgExpression* CalculateInteger(SgExpression *expr)
+{
+    int value, res;
+    replaceConstatRec(expr);
+    res = CalculateInteger(expr, value);
+    if (res != -1)
+        return new SgValueExp(value);
+    else
+        return expr;
+}
+
 void calculate(SgExpression *&exp)
 {
     SgExpression *left, *right;

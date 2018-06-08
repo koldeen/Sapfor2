@@ -148,6 +148,7 @@
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG"  %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -177,6 +178,7 @@
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp" />
+    <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\allocations_prepoc.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator.cpp" />
