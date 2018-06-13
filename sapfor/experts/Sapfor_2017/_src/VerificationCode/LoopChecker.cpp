@@ -16,6 +16,7 @@ using std::map;
 using std::pair;
 using std::string;
 using std::make_pair;
+using std::set;
 
 void EndDoLoopChecker(SgFile *file, vector<int> &errors)
 {
@@ -61,6 +62,39 @@ void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
             
             if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
                 errors[st->fileName()].push_back(st->lineNumber());
+        }
+    }
+}
+
+void EquivalenceChecker(SgFile *file, const string &fileName, set<pair<string, int>> &errors)
+{
+    int funcNum = file->numberOfFunctions();
+
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+        int lastLine = 1;
+
+        recExpressionPrint(file->firstExpression());
+
+        while (st != lastNode)
+        {
+            currProcessing.second = st;
+            if (st == NULL)
+            {
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+
+            /*if (st->fileName() == fileName)
+                lastLine = st->lineNumber();
+
+            if (isSgExecutableStatement(st) && !isSPF_stat(st) && !isDVM_stat(st))
+            if (st->fileName() != fileName)
+                errors.insert(std::make_pair(st->fileName(), lastLine));*/
+
+            st = st->lexNext();
         }
     }
 }

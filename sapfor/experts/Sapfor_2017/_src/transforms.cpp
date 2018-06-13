@@ -307,6 +307,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+        else if (curr_regime == VERIFY_EQUIVALENCE)
+        {
+            set<pair<string, int>> errors;
+			EquivalenceChecker(file, file_name, errors);
+            if (errors.size() != 0)
+            {
+                veriyOK = false;
+                vector<Messages> &currMessages = getMessagesForFile(file_name);
+                for (auto z = errors.begin(); z != errors.end(); ++z)
+                {
+                    __spf_print(1, "  ERROR: '%s' at line %d contain an equivalence operator \n", z->first.c_str(), z->second);
+                    string currM;
+                    __spf_printToBuf(currM, "'%s' contain an equivalence operator", z->first.c_str());
+                    currMessages.push_back(Messages(ERROR, z->second, currM, 1037));
+                }
+            }
+        }
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
             if (keepDvmDirectives == 0)
