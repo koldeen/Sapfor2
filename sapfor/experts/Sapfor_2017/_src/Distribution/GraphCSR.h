@@ -46,6 +46,9 @@ namespace Distribution
         int maxChainLen;
         int maxLoopDim;
         uint64_t maxAvailMemory;
+
+        std::map<vType, std::map<vType, std::tuple<int, Array*, std::pair<float, float>>>> cacheLinks;
+        int countRequestsToAdd;
     private:
         GraphCSR(const std::vector<vType> &neighbors, const std::vector<vType> &edges,
                  const std::vector<wType> &weights, const std::vector<vType> &localIdx,
@@ -70,11 +73,11 @@ namespace Distribution
         void FindLoop(std::vector<std::map<std::vector<unsigned>, Cycle<vType, wType, attrType>>> &cycles, const vType V, const vType VPrev, const std::vector<vType> &numbers);
         void RemoveDuplicates(std::vector<Cycle<vType, wType, attrType>> &cycles);
         bool findLink(const vType v1, std::pair<int, int> &inGraphAttr1, const vType v2, std::pair<int, int> &inGraphAttr2);
-        bool findLinkWithTempate(const vType v1, std::pair<float, float> &inGraphAttr, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
+        std::pair<float, float> findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
         int findDimNumLink(const vType v, const Array *to, const Arrays<vType> &allArrays, std::set<vType> &wasDone) const;
         bool checkFirstCoefOfNode(vType node);
-        bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);
-
+        bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);        
+        bool hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays);
     public:
         GraphCSR()
         {
@@ -87,6 +90,7 @@ namespace Distribution
             this->maxLoopDim = G.maxLoopDim;
             this->maxChainLen = G.maxChainLen;
             this->maxAvailMemory = G.maxAvailMemory;
+            this->countRequestsToAdd = G.countRequestsToAdd;
         }
 
         void cleanData()
@@ -104,6 +108,9 @@ namespace Distribution
             maxAvailMemory = 0;
             maxLoopDim = MAX_LOOP_DIM;
             maxChainLen = MAX_CHAIN_LEN;
+
+            cacheLinks.clear();
+            countRequestsToAdd = 0;
         }
 
         void ClearGraphCSR()
@@ -121,6 +128,7 @@ namespace Distribution
             maxLoopDim = MAX_LOOP_DIM;
             maxChainLen = MAX_CHAIN_LEN;
             maxAvailMemory = 0;
+            countRequestsToAdd = 0;
         }
 
         bool SaveGraphToFile(FILE *file);
@@ -153,5 +161,8 @@ namespace Distribution
         int GetMaxChainLen() const { return maxChainLen; }
         void SetMaxAvailMemory(const uint64_t memSize) { maxAvailMemory = memSize; }
         void ChangeQuality(const int newMaxLoopDim, const int newMaxChainLen) { SetMaxLoopDim(newMaxLoopDim); SetMaxChainLen(newMaxChainLen); }
+        int getCountOfReq() const { return countRequestsToAdd; }
     };
+
+    std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);
 }

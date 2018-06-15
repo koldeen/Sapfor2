@@ -1212,7 +1212,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == DEF_USE_STAGE1)
     {
         if (keepFiles)
-            printDefUseSets("_defUseList.txt", defUseByFunctions);        
+            printDefUseSets("_defUseList.txt", defUseByFunctions);
+    }
+    else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+    {
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            ParallelRegion *currReg = parallelRegions[z];
+            auto graph = currReg->GetGraph();
+            __spf_print(1, "STAT: par reg %s: requests %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.GetNumberOfV(), graph.GetNumberOfE());
+        }
     }
 
 #if _WIN32

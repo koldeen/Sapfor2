@@ -92,7 +92,7 @@ public:
                      DIST::Arrays<int> &allArrays,
                      const std::set<DIST::Array*> &acrossOutAttribute, 
                      const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
-                     const int regionId);
+                     Statement *loop, const int regionId);
 
     friend ParallelDirective* operator+(const ParallelDirective &first, const ParallelDirective &second);
 
@@ -123,7 +123,8 @@ private:
                                 const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
                                 const bool isAcross, const int regionId,
                                 const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                std::set<DIST::Array*> &arraysInAcross) const;
+                                std::set<DIST::Array*> &arraysInAcross,
+                                std::vector<std::map<std::pair<int, int>, int>> &shiftsByAccess) const;
 };
 
 std::string genStringExpr(const std::string &letter, const std::pair<int, int> expr);

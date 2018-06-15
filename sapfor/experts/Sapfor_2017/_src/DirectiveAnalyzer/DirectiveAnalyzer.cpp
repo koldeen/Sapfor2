@@ -86,6 +86,6 @@ void UniteNestedDirectives(vector<LoopGraph*> &loopGraph)
 {
     recUnite(loopGraph);
 
-    map<int, LoopGraph*> sortedLoopGraph;
-    createMapLoopGraph(sortedLoopGraph, &loopGraph);
+    /*map<int, LoopGraph*> sortedLoopGraph;
+    createMapLoopGraph(sortedLoopGraph, &loopGraph);*/
 }

@@ -412,15 +412,15 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
 }
 
 
-static void zeroAllCountIter(vector<LoopGraph*> &loops, const set<void*> &isNotOkey)
+static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &isNotOkey)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
         if (loops[i]->region)
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
-                loops[i]->countOfIters = 0;
-            zeroAllCountIter(loops[i]->childs, isNotOkey);
+                loops[i]->countOfIters = 2;
+            setToDefaultCountIter(loops[i]->childs, isNotOkey);
         }
     }
 }
@@ -452,7 +452,7 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, ve
     if (isNotOkey.size() != 0)
     {
         for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            zeroAllCountIter(it->second, isNotOkey);
+            setToDefaultCountIter(it->second, isNotOkey);
     }
 
     for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)

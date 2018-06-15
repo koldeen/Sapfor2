@@ -12222,58 +12222,61 @@ void BeginDebugFragment(int num, SgStatement *stmt)
 */
 
 void BeginDebugFragment(int num, SgStatement *stmt)
-{fragment_list *curfr;
- fragment_list_in *fr;
- int max_dlevel,max_elevel,is_max,d_current, e_current,spec_dlevel,spec_elevel;
-//determing maximal level of debugging and performance analyzing
-  if(stmt)
-    is_max = MaxLevels(stmt,&max_dlevel,&max_elevel); 
-  else 
-    is_max =0;
+{
+    fragment_list *curfr;
+    fragment_list_in *fr;
+    int max_dlevel, max_elevel, is_max, d_current, e_current, spec_dlevel, spec_elevel;
+    //determing maximal level of debugging and performance analyzing
+    if (stmt)
+        is_max = MaxLevels(stmt, &max_dlevel, &max_elevel);
+    else
+    {
+        is_max = 0;
+        max_dlevel = max_elevel = 4;
+    }
 
-// level specified for surrounding fragment
-  d_current = cur_fragment ? cur_fragment->dlevel_spec : 0; 
-  e_current = cur_fragment ? cur_fragment->elevel_spec : 0; 
- 
-// searhing fragment in 2 lists
-  fr=debug_fragment;
-//looking through the fragment list specified for debugging (-d) in  command line
-  while(fr && (fr->N1 >  num || fr->N2 < num) ) 
-          fr=fr->next;
-  if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
-    spec_dlevel = fr->level;
-  else
-    spec_dlevel = d_current;
- 
- fr=perf_fragment;
-//looking through the fragment list specified for performance analyze (-e) in  command line
-  while(fr && (fr->N1 >  num || fr->N2 < num) ) 
-          fr=fr->next;
-  if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
-    spec_elevel = fr->level;
-  else 
-    spec_elevel = e_current;
-  level_debug =   MinLevel(spec_dlevel,max_dlevel,is_max);
-  dvm_debug = level_debug ? 1 : 0; 
-  perf_analysis = MinLevel(spec_elevel,max_elevel,is_max);
-  curfr = new fragment_list;
-  curfr->No = num;
-  curfr->begin_st = stmt;
-  curfr->dlevel = level_debug;
-  curfr->elevel = perf_analysis;
-  curfr->dlevel_spec = spec_dlevel;
-  curfr->elevel_spec = spec_elevel;
-  curfr->next = cur_fragment; 
-  cur_fragment = curfr;           
-  return;
+    // level specified for surrounding fragment
+    d_current = cur_fragment ? cur_fragment->dlevel_spec : 0;
+    e_current = cur_fragment ? cur_fragment->elevel_spec : 0;
+
+    // searhing fragment in 2 lists
+    fr = debug_fragment;
+    //looking through the fragment list specified for debugging (-d) in  command line
+    while (fr && (fr->N1 > num || fr->N2 < num))
+        fr = fr->next;
+    if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
+        spec_dlevel = fr->level;
+    else
+        spec_dlevel = d_current;
+
+    fr = perf_fragment;
+    //looking through the fragment list specified for performance analyze (-e) in  command line
+    while (fr && (fr->N1 > num || fr->N2 < num))
+        fr = fr->next;
+    if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
+        spec_elevel = fr->level;
+    else
+        spec_elevel = e_current;
+    level_debug = MinLevel(spec_dlevel, max_dlevel, is_max);
+    dvm_debug = level_debug ? 1 : 0;
+    perf_analysis = MinLevel(spec_elevel, max_elevel, is_max);
+    curfr = new fragment_list;
+    curfr->No = num;
+    curfr->begin_st = stmt;
+    curfr->dlevel = level_debug;
+    curfr->elevel = perf_analysis;
+    curfr->dlevel_spec = spec_dlevel;
+    curfr->elevel_spec = spec_elevel;
+    curfr->next = cur_fragment;
+    cur_fragment = curfr; 
 }
 
-int MinLevel(int level, int max, int is_max)
+static int MinLevel(int level, int max, int is_max)
 {
- if (is_max)
-   return((level > max) ? max : level);
- else
-   return(level);
+    if (is_max)
+        return((level > max) ? max : level);
+    else
+        return(level);
 }
 
 int MaxLevels(SgStatement *stmt,int *max_dlevel,int *max_elevel)

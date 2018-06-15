@@ -702,7 +702,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     const vector<int> &links = *allLinks[0];
 
                     mainArray.arrayRef = *templateLink.begin();
-                    mainArray.mainAccess = std::make_pair(rules[mainArray.dimentionPos].first * mainArray.mainAccess.first, rules[mainArray.dimentionPos].second + mainArray.mainAccess.second);
+                    mainArray.mainAccess = DIST::Fx(mainArray.mainAccess, rules[mainArray.dimentionPos]);
                     mainArray.dimentionPos = links[mainArray.dimentionPos];
                 }
 
@@ -1235,9 +1235,9 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 vector<pair<DIST::Array*, const DistrVariant*>> newRules;
                 constructRules(newRules, distribution, loop);
 
-                // insert parallel dir                            
+                // insert parallel dir
                 pair<string, vector<Expression*>> dir = 
-                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, regionId);
+                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, loop->loop, regionId);
                 toInsert.push_back(make_pair(loop->lineNum, dir));
             }
         }

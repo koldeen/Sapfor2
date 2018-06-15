@@ -568,7 +568,7 @@ static void addToDeclSet(SgExpression *exp, set<SgSymbol*> &symbolSet)
         if (exp->lhs())
             addToDeclSet(exp->lhs(), symbolSet);
         if (exp->rhs())
-            addToDeclSet(exp->lhs(), symbolSet);
+            addToDeclSet(exp->rhs(), symbolSet);
     }
 }
 
@@ -589,9 +589,10 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
         {
             if (isSgExecutableStatement(st))
                 break;
-            
-            for (int i = 0; i < 3; ++i)
-                addToDeclSet(st->expr(i), declaratedInFunction);
+
+            if (st->variant() != DATA_DECL)
+                for (int i = 0; i < 3; ++i)
+                    addToDeclSet(st->expr(i), declaratedInFunction);
 
             if (st->fileName() == file->filename())
                 lastDeclarated = st;

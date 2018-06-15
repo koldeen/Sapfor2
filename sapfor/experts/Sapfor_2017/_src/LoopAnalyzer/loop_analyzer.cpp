@@ -344,13 +344,15 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 if (currRegime == DATA_DISTR)
                 {
                     const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
-                    __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), currLine);
+                    const int line = (currLine < 0) ? parentLoops[position]->localLineNumber() : currLine;
+
+                    __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), line);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions);
 
                     string message;
                     __spf_printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
-                    if (currLine > 0)
-                        currMessages->push_back(Messages(WARR, currLine, message, 1024));
+                    if (line > 0)
+                        currMessages->push_back(Messages(WARR, line, message, 1024));
                 }
             }
             else
@@ -511,6 +513,8 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                 {
                     set<string> loopsPrivates;
                     map<string, set<string>> loopsReductions;
+                    map<string, set<tuple<string, string, int>>> loopsReductionsLoc;
+
                     
                     for (auto &loop : parentLoops)
                     {
@@ -518,13 +522,23 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         {
                             fillPrivatesFromComment(data, loopsPrivates);
                             fillReductionsFromComment(data, loopsReductions);
+                            fillReductionsFromComment(data, loopsReductionsLoc);
                         }
                     }
 
                     for (auto &elem : loopsReductions)
                         for (auto &setElem : elem.second)
                             loopsPrivates.insert(setElem);
-                    
+
+                    for (auto &elem : loopsReductionsLoc)
+                    {
+                        for (auto &setElem : elem.second)
+                        {
+                            loopsPrivates.insert(get<0>(setElem));
+                            loopsPrivates.insert(get<1>(setElem));
+                        }
+                    }
+
                     if (loopsPrivates.find(string(OriginalSymbol(currExp->symbol())->identifier())) == loopsPrivates.end())                    
                     {
                         for (auto &loop : parentLoops)

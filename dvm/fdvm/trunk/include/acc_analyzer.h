@@ -24,6 +24,7 @@ class ControlFlowItem
     int stmtNo;
     SgLabel* label;
     ControlFlowItem *jmp;
+    bool for_jump_flag;
     SgLabel* label_jump;
     ControlFlowItem *next;
     bool leader;
@@ -45,16 +46,16 @@ class ControlFlowItem
         SgExpression *expr;
     };
 public:
-    inline ControlFlowItem(AnalysedCallsList* proc) : stmtNo(-1), label(NULL), jmp(NULL), label_jump(NULL), next(NULL), leader(false), bbno(0), stmt(NULL), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(NULL), func(NULL), thisproc(proc), refs(0), originalStatement(NULL)
+    inline ControlFlowItem(AnalysedCallsList* proc) : stmtNo(-1), label(NULL), jmp(NULL), label_jump(NULL), next(NULL), leader(false), bbno(0), stmt(NULL), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(NULL), func(NULL), thisproc(proc), refs(0), originalStatement(NULL), for_jump_flag(false)
     { };
 
-    inline ControlFlowItem(SgStatement *s, ControlFlowItem *n, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : stmtNo(-1), label(s ? s->label() : NULL), jmp(NULL), label_jump(NULL), next(n), leader(false), bbno(0), refs(0), stmt(s), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL)
+    inline ControlFlowItem(SgStatement *s, ControlFlowItem *n, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : stmtNo(-1), label(s ? s->label() : NULL), jmp(NULL), label_jump(NULL), next(n), leader(false), bbno(0), refs(0), stmt(s), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false)
     { };
 
-    inline ControlFlowItem(SgExpression *e, ControlFlowItem *j, ControlFlowItem *n, SgLabel* l, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : stmtNo(-1), label(l), jmp(j), label_jump(NULL), next(n), leader(false), refs(0), bbno(0), expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL)
+    inline ControlFlowItem(SgExpression *e, ControlFlowItem *j, ControlFlowItem *n, SgLabel* l, AnalysedCallsList* proc, bool fjf = false, AnalysedCallsList* c = NULL) : stmtNo(-1), label(l), jmp(j), label_jump(NULL), next(n), leader(false), refs(0), bbno(0), expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(fjf)
     { };
 
-    inline ControlFlowItem(SgExpression *e, SgLabel* j, ControlFlowItem* n, SgLabel* l, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : stmtNo(-1), label(l), jmp(NULL), label_jump(j), next(n), leader(false), bbno(0), refs(0), expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL)
+    inline ControlFlowItem(SgExpression *e, SgLabel* j, ControlFlowItem* n, SgLabel* l, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : stmtNo(-1), label(l), jmp(NULL), label_jump(j), next(n), leader(false), bbno(0), refs(0), expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false)
     { };
 
     inline void setOriginalStatement(SgStatement* s)
@@ -168,6 +169,9 @@ public:
 
     inline AnalysedCallsList* getProc()
     { return thisproc; }
+
+    inline bool IsForJumpFlagSet()
+    { return for_jump_flag; }
 
 #if ACCAN_DEBUG
     void printDebugInfo();
@@ -457,6 +461,7 @@ class PrivateDelayedItem;
 struct BasicBlockItem
 {
     CBasicBlock* block;
+    bool for_jump_flag;
     BasicBlockItem* next;
 };
 
@@ -557,8 +562,8 @@ public:
     inline void setPrev(CBasicBlock* prev)
     { lexPrev = prev; }
 
-    void addToPrev(CBasicBlock* pr);
-    void addToSucc(CBasicBlock* su);
+    void addToPrev(CBasicBlock* pr, bool);
+    void addToSucc(CBasicBlock* su, bool);
     VarSet* getDef();
     VarSet* getUse();
     VarSet* getMrdIn(bool);

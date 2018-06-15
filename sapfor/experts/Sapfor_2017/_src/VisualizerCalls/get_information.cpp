@@ -39,7 +39,7 @@ using std::to_string;
 
 static void setOptions(const int *options)
 {
-    staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
+    //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
     out_free_form = options[FREE_FORM];
     keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];

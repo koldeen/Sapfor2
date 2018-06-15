@@ -1408,7 +1408,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             ControlFlowItem* gotoEndInitial = NULL;
             if (needs_goto) {
                 SgExpression* sendc = new SgExpression(GT_OP, new SgVarRefExp(fst->symbol()), fst->end(), NULL);
-                gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure);
+                gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure, true);
                 gotoEndInitial->setOriginalStatement(fst);
             }
             ControlFlowItem* stcf = new ControlFlowItem(fa, needs_goto ? gotoEndInitial : emptyBeforeDo, currentProcedure);
@@ -1597,8 +1597,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
         if (prev != NULL){
             prev->setNext(bb);
             if (!last_prev->isUnconditionalJump()){
-                bb->addToPrev(prev);
-                prev->addToSucc(bb);
+                bb->addToPrev(prev, last_prev->IsForJumpFlagSet());
+                prev->addToSucc(bb, last_prev->IsForJumpFlagSet());
             }
         }
         if (start == NULL)
@@ -1637,8 +1637,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                     }
                 }
                 if (tmp1 && tmp2) {
-                    tmp1->addToPrev(tmp2);
-                    tmp2->addToSucc(tmp1);
+                    tmp1->addToPrev(tmp2, list->IsForJumpFlagSet());
+                    tmp2->addToSucc(tmp1, list->IsForJumpFlagSet());
                 }
 //            }
         }
@@ -2486,6 +2486,7 @@ VarSet* CBasicBlock::getMrdIn(bool la)
 {
     if (mrd_in == NULL)
     {
+        CBasicBlock* delayed = NULL;
         VarSet* res = new VarSet();
         BasicBlockItem* p = prev;
         bool first = true;
@@ -2494,14 +2495,29 @@ VarSet* CBasicBlock::getMrdIn(bool la)
             CBasicBlock* b = p->block;
             if (b != NULL && !b->undef && b->hasPrev())
             {
-                if (first){
-                    res->unite(b->getMrdOut(la), la);
-                    first = false;
+                if (!p->for_jump_flag && first) {
+                    if (first) {
+                        res->unite(b->getMrdOut(la), la);
+                        if (delayed) {
+                            res->intersect(delayed->getMrdOut(la), la, true);
+                            delayed = NULL;
+                        }
+                        first = false;
+                    }
+                    else
+                        res->intersect(b->getMrdOut(la), la, p->for_jump_flag);
                 }
-                else
-                    res->intersect(b->getMrdOut(la), la, false);
+                else {
+                    delayed = b;
+                }
             }
             p = p->next;
+        }
+        if (delayed) {
+            if (first)
+                res->unite(delayed->getMrdOut(la), la);
+            else
+                res->intersect(delayed->getMrdOut(la), la, true);
         }
         mrd_in = res;
     }
@@ -3575,13 +3591,15 @@ void VarSet::intersect(VarSet* set, bool la, bool array_mode = false)
         VarItem* n = set->belongs(p->var);
         if (!n)
         {
-            if (prev == NULL)
-                list = list->next;
-            else
-            {
-                prev->next = p->next;
-                delete(p);
-                p = prev;
+            if (!array_mode) {
+                if (prev == NULL)
+                    list = list->next;
+                else
+                {
+                    prev->next = p->next;
+                    delete(p);
+                    p = prev;
+                }
             }
         }
         else {
@@ -3647,6 +3665,7 @@ void VarSet::minus(VarSet* set, bool complete)
         {
             if (p->var->GetVarType() == VAR_REF_ARRAY_EXP && !complete) {
                 *(CArrayVarEntryInfo*)(p->var) -= *(CArrayVarEntryInfo*)(d->var);
+                prev = p;
             }
             else if (prev == NULL)
                 list = list->next;
@@ -3765,18 +3784,20 @@ void VarSet::unite(VarSet* set, bool la)
 
 
 
-void CBasicBlock::addToPrev(CBasicBlock* bb)
+void CBasicBlock::addToPrev(CBasicBlock* bb, bool for_jump_flag)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
     n->next = prev;
+    n->for_jump_flag = for_jump_flag;
     prev = n;
 }
 
-void CBasicBlock::addToSucc(CBasicBlock* bb)
+void CBasicBlock::addToSucc(CBasicBlock* bb, bool for_jump_flag)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
+    n->for_jump_flag = for_jump_flag;
     n->next = succ;
     succ = n;
 }

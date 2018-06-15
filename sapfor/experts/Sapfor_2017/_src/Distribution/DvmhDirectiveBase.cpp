@@ -172,12 +172,28 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
     return false;
 }
 
+static inline void findDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays)
+{
+    for (int i = 0; i < rule.size(); ++i)
+    {
+        if (get<0>(rule[i]) == NULL)
+            continue;
+        int alignTo = -1;
+        int ok = allArrays.GetDimNumber(get<0>(rule[i]), (get<1>(rule[i])), alignTo);
+        if (ok != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        (get<1>(rule[i])) = alignTo;
+    }
+}
+
 static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &reducedG,
-                                     DIST::Arrays<int> &allArrays,
+                                     const DIST::Arrays<int> &allArrays,
                                      DIST::Array *arrayRef, DIST::Array *calcForArray,
                                      const pair<pair<string, string>, vector<pair<int, int>>> &coeffs,
                                      vector<pair<int, int>> &shifts,
-                                     vector<pair<string, pair<int, int>>> on,
+                                     vector<map<pair<int, int>, int>> &shiftsByAccess,
+                                     const vector<pair<string, pair<int, int>>> on,
                                      const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const bool isAcross,
                                      const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                      const vector<pair<string, pair<int, int>>> &parallelOnRule,
@@ -190,68 +206,24 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
 
     vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForShadow;
     reducedG.GetAlignRuleWithTemplate(calcForArray, allArrays, ruleForShadow, regionId);
-
+    
     const pair<vector<ArrayOp>, vector<bool>> *currReadOp = NULL;
     auto readIt = readOps.find(calcForArray);
     if (readIt != readOps.end())
         currReadOp = &(readIt->second);
-
-    // find dimentions
-    for (int i = 0; i < ruleForOn.size(); ++i)
-    {
-        if (get<0>(ruleForOn[i]) == NULL)
-            continue;
-        int alignTo = -1;
-        int ok = allArrays.GetDimNumber(get<0>(ruleForOn[i]), (get<1>(ruleForOn[i])), alignTo);
-        if (ok != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        (get<1>(ruleForOn[i])) = alignTo;
-    }
-
-    for (int i = 0; i < ruleForShadow.size(); ++i)
-    {
-        if (get<0>(ruleForShadow[i]) == NULL)
-            continue;
-        int alignTo = -1;
-        int ok = allArrays.GetDimNumber(get<0>(ruleForShadow[i]), (get<1>(ruleForShadow[i])), alignTo);
-        if (ok != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        (get<1>(ruleForShadow[i])) = alignTo;
-    }
-
+        
+    findDimentions(ruleForOn, allArrays);
+    findDimentions(ruleForShadow, allArrays);
+    
     const int len = (int)coeffs.second.size();
     vector<pair<int, int>> shift(len);
-    for (int k = 0; k < len; ++k)
-        shift[k].first = shift[k].second = 0;
-
-
-    for (int i = 0; i < ruleForShadow.size(); ++i)
-    {
-        if (get<0>(ruleForShadow[i]) == NULL)
-            continue;
-        pair<int, pair<int, int>> currRuleOn;
-        int err = findRule(get<1>(ruleForShadow[i]), ruleForOn, currRuleOn);
-        if (err == 0)
-        {
-            pair<int, int> currRule = get<2>(ruleForShadow[i]);
-            pair<int, int> loopRule = on[currRuleOn.first].second;
-            int shiftCoef;
-
-            //Arrays are equal
-            if (arrayRef == calcForArray)
-                shiftCoef = loopRule.second;
-            else
-                shiftCoef = (currRuleOn.second.second - currRule.second + loopRule.second);
-            shift[i].first = shiftCoef;
-            shift[i].second = -shiftCoef;
-        }
-    }
-
+        
     bool allZero = true;
     for (int k = 0; k < len; ++k)
     {
+        shiftsByAccess.push_back(map<pair<int, int>, int>());
+        shift[k].first = shift[k].second = 0;
+
         if (k != 0)
             out += ",";
         char buf[256];
@@ -261,35 +233,63 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
         {
             if (currReadOp->second[k] == false)
             {
-                const int shiftCoef = shift[k].first;
-                int minShift = 9999999;
-                int maxShift = -9999999;
-                for (int z = 0; z < currReadOp->first[k].coefficients.size(); ++z)
+                if (get<0>(ruleForShadow[k]) != NULL)
                 {
-                    const int currShift = currReadOp->first[k].coefficients[z].second - shiftCoef;
-                    minShift = std::min(minShift, currShift);
-                    maxShift = std::max(maxShift, currShift);
-                }
+                    const pair<int, int> currRuleShadow = get<2>(ruleForShadow[k]);
 
-                if (minShift == maxShift)
-                {
-                    if (minShift == 0)
+                    pair<int, pair<int, int>> currRuleOn;
+                    int err = findRule(get<1>(ruleForShadow[k]), ruleForOn, currRuleOn);
+                    if (err == 0)
                     {
-                        shift[k].first = -coeffs.second[k].first;
-                        shift[k].second = -coeffs.second[k].second;
+                        const pair<int, int> loopRule = on[currRuleOn.first].second;
+
+                        if (loopRule.first != 0)
+                        {
+                            int minShift = 9999999;
+                            int maxShift = -9999999;
+
+                            for (int z = 0; z < currReadOp->first[k].coefficients.size(); ++z)
+                            {
+                                auto currAccess = currReadOp->first[k].coefficients[z];
+                                auto result = DIST::Fx(currAccess, currRuleShadow);
+
+                                if (result.first == loopRule.first)
+                                {
+                                    const int currShift = result.second - loopRule.second;
+                                    minShift = std::min(minShift, currShift);
+                                    maxShift = std::max(maxShift, currShift);
+
+                                    auto itFound = shiftsByAccess[k].find(currAccess);
+                                    if (itFound == shiftsByAccess[k].end())
+                                        itFound = shiftsByAccess[k].insert(itFound, make_pair(currAccess, currShift));
+                                }
+                            }
+
+                            if (minShift == maxShift)
+                            {
+                                if (minShift == 0)
+                                {
+                                    shift[k].first = -coeffs.second[k].first;
+                                    shift[k].second = -coeffs.second[k].second;
+                                }
+                                else
+                                {
+                                    shift[k].first = -minShift;
+                                    shift[k].second = minShift;
+
+                                    if (shift[k].first > 0 && shift[k].second < 0)
+                                        shift[k].second = 0;
+                                    else if (shift[k].first < 0 && shift[k].second > 0)
+                                        shift[k].first = 0;
+                                }
+                            }
+                            else if (currReadOp->first[k].coefficients.size() > 0)
+                            {
+                                shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                            }
+                        }
                     }
-                    else
-                    {
-                        if (shift[k].first > 0 && shift[k].second < 0)
-                            shift[k].second = 0;
-                        else if (shift[k].first < 0 && shift[k].second > 0)
-                            shift[k].first = 0;
-                    }
-                }
-                else if (currReadOp->first[k].coefficients.size() > 0)
-                {
-                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
-                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
                 }
             }
         }
@@ -307,11 +307,12 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
         }
         else if (isNonDistributedDim(ruleForOn, ruleForShadow, k, distribution, parallelOnRule))
         {
-            shift[k].first = -coeffs.second[k].first;
-            shift[k].second = -coeffs.second[k].second;
+            shift[k].first = 0;
+            shift[k].second = 0;
+            shiftsByAccess[k].clear();
         }
 
-        sprintf(buf, "%d:%d", coeffs.second[k].first + shift[k].first, coeffs.second[k].second + shift[k].second);
+        sprintf(buf, "%d:%d", coeffs.second[k].first + shift[k].first, coeffs.second[k].second + shift[k].second);        
         shifts[k] = shift[k];
 
         if (coeffs.second[k].first + shift[k].first != 0 || coeffs.second[k].second + shift[k].second != 0)
@@ -334,7 +335,8 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
                                     const bool isAcross,
                                     const int regionId,
                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                    set<DIST::Array*> &arraysInAcross) const
+                                    set<DIST::Array*> &arraysInAcross,
+                                    vector<map<pair<int, int>, int>> &shiftsByAccess) const
 {
     DIST::Array *shadowArray = allArrays.GetArrayByName(shadowOp.first.second);
     checkNull(shadowArray, convertFileName(__FILE__).c_str(), __LINE__);
@@ -343,12 +345,12 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     if (isAcross)
     {
         arraysInAcross.insert(shadowArray);
-        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, on, readOps, isAcross, distribution, on, regionId);
+        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId);
     }
     else
     {
         if (arraysInAcross.find(shadowArray) == arraysInAcross.end())
-            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, on, readOps, isAcross, distribution, on, regionId);
+            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId);
     }
 
     return ret;
