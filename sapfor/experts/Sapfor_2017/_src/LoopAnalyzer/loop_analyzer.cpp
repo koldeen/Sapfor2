@@ -985,9 +985,6 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         pair<SgForStmt*, LoopGraph*> *under_dvm_dir = NULL;
         map<string, SgArrayRefExp*> uniqRemotes;
 
-        startLineControl(file->filename(), st->lineNumber(), lastNode->lineNumber());
-        bool breakLineControl = false;
-
         while (st != lastNode)
         {
             currProcessing.second = st;
@@ -1002,16 +999,6 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
-            else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
-            {
-                string message;
-                __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message, 3008));
-
-                __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
-                breakLineControl = true;
                 break;
             }
 
@@ -1232,10 +1219,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
             st = st->lexNext();
         }
-
-        if (breakLineControl)
-            return;
-
+        
         auto convertedLoopInfo = convertLoopInfo(loopInfo, sortedLoopGraph, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays);
         if (regime == DATA_DISTR)
         {
@@ -1376,13 +1360,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     int funcNum = file->numberOfFunctions();
     __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
 
-    vector<SgStatement*> modules;
-    findModulesInFile(file, modules);
-
-    map<string, SgStatement*> modulesByName;
-    for (int i = 0; i < modules.size(); ++i)
-        modulesByName[modules[i]->symbol()->identifier()] = modules[i];
-
     for (int i = 0; i < funcNum; ++i)
     {
         map<SgForStmt*, map<SgSymbol*, ArrayInfo>> loopInfo;
@@ -1416,10 +1393,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 
         SgStatement *lastNode = st->lastNodeOfStmt();
         vector<SgForStmt*> parentLoops;
-        
-        startLineControl(file->filename(), st->lineNumber(), lastNode->lineNumber());
-        bool breakLineControl = false;
-
+                
         while (st != lastNode)
         {
             currProcessing.second = st;
@@ -1434,16 +1408,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                 currMessages->push_back(Messages(ERROR, 1, message, 3008));
 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
-                break;
-            }
-            else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
-            {
-                string message;
-                __spf_printToBuf(message, "Internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message, 3008));
-
-                __spf_print(1, "Internal error in analysis, parallel directives will not be generated for this file!\n");
-                breakLineControl = true;
                 break;
             }
                         
@@ -1488,10 +1452,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             }
             st = st->lexNext();
         }
-
-        if (breakLineControl)
-            return;
-
         __spf_print(PRINT_PROF_INFO, "Function ended\n");
     }
 }

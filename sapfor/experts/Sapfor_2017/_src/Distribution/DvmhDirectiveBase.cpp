@@ -241,7 +241,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                     int err = findRule(get<1>(ruleForShadow[k]), ruleForOn, currRuleOn);
                     if (err == 0)
                     {
-                        const pair<int, int> loopRule = on[currRuleOn.first].second;
+                        const pair<int, int> loopRule = DIST::Fx(on[currRuleOn.first].second, currRuleOn.second);
 
                         if (loopRule.first != 0)
                         {
@@ -281,6 +281,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                                         shift[k].second = 0;
                                     else if (shift[k].first < 0 && shift[k].second > 0)
                                         shift[k].first = 0;
+
+                                    shift[k].first -= coeffs.second[k].first;
+                                    shift[k].second -= coeffs.second[k].second;
                                 }
                             }
                             else if (currReadOp->first[k].coefficients.size() > 0)

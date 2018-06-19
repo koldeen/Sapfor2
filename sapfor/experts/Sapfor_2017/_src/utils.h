@@ -28,9 +28,6 @@ void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<s
 std::string splitDirective(const std::string &in);
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
 
-void startLineControl(const std::string &file, const int lineStart, const int lineEnd);
-int checkThisLine(const std::string &file, const int line);
-
 bool isSPF_comment(const std::string &bufStr);
 
 void sortFilesBySize(const char *proj_name);

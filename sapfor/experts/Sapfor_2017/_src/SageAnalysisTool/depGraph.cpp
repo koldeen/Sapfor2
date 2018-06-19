@@ -529,6 +529,7 @@ int lookForOperationKind(PT_ACCESSARRAY access)
         switch (father->variant())
         {
         case ADD_OP:
+        case SUBT_OP:
             switch (sy->type()->variant())
             {
             case T_INT:
@@ -589,7 +590,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case FUNC_CALL://TODO with max and min
-            if (father->symbol() && (strcmp(father->symbol()->identifier(), "max") == 0))
+            if (father->symbol() && 
+                    (strcmp(father->symbol()->identifier(), "max") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmax") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmax1") == 0))
             {
                 switch (sy->type()->variant())
                 {
@@ -603,7 +607,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                     return DMAXREDUCTION;
                 }
             }
-            if (father->symbol() && (strcmp(father->symbol()->identifier(), "min") == 0))
+            if (father->symbol() && 
+                    (strcmp(father->symbol()->identifier(), "min") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmin") == 0 || 
+                     strcmp(father->symbol()->identifier(), "dmin1") == 0))
             {
                 switch (sy->type()->variant())
                 {

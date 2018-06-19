@@ -19,20 +19,13 @@ int VerifyFile(SgFile *file)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-
-        startLineControl(file->filename(), st->lineNumber(), lastNode->lineNumber());
+                
         while (st != lastNode)
         {
             if (st == NULL)
             {
                 __spf_print(1, "Found errors in Sage structures in file %s, -1\n", file->filename());
                 isError = -1;
-                break;
-            }
-            else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
-            {
-                __spf_print(1, "Found errors in Sage structures in file %s, -2\n", file->filename());
-                isError = -2;
                 break;
             }
             st = st->lexNext();

@@ -34,9 +34,9 @@ namespace Distribution
 
         //for finding
         std::vector<vType> color;
-        std::vector<vType> activeV;
-        std::vector<vType> activeE;
-        std::vector<std::pair<wType, attrType>> activeArcs;
+        vType *activeV;
+        vType *activeE;
+        std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
 
         int activeCounter;
@@ -63,8 +63,8 @@ namespace Distribution
 
         vType GetLocalVNum(const vType &V, bool &ifNew);
         void AddEdgeToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew, const uint8_t linkType);
-        void IncreaseWeight(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const attrType &attrRev);
-        bool CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew);        
+        void IncreaseWeight(const int &idx, const int &idxRev, const wType &W);
+        int CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew);        
         std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
 
         //old algorithm without sort in the fly

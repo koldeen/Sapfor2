@@ -411,46 +411,6 @@ string splitDirective(const string &in_)
 
 extern "C" void ExitFromOmegaTest(const int c) { throw c; }
 
-static map<string, pair<int, int>> localLinesControl;
-static map<string, int> localLastLines;
-
-void startLineControl(const string &file, const int lineStart, const int lineEnd)
-{
-    localLinesControl.clear();
-    localLastLines.clear();
-
-    localLinesControl.insert(std::make_pair(file, std::make_pair(lineStart, lineEnd)));
-    localLastLines.insert(std::make_pair(file, lineStart));
-}
-
-// this checker is not correct after code transformations
-int checkThisLine(const string &file, const int line)
-{
-    return 0;
-
-    /*if (line == 0)
-        return 0;
-
-    auto it1 = localLinesControl.find(file);
-    if (it1 != localLinesControl.end())
-    {
-        auto it2 = localLastLines.find(file);
-        if (it2 == localLastLines.end())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else
-        {
-            if (it2->second > line)
-                return -1;
-            else if (line < it1->second.first || line > it1->second.second)
-                return -1;
-            else
-                it2->second = line;
-        }
-    }
-
-    return 0;*/
-}
-
 void sortFilesBySize(const char *proj_name)
 {
     FILE *proj = fopen(proj_name, "r");
@@ -547,15 +507,15 @@ void uniteVectors(const vector<pair<pair<string, string>, vector<pair<int, int>>
     delete[]uniteS;
 }
 
+#include <unordered_map>
 
 // pointer -> type of alloc function
-static map<void*, std::tuple<int, int, const char*>> pointerCollection;
+static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollection;
+
 // type == 0 -> free, type == 1 -> delete, type == 2 -> delete[]
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type)
 {
-    auto it = pointerCollection.find(pointer);
-    if (it == pointerCollection.end())
-        pointerCollection.insert(it, std::make_pair(pointer, std::make_tuple(type, line, file)));
+    pointerCollection.insert(std::make_pair(pointer, std::make_tuple(type, line, file)));
 }
 
 extern "C" void removeFromCollection(void *pointer)

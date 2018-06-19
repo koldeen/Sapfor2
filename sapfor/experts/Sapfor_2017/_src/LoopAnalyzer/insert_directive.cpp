@@ -708,11 +708,10 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         SgStatement *lastNode = st->lastNodeOfStmt();
         set<string> templateDelc;
         
-        pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>
-        startLineControl(fin_name, st->lineNumber(), lastNode->lineNumber());
+        pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>        
         while (st != lastNode)
         {
-            if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
+            if (st == NULL)
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
@@ -919,11 +918,10 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
     {
         SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
-
-        startLineControl(fin_name, st->lineNumber(), lastNode->lineNumber());
+                
         while (st != lastNode)
         {
-            if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
+            if (st == NULL)
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");

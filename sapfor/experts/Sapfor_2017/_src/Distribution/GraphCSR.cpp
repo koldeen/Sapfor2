@@ -107,42 +107,29 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void GraphCSR<vType, wType, attrType>::
-         IncreaseWeight(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const attrType &attrRev)
+         IncreaseWeight(const int &idx, const int &idxRev, const wType &W)
     {
-        for (vType i = neighbors[V1]; i < neighbors[V1 + 1]; ++i)
-        {
-            vType k = edges[i];
-            if (k == V2 && attr == attributes[i])
-            {
-                weights[i] += W;
-                break;
-            }
-        }
-
-        for (vType i = neighbors[V2]; i < neighbors[V2 + 1]; ++i)
-        {
-            vType k = edges[i];
-            if (k == V1 && attrRev == attributes[i])
-            {
-                weights[i] += W;
-                break;
-            }
-        }
+        weights[idx] += W;
+        weights[idxRev] += W;
     }
 
     template<typename vType, typename wType, typename attrType>
-    bool GraphCSR<vType, wType, attrType>::
+    int GraphCSR<vType, wType, attrType>::
          CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew)
     {
-        bool ifExist = false;
+        int ifExist = -1;
         if (!ifNew)
         {
-            for (vType i = neighbors[V1]; i < neighbors[V1 + 1]; ++i)
+            auto currNeigh = neighbors.data();
+            auto currEdges = edges.data();
+            auto currAttr = attributes.data();
+
+            for (vType i = currNeigh[V1]; i < currNeigh[V1 + 1]; ++i)
             {
-                vType k = edges[i];
-                if (k == V2 && attr == attributes[i])
+                const vType k = currEdges[i];
+                if (k == V2 && attr == currAttr[i])
                 {
-                    ifExist = true;
+                    ifExist = (int)i;
                     break;
                 }
             }
@@ -156,7 +143,7 @@ namespace Distribution
     void GraphCSR<vType, wType, attrType>::
          FindLoop(vector<Cycle<vType, wType, attrType>> &cycles, const vType V, const vType VPrev)
     {
-        color[V] = GREY;
+        /*color[V] = GREY;
         for (vType i = neighbors[V]; i < neighbors[V + 1]; ++i)
         {
             vType k = edges[i];
@@ -197,7 +184,7 @@ namespace Distribution
                 activeArcs.pop_back();
             }
         }
-        color[V] = WHITE;
+        color[V] = WHITE;*/
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -611,7 +598,11 @@ namespace Distribution
         localV1 = GetLocalVNum(V1, ifNew1);
         localV2 = GetLocalVNum(V2, ifNew2);
         attrType attrRev = make_pair(attr.second, attr.first);
-        bool ifExist = CheckExist(localV1, localV2, W, attr, ifNew1) && CheckExist(localV2, localV1, W, attrRev, ifNew2);
+
+        int idxExist = CheckExist(localV1, localV2, W, attr, ifNew1);
+        int idxExistRev = CheckExist(localV2, localV1, W, attrRev, ifNew2);
+
+        bool ifExist = (idxExist != -1) && (idxExistRev != -1);
 
         int status = 0;
         if (!ifExist)
@@ -622,7 +613,7 @@ namespace Distribution
         }
         else
         {
-            IncreaseWeight(localV1, localV2, W, attr, attrRev);
+            IncreaseWeight(idxExist, idxExistRev, W);
             status = 1;
         }
 
@@ -682,9 +673,10 @@ namespace Distribution
         cycles.clear();
         color.resize(numVerts);
         activeCounter = 0;
-        activeV.resize(std::max(numVerts, numEdges) + 1);
-        activeE.resize(std::max(numVerts, numEdges) + 1);
-        activeArcs.resize(std::max(numVerts, numEdges) + 1);
+
+        activeV = new vType[std::max(numVerts, numEdges) + 1];
+        activeE = new vType[std::max(numVerts, numEdges) + 1];
+        activeArcs = new pair<wType, attrType>[std::max(numVerts, numEdges) + 1];
 
         map<tuple<pair<vType, vType>, wType, attrType>, int> uniqArcs;
         vector<vType> numbers(edges.size());
@@ -813,8 +805,12 @@ namespace Distribution
             allCycles += it->second;
         }
 
+        delete []activeV;
+        delete []activeE;
+        delete []activeArcs;
+
         __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
-        __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);        
     }
 
     template<typename vType, typename wType, typename attrType>

@@ -149,6 +149,9 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -170,7 +173,9 @@
     <ClCompile Include="..\_src\Distribution\Cycle.cpp" />
     <ClCompile Include="..\_src\Distribution\Distribution.cpp" />
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp" />
-    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp" />
+    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Full</Optimization>
+    </ClCompile>
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
