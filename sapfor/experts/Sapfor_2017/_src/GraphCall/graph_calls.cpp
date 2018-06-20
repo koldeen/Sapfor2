@@ -1410,7 +1410,8 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
 
             bool allNonDistr = true;
-            bool nonDistrSpfPrif = false;
+            bool nonDistrSpfPriv = false;
+            bool nonDistrIOPriv = false;
             bool init = false;
             for (auto &realRef : realArrayRefs)
             {
@@ -1418,7 +1419,9 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
                 {
                     bool nonDistr = realRef->GetNonDistributeFlag();
                     if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
-                        nonDistrSpfPrif = true;
+                        nonDistrSpfPriv = true;
+                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
+                        nonDistrIOPriv = true;
                     allNonDistr = allNonDistr && nonDistr;
                     init = true;
                 }
@@ -1428,8 +1431,10 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             {
                 if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
                 {
-                    if (nonDistrSpfPrif)
+                    if (nonDistrSpfPriv)
                         array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    else if (nonDistrIOPriv)
+                        array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
                     else
                         array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                     change = true;

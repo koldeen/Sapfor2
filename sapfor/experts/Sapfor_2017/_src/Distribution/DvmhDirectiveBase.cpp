@@ -310,8 +310,8 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
         }
         else if (isNonDistributedDim(ruleForOn, ruleForShadow, k, distribution, parallelOnRule))
         {
-            shift[k].first = 0;
-            shift[k].second = 0;
+            shift[k].first = -coeffs.second[k].first;
+            shift[k].second = -coeffs.second[k].second;
             shiftsByAccess[k].clear();
         }
 

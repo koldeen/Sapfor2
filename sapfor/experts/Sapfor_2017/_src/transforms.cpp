@@ -572,7 +572,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraph, getMessagesForFile(file_name));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt);
+            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getMessagesForFile(file_name));
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();

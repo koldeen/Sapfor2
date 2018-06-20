@@ -15,7 +15,7 @@
 
 namespace Distribution
 {
-    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV } distFlagType;
+    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
 
     class Array;
 

@@ -509,7 +509,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 //TODO: array access to non distributed arrays, add CONSISTENT
-                if (itFound->second.first->GetNonDistributeFlagVal() == DIST::NO_DISTR || itFound->second.first->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+                if (itFound->second.first->GetNonDistributeFlagVal() != DIST::DISTR)
                 {
                     set<string> loopsPrivates;
                     map<string, set<string>> loopsReductions;
@@ -1461,8 +1461,8 @@ static void findArrayRefs(SgExpression *ex,
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
-                          const set<string> &privates, bool isExecutable, SgStatement *declSt,
-                          const string &currFunctionName, bool isWrite)
+                          const set<string> &privates, const set<string> &deprecatedByIO, 
+                          bool isExecutable, SgStatement *declSt, const string &currFunctionName, bool isWrite)
 {
     if (ex == NULL)
         return;
@@ -1509,6 +1509,8 @@ static void findArrayRefs(SgExpression *ex,
                 
                 if (privates.find(symb->identifier()) != privates.end())
                     itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                else if (deprecatedByIO.find(symb->identifier()) != deprecatedByIO.end())
+                    itNew->second.first->SetNonDistributeFlag(DIST::IO_PRIV);
                 else
                     itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
 
@@ -1534,14 +1536,43 @@ static void findArrayRefs(SgExpression *ex,
         }
     }
 
-    if (ex->lhs())
-        findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, isExecutable, declSt, currFunctionName, isWrite);
-    if (ex->rhs())
-        findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, isExecutable, declSt, currFunctionName, isWrite);
+    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite);
+    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite);
+}
+
+static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            auto symb = ex->symbol();
+            if (symb->type())
+            {
+                if (symb->type()->variant() == T_ARRAY)
+                {
+                    auto found = deprecatedByIO.find(OriginalSymbol(symb)->identifier());
+                    if (found == deprecatedByIO.end())
+                    {
+                        deprecatedByIO.insert(found, OriginalSymbol(symb)->identifier());
+
+                        string message;
+                        __spf_printToBuf(message, "Array '%s' can not be distributed because of DVM's I/O constraints", symb->identifier());
+                        currMessages.push_back(Messages(WARR, line, message, 1037));
+
+                        __spf_print(1, "Array '%s' at line %d can not be distributed because of DVM's I/O constraints\n", symb->identifier(), line);
+                    }
+                }
+            }
+        }
+        
+        findArrayRefInIO(ex->lhs(), deprecatedByIO, line, currMessages);
+        findArrayRefInIO(ex->rhs(), deprecatedByIO, line, currMessages);
+    }
 }
 
 void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                            map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt)
+                            map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages)
 {
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
@@ -1555,7 +1586,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
         getCommonBlocksRef(commonBlocks, st, lastNode);
         set<string> privates;
-        
+        set<string> deprecatedByIO;
+
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
             //after SPF preprocessing 
@@ -1567,15 +1599,38 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 fillPrivatesFromComment(iter, privates);
         }
 
+        //analyze IO operations
+        for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
+        {
+            SgInputOutputStmt *stIO = isSgInputOutputStmt(iter);
+            if (stIO)
+            {
+                int countOfItems = 0;
+                for (SgExpression *items = stIO->itemList(); items; items = items->rhs(), ++countOfItems);
+
+                //TODO: need to add more checkers!
+                if (countOfItems > 1)
+                {                    
+                    for (SgExpression *items = stIO->itemList(); items; items = items->rhs(), ++countOfItems)
+                        findArrayRefInIO(items->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
+                }
+                else if (countOfItems == 1)
+                {
+                    auto list = stIO->itemList();
+                    if (list->lhs()->lhs() != NULL || list->lhs()->rhs() != NULL)
+                        findArrayRefInIO(list->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
+                }
+            }
+        }
+
         while (st != lastNode)
         {
             currProcessing.second = st;
-            //TODO: add IPO analysis for R/WR state for calls and functions
+            //TODO: need to add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)
-                findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates,
-                              isSgExecutableStatement(st) ? true : false,
-                              st, currFunctionName,
+                findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                              isSgExecutableStatement(st) ? true : false, st, currFunctionName,
                               (st->variant() == ASSIGN_STAT && i == 0) ? true : false);
             st = st->lexNext();
         }

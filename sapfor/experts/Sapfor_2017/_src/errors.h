@@ -49,6 +49,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"
 //   36 "Can not build align graph from user's DVM directives in this region"
+//   37 "Array can not be distributed because of DVM's I/O constraints"
+
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

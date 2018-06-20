@@ -850,7 +850,8 @@ static bool checkCorrectness(const ParallelDirective &dir,
                              DIST::Arrays<int> &allArrays,
                              const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                              const set<DIST::Array*> &allArraysInLoop,
-                             vector<Messages> &messages, const int loopLine)
+                             vector<Messages> &messages, const int loopLine,
+                             map<DIST::Array*, vector<bool>> &dimsNotMatch)
 {    
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
@@ -947,17 +948,20 @@ static bool checkCorrectness(const ParallelDirective &dir,
     ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays);
     
     // check main array
-    const vector<dist> &rule = distArray->second->distRule;
-    for (int i = 0; i < rule.size(); ++i)
+    if (dir.arrayRef2 != dir.arrayRef)
     {
-        if (rule[i] == dist::BLOCK)
+        const vector<dist> &rule = distArray->second->distRule;
+        dimsNotMatch[distArray->first] = vector<bool>(rule.size());
+        std::fill(dimsNotMatch[distArray->first].begin(), dimsNotMatch[distArray->first].end(), false);
+
+        for (int i = 0; i < rule.size(); ++i)
         {
-            if (dir.arrayRef2 != dir.arrayRef)
+            if (rule[i] == dist::BLOCK)
             {
                 if (dir.on[links[i]].first == "*")
                 {
                     ok = false;
-                    break;
+                    dimsNotMatch[distArray->first][i] = true;
                 }
             }
         }
@@ -968,6 +972,8 @@ static bool checkCorrectness(const ParallelDirective &dir,
         if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
         {
             vector<dist> derivedRule(array.first->GetDimSize());
+            dimsNotMatch[array.first] = vector<bool>(array.first->GetDimSize());
+            std::fill(dimsNotMatch[array.first].begin(), dimsNotMatch[array.first].end(), false);
 
             for (int z = 0; z < array.second.size(); ++z)
             {
@@ -984,13 +990,10 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     if (dir.on[array.second[i]].first == "*")
                     {
                         ok = false;
-                        break;
+                        dimsNotMatch[array.first][i] = true;
                     }
                 }
             }
-
-            if (ok == false)
-                break;
         }
     }
 
@@ -1226,8 +1229,11 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 
                 if (topCheck)
                 {
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum))
+                    map<DIST::Array*, vector<bool>> dimsNotMatch;
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch))
+                    {
                         addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                    }
                 }
                 else
                     addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);

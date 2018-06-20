@@ -261,6 +261,9 @@
     <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp">
       <Filter>Файлы исходного кода\Inliner</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp">
+      <Filter>Файлы исходного кода\ExpressionTransform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">

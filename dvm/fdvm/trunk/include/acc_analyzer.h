@@ -291,6 +291,7 @@ class CVarEntryInfo;
 struct VarItem
 {
     CVarEntryInfo* var;
+    CVarEntryInfo* ov;
     int file_id;
     //CLAStatementItem* lastAssignments;
 #if PRIVATE_GET_LAST_ASSIGN
@@ -308,7 +309,7 @@ public:
     inline VarSet() : list(NULL)
     {}
 
-    void addToSet(CVarEntryInfo*, SgStatement*);
+    void addToSet(CVarEntryInfo*, SgStatement*, CVarEntryInfo* ov = NULL);
     void PossiblyAffectArrayEntry(CArrayVarEntryInfo*);
     void intersect(VarSet*, bool, bool);
     void unite(VarSet*, bool);
@@ -443,7 +444,6 @@ public:
     CArrayVarEntryInfo& operator+=(const CArrayVarEntryInfo&);
     CArrayVarEntryInfo& operator-=(const CArrayVarEntryInfo&);
     CArrayVarEntryInfo& operator*=(const CArrayVarEntryInfo&);
-    friend CArrayVarEntryInfo* operator*(const CArrayVarEntryInfo&, const CArrayVarEntryInfo&);
     eVariableType GetVarType() const { return VAR_REF_ARRAY_EXP; }
     CVarEntryInfo* GetLeftmostParent() { return this; }
     void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st);
@@ -482,29 +482,19 @@ struct CExprList
 };
 
 #ifdef __SPF
-class SymbolKey {
+class SymbolKey 
+{
 private:
-    SgSymbol* var;
+    SgSymbol *var;
+
 public:
-    SymbolKey(SgSymbol* v): var(v) {}
-    SymbolKey(std::string& varName): var(new SgSymbol(VARIABLE_NAME, varName.c_str())) {}
+    SymbolKey(SgSymbol *v): var(v) { }
+    SymbolKey(const std::string &varName) : var(new SgSymbol(VARIABLE_NAME, varName.c_str())) { }
 
     inline SgSymbol* getVar() const { return var; }
-
-    inline bool operator<(const SymbolKey& rhs) const
-    {
-        return strcmp(var->identifier(), rhs.var->identifier()) < 0;
-    }
-
-    inline bool operator==(const SymbolKey& rhs) const
-    {
-        return strcmp(var->identifier(), rhs.var->identifier()) == 0;
-    }
-
-    inline bool operator==(SgSymbol* rhs) const
-    {
-        return strcmp(var->identifier(), rhs->identifier()) == 0;
-    }
+    inline bool operator<(const SymbolKey &rhs) const   { return strcmp(var->identifier(), rhs.var->identifier()) < 0; }
+    inline bool operator==(const SymbolKey &rhs) const  { return strcmp(var->identifier(), rhs.var->identifier()) == 0; }
+    inline bool operator==(SgSymbol *rhs) const         { return strcmp(var->identifier(), rhs->identifier()) == 0; }
 };
 #endif
 
@@ -546,21 +536,20 @@ class CBasicBlock
     std::map <SymbolKey, std::map<std::string, SgExpression*>> in_defs;
     std::map <SymbolKey, std::map<std::string, SgExpression*>> out_defs;
 #endif
+
 public:
     inline CBasicBlock(bool t, ControlFlowItem* st, int n, ControlFlowGraph* par, AnalysedCallsList* pr) : temp(t), num(n), start(st), prev(NULL), lexNext(NULL), def(NULL), use(NULL), mrd_in(new VarSet()), mrd_out(new VarSet()), undef(true),
         lv_in(new VarSet()), lv_out(new VarSet()), lv_undef(false), succ(NULL), lexPrev(NULL), prev_status(-1), parent(par), common_def (NULL), common_use(NULL), old_mrd_in(NULL), old_mrd_out(NULL), old_lv_in(NULL), old_lv_out(NULL),
         privdata(NULL), findentity(NULL), proc(pr)
-    { st->AddRef(); }
+    { 
+        st->AddRef(); 
+    }
 
     ~CBasicBlock();
     inline CommonVarSet* getCommonDef() { return common_def; }
     inline CommonVarSet* getCommonUse() { return common_use; }
-
-    inline void setNext(CBasicBlock* next)
-    { lexNext = next; }
-
-    inline void setPrev(CBasicBlock* prev)
-    { lexPrev = prev; }
+    inline void setNext(CBasicBlock* next) { lexNext = next; }
+    inline void setPrev(CBasicBlock* prev) { lexPrev = prev; }
 
     void addToPrev(CBasicBlock* pr, bool);
     void addToSucc(CBasicBlock* su, bool);
@@ -581,29 +570,14 @@ public:
     ControlFlowItem* getStart();
     ControlFlowItem* getEnd();
 
-    inline CBasicBlock* getLexNext()
-    { return lexNext; }
-
-    inline CBasicBlock* getLexPrev()
-    { return lexPrev; }
-
-    inline BasicBlockItem* getPrev()
-    { return prev; }
-
-    inline BasicBlockItem* getSucc()
-    { return succ; }
-
-    inline VarSet* getLiveIn()
-    { return lv_in; }
-
-    inline int getNum()
-    { return num; }
-
-    inline void SetDelayedData(PrivateDelayedItem* p)
-    { privdata = p; }
-
-    inline PrivateDelayedItem* GetDelayedData()
-    { return privdata; }
+    inline CBasicBlock* getLexNext() { return lexNext; }
+    inline CBasicBlock* getLexPrev() { return lexPrev; }
+    inline BasicBlockItem* getPrev() { return prev; }
+    inline BasicBlockItem* getSucc() { return succ; }
+    inline VarSet* getLiveIn() { return lv_in; }
+    inline int getNum() { return num; }
+    inline void SetDelayedData(PrivateDelayedItem* p) { privdata = p; }
+    inline PrivateDelayedItem* GetDelayedData() { return privdata; }
 
     void print();
     void markAsReached();
@@ -632,27 +606,17 @@ public:
     std::set<SymbolKey>* getOutVars();
     void correctInDefsSimple();
     bool correctInDefsIterative();
-    inline std::map<SymbolKey, SgExpression*>* getGen()
-    { return &gen; }
+    const std::map<SymbolKey, std::set<SgExpression*>> getReachedDefinitions(SgStatement* stmt);
 
-    inline std::set<SymbolKey>* getKill()
-    { return &kill; }
-
-    inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs)
-    { in_defs = *inDefs; }
-
-    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs()
-    { return &in_defs; }
-
-    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getOutDefs()
-    { return &out_defs; }
-
-    void getReachedDefs(std::map<SymbolKey, std::set<SgExpression*>>& defs, SgStatement* stmt);
+    inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
+    inline std::set<SymbolKey>* getKill() { return &kill; }
+    inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs) { in_defs = *inDefs; }
+    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs() { return &in_defs; }
+    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getOutDefs() { return &out_defs; }    
 #endif
 };
 
 struct CommonVarInfo;
-
 struct CommonVarSet
 {
     CommonVarInfo* cvd;
@@ -696,11 +660,12 @@ public:
     ControlFlowItem* getCFI() { return first->getStart(); }
     CommonVarSet* getCommonDef() { return common_def; }
     CommonVarSet* getCommonUse() { return common_use; }
-	inline CBasicBlock* getFirst() { return first; }
-	inline CBasicBlock* getLast() { return last; }
+    inline CBasicBlock* getFirst() { return first; }
+    inline CBasicBlock* getLast() { return last; }
 };
 
-struct AnalysedCallsList {
+struct AnalysedCallsList 
+{
     SgStatement* header;
     ControlFlowGraph* graph;
     bool isIntrinsic;
@@ -710,15 +675,20 @@ struct AnalysedCallsList {
     bool hasBeenAnalysed;
     bool isCurrent;
     int file_id;
-    AnalysedCallsList(SgStatement* h, bool intr, bool pure, bool fun, const char* name, int fid) { header = h; isIntrinsic = intr; isPure = pure; isFunction = fun; hasBeenAnalysed = false; graph = NULL; funName = name; file_id = fid; }
+
+    AnalysedCallsList(SgStatement* h, bool intr, bool pure, bool fun, const char* name, int fid) :
+        header(h), isIntrinsic(intr), isPure(pure), isFunction(fun), hasBeenAnalysed(false), graph(NULL), funName(name), file_id(fid)
+    {
+        
+    }
+
     bool isArgIn(int num, CArrayVarEntryInfo**);
     bool isArgOut(int num, CArrayVarEntryInfo**);
     const char* funName;
-    bool IsIntrinsic()
-    { return isIntrinsic; }
+    bool IsIntrinsic() { return isIntrinsic; }
 };
-class CommonData;
 
+class CommonData;
 class CallData
 {
     AnalysedCallsList* calls_list;
@@ -734,7 +704,6 @@ public:
 };
 
 struct CommonDataItem;
-
 struct CommonVarInfo
 {
     CVarEntryInfo* var;
@@ -823,55 +792,7 @@ struct ActualDelayedData
     void RemoveVarFromCommonList(CommonVarSet*);
 };
 
-#ifdef __SPF
-struct FuncCallSE
-{
-    std::string funcName;
-    std::set<std::string> calls;
-    FuncCallSE(std::string &n, std::set<std::string>& v): funcName(n), calls(v) {}
-};
-
-class CommonVarsOverseer
-{
-private:
-    bool inited;
-public:
-    std::map<std::string, std::set<std::string>> funcKillsVars;
-    CommonVarsOverseer(): inited(false), funcKillsVars(std::map<std::string, std::set<std::string>>()) {}
-    bool isInited() { return inited; }
-    void riseInited() { inited = true; }
-    void addKilledVar(std::string varName, std::string funcName)
-    {
-        auto founded = funcKillsVars.find(funcName);
-        if(founded == funcKillsVars.end())
-            funcKillsVars.insert(founded, std::make_pair(funcName, std::set<std::string>()))->second.insert(varName);
-        else
-            founded->second.insert(varName);
-    }
-
-    std::set<std::string>* killedVars(const std::string& funcName)
-    {
-        auto founded = funcKillsVars.find(funcName);
-        if(founded == funcKillsVars.end())
-            return NULL;
-        return &(founded->second);
-    }
-};
-
-#endif
-
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, CommonData*);
 void FillCFGSets(ControlFlowGraph*);
-#ifdef __SPF
-void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs, CommonVarsOverseer *overseer_Ptr);
-void CorrectInDefs(ControlFlowGraph*);
-void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
-bool valueWithRecursion(SymbolKey, SgExpression*);
-bool valueWithFunctionCall(SgExpression*);
-bool argIsReplaceable(int i, AnalysedCallsList* callData);
-void mergeDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *main, std::map<SymbolKey, std::map<std::string, SgExpression*>> *term, std::set<SymbolKey>* allowedVars);
-void showDefsOfGraph(ControlFlowGraph *CGraph);
-bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
-#endif
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*, DoLoopDataList*);
 AnalysedCallsList* GetCurrentProcedure();
