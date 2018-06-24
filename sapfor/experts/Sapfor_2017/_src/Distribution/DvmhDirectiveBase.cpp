@@ -10,6 +10,7 @@
 #include "DvmhDirective.h"
 #include "../errors.h"
 #include "../transform.h"
+#include "../SgUtils.h"
 
 using std::vector;
 using std::tuple;
@@ -172,21 +173,6 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
     return false;
 }
 
-static inline void findDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays)
-{
-    for (int i = 0; i < rule.size(); ++i)
-    {
-        if (get<0>(rule[i]) == NULL)
-            continue;
-        int alignTo = -1;
-        int ok = allArrays.GetDimNumber(get<0>(rule[i]), (get<1>(rule[i])), alignTo);
-        if (ok != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        (get<1>(rule[i])) = alignTo;
-    }
-}
-
 static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &reducedG,
                                      const DIST::Arrays<int> &allArrays,
                                      DIST::Array *arrayRef, DIST::Array *calcForArray,
@@ -212,8 +198,8 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
     if (readIt != readOps.end())
         currReadOp = &(readIt->second);
         
-    findDimentions(ruleForOn, allArrays);
-    findDimentions(ruleForShadow, allArrays);
+    findandReplaceDimentions(ruleForOn, allArrays);
+    findandReplaceDimentions(ruleForShadow, allArrays);
     
     const int len = (int)coeffs.second.size();
     vector<pair<int, int>> shift(len);

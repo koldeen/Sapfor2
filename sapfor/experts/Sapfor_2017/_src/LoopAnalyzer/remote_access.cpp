@@ -220,15 +220,32 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
         if (remotes.size() > 0)
         {
             SgStatement *toInsert = st;
+            vector<SgStatement*> allToInsert = { toInsert };
             //find the uppest control parent
             do
             {
                 SgStatement *parent = toInsert->controlParent();
                 const int var = parent->variant();
-                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR || hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
+                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR ||
+                    hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
                     break;
                 toInsert = parent;
+                allToInsert.push_back(toInsert);
             } while (1);
+                        
+            for (int idx = allToInsert.size() - 1; idx >= 0; --idx)
+            {
+                const int var = allToInsert[idx]->variant();
+                if (var == IF_NODE || var == ELSEIF_NODE)
+                {
+                    if (idx != 0)
+                        toInsert = allToInsert[idx - 1];
+                    else
+                        break;
+                }
+                else
+                    break;
+            }
 
             if (toInsert->variant() == FOR_NODE)
             {
@@ -240,6 +257,15 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                             elem->setLhs(new SgExpression(DDOT));
                 }
             }
+            else
+            {
+                for (auto &elem : allSubs)
+                {
+                    for (; elem; elem = elem->rhs())
+                        elem->setLhs(new SgExpression(DDOT));
+                }
+            }
+
             
             //create remote dir with uniq expressions
             set<string> exist;
@@ -508,15 +534,23 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 if (newDistVar)
                     distrVar = newDistVar;
 
+                set<string> parallelVars;
+                parallelVars.insert(THIRD(under_dvm_dir)->parallel.begin(), THIRD(under_dvm_dir)->parallel.end());
+
                 // main check 
                 for (int i = 0; i < links.size(); ++i)
                 {
                     bool needToCheck = false;
                     if (links[i] != -1 && linksWithTempl[i] != -1)
                     {
-                        //THIRD(under_dvm_dir)->on[links[i]].first != "*" && 
+                        const bool isInParallel = parallelVars.find(THIRD(under_dvm_dir)->on[links[i]].first) != parallelVars.end();
                         if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
-                            needToCheck = true;
+                        {
+                            if (THIRD(under_dvm_dir)->on[links[i]].first != "*" && !isInParallel)
+                                needToCheck = false;
+                            else
+                                needToCheck = true;
+                        }
                     }
                     else if (linksWithTempl[i] != -1)
                     {

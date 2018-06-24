@@ -38,7 +38,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   23 "can not calculate index expression for array ref '%s'"
 //   24 "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet"
 //   25 "can not map write to array '%s' to this loop"
-//   26 "write to non distributed array '%s' to loop"
+//   26 "write to non distributed array '%s' in this loop"
 //   27 "array '%s' in function '%s' is not a private, this functionality has not supported yet"
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer

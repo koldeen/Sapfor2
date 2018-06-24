@@ -27,6 +27,7 @@ public:
         hasIndirectAccess = false;
         withoutDistributedArrays = false;
         hasWritesToNonDistribute = false;
+        hasUnknownDistributedMap = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -231,6 +232,8 @@ public:
     bool hasWritesToNonDistribute;
 
     bool withoutDistributedArrays;
+
+    bool hasUnknownDistributedMap;
 
     std::vector<LoopGraph*> childs; //fixme typo 'children'
     LoopGraph *parent;

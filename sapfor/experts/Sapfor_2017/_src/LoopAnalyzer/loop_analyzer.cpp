@@ -420,6 +420,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
             ifUnknownFound = true;
             if (side == LEFT)
                 itLoop->second->hasUnknownArrayAssigns = true;
+            itLoop->second->hasUnknownDistributedMap = true;
             canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
         }
     }
@@ -543,10 +544,10 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     {
                         for (auto &loop : parentLoops)
                         {
-                            __spf_print(1, "WARN: write to non distributed array '%s' to loop on line %d\n", symb->identifier(), loop->lineNumber());
+                            __spf_print(1, "WARN: write to non distributed array '%s' in loop on line %d\n", symb->identifier(), loop->lineNumber());
 
                             string message;
-                            __spf_printToBuf(message, "write to non distributed array '%s' to loop", symb->identifier());
+                            __spf_printToBuf(message, "write to non distributed array '%s' in this loop", symb->identifier());
                             if (loop->lineNumber() > 0)
                                 currMessages->push_back(Messages(WARR, loop->lineNumber(), message, 1026));
                             sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
@@ -1056,7 +1057,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 {
                     if (contrlParent->variant() == FOR_NODE)
                     {
-                        if (loopInfo.find((SgForStmt*)contrlParent) == loopInfo.end())
+                        if (loopInfo.find((SgForStmt*)contrlParent) == loopInfo.end() && !sortedLoopGraph[contrlParent->lineNumber()]->hasUnknownDistributedMap)
                             loopWithOutArrays.insert(contrlParent->lineNumber());
 
                         set<string> unitedPrivates;
@@ -1363,7 +1364,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     for (int i = 0; i < funcNum; ++i)
     {
         map<SgForStmt*, map<SgSymbol*, ArrayInfo>> loopInfo;
-        set<int> loopWithOutArrays;
         set<string> privatesVars;
 
         SgStatement *st = file->functions(i);
@@ -1428,9 +1428,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                 {
                     if (contrlParent->variant() == FOR_NODE)
                     {
-                        if (loopInfo.find((SgForStmt*)contrlParent) == loopInfo.end())
-                            loopWithOutArrays.insert(contrlParent->lineNumber());
-
                         parentLoops.pop_back();
                         delete sortedLoopGraph[st->lineNumber()];
                     }

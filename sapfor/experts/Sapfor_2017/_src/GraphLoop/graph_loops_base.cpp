@@ -73,6 +73,15 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
             for (int i = 0; i < depth - 2; ++i)
                 part2 = part2->childs[0];
 
+            set<DIST::Array*> newToAdd;
+
+            for (auto it = part1->readOps.begin(); it != part1->readOps.end(); ++it)
+            {
+                auto it2 = part2->readOps.find(it->first);
+                if (it2 == part2->readOps.end())
+                    newToAdd.insert(it->first);
+            }
+
             for (auto it = part2->readOps.begin(); it != part2->readOps.end(); ++it)
             {
                 auto it2 = part1->readOps.find(it->first);
@@ -87,6 +96,10 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
                         it->second.second[i] = it->second.second[i] || toAddUnrecReads[i];
                 }
             }
+
+            for (auto &arrayMissed : newToAdd)
+                part2->readOps[arrayMissed] = part1->readOps[arrayMissed];
+
             depth--;
         }
     }

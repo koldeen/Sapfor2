@@ -37,6 +37,8 @@ using std::pair;
 using std::tuple;
 using std::to_string;
 
+extern int WinHandler;
+
 static void setOptions(const int *options)
 {
     //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
@@ -203,8 +205,10 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
 }
 
 extern map<string, vector<LoopGraph*>> loopGraph; // file -> Info
-int SPF_GetGraphLoops(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_GetGraphLoops(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, 
+                      short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -247,12 +251,16 @@ int SPF_GetGraphLoops(int *options, short *projName, short *&result, short *&out
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+
+    WinHandler = -1;
     return retSize;
 }
 
 extern map<string, vector<FuncInfo*>> allFuncInfo; // file -> Info  
-int SPF_GetGraphFunctions(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, 
+                          short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -290,6 +298,8 @@ int SPF_GetGraphFunctions(int *options, short *projName, short *&result, short *
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+
+    WinHandler = -1;
     return retSize;
 }
 
@@ -320,9 +330,10 @@ static void printDeclArraysState()
 extern vector<ParallelRegion*> parallelRegions;
 extern uint64_t currentAvailMemory;
 extern int QUALITY;
-int SPF_GetArrayDistribution(int *options, short *projName, short *&result, short *&output, int *&outputSize, 
+int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                              short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality)
 {
+    WinHandler = winHandler;
     printDeclArraysState();
     clearGlobalMessagesBuffer();
     setOptions(options);
@@ -364,12 +375,14 @@ int SPF_GetArrayDistribution(int *options, short *projName, short *&result, shor
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL with code %d\n", retSize);
+    WinHandler = -1;
     return retSize;
 }
 
-int SPF_CreateParallelVariant(int *options, short *projName, short *folderName, int64_t *variants, int *varLen, 
+int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
                               short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -451,6 +464,7 @@ int SPF_CreateParallelVariant(int *options, short *projName, short *folderName, 
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+    WinHandler = -1;
     return retSize;
 }
 
@@ -485,8 +499,9 @@ int SPF_GetIntrinsics(short *&result)
 }
 
 extern map<string, set<string>> includeDependencies;
-int SPF_GetIncludeDependencies(int *options, short *projName, short *&result)
+int SPF_GetIncludeDependencies(int winHandler, int *options, short *projName, short *&result)
 {
+    WinHandler = winHandler;
     string resVal = "";
 
     setOptions(options);
@@ -527,11 +542,15 @@ int SPF_GetIncludeDependencies(int *options, short *projName, short *&result)
     {
         retSize = -1;
     }
+
+    WinHandler = -1;
     return retSize;
 }
 
-int SPF_SetFunctionsToInclude(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_SetFunctionsToInclude(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                              short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -569,11 +588,14 @@ int SPF_SetFunctionsToInclude(int *options, short *projName, short *&result, sho
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+    WinHandler = -1;
     return retSize;
 }
 
-int SPF_GetAllDeclaratedArrays(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_GetAllDeclaratedArrays(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                               short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -611,12 +633,15 @@ int SPF_GetAllDeclaratedArrays(int *options, short *projName, short *&result, sh
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+    WinHandler = -1;
     return retSize;
 }
 
 extern map<string, int> lineInfo;
-int SPF_GetFileLineInfo(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_GetFileLineInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                         short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -653,6 +678,7 @@ int SPF_GetFileLineInfo(int *options, short *projName, short *&result, short *&o
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+    WinHandler = -1;
     return retSize;
 }
 
@@ -715,28 +741,37 @@ static int simpleTransformPass(const passes PASS_NAME, int *options, short *proj
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
     printf("SAPFOR: return from DLL\n");
+    WinHandler = -1;
     return retCode;
 }
 
 
-int SPF_CorrectCodeStylePass(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_CorrectCodeStylePass(int winHandler, int *options, short *projName, short *folderName, short *&output, 
+                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     return simpleTransformPass(CORRECT_CODE_STYLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_RemoveDvmDirectives(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
+                            int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     return simpleTransformPass(REMOVE_DVM_DIRS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_RemoveDvmDirectivesToComments(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_RemoveDvmDirectivesToComments(int winHandler, int *options, short *projName, short *folderName, short *&output, 
+                                      int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     return simpleTransformPass(REMOVE_DVM_DIRS_TO_COMMENTS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
 extern set<string> filesToInclude;
-int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, char *filesToInclude, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_InsertIncludesPass(int winHandler, int *options, short *projName, short *folderName, char *filesToInclude, 
+                           short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     if (filesToInclude == NULL)
         return -2;
 
@@ -756,8 +791,9 @@ int SPF_InsertIncludesPass(int *options, short *projName, short *folderName, cha
     return simpleTransformPass(INSERT_INCLUDES, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_LoopEndDoConverterPass(int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
+    WinHandler = winHandler;
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 

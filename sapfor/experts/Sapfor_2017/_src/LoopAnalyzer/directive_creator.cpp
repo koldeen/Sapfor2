@@ -21,6 +21,7 @@
 #include "../transform.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../LoopConverter/loop_transform.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 #include "../AstWrapper.h"
 
@@ -951,8 +952,12 @@ static bool checkCorrectness(const ParallelDirective &dir,
     if (dir.arrayRef2 != dir.arrayRef)
     {
         const vector<dist> &rule = distArray->second->distRule;
-        dimsNotMatch[distArray->first] = vector<bool>(rule.size());
-        std::fill(dimsNotMatch[distArray->first].begin(), dimsNotMatch[distArray->first].end(), false);
+
+        DIST::Array* key = distArray->first;
+        dimsNotMatch[key] = vector<bool>(rule.size());
+        auto it = dimsNotMatch.find(key);
+
+        std::fill(it->second.begin(), it->second.end(), false);
 
         for (int i = 0; i < rule.size(); ++i)
         {
@@ -961,7 +966,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 if (dir.on[links[i]].first == "*")
                 {
                     ok = false;
-                    dimsNotMatch[distArray->first][i] = true;
+                    it->second[i] = true;
                 }
             }
         }
@@ -972,8 +977,11 @@ static bool checkCorrectness(const ParallelDirective &dir,
         if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
         {
             vector<dist> derivedRule(array.first->GetDimSize());
-            dimsNotMatch[array.first] = vector<bool>(array.first->GetDimSize());
-            std::fill(dimsNotMatch[array.first].begin(), dimsNotMatch[array.first].end(), false);
+
+            DIST::Array* key = array.first;
+            dimsNotMatch[key] = vector<bool>(array.first->GetDimSize());
+            auto it = dimsNotMatch.find(key);
+            std::fill(it->second.begin(), it->second.end(), false);
 
             for (int z = 0; z < array.second.size(); ++z)
             {
@@ -990,7 +998,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     if (dir.on[array.second[i]].first == "*")
                     {
                         ok = false;
-                        dimsNotMatch[array.first][i] = true;
+                        it->second[i] = true;
                     }
                 }
             }
@@ -1191,6 +1199,205 @@ static void constructRules(vector<pair<DIST::Array*, const DistrVariant*>>& outR
     }
 }
 
+static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &rightValues,
+                             const map<DIST::Array*, vector<bool>> &dimsNotMatch)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            const std::string name = ex->symbol()->identifier();
+            for (auto &elem : dimsNotMatch)
+            {
+                if (elem.first->GetShortName() == name)
+                {
+                    int idx = 0;
+                    for (auto expr = ex->lhs(); expr; expr = expr->rhs(), ++idx)
+                    {
+                        if (elem.second[idx])
+                        {
+                            int err, val;
+                            err = CalculateInteger(expr->lhs(), val);
+                            if (err == 0)
+                            {
+                                if (rightValues[elem.first][idx].first)
+                                {
+                                    rightValues[elem.first][idx].second.first = std::min(rightValues[elem.first][idx].second.first, val);
+                                    rightValues[elem.first][idx].second.second = std::max(rightValues[elem.first][idx].second.second, val);
+                                }
+                                else
+                                {
+                                    rightValues[elem.first][idx].first = true;
+                                    rightValues[elem.first][idx].second = make_pair(val, val);
+                                }
+
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
+        analyzeRightPart(ex->rhs(), rightValues, dimsNotMatch);
+    }
+}
+
+//TODO: calculate not only consts
+static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
+                                     ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+{
+    bool resolved = false;
+
+    map<DIST::Array*, vector<pair<bool, int>>> values;
+    map<DIST::Array*, vector<pair<bool, pair<int, int>>>> rightValues;
+
+    for (auto &elem : dimsNotMatch)
+    {
+        values[elem.first] = vector<pair<bool, int>>(elem.second.size());
+        std::fill(values[elem.first].begin(), values[elem.first].end(), make_pair(false, 0));
+
+        rightValues[elem.first] = vector<pair<bool, pair<int, int>>>(elem.second.size());
+        std::fill(rightValues[elem.first].begin(), rightValues[elem.first].end(), make_pair(false, make_pair(0, 0)));
+    }
+
+    for (auto st = loop; st != loop->lastNodeOfStmt(); st = st->lexNext())
+    {
+        if (st->variant() == ASSIGN_STAT)
+        {
+            auto left = st->expr(0);
+            if (left->variant() == ARRAY_REF)
+            {
+                const std::string name = left->symbol()->identifier();
+                for (auto &elem : dimsNotMatch)
+                {
+                    if (elem.first->GetShortName() == name)
+                    {
+                        int idx = 0;
+                        for (auto ex = left->lhs(); ex; ex = ex->rhs(), ++idx)
+                        {
+                            if (elem.second[idx])
+                            {
+                                int err, val;
+                                err = CalculateInteger(ex->lhs(), val);
+                                if (err == 0)
+                                {
+                                    if (values[elem.first][idx].first)
+                                    {
+                                        if (values[elem.first][idx].second != val) // CONFLICT WRITES
+                                            return false;
+                                    }
+                                    else
+                                        values[elem.first][idx] = make_pair(true, val);                                    
+                                }
+                                else // WRITE OP can not recognized
+                                    return false;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            analyzeRightPart(st->expr(1), rightValues, dimsNotMatch);
+        }
+        else
+        {
+            for (int i = 0; i < 3; ++i)
+                analyzeRightPart(st->expr(1), rightValues, dimsNotMatch);
+        }
+    }
+
+    // check found info
+    for (auto &elem : dimsNotMatch)
+    {
+        for (int idx = 0; idx < elem.second.size(); ++idx)
+            if (elem.second[idx] && !values[elem.first][idx].first) // NOT INFO FOUND
+                return false;
+    }
+
+    vector<pair<bool, int>> updateOn(parDirective->on.size());
+    std::fill(updateOn.begin(), updateOn.end(), make_pair(false, 0));
+
+    for (auto &elem : dimsNotMatch)
+    {
+        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;
+        reducedG.GetAlignRuleWithTemplate(elem.first, allArrays, rule, regId);
+        findandReplaceDimentions(rule, allArrays);
+
+        for (int i = 0; i < elem.second.size(); ++i)
+        {
+            if (elem.second[i])
+            {
+                const int idx = get<1>(rule[i]);
+                const auto &currRule = get<2>(rule[i]);
+
+                const int mapTo = currRule.first * values[elem.first][i].second + currRule.second;
+                if (updateOn[idx].first)
+                {
+                    if (updateOn[idx].second != mapTo) // DIFFERENT VALUES TO MAP
+                        return false;
+                }
+                else
+                    updateOn[idx] = make_pair(true, mapTo);
+            }
+        }
+    }
+    
+    for (int i = 0; i < updateOn.size(); ++i)
+    {
+        if (updateOn[i].first)
+        {
+            if (parDirective->on[i].first != "*")
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            else
+            {
+                parDirective->on[i].first = std::to_string(updateOn[i].second);
+                parDirective->on[i].second = make_pair(1, 0);
+                resolved = true;
+            }
+        }
+    }
+
+    if (resolved)
+    {
+        for (auto &elem : rightValues)
+        {
+            auto &shortName = elem.first->GetShortName();
+            
+            for (auto &shadows : parDirective->shadowRenew)
+            {
+                if (shadows.first.first == shortName)
+                {
+                    const auto &leftPartVal = values[elem.first];
+                    for (int i = 0; i < leftPartVal.size(); ++i)
+                    {
+                        if (leftPartVal[i].first)
+                        {
+                            const int foundVal = leftPartVal[i].second;
+                            auto shadowElem = elem.second[i].second;
+                            shadowElem.first -= foundVal;
+                            shadowElem.second -= foundVal;
+
+                            if (shadowElem.first > 0)
+                                shadowElem.first = 0;
+                            if (shadowElem.second < 0)
+                                shadowElem.second = 0;
+
+                            shadows.second[i].first = std::max(shadows.second[i].first, abs(shadowElem.first));
+                            shadows.second[i].second = std::max(shadows.second[i].second, shadowElem.second);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    return resolved;
+}
+
 void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg, 
                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                        DIST::Arrays<int> &allArrays, 
@@ -1229,10 +1436,12 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 
                 if (topCheck)
                 {
+                     //<Array, linksWithTempl> -> dims not mached
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch))
                     {
-                        addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays))
+                            addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                     }
                 }
                 else

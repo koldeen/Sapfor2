@@ -26,7 +26,6 @@ void expressionAnalyzer(SgFile *file,
         std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
         std::map<std::string, CommonBlock> &commonBlocks,
         std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
-void expressionAnalyzer(SgStatement *function);
 
 void calculate(SgExpression *&exp);
 void replaceConstatRec(SgExpression *&exp);
