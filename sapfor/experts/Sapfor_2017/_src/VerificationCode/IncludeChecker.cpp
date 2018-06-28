@@ -35,6 +35,9 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (st->fileName() == fileName)
                 lastLine = st->lineNumber();
 

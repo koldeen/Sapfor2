@@ -183,6 +183,9 @@ static void fillEndOfLoop(SgStatement *st, map<SgForStmt*, SgLabel*> &endOfLoops
     while (st && st != lastNode)
     {
         currProcessing.second = st;
+        if (st->variant() == CONTAINS_STMT)
+            break;
+
         if (st->variant() == FOR_NODE)
         {
             SgForStmt *forSt = (SgForStmt*)st;

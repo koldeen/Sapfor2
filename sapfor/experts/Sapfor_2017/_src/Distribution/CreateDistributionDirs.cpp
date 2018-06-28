@@ -294,29 +294,26 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
 
         //correct template sizes
         const pair<int, int> &rule = get<2>(rules[z]);
-        pair<int, int> oldSizes = alignArray->GetSizes()[z];
 
-        oldSizes.first = oldSizes.first * rule.first + rule.second;
-        oldSizes.second = oldSizes.second * rule.first + rule.second;
-        alignWith->ExtendDimSize(alignToDim, oldSizes);
+        if (alignWith->GetShortName().find("dvmh") != string::npos)
+        {
+            pair<int, int> oldSizes = alignArray->GetSizes()[z];
+
+            oldSizes.first = oldSizes.first * rule.first + rule.second;
+            oldSizes.second = oldSizes.second * rule.first + rule.second;
+            alignWith->ExtendDimSize(alignToDim, oldSizes);
+        }
     }
     dataDirectives.alignRules.push_back(newRule);
 }
 
 typedef vector<vector<tuple<DIST::Array*, int, attrType>>> AssignType;
 
-static bool comparator(const pair<DIST::Array*, pair<AssignType, set<DIST::Array*>>> &i, 
-                       const pair<DIST::Array*, pair<AssignType, set<DIST::Array*>>> &j)
-{
-    return (i.second.second.size() < j.second.second.size()); 
-}
-
 int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
                     const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     set<DIST::Array*> distArrays;
     const set<DIST::Array*> &arrays = allArrays.GetArrays();
-    vector<pair<DIST::Array*, pair<AssignType, set<DIST::Array*>>>> alignInfo;
 
     if (dataDirectives.distrRules.size() == 0)
     {
@@ -333,14 +330,14 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
             distArrays.insert(dataDirectives.distrRules[i].first);
     }
 
-    for (auto it = arrays.begin(); it != arrays.end(); ++it)
+    set<DIST::Array*> manyDistrRules;
+    for (auto &array : arrays)
     {        
-        if (distArrays.find((*it)) == distArrays.end())
+        if (distArrays.find((array)) == distArrays.end())
         {
             set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(*it, *it, realArrayRefs, arrayLinksByFuncCalls);
+            getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
 
-            vector<tuple<DIST::Array*, int, pair<int, int>>> uniqRules;
             vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> rules(realArrayRefs.size());
 
             int i = 0;
@@ -359,18 +356,19 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                 continue;
             if (partlyNonDistr)
             {
-                __spf_print(1, "detected distributed and non distributed array links by functions calls");
+                __spf_print(1, "detected distributed and non distributed array links by function's calls");
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
             if (isAllRulesEqual(rules))
-                uniqRules = rules[0];
+                createNewAlignRule(array, allArrays, rules[0], dataDirectives);
             else
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            createNewAlignRule(*it, allArrays, uniqRules, dataDirectives);
+                manyDistrRules.insert(array);
         }
-    } 
+    }
+    
+    if (manyDistrRules.size() > 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return 0;
 }

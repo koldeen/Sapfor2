@@ -10,7 +10,7 @@
 #include "DvmhDirective.h"
 #include "../errors.h"
 #include "../transform.h"
-#include "../SgUtils.h"
+#include "../utils.h"
 
 using std::vector;
 using std::tuple;
@@ -198,8 +198,8 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
     if (readIt != readOps.end())
         currReadOp = &(readIt->second);
         
-    findandReplaceDimentions(ruleForOn, allArrays);
-    findandReplaceDimentions(ruleForShadow, allArrays);
+    findAndReplaceDimentions(ruleForOn, allArrays);
+    findAndReplaceDimentions(ruleForShadow, allArrays);
     
     const int len = (int)coeffs.second.size();
     vector<pair<int, int>> shift(len);

@@ -174,6 +174,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         return false;
 
     __spf_print(DEBUG_LVL1, "RUN PASS with name %s\n", passNames[curr_regime]);
+
+    auto toSendStrMessage = string(passNames[curr_regime]);
+#ifdef _WIN32
+    sendMessage_1lvl(wstring(L"выполняется проход '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#endif
     const int n = project.numberOfFiles();
 
     const bool need_to_save = false;
@@ -217,6 +222,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         current_file_id = i;
         current_file = file;
 
+        toSendStrMessage = file->filename();
+#ifdef _WIN32
+        sendMessage_2lvl(std::wstring(L"обработка файла '") + std::wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#endif
         currProcessing.first = file; currProcessing.second = NULL;
 
         const char *file_name = file->filename();
@@ -798,6 +807,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         throw - 1;
 
 
+#ifdef _WIN32
+    sendMessage_2lvl(std::wstring(L""));
+#endif
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///

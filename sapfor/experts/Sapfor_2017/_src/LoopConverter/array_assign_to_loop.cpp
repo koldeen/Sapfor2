@@ -490,6 +490,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         for ( ; st != lastNode; st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (firstExec && isSgDeclarationStatement(st))
             {
                 SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
@@ -589,6 +592,8 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
         {
             if (isSgExecutableStatement(st))
                 break;
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             if (st->variant() != DATA_DECL)
                 for (int i = 0; i < 3; ++i)
@@ -658,6 +663,10 @@ void restoreAssignsFromLoop(SgFile *file)
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
         {
             currProcessing.second = st;
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
                 if (data->lineNumber() < 0)
                     toMove.push_back(make_pair(st, data));

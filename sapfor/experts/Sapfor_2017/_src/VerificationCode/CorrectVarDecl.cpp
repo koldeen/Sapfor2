@@ -31,6 +31,9 @@ void VarDeclCorrecter(SgFile *file)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (isSgVarDeclStmt(st))
             {
                 int is_assign = 0;

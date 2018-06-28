@@ -33,7 +33,6 @@ SgStatement* findMainUnit(SgProject *proj);
 
 template<typename IN_TYPE, typename OUT_TYPE>
 const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
-void findandReplaceDimentions(std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays);
 
 struct DefUseList
 {

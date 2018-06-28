@@ -264,6 +264,9 @@
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp">
       <Filter>Файлы исходного кода\ExpressionTransform</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\VisualizerCalls\SendMessage.cpp">
+      <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -379,6 +382,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\VisualizerCalls\SendMessage.h">
+      <Filter>Файлы исходного кода\VisualizerCalls</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

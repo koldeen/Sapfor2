@@ -486,15 +486,17 @@ class SymbolKey
 {
 private:
     SgSymbol *var;
-
+    std::string varName;
+    bool pointer;
 public:
-    SymbolKey(SgSymbol *v): var(v) { }
-    SymbolKey(const std::string &varName) : var(new SgSymbol(VARIABLE_NAME, varName.c_str())) { }
+    SymbolKey(SgSymbol *v): var(v), varName(v->identifier()), pointer(false) {}
+    SymbolKey(SgSymbol *v, bool isPointer): var(v), varName(v->identifier()), pointer(isPointer) {}
 
-    inline SgSymbol* getVar() const { return var; }
-    inline bool operator<(const SymbolKey &rhs) const   { return strcmp(var->identifier(), rhs.var->identifier()) < 0; }
-    inline bool operator==(const SymbolKey &rhs) const  { return strcmp(var->identifier(), rhs.var->identifier()) == 0; }
-    inline bool operator==(SgSymbol *rhs) const         { return strcmp(var->identifier(), rhs->identifier()) == 0; }
+    inline const std::string& getVarName() const { return varName; }
+    inline bool isPointer() const { return pointer; }
+    inline bool operator<(const SymbolKey &rhs) const   { return varName < rhs.varName; }
+    inline bool operator==(const SymbolKey &rhs) const  { return varName == rhs.varName; }
+    inline bool operator==(SgSymbol *rhs) const         { return strcmp(varName.c_str(), rhs->identifier()) == 0; }
 };
 #endif
 
@@ -531,6 +533,9 @@ class CBasicBlock
     PrivateDelayedItem* privdata;
     CVarEntryInfo* findentity;
 #ifdef __SPF
+    bool varIsPointer(SgSymbol* symbol);
+    void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
+
     std::map <SymbolKey, SgExpression*> gen;
     std::set <SymbolKey> kill;
     std::map <SymbolKey, std::map<std::string, SgExpression*>> in_defs;
@@ -599,7 +604,7 @@ public:
     AnalysedCallsList* getProc() { return proc; }
     void clearGenKill() { gen.clear(); kill.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
-    void addVarToGen(SgSymbol* var, SgExpression* value);
+    void addVarToGen(SymbolKey var, SgExpression* value);
     void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);

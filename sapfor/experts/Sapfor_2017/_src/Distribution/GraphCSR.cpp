@@ -533,7 +533,7 @@ namespace Distribution
                 auto right = currAttribute.second;
 
                 pair<float, float> X;
-                X.first = right.first / left.first;
+                X.first = (float)right.first / left.first;
 
                 left.first *= X.first;
                 left.second *= X.first;
@@ -1530,7 +1530,7 @@ namespace Distribution
 
                             if (intRule.first == 0)
                             {
-                                __spf_print(1, "Can not find correct align rule for array '%s'\n", inputArray->GetShortName().c_str());
+                                __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             }
 

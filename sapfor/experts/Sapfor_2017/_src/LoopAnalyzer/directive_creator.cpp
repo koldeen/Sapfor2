@@ -1324,7 +1324,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     {
         vector<tuple<DIST::Array*, int, pair<int, int>>> rule;
         reducedG.GetAlignRuleWithTemplate(elem.first, allArrays, rule, regId);
-        findandReplaceDimentions(rule, allArrays);
+        findAndReplaceDimentions(rule, allArrays);
 
         for (int i = 0; i < elem.second.size(); ++i)
         {

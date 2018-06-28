@@ -57,6 +57,7 @@ GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
     result->CGraph = GetControlFlowGraphWithCalls(true, st, &result->calls, &result->commons);
     result->calls.AssociateGraphWithHeader(st, result->CGraph);
     result->commons.MarkEndOfCommon(GetCurrentProcedure());
+    result->file_id = current_file_id;
 
     auto inserted = graphs.insert(make_pair(st->symbol()->identifier(), result));
     return inserted.first->second;
@@ -65,8 +66,10 @@ GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 
 GraphItem* GraphsKeeper::getGraph(std::string funcName)
 {
-    //setup file and stuff?
-    return graphs.find(funcName)->second;
+
+    GraphItem* res = graphs.find(funcName)->second;
+    CurrentProject->file(res->file_id);
+    return res;
 }
 
 
@@ -858,7 +861,7 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
                                     if (funcInfo->callsFrom.find(curFunc) != funcInfo->callsFrom.end() &&
                                             processed.find(funcInfo->funcName) == processed.end())
                                         killerFuncs.push(funcInfo->funcName);
-                            overseer.addKilledVar(var.getName(), fun.getFunctionName());
+                            overseer.addKilledVar(var.getSymbol(), fun.getFunctionName());
                         }
                     }
                 }

@@ -28,7 +28,6 @@ int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
-int WinHandler = -1; // ID of window to send messages to visualizer
 
 std::map<DIST::Array*, std::tuple<int, std::string, std::string>> tableOfUniqNamesByArray;
 

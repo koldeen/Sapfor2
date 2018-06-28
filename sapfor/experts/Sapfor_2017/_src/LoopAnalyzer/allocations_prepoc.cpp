@@ -30,7 +30,9 @@ void preprocess_allocates(SgFile *file)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-            
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             // save SgStatement PROC call to declaration attribute
             if (st->variant() == ALLOCATE_STMT)
             {

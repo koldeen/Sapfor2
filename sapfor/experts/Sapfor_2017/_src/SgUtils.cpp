@@ -618,6 +618,9 @@ void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStat
 {
     while (start != end)
     {
+        if (start->variant() == CONTAINS_STMT)
+            break;
+
         if (start->variant() == COMM_STAT)
         {
             // fill all common blocks
@@ -1102,21 +1105,6 @@ int printCommonBlocks(const char *fileName, const map<string, CommonBlock> &comm
 
     fclose(file);
     return 0;
-}
-
-void findandReplaceDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays)
-{
-    for (int i = 0; i < rule.size(); ++i)
-    {
-        if (std::get<0>(rule[i]) == NULL)
-            continue;
-        int alignTo = -1;
-        int ok = allArrays.GetDimNumber(std::get<0>(rule[i]), (std::get<1>(rule[i])), alignTo);
-        if (ok != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        (std::get<1>(rule[i])) = alignTo;
-    }
 }
 
 // CommonBlock::

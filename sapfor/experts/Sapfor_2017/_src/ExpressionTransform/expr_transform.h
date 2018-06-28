@@ -46,7 +46,8 @@ struct StatementObj {
 };
 
 struct GraphItem {
-    GraphItem(): CGraph(NULL), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()) {}
+    GraphItem(): CGraph(NULL), file_id(-1), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()) {}
+    int file_id;
     ControlFlowGraph* CGraph;
     CallData calls;
     CommonData commons;
@@ -81,20 +82,20 @@ private:
     bool inited;
 
 public:
-    std::map<std::string, std::set<std::string>> funcKillsVars;
-    CommonVarsOverseer() : inited(false), funcKillsVars(std::map<std::string, std::set<std::string>>()) {}
+    std::map<std::string, std::set<SgSymbol*>> funcKillsVars;
+    CommonVarsOverseer() : inited(false), funcKillsVars(std::map<std::string, std::set<SgSymbol*>>()) {}
     bool isInited() { return inited; }
     void riseInited() { inited = true; }
-    void addKilledVar(const std::string &varName, const std::string &funcName)
+    void addKilledVar(SgSymbol* symbol, const std::string &funcName)
     {
         auto founded = funcKillsVars.find(funcName);
         if (founded == funcKillsVars.end())
-            funcKillsVars.insert(founded, std::make_pair(funcName, std::set<std::string>()))->second.insert(varName);
+            funcKillsVars.insert(founded, std::make_pair(funcName, std::set<SgSymbol*>()))->second.insert(symbol);
         else
-            founded->second.insert(varName);
+            founded->second.insert(symbol);
     }
 
-    std::set<std::string>* killedVars(const std::string &funcName)
+    std::set<SgSymbol*>* killedVars(const std::string &funcName)
     {
         auto founded = funcKillsVars.find(funcName);
         if (founded == funcKillsVars.end())

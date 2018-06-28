@@ -574,7 +574,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
 
-        for(auto& item : commonBlocks)
+        for(auto &item : commonBlocks)
         {
             auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
             for(auto& list : item.second)
@@ -619,6 +619,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         while (st != lastNode)
         {
             currProcessing.second = st;
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -647,6 +650,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
@@ -1384,6 +1390,21 @@ static inline void addLinks(const FuncParam &actual, const FuncParam &formal, ma
     }
 }
 
+static void propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
+{
+    if (from->GetNonDistributeFlagVal() == flag)
+    {
+        for (auto &realRef : to)
+        {
+            if (realRef->GetNonDistributeFlagVal() != flag)
+            {
+                realRef->SetNonDistributeFlag(flag);
+                change = true;
+            }
+        }
+    }
+}
+
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
 {
@@ -1413,6 +1434,8 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             bool nonDistrSpfPriv = false;
             bool nonDistrIOPriv = false;
             bool init = false;
+
+            // propagate SPF to down calls
             for (auto &realRef : realArrayRefs)
             {
                 if (realRef != array.second.first)
@@ -1439,7 +1462,13 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
                         array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                     change = true;
                 }
-            }
+                else
+                {
+                    propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
+                    propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
+                    propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
+                }
+            }            
         }
     }
 

@@ -44,6 +44,15 @@ bool isAllRulesEqual(const std::vector<const std::vector<std::pair<int, int>>*> 
 bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 
 int getNextNegativeLineNumber();
+void findAndReplaceDimentions(std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays);
 
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+
+#ifndef _WIN32
+inline void sendMessage_1lvl(const std::wstring &toSend);
+inline void sendMessage_2lvl(const std::wstring &toSend);
+#else
+extern void sendMessage_1lvl(const std::wstring &toSend);
+extern void sendMessage_2lvl(const std::wstring &toSend);
+#endif

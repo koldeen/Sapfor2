@@ -35,6 +35,9 @@ void EndDoLoopChecker(SgFile *file, vector<int> &errors)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (st->variant() == FOR_NODE)
             {
                 SgForStmt *currSt = (SgForStmt*)st;
@@ -58,7 +61,9 @@ void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
         for ( ; st != lastNode; st = st->lexNext())
         {
             currProcessing.second = st;
-            
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
                 errors[st->fileName()].push_back(st->lineNumber());
         }

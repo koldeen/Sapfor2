@@ -17,7 +17,7 @@ static CommonVarsOverseer *overseerPtr = NULL;
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
     if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
-        return strcmp(symbol.getVar()->identifier(), exp->symbol()->identifier()) == 0;
+        return symbol == exp->symbol();
 
     bool hasSymbolInRHS = false;
     if (exp->rhs())
@@ -28,7 +28,7 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
         return false;
 }
 
-void CBasicBlock::addVarToGen(SgSymbol *var, SgExpression *value)
+void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
 {
     addVarToKill(var);
     gen.insert(make_pair(var, value));
@@ -74,7 +74,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
     SgStatement *st = NULL;
     AnalysedCallsList *callData = cfi->getCall();
     SgFunctionCallExp *funcCall = NULL;
-    set<string> *varsToKill = NULL;
+    set<SgSymbol*> *varsToKill = NULL;
     if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
     {
         SgCallStmt *callStmt = isSgCallStmt(st);
@@ -98,7 +98,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
     }
 
     if (varsToKill)
-        for (auto &var : *varsToKill)
+        for (auto var : *varsToKill)
             addVarToKill(var);
 
 }
@@ -111,19 +111,56 @@ set<SymbolKey>* CBasicBlock::getOutVars()
     return outVars;
 }
 
+bool CBasicBlock::varIsPointer(SgSymbol *symbol)
+{
+    auto found = gen.find(symbol);
+    if(found != gen.end())
+        return found->first.isPointer();
+
+    auto found_inDefs = in_defs.find(symbol);
+    if(found_inDefs != in_defs.end())
+        return found_inDefs->first.isPointer();
+
+    return false;
+}
+
+void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *right)
+{
+     auto found = gen.find(symbol);
+     if(found != gen.end())
+     {
+        addVarToGen(found->second->symbol(), right);
+        return;
+     }
+
+     auto found_inDefs = in_defs.find(symbol);
+     if(found_inDefs != in_defs.end())
+         for(auto& value : found_inDefs->second)
+             addVarToKill(value.second->symbol());
+}
+
 void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
 {
     SgStatement *st = cfi->getStatement();
     if (st != NULL)
     {
+        SgExpression *left = st->expr(0);
+        SgExpression *right = st->expr(1);
         if (st->variant() == ASSIGN_STAT)
         {
-            SgExpression *left = st->expr(0);
-            SgExpression *right = st->expr(1);
+
             if (left->variant() == VAR_REF) // x = ...
-                addVarToGen(left->symbol(), right);
+            {
+                if(varIsPointer(left->symbol()))
+                    processAssignThroughPointer(left->symbol(), right);
+                else
+                    addVarToGen(left->symbol(), right);
+            }
             else if (left->variant() == ARRAY_REF) // a(...) = ...
                 addVarToKill(left->symbol());
+        } else if (st->variant() == POINTER_ASSIGN_STAT)
+        {
+            addVarToGen(SymbolKey(left->symbol(), true), right);
         }
     }
 
@@ -245,7 +282,7 @@ static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
-        printf("--- %s = ", it->first.getVar()->identifier());
+        printf("--- %s = ", it->first.getVarName().c_str());
         for (auto iter = it->second.begin(); iter != it->second.end(); ++iter)
         {
             printf("%s", iter->second->unparse());
@@ -262,7 +299,7 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
-        printf("--- %s = %s", it->first.getVar()->identifier(), it->second->unparse());
+        printf("--- %s = %s", it->first.getVarName().c_str(), it->second->unparse());
         printf("\n");
     }
     printf("\n");
@@ -323,7 +360,7 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
             showDefs(b->getGen());
             printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
-                printf("%s ", it->getVar()->identifier());
+                printf("%s ", it->getVarName().c_str());
             printf("\n");
             printf("\n Out ");
             showDefs(b->getOutDefs());
@@ -446,7 +483,7 @@ bool CBasicBlock::correctInDefsIterative()
             set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
             for (auto it = allowedVars->begin(); it != allowedVars->end();)
             {
-                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
+                if (nextAllowedVars->find(*it) == nextAllowedVars->end())
                     it = allowedVars->erase(it);
                 else
                     ++it;

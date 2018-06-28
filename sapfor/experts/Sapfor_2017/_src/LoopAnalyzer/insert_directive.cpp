@@ -114,6 +114,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         int numSt = 0;
         do
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             currProcessing.second = st;
             if (numSt != 0)
                 st = st->lexNext();
@@ -253,6 +256,9 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             const int var = st->variant();
             //for details see dvm_tag.h
@@ -561,6 +567,9 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
             set<string> includes;
             for (SgStatement *stLoc = modulesAndFuncs[i]; stLoc != last; stLoc = stLoc->lexNext())
             {
+                if (stLoc->variant() == CONTAINS_STMT)
+                    break;
+
                 if (stLoc->fileName() != string(file->filename()))
                     includes.insert(stLoc->fileName());
             }
@@ -721,6 +730,9 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 break;
             }
             
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)
             {
@@ -930,6 +942,9 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)

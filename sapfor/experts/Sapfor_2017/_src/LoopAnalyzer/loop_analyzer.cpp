@@ -1003,6 +1003,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             const int currentLine = st->lineNumber() < -1 ? st->localLineNumber() : st->lineNumber();
             ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), currentLine);
             if (currReg == NULL)
@@ -1410,7 +1413,10 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-                        
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             const int currV = st->variant();
             if (currV == FOR_NODE)
             {
@@ -1587,6 +1593,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
+            if (iter->variant() == CONTAINS_STMT)
+                break;
+
             //after SPF preprocessing 
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
                 fillPrivatesFromComment(data, privates);
@@ -1599,6 +1608,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         //analyze IO operations
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
+            if (iter->variant() == CONTAINS_STMT)
+                break;
+
             SgInputOutputStmt *stIO = isSgInputOutputStmt(iter);
             if (stIO)
             {
@@ -1623,6 +1635,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         while (st != lastNode)
         {
             currProcessing.second = st;
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             //TODO: need to add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)

@@ -28,6 +28,8 @@ int VerifyFile(SgFile *file)
                 isError = -1;
                 break;
             }
+            if (st->variant() == CONTAINS_STMT)
+                break;
             st = st->lexNext();
         }
 
