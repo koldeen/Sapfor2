@@ -10,9 +10,9 @@
 #include "Distribution/Array.h"
 #include "GraphCall/graph_calls.h"
 #include "GraphLoop/graph_loops.h"
-#include "AstWrapper.h"
+#include "Utils/AstWrapper.h"
 #include "transform.h"
-#include "errors.h"
+#include "Utils/errors.h"
 
 extern std::map<std::string, std::string> shortFileNames;
 static int activeState = 0;

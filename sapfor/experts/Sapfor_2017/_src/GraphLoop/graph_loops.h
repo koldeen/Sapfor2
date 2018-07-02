@@ -6,7 +6,7 @@
 
 #include "../Distribution/DvmhDirective.h"
 #include "../ParallelizationRegions/ParRegions.h"
-#include "../types.h"
+#include "../Utils/types.h"
 
 struct LoopGraph
 {
@@ -28,6 +28,7 @@ public:
         withoutDistributedArrays = false;
         hasWritesToNonDistribute = false;
         hasUnknownDistributedMap = false;
+        hasDifferentAlignRules = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -62,7 +63,7 @@ public:
     bool hasLimitsToParallel() const
     {
         return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
-               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute;
+               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules;
     }
     
     void addConflictMessages(std::vector<Messages> *messages)
@@ -87,6 +88,8 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop", 3006));
         if (hasWritesToNonDistribute)
             messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop", 3006));
+        if (hasDifferentAlignRules)
+            messages->push_back(Messages(NOTE, lineNum, "different aligns between writes to distributed array prevents parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -234,6 +237,8 @@ public:
     bool withoutDistributedArrays;
 
     bool hasUnknownDistributedMap;
+
+    bool hasDifferentAlignRules;
 
     std::vector<LoopGraph*> childs; //fixme typo 'children'
     LoopGraph *parent;

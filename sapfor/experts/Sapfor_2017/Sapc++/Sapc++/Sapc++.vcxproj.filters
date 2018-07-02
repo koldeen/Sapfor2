@@ -31,6 +31,12 @@
     <Filter Include="Исходные файлы\ParallelRegions">
       <UniqueIdentifier>{a7d01b3a-ec98-48a0-8ba8-982b9d886b74}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Исходные файлы\Utils">
+      <UniqueIdentifier>{e6073352-1994-4bd6-87ba-662199402c45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\Utils">
+      <UniqueIdentifier>{b5cb7e95-4314-488a-abec-8aa3d48d490b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp">
@@ -51,8 +57,8 @@
     <ClCompile Include="..\..\_src\GraphLoop\graph_loops_base.cpp">
       <Filter>Исходные файлы\GraphLoop</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\_src\utils.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="..\..\_src\Utils\utils.cpp">
+      <Filter>Исходные файлы\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -83,25 +89,10 @@
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h">
       <Filter>Исходные файлы\ParallelRegions</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\_src\AstWrapper.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\_src\errors.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\_src\leak_detector.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\_src\SapforData.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="..\..\_src\transform.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\_src\types.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\_src\utils.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h">
@@ -109,6 +100,9 @@
     </ClInclude>
     <ClInclude Include="..\..\_src\Distribution\DvmhDirective.h">
       <Filter>Файлы заголовков\Distribution</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Utils\utils.h">
+      <Filter>Файлы заголовков\Utils</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

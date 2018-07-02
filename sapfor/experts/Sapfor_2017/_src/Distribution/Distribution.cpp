@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,7 +27,7 @@ using std::vector;
 #include "Arrays.h"
 #include "Array.h"
 #include "Distribution.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 
 extern int keepFiles;
 

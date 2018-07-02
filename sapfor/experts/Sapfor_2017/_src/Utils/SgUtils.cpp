@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,13 +21,13 @@
 
 #include "SgUtils.h"
 #include "errors.h"
-#include "transform.h"
+#include "../transform.h"
 
-#include "directive_parser.h"
-#include "Distribution/Distribution.h"
+#include "../LoopAnalyzer/directive_parser.h"
+#include "../Distribution/Distribution.h"
 
-#include "GraphCall/graph_calls.h"
-#include "GraphCall/graph_calls_func.h"
+#include "../GraphCall/graph_calls.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::map;
 using std::pair;
@@ -201,10 +201,14 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             st->setVariant(-1 * st->variant());
 }
 
-static map<string, vector<SgSymbol*>> createdSymbols;
+static map<SgFile*, map<string, vector<SgSymbol*>>> allCreatedSymbols;
 
 SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, SgStatement *scope)
 {
+    auto createdSymbols = allCreatedSymbols.find(file);
+    if (createdSymbols == allCreatedSymbols.end())
+        createdSymbols = allCreatedSymbols.insert(createdSymbols, make_pair(file, map<string, vector<SgSymbol*>>()));    
+
     SgSymbol *symb = file->firstSymbol();
 
     while (symb)
@@ -217,10 +221,10 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
         symb = symb->next();
     }
 
-    auto result = createdSymbols.find(toFind);
+    auto result = createdSymbols->second.find(toFind);
 
-    if (result == createdSymbols.end())
-        result = createdSymbols.insert(result, make_pair(toFind, vector<SgSymbol*>()));
+    if (result == createdSymbols->second.end())
+        result = createdSymbols->second.insert(result, make_pair(toFind, vector<SgSymbol*>()));
 
     SgSymbol *newS = NULL;
     for (auto &symbs : result->second)
@@ -846,6 +850,15 @@ static void processLeftPartOfAssign(SgExpression *exp, map<string, vector<DefUse
     }
 }
 
+string getContainsPrefix(SgStatement *st)
+{
+    string containsPrefix = "";
+    SgStatement *st_cp = st->controlParent();
+    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+        containsPrefix = st_cp->symbol()->identifier() + string(".");
+    return containsPrefix;
+}
+
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
@@ -869,7 +882,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         SgStatement *end = start->lastNodeOfStmt();
         int pos;
 
-        auto founded = funcToFuncInfo.find(start->symbol()->identifier());
+        auto founded = funcToFuncInfo.find(getContainsPrefix(start) + start->symbol()->identifier());
         start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,10 +7,10 @@
 #include <string>
 #include <algorithm>
 
-#include "../types.h"
+#include "../Utils/types.h"
 #include "DvmhDirective.h"
-#include "../errors.h"
-#include "../SgUtils.h"
+#include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
 #include "../transform.h"
 
 #include "dvm.h"

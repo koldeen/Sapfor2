@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -8,8 +8,8 @@
 
 #include "dvm.h"
 #include "verifications.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/DvmhDirective.h"
 
 using std::vector;

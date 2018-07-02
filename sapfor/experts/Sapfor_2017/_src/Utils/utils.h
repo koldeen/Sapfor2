@@ -4,7 +4,7 @@
 #include <set>
 #include <string>
 
-#include "Distribution/Distribution.h"
+#include "../Distribution/Distribution.h"
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);

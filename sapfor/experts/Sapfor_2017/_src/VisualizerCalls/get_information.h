@@ -3,6 +3,8 @@
 // ANALISYS 
 extern "C" { __declspec(dllexport) int SPF_GetGraphLoops(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_GetProgramAnalysis(int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality); }
 extern "C" { __declspec(dllexport) int SPF_SetFunctionsToInclude(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetAllDeclaratedArrays(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,7 +8,7 @@
 #include <set>
 
 #include "dvm.h"
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 using std::set;
 using std::string;

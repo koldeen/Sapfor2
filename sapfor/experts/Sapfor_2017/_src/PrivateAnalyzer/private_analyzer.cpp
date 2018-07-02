@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>

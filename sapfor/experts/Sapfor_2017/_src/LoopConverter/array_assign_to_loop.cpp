@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -12,7 +12,7 @@
 
 #include "dvm.h"
 #include "array_assign_to_loop.h"
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 #include "../ExpressionTransform/expr_transform.h"
 
 using std::vector;

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -11,8 +11,8 @@
 
 #include "dvm.h"
 #include "enddo_loop_converter.h"
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 
 using namespace std;
 

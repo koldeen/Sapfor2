@@ -165,7 +165,6 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
-    <ClCompile Include="..\_src\directive_parser.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</IntrinsicFunctions>
@@ -188,6 +187,7 @@
     <ClCompile Include="..\_src\LoopAnalyzer\allocations_prepoc.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator.cpp" />
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\insert_directive.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp" />
@@ -224,12 +224,12 @@
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
-    <ClCompile Include="..\_src\SgUtils.cpp" />
     <ClCompile Include="..\_src\transforms.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Disabled</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
-    <ClCompile Include="..\_src\utils.cpp" />
+    <ClCompile Include="..\_src\Utils\SgUtils.cpp" />
+    <ClCompile Include="..\_src\Utils\utils.cpp" />
     <ClCompile Include="..\_src\VerificationCode\CorrectVarDecl.cpp" />
     <ClCompile Include="..\_src\VerificationCode\IncludeChecker.cpp" />
     <ClCompile Include="..\_src\VerificationCode\LoopChecker.cpp" />
@@ -239,9 +239,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
-    <ClInclude Include="..\_src\AstWrapper.h" />
     <ClInclude Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h" />
-    <ClInclude Include="..\_src\directive_parser.h" />
     <ClInclude Include="..\_src\Distribution\Array.h" />
     <ClInclude Include="..\_src\Distribution\Arrays.h" />
     <ClInclude Include="..\_src\Distribution\CreateDistributionDirs.h" />
@@ -251,12 +249,12 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
-    <ClInclude Include="..\_src\errors.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h" />
+    <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
@@ -264,16 +262,21 @@
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />
-    <ClInclude Include="..\_src\PassManager.h" />
     <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
     <ClInclude Include="..\_src\SapforData.h" />
-    <ClInclude Include="..\_src\SgUtils.h" />
     <ClInclude Include="..\_src\transform.h" />
-    <ClInclude Include="..\_src\types.h" />
-    <ClInclude Include="..\_src\utils.h" />
+    <ClInclude Include="..\_src\Utils\AstWrapper.h" />
+    <ClInclude Include="..\_src\Utils\CommonBlock.h" />
+    <ClInclude Include="..\_src\Utils\DefUseList.h" />
+    <ClInclude Include="..\_src\Utils\errors.h" />
+    <ClInclude Include="..\_src\Utils\leak_detector.h" />
+    <ClInclude Include="..\_src\Utils\PassManager.h" />
+    <ClInclude Include="..\_src\Utils\SgUtils.h" />
+    <ClInclude Include="..\_src\Utils\types.h" />
+    <ClInclude Include="..\_src\Utils\utils.h" />
+    <ClInclude Include="..\_src\Utils\version.h" />
     <ClInclude Include="..\_src\VerificationCode\verifications.h" />
-    <ClInclude Include="..\_src\version.h" />
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h" />
     <ClInclude Include="..\_src\VisualizerCalls\SendMessage.h" />
     <ClInclude Include="resource.h" />

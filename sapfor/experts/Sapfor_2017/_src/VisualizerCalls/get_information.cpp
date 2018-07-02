@@ -18,14 +18,14 @@
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
 
-#include "../errors.h"
-#include "../version.h"
+#include "../Utils/errors.h"
+#include "../Utils/version.h"
 #include "get_information.h"
 #include "dvm.h"
 #include "../transform.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../GraphCall/graph_calls_func.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 #include "../transform.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
@@ -80,12 +80,14 @@ static void ConvertShortToChar(const short *projName, int &strL, char *&prName)
     prName[strL] = '\0';
 }
 
-static void copyStringToShort(short *&result, const string &resVal)
+static void copyStringToShort(short *&result, const string &resVal, bool withEnd = true)
 {
     result = new short[resVal.size() + 1];
     for (int i = 0; i < resVal.size(); ++i)
         result[i] = resVal[i];
-    result[resVal.size()] = (short)'\0';
+
+    if (withEnd)
+        result[resVal.size()] = (short)'\0';
 }
 
 int passDone = 0;
@@ -286,6 +288,93 @@ int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *
     catch (int ex)
     {
         try { __spf_print(1, "catch code %d\n", ex); } catch (...) { }
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+
+    MessageManager::setWinHandler(-1);
+    return retSize;
+}
+
+int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                               short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { CALL_GRAPH2 });
+
+        set<string> V;
+        vector<string> E;
+        CreateCallGraphViz(NULL, allFuncInfo, V, E);
+        
+        string graph = to_string(V.size()) += "|";
+        for (auto &v : V)
+            graph += v + "|";
+
+        graph += to_string(E.size()) + "|";
+        for (auto &e : E)
+            graph += e + "|";
+        if (E.size() != 0)
+            graph.erase(graph.end() - 1);
+
+        copyStringToShort(result, graph, false);
+        retSize = (int)graph.size();
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    //convertGlobalBuffer(output, outputSize);
+    //convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+
+    MessageManager::setWinHandler(-1);
+    return retSize;
+}
+
+int SPF_GetProgramAnalysis(int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { LOOP_ANALYZER_DATA_DIST_S1 });
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
         if (ex == -99)
             return -99;
         else

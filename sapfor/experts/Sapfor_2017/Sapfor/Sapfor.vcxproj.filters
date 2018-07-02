@@ -234,15 +234,6 @@
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
-    <ClCompile Include="..\_src\utils.cpp">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\directive_parser.cpp">
-      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SgUtils.cpp">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
       <Filter>Файлы исходного кода\Distribution</Filter>
     </ClCompile>
@@ -266,6 +257,15 @@
     </ClCompile>
     <ClCompile Include="..\_src\VisualizerCalls\SendMessage.cpp">
       <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Utils\SgUtils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Utils\utils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -338,24 +338,6 @@
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h">
       <Filter>Файлы исходного кода\GraphCall</Filter>
     </ClInclude>
-    <ClInclude Include="..\_src\utils.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\types.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\errors.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\directive_parser.h">
-      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\PassManager.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\AstWrapper.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h">
       <Filter>Файлы исходного кода\ParallelizationRegions</Filter>
     </ClInclude>
@@ -364,9 +346,6 @@
     </ClInclude>
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h">
       <Filter>Файлы исходного кода\Distribution</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\SgUtils.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\SapforData.h">
       <Filter>Файлы исходного кода</Filter>
@@ -377,14 +356,44 @@
     <ClInclude Include="..\_src\Predictor\PredictScheme.h">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClInclude>
-    <ClInclude Include="..\_src\version.h">
-      <Filter>Файлы исходного кода\Utils</Filter>
-    </ClInclude>
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\VisualizerCalls\SendMessage.h">
       <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\DefUseList.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\AstWrapper.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\errors.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\leak_detector.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\PassManager.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\SgUtils.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\types.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\utils.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\version.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\CommonBlock.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

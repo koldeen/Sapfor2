@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,10 +18,10 @@
 #include "../Distribution/DvmhDirective_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "loop_analyzer.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
+#include "directive_parser.h"
+#include "../Utils/SgUtils.h"
 #include "../transform.h"
 
 using std::string;

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <algorithm>
 #include <string>
@@ -18,8 +18,8 @@ extern int passDone;
 #include "Cycle.h"
 #include "Arrays.h"
 #include "Array.h"
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 
 #include "GraphCSR.h"
 
@@ -1421,6 +1421,7 @@ namespace Distribution
     }
 
     //NOTE, it correctly works only with reduce graph
+    //TODO: need to correct --> call DIST::Fx
     template<typename vType, typename wType, typename attrType>
     bool GraphCSR<vType, wType, attrType>::
          hasTheSameAlignment(const vType v1, const pair<int, int> &attr1, const vType v2, const pair<int, int> &attr2)

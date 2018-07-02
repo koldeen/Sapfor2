@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,8 +13,8 @@
 #include "GraphCSR.h"
 #include "Arrays.h"
 
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 #include "../GraphLoop/graph_loops.h"
 
 using std::vector;

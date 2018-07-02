@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,9 +18,9 @@
 
 #include "dvm.h"
 #include "loop_analyzer.h"
-#include "../types.h"
-#include "../errors.h"
-#include "../SgUtils.h"
+#include "../Utils/types.h"
+#include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Arrays.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphLoop/graph_loops_func.h"

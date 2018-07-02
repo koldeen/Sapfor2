@@ -1,10 +1,14 @@
 #pragma once
+#include <string>
+#include <map>
+#include <vector>
+#include <set>
 
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 
 void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
-int CreateCallGraphWiz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile);
+int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::set<std::string> &V, std::vector<std::string> &E);
 int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &files, const char *fileName,
     std::map<std::string, std::vector<FuncInfo*>> &funcByFile, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
     std::map<std::string, std::vector<Messages>> &allMessages, bool needToAddErrors);
@@ -19,4 +23,3 @@ bool isPassFullArray(SgExpression *ex);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
-void printParInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);

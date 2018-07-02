@@ -72,6 +72,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   08 "internal error in analysis, parallel directives will not be generated for this file!"
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
+//   11 "Arrays have different align rules in this loop according to their write accesses"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 

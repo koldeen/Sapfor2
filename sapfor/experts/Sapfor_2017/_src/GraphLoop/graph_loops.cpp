@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,11 +20,11 @@
 #include "../Distribution/Distribution.h"
 
 #include "graph_loops.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 
-#include "../errors.h"
-#include "../AstWrapper.h"
+#include "../Utils/errors.h"
+#include "../Utils/AstWrapper.h"
 
 using std::vector;
 using std::map;

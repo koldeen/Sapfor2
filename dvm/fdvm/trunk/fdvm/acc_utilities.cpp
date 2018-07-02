@@ -114,6 +114,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("cosh"));
     intrinsicF.insert(string("cotan"));
     intrinsicF.insert(string("cotand"));
+    intrinsicF.insert(string("ceiling"));
     intrinsicF.insert(string("cexp"));
     intrinsicF.insert(string("conjg"));
     intrinsicF.insert(string("csqrt"));
@@ -188,10 +189,11 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("erf"));
     intrinsicF.insert(string("erfc"));
     intrinsicF.insert(string("erfc_scaled"));
-    intrinsicF.insert(string("float"));
+    intrinsicF.insert(string("float"));    
     intrinsicF.insert(string("floati"));
     intrinsicF.insert(string("floatj"));
     intrinsicF.insert(string("floatk"));
+    intrinsicF.insert(string("floor"));
     intrinsicF.insert(string("gamma"));
     intrinsicF.insert(string("habs"));
     intrinsicF.insert(string("hbclr"));

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,11 +26,11 @@ extern int passDone;
 #include "../Distribution/Arrays.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "loop_analyzer.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
-#include "../AstWrapper.h"
+#include "directive_parser.h"
+#include "../Utils/SgUtils.h"
+#include "../Utils/AstWrapper.h"
 
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
@@ -1317,7 +1317,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         }
         else if (regime == COMP_DISTR)
         {
-            createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls);
+            createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls, messagesForFile);
 
             for (auto &loop : loopWithOutArrays)
             {
@@ -1343,7 +1343,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     tmpAdd.insert(make_pair(loopArray, &tmpArrayInfo));
                     convertedLoopInfo.insert(make_pair(loopRef, tmpAdd));
 
-                    createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, map<DIST::Array*, set<DIST::Array*>>());
+                    createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, map<DIST::Array*, set<DIST::Array*>>(), messagesForFile);
                 }
             }
         }

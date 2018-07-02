@@ -7,7 +7,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../GraphCall/graph_calls.h"
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 #include "acc_analyzer.h"
 

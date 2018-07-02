@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -10,8 +10,8 @@ using std::string;
 
 #include "dvm.h"
 #include "verifications.h"
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 
 void VarDeclCorrecter(SgFile *file)
 {

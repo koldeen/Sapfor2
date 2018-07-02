@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -14,8 +14,8 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "graph_calls.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
+#include "../LoopAnalyzer/directive_parser.h"
+#include "../Utils/SgUtils.h"
 
 using std::vector;
 using std::map;
@@ -27,6 +27,39 @@ using std::make_pair;
 using std::to_string;
 using std::cout;
 using std::endl;
+
+#define DEBUG 0
+
+//TODO: improve parameter checking 
+static void correctNameIfContains(SgStatement *call, SgExpression *exCall, string &name, 
+                                  const vector<SgStatement*> &containsFunctions, const string &prefix)
+{
+    if (containsFunctions.size() <= 0)
+        return;
+
+    if (call == NULL && exCall == NULL)
+        return;
+
+    for (auto &func : containsFunctions)
+    {
+        if (func->symbol()->identifier() == name)
+        {
+            int numPar = 0;
+            if (call && call->variant() == PROC_STAT)
+                numPar = isSgCallStmt(call)->numberOfArgs();
+            else if (exCall && exCall->variant() == FUNC_CALL)
+                numPar = isSgFunctionCallExp(exCall)->numberOfArgs();
+            else
+                return;
+
+            SgProgHedrStmt *f = (SgProgHedrStmt*)func;
+            //XXX
+            if (f->numberOfParameters() == numPar)
+                name = prefix  + name;
+            break;
+        }
+    }
+}
 
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
@@ -123,7 +156,6 @@ string removeString(const string toRemove, const string inStr)
     return outStr;
 }
 
-#define DEBUG 0
 //TODO:: add values
 static void processActualParams(SgExpression *parList, const map<string, vector<SgExpression*>> &commonBlocks, FuncParam *currParams)
 {
@@ -171,13 +203,16 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
 }
 
 static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
-                          const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames)
+                          const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames,
+                          const vector<SgStatement*> &containsFunctions, const string &prefix)
 {
     if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
     {
         for (auto &proc : entryProcs)
         {
             string nameOfCallFunc = curr->symbol()->identifier();
+            correctNameIfContains(NULL, curr, nameOfCallFunc, containsFunctions, prefix);
+
             proc->callsFrom.insert(nameOfCallFunc);
             proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc, line));
             proc->pointerDetailCallsFrom.push_back(make_pair(curr, FUNC_CALL));
@@ -187,9 +222,9 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
     }
 
     if (curr->lhs())
-        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames);
+        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
     if (curr->rhs())
-        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames);
+        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
 }
 
 static void findReplaceSymbolByExpression(SgExpression *parentEx, SgExpression *findIn, int pos, 
@@ -486,7 +521,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
     } while (changesDone);
 }
 
-void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
+static void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     cout << "*********Which parameters of current function are used in func calls inside it*********" << endl;
     for (auto &file1 : allFuncInfo)
@@ -533,34 +568,59 @@ void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
+static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
+{
+    SgStatement *end = st->lastNodeOfStmt();
+
+    bool containsStarted = false;
+    for (; st != end; st = st->lexNext())
+    {
+        if (containsStarted)
+        {
+            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+            {
+                found.push_back(st);
+                st = st->lastNodeOfStmt();
+            }
+        }
+
+        if (st->variant() == CONTAINS_STMT)
+            containsStarted = true;
+    }
+}
+
 void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
+    vector<SgStatement*> containsFunctions;
 
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
-        string currFunc = "";
+        string containsPrefix = getContainsPrefix(st);
 
+        string currFunc = "";
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-            currFunc = progH->symbol()->identifier();
+            currFunc = containsPrefix + progH->symbol()->identifier();
             __spf_print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-            currFunc = procH->symbol()->identifier();
+            currFunc = containsPrefix + procH->symbol()->identifier();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            currFunc = funcH->symbol()->identifier();
+            currFunc = containsPrefix + funcH->symbol()->identifier();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         SgStatement *lastNode = st->lastNodeOfStmt();
 
@@ -571,6 +631,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         
         map<string, vector<SgExpression*>> commonBlocks;
         getCommonBlocksRef(commonBlocks, st, lastNode);
+
+        if (st->controlParent()->variant() == GLOBAL)
+            containsFunctions.clear();
+
+        findContainsFunctions(st, containsFunctions);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
 
@@ -654,12 +719,15 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            const string prefix = containsPrefix == "" ? currFunc + "." : containsPrefix;
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
             {
+                string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                correctNameIfContains(st, NULL, pureNameOfCallFunc, containsFunctions, prefix);
+
                 for (auto &proc : entryProcs)
-                {
-                    string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                {                    
                     proc->callsFrom.insert(pureNameOfCallFunc);
                     proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
@@ -684,7 +752,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
             for (int i = 0; i < 3; ++i)
                 if (st->expr(i))
-                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);            
+                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames, containsFunctions, prefix);
 
             if (st->variant() == ENTRY_STAT)
             {
@@ -712,25 +780,22 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
     }
 }
 
-int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
+int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile, set<string> &V, vector<string> &E)
 {
-    FILE *out = fopen(fileName, "w");
-    if (out == NULL)
-    {
-        __spf_print(1, "can not open file %s\n", fileName);
-        return -1;
-    }
-
-    fprintf(out, "digraph G{\n");
+    string graph = "";
+    graph += "digraph G{\n";
 
     auto it = funcByFile.begin();
     int fileNum = 0;
     set<string> inCluster;
     set<string> unknownCluster;
 
+    char buf[1024];
     while (it != funcByFile.end())
     {
-        fprintf(out, "subgraph cluster%d {\n", fileNum);
+        sprintf(buf, "subgraph cluster%d {\n", fileNum);
+        graph += buf;
+
         const int dimSize = (int)it->second.size();
         set<string> uniqNames;
         for (int k = 0; k < dimSize; ++k)
@@ -741,11 +806,13 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
             {
                 uniqNames.insert(it, currfunc);
                 inCluster.insert(currfunc);
-                fprintf(out, "\"%s\"\n", currfunc.c_str());
+                sprintf(buf, "\"%s\"\n", currfunc.c_str());
+                graph += buf;
             }
         }
-        fprintf(out, "label = \"file <%s>\"\n", removeString(".\\", it->first).c_str());
-        fprintf(out, "}\n");
+        sprintf(buf, "label = \"file <%s>\"\n", removeString(".\\", it->first).c_str());
+        graph += buf;
+        graph += "}\n";
 
         fileNum++;
         it++;
@@ -761,11 +828,19 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
             const string &callFrom = it->second[k]->funcName;
             for (auto &i : it->second[k]->callsFrom)
             {
-                fprintf(out, formatString, callFrom.c_str(), i.c_str());
+                sprintf(buf, formatString, callFrom.c_str(), i.c_str());
+                graph += buf;
+
                 if (inCluster.find(callFrom) == inCluster.end())
                     unknownCluster.insert(callFrom);
                 if (inCluster.find(i) == inCluster.end())
                     unknownCluster.insert(i);
+                                
+                V.insert(i);
+                V.insert(callFrom);
+
+                E.push_back(callFrom);
+                E.push_back(i);                
             }
         }
         it++;
@@ -773,16 +848,34 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
 
     if (unknownCluster.size() > 0)
     {
-        fprintf(out, "subgraph cluster%d {\n", fileNum);
+        sprintf(buf, "subgraph cluster%d {\n", fileNum);
+        graph += buf;
+
         for (auto &func : unknownCluster)
-            fprintf(out, "\"%s\"\n", func.c_str());
-        fprintf(out, "label = \"file <UNKNOWN>\"\n");
-        fprintf(out, "}\n");
+        {
+            sprintf(buf, "\"%s\"\n", func.c_str());
+            graph += buf;
+        }
+        sprintf(buf, "label = \"file <UNKNOWN>\"\n");
+        graph += buf;
+        graph += "}\n";
     }
 
-    fprintf(out, "overlap=false\n");
-    fprintf(out, "}\n");
-    fclose(out);
+    graph += "overlap=false\n";
+    graph += "}\n";
+    
+    if (fileName)
+    {
+        FILE *out = fopen(fileName, "w");
+        if (out == NULL)
+        {
+            __spf_print(1, "can not open file %s\n", fileName);
+            return -1;
+        }
+
+        fprintf(out, graph.c_str());
+        fclose(out);
+    }
     return 0;
 }
 

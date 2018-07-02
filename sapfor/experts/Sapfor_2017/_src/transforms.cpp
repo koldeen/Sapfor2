@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -22,8 +22,8 @@
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
 
-#include "errors.h"
-#include "SgUtils.h"
+#include "Utils/errors.h"
+#include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
 #include "LoopAnalyzer/loop_analyzer.h"
 
@@ -51,8 +51,7 @@
 
 #include "dvm.h"
 #include "transform.h"
-#include "PassManager.h"
-#include "SgUtils.h"
+#include "Utils/PassManager.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -981,7 +980,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == CALL_GRAPH)
     {
         if (keepFiles)
-            CreateCallGraphWiz("_callGraph.txt", allFuncInfo);
+        {
+            set<string> V;
+            vector<string> E;
+            CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
+        }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);

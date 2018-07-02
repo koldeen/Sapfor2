@@ -1,3 +1,5 @@
+#include "../Utils/leak_detector.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>

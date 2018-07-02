@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +23,7 @@
 #include "errors.h"
 #include "version.h"
 
-#include "GraphLoop/graph_loops.h"
+#include "../GraphLoop/graph_loops.h"
 
 using std::map;
 using std::pair;

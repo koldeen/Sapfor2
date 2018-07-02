@@ -9,7 +9,7 @@
 #include "../Distribution/DvmhDirective.h"
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Distribution.h"
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 struct ParallelRegionLines
 {

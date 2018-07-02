@@ -128,10 +128,9 @@
     <ClCompile Include="..\..\_src\Distribution\DvmhDirectiveBase.cpp" />
     <ClCompile Include="..\..\_src\Distribution\GraphCSR.cpp" />
     <ClCompile Include="..\..\_src\GraphLoop\graph_loops_base.cpp" />
-    <ClCompile Include="..\..\_src\utils.cpp" />
+    <ClCompile Include="..\..\_src\Utils\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\_src\AstWrapper.h" />
     <ClInclude Include="..\..\_src\Distribution\Array.h" />
     <ClInclude Include="..\..\_src\Distribution\Arrays.h" />
     <ClInclude Include="..\..\_src\Distribution\CreateDistributionDirs.h" />
@@ -140,15 +139,12 @@
     <ClInclude Include="..\..\_src\Distribution\DvmhDirective.h" />
     <ClInclude Include="..\..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\..\_src\Distribution\GraphCSR.h" />
-    <ClInclude Include="..\..\_src\errors.h" />
     <ClInclude Include="..\..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h" />
-    <ClInclude Include="..\..\_src\leak_detector.h" />
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\..\_src\SapforData.h" />
     <ClInclude Include="..\..\_src\transform.h" />
-    <ClInclude Include="..\..\_src\types.h" />
-    <ClInclude Include="..\..\_src\utils.h" />
+    <ClInclude Include="..\..\_src\Utils\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

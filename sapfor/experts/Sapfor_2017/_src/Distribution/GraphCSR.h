@@ -7,7 +7,7 @@
 
 #include "Cycle.h"
 #include "Arrays.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 
 typedef enum links { RR_link, WR_link, WW_link } LinkType;
 

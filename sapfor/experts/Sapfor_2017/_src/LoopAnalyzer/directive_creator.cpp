@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -14,16 +14,16 @@
 #include "../Distribution/Arrays.h"
 #include "../Distribution/Distribution.h"
 
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "loop_analyzer.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
+#include "directive_parser.h"
+#include "../Utils/SgUtils.h"
 #include "../transform.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../LoopConverter/loop_transform.h"
 #include "../ExpressionTransform/expr_transform.h"
 
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 #define PRINT_DIR_RESULT 0
 #define PRINT_PROF_INFO  1
@@ -502,7 +502,8 @@ static void fillArraysWithAcrossStatus(LoopGraph *loopInfo, set<string> &uniqNam
 
 void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfos,
                               std::vector<ParallelRegion*> regions, map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
+                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              vector<Messages> &messages)
 {
     for (auto &loopInfo : loopInfos)
     {
@@ -581,7 +582,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                         minDim = currDim;
                         posDim = k;
                     }
-                    __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", uniqKey->GetShortName().c_str(), i->second.second.first, i->second.second.second);
+                    __spf_print(PRINT_DIR_RESULT, "    found writes for array %s -> [%d %d]\n", uniqKey->GetShortName().c_str(), i->second.second.first, i->second.second.second);                    
                     accesses.push_back(make_pair(uniqKey->GetName(), i->second));
                 }
 
@@ -622,7 +623,14 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                 statusOk = reducedG.hasTheSameAlignment(v1, accesses[i].second.second, v2, accesses[k].second.second);
                                 if (!statusOk)
+                                {
+                                    char buf[256];
+                                    sprintf(buf, "arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
+                                                  array1->GetShortName().c_str(), array2->GetShortName().c_str());
+                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, buf, 4011));
+                                    sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
                                     break;
+                                }
                             }
                             if (!statusOk)
                                 break;

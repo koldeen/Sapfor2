@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +8,9 @@
 #include <algorithm>
 
 #include "DvmhDirective.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "../transform.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 
 using std::vector;
 using std::tuple;

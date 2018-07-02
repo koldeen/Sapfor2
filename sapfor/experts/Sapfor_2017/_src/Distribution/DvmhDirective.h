@@ -5,13 +5,13 @@
 #include <set>
 #include <map>
 
-#include "../types.h"
+#include "../Utils/types.h"
 #include "DvmhDirectiveBase.h"
 #include "../transform.h"
 #include "Distribution.h"
-#include "../types.h"
-#include "../AstWrapper.h"
-#include "../utils.h"
+#include "../Utils/types.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/utils.h"
 
 struct AlignRule : public AlignRuleBase
 {

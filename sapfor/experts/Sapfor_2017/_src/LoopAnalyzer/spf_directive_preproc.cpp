@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -14,9 +14,9 @@
 #include "../transform.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../SgUtils.h"
-#include "../errors.h"
-#include "../directive_parser.h"
+#include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
+#include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
 
 using std::string;

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -8,7 +8,7 @@
 
 #include "dvm.h"
 #include "verifications.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 
 int VerifyFile(SgFile *file)
 {

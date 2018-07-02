@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include "dvm.h"
 #include <stdlib.h>
@@ -14,8 +14,8 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
 #include "expr_transform.h"
 

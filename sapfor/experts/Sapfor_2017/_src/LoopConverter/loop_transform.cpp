@@ -1,7 +1,7 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include "loop_transform.h"
-#include <directive_parser.h>
+#include "../LoopAnalyzer/directive_parser.h"
 
 #include <LoopTransformTighten.hpp>
 #include <SageTransformException.hpp>
@@ -9,7 +9,7 @@
 #include <SageUtils.hpp>
 #include "SageAnalysisTool/OmegaForSage/include/lang-interf.h"
 #include <SageAnalysisTool/definesValues.h>
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 using SageTransform::SageUtils::getLastLoopStatement;
 using SageTransform::DependencyType;

@@ -9,8 +9,8 @@
 #include "../GraphCall/graph_calls.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../AstWrapper.h"
-#include "../SgUtils.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/SgUtils.h"
 
 #include "dvm.h"
 
@@ -44,7 +44,8 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 
 void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                               std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              std::vector<Messages> &messagesForFile);
 
 void selectParallelDirectiveForVariant(SgFile *file, 
                                        ParallelRegion *currReg,

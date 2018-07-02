@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +18,7 @@ using std::pair;
 using std::make_pair;
 
 #include "graph_loops.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
 
 static void fillWriteReadOps(LoopGraph *&currLoop, DIST::Array *symbol, const ArrayInfo *arrayOps)
