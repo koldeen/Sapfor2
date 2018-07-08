@@ -461,7 +461,9 @@ static inline void findArrayRefInParameters(SgExpression *parList, const set<str
 static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int lineNum, const int side, 
                          map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, const int currLine, const set<string> &privatesVars,
                          map<int, LoopGraph*> &sortedLoopGraph, const map<string, vector<SgExpression*>> &commonBlocks,
-                         const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, bool wasDistributedArrayRef)
+                         const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
+                         bool wasDistributedArrayRef, map<string, pair<SgSymbol*, SgStatement*>> &notMappedDistributedArrays,
+                         set<string> &mappedDistrbutedArrays, SgStatement *currentSt)
 {
     if (currExp->variant() == ARRAY_REF)
     {
@@ -494,6 +496,16 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                 
                 __spf_print(PRINT_ARRAY_ARCS, "%s to array <%s> on line %d: ", printSide, OriginalSymbol(currExp->symbol())->identifier(), lineNum);
                 matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph);
+                                
+                if (parentLoops.size() == 0)
+                {
+                    SgSymbol *symb = currExp->symbol();
+                    if (symb->type()->variant() == T_ARRAY)
+                        notMappedDistributedArrays[symb->identifier()] = make_pair(symb, currentSt);
+                }
+                else
+                    mappedDistrbutedArrays.insert(currExp->symbol()->identifier());
+
                 __spf_print(PRINT_ARRAY_ARCS, "\n");
             }
         }
@@ -565,9 +577,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
     }
 
     if (currExp->lhs())
-        findArrayRef(parentLoops, currExp->lhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef);
+        findArrayRef(parentLoops, currExp->lhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
     if (currExp->rhs())
-        findArrayRef(parentLoops, currExp->rhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef);
+        findArrayRef(parentLoops, currExp->rhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
 }
 
 #define FIRST(x)  get<0>(x)
@@ -805,6 +817,65 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
 }
 
 extern map<DIST::Array*, std::tuple<int, string, string>> tableOfUniqNamesByArray;
+static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &outInfo,
+                           const map<SgSymbol*, ArrayInfo> &toConvert,
+                           const set<string> &privateArrays,
+                           const map<string, vector<SgExpression*>> &commonBlocks,
+                           const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                           map<tuple<int, string, string>, DIST::Array*> &createdArrays)
+{
+    map<DIST::Array*, const ArrayInfo*> toAdd;
+    for (auto it1 = toConvert.begin(); it1 != toConvert.end(); ++it1)
+    {
+        SgSymbol *currentArray = it1->first;
+        const ArrayInfo *currentInfo = &(it1->second);
+
+        DIST::Array *arrayToAdd;
+
+        SgStatement *decl = declaratedInStmt(currentArray);
+        const char *symbIdent = currentArray->identifier();
+
+        if (privateArrays.find(symbIdent) == privateArrays.end())
+        {
+            const tuple<int, string, string> uniqKey = getUniqName(commonBlocks, decl, currentArray);
+
+            auto itFound = createdArrays.find(uniqKey);
+            if (itFound == createdArrays.end())
+            {
+                auto itArray = declaratedArrays.find(uniqKey);
+                if (itArray == declaratedArrays.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                arrayToAdd = itArray->second.first;
+                itFound = createdArrays.insert(itFound, make_pair(uniqKey, arrayToAdd));
+            }
+            else
+                arrayToAdd = itFound->second;
+
+            if (arrayToAdd->GetNonDistributeFlag() == true)
+                continue;
+
+            set<DIST::Array*> links;
+            getRealArrayRefs(arrayToAdd, arrayToAdd, links, arrayLinksByFuncCalls);
+
+            for (auto linkedArray = links.begin(); linkedArray != links.end(); ++linkedArray)
+            {
+                if (arrayToAdd == *linkedArray)
+                    continue;
+
+                auto key = tableOfUniqNamesByArray[*linkedArray];
+                auto value = declaratedArrays.find(key)->second;
+                if (value.second == 0 && createdArrays.find(key) == createdArrays.end())
+                    createdArrays.insert(make_pair(key, *linkedArray));
+            }
+
+            toAdd[arrayToAdd] = currentInfo;
+        }
+    }
+    outInfo[currLoop] = toAdd;
+}
+
 static map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> 
        convertLoopInfo(const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
                        const map<int, LoopGraph*> &sortedLoopGraph,
@@ -821,57 +892,8 @@ static map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>>
         auto itGraph = sortedLoopGraph.find(it->first->lineNumber());
         if (itGraph == sortedLoopGraph.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        const map<SgSymbol*, ArrayInfo> &toConvert = it->second;
-        map<DIST::Array*, const ArrayInfo*> toAdd;
-        for (auto it1 = toConvert.begin(); it1 != toConvert.end(); ++it1)
-        {
-            SgSymbol *currentArray = it1->first;
-            const ArrayInfo *currentInfo = &(it1->second);
-
-            DIST::Array *arrayToAdd;
-
-            SgStatement *decl = declaratedInStmt(currentArray);
-            const char *symbIdent = currentArray->identifier();
-
-            if (privateArrays.find(symbIdent) == privateArrays.end())
-            {
-                const tuple<int, string, string> uniqKey = getUniqName(commonBlocks, decl, currentArray);
-
-                auto itFound = createdArrays.find(uniqKey);
-                if (itFound == createdArrays.end())
-                {
-                    auto itArray = declaratedArrays.find(uniqKey);
-                    if (itArray == declaratedArrays.end())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    arrayToAdd = itArray->second.first;
-                    itFound = createdArrays.insert(itFound, make_pair(uniqKey, arrayToAdd));
-                }
-                else
-                    arrayToAdd = itFound->second;
-
-                if (arrayToAdd->GetNonDistributeFlag() == true)
-                    continue;
-
-                set<DIST::Array*> links;
-                getRealArrayRefs(arrayToAdd, arrayToAdd, links, arrayLinksByFuncCalls);
-
-                for (auto linkedArray = links.begin(); linkedArray != links.end(); ++linkedArray)
-                {
-                    if (arrayToAdd == *linkedArray)
-                        continue;
-
-                    auto key = tableOfUniqNamesByArray[*linkedArray];
-                    auto value = declaratedArrays.find(key)->second;
-                    if (value.second == 0 && createdArrays.find(key) == createdArrays.end())
-                        createdArrays.insert(make_pair(key, *linkedArray));
-                }
-
-                toAdd[arrayToAdd] = currentInfo;
-            }
-        }
-        outInfo[itGraph->second] = toAdd;
+        
+        convertOneLoop(itGraph->second, outInfo, it->second, privateArrays, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays); 
     }
 
     return outInfo;
@@ -985,6 +1007,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         //For remote access
         pair<SgForStmt*, LoopGraph*> *under_dvm_dir = NULL;
         map<string, SgArrayRefExp*> uniqRemotes;
+
+        map<string, pair<SgSymbol*, SgStatement*>> notMappedDistributedArrays;
+        set<string> mappedDistrbutedArrays;
 
         while (st != lastNode)
         {
@@ -1112,9 +1137,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             else if (currV == ASSIGN_STAT)
             {
                 if (st->expr(0))
-                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
                 if (st->expr(1))
-                    findArrayRef(parentLoops, st->expr(1), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(1), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
 
                 if (regime == REMOTE_ACC)
                 {
@@ -1159,7 +1184,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             {
                 if (st->expr(0))
                 {
-                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
                     if (regime == REMOTE_ACC)
                     {
                         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
@@ -1209,14 +1234,23 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
                 if (isDVM_stat(st) == false)
                 {
-                    if (isSgExecutableStatement(st) && st->expr(0) && regime == REMOTE_ACC &&
-                        (currV == SWITCH_NODE || currV == FORALL_STAT || currV == WHILE_NODE ||
-                         currV == WHERE_NODE || currV == ALLDO_NODE || currV == ARITHIF_NODE ||
-                         currV == ASSGOTO_NODE || currV == COMGOTO_NODE))
+                    if (regime == REMOTE_ACC)
                     {
-                        const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-                        if (under_dvm_dir == NULL)
-                            createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
+                        if (isSgExecutableStatement(st) && st->expr(0) &&
+                            (currV == SWITCH_NODE || currV == FORALL_STAT || currV == WHILE_NODE ||
+                                currV == WHERE_NODE || currV == ALLDO_NODE || currV == ARITHIF_NODE ||
+                                currV == ASSGOTO_NODE || currV == COMGOTO_NODE))
+                        {
+                            const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
+                            if (under_dvm_dir == NULL)
+                                createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
+                        }
+                    }
+                    else
+                    {
+                        for (int z = 0; z < 3; ++z)
+                            if (st->expr(z))
+                                findArrayRef(parentLoops, st->expr(z), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
                     }
                 }
             }
@@ -1236,7 +1270,41 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             for (auto &loop : convertedLoopInfo)
                 tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection);
 
+            vector<LoopGraph*> tmpLoops;
+            if (file->functions(i)->variant() != PROG_HEDR)
+            {
+                for (auto &notMapped : notMappedDistributedArrays)
+                {
+                    if (mappedDistrbutedArrays.find(notMapped.first) == mappedDistrbutedArrays.end())
+                    {
+                        auto reg = getRegionByLine(regions, notMapped.second.second->fileName(), notMapped.second.second->lineNumber());
+                        if (reg)
+                        {
+                            LoopGraph *tmpLoop = new LoopGraph();
+
+                            tmpLoop->region = reg;
+                            tmpLoops.push_back(tmpLoop);
+
+                            map<SgSymbol*, ArrayInfo> toConvert;
+
+                            ArrayInfo toAdd;
+                            SgSymbol *arrayS = notMapped.second.first;
+                            toAdd.dimSize = ((SgArrayType*)arrayS->type())->dimension();
+                            
+                            for (int z = 0; z < toAdd.dimSize; ++z)
+                                toAdd.readOps.push_back(ArrayOp(make_pair(1, 0)));
+                            
+                            toConvert[arrayS] = toAdd;
+                            convertOneLoop(tmpLoop, convertedLoopInfo, toConvert, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays);
+                        }
+                    }
+                }
+            }
+
             addToDistributionGraph(convertedLoopInfo, arrayLinksByFuncCalls);
+
+            for (auto &toDel : tmpLoops)
+                delete toDel;            
 
             for (auto &loop : loopWithOutArrays)
             {
@@ -1360,7 +1428,9 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     map<string, vector<SgExpression*>> commonBlocks;
     map<int, LoopGraph*> sortedLoopGraph;
     map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> allLoops;
-    
+    map<string, pair<SgSymbol*, SgStatement*>> notMappedDistributedArrays;
+    set<string> mappedDistrbutedArrays;
+
     int funcNum = file->numberOfFunctions();
     __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
 
@@ -1444,14 +1514,14 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             else if (currV == ASSIGN_STAT)
             {
                 if (st->expr(0))
-                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
                 if (st->expr(1))
-                    findArrayRef(parentLoops, st->expr(1), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(1), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
             }
             else if (currV == IF_NODE || currV == ELSEIF_NODE || currV == LOGIF_NODE || currV == SWITCH_NODE)
             {
                 if (st->expr(0))
-                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false);
+                    findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
             }
             st = st->lexNext();
         }
@@ -1590,7 +1660,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         getCommonBlocksRef(commonBlocks, st, lastNode);
         set<string> privates;
         set<string> deprecatedByIO;
-
+        map<string, set<string>> reductions;
+        map<string, set<tuple<string, string, int>>> reductionsLoc;
+        
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
             if (iter->variant() == CONTAINS_STMT)
@@ -1598,11 +1670,32 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
             //after SPF preprocessing 
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
+            {
                 fillPrivatesFromComment(data, privates);
+                fillReductionsFromComment(data, reductions);
+                fillReductionsFromComment(data, reductionsLoc);
+            }
 
             //before SPF preprocessing 
             if (iter->variant() == SPF_ANALYSIS_DIR)
+            {
                 fillPrivatesFromComment(iter, privates);
+                fillReductionsFromComment(iter, reductions);
+                fillReductionsFromComment(iter, reductionsLoc);
+            }
+        }
+
+        for (auto &elem : reductions)
+            for (auto &setElem : elem.second)
+                privates.insert(setElem);
+
+        for (auto &elem : reductionsLoc)
+        {
+            for (auto &setElem : elem.second)
+            {
+                privates.insert(get<0>(setElem));
+                privates.insert(get<1>(setElem));
+            }
         }
 
         //analyze IO operations

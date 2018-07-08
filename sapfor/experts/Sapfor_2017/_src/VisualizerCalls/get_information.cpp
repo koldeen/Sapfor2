@@ -359,41 +359,6 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     return retSize;
 }
 
-int SPF_GetProgramAnalysis(int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
-{
-    MessageManager::clearCache();
-    MessageManager::setWinHandler(winHandler);
-    clearGlobalMessagesBuffer();
-    setOptions(options);
-
-    int retSize = -1;
-    try
-    {
-        runPassesForVisualizer(projName, { LOOP_ANALYZER_DATA_DIST_S1 });
-    }
-    catch (int ex)
-    {
-        try { __spf_print(1, "catch code %d\n", ex); }
-        catch (...) {}
-        if (ex == -99)
-            return -99;
-        else
-            retSize = -1;
-    }
-    catch (...)
-    {
-        retSize = -1;
-    }
-
-    convertGlobalBuffer(output, outputSize);
-    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
-
-    MessageManager::setWinHandler(-1);
-    return retSize;
-}
-
 extern int PASSES_DONE[EMPTY_PASS];
 extern int *ALGORITHMS_DONE[EMPTY_ALGO];
 
@@ -423,7 +388,7 @@ extern vector<ParallelRegion*> parallelRegions;
 extern uint64_t currentAvailMemory;
 extern int QUALITY;
 int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
-                             short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality)
+                             short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality_1, int quality_2, int onlyAnalysis)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -436,13 +401,16 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     int retSize = -1;
     try
     {
-        printf("SAPFOR: current quality %d\n", quality);
-        if (quality >= 0 && quality <= 100)
-            QUALITY = quality;
+        printf("SAPFOR: current quality %d %d\n", quality_1, quality_2);
+        if (quality_1 >= 0 && quality_1 <= 100)
+            QUALITY = quality_1;
         else
             QUALITY = 0;
                     
-        runPassesForVisualizer(projName, { CREATE_DISTR_DIRS });
+        if (onlyAnalysis)
+            runPassesForVisualizer(projName, { LOOP_ANALYZER_DATA_DIST_S1 });
+        else
+            runPassesForVisualizer(projName, { CREATE_DISTR_DIRS });
 
         string resVal = "";
         resVal += to_string(parallelRegions.size());

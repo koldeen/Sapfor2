@@ -11,6 +11,10 @@ struct ArrayOp
 {
     // stored ARRAY[A*x + B] -> (A, B)
     std::vector<std::pair<int, int>> coefficients;
+
+    ArrayOp() { }
+    ArrayOp(const std::pair<int, int> &pair) { coefficients.push_back(pair); }
+    ArrayOp(const std::vector<std::pair<int, int>> &coefficients) : coefficients(coefficients) { }
 };
 
 struct ArrayInfo

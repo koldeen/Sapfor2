@@ -1483,8 +1483,9 @@ static inline void addLinks(const FuncParam &actual, const FuncParam &formal, ma
     }
 }
 
-static void propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
+static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
 {
+    bool globalChange = false;
     if (from->GetNonDistributeFlagVal() == flag)
     {
         for (auto &realRef : to)
@@ -1493,9 +1494,81 @@ static void propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag 
             {
                 realRef->SetNonDistributeFlag(flag);
                 change = true;
+                globalChange = true;
             }
         }
     }
+
+    return globalChange;
+}
+
+static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    bool globalChange = false;
+    bool change = true;
+    while (change)
+    {
+        change = false;
+        for (auto &array : declaratedArrays)
+        {
+            set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+
+            bool allNonDistr = true;
+            bool allDistr = true;
+            bool nonDistrSpfPriv = false;
+            bool nonDistrIOPriv = false;
+            bool init = false;
+
+            // propagate SPF to down calls
+            for (auto &realRef : realArrayRefs)
+            {
+                if (realRef != array.second.first)
+                {
+                    bool nonDistr = realRef->GetNonDistributeFlag();
+                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+                        nonDistrSpfPriv = true;
+                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
+                        nonDistrIOPriv = true;
+
+                    allNonDistr = allNonDistr && nonDistr;
+                    allDistr = allDistr && !nonDistr;
+                    init = true;
+                }
+            }
+
+            if (init)
+            {
+                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
+                {
+                    if (isDown)
+                    {
+                        if (nonDistrSpfPriv)
+                            array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                        else if (nonDistrIOPriv)
+                            array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
+                        else
+                            array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                        change = true;
+                        globalChange = true;
+                    }
+                }
+                else
+                {
+                    if (!isDown)
+                    {
+                        bool ret = propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
+                        globalChange = globalChange || ret;
+                        ret = propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
+                        globalChange = globalChange || ret;
+                        //propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
+                    }
+                }
+            }
+        }
+    }
+
+    return globalChange;
 }
 
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1514,55 +1587,12 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     bool change = true;
-    // set nonDistr flag if all links not distr
     while (change)
     {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
+        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
 
-            bool allNonDistr = true;
-            bool nonDistrSpfPriv = false;
-            bool nonDistrIOPriv = false;
-            bool init = false;
-
-            // propagate SPF to down calls
-            for (auto &realRef : realArrayRefs)
-            {
-                if (realRef != array.second.first)
-                {
-                    bool nonDistr = realRef->GetNonDistributeFlag();
-                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
-                        nonDistrSpfPriv = true;
-                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
-                        nonDistrIOPriv = true;
-                    allNonDistr = allNonDistr && nonDistr;
-                    init = true;
-                }
-            }
-
-            if (init)
-            {
-                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
-                {
-                    if (nonDistrSpfPriv)
-                        array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
-                    else if (nonDistrIOPriv)
-                        array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
-                    else
-                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-                    change = true;
-                }
-                else
-                {
-                    propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
-                    propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
-                    propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
-                }
-            }            
-        }
+        change = changeD || changeU;
     }
 
     //propagate distr state

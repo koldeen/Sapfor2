@@ -39,6 +39,7 @@ public:
         parent = NULL;
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
+        calculatedCountOfIters = 0;
     }
 
     ~LoopGraph()

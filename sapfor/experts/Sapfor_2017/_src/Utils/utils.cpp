@@ -641,3 +641,52 @@ void findAndReplaceDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &
         (std::get<1>(rule[i])) = alignTo;
     }
 }
+
+vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId)
+{
+    if (to->isTemplate())
+    {
+        if (to != from->GetTemplateArray(regionId))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        return from->GetLinksWithTemplate(regionId);
+    }
+    else
+    {
+        vector<int> retVal(from->GetDimSize());
+        std::fill(retVal.begin(), retVal.end(), -1);
+
+        if (to->GetTemplateArray(regionId) != from->GetTemplateArray(regionId))
+        {
+            string leftT = to->GetTemplateArray(regionId) ? to->GetTemplateArray(regionId)->GetShortName() : "nul";
+            string rightT = from->GetTemplateArray(regionId) ? from->GetTemplateArray(regionId)->GetShortName() : "nul";
+            __spf_print(1, "regionId = %d: templates for array %s and %s not eq: %s != %s\n", 
+                        regionId, from->GetName().c_str(), to->GetName().c_str(), leftT.c_str(), rightT.c_str());
+
+            //printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        else
+        {
+            auto ruleL = from->GetAlignRulesWithTemplate(regionId);
+            auto ruleR = to->GetAlignRulesWithTemplate(regionId);
+
+            int currD = 0;
+            for (auto &elem1 : ruleL)
+            {                
+                int idx = 0;
+                for (auto &elem2 : ruleR)
+                {
+                    if (elem2 == elem1)
+                    {
+                        retVal[currD] = idx;
+                        break;
+                    }
+                    ++idx;
+                }
+                ++currD;
+            }
+        }
+
+        return retVal;
+    }
+}

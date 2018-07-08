@@ -770,7 +770,9 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+                break;
             case POINTER_ASSIGN_STAT:
+                b->adjustGenAndKill(cfi);
                 break;
             default:
                 for (int i = 0; i < 3; ++i)

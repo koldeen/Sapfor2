@@ -277,7 +277,7 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
         ParallelRegion *currReg = it->first->region;
         if (currReg == NULL)
         {
-            __spf_print(1, "Skip loop on line %d\n", it->first->lineNum);
+            __spf_print(1, "Skip loop on line %d - no parallel region for this loop\n", it->first->lineNum);
             continue;
         }
 
@@ -314,7 +314,7 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
     }
 }
 
-bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
+bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
 {
     ParallelRegion *currReg = loopInfo->region;
     if (currReg == NULL || loopInfo->calculatedCountOfIters == 0 || loopInfo->hasLimitsToParallel())

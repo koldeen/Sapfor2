@@ -1558,7 +1558,8 @@ namespace Distribution
 
         vector<vType> vertNum;
         int err = allArrays.GetAllVertNumber(from, vertNum);
-        assert(err == 0);
+        if (err != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         for (int i = 0; i < from->GetDimSize(); ++i)
         {

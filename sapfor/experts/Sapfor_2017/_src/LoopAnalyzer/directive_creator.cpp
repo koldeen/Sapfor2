@@ -815,7 +815,7 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
 static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                     DIST::GraphCSR<int, double, attrType> &reducedG,
-                                    DIST::Arrays<int> &allArrays)
+                                    DIST::Arrays<int> &allArrays, const int regionId)
 {
     bool ok = true;
     if (templ == NULL)
@@ -829,20 +829,7 @@ static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST:
         vector<vector<int>> AllLinks(realArrayRef.size());
         int currL = 0;
         for (auto &array : realArrayRef)
-        {
-            reducedG.FindLinksBetweenArrays(allArrays, array, templ, AllLinks[currL++]);
-            bool noneLink = true;
-            for (auto &elem : AllLinks[currL - 1])
-            {
-                if (elem != -1)
-                {
-                    noneLink = false;
-                    break;
-                }
-            }
-            if (noneLink == false)
-                break;
-        }
+            AllLinks[currL++] = findLinksBetweenArrays(array, templ, regionId);
 
         if (isAllRulesEqual(AllLinks))
             array.second = AllLinks[0];
@@ -860,7 +847,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                              const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                              const set<DIST::Array*> &allArraysInLoop,
                              vector<Messages> &messages, const int loopLine,
-                             map<DIST::Array*, vector<bool>> &dimsNotMatch)
+                             map<DIST::Array*, vector<bool>> &dimsNotMatch, const int regionId)
 {    
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
@@ -954,7 +941,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
-    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays);
+    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
     
     // check main array
     if (dir.arrayRef2 != dir.arrayRef)
@@ -988,6 +975,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
 
             DIST::Array* key = array.first;
             dimsNotMatch[key] = vector<bool>(array.first->GetDimSize());
+
             auto it = dimsNotMatch.find(key);
             std::fill(it->second.begin(), it->second.end(), false);
 
@@ -1446,7 +1434,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 {
                      //<Array, linksWithTempl> -> dims not mached
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
-                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch))
+                    if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
                         if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays))
                             addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);

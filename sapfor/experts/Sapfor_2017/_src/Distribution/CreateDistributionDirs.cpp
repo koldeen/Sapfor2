@@ -368,7 +368,11 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
     }
     
     if (manyDistrRules.size() > 0)
+    {
+        for (auto &array : manyDistrRules)
+            __spf_print(1, "diferent align rules for array %s was found\n", array->GetName().c_str());
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
 
     return 0;
 }

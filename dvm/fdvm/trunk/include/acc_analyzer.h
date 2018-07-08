@@ -535,7 +535,9 @@ class CBasicBlock
 #ifdef __SPF
     bool varIsPointer(SgSymbol* symbol);
     void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
+    void processPointerAssignment(SgSymbol *symbol, SgExpression *right);
 
+    std::map <SymbolKey, std::set<SgExpression*>> extraPointersGen;
     std::map <SymbolKey, SgExpression*> gen;
     std::set <SymbolKey> kill;
     std::map <SymbolKey, std::map<std::string, SgExpression*>> in_defs;
@@ -602,7 +604,7 @@ public:
 
 #ifdef __SPF
     AnalysedCallsList* getProc() { return proc; }
-    void clearGenKill() { gen.clear(); kill.clear(); }
+    void clearGenKill() { gen.clear(); kill.clear(); extraPointersGen.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void addVarToGen(SymbolKey var, SgExpression* value);
     void addVarToKill(const SymbolKey &key);
@@ -612,6 +614,8 @@ public:
     void correctInDefsSimple();
     bool correctInDefsIterative();
     const std::map<SymbolKey, std::set<SgExpression*>> getReachedDefinitions(SgStatement* stmt);
+    void initializeOutWithGen();
+
 
     inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
     inline std::set<SymbolKey>* getKill() { return &kill; }

@@ -450,8 +450,9 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
         int templIdx = findTeplatePosition(templ, dataDir);
         string templDecl = genTemplateDelc(templ);
         string templDist = genTemplateDistr(templ, distrRules, regionId, templIdx);
+        string templDyn = "!DVM$ DYNAMIC " + templ->GetShortName() + "\n";
 
-        return make_pair(make_tuple(templDecl, templDist, ""), "!DVM$ INHERIT\n");
+        return make_pair(make_tuple(templDecl, templDist, templDyn), "!DVM$ INHERIT\n");
     }
     else
     {

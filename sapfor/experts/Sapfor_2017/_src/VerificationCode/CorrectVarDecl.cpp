@@ -11,15 +11,19 @@ using std::string;
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
-#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
+#include <vector>
+
+using std::vector;
 
 void VarDeclCorrecter(SgFile *file)
 {
-    int funcNum = file->numberOfFunctions();
+    vector<SgStatement*> funcMod;
+    getModulesAndFunctions(file, funcMod);
 
-    for (int i = 0; i < funcNum; ++i)
+    for (auto &elem : funcMod)
     {
-        SgStatement *st = file->functions(i);
+        SgStatement *st = elem;
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         while (st != lastNode)
@@ -33,7 +37,7 @@ void VarDeclCorrecter(SgFile *file)
 
             if (st->variant() == CONTAINS_STMT)
                 break;
-
+                
             if (isSgVarDeclStmt(st))
             {
                 int is_assign = 0;

@@ -56,3 +56,5 @@ inline void sendMessage_2lvl(const std::wstring &toSend);
 extern void sendMessage_1lvl(const std::wstring &toSend);
 extern void sendMessage_2lvl(const std::wstring &toSend);
 #endif
+
+std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
