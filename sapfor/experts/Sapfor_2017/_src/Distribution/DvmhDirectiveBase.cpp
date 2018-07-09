@@ -9,7 +9,7 @@
 
 #include "DvmhDirective.h"
 #include "../Utils/errors.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../Utils/utils.h"
 
 using std::vector;

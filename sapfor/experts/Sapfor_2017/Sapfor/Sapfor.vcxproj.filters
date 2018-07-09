@@ -69,9 +69,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\_src\transforms.cpp">
-      <Filter>Файлы исходного кода</Filter>
-    </ClCompile>
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
       <Filter>Файлы исходного кода\Distribution</Filter>
     </ClCompile>
@@ -267,6 +264,9 @@
     <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\Sapfor.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -322,9 +322,6 @@
     </ClInclude>
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h">
       <Filter>Файлы исходного кода\VisualizerCalls</Filter>
-    </ClInclude>
-    <ClInclude Include="..\_src\transform.h">
-      <Filter>Файлы исходного кода</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h">
       <Filter>Файлы исходного кода\ExpressionTransform</Filter>
@@ -394,6 +391,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Sapfor.h">
+      <Filter>Файлы исходного кода</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

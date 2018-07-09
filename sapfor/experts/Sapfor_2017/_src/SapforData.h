@@ -11,7 +11,7 @@
 #include "GraphCall/graph_calls.h"
 #include "GraphLoop/graph_loops.h"
 #include "Utils/AstWrapper.h"
-#include "transform.h"
+#include "Sapfor.h"
 #include "Utils/errors.h"
 
 extern std::map<std::string, std::string> shortFileNames;
@@ -28,6 +28,7 @@ int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
+int SPEED;   // speed of conflicts search in graph
 
 std::map<DIST::Array*, std::tuple<int, std::string, std::string>> tableOfUniqNamesByArray;
 

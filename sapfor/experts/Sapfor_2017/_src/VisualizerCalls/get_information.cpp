@@ -22,11 +22,11 @@
 #include "../Utils/version.h"
 #include "get_information.h"
 #include "dvm.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../Utils/utils.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
 
@@ -387,6 +387,7 @@ static void printDeclArraysState()
 extern vector<ParallelRegion*> parallelRegions;
 extern uint64_t currentAvailMemory;
 extern int QUALITY;
+extern int SPEED;
 int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                              short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality_1, int quality_2, int onlyAnalysis)
 {
@@ -401,12 +402,17 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     int retSize = -1;
     try
     {
-        printf("SAPFOR: current quality %d %d\n", quality_1, quality_2);
+        printf("SAPFOR: current quality = %d, speed = %d\n", quality_1, quality_2);
         if (quality_1 >= 0 && quality_1 <= 100)
             QUALITY = quality_1;
         else
             QUALITY = 0;
-                    
+        
+        if (quality_2 >= 0 && quality_2 <= 100)
+            SPEED = quality_2;
+        else
+            SPEED = 0;
+
         if (onlyAnalysis)
             runPassesForVisualizer(projName, { LOOP_ANALYZER_DATA_DIST_S1 });
         else

@@ -48,7 +48,7 @@ namespace Distribution
         uint64_t maxAvailMemory;
 
         std::map<vType, std::map<vType, std::tuple<int, Array*, std::pair<float, float>>>> cacheLinks;
-        int countRequestsToAdd;
+        int countRequestsToAdd, countMissToAdd;
     private:
         GraphCSR(const std::vector<vType> &neighbors, const std::vector<vType> &edges,
                  const std::vector<wType> &weights, const std::vector<vType> &localIdx,
@@ -64,7 +64,7 @@ namespace Distribution
         vType GetLocalVNum(const vType &V, bool &ifNew);
         void AddEdgeToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew, const uint8_t linkType);
         void IncreaseWeight(const int &idx, const int &idxRev, const wType &W);
-        int CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew);        
+        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew);        
         std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
 
         //old algorithm without sort in the fly
@@ -91,6 +91,7 @@ namespace Distribution
             this->maxChainLen = G.maxChainLen;
             this->maxAvailMemory = G.maxAvailMemory;
             this->countRequestsToAdd = G.countRequestsToAdd;
+            this->countMissToAdd = G.countMissToAdd;
         }
 
         void cleanData()
@@ -111,6 +112,7 @@ namespace Distribution
 
             cacheLinks.clear();
             countRequestsToAdd = 0;
+            countMissToAdd = 0;
         }
 
         void ClearGraphCSR()
@@ -129,6 +131,7 @@ namespace Distribution
             maxChainLen = MAX_CHAIN_LEN;
             maxAvailMemory = 0;
             countRequestsToAdd = 0;
+            countMissToAdd = 0;
         }
 
         bool SaveGraphToFile(FILE *file);
@@ -162,6 +165,7 @@ namespace Distribution
         void SetMaxAvailMemory(const uint64_t memSize) { maxAvailMemory = memSize; }
         void ChangeQuality(const int newMaxLoopDim, const int newMaxChainLen) { SetMaxLoopDim(newMaxLoopDim); SetMaxChainLen(newMaxChainLen); }
         int getCountOfReq() const { return countRequestsToAdd; }
+        int getCountOfMiss() const { return countMissToAdd; }
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);

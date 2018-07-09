@@ -7,7 +7,7 @@
 
 #include "../Utils/types.h"
 #include "DvmhDirectiveBase.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "Distribution.h"
 #include "../Utils/types.h"
 #include "../Utils/AstWrapper.h"

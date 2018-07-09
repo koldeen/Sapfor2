@@ -11,7 +11,7 @@
 #include <set>
 
 #include "dvm.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
 #include "../Utils/SgUtils.h"

@@ -99,6 +99,7 @@ namespace Distribution
                 neighbors.push_back(neighbors.back() + 1);
             numVerts++;
         }
+
         edges.insert(edges.begin() + neighbors[V1], V2);
         weights.insert(weights.begin() + neighbors[V1], W);
         attributes.insert(attributes.begin() + neighbors[V1], attr);
@@ -115,7 +116,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     int GraphCSR<vType, wType, attrType>::
-         CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew)
+         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew)
     {
         int ifExist = -1;
         if (!ifNew)
@@ -599,8 +600,11 @@ namespace Distribution
         localV2 = GetLocalVNum(V2, ifNew2);
         attrType attrRev = make_pair(attr.second, attr.first);
 
-        int idxExist = CheckExist(localV1, localV2, W, attr, ifNew1);
-        int idxExistRev = CheckExist(localV2, localV1, W, attrRev, ifNew2);
+
+        int idxExist = -1, idxExistRev = -1;
+
+        idxExist = CheckExist(localV1, localV2, attr, ifNew1);
+        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2);
 
         bool ifExist = (idxExist != -1) && (idxExistRev != -1);
 
@@ -610,6 +614,7 @@ namespace Distribution
             AddEdgeToGraph(localV1, localV2, W, attr, ifNew1, linkType);
             AddEdgeToGraph(localV2, localV1, W, attrRev, ifNew2, linkType);
             numEdges += 2;
+            countMissToAdd++;
         }
         else
         {

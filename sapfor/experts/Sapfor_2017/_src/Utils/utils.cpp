@@ -103,15 +103,17 @@ string OnlyExt(const char *filename)
 void printHelp()
 {
     printf("Help info for passes.\n\n");
-    printf(" -f90     free form\n");
+    printf(" -f90      free form\n");
     //printf(" -sh      turn on static shadow analysis\n");
-    printf(" -priv    turn on static private analysis\n");
-    printf(" -keep    keep temporary files\n");
-    printf(" -keepSPF keep SPF directives\n");
-    printf(" -keepDVM keep DVM directives\n");
-    printf(" -allVars get all parallel versions\n");
-    printf(" -Var N   get specific parallel version, N=1,2,..\n");
-    printf(" -q Q     quality of analysis in percent (1..100, default 100)\n");
+    printf(" -ver/-Ver version of SAPFOR\n");
+    printf(" -priv     turn on static private analysis\n");
+    printf(" -keep     keep temporary files\n");
+    printf(" -keepSPF  keep SPF directives\n");
+    printf(" -keepDVM  keep DVM directives\n");
+    printf(" -allVars  get all parallel versions\n");
+    printf(" -var N    get specific parallel version, N=1,2,..\n");
+    printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
+    printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    

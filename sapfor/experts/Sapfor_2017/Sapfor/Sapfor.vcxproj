@@ -224,10 +224,7 @@
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
-    <ClCompile Include="..\_src\transforms.cpp">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Disabled</Optimization>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
-    </ClCompile>
+    <ClCompile Include="..\_src\Sapfor.cpp" />
     <ClCompile Include="..\_src\Utils\SgUtils.cpp" />
     <ClCompile Include="..\_src\Utils\utils.cpp" />
     <ClCompile Include="..\_src\VerificationCode\CorrectVarDecl.cpp" />
@@ -264,8 +261,8 @@
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />
     <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
+    <ClInclude Include="..\_src\Sapfor.h" />
     <ClInclude Include="..\_src\SapforData.h" />
-    <ClInclude Include="..\_src\transform.h" />
     <ClInclude Include="..\_src\Utils\AstWrapper.h" />
     <ClInclude Include="..\_src\Utils\CommonBlock.h" />
     <ClInclude Include="..\_src\Utils\DefUseList.h" />

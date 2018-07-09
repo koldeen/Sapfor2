@@ -11,7 +11,7 @@
 #include "DvmhDirective.h"
 #include "../Utils/errors.h"
 #include "../Utils/SgUtils.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 
 #include "dvm.h"
 

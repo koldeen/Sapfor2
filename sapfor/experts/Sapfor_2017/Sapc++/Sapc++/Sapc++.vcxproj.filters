@@ -89,12 +89,6 @@
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h">
       <Filter>Исходные файлы\ParallelRegions</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\_src\SapforData.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\_src\transform.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h">
       <Filter>Файлы заголовков\GraphLoop</Filter>
     </ClInclude>
@@ -103,6 +97,9 @@
     </ClInclude>
     <ClInclude Include="..\..\_src\Utils\utils.h">
       <Filter>Файлы заголовков\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\Sapfor.h">
+      <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

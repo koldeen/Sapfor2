@@ -50,7 +50,7 @@
 #endif
 
 #include "dvm.h"
-#include "transform.h"
+#include "Sapfor.h"
 #include "Utils/PassManager.h"
 
 using namespace std;
@@ -873,12 +873,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             const int allArraysNum = allArrays.GetArrays().size();
             int newQuality = allArraysNum * QUALITY / 100;
-            if (!consoleMode)
-                printf("SAPFOR: arrays num %d, newFlag %d, quality %d\n", allArraysNum, newQuality, QUALITY);
+            int newSpeed = allArraysNum * SPEED / 100;
 
             if (newQuality < 3)
                 newQuality = 3;
-            G.ChangeQuality(newQuality, newQuality);
+
+            if (newSpeed < 1)
+                newSpeed = 1;
+
+            if (!consoleMode)
+                printf("SAPFOR: arrays num %d, newQ %d, newS %d, quality %d, speed %d\n", allArraysNum, newQuality, newSpeed, QUALITY, SPEED);
+                        
+            G.ChangeQuality(newQuality, newSpeed);
 
             reducedG.SetMaxAvailMemory(currentAvailMemory);
             DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, i, (curr_regime == ONLY_ARRAY_GRAPH));
@@ -1235,7 +1241,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             ParallelRegion *currReg = parallelRegions[z];
             auto graph = currReg->GetGraph();
-            __spf_print(1, "STAT: par reg %s: requests %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.GetNumberOfV(), graph.GetNumberOfE());
+            __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
     }
 
@@ -1478,6 +1484,7 @@ int main(int argc, char**argv)
         setPassValues();
         consoleMode = 1;
         QUALITY = 100;
+        SPEED = 100;
         printVersion();
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
@@ -1504,7 +1511,7 @@ int main(int argc, char**argv)
                     i++;
                     curr_regime = atoi(argv[i]);
                 }
-                else if (string(curr_arg) == "-q")
+                else if (string(curr_arg) == "-q1")
                 {
                     i++;
                     QUALITY = atoi(argv[i]);
@@ -1512,6 +1519,16 @@ int main(int argc, char**argv)
                     {
                         __spf_print(1, "QUALITY must be in [0..100] interval, set default value 100");
                         QUALITY = 100;
+                    }
+                }
+                else if (string(curr_arg) == "-q2")
+                {
+                    i++;
+                    SPEED = atoi(argv[i]);
+                    if (SPEED <= 0 || SPEED > 100)
+                    {
+                        __spf_print(1, "SPEED must be in [0..100] interval, set default value 100");
+                        SPEED = 100;
                     }
                 }
                 else if (curr_arg[1] == 't')
@@ -1589,6 +1606,8 @@ int main(int argc, char**argv)
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")
                     InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
+                if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
+                    exit(0);
                 break;
             default:
                 break;

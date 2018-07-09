@@ -18,7 +18,7 @@
 #include "loop_analyzer.h"
 #include "directive_parser.h"
 #include "../Utils/SgUtils.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../LoopConverter/loop_transform.h"
 #include "../ExpressionTransform/expr_transform.h"

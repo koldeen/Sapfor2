@@ -21,7 +21,7 @@
 
 #include "SgUtils.h"
 #include "errors.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../Distribution/Distribution.h"
