@@ -1132,6 +1132,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             ParallelRegion *currReg = parallelRegions[z];
             auto graph = currReg->GetGraph();
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
+            printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
     }
 

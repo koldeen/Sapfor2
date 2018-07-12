@@ -209,13 +209,14 @@ void processLoopInformationForFunction(map<LoopGraph*, map<DIST::Array*, const A
 #define GROUP_BY_REQUEST 1
 static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
                             DIST::Arrays<int> &allArrays,
-                            const map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> &group)
+                            const map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> &group,
+                            const links linkType)
 {
     for (auto &elem : group)
     {
         const auto first = elem.first;
         const auto currWeight = elem.second;
-        AddArrayAccess(G, allArrays, get<0>(first), get<1>(first), get<2>(first), currWeight, get<3>(first), WW_link);
+        AddArrayAccess(G, allArrays, get<0>(first), get<1>(first), get<2>(first), currWeight, get<3>(first), linkType);
     }
 
 }
@@ -297,9 +298,9 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
     }
 
 #if GROUP_BY_REQUEST
-    addGroup(G, allArrays, ww_links);
-    addGroup(G, allArrays, wr_links);
-    addGroup(G, allArrays, rr_links);    
+    addGroup(G, allArrays, ww_links, WW_link);
+    addGroup(G, allArrays, wr_links, WR_link);
+    addGroup(G, allArrays, rr_links, RR_link);
 #endif
 }
 
