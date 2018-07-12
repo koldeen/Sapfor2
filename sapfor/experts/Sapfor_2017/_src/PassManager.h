@@ -122,9 +122,9 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(MACRO_EXPANSION) <= Pass(CALL_GRAPH);
 
-    Pass(VERIFY_COMMON) <= Pass(FILL_COMMON_BLOCKS);
+    Pass(FILL_COMMON_BLOCKS) <= Pass(VERIFY_COMMON);
 
-    Pass(VERIFY_EQUIVALENCE) <= Pass(FILL_PAR_REGIONS_LINES);
+    Pass(FILL_PAR_REGIONS_LINES) <= Pass(VERIFY_EQUIVALENCE);
 
     Pass(LOOP_ANALYZER_DATA_DIST_S2) <= Pass(CREATE_NESTED_LOOPS);
 

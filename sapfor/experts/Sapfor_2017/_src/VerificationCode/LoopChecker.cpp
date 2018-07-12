@@ -76,23 +76,21 @@ void EquivalenceChecker(SgFile *file, const string &fileName, set<pair<string, i
         SgStatement *lastNode = st->lastNodeOfStmt();
         int lastLine = 1;
 
-        recExpressionPrint(file->firstExpression());
-
         while (st != lastNode)
         {
             currProcessing.second = st;
+			lastLine = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
-            /*if (st->fileName() == fileName)
-                lastLine = st->lineNumber();
-
-            if (isSgExecutableStatement(st) && !isSPF_stat(st) && !isDVM_stat(st))
-            if (st->fileName() != fileName)
-                errors.insert(std::make_pair(st->fileName(), lastLine));*/
+            if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT)) {
+                if (getRegionByLine(parallelRegions, st->fileName(), lastLine) == NULL)
+                    errors.insert(std::make_pair(st->fileName(), lastLine));
+                else
+                    __spf_print(1, "The equivalence operator is not supported yet\n");
 
             st = st->lexNext();
         }
