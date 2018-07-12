@@ -618,6 +618,7 @@ public:
 
 
     inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
+    inline std::map <SymbolKey, std::set<SgExpression*>>* getPointersGen() { return &extraPointersGen; }
     inline std::set<SymbolKey>* getKill() { return &kill; }
     inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs) { in_defs = *inDefs; }
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs() { return &in_defs; }
@@ -654,6 +655,9 @@ class ControlFlowGraph
     int refs;
     bool hasBeenAnalyzed;
     void liveAnalysis();
+#ifdef __SPF
+    std::set<SymbolKey> pointers;
+#endif
 public:
     ControlFlowGraph(bool temp, bool main, ControlFlowItem* item, ControlFlowItem* end);
     ~ControlFlowGraph();
@@ -671,6 +675,9 @@ public:
     CommonVarSet* getCommonUse() { return common_use; }
     inline CBasicBlock* getFirst() { return first; }
     inline CBasicBlock* getLast() { return last; }
+#ifdef __SPF
+    std::set<SymbolKey>* getPointers() { return &pointers; };
+#endif
 };
 
 struct AnalysedCallsList 

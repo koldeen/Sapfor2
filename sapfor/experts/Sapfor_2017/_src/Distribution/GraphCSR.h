@@ -147,8 +147,6 @@ namespace Distribution
         void RemovedEdges(const std::vector<std::tuple<vType, vType, attrType>> &toDelArcs, const Arrays<vType> &allArrays);
         void HighlightLinks();
 
-        //NOTE, it correctly works only with reduce graph
-        bool hasTheSameAlignment(const vType v1, const std::pair<int, int> &attr1, const vType v2, const std::pair<int, int> &attr2);
         int GetAlignRuleForArray(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::vector<std::tuple<Array*, vType, attrType>>> &assignedArrays);
         int GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::tuple<Array*, vType, std::pair<int, int>>> &rules, const int regionId);
         void FindLinksBetweenArrays(const Arrays<vType> &allArrays, const Array *from, const Array *to, std::vector<int> &links) const;

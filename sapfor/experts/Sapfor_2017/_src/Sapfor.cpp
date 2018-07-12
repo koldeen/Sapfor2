@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <omp.h>
 #if _WIN32 && _DEBUG
-#include <crtdbg.h>  
+#include <crtdbg.h>
 #endif
 
 #include "ParallelizationRegions/ParRegions_func.h"
@@ -223,7 +223,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         toSendStrMessage = file->filename();
 #ifdef _WIN32
-        sendMessage_2lvl(std::wstring(L"обработка файла '") + std::wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+        sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
         currProcessing.first = file; currProcessing.second = NULL;
 
@@ -482,7 +482,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     elem->deleteStmt();
             }
             else
-                __spf_print(1, "   ignore CLEAR SPF DIRS\n");
+                __spf_print(1, "   ignore CLEAR_SPF_DIRS\n");
         }
         else if (curr_regime == PREPROC_SPF)
         {
@@ -609,105 +609,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)
-        {
-            for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
-            {
-                if (first->variant() == DVM_PARALLEL_ON_DIR)
-                {
-                    SgExpression *spec = first->expr(1);
-                    if (spec)
-                    {
-                        SgExpression *shadow = NULL, *remote = NULL;
-                        SgExpression *beforeSh = spec;
-
-                        for (auto iter = spec, iterB = spec; iter; iter = iter->rhs())
-                        {
-                            if (iter->lhs()->variant() == SHADOW_RENEW_OP)
-                            {
-                                beforeSh = iterB;
-                                shadow = iter->lhs();
-                            }
-                            else if (iter->lhs()->variant() == REMOTE_ACCESS_OP)
-                                remote = iter->lhs();
-
-                            if (iterB != iter)
-                                iterB = iterB->rhs();
-                        }
-
-                        if (shadow && remote)
-                        {
-                            set<string> allRemoteWitDDOT;
-                            for (auto iter = remote->lhs(); iter; iter = iter->rhs())
-                            {
-                                SgExpression *elem = iter->lhs();
-                                if (elem->variant() == ARRAY_REF)
-                                {
-                                    bool allDDOT = true;
-                                    for (auto iterL = elem->lhs(); iterL; iterL = iterL->rhs())
-                                        if (iterL->lhs()->variant() != DDOT)
-                                            allDDOT = false;
-
-                                    if (allDDOT)
-                                        allRemoteWitDDOT.insert(elem->symbol()->identifier());
-                                }
-                            }
-
-                            auto currShadowP = shadow;
-                            int numActiveSh = 0;
-
-                            for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
-                            {
-                                SgExpression *elem = iter->lhs();
-                                //if shadow has CORNER
-                                if (elem->variant() == ARRAY_OP)
-                                    elem = elem->lhs();
-
-                                if (elem->variant() == ARRAY_REF)
-                                {
-                                    if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
-                                    {
-                                        DIST::Array *currArray = NULL;
-                                        for (int i = 0; i < elem->numberOfAttributes() && currArray == NULL; ++i)
-                                            if (elem->attributeType(i) == ARRAY_REF)
-                                                currArray = (DIST::Array *)(elem->getAttribute(i)->getAttributeData());                                        
-
-                                        if (currArray == NULL)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        vector<pair<int, int>> toDel;
-                                        for (SgExpression *list = elem->lhs(); list; list = list->rhs())
-                                            toDel.push_back(make_pair(list->lhs()->lhs()->valueInteger(), list->lhs()->rhs()->valueInteger()));                                        
-                                        currArray->RemoveShadowSpec(toDel);
-
-                                        if (currShadowP == shadow)
-                                            shadow->setLhs(iter->rhs());
-                                        else
-                                            currShadowP->setRhs(iter->rhs());
-                                    }
-                                    else
-                                    {
-                                        ++numActiveSh;
-                                        if (currShadowP == shadow)
-                                            currShadowP = shadow->lhs();
-                                        else
-                                            currShadowP = currShadowP->rhs();
-                                    }
-                                }
-                            }
-
-                            //remove shadow dir
-                            if (numActiveSh == 0)
-                            {
-                                if (spec->lhs()->variant() == SHADOW_RENEW_OP)
-                                    first->setExpression(2, *(spec->rhs()));
-                                else
-                                    beforeSh->setRhs(beforeSh->rhs()->rhs());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            devourShadowByRemote(file);
+        else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
+            transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
             doMacroExpand(file, getMessagesForFile(file_name));    
         else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
@@ -803,11 +707,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     } // end of FOR by files
 
     if (internalExit != 0)
-        throw - 1;
+        throw -1;
 
 
 #ifdef _WIN32
-    sendMessage_2lvl(std::wstring(L""));
+    sendMessage_2lvl(wstring(L""));
 #endif
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
@@ -870,21 +774,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
             
             G.SetMaxAvailMemory(currentAvailMemory);
-
-            const int allArraysNum = allArrays.GetArrays().size();
-            int newQuality = allArraysNum * QUALITY / 100;
-            int newSpeed = allArraysNum * SPEED / 100;
-
-            if (newQuality < 3)
-                newQuality = 3;
-
-            if (newSpeed < 1)
-                newSpeed = 1;
-
-            if (!consoleMode)
-                printf("SAPFOR: arrays num %d, newQ %d, newS %d, quality %d, speed %d\n", allArraysNum, newQuality, newSpeed, QUALITY, SPEED);
-                        
-            G.ChangeQuality(newQuality, newSpeed);
+            G.ChangeQuality(QUALITY, SPEED);
 
             reducedG.SetMaxAvailMemory(currentAvailMemory);
             DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, i, (curr_regime == ONLY_ARRAY_GRAPH));
@@ -1420,6 +1310,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
 
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+            runPass(TRANSFORM_SHADOW_IF_FULL, proj_name, folderName);
+
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(REVERT_SPF_DIRS, proj_name, folderName);

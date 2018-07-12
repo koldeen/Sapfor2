@@ -191,6 +191,7 @@
     <ClCompile Include="..\_src\LoopAnalyzer\insert_directive.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp" />
+    <ClCompile Include="..\_src\LoopAnalyzer\shadow.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />

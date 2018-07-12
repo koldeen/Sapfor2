@@ -187,13 +187,25 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
         if (st->fileName() != fileN || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
-
+#ifdef _WIN32
+    FILE *fOut;
+    errno_t err = fopen_s(&fOut, fout, "w");
+#else
+    int err = 0;
     FILE *fOut = fopen(fout, "w");
+#endif
     if (fOut == NULL)
+    {
+        if (fout)
+            __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+        else
+            __spf_print(1, "can not open file to write with name 'NULL'\n");
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     file->unparse(fOut);
     fclose(fOut);
-    
+    fclose(currFile);
+
     //restore
     //XXX: use Sage hack!!
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())

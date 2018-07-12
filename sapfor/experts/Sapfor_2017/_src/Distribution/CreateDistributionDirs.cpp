@@ -307,8 +307,15 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
     dataDirectives.alignRules.push_back(newRule);
 }
 
-typedef vector<vector<tuple<DIST::Array*, int, attrType>>> AssignType;
+static string printRule(const vector<tuple<DIST::Array*, int, pair<int, int>>> &rule)
+{
+    string print = "";
+    for (auto &elem : rule)
+        print += "(" + std::to_string(get<2>(elem).first) + "," + std::to_string(get<2>(elem).second) + ")";
+    return print;
+}
 
+typedef vector<vector<tuple<DIST::Array*, int, attrType>>> AssignType;
 int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
                     const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
@@ -330,7 +337,8 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
             distArrays.insert(dataDirectives.distrRules[i].first);
     }
 
-    set<DIST::Array*> manyDistrRules;
+    set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
+
     for (auto &array : arrays)
     {        
         if (distArrays.find((array)) == distArrays.end())
@@ -363,14 +371,18 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
             if (isAllRulesEqual(rules))
                 createNewAlignRule(array, allArrays, rules[0], dataDirectives);
             else
-                manyDistrRules.insert(array);
+                manyDistrRules.insert(make_pair(array, rules));
         }
     }
     
     if (manyDistrRules.size() > 0)
     {
         for (auto &array : manyDistrRules)
-            __spf_print(1, "diferent align rules for array %s was found\n", array->GetName().c_str());
+        {
+            __spf_print(1, "diferent align rules for array %s was found\n", array.first->GetName().c_str());
+            for (auto &rule : array.second)
+                __spf_print(1, "  -> %s\n", printRule(rule).c_str());
+        }
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 

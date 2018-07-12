@@ -12349,7 +12349,7 @@ void BeginDebugFragment(int num, SgStatement *stmt)
     cur_fragment = curfr; 
 }
 
-static int MinLevel(int level, int max, int is_max)
+int MinLevel(int level, int max, int is_max)
 {
     if (is_max)
         return((level > max) ? max : level);

@@ -20,6 +20,7 @@ using std::pair;
 using std::set;
 using std::make_pair;
 using std::string;
+using std::wstring;
 using std::tuple;
 using std::vector;
 
@@ -293,7 +294,14 @@ namespace Distribution
                     addToGlobalBufferAndPrint(buf);
                 }
             }
-                        
+
+#ifdef _WIN32
+            if (needPrint)
+            {
+                wstring treeM = L"разрешение конфликтов, обработка группы " + std::to_wstring(k + 1) + L"/" + std::to_wstring(AllCycles.size());
+                sendMessage_2lvl(treeM);
+            }
+#endif
             double timeR = omp_get_wtime();
             if (countConflicts != 0)
             {
@@ -315,6 +323,10 @@ namespace Distribution
                 addToGlobalBufferAndPrint(buf);
             }
         }
+#ifdef _WIN32
+        if (needPrint)
+            sendMessage_2lvl(L"");
+#endif
         return globalSum;
     }
 
@@ -433,6 +445,7 @@ namespace Distribution
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 attrType tmpPair = make_pair(make_pair(1, 0), make_pair(1, 0));
+
                 for (int i = 0; i < verts.size(); ++i)
                 {
                     for (int j = i + 1; j < verts.size(); ++j)

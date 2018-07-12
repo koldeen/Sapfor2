@@ -73,7 +73,7 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
     return res;
 }
 
-static inline bool needCorner(const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess, Statement *loop)
+static bool needCorner(const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess, Statement *loop)
 {
     bool need = false;
 
@@ -171,13 +171,15 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
-pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                                           const vector<AlignRule> &alignRules,
-                                                           DIST::GraphCSR<int, double, attrType> &reducedG,
-                                                           DIST::Arrays<int> &allArrays,    
-                                                           const std::set<DIST::Array*> &acrossOutAttribute,
-                                                           const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, 
-                                                           Statement *loop, const int regionId)
+pair<string, vector<Expression*>> 
+ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+                                const vector<AlignRule> &alignRules,
+                                DIST::GraphCSR<int, double, attrType> &reducedG,
+                                DIST::Arrays<int> &allArrays,    
+                                const std::set<DIST::Array*> &acrossOutAttribute,
+                                const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, 
+                                Statement *loop, const int regionId,
+                                const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     string directive = "";
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
@@ -207,7 +209,12 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
         directive += ") ON " + arrayRef->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
 
-        SgSymbol *symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);        
+        SgSymbol *symbForPar;
+        if (arrayRef->isTemplate())
+            symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
+        else
+            symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
+
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
         for (int i = 0; i < (int)on.size(); ++i)
         {            
@@ -292,7 +299,7 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 bool isOut = acrossOutAttribute.find(currArray) != acrossOutAttribute.end();
-                string bounds = genBounds(alignRules, across[i1], acrossShifts[i1], reducedG, allArrays, readOps, true, regionId, distribution, arraysInAcross, shiftsByAccess);
+                string bounds = genBounds(alignRules, across[i1], acrossShifts[i1], reducedG, allArrays, readOps, true, regionId, distribution, arraysInAcross, shiftsByAccess, arrayLinksByFuncCalls);
                 if (bounds != "")
                 {
                     if (inserted != 0)
@@ -374,8 +381,7 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
             for (int i1 = 0; i1 < (int)shadowRenew.size(); ++i1)
             {
                 vector<map<pair<int, int>, int>> shiftsByAccess;
-
-                const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross, shiftsByAccess);
+                const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross, shiftsByAccess, arrayLinksByFuncCalls);
                 if (bounds != "")
                 {
                     DIST::Array *currArray = allArrays.GetArrayByName(shadowRenew[i1].first.second);
@@ -398,7 +404,7 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
                     }
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first, typeArrayInt, scope));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*currArray->GetDeclSymbol());
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);

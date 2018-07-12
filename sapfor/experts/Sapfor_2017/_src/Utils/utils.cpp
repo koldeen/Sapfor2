@@ -669,8 +669,8 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
         }
         else
         {
-            auto ruleL = from->GetAlignRulesWithTemplate(regionId);
-            auto ruleR = to->GetAlignRulesWithTemplate(regionId);
+            auto ruleL = from->GetLinksWithTemplate(regionId);
+            auto ruleR = to->GetLinksWithTemplate(regionId);
 
             int currD = 0;
             for (auto &elem1 : ruleL)

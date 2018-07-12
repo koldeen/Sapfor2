@@ -6,20 +6,27 @@
 #include <cstdint>
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <string>
 
 using std::vector;
 using std::map;
+using std::unordered_map;
+using std::tuple;
 using std::set;
 using std::string;
 using std::pair;
 using std::make_pair;
+using std::get;
 
 #include "graph_loops.h"
 #include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
+#ifdef _WIN32
+#include "../VisualizerCalls/get_information.h"
+#endif
 
 static void fillWriteReadOps(LoopGraph *&currLoop, DIST::Array *symbol, const ArrayInfo *arrayOps)
 {
@@ -199,6 +206,20 @@ void processLoopInformationForFunction(map<LoopGraph*, map<DIST::Array*, const A
         uniteChildReadInfo(it->first);
 }
 
+#define GROUP_BY_REQUEST 1
+static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
+                            DIST::Arrays<int> &allArrays,
+                            const map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> &group)
+{
+    for (auto &elem : group)
+    {
+        const auto first = elem.first;
+        const auto currWeight = elem.second;
+        AddArrayAccess(G, allArrays, get<0>(first), get<1>(first), get<2>(first), currWeight, get<3>(first), WW_link);
+    }
+
+}
+
 static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        DIST::Arrays<int> &allArrays,
                        const double currWeight,
@@ -206,6 +227,11 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        const ArrayInfo *to, DIST::Array *toSymb)
 {
     bool loopHasWrite = false;
+#if GROUP_BY_REQUEST
+    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> ww_links;
+    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> wr_links;
+    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> rr_links;
+#endif
 
     // add W-R and W-W
     for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
@@ -220,10 +246,30 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                 for (int z = 0; z < (int)from->writeOps[dimFrom].coefficients.size(); ++z)
                 {
                     for (int z1 = 0; z1 < (int)to->writeOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                    {
+                        auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]));
+                        auto it = ww_links.find(key);
+                        if (it == ww_links.end())
+                            it = ww_links.insert(it, make_pair(key, 0.0));
+                        it->second += currWeight;
+                    }
+#else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+#endif
 
                     for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                    {
+                        auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]));
+                        auto it = wr_links.find(key);
+                        if (it == wr_links.end())
+                            it = wr_links.insert(it, make_pair(key, 0.0));
+                        it->second += currWeight;
+                    }
+#else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
+#endif
                 }
             }
         }
@@ -237,8 +283,24 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                 if (from->readOps[dimFrom].coefficients.size() != 0 && to->readOps[dimTo].coefficients.size() != 0)
                     for (int z = 0; z < (int)from->readOps[dimFrom].coefficients.size(); ++z)
                         for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                        {
+                            auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]));
+                            auto it = rr_links.find(key);
+                            if (it == rr_links.end())
+                                it = rr_links.insert(it, make_pair(key, 0.0));
+                            it->second += currWeight;                            
+                        }
+#else
                             AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);
+#endif
     }
+
+#if GROUP_BY_REQUEST
+    addGroup(G, allArrays, ww_links);
+    addGroup(G, allArrays, wr_links);
+    addGroup(G, allArrays, rr_links);    
+#endif
 }
 
 //TODO: check for recursion!!
@@ -274,6 +336,9 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 {
     for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
     {
+#if _WIN32 && NDEBUG
+        createNeededException();
+#endif
         ParallelRegion *currReg = it->first->region;
         if (currReg == NULL)
         {

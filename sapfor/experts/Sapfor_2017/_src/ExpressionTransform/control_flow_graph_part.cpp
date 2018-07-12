@@ -13,13 +13,9 @@ using std::set;
 using std::pair;
 
 
-//TODO добаивть extraPointers в showtime
-//Дальще ковырять тест
-//Да, я знаю, что где-то там не работают русские комментарии.
-
-
 static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs);
 static void showDefs(map<SymbolKey, SgExpression*> *defs);
+static void showDefs(std::map <SymbolKey, std::set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
 
@@ -122,18 +118,22 @@ set<SymbolKey>* CBasicBlock::getOutVars()
 
 bool CBasicBlock::varIsPointer(SgSymbol *symbol)
 {
-    auto found = gen.find(symbol);
-    if(found != gen.end())
-        return found->first.isPointer();
+    auto found = parent->getPointers()->find(symbol);
+    if(found != parent->getPointers()->end())
+        return true;
+    /*
+    auto found_inDefs = in_defs.find(symbol);
+    if(found_inDefs != in_defs.end())
+        return found_inDefs->first.isPointer();
 
     auto found_extra = extraPointersGen.find(symbol);
     if(found_extra != extraPointersGen.end())
         return true;
 
-    auto found_inDefs = in_defs.find(symbol);
-    if(found_inDefs != in_defs.end())
-        return found_inDefs->first.isPointer();
-
+    auto found = gen.find(symbol);
+    if(found != gen.end())
+        return found->first.isPointer();
+*/
     return false;
 }
 
@@ -148,32 +148,52 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
 
     auto found_extra = extraPointersGen.find(symbol);
     if (found_extra != extraPointersGen.end())
-        for(auto value : found_extra->second)
-            addVarToKill(value->symbol());
+    {
+        /*
+        if(found_extra->second.size() == 1)
+        {
+            addVarToGen((*(found_extra->second.begin()))->symbol(), right);
+            return;
+        }
+        else*/
+            for (auto value : found_extra->second)
+                addVarToKill(value->symbol());
+    }
 
     auto found_inDefs = in_defs.find(symbol);
     if (found_inDefs != in_defs.end())
-        for (auto& value : found_inDefs->second)
-            addVarToKill(value.second->symbol());
+    {
+/*        if(found_inDefs->second.size() == 1)
+        {
+            addVarToGen((*(found_inDefs->second.begin())).second->symbol(), right);
+            return;
+        }
+        else*/
+            for (auto& value : found_inDefs->second)
+                addVarToKill(value.second->symbol());
+    }
 }
 
 void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right)
 {
     //right is a single VAR_REF
     SgSymbol *rSymbol = right->symbol();
+    parent->getPointers()->insert(SymbolKey(symbol, true));
     if(varIsPointer(rSymbol))
     {
         auto found = gen.find(rSymbol);
         if(found != gen.end())
             addVarToGen(SymbolKey(symbol, true), found->second);
-
-        auto found_inDefs = in_defs.find(rSymbol);
-        if(found_inDefs != in_defs.end())
+        else
         {
-            addVarToKill(symbol);
-            auto inserted = extraPointersGen.insert(make_pair(symbol, set<SgExpression*>()));
-            for(auto val : found_inDefs->second)
-                inserted.first->second.insert(val.second);
+            auto found_inDefs = in_defs.find(rSymbol);
+            if (found_inDefs != in_defs.end())
+            {
+                addVarToKill(symbol);
+                auto inserted = extraPointersGen.insert(make_pair(symbol, set<SgExpression*>()));
+                for (auto val : found_inDefs->second)
+                    inserted.first->second.insert(val.second);
+            }
         }
     }
     else
@@ -185,11 +205,14 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
     SgStatement *st = cfi->getStatement();
     if (st != NULL)
     {
+/*        printf("Before: %s", st->unparse());
+                printf("\n In ");
+                showDefs(getInDefs());
+*/
         SgExpression *left = st->expr(0);
         SgExpression *right = st->expr(1);
         if (st->variant() == ASSIGN_STAT)
         {
-
             if (left->variant() == VAR_REF) // x = ...
             {
                 if(varIsPointer(left->symbol()))
@@ -203,9 +226,9 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
         else if (st->variant() == POINTER_ASSIGN_STAT)
             processPointerAssignment(left->symbol(), right);
 
-/*        printf("After %s", st->unparse());
-        printf("Gen ");
-        showDefs(&gen);*/
+/*        printf("After: %s", st->unparse());
+        printf("\n Gen ");
+        showDefs(getGen());*/
     }
 
     checkFuncAndProcCalls(cfi);
@@ -371,6 +394,20 @@ static void showDefs(map<SymbolKey, SgExpression*> *defs)
     printf("\n");
 }
 
+static void showDefs(std::map <SymbolKey, std::set<SgExpression*>> *defs)
+{
+    printf("Defs: %d\n", defs->size());
+    for(auto it = defs->begin(); it != defs->end(); ++it)
+    {
+        printf("--- %s = ", it->first.getVarName().c_str());
+        for(auto itt = it->second.begin(); itt != it->second.end(); ++itt)
+            printf("%s, ", (*itt)->unparse());
+        printf("\n");
+    }
+
+    printf("\n");
+}
+
 static bool adjustInsAndOuts(CBasicBlock *b)
 {
     /*Updating IN*/
@@ -428,19 +465,21 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
             }
         }
 
-        if (printed)
+        /*if (printed)
         {
             printf("\n In ");
             showDefs(b->getInDefs());
             printf("\n Gen");
             showDefs(b->getGen());
+            printf("\n Pointers gen");
+            showDefs(b->getPointersGen());
             printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
             printf("\n Out ");
             showDefs(b->getOutDefs());
-        }
+        }*/
         b = b->getLexNext();
     }
 }

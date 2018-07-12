@@ -267,6 +267,9 @@
     <ClCompile Include="..\_src\Sapfor.cpp">
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\shadow.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">

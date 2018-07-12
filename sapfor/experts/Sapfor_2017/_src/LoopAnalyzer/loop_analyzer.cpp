@@ -38,6 +38,9 @@ extern int passDone;
 
 #include "../ExpressionTransform/expr_transform.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
+#ifdef _WIN32
+#include "../VisualizerCalls/get_information.h"
+#endif
 
 using std::vector;
 using std::pair;
@@ -964,6 +967,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
     for (int i = 0; i < funcNum; ++i)
     {
+#if _WIN32 && NDEBUG
+        createNeededException();
+#endif
         set<SgSymbol*> delcsSymbViewed;
         set<SgStatement*> delcsStatViewed;
 
@@ -1268,7 +1274,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             set<SgStatement*> funcWasInit;
             map<SgExpression*, string> collection;
             for (auto &loop : convertedLoopInfo)
+            {
+#if _WIN32 && NDEBUG
+                createNeededException();
+#endif
                 tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection);
+            }
 
             vector<LoopGraph*> tmpLoops;
             if (file->functions(i)->variant() != PROG_HEDR)

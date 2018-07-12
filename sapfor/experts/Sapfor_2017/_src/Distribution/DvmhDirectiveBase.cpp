@@ -11,6 +11,7 @@
 #include "../Utils/errors.h"
 #include "../Sapfor.h"
 #include "../Utils/utils.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::vector;
 using std::tuple;
@@ -183,7 +184,8 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                                      const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const bool isAcross,
                                      const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                      const vector<pair<string, pair<int, int>>> &parallelOnRule,
-                                     const int regionId)
+                                     const int regionId,
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     string out = "";
 
@@ -191,8 +193,26 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
     reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForOn, regionId);
 
     vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForShadow;
-    reducedG.GetAlignRuleWithTemplate(calcForArray, allArrays, ruleForShadow, regionId);
+
+    set<DIST::Array*> realRefs;
+    getRealArrayRefs(calcForArray, calcForArray, realRefs, arrayLinksByFuncCalls);
+
+    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRuleForShadow(realRefs.size());
+    int idx = 0;
+    for (auto &array : realRefs)
+        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRuleForShadow[idx++], regionId);
     
+    if (realRefs.size() == 1)
+        ruleForShadow = allRuleForShadow[0];
+    else
+    {
+        bool eq = isAllRulesEqual(allRuleForShadow);
+        if (eq == false)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        else
+            ruleForShadow = allRuleForShadow[0];
+    }
+
     const pair<vector<ArrayOp>, vector<bool>> *currReadOp = NULL;
     auto readIt = readOps.find(calcForArray);
     if (readIt != readOps.end())
@@ -217,6 +237,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
         // calculate correct shifts from readOp info
         if (currReadOp)
         {
+            // no unrecognized read operations
             if (currReadOp->second[k] == false)
             {
                 if (get<0>(ruleForShadow[k]) != NULL)
@@ -325,7 +346,8 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
                                     const int regionId,
                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                     set<DIST::Array*> &arraysInAcross,
-                                    vector<map<pair<int, int>, int>> &shiftsByAccess) const
+                                    vector<map<pair<int, int>, int>> &shiftsByAccess,
+                                    const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls) const
 {
     DIST::Array *shadowArray = allArrays.GetArrayByName(shadowOp.first.second);
     checkNull(shadowArray, convertFileName(__FILE__).c_str(), __LINE__);
@@ -334,12 +356,12 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     if (isAcross)
     {
         arraysInAcross.insert(shadowArray);
-        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId);
+        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId, arrayLinksByFuncCalls);
     }
     else
     {
         if (arraysInAcross.find(shadowArray) == arraysInAcross.end())
-            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId);
+            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId, arrayLinksByFuncCalls);
     }
 
     return ret;

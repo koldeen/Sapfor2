@@ -30,6 +30,7 @@ using std::pair;
 using std::make_pair;
 using std::tuple;
 using std::string;
+using std::wstring;
 
 enum { WHITE, GREY, BLACK };
 enum { CONFLICT_TYPE_1, CONFLICT_TYPE_2 };
@@ -742,6 +743,26 @@ namespace Distribution
         {
             for (int t = 0; t < vertByTrees.size(); ++t)
             {
+                const int vertArraySize = vertByTrees[t].size();
+                int wasMaxChainLen = maxChainLen;
+                int wasMaxLoopDim = maxLoopDim;
+
+                int newQuality = vertArraySize * maxLoopDim / 100;
+                int newSpeed = vertArraySize * maxChainLen / 100;
+
+                if (newQuality < 3) newQuality = 3;
+                if (newSpeed < 3)   newSpeed = 3;
+
+                maxLoopDim = newQuality;
+                maxChainLen = newSpeed;
+                if (needPrint)
+                    printf("SAPFOR: [TREE %d], arrays num %d, maxLoopDim %d, maxChainLen %d\n", t, vertArraySize, maxLoopDim, maxChainLen);
+
+#ifdef _WIN32
+                wstring treeM;
+                if (needPrint)
+                    treeM = std::to_wstring(t + 1) + L"/" + std::to_wstring(vertByTrees.size());
+#endif
                 for (int k = 0; k < vertByTrees[t].size(); ++k)
                 {
                     const vType i = vertByTrees[t][k];
@@ -750,13 +771,26 @@ namespace Distribution
                         color[k] = WHITE;
 
                     findFrom = currentV;
+#ifdef _WIN32
+                    if (needPrint)
+                    {
+                        wstring vertexM = std::to_wstring(k + 1) + L"/" + std::to_wstring(vertByTrees[t].size());
+                        sendMessage_2lvl(wstring(L"поиск простых циклов в графе, обработка дерева ") + wstring(treeM.begin(), treeM.end()) + L" вершины " + wstring(vertexM.begin(), vertexM.end()));
+                    }
+#endif
                     __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
                     activeV[activeCounter++] = currentV;
                     FindLoop(cyclesTmp[t], currentV, currentV, numbers);
                     activeCounter--;
                     __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
                 }
+                maxChainLen = wasMaxChainLen;
+                maxLoopDim = wasMaxLoopDim;
             }
+#ifdef _WIN32
+            if (needPrint)
+                sendMessage_2lvl(L"");
+#endif
         }
         catch (int code)
         {
@@ -1423,36 +1457,6 @@ namespace Distribution
 
         //correct graph information
         numEdges = (vType)edges.size();
-    }
-
-    //NOTE, it correctly works only with reduce graph
-    //TODO: need to correct --> call DIST::Fx
-    template<typename vType, typename wType, typename attrType>
-    bool GraphCSR<vType, wType, attrType>::
-         hasTheSameAlignment(const vType v1, const pair<int, int> &attr1, const vType v2, const pair<int, int> &attr2)
-    {
-        color.resize(numVerts);
-        std::fill(color.begin(), color.end(), 0);
-        color[localIdx[v1]] = 1;
-
-        bool retVal = true;
-        pair<int, int> inGraphAttr1, inGraphAttr2;
-        bool wasFound = findLink(localIdx[v1], inGraphAttr1, localIdx[v2], inGraphAttr2);
-
-        if (wasFound)
-        {
-            float A1 = (float)attr1.first - (float)inGraphAttr1.first;
-            float B1 = (float)attr1.second - (float)inGraphAttr1.second;
-
-            float A2 = (float)attr2.first - (float)inGraphAttr2.first;
-            float B2 = (float)attr2.second - (float)inGraphAttr2.second;
-
-            if (A1 != A2 || B1 != B2)
-                retVal = false;
-        }
-        else
-            retVal = false;
-        return retVal;
     }
 
     template<typename vType, typename wType, typename attrType>

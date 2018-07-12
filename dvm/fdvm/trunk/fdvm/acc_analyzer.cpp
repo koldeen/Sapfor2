@@ -1573,6 +1573,9 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
 }
 
 ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL), hasBeenAnalyzed(false)
+#ifdef __SPF
+, pointers(set<SymbolKey>())
+#endif
 {
     int n = 0;
     ControlFlowItem* orig = list;

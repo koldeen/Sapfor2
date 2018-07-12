@@ -612,16 +612,41 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                         {
                             for (auto &refs2 : realArrayRefs2)
                             {
-                                int v1, v2, err;
-                                err = allArrays.GetVertNumber(refs1, accesses[i].second.first, v1);
-                                if (err == -1)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                auto links = findLinksBetweenArrays(refs1, refs2, currReg->GetId());
 
-                                err = allArrays.GetVertNumber(refs2, accesses[k].second.first, v2);
-                                if (err == -1)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                const int dimFrom = accesses[i].second.first;
+                                const int dimTo = accesses[k].second.first;
 
-                                statusOk = reducedG.hasTheSameAlignment(v1, accesses[i].second.second, v2, accesses[k].second.second);
+                                if (dimTo != links[dimFrom])
+                                {
+                                    __spf_print(1, "arrays '%s' and '%s' have different align dimensions for loop on line %d\n -->\
+                                                    %d vs %d(%d) \n", 
+                                                array1->GetShortName().c_str(), array2->GetShortName().c_str(), 
+                                                loopInfo.first->lineNum, dimTo, links[dimFrom], dimFrom);
+                                    statusOk = false;
+                                }
+                                else
+                                {
+                                    const auto accessFrom = accesses[i].second.second;
+                                    const auto accessTo = accesses[k].second.second;
+                                    
+                                    auto templRule1 = refs1->GetAlignRulesWithTemplate(currReg->GetId());
+                                    auto templRule2 = refs2->GetAlignRulesWithTemplate(currReg->GetId());
+
+                                    if (DIST::Fx(accessFrom, templRule1[dimFrom]) != DIST::Fx(accessTo, templRule2[dimTo]))
+                                    {
+                                        __spf_print(1, "arrays '%s' and '%s' have different align ruls -- \n  -->\
+                                                        F1 = [%d.%d], x1 = [%d.%d], F2 = [%d.%d], x2 = [%d.%d] \n  -->\
+                                                        F1(x1) = [%d.%d] != F2(x2) = [%d.%d]\n",
+                                                    array1->GetShortName().c_str(), array2->GetShortName().c_str(),
+                                                    templRule1[dimFrom].first, templRule1[dimFrom].second, accessFrom.first, accessFrom.second, 
+                                                    templRule2[dimTo].first, templRule2[dimTo].second, accessTo.first, accessTo.second, 
+                                                    DIST::Fx(accessFrom, templRule1[dimFrom]).first, DIST::Fx(accessFrom, templRule1[dimFrom]).second,
+                                                    DIST::Fx(accessTo, templRule2[dimTo]).first, DIST::Fx(accessTo, templRule2[dimTo]).second);
+                                        statusOk = false;
+                                    }
+                                }
+
                                 if (!statusOk)
                                 {
                                     char buf[256];
@@ -1242,7 +1267,8 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
 
 //TODO: calculate not only consts
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
-                                     ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+                                     ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool resolved = false;
 
@@ -1318,8 +1344,21 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
     for (auto &elem : dimsNotMatch)
     {
-        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;
-        reducedG.GetAlignRuleWithTemplate(elem.first, allArrays, rule, regId);
+        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;        
+
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefs.size());
+        int tmpIdx = 0;
+        for (auto &array : realRefs)
+            reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
+
+        if (isAllRulesEqual(allRules))
+            rule = allRules[0];
+        else
+            return false;// printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         findAndReplaceDimentions(rule, allArrays);
 
         for (int i = 0; i < elem.second.size(); ++i)
@@ -1402,7 +1441,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                                        const vector<AlignRule> &alignRules,
                                        vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                        const int regionId,
-                                       const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                       const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                        const map<LoopGraph*, depGraph*> &depInfoForLoopGraph,
                                        vector<Messages> &messages)
 {
@@ -1436,7 +1475,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays))
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls))
                             addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                     }
                 }
@@ -1448,7 +1487,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 
                 // insert parallel dir
                 pair<string, vector<Expression*>> dir = 
-                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, loop->loop, regionId);
+                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, loop->loop, regionId, arrayLinksByFuncCalls);
                 toInsert.push_back(make_pair(loop->lineNum, dir));
             }
         }
