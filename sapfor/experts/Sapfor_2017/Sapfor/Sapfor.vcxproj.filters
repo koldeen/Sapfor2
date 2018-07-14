@@ -400,9 +400,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib" />
     <Library Include="..\_lib\boost_Release_64\libboost_chrono-vc141-mt-1_64.lib">
       <Filter>Файлы ресурсов</Filter>
     </Library>
@@ -415,8 +412,14 @@
     <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib">
       <Filter>Файлы ресурсов</Filter>
     </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformCommonLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformUtils.lib" />
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
+    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib">
+      <Filter>Файлы ресурсов</Filter>
+    </Library>
   </ItemGroup>
 </Project>

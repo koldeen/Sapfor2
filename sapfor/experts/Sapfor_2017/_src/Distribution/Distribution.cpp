@@ -245,12 +245,12 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     static double CreateOptimalAlignementTree(GraphCSR<vType, wType, attrType> &G, const Arrays<vType> &allArrays,
-                                              vector<tuple<vType, vType, attrType>> &toDelArcs, bool needPrint = true)
+                                              vector<tuple<vType, vType, attrType>> &toDelArcs, bool needPrint = true, bool useSavedQ = false)
     {        
         double globalSum = 0;
         vector<vector<Cycle<vType, wType, attrType>>> AllCycles;
 
-        G.GetAllSimpleLoops(AllCycles, needPrint);
+        G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
         toDelArcs.clear();
 
         for (int k = 0; k < AllCycles.size(); ++k)
@@ -432,15 +432,24 @@ namespace Distribution
 
             //try to resolve conflicts of 1 type
             const set<Array*> &arrays = allArrays.GetArrays();
-            for (auto it = arrays.begin(); it != arrays.end(); ++it)
+
+            vector<Array*> arraysV;
+            arraysV.assign(arrays.begin(), arrays.end());
+
+            for (int z = 0; z < arraysV.size(); ++z)
             {
-                Array *currArray = *it;
+                const DIST::Array *array = arraysV[z];
+
+#ifdef _WIN32
+                wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
+                sendMessage_2lvl(treeM);
+#endif
                 vector<vType> verts;
 
-                if (currArray->GetDimSize() == 1)
+                if (array->GetDimSize() == 1)
                     continue;
 
-                int err = allArrays.GetAllVertNumber(currArray, verts);
+                int err = allArrays.GetAllVertNumber(array, verts);
                 if (err != 0)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -451,15 +460,19 @@ namespace Distribution
                     for (int j = i + 1; j < verts.size(); ++j)
                     {
                         GraphCSR<vType, wType, attrType> findConflict(reducedG);
-                        vector<tuple<int, int, attrType>> toDelArcsLocal;
                         findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
 
-                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false);
+                        vector<tuple<int, int, attrType>> toDelArcsLocal;
+                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true);
                         if (toDelArcsLocal.size() != 0)
                             reducedG.RemovedEdges(toDelArcsLocal, allArrays);
                     }
                 }
-            }  
+            }
+
+#ifdef _WIN32
+            sendMessage_2lvl(L"");
+#endif
 
 #if TEST
             if (needToReSave)

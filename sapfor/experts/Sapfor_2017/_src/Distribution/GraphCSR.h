@@ -38,6 +38,7 @@ namespace Distribution
         vType *activeE;
         std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
+        std::vector<std::pair<int, int>> treesQuality;
 
         int activeCounter;
         vType findFrom;
@@ -92,6 +93,7 @@ namespace Distribution
             this->maxAvailMemory = G.maxAvailMemory;
             this->countRequestsToAdd = G.countRequestsToAdd;
             this->countMissToAdd = G.countMissToAdd;
+            this->treesQuality = G.treesQuality;
         }
 
         void cleanData()
@@ -126,6 +128,7 @@ namespace Distribution
             localIdx.resize(0);
             globalIdx.resize(0);
             attributes.resize(0);
+            treesQuality.resize(0);
 
             maxLoopDim = MAX_LOOP_DIM;
             maxChainLen = MAX_CHAIN_LEN;
@@ -137,7 +140,7 @@ namespace Distribution
         bool SaveGraphToFile(FILE *file);
         bool LoadGraphFromFile(FILE *file);
         int AddToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const uint8_t linkType);
-        void GetAllSimpleLoops(std::vector<std::vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint);
+        void GetAllSimpleLoops(std::vector<std::vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint, bool useSavedQ);
         int SortLoopsBySize(std::vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint);
         int SortLoopsByWeight(std::vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint);
         int GetConflictCycles(const std::vector<Cycle<vType, wType, attrType>> &cycles, const Arrays<vType> &allArrays, std::vector<std::pair<int, int>> &indexOfConflict, bool needPrint);

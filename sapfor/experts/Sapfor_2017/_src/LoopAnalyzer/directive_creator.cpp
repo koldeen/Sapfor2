@@ -1265,6 +1265,74 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
     }
 }
 
+static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updateOn,
+                                  const map<DIST::Array*, vector<bool>> &dimsNotMatch,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                  DIST::GraphCSR<int, double, attrType> &reducedG, 
+                                  const DIST::Arrays<int> &allArrays, const int regId,
+                                  ParallelDirective *parDirective,
+                                  map<DIST::Array*, vector<pair<bool, int>>> &values, 
+                                  bool fromRead = false)
+{
+    bool ret = true;
+
+    for (auto &elem : dimsNotMatch)
+    {
+        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;
+
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefs.size());
+        int tmpIdx = 0;
+        for (auto &array : realRefs)
+            reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
+
+        if (isAllRulesEqual(allRules))
+            rule = allRules[0];
+        else
+            return false;// printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        findAndReplaceDimentions(rule, allArrays);
+
+        for (int i = 0; i < elem.second.size(); ++i)
+        {
+            if (elem.second[i] && values[elem.first][i].first)
+            {
+                const int idx = get<1>(rule[i]);
+                const auto &currRule = get<2>(rule[i]);
+
+                const int mapTo = currRule.first * values[elem.first][i].second + currRule.second;
+                if (updateOn[idx].first)
+                {
+                    if (updateOn[idx].second != mapTo && !fromRead) // DIFFERENT VALUES TO MAP
+                        return false;
+                }
+                else
+                    updateOn[idx] = make_pair(true, mapTo);
+            }
+        }
+    }
+
+    //try to resolve from write operations
+    for (int i = 0; i < updateOn.size(); ++i)
+    {
+        if (updateOn[i].first)
+        {
+            if (parDirective->on[i].first != "*")
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            else
+            {
+                parDirective->on[i].first = std::to_string(updateOn[i].second);
+                parDirective->on[i].second = make_pair(1, 0);
+                resolved = true;
+            }
+        }
+    }
+
+    return ret;
+}
+
 //TODO: calculate not only consts
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
@@ -1335,66 +1403,31 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     for (auto &elem : dimsNotMatch)
     {
         for (int idx = 0; idx < elem.second.size(); ++idx)
-            if (elem.second[idx] && !values[elem.first][idx].first) // NOT INFO FOUND
+            if (elem.second[idx] && (!values[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
                 return false;
     }
 
     vector<pair<bool, int>> updateOn(parDirective->on.size());
     std::fill(updateOn.begin(), updateOn.end(), make_pair(false, 0));
 
-    for (auto &elem : dimsNotMatch)
+    //try to resolve from write operations
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values);
+    if (!ok)
+        return false;
+  
+    //try to resolve from read operations
+    if (!resolved)
     {
-        vector<tuple<DIST::Array*, int, pair<int, int>>> rule;        
-
-        set<DIST::Array*> realRefs;
-        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
-
-        vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefs.size());
-        int tmpIdx = 0;
-        for (auto &array : realRefs)
-            reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
-
-        if (isAllRulesEqual(allRules))
-            rule = allRules[0];
-        else
-            return false;// printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        findAndReplaceDimentions(rule, allArrays);
-
-        for (int i = 0; i < elem.second.size(); ++i)
-        {
-            if (elem.second[i])
-            {
-                const int idx = get<1>(rule[i]);
-                const auto &currRule = get<2>(rule[i]);
-
-                const int mapTo = currRule.first * values[elem.first][i].second + currRule.second;
-                if (updateOn[idx].first)
-                {
-                    if (updateOn[idx].second != mapTo) // DIFFERENT VALUES TO MAP
-                        return false;
-                }
-                else
-                    updateOn[idx] = make_pair(true, mapTo);
-            }
-        }
-    }
+        map<DIST::Array*, vector<pair<bool, int>>> values2;
+        for (auto &elem : rightValues)
+            for (auto &vElem : elem.second)
+                values2[elem.first].push_back(make_pair(vElem.first, vElem.second.first));
+        
+        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, true);
+        if (!ok)
+            return false;
+    }   
     
-    for (int i = 0; i < updateOn.size(); ++i)
-    {
-        if (updateOn[i].first)
-        {
-            if (parDirective->on[i].first != "*")
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            else
-            {
-                parDirective->on[i].first = std::to_string(updateOn[i].second);
-                parDirective->on[i].second = make_pair(1, 0);
-                resolved = true;
-            }
-        }
-    }
-
     if (resolved)
     {
         for (auto &elem : rightValues)
@@ -1408,7 +1441,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                     const auto &leftPartVal = values[elem.first];
                     for (int i = 0; i < leftPartVal.size(); ++i)
                     {
-                        if (leftPartVal[i].first)
+                        if (leftPartVal[i].first || elem.second[i].first)
                         {
                             const int foundVal = leftPartVal[i].second;
                             auto shadowElem = elem.second[i].second;
@@ -1468,7 +1501,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                         topCheck = isOnlyTopPerfect(loop, distribution);
                     }
                 } */
-
+                
                 if (topCheck)
                 {
                      //<Array, linksWithTempl> -> dims not mached

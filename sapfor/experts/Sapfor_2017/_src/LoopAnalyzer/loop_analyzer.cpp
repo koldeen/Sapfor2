@@ -51,6 +51,7 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 #define PRINT_ARRAY_ARCS  0
 #define PRINT_LOOP_STRUCT 0
@@ -970,6 +971,13 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 #if _WIN32 && NDEBUG
         createNeededException();
 #endif
+#ifdef _WIN32
+        string fName = file->functions(i)->symbol()->identifier();
+        if (file->functions(i)->variant() != MODULE_STMT)
+            sendMessage_2lvl(wstring(L"обработка функции '") + wstring(fName.begin(), fName.end()) + L"'");
+        else
+            sendMessage_2lvl(wstring(L"обработка модуля '") + wstring(fName.begin(), fName.end()) + L"'");
+#endif
         set<SgSymbol*> delcsSymbViewed;
         set<SgStatement*> delcsStatViewed;
 
@@ -1273,10 +1281,17 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             initAnnotationsSysExt(0);
             set<SgStatement*> funcWasInit;
             map<SgExpression*, string> collection;
+
+            int idx = 0;
             for (auto &loop : convertedLoopInfo)
             {
+                ++idx;
 #if _WIN32 && NDEBUG
                 createNeededException();
+#endif
+#ifdef _WIN32
+                string fName = file->functions(i)->symbol()->identifier();
+                sendMessage_2lvl(wstring(L"обработка цикла ") + std::to_wstring(idx) + L"/" + std::to_wstring(convertedLoopInfo.size()));
 #endif
                 tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection);
             }
@@ -1393,6 +1408,10 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                         loopRef->withoutDistributedArrays = false;
                 }
             }
+
+#ifdef _WIN32
+            sendMessage_2lvl(L"");
+#endif
         }
         else if (regime == COMP_DISTR)
         {

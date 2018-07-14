@@ -153,6 +153,8 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         if (currFileName != fileN)
         {
             allIncludeFiles.insert(currFileName);
+
+            convertToLower(currFileName);
             auto it = includeFiles.find(currFileName);
 
             if (it != includeFiles.end())

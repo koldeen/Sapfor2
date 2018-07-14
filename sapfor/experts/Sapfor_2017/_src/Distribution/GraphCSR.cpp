@@ -673,9 +673,11 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void GraphCSR<vType, wType, attrType>::
-         GetAllSimpleLoops(vector<vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint)
-    {
+         GetAllSimpleLoops(vector<vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint, bool useSavedQuality)
+    {        
         //cyclesNum = 0;
+        if (!useSavedQuality)
+            treesQuality.clear();
         cycles.clear();
         color.resize(numVerts);
         activeCounter = 0;
@@ -753,8 +755,27 @@ namespace Distribution
                 if (newQuality < 3) newQuality = 3;
                 if (newSpeed < 3)   newSpeed = 3;
 
-                maxLoopDim = newQuality;
-                maxChainLen = newSpeed;
+                if (!useSavedQuality)
+                {
+                    maxLoopDim = newQuality;
+                    maxChainLen = newSpeed;
+
+                    treesQuality.push_back(make_pair(maxLoopDim, maxChainLen));
+                }
+                else
+                {
+                    if (t < treesQuality.size())
+                    {
+                        maxLoopDim = treesQuality[t].first;
+                        maxChainLen = treesQuality[t].second;
+                    }
+                    else
+                    {
+                        maxLoopDim = newQuality;
+                        maxChainLen = newSpeed;
+                    }
+                }
+
                 if (needPrint)
                     printf("SAPFOR: [TREE %d], arrays num %d, maxLoopDim %d, maxChainLen %d\n", t, vertArraySize, maxLoopDim, maxChainLen);
 
@@ -849,7 +870,7 @@ namespace Distribution
         delete []activeArcs;
 
         __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
-        __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);        
+        __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
     }
 
     template<typename vType, typename wType, typename attrType>

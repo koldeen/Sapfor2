@@ -45,10 +45,6 @@
 #include "VisualizerCalls/get_information.h"
 #endif
 
-#ifdef _ARBU
-#include <SignalHandling.hpp>
-#endif
-
 #include "dvm.h"
 #include "Sapfor.h"
 #include "Utils/PassManager.h"
@@ -1363,13 +1359,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     }
 }
 
-int main(int argc, char**argv)
+int main(int argc, char **argv)
 {
 #if _WIN32 && _DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
-#ifdef _ARBU
-    SageTransform::SignalHandling(); //init for stacktrace on sigserv on unix
 #endif
 
     try

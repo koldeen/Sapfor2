@@ -207,18 +207,50 @@ void processLoopInformationForFunction(map<LoopGraph*, map<DIST::Array*, const A
 }
 
 #define GROUP_BY_REQUEST 1
+
+#if GROUP_BY_REQUEST
+class GroupItem
+{
+private:
+    int maxDim1;
+    int maxDim2;
+    vector<pair<pair<int, int>, map<attrType, double>>> coeffs;    
+
+public:
+    GroupItem(int maxD1, int maxD2) : maxDim1(maxD1), maxDim2(maxD2), coeffs(maxD1 * maxD2) { }
+    void inline AddToGroup(int dim1, int dim2, const attrType &key, const double currW)
+    {
+        int pos = dim2 * maxDim1 + dim1;
+        auto &current = coeffs[pos];
+        current.first = make_pair(dim1, dim2);
+
+        auto it = current.second.find(key);
+        if (it == current.second.end())
+            it = current.second.insert(it, make_pair(key, 0.0));
+        it->second += currW;
+    }
+
+    const vector<pair<pair<int, int>, map<attrType, double>>>& GetCoeffs() const { return coeffs; }
+};
+#endif
+
 static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
                             DIST::Arrays<int> &allArrays,
-                            const map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> &group,
+                            const map<pair<DIST::Array*, DIST::Array*>, GroupItem> &group,
                             const links linkType)
 {
     for (auto &elem : group)
     {
-        const auto first = elem.first;
-        const auto currWeight = elem.second;
-        AddArrayAccess(G, allArrays, get<0>(first), get<1>(first), get<2>(first), currWeight, get<3>(first), linkType);
+        DIST::Array *from = elem.first.first;
+        DIST::Array *to = elem.first.second;
+                
+        for (auto &coeffs : elem.second.GetCoeffs())
+        {
+            const auto &arc = coeffs.first;
+            for (auto &weight : coeffs.second)
+                AddArrayAccess(G, allArrays, from, to, arc, weight.second, weight.first, linkType);
+        }
     }
-
 }
 
 static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
@@ -229,9 +261,9 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
 {
     bool loopHasWrite = false;
 #if GROUP_BY_REQUEST
-    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> ww_links;
-    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> wr_links;
-    map<tuple<DIST::Array*, DIST::Array*, pair<int, int>, attrType>, double> rr_links;
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> ww_links;
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> wr_links;
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> rr_links;
 #endif
 
     // add W-R and W-W
@@ -249,11 +281,12 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                     for (int z1 = 0; z1 < (int)to->writeOps[dimTo].coefficients.size(); ++z1)
 #if GROUP_BY_REQUEST
                     {
-                        auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]));
+                        const auto key = make_pair(fromSymb, toSymb);
                         auto it = ww_links.find(key);
                         if (it == ww_links.end())
-                            it = ww_links.insert(it, make_pair(key, 0.0));
-                        it->second += currWeight;
+                            it = ww_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), currWeight);
                     }
 #else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
@@ -262,11 +295,12 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                     for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
 #if GROUP_BY_REQUEST
                     {
-                        auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]));
+                        const auto key = make_pair(fromSymb, toSymb);
                         auto it = wr_links.find(key);
                         if (it == wr_links.end())
-                            it = wr_links.insert(it, make_pair(key, 0.0));
-                        it->second += currWeight;
+                            it = wr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
                     }
 #else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
@@ -286,11 +320,12 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                         for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
 #if GROUP_BY_REQUEST
                         {
-                            auto key = std::make_tuple(fromSymb, toSymb, make_pair(dimFrom, dimTo), make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]));
+                            const auto key = make_pair(fromSymb, toSymb);
                             auto it = rr_links.find(key);
                             if (it == rr_links.end())
-                                it = rr_links.insert(it, make_pair(key, 0.0));
-                            it->second += currWeight;                            
+                                it = rr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                            it->second.AddToGroup(dimFrom, dimTo, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
                         }
 #else
                             AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);

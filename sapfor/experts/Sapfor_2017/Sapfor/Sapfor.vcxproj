@@ -79,7 +79,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;..\..\..\transformers\ftransform\trunk\CommonLib\include;..\..\..\transformers\ftransform\trunk\SageUtils\include;..\..\..\transformers\ftransform\trunk\SageTransformLib\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -89,7 +89,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;..\..\..\transformers\ftransform\trunk\CommonLib\include;..\..\..\transformers\ftransform\trunk\SageUtils\include;..\..\..\transformers\ftransform\trunk\SageTransformLib\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -287,9 +287,6 @@
     <Library Include="..\_lib\boost_Release_64\libboost_date_time-vc141-mt-1_64.lib" />
     <Library Include="..\_lib\boost_Release_64\libboost_system-vc141-mt-1_64.lib" />
     <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformCommonLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformUtils.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
