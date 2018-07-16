@@ -412,6 +412,9 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         currExp = currExp->rhs();
     }
     
+    if (currRegime == PRIVATE_STEP4)
+        return;
+
     bool ifUnknownFound = false;
     vector<int> canNotMapToLoop;
     for (int i = 0; i < wasFound.size(); ++i)
@@ -450,7 +453,7 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
         if (ifUnknownFound && (currRegime == REMOTE_ACC))
         {
-            if (sumMatched != numOfSubs && maxMatched != 1)
+            if (sumMatched != numOfSubs || maxMatched != 1 || sumMatched != parentLoops.size())
             {
                 for (int i = 0; i < wasFound.size(); ++i)
                     if (wasFound[i] != 1)
@@ -1680,6 +1683,28 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
 
+    map<string, set<string>> privatesByModule;
+    for (auto &mod : modules)
+    {
+        const string modName = mod->symbol()->identifier();
+        privatesByModule[modName] = set<string>();
+        auto it = privatesByModule.find(modName);
+
+        for (SgStatement *iter = mod; iter != mod->lastNodeOfStmt(); iter = iter->lexNext())
+        {
+            if (iter->variant() == CONTAINS_STMT)
+                break;
+
+            //after SPF preprocessing 
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
+                fillPrivatesFromComment(data, it->second);
+
+            //before SPF preprocessing 
+            if (iter->variant() == SPF_ANALYSIS_DIR)
+                fillPrivatesFromComment(iter, it->second);
+        }
+    }
+
     for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         SgStatement *st = file->functions(i);
@@ -1713,6 +1738,16 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 fillReductionsFromComment(iter, reductions);
                 fillReductionsFromComment(iter, reductionsLoc);
             }
+
+            if (iter->variant() == USE_STMT)
+            {
+                if (iter->symbol())
+                {
+                    auto it = privatesByModule.find(iter->symbol()->identifier());
+                    if (it != privatesByModule.end())
+                        privates.insert(it->second.begin(), it->second.end());
+                }
+            }                
         }
 
         for (auto &elem : reductions)

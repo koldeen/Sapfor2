@@ -79,6 +79,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         char *read = fgets(buf, 8192, currFile);
         if (read)
         {
+            const string orig(read);
             string line(read);
             convertToLower(line);
 
@@ -112,12 +113,12 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     else
                         en = k;
                 }
-                string inclName(line.begin() + st, line.begin() + en + 1);
+                const string inclName(orig.begin() + st, orig.begin() + en + 1);
 
                 auto toInsert = includeFiles.find(inclName);
                 if (toInsert == includeFiles.end())
                 {
-                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(line, vector<pair<int, int>>())));
+                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(orig, vector<pair<int, int>>())));
                     toInsert->second.second.push_back(make_pair(lineBefore, -1));
                     notClosed = true;
                 }
@@ -153,8 +154,6 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         if (currFileName != fileN)
         {
             allIncludeFiles.insert(currFileName);
-
-            convertToLower(currFileName);
             auto it = includeFiles.find(currFileName);
 
             if (it != includeFiles.end())

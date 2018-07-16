@@ -183,6 +183,15 @@ static bool inline hasAssignsToArray(SgStatement *st, const vector<SgExpression*
     return false;
 }
 
+static void converToDDOT(SgExpression *spec)
+{
+    while (spec)
+    {
+        spec->setLhs(new SgExpression(DDOT));
+        spec = spec->rhs();
+    }
+}
+
 template<int NUM>
 void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
@@ -256,8 +265,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 {
                     const bool isSimple = isSimpleRef(elem);
                     if (!isSimple)
-                        for (; elem; elem = elem->rhs())
-                            elem->setLhs(new SgExpression(DDOT));
+                        converToDDOT(elem);
                 }
             }
             else
@@ -268,10 +276,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 else
                 {
                     for (auto &elem : allSubs)
-                    {
-                        for (; elem; elem = elem->rhs())
-                            elem->setLhs(new SgExpression(DDOT));
-                    }
+                        converToDDOT(elem);
                 }
             }
 
@@ -400,13 +405,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
     const bool isSimple = isSimpleRef(subs);
     //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
     if (!isSimple) // && !isDiffInSubs)
-    {
-        while (subs)
-        {
-            subs->setLhs(new SgExpression(DDOT));
-            subs = subs->rhs();
-        }
-    }
+        converToDDOT(subs);
 
     string remoteExp(copyExpr->unparse());    
     auto rem = uniqRemotes.find(remoteExp);

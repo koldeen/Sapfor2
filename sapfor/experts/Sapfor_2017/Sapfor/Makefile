@@ -28,91 +28,7 @@ PARSER_BASE_DIR = $(REPO_FDVM_BASE)parser/
 
 INLINER_BASE_DIR = $(REPO_FDVM_BASE)InlineExpansion/
 
-TR_COMMON_BASE_DIR = $(REPO_TRANSFORM_BASE)CommonLib/
-TR_LIB_BASE_DIR    = $(REPO_TRANSFORM_BASE)SageTransformLib/
-TR_UTILS_BASE_DIR  = $(REPO_TRANSFORM_BASE)SageUtils/
-TR_SAGE_INCLUDES   = -I$(LIB_INCL) -I$(SAGE_INCL_DIR) -I$(DVMINCLUDE)
-all: $(LIBDIR)/trCommonLib.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
-
-#Make transform common lib
-TR_COMMON_OBS = Log.o SageTransformException.o SignalHandling.o Stacktrace.o StringUtils.o
-TR_COMMON_INC = -I$(TR_COMMON_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(TR_UTILS_BASE_DIR)include/
-
-$(LIBDIR)/trCommonLib.a: $(TR_COMMON_OBS)
-	ar qc $(LIBDIR)/trCommonLib.a $(TR_COMMON_OBS)
-Log.o: $(TR_COMMON_BASE_DIR)src/Log.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/Log.cpp $(TR_COMMON_INC)
-SageTransformException.o: $(TR_COMMON_BASE_DIR)src/SageTransformException.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/SageTransformException.cpp $(TR_COMMON_INC)
-SignalHandling.o: $(TR_COMMON_BASE_DIR)src/SignalHandling.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/SignalHandling.cpp $(TR_COMMON_INC)
-Stacktrace.o: $(TR_COMMON_BASE_DIR)src/Stacktrace.cpp 
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/Stacktrace.cpp $(TR_COMMON_INC)
-StringUtils.o: $(TR_COMMON_BASE_DIR)src/StringUtils.cpp 
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/StringUtils.cpp $(TR_COMMON_INC)
-	
-#Make transform lib
-TR_LIB_OBS = BaseTransform.o LoopCombine.o LoopTransformBreak.o LoopTransformMerge.o LoopTransformSplit.o LoopTransformTighten.o LoopWrapTransform.o \
-             StatementOrderTransform.o StatementReorderer.o StatementReshuffler.o StatementsSplitter.o TempArrayTransform.o WriteDearray.o \
-			 Dependency.o DependencyInfo.o DependencyInfoGetter.o DependencyUtils.o
-			 
-TR_LIB_INC = -I$(TR_LIB_BASE_DIR)include/dependency/ -I$(TR_LIB_BASE_DIR)include/ -I$(TR_COMMON_BASE_DIR)include/ -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(REPO_SPF_BASE)
-
-$(LIBDIR)/trLib.a: $(TR_LIB_OBS)
-	ar qc $(LIBDIR)/trLib.a $(TR_LIB_OBS)
-BaseTransform.o: $(TR_LIB_BASE_DIR)src/BaseTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/BaseTransform.cpp $(TR_LIB_INC)
-LoopCombine.o: $(TR_LIB_BASE_DIR)src/LoopCombine.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopCombine.cpp $(TR_LIB_INC)
-LoopTransformBreak.o: $(TR_LIB_BASE_DIR)src/LoopTransformBreak.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformBreak.cpp $(TR_LIB_INC)
-LoopTransformMerge.o: $(TR_LIB_BASE_DIR)src/LoopTransformMerge.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformMerge.cpp $(TR_LIB_INC)
-LoopTransformSplit.o: $(TR_LIB_BASE_DIR)src/LoopTransformSplit.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformSplit.cpp $(TR_LIB_INC)
-LoopTransformTighten.o: $(TR_LIB_BASE_DIR)src/LoopTransformTighten.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformTighten.cpp $(TR_LIB_INC)
-LoopWrapTransform.o: $(TR_LIB_BASE_DIR)src/LoopWrapTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopWrapTransform.cpp $(TR_LIB_INC)
-StatementOrderTransform.o: $(TR_LIB_BASE_DIR)src/StatementOrderTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementOrderTransform.cpp $(TR_LIB_INC)
-StatementReorderer.o: $(TR_LIB_BASE_DIR)src/StatementReorderer.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementReorderer.cpp $(TR_LIB_INC)
-StatementReshuffler.o: $(TR_LIB_BASE_DIR)src/StatementReshuffler.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementReshuffler.cpp $(TR_LIB_INC)
-StatementsSplitter.o: $(TR_LIB_BASE_DIR)src/StatementsSplitter.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementsSplitter.cpp $(TR_LIB_INC)
-TempArrayTransform.o: $(TR_LIB_BASE_DIR)src/TempArrayTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/TempArrayTransform.cpp $(TR_LIB_INC)
-WriteDearray.o: $(TR_LIB_BASE_DIR)src/WriteDearray.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/WriteDearray.cpp $(TR_LIB_INC)
-Dependency.o: $(TR_LIB_BASE_DIR)src/dependency/Dependency.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/Dependency.cpp $(TR_LIB_INC)
-DependencyInfo.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfo.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyInfo.cpp $(TR_LIB_INC)
-DependencyInfoGetter.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfoGetter.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyInfoGetter.cpp $(TR_LIB_INC)
-DependencyUtils.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyUtils.cpp $(TR_LIB_INC)
-	
-#Make transform utils
-TR_UTILS_OBS = decodeStmtVariant.o SageTransformUtils.o SageUtils.o LineReorderRecord.o LineReorderer.o
-			 
-TR_UTILS_INC = -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(TR_COMMON_BASE_DIR)include/
-
-$(LIBDIR)/trUtils.a: $(TR_UTILS_OBS)
-	ar qc $(LIBDIR)/trUtils.a $(TR_UTILS_OBS)
-
-decodeStmtVariant.o: $(TR_UTILS_BASE_DIR)src/decodeStmtVariant.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/decodeStmtVariant.cpp $(TR_UTILS_INC)
-SageTransformUtils.o: $(TR_UTILS_BASE_DIR)src/SageTransformUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageTransformUtils.cpp $(TR_UTILS_INC)
-SageUtils.o: $(TR_UTILS_BASE_DIR)src/SageUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageUtils.cpp $(TR_UTILS_INC)
-LineReorderRecord.o: $(TR_UTILS_BASE_DIR)src/LineReorderRecord.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderRecord.cpp $(TR_UTILS_INC)
-LineReorderer.o: $(TR_UTILS_BASE_DIR)src/LineReorderer.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderer.cpp $(TR_UTILS_INC)
+all: $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
 
 #Make SAGE++
 libSage++.o: $(SAGE_SRC_DIR)libSage++.cpp $(LIB_INCL)/macro.h $(LIB_INCL)/bif_node.def $(LIB_INCL)/type.def $(LIB_INCL)/symb.def $(LIB_INCL)/libSage++.h
@@ -233,7 +149,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 shadow.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
-	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/trCommonLib.a
+	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 
 utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
