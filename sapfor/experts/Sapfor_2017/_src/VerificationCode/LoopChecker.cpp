@@ -1,7 +1,6 @@
 #include "../leak_detector.h"
 
 #include <cstdio>
-#include <vector>
 #include <map>
 #include <string>
 #include <algorithm>
@@ -10,6 +9,7 @@
 #include "verifications.h"
 #include "../utils.h"
 #include "../SgUtils.h"
+#include "../ParallelizationRegions/ParRegions_func.h"
 
 using std::vector;
 using std::map;
@@ -66,7 +66,7 @@ void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
     }
 }
 
-void EquivalenceChecker(SgFile *file, const string &fileName, set<pair<string, int>> &errors)
+void EquivalenceChecker(SgFile *file, const string &fileName, vector<ParallelRegion*> &regions, set<pair<string, int>> &errors)
 {
     int funcNum = file->numberOfFunctions();
 
@@ -86,11 +86,13 @@ void EquivalenceChecker(SgFile *file, const string &fileName, set<pair<string, i
                 break;
             }
 
-            if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT)) {
-                if (getRegionByLine(parallelRegions, st->fileName(), lastLine) == NULL)
-                    errors.insert(std::make_pair(st->fileName(), lastLine));
-                else
-                    __spf_print(1, "The equivalence operator is not supported yet\n");
+			if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT))
+			{
+				if (getRegionByLine(regions, st->fileName(), lastLine) == NULL)
+					errors.insert(std::make_pair(st->fileName(), lastLine));
+				else
+					__spf_print(1, "The equivalence operator is not supported yet\n");
+			}
 
             st = st->lexNext();
         }

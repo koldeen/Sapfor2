@@ -310,7 +310,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == VERIFY_EQUIVALENCE)
         {
             set<pair<string, int>> errors;
-			EquivalenceChecker(file, file_name, errors);
+			EquivalenceChecker(file, file_name, parallelRegions, errors);
             if (errors.size() != 0)
             {
                 veriyOK = false;
