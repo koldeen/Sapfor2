@@ -280,7 +280,10 @@ static string getValue(SgExpression *exp)
 
     string ret = "( )";
     if (exp->symbol())
-        ret = "(" + string(exp->symbol()->identifier()) + ")";
+    {
+        if (exp->symbol()->identifier())
+            ret = "(" + string(exp->symbol()->identifier()) + ")";
+    }
     else if (exp->variant() == INT_VAL)
         ret = "(" + std::to_string(exp->valueInteger()) + ")";
     else if (exp->variant() == ADD_OP)
@@ -342,7 +345,7 @@ void recExpressionPrint(SgExpression *exp)
     printf("digraph G{\n");
     int allNum = 0;
     recExpressionPrint(exp, 0, "L", allNum, allNum);
-    if (allNum == 0)
+    if (allNum == 0 && exp)
         printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
     printf("};\n");
     fflush(NULL);

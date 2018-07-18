@@ -295,24 +295,23 @@ bool isSPF_comment(const string &bufStr)
 void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
                   const char *folderName, int removeDvmDirs)
 {
-    for (auto it = allIncludeFiles.begin(); it != allIncludeFiles.end(); ++it)
+    for (auto &include : allIncludeFiles)
     {
-        if (commentsToInclude.find(*it) != commentsToInclude.end())
+        if (commentsToInclude.find(include) != commentsToInclude.end())
             continue;
 
-        string currFile = *it;
-        string newCurrFile = string(folderName) + "/" + currFile;
+        string newCurrFile = string(folderName) + "/" + include;
         
         FILE *tryToOpen = fopen(newCurrFile.c_str(), "r");
         if (tryToOpen == NULL)
         {
-            __spf_print(1, "  try to copy file '%s' to '%s'\n", currFile.c_str(), newCurrFile.c_str());
+            __spf_print(1, "  try to copy file '%s' to '%s'\n", include.c_str(), newCurrFile.c_str());
 
             FILE *copyFile = fopen(newCurrFile.c_str(), "w");
-            FILE *oldFile = fopen(currFile.c_str(), "r");
+            FILE *oldFile = fopen(include.c_str(), "r");
             if (!copyFile)
             {
-                __spf_print(1, "  can not open file '%s' for read\n", currFile.c_str());
+                __spf_print(1, "  can not open file '%s' for read\n", include.c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
@@ -329,6 +328,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                 if (res == NULL)
                     break;
 
+                const string orig(buf);
                 string bufStr(buf);
                 convertToLower(bufStr);
                 if (!keepSpfDirs)
@@ -351,7 +351,12 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                         }
                     }
                 }
-                fputs(bufStr.c_str(), copyFile);
+
+                // save original include name
+                if (bufStr.find("include") != string::npos)
+                    fputs(orig.c_str(), copyFile);
+                else
+                    fputs(bufStr.c_str(), copyFile);
             }
             fclose(oldFile);
             fclose(copyFile);

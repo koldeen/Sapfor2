@@ -140,8 +140,21 @@ static bool isDone(const int curr_regime)
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     } // dont run passes twice
-    else if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
-        return true;
+    else
+    {
+        if (curr_regime == PRIVATE_ANALYSIS_SPF)
+        {
+            if (PASSES_DONE[LOOP_ANALYZER_DATA_DIST_S1] == 1)
+                return true;
+            else if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
+                return true;
+        }
+        else
+        {
+            if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
+                return true;
+        }
+    }
 
     return false;
 }
@@ -157,7 +170,7 @@ static void updateStatsExprs(const int id, const string &file)
 pair<SgFile*, SgStatement*> currProcessing;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
-{    
+{
     if (PASSES_DONE_INIT == false)
     {
         for (int i = 0; i < EMPTY_PASS; ++i)
@@ -174,12 +187,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
     sendMessage_1lvl(wstring(L"выполняется проход '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
+
     const int n = project.numberOfFiles();
-
-    const bool need_to_save = false;
-    char fout_name[128];
     bool veriyOK = true;
-
     int internalExit = 0;
 
     //for process include files
@@ -651,18 +661,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                 throw(-1);
             }
-
+            
+            string fout_name = "";
             if (folderName == NULL)
-                sprintf(fout_name, "%s_%s.%s", OnlyName(file_name).c_str(), newVer, OnlyExt(file_name).c_str());
+                fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
             else
             {
                 if (strlen(newVer) == 0)
-                    sprintf(fout_name, "%s/%s.%s", folderName, OnlyName(file_name).c_str(), OnlyExt(file_name).c_str());
+                    fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
                 else
-                    sprintf(fout_name, "%s/%s_%s.%s", folderName, OnlyName(file_name).c_str(), newVer, OnlyExt(file_name).c_str());
+                    fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
             }
 
-            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name);
+            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
             if (curr_regime == INSERT_INCLUDES)
             {
                 __spf_print(1, "  try to find file <%s>\n", file_name);
@@ -671,7 +682,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
             {
-                FILE *fOut = fopen(fout_name, "w");
+                FILE *fOut = fopen(fout_name.c_str(), "w");
                 if (fOut)
                 {
                     file->unparse(fOut);
@@ -679,14 +690,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
                 else
                 {
-                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name);
+                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
                     getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                     throw(-1);
                 }
             }
             else
             {
-                removeIncludeStatsAndUnparse(file, file_name, fout_name, allIncludeFiles);
+                removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
 
                 // copy includes that have not changed
                 if (folderName != NULL)
@@ -694,12 +705,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
-        if (need_to_save)
+        //TODO:
+        /*if (need_to_save)
         {
             sprintf(fout_name, "%s.dep", OnlyName(file_name).c_str());
             file->saveDepFile(fout_name);
             __spf_print(DEBUG_LVL1, "  Saving to <%s> file\n", fout_name);
-        }
+        }*/
     } // end of FOR by files
 
     if (internalExit != 0)

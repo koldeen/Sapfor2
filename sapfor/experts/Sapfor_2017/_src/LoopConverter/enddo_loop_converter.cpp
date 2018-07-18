@@ -13,6 +13,7 @@
 #include "enddo_loop_converter.h"
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 
 using namespace std;
 
@@ -38,6 +39,81 @@ static SgLabel* getUniqLabel(unsigned was)
 
     SgLabel *ret = new SgLabel(was);
     return ret;
+}
+
+//TODO: dont compute expression twice
+static SgStatement* convertArithIf(SgStatement *curr)
+{
+    SgExpression *cond = curr->expr(0);
+    SgExpression *lb = curr->expr(1);
+    SgLabel *arith_lab[3];
+
+    int i = 0;
+    while (lb)
+    {
+        SgLabel *lab = ((SgLabelRefExp *)(lb->lhs()))->label();
+        arith_lab[i] = lab;
+        i++;
+        lb = lb->rhs();
+    }
+
+    SgStatement *replaceSt;
+
+    if (arith_lab[1]->getLabNumber() == arith_lab[2]->getLabNumber())
+        replaceSt = new SgIfStmt(*cond < *new SgValueExp(0), *new SgGotoStmt(*arith_lab[0]), *new SgGotoStmt(*arith_lab[1]));
+    else
+        replaceSt = new SgIfStmt(*cond < *new SgValueExp(0),
+                    *new SgGotoStmt(*arith_lab[0]),
+                    *new SgIfStmt(*cond == *new SgValueExp(0), *new SgGotoStmt(*arith_lab[1]), *new SgGotoStmt(*arith_lab[2])));
+
+    return replaceSt;
+}
+
+//TODO: dont compute expression twice
+static SgStatement* convertComGoto(SgStatement *curr)
+{
+    SgExpression *cond = curr->expr(1);
+    SgExpression *lb = curr->expr(0);
+    vector<SgLabel*> labs;
+
+    while (lb)
+    {
+        labs.push_back(((SgLabelRefExp *)(lb->lhs()))->label());
+        lb = lb->rhs();
+    }
+
+    SgStatement *replace = NULL;
+    
+    if (labs.size() == 1)
+        replace = new SgIfStmt(*cond == *new SgValueExp(1), *new SgGotoStmt(*labs[0]));
+    else
+        replace = new SgIfStmt(*cond == *new SgValueExp((int)labs.size()), *new SgGotoStmt(*labs.back()));
+        
+    for (int z = (int)labs.size() - 2; z >= 0; --z)
+        replace = new SgIfStmt(*cond == *new SgValueExp(z + 1), *new SgGotoStmt(*labs[z]), *replace);
+    
+    return replace;
+}
+
+template<SgStatement* funcConv(SgStatement*)>
+static void convert(SgStatement *&curr, const string &message)
+{
+    const int lineNum = curr->lineNumber();
+    SgStatement *replaceSt = funcConv(curr);
+
+    curr->insertStmtAfter(*replaceSt, *curr->controlParent());
+    copyLabelAndComentsToNext(curr);
+
+    SgStatement *toDel = curr;
+    curr = curr->lexNext();
+    toDel->deleteStmt();
+
+    char buf[512];
+    sprintf(buf, (message + " on line %d\n").c_str(), lineNum);
+    addToGlobalBufferAndPrint(buf);
+
+    sprintf(buf, message.c_str());
+    currMessages->push_back(Messages(NOTE, lineNum, buf, 2002));
 }
 
 static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfLoops)
@@ -78,46 +154,25 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
     }
 
     curr = forSt->lexNext();
-    // convert all arithmetic if to simple if with goto
+    // convert all arithmetic if and computed goto to simple if with goto
+    //TODO: add ASSIGN GOTO
     while (curr != lastNode)
     {
         if (curr->variant() == ARITHIF_NODE)
         {
-            const int lineNum = curr->lineNumber();
-
-            SgExpression *cond = curr->expr(0);
-            SgExpression *lb = curr->expr(1);
-            SgLabel *arith_lab[3];
-
-            int i = 0;
-            while (lb)
-            {
-                SgLabel *lab = ((SgLabelRefExp *)(lb->lhs()))->label();
-                arith_lab[i] = lab;
-                i++;
-                lb = lb->rhs();
-            }
-
-            SgStatement *replaceSt = 
-                    new SgIfStmt(*cond < *new SgValueExp(0), 
-                                 *new SgGotoStmt(*arith_lab[0]), 
-                                 *new SgIfStmt(SgEqOp(*cond, *new SgValueExp(0)), *new SgGotoStmt(*arith_lab[1]), *new SgGotoStmt(*arith_lab[2])));
-
-            curr->insertStmtAfter(*replaceSt, *curr->controlParent());
-            copyLabelAndComentsToNext(curr);
-
-            SgStatement *toDel = curr;
-            curr = curr->lexNext();
-            toDel->deleteStmt();
-
-            char buf[512];
-            sprintf(buf, "convert arithmetic IF to simple IF on line %d\n", lineNum);
-            addToGlobalBufferAndPrint(buf);
-
-            sprintf(buf, "convert arithmetic IF to simple IF");
-            currMessages->push_back(Messages(NOTE, lineNum, buf, 2002));
-
+            convert<convertArithIf>(curr, "convert arithmetic IF to simple IF");            
             continue;
+        }
+        else if (curr->variant() == COMGOTO_NODE)
+        {
+            convert<convertComGoto>(curr, "convert computed GOTO to simple IF");
+            continue;
+        }
+        else if (curr->variant() == ASSGOTO_NODE)
+        {
+            SgExpression *lb = curr->expr(0);
+            SgSymbol *assignedS = curr->symbol();
+            //TODO
         }
         curr = curr->lexNext();
     }
@@ -127,7 +182,7 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
 {
     const int lineNum = forSt->lineNumber();
     if (forSt->isEnddoLoop() == false)
-    {        
+    {
         int result = forSt->convertLoop();
         if (result == 0)
         {    
@@ -212,7 +267,7 @@ void ConverToEndDo(SgFile *file, vector<Messages> &messagesForFile)
     currMessages = &messagesForFile;
     getAllLabels(file);
 
-    int funcNum = file->numberOfFunctions();
+    const int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -223,7 +278,7 @@ void ConverToEndDo(SgFile *file, vector<Messages> &messagesForFile)
         map<int, SgForStmt*> toProcessLoops;
         fillEndOfLoop(st, endOfLoops, toProcessLoops);
 
-        for (auto it = toProcessLoops.begin(); it != toProcessLoops.end(); ++it)
-            tryToConverLoop(it->second, endOfLoops);
+        for (auto &loop : toProcessLoops)
+            tryToConverLoop(loop.second, endOfLoops);
     }
 }

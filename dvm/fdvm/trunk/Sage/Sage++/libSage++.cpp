@@ -2374,41 +2374,47 @@ SgExpression &operator >= ( SgExpression &lhs, SgExpression &rhs)
     return makeAnBinaryExpression(GE_OP,lhs.thellnd,rhs.thellnd);
 } 
 
-SgExpression &operator & ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITAND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator | ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator |( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITOR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &&( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &&( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ||( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ||( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(OR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator +=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator +=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(PLUS_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator *=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator *=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MULT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator /=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator /=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(DIV_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator %=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MOD_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ^=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(XOR_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator <<=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(LSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator >>=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(RSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);}
+
+SgExpression& operator==(SgExpression &lhs, SgExpression &rhs)
+{ return SgEqOp(lhs, rhs); }
+
+SgExpression& operator!=(SgExpression &lhs, SgExpression &rhs)
+{ return SgNeqOp(lhs, rhs); }
 
 SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
