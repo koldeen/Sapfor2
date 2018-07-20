@@ -61,12 +61,24 @@ public:
     GraphsKeeper(): graphs(std::map<std::string, GraphItem*>()) {}
     ~GraphsKeeper()
     {
-        for(auto& it : graphs)
-            delete it.second->CGraph;
+        for (auto &it : graphs)
+        {
+            if (it.second)
+            {
+                if (it.second->CGraph)
+                {
+                    delete it.second->CGraph;
+                    it.second->CGraph = NULL;
+                }
+                delete it.second;
+                it.second = NULL;
+            }
+        }
+        graphs.clear();
     }
 
     GraphItem* buildGraph(SgStatement* st);
-    GraphItem* getGraph(std::string funcName);
+    GraphItem* getGraph(const std::string &funcName);
 };
 
 struct FuncCallSE

@@ -195,8 +195,8 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat)
                         float maxSpec = std::max(spec[z].first, spec[z].second);
                         float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
 
-                        // 15 %
-                        if (dimSize * 0.15 < maxSpec)
+                        // 50 %
+                        if (dimSize * 0.5 < maxSpec)
                         {
                             replaceByRemote = true;
                             break;

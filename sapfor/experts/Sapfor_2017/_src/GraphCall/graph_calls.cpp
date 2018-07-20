@@ -886,8 +886,11 @@ static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
     if (ex)
     {
         if (ex->variant() == VAR_REF)
-            if (ex->symbol()->identifier() == loopSymb)
+        {
+            const string ident(ex->symbol()->identifier());
+            if (ident == loopSymb)
                 retVal = true;
+        }
 
         if (ex->lhs())
             retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb);
@@ -1066,6 +1069,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         const vector<int> parsWithLoopSymb = findNoOfParWithLoopVar(parList, loop->symbol()->identifier());
         bool isLoopSymbUsedAsIndex = false;
 
+        int idx = 1;
         for (auto &par : parsWithLoopSymb)
         {
             if (func->isParamUsedAsIndex[par])
@@ -1073,16 +1077,19 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
                 isLoopSymbUsedAsIndex = true;
                 break;
             }
+            ++idx;
         }
 
         if (isLoopSymbUsedAsIndex)
         {
             char buf[256];
-            sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
+            sprintf(buf, "Function '%s' needs to be inlined due to use of loop on line %d symbol as index of an array, in parameter num %d", 
+                          func->funcName.c_str(), loop->lineNumber(), idx);
             if (needToAddErrors)
             {
                 messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
-                __spf_print(1, "Function '%s' needs to be inlined due to use of loop symbol as index of an array\n", func->funcName.c_str());
+                __spf_print(1, "Function '%s' needs to be inlined due to use of loop on line %d symbol as index of an array, in parameter num %d\n", 
+                                func->funcName.c_str(), loop->lineNumber(), idx);
             }
 
             needInsert = true;
@@ -1490,11 +1497,19 @@ static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag 
     {
         for (auto &realRef : to)
         {
-            if (realRef->GetNonDistributeFlagVal() != flag)
+            auto val = realRef->GetNonDistributeFlagVal();            
+            if (val != flag)
             {
-                realRef->SetNonDistributeFlag(flag);
-                change = true;
-                globalChange = true;
+                //exclude this case
+                if (flag == DIST::IO_PRIV && val == DIST::SPF_PRIV)
+                    ;
+                else
+                {
+                    realRef->SetNonDistributeFlag(flag);
+                    //printf("up: set %d %s\n", flag, realRef->GetName().c_str());
+                    change = true;
+                    globalChange = true;
+                }
             }
         }
     }
@@ -1544,11 +1559,20 @@ static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>
                     if (isDown)
                     {
                         if (nonDistrSpfPriv)
+                        {
                             array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                            //printf("down: set %d %s\n", DIST::SPF_PRIV, array.second.first->GetName().c_str());
+                        }
                         else if (nonDistrIOPriv)
+                        {
                             array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
+                            //printf("down: set %d %s\n", DIST::IO_PRIV, array.second.first->GetName().c_str());
+                        }
                         else
+                        {
                             array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                            //printf("down: set %d %s\n", DIST::NO_DISTR, array.second.first->GetName().c_str());
+                        }
                         change = true;
                         globalChange = true;
                     }

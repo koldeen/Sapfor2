@@ -7015,7 +7015,8 @@ PTR_BLOB getLabelUDChain(PTR_LABEL label, PTR_BFND scope)
                 lb = NODE_OPERAND1(lb);
             }
 
-            for (int z = 0; z < idx; ++z)
+            int z;
+            for (z = 0; z < idx; ++z)
             {
                 if (arith_lab[z] && (LABEL_STMTNO(arith_lab[z]) == LABEL_STMTNO(label)))
                 {

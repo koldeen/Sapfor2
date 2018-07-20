@@ -43,6 +43,18 @@ public:
         for (int i = 0; i < distrRules.size(); ++i)
             distrRules[i].first = oldNewArrays.find(distrRules[i].first)->second;
     }
+
+    ~DataDirective()
+    {
+        for (auto &elem : distrRules)
+        {
+            if (elem.first && elem.first->isTemplate())
+            {
+                delete elem.first;
+                elem.first = NULL;
+            }
+        }
+    }
 };
 
 struct ParallelDirective : Directive

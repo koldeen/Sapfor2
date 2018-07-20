@@ -1538,7 +1538,8 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                     if (contrlParent->variant() == FOR_NODE)
                     {
                         parentLoops.pop_back();
-                        delete sortedLoopGraph[st->lineNumber()];
+                        delete sortedLoopGraph[contrlParent->lineNumber()];
+                        sortedLoopGraph.erase(contrlParent->lineNumber());
                     }
                 }
                 else
@@ -1613,12 +1614,16 @@ static void findArrayRefs(SgExpression *ex,
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 
-                if (privates.find(symb->identifier()) != privates.end())
-                    itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
-                else if (deprecatedByIO.find(symb->identifier()) != deprecatedByIO.end())
-                    itNew->second.first->SetNonDistributeFlag(DIST::IO_PRIV);
-                else
-                    itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
+                const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
+                if (oldVal == DIST::DISTR || oldVal == DIST::NO_DISTR)
+                {
+                    if (privates.find(symb->identifier()) != privates.end())
+                        itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                    else if (deprecatedByIO.find(symb->identifier()) != deprecatedByIO.end())
+                        itNew->second.first->SetNonDistributeFlag(DIST::IO_PRIV);
+                    else
+                        itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
+                }
 
                 if (!isExecutable)
                     itNew->second.first->AddDeclInfo(make_pair(declSt->fileName(), declSt->lineNumber()));

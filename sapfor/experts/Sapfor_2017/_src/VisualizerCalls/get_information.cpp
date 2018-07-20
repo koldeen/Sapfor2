@@ -225,7 +225,13 @@ int SPF_GetGraphLoops(int winHandler, int *options, short *projName, short *&res
         {
             if (resVal != "")
                 resVal += "|";
-            resVal += f->first + "|" + to_string(f->second.size());
+            
+            int realLoops = 0;
+            for (int i = 0; i < f->second.size(); ++i)
+                if (f->second[i]->lineNum > 0)
+                    realLoops++;
+
+            resVal += f->first + "|" + to_string(realLoops);
             for (int i = 0; i < f->second.size(); ++i)
             {
                 string localRes = "";

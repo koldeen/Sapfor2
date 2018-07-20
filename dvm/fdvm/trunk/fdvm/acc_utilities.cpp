@@ -345,11 +345,24 @@ void initIntrinsicFunctionNames()
 
 int isIntrinsicFunctionName(char *name)
 {
+    if (!name)
+        return 0;
+
     int retval = 1;
     std::set<string>::iterator result = intrinsicF.find(name);
 
     if (result == intrinsicF.end())
         retval = 0;
+
+    //check for dabs, dtan and etc.
+    if (retval == 0 && name[0] == 'd')
+    {
+        string partName(name + 1);
+        result = intrinsicF.find(partName);
+
+        if (result != intrinsicF.end())
+            retval = 1;
+    }
 
     return retval;
 }

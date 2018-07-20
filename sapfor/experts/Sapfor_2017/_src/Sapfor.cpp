@@ -38,7 +38,7 @@
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
 #include "Predictor/PredictScheme.h"
-
+#include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 
 #ifdef _WIN32
@@ -63,6 +63,8 @@ static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
+//from expr_transform.cpp
+extern GraphsKeeper *graphsKeeper;
 void deleteAllAllocatedData()
 {
 #ifdef _WIN32
@@ -103,6 +105,7 @@ void deleteAllAllocatedData()
         delete []ALGORITHMS_DONE[i];
     delete project;
 
+    delete graphsKeeper;
     deletePointerAllocatedData();
 #endif
 }
@@ -248,8 +251,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             try
             {
                 //save current state
-                if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
-                    states.push_back(new SapforState());
+                /*if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+                    states.push_back(new SapforState());*/
 
                 auto itFound = loopGraph.find(file_name);
                 auto itFound2 = allFuncInfo.find(file_name);
@@ -1377,6 +1380,7 @@ int main(int argc, char **argv)
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
+    int leakMemDump = 0;
     try
     {
         setPassValues();
@@ -1472,6 +1476,8 @@ int main(int argc, char **argv)
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp();
+                else if (string(curr_arg) == "-leak")
+                    leakMemDump = 1;
                 else if (string(curr_arg) == "-f90")
                     out_free_form = 1;
                 /*else if (string(curr_arg) == "-sh")
@@ -1527,9 +1533,12 @@ int main(int argc, char **argv)
 
     deleteAllAllocatedData();
 #if _WIN32 && _DEBUG
-    //_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    //_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-    //_CrtDumpMemoryLeaks();
+    if (leakMemDump)
+    {
+        _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+        _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+        _CrtDumpMemoryLeaks();
+    }
 #endif
 
     return 0;

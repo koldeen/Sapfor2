@@ -537,7 +537,7 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
 
 void convertToString(const LoopGraph *currLoop, string &result)
 {
-    if (currLoop)
+    if (currLoop && currLoop->lineNum > 0)
     {
         char buf[512];
         result += " " + std::to_string(currLoop->calls.size());

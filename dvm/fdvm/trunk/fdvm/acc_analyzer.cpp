@@ -328,13 +328,20 @@ void Private_Vars_Analyzer(SgStatement* start)
 
 CallData::~CallData()
 {
-    for (AnalysedCallsList* l = calls_list; l != NULL;) {
+    for (AnalysedCallsList* l = calls_list; l != NULL;) 
+    {
         if (!l->isIntrinsic && l->graph)
+        {
             if (l->graph->RemoveRef() && !l->graph->IsMain())
+            {
                 delete l->graph;
-        AnalysedCallsList* temp = l;
+                l->graph = NULL;
+            }
+        }
+        AnalysedCallsList *temp = l;
         l = l->next;
         delete temp;
+        temp = NULL;
     }
 }
 
@@ -377,10 +384,13 @@ ControlFlowGraph::~ControlFlowGraph()
     if (!temp && pri)
         delete pri;    
 
-    for (CBasicBlock* bb = first; bb != NULL;) {
-        CBasicBlock* tmp = bb;
+    for (CBasicBlock *bb = first; bb != NULL;) 
+    {
+        CBasicBlock *tmp = bb;
         bb = bb->getLexNext();
+            
         delete tmp;
+        tmp = NULL;
     }
 }
 
@@ -404,21 +414,18 @@ CBasicBlock::~CBasicBlock()
 
     for (BasicBlockItem* bbi = prev; bbi != NULL;)
     {
-        BasicBlockItem* tmp = bbi;
+        BasicBlockItem *tmp = bbi;
         bbi = bbi->next;
         delete tmp;
+        tmp = NULL;
     }
 
-    if (!temp) 
+    for (BasicBlockItem *bbi = succ; bbi != NULL;)
     {
-        for (ControlFlowItem* it = start; it != NULL;) 
-        {
-            if (!it->RemRef())
-                break;
-            ControlFlowItem* tmp = it;
-            it = it->getNext();
-            delete tmp;
-        }
+        BasicBlockItem *tmp = bbi;
+        bbi = bbi->next;
+        delete tmp;
+        tmp = NULL;
     }
 
     if (def)
@@ -454,8 +461,9 @@ CBasicBlock::~CBasicBlock()
 
 doLoops::~doLoops()
 {
-    for (doLoopItem* it = first; it != NULL;) {
-        doLoopItem* tmp = it;
+    for (doLoopItem *it = first; it != NULL; ) 
+    {
+        doLoopItem *tmp = it;
         it = it->getNext();
         delete tmp;
     }

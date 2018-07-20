@@ -44,8 +44,7 @@ map<SgStatement*, map<StatementObj, vector<SgExpression*>>> replacementsInFuncti
 map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
 //map<string, map<pair<pair<void*, REPLACE_PTR_TYPE>, int>, pair<SgExpression*, int>>> replacementsInFiles;
 set<SgStatement*> visitedStatements;
-GraphsKeeper graphsKeeper;
-
+GraphsKeeper *graphsKeeper = NULL;
 CommonVarsOverseer overseer;
 
 GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
@@ -64,7 +63,7 @@ GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 }
 
 
-GraphItem* GraphsKeeper::getGraph(std::string funcName)
+GraphItem* GraphsKeeper::getGraph(const string &funcName)
 {
 
     GraphItem* res = graphs.find(funcName)->second;
@@ -908,8 +907,10 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        ControlFlowGraph* CGraph = graphsKeeper.buildGraph(st)->CGraph;
+        if (graphsKeeper == NULL)
+            graphsKeeper = new GraphsKeeper();
 
+        ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph);
         BuildUnfilteredReachingDefinitions(CGraph);
     }

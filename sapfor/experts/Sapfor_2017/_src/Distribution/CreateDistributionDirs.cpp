@@ -364,7 +364,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                 continue;
             if (partlyNonDistr)
             {
-                __spf_print(1, "detected distributed and non distributed array links by function's calls");
+                __spf_print(1, "detected distributed and non distributed array links by function's calls for array %s\n", array->GetName().c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
