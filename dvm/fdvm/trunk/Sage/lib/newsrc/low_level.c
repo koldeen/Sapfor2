@@ -6976,179 +6976,214 @@ PTR_BFND scope;
 }
 
 /***************************************************************************/
-PTR_BLOB getLabelUDChain(label,scope)
-     PTR_LABEL label;
-     PTR_BFND scope;     
+PTR_BLOB getLabelUDChain(PTR_LABEL label, PTR_BFND scope)
 {
-  PTR_BFND func, last, temp;
-  PTR_BLOB blob, first;
-  PTR_LABEL tl;
-  
-  if (!label)
-    return NULL;
-  
+    PTR_BFND func, last, temp;
+    PTR_BLOB blob, first;
+    PTR_LABEL tl;
 
-  func = getScopeForLabel(scope);
-  if (!func)
-    return NULL;
-  last = getLastNodeOfStmt (func);
-  
-  blob = NULL;
-  first = NULL;
-  for (temp = func; temp && (temp != last); temp= BIF_NEXT(temp))
+    if (!label)
+        return NULL;
+    
+    func = getScopeForLabel(scope);
+    if (!func)
+        return NULL;
+    last = getLastNodeOfStmt(func);
+
+    blob = NULL;
+    first = NULL;
+    for (temp = func; temp && (temp != last); temp = BIF_NEXT(temp))
     {
-      tl = BIF_LABEL_USE(temp);      
-      if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
-        tl = NODE_LABEL(BIF_LL3(temp));
-      
-      if (tl && (LABEL_STMTNO(tl) == LABEL_STMTNO(label)))
+        tl = BIF_LABEL_USE(temp);
+        if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
+            tl = NODE_LABEL(BIF_LL3(temp));
+
+        // Kolganov 18.07.18, take into account of ARITH lables and COMGOTO
+        if (temp->variant == ARITHIF_NODE || temp->variant == COMGOTO_NODE || temp->variant == ASSGOTO_NODE)
         {
-          if (blob)
-            {              
-              BLOB_NEXT(blob) = (PTR_BLOB) newNode (BLOB_KIND);
-              blob = BLOB_NEXT(blob);
-              BLOB_VALUE(blob) = temp;              
-            } else
-              {
-                blob = (PTR_BLOB) newNode (BLOB_KIND);
-                BLOB_VALUE(blob) = temp;  
-                first = blob;
-              }
-        }
-    }
-  return first;
-}
+            PTR_LLND lb;
+            if (temp->variant == COMGOTO_NODE || temp->variant == ASSGOTO_NODE)
+                lb = BIF_LL1(temp);
+            else
+                lb = BIF_LL2(temp);
+            PTR_LABEL arith_lab[256];
 
-/***************************************************************************/
-
-void LibconvertLogicIf(ifst)
-PTR_BFND ifst;
-{
-  if (!ifst)
-    return;
-  if (BIF_CODE(ifst) == LOGIF_NODE)
-    {/* Convert to if */
-      PTR_BFND last,ctl;
-      BIF_CODE(ifst) =   IF_NODE;
-      /* need to add a contro_end */
-      last = getLastNodeOfStmt(ifst);
-      ctl = (PTR_BFND)  newNode (CONTROL_END);
-      insertBfndListIn(ctl,last,ifst);
-    }
-}
-
-/***************************************************************************/
-int convertToEnddoLoop(loop)
-     PTR_BFND loop;
-{
-  PTR_BFND cend, bif, lastcend;
-  PTR_BLOB blob, list_ud;
-  PTR_LABEL label;
-  PTR_CMNT comment;
-  
-  
-  if (! loop) 
-    return 0;
-
-  if (BIF_CODE (loop) != FOR_NODE)
-    return 0;
-  
-   if (!LibisEnddoLoop(loop))
-    {
-      bif = getLastNodeOfStmt (loop);
-      if (!bif)
-        return 0; 
-      while (BIF_CODE(bif) == FOR_NODE)
-        {          
-          /* because of continue stmt shared by loops */
-          bif = getLastNodeOfStmt (bif);
-          if (!bif)
-            return 0; 
-        }
-      if (BIF_CODE (bif) == CONT_STAT)
-        {
-          if (BIF_LABEL (bif) != NULL) 
+            int idx = 0;
+            while (lb)
             {
-              label = BIF_LABEL(bif);
-              if (BIF_LABEL_USE (loop) && 
-                  (LABEL_STMTNO(BIF_LABEL_USE (loop)) == LABEL_STMTNO(label))) 
-                {                 
-                  list_ud = getLabelUDChain(label,loop);                  
-                  if (blobListLength(list_ud) <= 1)
+                arith_lab[idx++] = NODE_LABEL(NODE_OPERAND0(lb));
+                lb = NODE_OPERAND1(lb);
+            }
+
+            int z;
+            for (z = 0; z < idx; ++z)
+            {
+                if (arith_lab[z] && (LABEL_STMTNO(arith_lab[z]) == LABEL_STMTNO(label)))
+                {
+                    if (blob)
                     {
-                      cend = (PTR_BFND) newNode (CONTROL_END);
-                      BIF_CP (cend) = loop;
-                      BIF_LABEL_USE (loop) = NULL;
-                      BIF_CMNT(cend) = BIF_CMNT(bif);
-                      BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-                      bif = deleteBfnd (bif);                       
-                      insertBfndListIn (cend,bif,loop);
-                    } else
-                      { /* more than on uses of the label check if ok */
-                        for (blob = list_ud ;blob; 
-                             blob = BLOB_NEXT (blob))
-                          {
-                            if (!BLOB_VALUE(blob) ||
-                                (BIF_CODE(BLOB_VALUE(blob)) !=  FOR_NODE)) 
-                              return 0;                            
-                          }
+                        BLOB_NEXT(blob) = (PTR_BLOB)newNode(BLOB_KIND);
+                        blob = BLOB_NEXT(blob);
+                        BLOB_VALUE(blob) = temp;
+                    }
+                    else
+                    {
+                        blob = (PTR_BLOB)newNode(BLOB_KIND);
+                        BLOB_VALUE(blob) = temp;
+                        first = blob;
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            if (tl && (LABEL_STMTNO(tl) == LABEL_STMTNO(label)))
+            {
+                if (blob)
+                {
+                    BLOB_NEXT(blob) = (PTR_BLOB)newNode(BLOB_KIND);
+                    blob = BLOB_NEXT(blob);
+                    BLOB_VALUE(blob) = temp;
+                }
+                else
+                {
+                    blob = (PTR_BLOB)newNode(BLOB_KIND);
+                    BLOB_VALUE(blob) = temp;
+                    first = blob;
+                }
+            }
+        }
+    }
+    return first;
+}
+
+/***************************************************************************/
+
+void LibconvertLogicIf(PTR_BFND ifst)
+{
+    if (!ifst)
+        return;
+    if (BIF_CODE(ifst) == LOGIF_NODE)
+    {/* Convert to if */
+        PTR_BFND last, ctl;
+        BIF_CODE(ifst) = IF_NODE;
+        /* need to add a contro_end */
+        last = getLastNodeOfStmt(ifst);
+        ctl = (PTR_BFND)newNode(CONTROL_END);
+        insertBfndListIn(ctl, last, ifst);
+    }
+}
+
+/***************************************************************************/
+int convertToEnddoLoop(PTR_BFND loop)
+{
+    PTR_BFND cend, bif, lastcend;
+    PTR_BLOB blob, list_ud;
+    PTR_LABEL label;
+    PTR_CMNT comment;
+    
+    if (!loop)
+        return 0;
+
+    if (BIF_CODE(loop) != FOR_NODE)
+        return 0;
+
+    if (!LibisEnddoLoop(loop))
+    {
+        bif = getLastNodeOfStmt(loop);
+        if (!bif)
+            return 0;
+        while (BIF_CODE(bif) == FOR_NODE)
+        {
+            /* because of continue stmt shared by loops */
+            bif = getLastNodeOfStmt(bif);
+            if (!bif)
+                return 0;
+        }
+
+        if (BIF_CODE(bif) == CONT_STAT)
+        {
+            if (BIF_LABEL(bif) != NULL)
+            {
+                label = BIF_LABEL(bif);
+                if (BIF_LABEL_USE(loop) &&
+                    (LABEL_STMTNO(BIF_LABEL_USE(loop)) == LABEL_STMTNO(label)))
+                {
+                    list_ud = getLabelUDChain(label, loop);
+                    if (blobListLength(list_ud) <= 1)
+                    {
+                        cend = (PTR_BFND)newNode(CONTROL_END);
+                        BIF_CP(cend) = loop;
+                        BIF_LABEL_USE(loop) = NULL;
+                        BIF_CMNT(cend) = BIF_CMNT(bif);
+                        BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                        bif = deleteBfnd(bif);
+                        insertBfndListIn(cend, bif, loop);
+                    }
+                    else
+                    { /* more than on uses of the label check if ok */
+                        for (blob = list_ud; blob;
+                            blob = BLOB_NEXT(blob))
+                        {
+                            if (!BLOB_VALUE(blob) || (BIF_CODE(BLOB_VALUE(blob)) != FOR_NODE))
+                                return 0;
+                        }
                         /* we insert as much enddo than necessary */
-                        comment = BIF_CMNT(bif);  
-                        bif = deleteBfnd (bif);
-                        lastcend = bif;                        
-                        for (blob = list_ud;blob; 
-                             blob = BLOB_NEXT (blob))
-                          {
-                            if (BLOB_VALUE(blob) && 
-                                (BIF_CODE(BLOB_VALUE(blob)) == FOR_NODE))
-                              {
-                                BIF_LABEL_USE (BLOB_VALUE(blob)) = NULL;
-                                cend = (PTR_BFND) newNode (CONTROL_END);
+                        comment = BIF_CMNT(bif);
+                        bif = deleteBfnd(bif);
+                        lastcend = bif;
+                        for (blob = list_ud; blob; blob = BLOB_NEXT(blob))
+                        {
+                            if (BLOB_VALUE(blob) && (BIF_CODE(BLOB_VALUE(blob)) == FOR_NODE))
+                            {
+                                BIF_LABEL_USE(BLOB_VALUE(blob)) = NULL;
+                                cend = (PTR_BFND)newNode(CONTROL_END);
                                 BIF_CMNT(cend) = comment;
                                 BIF_LINE(cend) = BIF_LINE(lastcend); /*Bakhtin 26.01.10*/
-                                comment = NULL;                                
+                                comment = NULL;
                                 BIF_CMNT(bif) = NULL;
-                                insertBfndListIn (cend,lastcend,
-                                                        BLOB_VALUE(blob));
+                                insertBfndListIn(cend, lastcend, BLOB_VALUE(blob));
                                 /*lastcend = Get_Node_Before(cend); */
-                              }
-                          }
-                      }
-                  return 1;                  
+                            }
+                        }
+                    }
+                    return 1;
                 }
-              else
-                return 0;  /* something is wrong the label is not the same */
-            }         
-          else
-            { /* should not appear CONTINUE without label */
-              cend = (PTR_BFND) newNode (CONTROL_END);/*podd 12.03.99*/
-              BIF_CMNT(cend) = BIF_CMNT(bif);
-              BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-              bif = deleteBfnd (bif);
-              insertBfndListIn (cend,bif,loop);
-              return 0; 
+                else
+                    return 0;  /* something is wrong the label is not the same */
             }
-              
-        }     
-      else 
-        { /* this not a enddo or a cont stat; probably a statement */
-          label = BIF_LABEL(bif);
-          list_ud = getLabelUDChain(label,loop);  
-          if (label && blobListLength(list_ud) <= 1)
-            {
-              cend = (PTR_BFND) newNode (CONTROL_END);
-              BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-              insertBfndListIn (cend,bif,loop);
-              BIF_LABEL (bif) = NULL;
-              BIF_LABEL_USE (loop) = NULL;
-            } else
-              return 0;
+            else
+            { /* should not appear CONTINUE without label */
+                cend = (PTR_BFND)newNode(CONTROL_END);/*podd 12.03.99*/
+                BIF_CMNT(cend) = BIF_CMNT(bif);
+                BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                bif = deleteBfnd(bif);
+                insertBfndListIn(cend, bif, loop);
+                return 0;
+            }
+
         }
-      return 1;
-    }  
-  else
-    return 1;
- }
+        else
+        { /* this not a enddo or a cont stat; probably a statement */
+            label = BIF_LABEL(bif);
+            list_ud = getLabelUDChain(label, loop);
+            if (label && blobListLength(list_ud) <= 1)
+            {
+                cend = (PTR_BFND)newNode(CONTROL_END);
+                BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                insertBfndListIn(cend, bif, loop);
+                BIF_LABEL(bif) = NULL;
+                BIF_LABEL_USE(loop) = NULL;
+            }
+            else
+                return 0;
+        }
+        return 1;
+    }
+    else
+        return 1;
+}
 
 
 /* (fbodin) Duplicate Symbol and type routine (modified phb) */

@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <omp.h>
 #if _WIN32 && _DEBUG
-#include <crtdbg.h>  
+#include <crtdbg.h>
 #endif
 
 #include "ParallelizationRegions/ParRegions_func.h"
@@ -22,8 +22,8 @@
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
 
-#include "errors.h"
-#include "SgUtils.h"
+#include "Utils/errors.h"
+#include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
 #include "LoopAnalyzer/loop_analyzer.h"
 
@@ -38,21 +38,16 @@
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
 #include "Predictor/PredictScheme.h"
-
+#include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 
 #ifdef _WIN32
 #include "VisualizerCalls/get_information.h"
 #endif
 
-#ifdef _ARBU
-#include <SignalHandling.hpp>
-#endif
-
 #include "dvm.h"
-#include "transform.h"
-#include "PassManager.h"
-#include "SgUtils.h"
+#include "Sapfor.h"
+#include "Utils/PassManager.h"
 
 using namespace std;
 #define DEBUG_LVL1 true
@@ -68,6 +63,8 @@ static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
+//from expr_transform.cpp
+extern GraphsKeeper *graphsKeeper;
 void deleteAllAllocatedData()
 {
 #ifdef _WIN32
@@ -108,6 +105,7 @@ void deleteAllAllocatedData()
         delete []ALGORITHMS_DONE[i];
     delete project;
 
+    delete graphsKeeper;
     deletePointerAllocatedData();
 #endif
 }
@@ -145,8 +143,21 @@ static bool isDone(const int curr_regime)
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     } // dont run passes twice
-    else if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
-        return true;
+    else
+    {
+        if (curr_regime == PRIVATE_ANALYSIS_SPF)
+        {
+            if (PASSES_DONE[LOOP_ANALYZER_DATA_DIST_S1] == 1)
+                return true;
+            else if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
+                return true;
+        }
+        else
+        {
+            if (passesIgnoreStateDone.find((passes)curr_regime) == passesIgnoreStateDone.end())
+                return true;
+        }
+    }
 
     return false;
 }
@@ -162,7 +173,7 @@ static void updateStatsExprs(const int id, const string &file)
 pair<SgFile*, SgStatement*> currProcessing;
 
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
-{    
+{
     if (PASSES_DONE_INIT == false)
     {
         for (int i = 0; i < EMPTY_PASS; ++i)
@@ -174,12 +185,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         return false;
 
     __spf_print(DEBUG_LVL1, "RUN PASS with name %s\n", passNames[curr_regime]);
+
+    auto toSendStrMessage = string(passNames[curr_regime]);
+#ifdef _WIN32
+    sendMessage_1lvl(wstring(L"выполняется проход '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#endif
+
     const int n = project.numberOfFiles();
-
-    const bool need_to_save = false;
-    char fout_name[128];
     bool veriyOK = true;
-
     int internalExit = 0;
 
     //for process include files
@@ -217,6 +230,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         current_file_id = i;
         current_file = file;
 
+        toSendStrMessage = file->filename();
+#ifdef _WIN32
+        sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+#endif
         currProcessing.first = file; currProcessing.second = NULL;
 
         const char *file_name = file->filename();
@@ -234,8 +251,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             try
             {
                 //save current state
-                if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
-                    states.push_back(new SapforState());
+                /*if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+                    states.push_back(new SapforState());*/
 
                 auto itFound = loopGraph.find(file_name);
                 auto itFound2 = allFuncInfo.find(file_name);
@@ -491,7 +508,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     elem->deleteStmt();
             }
             else
-                __spf_print(1, "   ignore CLEAR SPF DIRS\n");
+                __spf_print(1, "   ignore CLEAR_SPF_DIRS\n");
         }
         else if (curr_regime == PREPROC_SPF)
         {
@@ -589,7 +606,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraph, getMessagesForFile(file_name));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt);
+            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getMessagesForFile(file_name));
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -618,105 +635,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)
-        {
-            for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
-            {
-                if (first->variant() == DVM_PARALLEL_ON_DIR)
-                {
-                    SgExpression *spec = first->expr(1);
-                    if (spec)
-                    {
-                        SgExpression *shadow = NULL, *remote = NULL;
-                        SgExpression *beforeSh = spec;
-
-                        for (auto iter = spec, iterB = spec; iter; iter = iter->rhs())
-                        {
-                            if (iter->lhs()->variant() == SHADOW_RENEW_OP)
-                            {
-                                beforeSh = iterB;
-                                shadow = iter->lhs();
-                            }
-                            else if (iter->lhs()->variant() == REMOTE_ACCESS_OP)
-                                remote = iter->lhs();
-
-                            if (iterB != iter)
-                                iterB = iterB->rhs();
-                        }
-
-                        if (shadow && remote)
-                        {
-                            set<string> allRemoteWitDDOT;
-                            for (auto iter = remote->lhs(); iter; iter = iter->rhs())
-                            {
-                                SgExpression *elem = iter->lhs();
-                                if (elem->variant() == ARRAY_REF)
-                                {
-                                    bool allDDOT = true;
-                                    for (auto iterL = elem->lhs(); iterL; iterL = iterL->rhs())
-                                        if (iterL->lhs()->variant() != DDOT)
-                                            allDDOT = false;
-
-                                    if (allDDOT)
-                                        allRemoteWitDDOT.insert(elem->symbol()->identifier());
-                                }
-                            }
-
-                            auto currShadowP = shadow;
-                            int numActiveSh = 0;
-
-                            for (auto iter = shadow->lhs(); iter; iter = iter->rhs())
-                            {
-                                SgExpression *elem = iter->lhs();
-                                //if shadow has CORNER
-                                if (elem->variant() == ARRAY_OP)
-                                    elem = elem->lhs();
-
-                                if (elem->variant() == ARRAY_REF)
-                                {
-                                    if (allRemoteWitDDOT.find(elem->symbol()->identifier()) != allRemoteWitDDOT.end())
-                                    {
-                                        DIST::Array *currArray = NULL;
-                                        for (int i = 0; i < elem->numberOfAttributes() && currArray == NULL; ++i)
-                                            if (elem->attributeType(i) == ARRAY_REF)
-                                                currArray = (DIST::Array *)(elem->getAttribute(i)->getAttributeData());                                        
-
-                                        if (currArray == NULL)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        vector<pair<int, int>> toDel;
-                                        for (SgExpression *list = elem->lhs(); list; list = list->rhs())
-                                            toDel.push_back(make_pair(list->lhs()->lhs()->valueInteger(), list->lhs()->rhs()->valueInteger()));                                        
-                                        currArray->RemoveShadowSpec(toDel);
-
-                                        if (currShadowP == shadow)
-                                            shadow->setLhs(iter->rhs());
-                                        else
-                                            currShadowP->setRhs(iter->rhs());
-                                    }
-                                    else
-                                    {
-                                        ++numActiveSh;
-                                        if (currShadowP == shadow)
-                                            currShadowP = shadow->lhs();
-                                        else
-                                            currShadowP = currShadowP->rhs();
-                                    }
-                                }
-                            }
-
-                            //remove shadow dir
-                            if (numActiveSh == 0)
-                            {
-                                if (spec->lhs()->variant() == SHADOW_RENEW_OP)
-                                    first->setExpression(2, *(spec->rhs()));
-                                else
-                                    beforeSh->setRhs(beforeSh->rhs()->rhs());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            devourShadowByRemote(file);
+        else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
+            transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
             doMacroExpand(file, getMessagesForFile(file_name));    
         else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
@@ -760,18 +681,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                 throw(-1);
             }
-
+            
+            string fout_name = "";
             if (folderName == NULL)
-                sprintf(fout_name, "%s_%s.%s", OnlyName(file_name).c_str(), newVer, OnlyExt(file_name).c_str());
+                fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
             else
             {
                 if (strlen(newVer) == 0)
-                    sprintf(fout_name, "%s/%s.%s", folderName, OnlyName(file_name).c_str(), OnlyExt(file_name).c_str());
+                    fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
                 else
-                    sprintf(fout_name, "%s/%s_%s.%s", folderName, OnlyName(file_name).c_str(), newVer, OnlyExt(file_name).c_str());
+                    fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
             }
 
-            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name);
+            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
             if (curr_regime == INSERT_INCLUDES)
             {
                 __spf_print(1, "  try to find file <%s>\n", file_name);
@@ -780,7 +702,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
             {
-                FILE *fOut = fopen(fout_name, "w");
+                FILE *fOut = fopen(fout_name.c_str(), "w");
                 if (fOut)
                 {
                     file->unparse(fOut);
@@ -788,14 +710,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
                 else
                 {
-                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name);
+                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
                     getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
                     throw(-1);
                 }
             }
             else
             {
-                removeIncludeStatsAndUnparse(file, file_name, fout_name, allIncludeFiles);
+                removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
 
                 // copy includes that have not changed
                 if (folderName != NULL)
@@ -803,18 +725,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
-        if (need_to_save)
+        //TODO:
+        /*if (need_to_save)
         {
             sprintf(fout_name, "%s.dep", OnlyName(file_name).c_str());
             file->saveDepFile(fout_name);
             __spf_print(DEBUG_LVL1, "  Saving to <%s> file\n", fout_name);
-        }
+        }*/
     } // end of FOR by files
 
     if (internalExit != 0)
-        throw - 1;
+        throw -1;
 
 
+#ifdef _WIN32
+    sendMessage_2lvl(wstring(L""));
+#endif
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
@@ -876,15 +802,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
             
             G.SetMaxAvailMemory(currentAvailMemory);
-
-            const int allArraysNum = allArrays.GetArrays().size();
-            int newQuality = allArraysNum * QUALITY / 100;
-            if (!consoleMode)
-                printf("SAPFOR: arrays num %d, newFlag %d, quality %d\n", allArraysNum, newQuality, QUALITY);
-
-            if (newQuality < 3)
-                newQuality = 3;
-            G.ChangeQuality(newQuality, newQuality);
+            G.ChangeQuality(QUALITY, SPEED);
 
             reducedG.SetMaxAvailMemory(currentAvailMemory);
             DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, i, (curr_regime == ONLY_ARRAY_GRAPH));
@@ -986,7 +904,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == CALL_GRAPH)
     {
         if (keepFiles)
-            CreateCallGraphWiz("_callGraph.txt", allFuncInfo);
+        {
+            set<string> V;
+            vector<string> E;
+            CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
+        }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
@@ -1229,7 +1151,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == DEF_USE_STAGE1)
     {
         if (keepFiles)
-            printDefUseSets("_defUseList.txt", defUseByFunctions);        
+            printDefUseSets("_defUseList.txt", defUseByFunctions);
+    }
+    else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
+    {
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            ParallelRegion *currReg = parallelRegions[z];
+            auto graph = currReg->GetGraph();
+            __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
+            printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
+        }
     }
 
 #if _WIN32
@@ -1407,6 +1339,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
 
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+            runPass(TRANSFORM_SHADOW_IF_FULL, proj_name, folderName);
+
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(REVERT_SPF_DIRS, proj_name, folderName);
@@ -1457,20 +1391,19 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     }
 }
 
-int main(int argc, char**argv)
+int main(int argc, char **argv)
 {
 #if _WIN32 && _DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
-#ifdef _ARBU
-    SageTransform::SignalHandling(); //init for stacktrace on sigserv on unix
-#endif
 
+    int leakMemDump = 0;
     try
     {
         setPassValues();
         consoleMode = 1;
         QUALITY = 100;
+        SPEED = 100;
         printVersion();
         const char *proj_name = "dvm.proj";
         const char *folderName = NULL;
@@ -1497,7 +1430,7 @@ int main(int argc, char**argv)
                     i++;
                     curr_regime = atoi(argv[i]);
                 }
-                else if (string(curr_arg) == "-q")
+                else if (string(curr_arg) == "-q1")
                 {
                     i++;
                     QUALITY = atoi(argv[i]);
@@ -1505,6 +1438,16 @@ int main(int argc, char**argv)
                     {
                         __spf_print(1, "QUALITY must be in [0..100] interval, set default value 100");
                         QUALITY = 100;
+                    }
+                }
+                else if (string(curr_arg) == "-q2")
+                {
+                    i++;
+                    SPEED = atoi(argv[i]);
+                    if (SPEED <= 0 || SPEED > 100)
+                    {
+                        __spf_print(1, "SPEED must be in [0..100] interval, set default value 100");
+                        SPEED = 100;
                     }
                 }
                 else if (curr_arg[1] == 't')
@@ -1550,6 +1493,8 @@ int main(int argc, char**argv)
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp();
+                else if (string(curr_arg) == "-leak")
+                    leakMemDump = 1;
                 else if (string(curr_arg) == "-f90")
                     out_free_form = 1;
                 /*else if (string(curr_arg) == "-sh")
@@ -1582,6 +1527,8 @@ int main(int argc, char**argv)
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")
                     InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
+                if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
+                    exit(0);
                 break;
             default:
                 break;
@@ -1603,9 +1550,12 @@ int main(int argc, char**argv)
 
     deleteAllAllocatedData();
 #if _WIN32 && _DEBUG
-    //_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    //_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-    //_CrtDumpMemoryLeaks();
+    if (leakMemDump)
+    {
+        _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+        _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+        _CrtDumpMemoryLeaks();
+    }
 #endif
 
     return 0;

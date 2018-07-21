@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,13 +21,13 @@
 
 #include "SgUtils.h"
 #include "errors.h"
-#include "transform.h"
+#include "../Sapfor.h"
 
-#include "directive_parser.h"
-#include "Distribution/Distribution.h"
+#include "../LoopAnalyzer/directive_parser.h"
+#include "../Distribution/Distribution.h"
 
-#include "GraphCall/graph_calls.h"
-#include "GraphCall/graph_calls_func.h"
+#include "../GraphCall/graph_calls.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::map;
 using std::pair;
@@ -79,6 +79,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         char *read = fgets(buf, 8192, currFile);
         if (read)
         {
+            const string orig(read);
             string line(read);
             convertToLower(line);
 
@@ -112,12 +113,12 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     else
                         en = k;
                 }
-                string inclName(line.begin() + st, line.begin() + en + 1);
+                const string inclName(orig.begin() + st, orig.begin() + en + 1);
 
                 auto toInsert = includeFiles.find(inclName);
                 if (toInsert == includeFiles.end())
                 {
-                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(line, vector<pair<int, int>>())));
+                    toInsert = includeFiles.insert(toInsert, make_pair(inclName, make_pair(orig, vector<pair<int, int>>())));
                     toInsert->second.second.push_back(make_pair(lineBefore, -1));
                     notClosed = true;
                 }
@@ -187,13 +188,25 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
         if (st->fileName() != fileN || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
-
+#ifdef _WIN32
+    FILE *fOut;
+    errno_t err = fopen_s(&fOut, fout, "w");
+#else
+    int err = 0;
     FILE *fOut = fopen(fout, "w");
+#endif
     if (fOut == NULL)
+    {
+        if (fout)
+            __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+        else
+            __spf_print(1, "can not open file to write with name 'NULL'\n");
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     file->unparse(fOut);
     fclose(fOut);
-    
+    fclose(currFile);
+
     //restore
     //XXX: use Sage hack!!
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
@@ -201,10 +214,14 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             st->setVariant(-1 * st->variant());
 }
 
-static map<string, vector<SgSymbol*>> createdSymbols;
+static map<SgFile*, map<string, vector<SgSymbol*>>> allCreatedSymbols;
 
 SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, SgStatement *scope)
 {
+    auto createdSymbols = allCreatedSymbols.find(file);
+    if (createdSymbols == allCreatedSymbols.end())
+        createdSymbols = allCreatedSymbols.insert(createdSymbols, make_pair(file, map<string, vector<SgSymbol*>>()));    
+
     SgSymbol *symb = file->firstSymbol();
 
     while (symb)
@@ -217,10 +234,10 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
         symb = symb->next();
     }
 
-    auto result = createdSymbols.find(toFind);
+    auto result = createdSymbols->second.find(toFind);
 
-    if (result == createdSymbols.end())
-        result = createdSymbols.insert(result, make_pair(toFind, vector<SgSymbol*>()));
+    if (result == createdSymbols->second.end())
+        result = createdSymbols->second.insert(result, make_pair(toFind, vector<SgSymbol*>()));
 
     SgSymbol *newS = NULL;
     for (auto &symbs : result->second)
@@ -263,7 +280,10 @@ static string getValue(SgExpression *exp)
 
     string ret = "( )";
     if (exp->symbol())
-        ret = "(" + string(exp->symbol()->identifier()) + ")";
+    {
+        if (exp->symbol()->identifier())
+            ret = "(" + string(exp->symbol()->identifier()) + ")";
+    }
     else if (exp->variant() == INT_VAL)
         ret = "(" + std::to_string(exp->valueInteger()) + ")";
     else if (exp->variant() == ADD_OP)
@@ -325,7 +345,7 @@ void recExpressionPrint(SgExpression *exp)
     printf("digraph G{\n");
     int allNum = 0;
     recExpressionPrint(exp, 0, "L", allNum, allNum);
-    if (allNum == 0)
+    if (allNum == 0 && exp)
         printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
     printf("};\n");
     fflush(NULL);
@@ -618,6 +638,9 @@ void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStat
 {
     while (start != end)
     {
+        if (start->variant() == CONTAINS_STMT)
+            break;
+
         if (start->variant() == COMM_STAT)
         {
             // fill all common blocks
@@ -843,6 +866,15 @@ static void processLeftPartOfAssign(SgExpression *exp, map<string, vector<DefUse
     }
 }
 
+string getContainsPrefix(SgStatement *st)
+{
+    string containsPrefix = "";
+    SgStatement *st_cp = st->controlParent();
+    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+        containsPrefix = st_cp->symbol()->identifier() + string(".");
+    return containsPrefix;
+}
+
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
@@ -866,7 +898,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         SgStatement *end = start->lastNodeOfStmt();
         int pos;
 
-        auto founded = funcToFuncInfo.find(start->symbol()->identifier());
+        auto founded = funcToFuncInfo.find(getContainsPrefix(start) + start->symbol()->identifier());
         start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
@@ -1206,3 +1238,4 @@ void CommonBlock::print(FILE *fileOut) const
 }
 
 // END of CommonBlock::
+

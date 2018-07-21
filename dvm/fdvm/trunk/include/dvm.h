@@ -253,6 +253,7 @@ const int RTC_CALLS         = 1045; /*ACC*/
 const int RTS2_CREATED      = 1046; /*RTS2*/
 const int HANDLER_HEADER    = 1047; /*ACC*/
 const int MODULE_USE        = 1048; /*ACC*/
+const int DEFERRED_SHAPE    = 1049; 
 
 const int MAX_LOOP_LEVEL = 10; // 7 - maximal number of loops in parallel loop nest 
 const int MAX_LOOP_NEST = 25;  // maximal number of nested loops
@@ -407,6 +408,7 @@ const int Logical_8 = 12;
 #define INTERFACE_RTS2  (parloop_by_handler == 2)
 #define HEADER_FOR_HANDLER(A)  ( (SgSymbol **)(A)->attributeValue(0,HANDLER_HEADER) )
 #define USE_STATEMENTS_ARE_REQUIRED ( (int *) first_do_par->attributeValue(0,MODULE_USE) )
+#define DEFERRED_SHAPE_TEMPLATE(A) ( (ORIGINAL_SYMBOL(A))->attributeValue(0,DEFERRED_SHAPE) )
 
 EXTERN
 SgFunctionSymb * fdvm [MAX_LIBFUN_NUM];
@@ -889,7 +891,9 @@ SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el);
 SgSymbol *IOstatSymbol();
 void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list);
 int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
-
+void TemplateDeclarationTest(SgStatement *stmt);
+int DeferredShape(SgExpression *eShape);
+void Template_Create(SgStatement *stmt);
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
 int ParallelLoop_Debug(SgStatement *stmt);

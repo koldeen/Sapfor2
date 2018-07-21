@@ -43,12 +43,20 @@ public:
 };
 #else
 
+#define DVM_DISTRIBUTE_DIR           277
+#define DVM_REDISTRIBUTE_DIR         299
+#define DVM_ALIGN_DIR                219 
+#define DVM_REALIGN_DIR              220 
+#define DVM_SHADOW_DIR               224 
+#define DVM_VAR_DECL           	     248
+
 //fix this include for your needs!
 class Statement
 {
 public:
     //TODO:
     std::string fileName() { return ""; }
+    void extractStmt() { }
 };
 
 class Expression

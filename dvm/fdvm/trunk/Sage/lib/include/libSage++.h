@@ -362,6 +362,8 @@ friend SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs);
 friend SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs);
+friend SgExpression &operator ==(SgExpression &lhs, SgExpression &rhs);
+friend SgExpression &operator !=(SgExpression &lhs, SgExpression &rhs);
 friend SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &SgEqOp( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &SgNeqOp( SgExpression &lhs, SgExpression &rhs); 
@@ -1658,8 +1660,8 @@ class  SgIfElseIfStmt: public SgIfStmt {
   // For Fortran if then elseif .. elseif ... case
   // variant == ELSEIF_NODE
 public:
-  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList,
-                 SgSymbol &constructName);
+  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList, SgSymbol &constructName);
+  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList);
   int numberOfConditionals();       // the number of conditionals
   SgStatement *body(int b);          // block b
   void setBody(int b);              // sets block 
@@ -1670,9 +1672,7 @@ public:
   ~SgIfElseIfStmt();
 };
 
-inline SgIfElseIfStmt::~SgIfElseIfStmt()
-{ RemoveFromTableBfnd((void *) this); }
-
+inline SgIfElseIfStmt::~SgIfElseIfStmt() { RemoveFromTableBfnd((void *) this); }
 #endif
 
 
@@ -1731,8 +1731,9 @@ class SgCaseOptionStmt: public SgStatement{
   // Fortran case option statement
   // variant == CASE_NODE
 public:
-  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, 
-                          SgSymbol &constructName);
+  // added by A.S.Kolganov 18.07.2018
+  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body);
+  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, SgSymbol &constructName);
   // added by A.V.Rakov 16.03.2015
   inline SgCaseOptionStmt(SgExpression &caseRangeList);
   inline ~SgCaseOptionStmt();
@@ -6426,6 +6427,12 @@ inline void  SgSwitchStmt::deleteCaseOption(int i)
 
 // SgCaseOptionStmt--inlines
 
+inline SgCaseOptionStmt::SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body) : SgStatement(CASE_NODE)
+{
+  BIF_LL1(thebif) = caseRangeList.thellnd;
+  insertBfndListIn(body.thebif, thebif, thebif);
+  addControlEndToStmt(thebif);
+}
 
 inline SgCaseOptionStmt::SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, 
                                           SgSymbol &constructName):SgStatement(CASE_NODE)

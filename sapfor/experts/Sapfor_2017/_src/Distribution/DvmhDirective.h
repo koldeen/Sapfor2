@@ -5,13 +5,13 @@
 #include <set>
 #include <map>
 
-#include "../types.h"
+#include "../Utils/types.h"
 #include "DvmhDirectiveBase.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "Distribution.h"
-#include "../types.h"
-#include "../AstWrapper.h"
-#include "../utils.h"
+#include "../Utils/types.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/utils.h"
 
 struct AlignRule : public AlignRuleBase
 {
@@ -42,6 +42,18 @@ public:
     {
         for (int i = 0; i < distrRules.size(); ++i)
             distrRules[i].first = oldNewArrays.find(distrRules[i].first)->second;
+    }
+
+    ~DataDirective()
+    {
+        for (auto &elem : distrRules)
+        {
+            if (elem.first && elem.first->isTemplate())
+            {
+                delete elem.first;
+                elem.first = NULL;
+            }
+        }
     }
 };
 
@@ -92,7 +104,8 @@ public:
                      DIST::Arrays<int> &allArrays,
                      const std::set<DIST::Array*> &acrossOutAttribute, 
                      const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
-                     const int regionId);
+                     Statement *loop, const int regionId,
+                     const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
     friend ParallelDirective* operator+(const ParallelDirective &first, const ParallelDirective &second);
 
@@ -123,7 +136,9 @@ private:
                                 const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
                                 const bool isAcross, const int regionId,
                                 const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                std::set<DIST::Array*> &arraysInAcross) const;
+                                std::set<DIST::Array*> &arraysInAcross,
+                                std::vector<std::map<std::pair<int, int>, int>> &shiftsByAccess,
+                                const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls) const;
 };
 
 std::string genStringExpr(const std::string &letter, const std::pair<int, int> expr);

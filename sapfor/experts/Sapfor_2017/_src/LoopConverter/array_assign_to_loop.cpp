@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -12,7 +12,7 @@
 
 #include "dvm.h"
 #include "array_assign_to_loop.h"
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 #include "../ExpressionTransform/expr_transform.h"
 
 using std::vector;
@@ -490,6 +490,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         for ( ; st != lastNode; st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (firstExec && isSgDeclarationStatement(st))
             {
                 SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
@@ -568,7 +571,7 @@ static void addToDeclSet(SgExpression *exp, set<SgSymbol*> &symbolSet)
         if (exp->lhs())
             addToDeclSet(exp->lhs(), symbolSet);
         if (exp->rhs())
-            addToDeclSet(exp->lhs(), symbolSet);
+            addToDeclSet(exp->rhs(), symbolSet);
     }
 }
 
@@ -589,9 +592,12 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
         {
             if (isSgExecutableStatement(st))
                 break;
-            
-            for (int i = 0; i < 3; ++i)
-                addToDeclSet(st->expr(i), declaratedInFunction);
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            if (st->variant() != DATA_DECL)
+                for (int i = 0; i < 3; ++i)
+                    addToDeclSet(st->expr(i), declaratedInFunction);
 
             if (st->fileName() == file->filename())
                 lastDeclarated = st;
@@ -657,6 +663,10 @@ void restoreAssignsFromLoop(SgFile *file)
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
         {
             currProcessing.second = st;
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
                 if (data->lineNumber() < 0)
                     toMove.push_back(make_pair(st, data));

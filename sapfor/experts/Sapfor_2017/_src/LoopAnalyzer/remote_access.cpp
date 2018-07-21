@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,9 +18,9 @@
 
 #include "dvm.h"
 #include "loop_analyzer.h"
-#include "../types.h"
-#include "../errors.h"
-#include "../SgUtils.h"
+#include "../Utils/types.h"
+#include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Arrays.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphLoop/graph_loops_func.h"
@@ -183,6 +183,15 @@ static bool inline hasAssignsToArray(SgStatement *st, const vector<SgExpression*
     return false;
 }
 
+static void converToDDOT(SgExpression *spec)
+{
+    while (spec)
+    {
+        spec->setLhs(new SgExpression(DDOT));
+        spec = spec->rhs();
+    }
+}
+
 template<int NUM>
 void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
@@ -220,15 +229,35 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
         if (remotes.size() > 0)
         {
             SgStatement *toInsert = st;
+            vector<SgStatement*> allToInsert = { toInsert };
+            int lvlUp = 0;
             //find the uppest control parent
             do
             {
                 SgStatement *parent = toInsert->controlParent();
                 const int var = parent->variant();
-                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR || hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
+                if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR ||
+                    hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
                     break;
                 toInsert = parent;
+                allToInsert.push_back(toInsert);
+                ++lvlUp;
             } while (1);
+                        
+            for (int idx = allToInsert.size() - 1; idx >= 0; --idx)
+            {
+                const int var = allToInsert[idx]->variant();
+                if (var == IF_NODE || var == ELSEIF_NODE)
+                {
+                    if (idx != 0)
+                        toInsert = allToInsert[idx - 1];
+                    else
+                        break;
+                }
+                else
+                    break;
+                --lvlUp;
+            }
 
             if (toInsert->variant() == FOR_NODE)
             {
@@ -236,10 +265,21 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 {
                     const bool isSimple = isSimpleRef(elem);
                     if (!isSimple)
-                        for (; elem; elem = elem->rhs())
-                            elem->setLhs(new SgExpression(DDOT));
+                        converToDDOT(elem);
                 }
             }
+            else
+            {
+                //dont convert to a(:,:,:) before assign operators
+                if (lvlUp == 0 && toInsert->variant() == ASSIGN_STAT)
+                    ;
+                else
+                {
+                    for (auto &elem : allSubs)
+                        converToDDOT(elem);
+                }
+            }
+
             
             //create remote dir with uniq expressions
             set<string> exist;
@@ -365,13 +405,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
     const bool isSimple = isSimpleRef(subs);
     //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
     if (!isSimple) // && !isDiffInSubs)
-    {
-        while (subs)
-        {
-            subs->setLhs(new SgExpression(DDOT));
-            subs = subs->rhs();
-        }
-    }
+        converToDDOT(subs);
 
     string remoteExp(copyExpr->unparse());    
     auto rem = uniqRemotes.find(remoteExp);
@@ -422,6 +456,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             if (realRefArrayOnDir.size() != 1)
             {
                 __spf_print(1, "not supported yet\n");
+                //return;
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
             else
@@ -473,7 +508,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 // fill links between current array and array in parallel dir
                 vector<int> links;
                 if (arrayRef != arrayRefOnDir)
-                    reducedG.FindLinksBetweenArrays(allArrays, arrayRef, arrayRefOnDir, links);
+                    links = findLinksBetweenArrays(arrayRef, arrayRefOnDir, regionId);
                 else
                 {
                     links.resize(arrayRef->GetDimSize());
@@ -508,15 +543,23 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 if (newDistVar)
                     distrVar = newDistVar;
 
+                set<string> parallelVars;
+                parallelVars.insert(THIRD(under_dvm_dir)->parallel.begin(), THIRD(under_dvm_dir)->parallel.end());
+
                 // main check 
                 for (int i = 0; i < links.size(); ++i)
                 {
                     bool needToCheck = false;
                     if (links[i] != -1 && linksWithTempl[i] != -1)
                     {
-                        //THIRD(under_dvm_dir)->on[links[i]].first != "*" && 
+                        const bool isInParallel = parallelVars.find(THIRD(under_dvm_dir)->on[links[i]].first) != parallelVars.end();
                         if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
-                            needToCheck = true;
+                        {
+                            if (THIRD(under_dvm_dir)->on[links[i]].first != "*" && !isInParallel)
+                                needToCheck = false;
+                            else
+                                needToCheck = true;
+                        }
                     }
                     else if (linksWithTempl[i] != -1)
                     {
@@ -622,8 +665,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                             {
                                 if (writesInLoop[k].first != arrayRef)
                                 {
-                                    vector<int> tmpLinks;
-                                    reducedG.FindLinksBetweenArrays(allArrays, arrayRef, writesInLoop[k].first, tmpLinks);
+                                    vector<int> tmpLinks = findLinksBetweenArrays(arrayRef, writesInLoop[k].first, regionId);
 
                                     // find link between currentArray and writeArray
                                     const int writeDim = tmpLinks[i];

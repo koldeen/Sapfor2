@@ -9,8 +9,8 @@
 #include "../GraphCall/graph_calls.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../AstWrapper.h"
-#include "../SgUtils.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/SgUtils.h"
 
 #include "dvm.h"
 
@@ -44,7 +44,8 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 
 void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                               std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              std::vector<Messages> &messagesForFile);
 
 void selectParallelDirectiveForVariant(SgFile *file, 
                                        ParallelRegion *currReg,
@@ -66,7 +67,7 @@ std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string
 std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKey);
 
 void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt);
+                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 
 // dep_analyzer.cpp
@@ -146,3 +147,7 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
 template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                                        const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,
                                        const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+
+// shadow.cpp
+void devourShadowByRemote(SgFile *file);
+void transformShadowIfFull(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);

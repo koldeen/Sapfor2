@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include "dvm.h"
 #include <stdlib.h>
@@ -14,8 +14,8 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
 #include "expr_transform.h"
 
@@ -44,76 +44,33 @@ map<SgStatement*, map<StatementObj, vector<SgExpression*>>> replacementsInFuncti
 map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
 //map<string, map<pair<pair<void*, REPLACE_PTR_TYPE>, int>, pair<SgExpression*, int>>> replacementsInFiles;
 set<SgStatement*> visitedStatements;
-GraphsKeeper graphsKeeper;
-
+GraphsKeeper *graphsKeeper = NULL;
 CommonVarsOverseer overseer;
 
-
-void GraphsKeeper::addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, map<SymbolKey, map<string, SgExpression*>>* inDefs)
+GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 {
-    for (auto it = graphs.begin(); it != graphs.end(); ++it)
-        if (it->CGraph == targetGraph)
-        {
-            auto founded = it->in_defs.find(parentGraph);
-            if (founded == it->in_defs.end())
-                it->in_defs.insert(founded, make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-            mergeDefs(&(founded->second), inDefs, NULL);
-            return;
-        }
+    GraphItem* result = new GraphItem();
 
-    graphs.push_back(GraphAdjustmentItem(targetGraph));
-    graphs[graphs.size() - 1].in_defs.insert(make_pair(parentGraph, map<SymbolKey, map<string, SgExpression*>>()));
-    mergeDefs(&(graphs[graphs.size() - 1].in_defs.begin()->second), inDefs, NULL);
-    graphs[graphs.size() - 1].in_defs.begin();
+    SetUpVars(&result->commons, &result->calls, result->calls.AddHeader(st, false, st->symbol(), current_file_id), &result->dldl);
 
+    result->CGraph = GetControlFlowGraphWithCalls(true, st, &result->calls, &result->commons);
+    result->calls.AssociateGraphWithHeader(st, result->CGraph);
+    result->commons.MarkEndOfCommon(GetCurrentProcedure());
+    result->file_id = current_file_id;
+
+    auto inserted = graphs.insert(make_pair(st->symbol()->identifier(), result));
+    return inserted.first->second;
 }
 
-void GraphsKeeper::deleteInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph)
+
+GraphItem* GraphsKeeper::getGraph(const string &funcName)
 {
-    for (auto it = graphs.begin(); it != graphs.end(); ++it)
-        if (it->CGraph == targetGraph)
-        {
-            auto founded = it->in_defs.find(parentGraph);
-            if (founded != it->in_defs.end())
-                founded->second.clear();
-        }
+
+    GraphItem* res = graphs.find(funcName)->second;
+    CurrentProject->file(res->file_id);
+    return res;
 }
 
-map<SymbolKey, map<string, SgExpression*>>* GraphsKeeper::getInDefsFor(ControlFlowGraph* CGraph)
-{
-    //TODO//отфильтровать и полностью подготовить множество
-    return NULL;
-    map<SymbolKey, map<string, SgExpression*>>* result = new map<SymbolKey, map<string, SgExpression*>>();
-    for (int i = 0; i < graphs.size(); ++i)
-    {
-        if (graphs[i].CGraph == CGraph)
-        {
-            for (auto it = graphs[i].in_defs.begin(); it != graphs[i].in_defs.end(); ++it)
-                mergeDefs(result, &(it->second), NULL);
-        }
-    }
-    return result;
-
-}
-
-ControlFlowGraph* GraphsKeeper::getGraphForAdjustment()
-{
-    for (int i = 0; i < graphs.size(); ++i)
-        if (graphs[i].needAdjustment)
-        {
-            graphs[i].needAdjustment = false;
-            return graphs[i].CGraph;
-        }
-
-    return NULL;
-}
-
-void GraphsKeeper::deleteGraphs()
-{
-    //TODO Delete all graphs or only main?
-    for (int i = 0; i < graphs.size(); ++i)
-        delete graphs[i].CGraph;
-}
 
 void revertReplacements(SgStatement* function)
 {
@@ -507,13 +464,13 @@ void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *
 
 SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
-    SgExpression* exp = NULL;
+    SgExpression *exp = NULL;
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
     if (founded != b->getGen()->end())
         if (!valueWithFunctionCall(founded->second))
             if (!valueWithRecursion(founded->first, founded->second))
-                exp = founded->second;
+                    exp = founded->second;
 
     if (exp == NULL)
     {
@@ -526,12 +483,16 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 
         //we have to check if this value was killed inside block
         if (exp != NULL)
+        {
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
+            {
                 if (symbolInExpression(*it, exp))
                 {
                     exp = NULL;
                     break;
                 }
+            }
+        }
     }
     return exp;
 }
@@ -759,6 +720,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
     }
 
     if (args)
+    {
         for (int i = 0; i < numberOfArgs; ++i)
         {
             arg = args->lhs();
@@ -766,9 +728,11 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
                 wereReplacements |= replaceVarsInCallArgument(args, lineNumber, b);
             args = args->rhs();
         }
+    }
 
     return wereReplacements;
 }
+
 /*
  * Have to run b->adjustGenAndKill(cfi) here to track changes inside block.
  */
@@ -805,7 +769,9 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+                break;
             case POINTER_ASSIGN_STAT:
+                b->adjustGenAndKill(cfi);
                 break;
             default:
                 for (int i = 0; i < 3; ++i)
@@ -837,7 +803,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
         wereReplacements = false;
         visitedStatements.clear();
         ClearCFGInsAndOutsDefs(CGraph);
-        FillCFGInsAndOutsDefs(CGraph, graphsKeeper.getInDefsFor(CGraph), &overseer);
+        FillCFGInsAndOutsDefs(CGraph, NULL, &overseer);
         CorrectInDefs(CGraph);
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -849,105 +815,14 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
     }
 }
 
-void processFuncCalls(ControlFlowGraph* CGraph)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph)
 {
-    //TODO пребрать вызовы фунций и процедур в графе
-    SgStatement* st;
-    CBasicBlock* b = CGraph->getFirst();
-    while (b != NULL)
-    {
+    __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
+    visitedStatements.clear();
+    ClearCFGInsAndOutsDefs(CGraph);
+    FillCFGInsAndOutsDefs(CGraph, NULL, &overseer);
+    for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         b->clearGenKill();
-        ControlFlowItem *cfi = b->getStart();
-        ControlFlowItem *till = b->getEnd()->getNext();
-        while (cfi != till)
-        {
-
-            AnalysedCallsList* call = cfi->getCall();
-            if(call)
-                graphsKeeper.addGraph(call->graph);
-            cfi = cfi->getNext();
-        }
-    }
-}
-
-void processGraph(ControlFlowGraph* CGraph)
-{
-    printf("next graph!\n");
-    SgStatement* function = CGraph->getFirst()->getStart()->getOriginalStatement();
-
-    /*printf("%ld %ld %ld %ld \n",CGraph, CGraph->getFirst(), CGraph->getFirst()->getStart(), CGraph->getFirst()->getStart()->getOriginalStatement());
-    if (function->variant() == PROG_HEDR)
-    {
-        SgProgHedrStmt *progH = (SgProgHedrStmt*) function;
-        __spf_print(PRINT_PROF_INFO, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), function->lineNumber(), function->fileName());
-    }
-    else if (function->variant() == PROC_HEDR)
-    {
-        SgProcHedrStmt *procH = (SgProcHedrStmt*) function;
-        __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), function->lineNumber(), function->fileName());
-    }
-    else if (function->variant() == FUNC_HEDR)
-    {
-        SgFuncHedrStmt *funcH = (SgFuncHedrStmt*) function;
-        __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), function->lineNumber(), function->fileName());
-    }*/
-
-    printf("expanding!\n");
-    ExpandExpressions(CGraph);
-    processFuncCalls(CGraph);
-
-}
-
-static void SwitchToFile(const char *fileName) {
-    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
-        if(strcmp(CurrentProject->fileName(i), fileName) == 0)
-        {
-            SwitchToFile(i);
-            current_file = &CurrentProject->file(i);
-            current_file_id = i;
-        }
-}
-
-void expressionAnalyzer(SgStatement *function)
-{
-    __spf_print(PRINT_PROF_INFO, "Expression analyzer!\n");
-    const char *prevFile = current_file->filename();
-    const char *filename = function->fileName();
-    SwitchToFile(filename);
-
-    auto itRep = replacementsInFunctions.find(function);
-    if (itRep == replacementsInFunctions.end())
-        itRep = replacementsInFunctions.insert(itRep, make_pair(function, map<StatementObj, vector<SgExpression*>>()));
-    else // replecemets are have been made alredy
-    {
-        revertReplacements(function);
-        return;
-    }
-    curFunctionReplacements = &(itRep->second);
-
-
-
-    printf("Graph!\n");
-
-    CallData calls;
-    CommonData commons;
-    DoLoopDataList dldl;
-    SetUpVars(&commons, &calls, calls.AddHeader(function, false, function->symbol(), current_file_id), &dldl);
-    //stage 1: preparing graph data
-    ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, function, &calls, &commons);
-    calls.AssociateGraphWithHeader(function, CGraph);
-    commons.MarkEndOfCommon(GetCurrentProcedure());
-    //calls.printControlFlows();
-
-
-    printf("Subs!\n");
-
-    graphsKeeper.addGraph(CGraph);
-
-    while ((CGraph = graphsKeeper.getGraphForAdjustment()) != NULL)
-        processGraph(CGraph);
-    graphsKeeper.deleteGraphs();
-    SwitchToFile(prevFile);
 }
 
 void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
@@ -987,7 +862,7 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
                                     if (funcInfo->callsFrom.find(curFunc) != funcInfo->callsFrom.end() &&
                                             processed.find(funcInfo->funcName) == processed.end())
                                         killerFuncs.push(funcInfo->funcName);
-                            overseer.addKilledVar(var.getName(), fun.getFunctionName());
+                            overseer.addKilledVar(var.getSymbol(), fun.getFunctionName());
                         }
                     }
                 }
@@ -1032,18 +907,11 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        CallData calls;
-        CommonData commons;
-        DoLoopDataList dldl;
-        SetUpVars(&commons, &calls, calls.AddHeader(st, false, st->symbol(), current_file_id), &dldl);
-        //stage 1: preparing graph data
-        ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, st, &calls, &commons);
-        calls.AssociateGraphWithHeader(st, CGraph);
-        commons.MarkEndOfCommon(GetCurrentProcedure());
-        //calls.printControlFlows();
+        if (graphsKeeper == NULL)
+            graphsKeeper = new GraphsKeeper();
 
+        ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph);
-
-        delete CGraph;
+        BuildUnfilteredReachingDefinitions(CGraph);
     }
 }

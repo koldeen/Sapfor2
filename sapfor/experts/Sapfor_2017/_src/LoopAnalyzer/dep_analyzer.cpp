@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,8 +20,8 @@
 #include "dvm.h"
 #include "loop_analyzer.h"
 
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../SageAnalysisTool/depGraph.h"
 

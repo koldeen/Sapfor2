@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,11 +7,11 @@
 #include <string>
 #include <algorithm>
 
-#include "../types.h"
+#include "../Utils/types.h"
 #include "DvmhDirective.h"
-#include "../errors.h"
-#include "../SgUtils.h"
-#include "../transform.h"
+#include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
+#include "../Sapfor.h"
 
 #include "dvm.h"
 
@@ -27,6 +27,70 @@ using std::set_union;
 using std::make_pair;
 using std::min;
 using std::max;
+
+static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess)
+{
+    bool res = false;
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            if (ex->symbol() && OriginalSymbol(ex->symbol())->identifier() == arrayName)
+            {
+                SgArrayRefExp *ref = (SgArrayRefExp*)ex;
+
+                int countOfShadows = 0;
+                for (int i = 0; i < ref->numberOfSubscripts(); ++i)
+                {
+                    const vector<int*> &coefs = getAttributes<SgExpression*, int*>(ref->subscript(i), set<int>{ INT_VAL });
+                    if (coefs.size() == 1)
+                    {
+                        const pair<int, int> coef(coefs[0][0], coefs[0][1]);
+                        auto it = shiftsByAccess[i].find(coef);
+                        if (it != shiftsByAccess[i].end())
+                            if (it->second != 0)
+                                countOfShadows++;
+                    }
+                }
+
+                if (countOfShadows > 1)
+                    return true;
+            }
+        }
+
+        if (ex->lhs())
+        {
+            bool tmp = findArrayRefAndCheck(ex->lhs(), arrayName, shiftsByAccess);
+            res = res || tmp;
+        }
+
+        if (ex->rhs())
+        {
+            bool tmp = findArrayRefAndCheck(ex->rhs(), arrayName, shiftsByAccess);
+            res = res || tmp;
+        }
+    }
+    return res;
+}
+
+static bool needCorner(const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess, Statement *loop)
+{
+    bool need = false;
+
+    SgStatement *orig = loop->GetOriginal();
+
+    for (auto st = orig; st != orig->lastNodeOfStmt() && !need; st = st->lexNext())
+    {
+        if (st->variant() == ASSIGN_STAT)
+            need = findArrayRefAndCheck(st->expr(1), arrayName, shiftsByAccess);        
+        else
+        {
+            for (int i = 0; i < 3; ++i)
+                need = need || findArrayRefAndCheck(st->expr(i), arrayName, shiftsByAccess);
+        }
+    }
+    return need;
+}
 
 static inline void genSubscripts(const vector<pair<int, int>> &shadowRenew, const vector<pair<int, int>> &shadowRenewShifts, SgArrayRefExp *&newArrayRef)
 {
@@ -107,12 +171,15 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
-pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                                           const vector<AlignRule> &alignRules,
-                                                           DIST::GraphCSR<int, double, attrType> &reducedG,
-                                                           DIST::Arrays<int> &allArrays,
-                                                           const std::set<DIST::Array*> &acrossOutAttribute,
-                                                           const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const int regionId)
+pair<string, vector<Expression*>> 
+ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+                                const vector<AlignRule> &alignRules,
+                                DIST::GraphCSR<int, double, attrType> &reducedG,
+                                DIST::Arrays<int> &allArrays,    
+                                const std::set<DIST::Array*> &acrossOutAttribute,
+                                const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, 
+                                Statement *loop, const int regionId,
+                                const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     string directive = "";
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
@@ -142,13 +209,11 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
         directive += ") ON " + arrayRef->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
 
-        SgSymbol *symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName());
-        //create array type for DVMH template
+        SgSymbol *symbForPar;
         if (arrayRef->isTemplate())
-        {
-            SgArrayType *typeA = new SgArrayType(*SgTypeDouble());
-            symbForPar->setType(typeA);
-        }
+            symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
+        else
+            symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
 
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
         for (int i = 0; i < (int)on.size(); ++i)
@@ -227,12 +292,14 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
             int outCount = 0;
             for (int i1 = 0; i1 < (int)across.size(); ++i1)
             {
+                vector<map<pair<int, int>, int>> shiftsByAccess;
+
                 DIST::Array *currArray = allArrays.GetArrayByName(across[i1].first.second);
                 if (currArray == NULL)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 bool isOut = acrossOutAttribute.find(currArray) != acrossOutAttribute.end();
-                string bounds = genBounds(alignRules, across[i1], acrossShifts[i1], reducedG, allArrays, readOps, true, regionId, distribution, arraysInAcross);
+                string bounds = genBounds(alignRules, across[i1], acrossShifts[i1], reducedG, allArrays, readOps, true, regionId, distribution, arraysInAcross, shiftsByAccess, arrayLinksByFuncCalls);
                 if (bounds != "")
                 {
                     if (inserted != 0)
@@ -300,7 +367,6 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
             }
         }
 
-        //TODO: add optimization of CORNER SHADOW_RENEW
         if (shadowRenew.size() != 0)
         {            
             if (shadowRenewShifts.size() == 0)
@@ -314,7 +380,8 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
             int inserted = 0;
             for (int i1 = 0; i1 < (int)shadowRenew.size(); ++i1)
             {
-                const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross);
+                vector<map<pair<int, int>, int>> shiftsByAccess;
+                const string bounds = genBounds(alignRules, shadowRenew[i1], shadowRenewShifts[i1], reducedG, allArrays, readOps, false, regionId, distribution, arraysInAcross, shiftsByAccess, arrayLinksByFuncCalls);
                 if (bounds != "")
                 {
                     DIST::Array *currArray = allArrays.GetArrayByName(shadowRenew[i1].first.second);
@@ -337,12 +404,12 @@ pair<string, vector<Expression*>> ParallelDirective::genDirective(File *file, co
                     }
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, shadowRenew[i1].first.first, typeArrayInt, scope));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*currArray->GetDeclSymbol());
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);
 
-                    if (shadowRenew[i1].second.size() > 1)
+                    if (shadowRenew[i1].second.size() > 1 && needCorner(currArray->GetShortName(), shiftsByAccess, loop))
                     {
                         SgExpression *tmp = new SgExpression(ARRAY_OP, newArrayRef, NULL, NULL);
                         p->setLhs(*tmp);

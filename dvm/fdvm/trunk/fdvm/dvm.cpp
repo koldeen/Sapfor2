@@ -2061,6 +2061,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
        case(HPF_TEMPLATE_STAT):
            if(IN_MODULE && stmt->expr(1))
               err("Illegal directive in module",632,stmt);
+           TemplateDeclarationTest(stmt);
            continue;
        case(HPF_PROCESSORS_STAT):
          //!!!for debug
@@ -2443,11 +2444,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
                       break; 
                   case (TEMPLATE_OP): 
                       nattrs[2]++;
-                      for(eol=stmt->expr(0); eol; eol=eol->rhs()) { //testing object list
-                        symb=eol->lhs()->symbol();
-                        if(IS_DUMMY(symb))
-                          Error("Template may not be a dummy argument: %s",symb->identifier(), 80,stmt);                 
-                     }
+                      TemplateDeclarationTest(stmt);
                       break;  
                   case (PROCESSORS_OP): 
                       nattrs[3]++;
@@ -2721,7 +2718,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
   //Looking through the Align Tree List
    for(root=pal; root; root=root->next) {
      if(!( root->symb->attributes() & DISTRIBUTE_BIT) && !( root->symb->attributes() & ALIGN_BIT) && !( root->symb->attributes() & INHERIT_BIT) && !( root->symb->attributes() & POSTPONE_BIT))
-       Err_g("Alignment tree root '%s' is not distributed", root->symb->identifier(),92);
+        Err_g("Alignment tree root '%s' is not distributed", root->symb->identifier(),92);
      if(( root->symb->attributes() & POSTPONE_BIT) && !( root->symb->attributes() & DISTRIBUTE_BIT) && CURRENT_SCOPE(root->symb) ) {
         GenAlignArray(root,NULL,0,NULL,0);
         AlignTree(root);
@@ -3992,6 +3989,13 @@ EXEC_PART_:
             stmt=cur_st; 
             break;
 
+       case DVM_TEMPLATE_CREATE_DIR:
+            LINE_NUMBER_BEFORE(stmt,stmt);
+            Template_Create(stmt);
+            Extract_Stmt(stmt);            
+            stmt = cur_st;
+            break;
+
        case DVM_TRACEON_DIR:
             InsertNewStatementAfter(new SgCallStmt(*fdvm[TRON]),stmt,stmt->controlParent());
             LINE_NUMBER_AFTER(stmt,stmt); 
@@ -4383,15 +4387,50 @@ void NewSpecificationStatement(SgExpression *op, SgExpression *dvm_list, SgState
                 st->setExpression(0,*dvm_list);
                 stmt->insertStmtBefore(*st, *stmt->controlParent());
               }
-}              
+} 
+             
+int DeferredShape(SgExpression *eShape)
+{
+   SgExpression *el;
+   SgSubscriptExp *sbe;
+   for(el=eShape; el; el=el->rhs())
+   { 
+      if ((sbe=isSgSubscriptExp(el->lhs())) != NULL && !sbe->ubound() && !sbe->lbound()) 
+            continue;
+      else
+            return 0;
+    }              
+    return 1;
+}
+
+void TemplateDeclarationTest(SgStatement *stmt)
+{
+   SgExpression *eol;
+   SgSymbol *symb;
+   for(eol=stmt->expr(0); eol; eol=eol->rhs()) { //testing object list
+      symb=eol->lhs()->symbol();
+      if(IS_DUMMY(symb))
+         Error("Template may not be a dummy argument: %s",symb->identifier(), 80,stmt); 
+      if(DeferredShape(eol->lhs()->lhs()))
+         symb->addAttribute(DEFERRED_SHAPE,(void*)1,0);                      
+   }
+}
 
 void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis) 
 {
- int ia = das->attributes();
  int rank = Rank(das);
-
- SgExpression *shape_list  = doDvmShapeList(das,stdis); 
- if(! (ia & TEMPLATE_BIT)) 
+ SgExpression *shape_list  = DEFERRED_SHAPE_TEMPLATE(das) ? NULL : doDvmShapeList(das,stdis); 
+ if(IS_TEMPLATE(das))
+ {
+      // adding to the Template_array Symbol the attribute (ARRAY_HEADER) 
+      // with integer value "indh"  //"iamv" 
+      ArrayHeader(das,indh);  // or 2
+      SgExpression *array_header = HeaderRef(das);
+      das->addAttribute(RTS2_CREATED, (void*) 1, 0);
+      if(!DEFERRED_SHAPE_TEMPLATE(das))
+         doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
+ }      
+  else
  {
       // create dvm-array
       ArrayHeader(das,indh); 
@@ -4399,16 +4438,6 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       SgExpression *shadow_list = DeclaredShadowWidths(das);
       doCallStmt(DvmhArrayCreate(das,array_header,rank,ListUnion(shape_list,shadow_list)));        
   }
-  else
-  {
-      // adding to the Template_array Symbol the attribute (ARRAY_HEADER) 
-      // with integer value "indh"  //"iamv" 
-      ArrayHeader(das,indh);  // or 2
-      SgExpression *array_header = HeaderRef(das);
-      das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-      doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
-  }      
-
 }
 
 void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, SgExpression *ps, SgStatement *stdis) {
@@ -4459,6 +4488,7 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
         ArrayHeader(das,1);
       goto TREE_;
     } 
+  //if(DEFERRED_SHAPE_TEMPLATE(das)
 
   if((das->attributes() & SAVE_BIT) || (saveall && (!IN_COMMON(das)))
  || ORIGINAL_SYMBOL(das)->scope()->variant() == MODULE_STMT) {
@@ -4503,12 +4533,21 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
     goto TREE_;
   }
                      // interface of RTS1
+  if(DEFERRED_SHAPE_TEMPLATE(das))
+  { 
+    iamv = ndvm; ifst = iamv+1;
+    ArrayHeader(das,iamv);
+    doAssignStmt(new SgValueExp(0));
+    doAssignTo(HeaderRef(das),DVM000(iamv)); // t = AMViewRef
+    where = savest;
+    goto TREE_;
+  }      
 
 // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
 // CrtAMV creates current Abstract_Machine view 
   size_array = doSizeArray(das,stdis); 
   if(!rank)  //distributee is not array
-     size_array = new SgValueExp(0); // for continuing translation of procedure 
+    size_array = new SgValueExp(0); // for continuing translation of procedure 
 
   iamv = ndvm; ifst = iamv+1; 
   if(ia & POSTPONE_BIT){
@@ -4697,24 +4736,29 @@ void RedistributeArray(SgSymbol *das, int idisars, SgExpression *distr_rule_list
       doAssignStmt(MultBlock(amvref, mult_block, 0));
     where = if_st->lexNext();  // reffer to ELSE statement 
     //inserting after IF (...) THEN 
-    if(ia & TEMPLATE_BIT)
-      size_array = doSizeArray(das,stdis);
+    if (DEFERRED_SHAPE_TEMPLATE(das))
+      am_view = DVM000(INDEX(das));
     else
-      size_array = doSizeArrayQuery( IS_POINTER(das) ? headref : HeaderRefInd(das,1),rank); 
-    if(!rank)  //distributee is not array
-      size_array = new SgValueExp(0); // for continuing translation of procedure 
+    {  
+      if(ia & TEMPLATE_BIT)
+        size_array = doSizeArray(das,stdis);
+      else
+        size_array = doSizeArrayQuery( IS_POINTER(das) ? headref : HeaderRefInd(das,1),rank); 
+      if(!rank)  //distributee is not array
+        size_array = new SgValueExp(0); // for continuing translation of procedure 
  
-    // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
-    //CrtAMV creates current Abstract_Machine view 
+      // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
+      //CrtAMV creates current Abstract_Machine view 
 
-    if((ia & SAVE_BIT) || saveall )
-      st_sign = 1;
-    else
-      st_sign = 0; 
-    if(iamv <= 1) // is not TEMPLATE
-       iamv = ndvm++;
-    am_view = DVM000(iamv);
-    doAssignTo(am_view,CreateAMView(size_array, rank, st_sign));
+      if((ia & SAVE_BIT) || saveall )
+        st_sign = 1;
+      else
+        st_sign = 0; 
+      if(iamv <= 1) // is not TEMPLATE
+        iamv = ndvm++;
+      am_view = DVM000(iamv);
+      doAssignTo(am_view,CreateAMView(size_array, rank, st_sign));
+    }
 
     if(mult_block)
       doAssignStmt(MultBlock(am_view, mult_block, ndis));
@@ -5492,9 +5536,6 @@ void   ALLOCATEf90DistArray(SgSymbol *p, SgExpression *desc, SgStatement *stdis,
   SET_DVM(ifst);
 }
 
-
-
-
 void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpression *desc, SgStatement *stmt) {
 
   int rank,ileft,iright,ifst;
@@ -5831,6 +5872,42 @@ void    PostponedAlignArray(align *node, align *root, int nr, int iaxis) {
     where = where->lexNext();  
 }
 
+void Template_Create(SgStatement *stmt)
+{
+   SgExpression *el;
+   int isave = ndvm;
+   for(el = stmt->expr(0); el; el=el->rhs())
+   {
+      if(isSgArrayRefExp(el->lhs()))
+      {  
+         SgSymbol *s = el->lhs()->symbol();
+         int rank = Rank(s);
+         if(!HEADER(s))
+         {
+            Error("'%s' has not DISTRIBUTE attribute ", s->identifier(), 637,stmt); 
+            continue;
+         } 
+         if(!(s->attributes() & POSTPONE_BIT))
+         {
+            Error("Template '%s' has no deferred ditribution", s->identifier(), 638,stmt); 
+            continue;
+         }         
+         where = stmt;
+         SgExpression *size_array = doSizeAllocArray(s, el->lhs(), stmt, (INTERFACE_RTS2 ? RTS2 : RTS1));
+         cur_st = stmt;
+         if(INTERFACE_RTS2)
+            doCallAfter(DvmhTemplateCreate(s,HeaderRef(s),rank,size_array));
+         else
+            doAssignTo_After(DVM000(INDEX(s)),CreateAMView(size_array, rank, 1)); 
+      }
+      else
+      {
+         err("Illegal element of list",636,stmt);
+         continue;
+      }
+   }
+   SET_DVM(isave);
+}
    
 SgExpression * dvm_array_ref () {
 // creates array reference: dvm000(i) , i - index of first free element
@@ -10832,7 +10909,8 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
        case DVM_PARALLEL_TASK_DIR:
        case DVM_LOCALIZE_DIR:
        case DVM_SHADOW_ADD_DIR: 
-       case DVM_IO_MODE_DIR:    
+       case DVM_IO_MODE_DIR:
+       case DVM_TEMPLATE_CREATE_DIR:    
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
             break;
@@ -12222,58 +12300,61 @@ void BeginDebugFragment(int num, SgStatement *stmt)
 */
 
 void BeginDebugFragment(int num, SgStatement *stmt)
-{fragment_list *curfr;
- fragment_list_in *fr;
- int max_dlevel,max_elevel,is_max,d_current, e_current,spec_dlevel,spec_elevel;
-//determing maximal level of debugging and performance analyzing
-  if(stmt)
-    is_max = MaxLevels(stmt,&max_dlevel,&max_elevel); 
-  else 
-    is_max =0;
+{
+    fragment_list *curfr;
+    fragment_list_in *fr;
+    int max_dlevel, max_elevel, is_max, d_current, e_current, spec_dlevel, spec_elevel;
+    //determing maximal level of debugging and performance analyzing
+    if (stmt)
+        is_max = MaxLevels(stmt, &max_dlevel, &max_elevel);
+    else
+    {
+        is_max = 0;
+        max_dlevel = max_elevel = 4;
+    }
 
-// level specified for surrounding fragment
-  d_current = cur_fragment ? cur_fragment->dlevel_spec : 0; 
-  e_current = cur_fragment ? cur_fragment->elevel_spec : 0; 
- 
-// searhing fragment in 2 lists
-  fr=debug_fragment;
-//looking through the fragment list specified for debugging (-d) in  command line
-  while(fr && (fr->N1 >  num || fr->N2 < num) ) 
-          fr=fr->next;
-  if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
-    spec_dlevel = fr->level;
-  else
-    spec_dlevel = d_current;
- 
- fr=perf_fragment;
-//looking through the fragment list specified for performance analyze (-e) in  command line
-  while(fr && (fr->N1 >  num || fr->N2 < num) ) 
-          fr=fr->next;
-  if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
-    spec_elevel = fr->level;
-  else 
-    spec_elevel = e_current;
-  level_debug =   MinLevel(spec_dlevel,max_dlevel,is_max);
-  dvm_debug = level_debug ? 1 : 0; 
-  perf_analysis = MinLevel(spec_elevel,max_elevel,is_max);
-  curfr = new fragment_list;
-  curfr->No = num;
-  curfr->begin_st = stmt;
-  curfr->dlevel = level_debug;
-  curfr->elevel = perf_analysis;
-  curfr->dlevel_spec = spec_dlevel;
-  curfr->elevel_spec = spec_elevel;
-  curfr->next = cur_fragment; 
-  cur_fragment = curfr;           
-  return;
+    // level specified for surrounding fragment
+    d_current = cur_fragment ? cur_fragment->dlevel_spec : 0;
+    e_current = cur_fragment ? cur_fragment->elevel_spec : 0;
+
+    // searhing fragment in 2 lists
+    fr = debug_fragment;
+    //looking through the fragment list specified for debugging (-d) in  command line
+    while (fr && (fr->N1 > num || fr->N2 < num))
+        fr = fr->next;
+    if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
+        spec_dlevel = fr->level;
+    else
+        spec_dlevel = d_current;
+
+    fr = perf_fragment;
+    //looking through the fragment list specified for performance analyze (-e) in  command line
+    while (fr && (fr->N1 > num || fr->N2 < num))
+        fr = fr->next;
+    if (fr) //fragment with number 'num' is  found (N1 <= num <= N2)
+        spec_elevel = fr->level;
+    else
+        spec_elevel = e_current;
+    level_debug = MinLevel(spec_dlevel, max_dlevel, is_max);
+    dvm_debug = level_debug ? 1 : 0;
+    perf_analysis = MinLevel(spec_elevel, max_elevel, is_max);
+    curfr = new fragment_list;
+    curfr->No = num;
+    curfr->begin_st = stmt;
+    curfr->dlevel = level_debug;
+    curfr->elevel = perf_analysis;
+    curfr->dlevel_spec = spec_dlevel;
+    curfr->elevel_spec = spec_elevel;
+    curfr->next = cur_fragment;
+    cur_fragment = curfr; 
 }
 
 int MinLevel(int level, int max, int is_max)
 {
- if (is_max)
-   return((level > max) ? max : level);
- else
-   return(level);
+    if (is_max)
+        return((level > max) ? max : level);
+    else
+        return(level);
 }
 
 int MaxLevels(SgStatement *stmt,int *max_dlevel,int *max_elevel)
@@ -14085,7 +14166,8 @@ int lookForDVMdirectivesInBlock(SgStatement *first,SgStatement *last,int contain
        case DVM_PARALLEL_TASK_DIR:
        case DVM_IO_MODE_DIR: 
        case DVM_LOCALIZE_DIR:
-       case DVM_SHADOW_ADD_DIR:   
+       case DVM_SHADOW_ADD_DIR: 
+       case DVM_TEMPLATE_CREATE_DIR:  
             dvm_dir = 1; 
             break;
 

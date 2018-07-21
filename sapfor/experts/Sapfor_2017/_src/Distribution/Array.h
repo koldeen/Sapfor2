@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -15,7 +15,7 @@
 
 namespace Distribution
 {
-    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV } distFlagType;
+    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
 
     class Array;
 

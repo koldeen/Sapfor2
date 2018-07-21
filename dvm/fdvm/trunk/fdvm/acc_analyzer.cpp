@@ -245,33 +245,33 @@ VarsKeeper varsKeeper;
 
 SgExpression* GetValueOfVar(SgExpression* var)
 {
-	return varsKeeper.GetValueOfVar(var);
+    return varsKeeper.GetValueOfVar(var);
 }
 
 void VarsKeeper::GatherVars(SgStatement* start)
 {
-	pCommons = &(data->commons);
-	pCalls = &(data->calls);
-	currentProcedure = data->calls.AddHeader(start, false, start->symbol());
+    pCommons = &(data->commons);
+    pCalls = &(data->calls);
+    currentProcedure = data->calls.AddHeader(start, false, start->symbol());
     mainProcedure = currentProcedure;
-	//stage 1: preparing graph data
-	data->graph = GetControlFlowGraphWithCalls(true, start, &(data->calls), &(data->commons));
-	data->calls.AssociateGraphWithHeader(start, data->graph);
-	data->commons.MarkEndOfCommon(currentProcedure);
-	//calls.printControlFlows();
-	//stage 2: data flow analysis
-	FillCFGSets(data->graph);
-	//stage 3: fulfilling loop data
-	FillPrivates(data->graph);
+    //stage 1: preparing graph data
+    data->graph = GetControlFlowGraphWithCalls(true, start, &(data->calls), &(data->commons));
+    data->calls.AssociateGraphWithHeader(start, data->graph);
+    data->commons.MarkEndOfCommon(currentProcedure);
+    //calls.printControlFlows();
+    //stage 2: data flow analysis
+    FillCFGSets(data->graph);
+    //stage 3: fulfilling loop data
+    FillPrivates(data->graph);
 
-	if (privateDelayedList)
-	        delete privateDelayedList;
-	    privateDelayedList = NULL;
+    if (privateDelayedList)
+            delete privateDelayedList;
+        privateDelayedList = NULL;
 }
 
 SgExpression* VarsKeeper::GetValueOfVar(SgExpression* var)
 {
-	FuncData* curData = data;
+    FuncData* curData = data;
 }
 
 //#endif
@@ -328,13 +328,20 @@ void Private_Vars_Analyzer(SgStatement* start)
 
 CallData::~CallData()
 {
-    for (AnalysedCallsList* l = calls_list; l != NULL;) {
+    for (AnalysedCallsList* l = calls_list; l != NULL;) 
+    {
         if (!l->isIntrinsic && l->graph)
+        {
             if (l->graph->RemoveRef() && !l->graph->IsMain())
+            {
                 delete l->graph;
-        AnalysedCallsList* temp = l;
+                l->graph = NULL;
+            }
+        }
+        AnalysedCallsList *temp = l;
         l = l->next;
         delete temp;
+        temp = NULL;
     }
 }
 
@@ -377,10 +384,13 @@ ControlFlowGraph::~ControlFlowGraph()
     if (!temp && pri)
         delete pri;    
 
-    for (CBasicBlock* bb = first; bb != NULL;) {
-        CBasicBlock* tmp = bb;
+    for (CBasicBlock *bb = first; bb != NULL;) 
+    {
+        CBasicBlock *tmp = bb;
         bb = bb->getLexNext();
+            
         delete tmp;
+        tmp = NULL;
     }
 }
 
@@ -404,21 +414,18 @@ CBasicBlock::~CBasicBlock()
 
     for (BasicBlockItem* bbi = prev; bbi != NULL;)
     {
-        BasicBlockItem* tmp = bbi;
+        BasicBlockItem *tmp = bbi;
         bbi = bbi->next;
         delete tmp;
+        tmp = NULL;
     }
 
-    if (!temp) 
+    for (BasicBlockItem *bbi = succ; bbi != NULL;)
     {
-        for (ControlFlowItem* it = start; it != NULL;) 
-        {
-            if (!it->RemRef())
-                break;
-            ControlFlowItem* tmp = it;
-            it = it->getNext();
-            delete tmp;
-        }
+        BasicBlockItem *tmp = bbi;
+        bbi = bbi->next;
+        delete tmp;
+        tmp = NULL;
     }
 
     if (def)
@@ -454,8 +461,9 @@ CBasicBlock::~CBasicBlock()
 
 doLoops::~doLoops()
 {
-    for (doLoopItem* it = first; it != NULL;) {
-        doLoopItem* tmp = it;
+    for (doLoopItem *it = first; it != NULL; ) 
+    {
+        doLoopItem *tmp = it;
         it = it->getNext();
         delete tmp;
     }
@@ -658,7 +666,7 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
                                 else {
                                     v = old->Clone(sym);
                                 }
-                                tbu->addToSet(v, NULL);
+                                tbu->addToSet(v, NULL, old);
                             }
                             SwitchFile(stored);
                             
@@ -716,10 +724,10 @@ ActualDelayedData* ControlFlowGraph::ProcessDelayedPrivates(CommonData* commons,
                 VarItem* v = tmp_use->getFirst();
                 CVarEntryInfo* tmp = v->var->Clone(OriginalSymbol(v->var->GetSymbol()));
                 if (bb->getLexNext()->getLiveIn()->belongs(tmp->GetSymbol(), true)) {
-                    calldata->MoveVarFromPrivateToLastPrivate(v->var, NULL, calldata->buse);
+                    calldata->MoveVarFromPrivateToLastPrivate(v->ov ? v->ov : v->var, NULL, calldata->buse);
                 }
                 if (bb->IsVarDefinedAfterThisBlock(v->var, true)) {
-                    calldata->buse->remove(v->var);
+                    calldata->buse->remove(v->ov ? v->ov : v->var);
                 }
                 delete tmp;
                 tmp_use->remove(v->var);
@@ -1408,7 +1416,7 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             ControlFlowItem* gotoEndInitial = NULL;
             if (needs_goto) {
                 SgExpression* sendc = new SgExpression(GT_OP, new SgVarRefExp(fst->symbol()), fst->end(), NULL);
-                gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure);
+                gotoEndInitial = new ControlFlowItem(sendc, emptyAfterDo, emptyBeforeDo, NULL, currentProcedure, true);
                 gotoEndInitial->setOriginalStatement(fst);
             }
             ControlFlowItem* stcf = new ControlFlowItem(fa, needs_goto ? gotoEndInitial : emptyBeforeDo, currentProcedure);
@@ -1573,6 +1581,9 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
 }
 
 ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, ControlFlowItem* end) : temp(t), main(m), refs(1), def(NULL), use(NULL), pri(NULL), common_def(NULL), common_use(NULL), hasBeenAnalyzed(false)
+#ifdef __SPF
+, pointers(set<SymbolKey>())
+#endif
 {
     int n = 0;
     ControlFlowItem* orig = list;
@@ -1597,8 +1608,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
         if (prev != NULL){
             prev->setNext(bb);
             if (!last_prev->isUnconditionalJump()){
-                bb->addToPrev(prev);
-                prev->addToSucc(bb);
+                bb->addToPrev(prev, last_prev->IsForJumpFlagSet());
+                prev->addToSucc(bb, last_prev->IsForJumpFlagSet());
             }
         }
         if (start == NULL)
@@ -1637,8 +1648,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                     }
                 }
                 if (tmp1 && tmp2) {
-                    tmp1->addToPrev(tmp2);
-                    tmp2->addToSucc(tmp1);
+                    tmp1->addToPrev(tmp2, list->IsForJumpFlagSet());
+                    tmp2->addToSucc(tmp1, list->IsForJumpFlagSet());
                 }
 //            }
         }
@@ -2047,12 +2058,14 @@ void PrivateDelayedItem::PrintWarnings()
             CArrayVarEntryInfo* tt = (CArrayVarEntryInfo*)syb;
             if (tt->HasActiveElements()) 
             {
-#if 0 // TODO: need to check all situation before commit it to release 
 #if __SPF
-                Note("add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+                //Note("add private array '%s'", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #else
-                //Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
+                Warning("var '%s' was added to private list", syb->GetSymbol()->identifier(), PRIVATE_ANALYSIS_ADD_VAR, lstart->getPrivateListStatement());
 #endif
+
+// TODO: need to check all situation before commit it to release 
+#if !__SPF
                 SgExprListExp *nls = new SgExprListExp();
                 SgArrayRefExp *nvr = new SgArrayRefExp(*syb->GetSymbol());
                 nls->setLhs(nvr);
@@ -2486,6 +2499,7 @@ VarSet* CBasicBlock::getMrdIn(bool la)
 {
     if (mrd_in == NULL)
     {
+        CBasicBlock* delayed = NULL;
         VarSet* res = new VarSet();
         BasicBlockItem* p = prev;
         bool first = true;
@@ -2494,14 +2508,29 @@ VarSet* CBasicBlock::getMrdIn(bool la)
             CBasicBlock* b = p->block;
             if (b != NULL && !b->undef && b->hasPrev())
             {
-                if (first){
-                    res->unite(b->getMrdOut(la), la);
-                    first = false;
+                if (!p->for_jump_flag && first) {
+                    if (first) {
+                        res->unite(b->getMrdOut(la), la);
+                        if (delayed) {
+                            res->intersect(delayed->getMrdOut(la), la, true);
+                            delayed = NULL;
+                        }
+                        first = false;
+                    }
+                    else
+                        res->intersect(b->getMrdOut(la), la, p->for_jump_flag);
                 }
-                else
-                    res->intersect(b->getMrdOut(la), la, false);
+                else {
+                    delayed = b;
+                }
             }
             p = p->next;
+        }
+        if (delayed) {
+            if (first)
+                res->unite(delayed->getMrdOut(la), la);
+            else
+                res->intersect(delayed->getMrdOut(la), la, true);
         }
         mrd_in = res;
     }
@@ -2725,7 +2754,7 @@ SgExpression* GetProcedureArgument(bool isF, void* f, int i)
 }
 
 void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void* f, const char* name)
-{	
+{   
     if (!header) {
         is_correct = "no header found";
         failed_proc_name = name;
@@ -3532,7 +3561,7 @@ void VarSet::print()
     putchar('\n');
 }
 
-void VarSet::addToSet(CVarEntryInfo* var, SgStatement* source)
+void VarSet::addToSet(CVarEntryInfo* var, SgStatement* source, CVarEntryInfo* ov)
 {
     bool add = false;
     if (var->GetVarType() != VAR_REF_ARRAY_EXP) {
@@ -3560,6 +3589,7 @@ void VarSet::addToSet(CVarEntryInfo* var, SgStatement* source)
     if (add) {
         VarItem* p = new VarItem();
         p->var = var->Clone();
+        p->ov = ov;
         p->next = list;
         p->file_id = current_file_id;
         list = p;
@@ -3575,13 +3605,15 @@ void VarSet::intersect(VarSet* set, bool la, bool array_mode = false)
         VarItem* n = set->belongs(p->var);
         if (!n)
         {
-            if (prev == NULL)
-                list = list->next;
-            else
-            {
-                prev->next = p->next;
-                delete(p);
-                p = prev;
+            if (!array_mode) {
+                if (prev == NULL)
+                    list = list->next;
+                else
+                {
+                    prev->next = p->next;
+                    delete(p);
+                    p = prev;
+                }
             }
         }
         else {
@@ -3647,6 +3679,7 @@ void VarSet::minus(VarSet* set, bool complete)
         {
             if (p->var->GetVarType() == VAR_REF_ARRAY_EXP && !complete) {
                 *(CArrayVarEntryInfo*)(p->var) -= *(CArrayVarEntryInfo*)(d->var);
+                prev = p;
             }
             else if (prev == NULL)
                 list = list->next;
@@ -3735,6 +3768,7 @@ void VarSet::unite(VarSet* set, bool la)
                 n->var = arg2->var;
                 n->var->AddReference();
             }
+            n->ov = arg2->ov;
             n->next = list;
             n->file_id = arg2->file_id;
 #if PRIVATE_GET_LAST_ASSIGN
@@ -3765,18 +3799,20 @@ void VarSet::unite(VarSet* set, bool la)
 
 
 
-void CBasicBlock::addToPrev(CBasicBlock* bb)
+void CBasicBlock::addToPrev(CBasicBlock* bb, bool for_jump_flag)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
     n->next = prev;
+    n->for_jump_flag = for_jump_flag;
     prev = n;
 }
 
-void CBasicBlock::addToSucc(CBasicBlock* bb)
+void CBasicBlock::addToSucc(CBasicBlock* bb, bool for_jump_flag)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
+    n->for_jump_flag = for_jump_flag;
     n->next = succ;
     succ = n;
 }
@@ -3856,489 +3892,3 @@ void CallData::printControlFlows()
     }
 #endif
 }
-
-#ifdef __SPF
-CommonVarsOverseer *overseerPtr = NULL;
-
-bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
-{
-    if(exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
-        return strcmp(symbol.getVar()->identifier(), exp->symbol()->identifier()) == 0;
-
-    bool hasSymbolInRHS = false;
-    if(exp->rhs())
-        hasSymbolInRHS = symbolInExpression(symbol, exp->rhs());
-    if((!hasSymbolInRHS) && exp->lhs())
-        return symbolInExpression(symbol, exp->lhs());
-    else
-        return false;
-}
-
-void CBasicBlock::addVarToGen(SgSymbol *var, SgExpression *value)
-{
-    addVarToKill(var);
-    gen.insert(make_pair(var, value));
-}
-
-void CBasicBlock::addVarToKill(const SymbolKey &key)
-{
-    kill.insert(key);
-
-    vector<map<SymbolKey, SgExpression*>::const_iterator> toDel;
-
-    for (auto it = gen.begin(); it != gen.end(); ++it)
-        if (it->first == key)
-            toDel.push_back(it);
-        else if(symbolInExpression(key, it->second))
-            toDel.push_back(it);
-
-    for (int i = 0; i < toDel.size(); ++i)
-        gen.erase(toDel[i]);
-}
-
-void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem* cfi) {
-    SgStatement* st = NULL;
-    AnalysedCallsList* callData = cfi->getCall();
-    SgFunctionCallExp* funcCall = NULL;
-    set<string>* varsToKill = NULL;
-    if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
-    {
-        SgCallStmt* callStmt = isSgCallStmt(st);
-        for (int i = 0; i < callStmt->numberOfArgs(); ++i)
-        {
-            SgExpression* arg = callStmt->arg(i);
-            if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarToKill(arg->symbol());
-        }
-        varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
-    }
-    else if((funcCall = cfi->getFunctionCall()) != NULL) {
-        for(int i = 0; i < funcCall->numberOfArgs(); ++i) {
-            SgExpression* arg = funcCall->arg(i);
-            if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarToKill(arg->symbol());
-        }
-        varsToKill = overseerPtr->killedVars(funcCall->symbol()->identifier());
-    }
-
-    if(varsToKill)
-        for(auto var : *varsToKill)
-            addVarToKill(var);
-
-}
-
-bool argIsReplaceable(int i, AnalysedCallsList* callData)
-{
-    if (callData == NULL)
-        return false;
-    SgProcHedrStmt* header = isSgProcHedrStmt(callData->header);
-    if (header == NULL)
-        return NULL;
-    if (header->parameter(i) == NULL)
-        return false;
-    int attr = header->parameter(i)->attributes();
-
-    if (callData->isArgOut(i, NULL) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
-        return false;
-    else if (!(callData->isArgIn(i, NULL) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
-        return false;
-    else
-        return true;
-}
-
-set<SymbolKey>* CBasicBlock::getOutVars()
-{
-    set<SymbolKey>* outVars = new set<SymbolKey>();
-    for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
-        outVars->insert(it->first);
-    return outVars;
-}
-
-void CBasicBlock::adjustGenAndKill(ControlFlowItem* cfi)
-{
-	SgStatement* st = cfi->getStatement();
-	if (st != NULL) 
-		if (st->variant() == ASSIGN_STAT) {
-			SgExpression *left, *right;
-			left = st->expr(0);
-			right = st->expr(1);
-			if (left->variant() == VAR_REF) // x = ...
-				addVarToGen(left->symbol(), right);
-			else if(left->variant() == ARRAY_REF)
-			    addVarToKill(left->symbol());
-		}
-	
-	checkFuncAndProcCalls(cfi);
-}
-
-void CBasicBlock::getReachedDefs(map<SymbolKey, set<SgExpression*>> &defs, SgStatement *stmt)
-{
-    ControlFlowItem *cfi = getStart();
-    ControlFlowItem *till = getEnd()->getNext();
-    bool founded = false;
-    while(cfi != till)
-    {
-       if(cfi->getStatement() == stmt || cfi->getOriginalStatement() == stmt)
-       {
-           founded = true;
-           break;
-       }
-       adjustGenAndKill(cfi);
-       cfi = cfi->getNext();
-    }
-
-    defs.clear();
-    if(founded)
-    {
-        for(auto &it : gen)
-            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second);
-
-        for (auto &it : in_defs)
-        {
-            if (kill.find(it.first) == kill.end())
-            {
-                auto founded = defs.find(it.first);
-                if (founded == defs.end())
-                    founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
-
-                for (auto &exp : it.second)
-                    founded->second.insert(exp.second);
-            }
-        }
-    }
-}
-
-void setGensAndKills(CBasicBlock *b)
-{
-    ControlFlowItem *cfi = b->getStart();
-    ControlFlowItem *till = b->getEnd()->getNext();
-    while(cfi != till)
-    {
-        b->adjustGenAndKill(cfi);
-        cfi = cfi->getNext();
-    }
-}
-
-bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpression*> &term)
-{
-
-    bool mainChanged = false;
-    for (auto it = term.begin(); it != term.end(); ++it)
-    {
-        auto founded = main.find(it->first);
-        if(founded == main.end())
-            main.insert(founded, *it);
-    }
-    return mainChanged;
-}
-
-void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term, set<SymbolKey>* allowedVars)
-{
-    for (auto it = term->begin(); it != term->end(); ++it)
-    {
-        if (!allowedVars || (allowedVars && allowedVars->find(it->first) != allowedVars->end()))
-        {
-            auto founded = main->find(it->first);
-            if (founded == main->end())
-                main->insert(founded, *it);
-            if (founded != main->end())
-                mergeExpressionMaps(founded->second, it->second);
-        }
-    }
-}
-
-void initializeOutWithGen(map<SymbolKey, map<string, SgExpression*>> *defs, map<SymbolKey, SgExpression*> *gen)
-{
-    for(auto it = gen->begin(); it != gen->end(); ++it)
-    {
-        auto inserted = defs->insert(make_pair(it->first, map<string, SgExpression*>()));
-        SgExpression* newExp = it->second->copyPtr();
-        inserted.first->second.insert(make_pair(newExp->unparse(), newExp));
-    }
-}
-
-bool addDefsFilteredByKill( map<SymbolKey, map<string, SgExpression*>> *main,
-                            map<SymbolKey, map<string, SgExpression*>> *defs, set<SymbolKey> *kill)
-{
-    bool mainChanged = false;
-    for(auto it = defs->begin(); it != defs->end(); ++it)
-    {
-        SymbolKey key = it->first;
-        if(kill->find(key) != kill->end())
-            continue;
-
-        auto founded = main->find(key);
-        if(founded == main->end())
-        {
-            main->insert(make_pair(key, it->second));
-            mainChanged = true;
-        }
-        else
-            if(mergeExpressionMaps(founded->second, it->second))
-                mainChanged = true;
-
-    }
-    return mainChanged;
-}
-
-
-
-void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
-{
-    printf("Defs: %d\n", (int)defs->size());
-    for(auto it = defs->begin(); it != defs->end();++it)
-    {
-        printf("--- %s = ", it->first.getVar()->identifier());
-        for(auto iter = it->second.begin(); iter != it->second.end(); ++iter)
-        {
-            printf("%s", iter->second->unparse());
-            if(iter != it->second.end())
-                printf(", ");
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-void showDefs(map<SymbolKey, SgExpression*> *defs)
-{
-    printf("Defs: %d\n", (int)defs->size());
-    for(auto it = defs->begin(); it != defs->end();++it)
-    {
-        printf("--- %s = %s", it->first.getVar()->identifier(), it->second->unparse());
-        printf("\n");
-    }
-    printf("\n");
-}
-
-bool adjustInsAndOuts(CBasicBlock *b)
-{
-    /*Updating IN*/
-    for(BasicBlockItem* prev = b->getPrev(); prev != NULL; prev=prev->next)
-        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
-
-    /*Updating OUT, true, if OUT has been changed*/
-    return addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
-}
-
-void showDefsOfGraph(ControlFlowGraph *CGraph)
-{
-    CBasicBlock *b = CGraph->getFirst();
-    while (b != NULL)
-    {
-        printf("Block %d, prev: ", b->getNum());
-        for(BasicBlockItem* prev = b->getPrev(); prev != NULL; prev=prev->next)
-            printf("%d, ", prev->block->getNum());
-        printf("\n");
-        bool printed = false;
-        ControlFlowItem* cfi = b->getStart();
-        ControlFlowItem* till = b->getEnd()->getNext();
-        while (cfi != till)
-        {
-            if (cfi->getStatement())
-            {
-                printed = true;
-                cfi->getStatement()->unparsestdout();
-            }
-            cfi = cfi->getNext();
-        }
-        if(!printed)
-        {
-            SgStatement* origStmt = NULL;
-            cfi = b->getStart();
-            while(cfi != till)
-            {
-                if((origStmt = cfi->getOriginalStatement()) != NULL)
-                {
-                    printed = true;
-                    printf("Original: ");
-                    origStmt->unparsestdout();
-                }
-                cfi = cfi->getNext();
-            }
-        }
-
-        if (printed)
-        {
-            printf("\n In ");
-            showDefs(b->getInDefs());
-            printf("\n Gen");
-            showDefs(b->getGen());
-            printf("\n Kill %d\n ", b->getKill()->size());
-            for(auto it = b->getKill()->begin(); it!=b->getKill()->end(); ++it)
-                printf("%s ", it->getVar()->identifier());
-            printf("\n");
-            printf("\n Out ");
-            showDefs(b->getOutDefs());
-        }
-        b = b->getLexNext();
-    }
-}
-
-void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
-{
-    CBasicBlock *b = CGraph->getFirst();
-    while(b != NULL)
-    {
-        b->clearGenKill();
-        b->clearDefs();
-        b = b->getLexNext();
-    }
-}
-
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, SgExpression*>> *inDefs, CommonVarsOverseer *overseer_Ptr)
-{
-    overseerPtr = overseer_Ptr;
-    CBasicBlock *b = CGraph->getFirst();
-    while(b != NULL)
-    {
-        setGensAndKills(b);
-        /*Initialization of OUT, it equals to GEN	*/
-        initializeOutWithGen(b->getOutDefs(), b->getGen());
-        b = b->getLexNext();
-    }
-
-    if(inDefs != NULL)
-        CGraph->getFirst()->setInDefs(inDefs);
-
-    bool setsChanged = true;
-    while(setsChanged)
-    {
-        setsChanged = false;
-        b = CGraph->getFirst();
-        while (b != NULL)
-        {
-            if(adjustInsAndOuts(b))
-                setsChanged = true;
-            b = b->getLexNext();
-        }
-    }
-
-    /*Showtime*/
-    //showDefsOfGraph(CGraph);
-}
-
-bool valueWithRecursion(SymbolKey var, SgExpression *exp)
-{
-    if(exp->variant() == VAR_REF)
-        return var == exp->symbol();
-
-    bool recursionFounded = false;
-    if(exp->rhs())
-        recursionFounded = valueWithRecursion(var, exp->rhs());
-    if(exp->lhs() && !recursionFounded)
-        recursionFounded = valueWithRecursion(var, exp->lhs());
-
-    return recursionFounded;
-}
-
-bool valueWithFunctionCall(SgExpression *exp) {
-    if(exp->variant() == FUNC_CALL)
-        return true;
-
-    bool funcFounded = false;
-    if(exp->rhs())
-        funcFounded = valueWithFunctionCall(exp->rhs());
-    if(exp->lhs() && !funcFounded)
-        funcFounded = valueWithFunctionCall(exp->lhs());
-
-    return funcFounded;
-}
-
-/*
- * Can't expand var if:
- * 1. it has multiple values
- * 2. value has function call
- * 3. value has itself within (recursion)
- */
-void CBasicBlock::correctInDefsSimple() {
-    vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
-
-    for(auto it = in_defs.begin(); it != in_defs.end(); ++it)
-        if(it->second.size() != 1) //1
-            toDel.push_back(it);
-        else if(valueWithFunctionCall(it->second.begin()->second)) //2
-            toDel.push_back(it);
-        else if(valueWithRecursion(it->first, it->second.begin()->second)) //3
-            toDel.push_back(it);
-
-    for (int i = 0; i < toDel.size(); ++i)
-        in_defs.erase(toDel[i]);
-
-}
-
-
-/*
- * Can't expand var if
- * value is not present in one of previous block
- */
-bool CBasicBlock::correctInDefsIterative() {
-    bool changed = false;
-    BasicBlockItem *bi = getPrev();
-
-    if (bi)
-    {
-        set<SymbolKey> *allowedVars = bi->block->getOutVars();
-
-        for (bi = bi->next; bi != NULL; bi = bi->next)
-        {
-            set<SymbolKey> *nextAllowedVars = bi->block->getOutVars();
-            for (auto it = allowedVars->begin(); it != allowedVars->end();)
-            {
-                if (nextAllowedVars->find(it->getVar()) == nextAllowedVars->end())
-                    it = allowedVars->erase(it);
-                else
-                    ++it;
-            }
-            delete nextAllowedVars;
-        }
-//Clean inDefs
-        vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
-        for (auto it = in_defs.begin(); it != in_defs.end(); ++it)
-            if (allowedVars->find(it->first) == allowedVars->end())
-                toDel.push_back(it);
-
-        for (int i = 0; i < toDel.size(); ++i)
-            in_defs.erase(toDel[i]);
-
-//Clean outDefs
-        toDel.clear();
-        for(auto it = out_defs.begin(); it != out_defs.end(); ++it)
-            if(allowedVars->find(it->first) == allowedVars->end()
-                    && gen.find(it->first) == gen.end())
-                toDel.push_back(it);
-
-        for (int i = 0; i < toDel.size(); ++i)
-            out_defs.erase(toDel[i]);
-
-        if(toDel.size() != 0)
-            changed = true;
-
-        delete allowedVars;
-    }
-
-    return changed;
-}
-
-void CorrectInDefs(ControlFlowGraph* CGraph)
-{
-    CBasicBlock *b = CGraph->getFirst();
-    while (b != NULL)
-    {
-        b->correctInDefsSimple();
-        b = b->getLexNext();
-    }
-
-    bool changes = true;
-    while (changes)
-    {
-        changes = false;
-        b = CGraph->getFirst();
-        while (b != NULL)
-        {
-            changes |= b->correctInDefsIterative();
-            b = b->getLexNext();
-        }
-    }
-}
-#endif
