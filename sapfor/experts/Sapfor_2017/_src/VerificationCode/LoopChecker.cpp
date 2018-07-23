@@ -8,7 +8,7 @@
 #include "dvm.h"
 #include "verifications.h"
 
-#include "../ParallelizationRegions/ParRegions_func.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #include "../Utils/utils.h"
 #include "../Utils/SgUtils.h"
 
