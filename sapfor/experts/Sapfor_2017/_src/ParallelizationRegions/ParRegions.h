@@ -9,7 +9,7 @@
 #include "../Distribution/DvmhDirective.h"
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Distribution.h"
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 #include "../SgUtils.h"
 
@@ -313,7 +313,7 @@ public:
         if (dirs.size() == 0)
             return;
 
-        if (type == DVM_DISTRIBUTE_DIR)
+        if (type == DVM_DISTRIBUTE_DIR || type == DVM_VAR_DECL)
             userDvmDistrDirs.insert(userDvmDistrDirs.end(), dirs.begin(), dirs.end());
         else if (type == DVM_ALIGN_DIR)
             userDvmAlignDirs.insert(userDvmAlignDirs.end(), dirs.begin(), dirs.end());
@@ -323,11 +323,22 @@ public:
             userDvmRealignDirs.insert(userDvmRealignDirs.end(), dirs.begin(), dirs.end());
         else if (type == DVM_REDISTRIBUTE_DIR)
             userDvmRedistrDirs.insert(userDvmRedistrDirs.end(), dirs.begin(), dirs.end());
+
+        if (type == DVM_DISTRIBUTE_DIR ||
+            type == DVM_ALIGN_DIR ||
+            type == DVM_SHADOW_DIR ||
+            type == DVM_REALIGN_DIR ||
+            type == DVM_REDISTRIBUTE_DIR ||
+            type == DVM_VAR_DECL)
+        {
+            for (auto &dir : dirs)
+                dir->extractStmt();
+        }
     }
 
     const std::vector<Statement*>* GetUsersDirecites(const int type) const
     {
-        if (type == DVM_DISTRIBUTE_DIR)
+        if (type == DVM_DISTRIBUTE_DIR || type == DVM_VAR_DECL)
             return &userDvmDistrDirs;
         else if (type == DVM_ALIGN_DIR)
             return &userDvmAlignDirs;

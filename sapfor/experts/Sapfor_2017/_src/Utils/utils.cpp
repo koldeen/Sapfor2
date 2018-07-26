@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +23,7 @@
 #include "errors.h"
 #include "version.h"
 
-#include "GraphLoop/graph_loops.h"
+#include "../GraphLoop/graph_loops.h"
 
 using std::map;
 using std::pair;
@@ -103,15 +103,17 @@ string OnlyExt(const char *filename)
 void printHelp()
 {
     printf("Help info for passes.\n\n");
-    printf(" -f90     free form\n");
+    printf(" -f90      free form\n");
     //printf(" -sh      turn on static shadow analysis\n");
-    printf(" -priv    turn on static private analysis\n");
-    printf(" -keep    keep temporary files\n");
-    printf(" -keepSPF keep SPF directives\n");
-    printf(" -keepDVM keep DVM directives\n");
-    printf(" -allVars get all parallel versions\n");
-    printf(" -Var N   get specific parallel version, N=1,2,..\n");
-    printf(" -q Q     quality of analysis in percent (1..100, default 100)\n");
+    printf(" -ver/-Ver version of SAPFOR\n");
+    printf(" -priv     turn on static private analysis\n");
+    printf(" -keep     keep temporary files\n");
+    printf(" -keepSPF  keep SPF directives\n");
+    printf(" -keepDVM  keep DVM directives\n");
+    printf(" -allVars  get all parallel versions\n");
+    printf(" -var N    get specific parallel version, N=1,2,..\n");
+    printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
+    printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
     printf("\n");
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
@@ -293,24 +295,23 @@ bool isSPF_comment(const string &bufStr)
 void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
                   const char *folderName, int removeDvmDirs)
 {
-    for (auto it = allIncludeFiles.begin(); it != allIncludeFiles.end(); ++it)
+    for (auto &include : allIncludeFiles)
     {
-        if (commentsToInclude.find(*it) != commentsToInclude.end())
+        if (commentsToInclude.find(include) != commentsToInclude.end())
             continue;
 
-        string currFile = *it;
-        string newCurrFile = string(folderName) + "/" + currFile;
+        string newCurrFile = string(folderName) + "/" + include;
         
         FILE *tryToOpen = fopen(newCurrFile.c_str(), "r");
         if (tryToOpen == NULL)
         {
-            __spf_print(1, "  try to copy file '%s' to '%s'\n", currFile.c_str(), newCurrFile.c_str());
+            __spf_print(1, "  try to copy file '%s' to '%s'\n", include.c_str(), newCurrFile.c_str());
 
             FILE *copyFile = fopen(newCurrFile.c_str(), "w");
-            FILE *oldFile = fopen(currFile.c_str(), "r");
+            FILE *oldFile = fopen(include.c_str(), "r");
             if (!copyFile)
             {
-                __spf_print(1, "  can not open file '%s' for read\n", currFile.c_str());
+                __spf_print(1, "  can not open file '%s' for read\n", include.c_str());
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
 
@@ -327,6 +328,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                 if (res == NULL)
                     break;
 
+                const string orig(buf);
                 string bufStr(buf);
                 convertToLower(bufStr);
                 if (!keepSpfDirs)
@@ -349,7 +351,12 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                         }
                     }
                 }
-                fputs(bufStr.c_str(), copyFile);
+
+                // save original include name
+                if (bufStr.find("include") != string::npos)
+                    fputs(orig.c_str(), copyFile);
+                else
+                    fputs(bufStr.c_str(), copyFile);
             }
             fclose(oldFile);
             fclose(copyFile);
@@ -410,46 +417,6 @@ string splitDirective(const string &in_)
 }
 
 extern "C" void ExitFromOmegaTest(const int c) { throw c; }
-
-static map<string, pair<int, int>> localLinesControl;
-static map<string, int> localLastLines;
-
-void startLineControl(const string &file, const int lineStart, const int lineEnd)
-{
-    localLinesControl.clear();
-    localLastLines.clear();
-
-    localLinesControl.insert(std::make_pair(file, std::make_pair(lineStart, lineEnd)));
-    localLastLines.insert(std::make_pair(file, lineStart));
-}
-
-// this checker is not correct after code transformations
-int checkThisLine(const string &file, const int line)
-{
-    return 0;
-
-    /*if (line == 0)
-        return 0;
-
-    auto it1 = localLinesControl.find(file);
-    if (it1 != localLinesControl.end())
-    {
-        auto it2 = localLastLines.find(file);
-        if (it2 == localLastLines.end())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else
-        {
-            if (it2->second > line)
-                return -1;
-            else if (line < it1->second.first || line > it1->second.second)
-                return -1;
-            else
-                it2->second = line;
-        }
-    }
-
-    return 0;*/
-}
 
 void sortFilesBySize(const char *proj_name)
 {
@@ -547,15 +514,15 @@ void uniteVectors(const vector<pair<pair<string, string>, vector<pair<int, int>>
     delete[]uniteS;
 }
 
+#include <unordered_map>
 
 // pointer -> type of alloc function
-static map<void*, std::tuple<int, int, const char*>> pointerCollection;
+static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollection;
+
 // type == 0 -> free, type == 1 -> delete, type == 2 -> delete[]
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type)
 {
-    auto it = pointerCollection.find(pointer);
-    if (it == pointerCollection.end())
-        pointerCollection.insert(it, std::make_pair(pointer, std::make_tuple(type, line, file)));
+    pointerCollection.insert(std::make_pair(pointer, std::make_tuple(type, line, file)));
 }
 
 extern "C" void removeFromCollection(void *pointer)
@@ -665,4 +632,66 @@ int getNextNegativeLineNumber()
     int ret = newLineNumber;
     newLineNumber--;
     return ret;
+}
+
+void findAndReplaceDimentions(vector<tuple<DIST::Array*, int, pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays)
+{
+    for (int i = 0; i < rule.size(); ++i)
+    {
+        if (std::get<0>(rule[i]) == NULL)
+            continue;
+        int alignTo = -1;
+        int ok = allArrays.GetDimNumber(std::get<0>(rule[i]), (std::get<1>(rule[i])), alignTo);
+        if (ok != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        (std::get<1>(rule[i])) = alignTo;
+    }
+}
+
+vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId)
+{
+    vector<int> retVal(from->GetDimSize());
+    std::fill(retVal.begin(), retVal.end(), -1);
+
+    if (to->isTemplate())
+    {
+        if (to != from->GetTemplateArray(regionId))
+            return retVal;
+        else
+            return from->GetLinksWithTemplate(regionId);
+    }
+    else
+    {
+        if (to->GetTemplateArray(regionId) != from->GetTemplateArray(regionId))
+        {
+            string leftT = to->GetTemplateArray(regionId) ? to->GetTemplateArray(regionId)->GetShortName() : "nul";
+            string rightT = from->GetTemplateArray(regionId) ? from->GetTemplateArray(regionId)->GetShortName() : "nul";
+            __spf_print(1, "regionId = %d: templates for array %s and %s not eq: %s != %s\n", 
+                        regionId, from->GetName().c_str(), to->GetName().c_str(), leftT.c_str(), rightT.c_str());
+        }
+        else
+        {
+            auto ruleL = from->GetLinksWithTemplate(regionId);
+            auto ruleR = to->GetLinksWithTemplate(regionId);
+
+            int currD = 0;
+            for (auto &elem1 : ruleL)
+            {                
+                int idx = 0;
+                for (auto &elem2 : ruleR)
+                {
+                    if (elem2 == elem1)
+                    {
+                        retVal[currD] = idx;
+                        break;
+                    }
+                    ++idx;
+                }
+                ++currD;
+            }
+        }
+
+        return retVal;
+    }
 }

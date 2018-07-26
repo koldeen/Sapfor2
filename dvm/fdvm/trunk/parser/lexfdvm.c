@@ -2339,7 +2339,10 @@ analyz()
                 stkey = UNKNOWN;
              break;
 	  case 't':
-             if (eqn(8, nextch, "template")) {
+             if (eqn(15, nextch, "template_create")) {
+                stkey = TEMPLATE_CREATE;   
+                nextch += 15; 
+             } else if (eqn(8, nextch, "template")) {
                 stkey = HPF_TEMPLATE;   hpf = 1;
                 nextch += 8; 
              } else if (eqn(7, nextch, "traceon")) {

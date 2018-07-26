@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -11,12 +11,12 @@
 #include <set>
 
 #include "dvm.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../SgUtils.h"
-#include "../errors.h"
-#include "../directive_parser.h"
+#include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
+#include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
 
 using std::string;
@@ -708,18 +708,15 @@ static bool checkParallelRegions(SgStatement *st,
                     {
                         for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
                         {
-                            for (SgExpression *currExp = exp->variant() == COMM_LIST ? exp->lhs() : exp; currExp && retVal; currExp = currExp->rhs())
+                            if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
                             {
-                                if (!strcmp(currExp->lhs()->symbol()->identifier(), identSymbol->identifier()))
-                                {
-                                    __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                    string message;
-                                    __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
-                                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
+                                string message;
+                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
-                                    retVal = false;
-                                }
+                                retVal = false;
                             }
                         }
                     }
@@ -975,6 +972,9 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
         while (modIterator != modEnd)
         {
+            if (modIterator->variant() == CONTAINS_STMT)
+                break;
+
             bool result = processStat(modIterator, currFile, commonBlocks, messagesForFile);
             retVal = retVal && result;
 
@@ -1009,6 +1009,9 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             bool result = processStat(st, currFile, commonBlocks, messagesForFile);
             noError = noError && result;
@@ -1071,7 +1074,7 @@ static void OptimizeTree(SgExpression *exp)
     }
 }
 
-SgStatement* GetOneAttribute(vector<SgStatement*> sameAtt) 
+SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
 {
     set<string> uniqAttrs;
     SgStatement *toAddExp = NULL;
@@ -1163,6 +1166,10 @@ void revertion_spf_dirs(SgFile *file,
                 __spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             //analyze attributes
             SgAttribute *atrib = st->getAttribute(0);
             SgStatement *toAdd = NULL;

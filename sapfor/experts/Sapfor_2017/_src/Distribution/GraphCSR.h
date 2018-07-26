@@ -7,7 +7,7 @@
 
 #include "Cycle.h"
 #include "Arrays.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 
 typedef enum links { RR_link, WR_link, WW_link } LinkType;
 
@@ -34,10 +34,11 @@ namespace Distribution
 
         //for finding
         std::vector<vType> color;
-        std::vector<vType> activeV;
-        std::vector<vType> activeE;
-        std::vector<std::pair<wType, attrType>> activeArcs;
+        vType *activeV;
+        vType *activeE;
+        std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
+        std::vector<std::pair<int, int>> treesQuality;
 
         int activeCounter;
         vType findFrom;
@@ -46,6 +47,9 @@ namespace Distribution
         int maxChainLen;
         int maxLoopDim;
         uint64_t maxAvailMemory;
+
+        std::map<vType, std::map<vType, std::tuple<int, Array*, std::pair<float, float>>>> cacheLinks;
+        int countRequestsToAdd, countMissToAdd;
     private:
         GraphCSR(const std::vector<vType> &neighbors, const std::vector<vType> &edges,
                  const std::vector<wType> &weights, const std::vector<vType> &localIdx,
@@ -60,8 +64,8 @@ namespace Distribution
 
         vType GetLocalVNum(const vType &V, bool &ifNew);
         void AddEdgeToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew, const uint8_t linkType);
-        void IncreaseWeight(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const attrType &attrRev);
-        bool CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew);        
+        void IncreaseWeight(const int &idx, const int &idxRev, const wType &W);
+        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew);        
         std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
 
         //old algorithm without sort in the fly
@@ -70,11 +74,11 @@ namespace Distribution
         void FindLoop(std::vector<std::map<std::vector<unsigned>, Cycle<vType, wType, attrType>>> &cycles, const vType V, const vType VPrev, const std::vector<vType> &numbers);
         void RemoveDuplicates(std::vector<Cycle<vType, wType, attrType>> &cycles);
         bool findLink(const vType v1, std::pair<int, int> &inGraphAttr1, const vType v2, std::pair<int, int> &inGraphAttr2);
-        bool findLinkWithTempate(const vType v1, std::pair<float, float> &inGraphAttr, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
+        std::pair<float, float> findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
         int findDimNumLink(const vType v, const Array *to, const Arrays<vType> &allArrays, std::set<vType> &wasDone) const;
         bool checkFirstCoefOfNode(vType node);
-        bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);
-
+        bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);        
+        bool hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays);
     public:
         GraphCSR()
         {
@@ -87,6 +91,9 @@ namespace Distribution
             this->maxLoopDim = G.maxLoopDim;
             this->maxChainLen = G.maxChainLen;
             this->maxAvailMemory = G.maxAvailMemory;
+            this->countRequestsToAdd = G.countRequestsToAdd;
+            this->countMissToAdd = G.countMissToAdd;
+            this->treesQuality = G.treesQuality;
         }
 
         void cleanData()
@@ -104,6 +111,10 @@ namespace Distribution
             maxAvailMemory = 0;
             maxLoopDim = MAX_LOOP_DIM;
             maxChainLen = MAX_CHAIN_LEN;
+
+            cacheLinks.clear();
+            countRequestsToAdd = 0;
+            countMissToAdd = 0;
         }
 
         void ClearGraphCSR()
@@ -117,16 +128,19 @@ namespace Distribution
             localIdx.resize(0);
             globalIdx.resize(0);
             attributes.resize(0);
+            treesQuality.resize(0);
 
             maxLoopDim = MAX_LOOP_DIM;
             maxChainLen = MAX_CHAIN_LEN;
             maxAvailMemory = 0;
+            countRequestsToAdd = 0;
+            countMissToAdd = 0;
         }
 
         bool SaveGraphToFile(FILE *file);
         bool LoadGraphFromFile(FILE *file);
         int AddToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const uint8_t linkType);
-        void GetAllSimpleLoops(std::vector<std::vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint);
+        void GetAllSimpleLoops(std::vector<std::vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint, bool useSavedQ);
         int SortLoopsBySize(std::vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint);
         int SortLoopsByWeight(std::vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint);
         int GetConflictCycles(const std::vector<Cycle<vType, wType, attrType>> &cycles, const Arrays<vType> &allArrays, std::vector<std::pair<int, int>> &indexOfConflict, bool needPrint);
@@ -136,8 +150,6 @@ namespace Distribution
         void RemovedEdges(const std::vector<std::tuple<vType, vType, attrType>> &toDelArcs, const Arrays<vType> &allArrays);
         void HighlightLinks();
 
-        //NOTE, it correctly works only with reduce graph
-        bool hasTheSameAlignment(const vType v1, const std::pair<int, int> &attr1, const vType v2, const std::pair<int, int> &attr2);
         int GetAlignRuleForArray(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::vector<std::tuple<Array*, vType, attrType>>> &assignedArrays);
         int GetAlignRuleWithTemplate(Array *inputArray, const Arrays<vType> &allArrays, std::vector<std::tuple<Array*, vType, std::pair<int, int>>> &rules, const int regionId);
         void FindLinksBetweenArrays(const Arrays<vType> &allArrays, const Array *from, const Array *to, std::vector<int> &links) const;
@@ -153,5 +165,9 @@ namespace Distribution
         int GetMaxChainLen() const { return maxChainLen; }
         void SetMaxAvailMemory(const uint64_t memSize) { maxAvailMemory = memSize; }
         void ChangeQuality(const int newMaxLoopDim, const int newMaxChainLen) { SetMaxLoopDim(newMaxLoopDim); SetMaxChainLen(newMaxChainLen); }
+        int getCountOfReq() const { return countRequestsToAdd; }
+        int getCountOfMiss() const { return countMissToAdd; }
     };
+
+    std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);
 }

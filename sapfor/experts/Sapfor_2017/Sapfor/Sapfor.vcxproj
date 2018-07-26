@@ -5,6 +5,14 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Vis|Win32">
+      <Configuration>Release_Vis</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Vis|x64">
+      <Configuration>Release_Vis</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -23,7 +31,7 @@
     <ProjectGuid>{2BB42B16-B8E4-4C9E-896A-040466B7AAF2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Sapfor</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -33,6 +41,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
@@ -52,6 +67,13 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -63,10 +85,16 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -79,7 +107,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;..\..\..\transformers\ftransform\trunk\CommonLib\include;..\..\..\transformers\ftransform\trunk\SageUtils\include;..\..\..\transformers\ftransform\trunk\SageTransformLib\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -87,9 +115,20 @@
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;..\..\..\transformers\ftransform\trunk\CommonLib\include;..\..\..\transformers\ftransform\trunk\SageUtils\include;..\..\..\transformers\ftransform\trunk\SageTransformLib\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -138,6 +177,23 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;SPF</PreprocessorDefinitions>
+      <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG"  %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level2</WarningLevel>
@@ -145,9 +201,34 @@
       </PrecompiledHeader>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
-      <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG"  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
+      <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -161,28 +242,36 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
-    <ClCompile Include="..\_src\directive_parser.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</IntrinsicFunctions>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</IntrinsicFunctions>
     </ClCompile>
     <ClCompile Include="..\_src\Distribution\Cycle.cpp" />
     <ClCompile Include="..\_src\Distribution\Distribution.cpp" />
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp" />
-    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp" />
+    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Full</Optimization>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Full</Optimization>
+    </ClCompile>
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp" />
+    <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\allocations_prepoc.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator.cpp" />
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\insert_directive.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp" />
+    <ClCompile Include="..\_src\LoopAnalyzer\shadow.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
@@ -216,23 +305,19 @@
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
-    <ClCompile Include="..\_src\SgUtils.cpp" />
-    <ClCompile Include="..\_src\transforms.cpp">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Disabled</Optimization>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
-    </ClCompile>
-    <ClCompile Include="..\_src\utils.cpp" />
+    <ClCompile Include="..\_src\Sapfor.cpp" />
+    <ClCompile Include="..\_src\Utils\SgUtils.cpp" />
+    <ClCompile Include="..\_src\Utils\utils.cpp" />
     <ClCompile Include="..\_src\VerificationCode\CorrectVarDecl.cpp" />
     <ClCompile Include="..\_src\VerificationCode\IncludeChecker.cpp" />
     <ClCompile Include="..\_src\VerificationCode\LoopChecker.cpp" />
     <ClCompile Include="..\_src\VerificationCode\VerifySageStructures.cpp" />
     <ClCompile Include="..\_src\VisualizerCalls\get_information.cpp" />
+    <ClCompile Include="..\_src\VisualizerCalls\SendMessage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
-    <ClInclude Include="..\_src\AstWrapper.h" />
     <ClInclude Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h" />
-    <ClInclude Include="..\_src\directive_parser.h" />
     <ClInclude Include="..\_src\Distribution\Array.h" />
     <ClInclude Include="..\_src\Distribution\Arrays.h" />
     <ClInclude Include="..\_src\Distribution\CreateDistributionDirs.h" />
@@ -242,12 +327,12 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
-    <ClInclude Include="..\_src\errors.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h" />
+    <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
@@ -255,17 +340,23 @@
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />
-    <ClInclude Include="..\_src\PassManager.h" />
     <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
+    <ClInclude Include="..\_src\Sapfor.h" />
     <ClInclude Include="..\_src\SapforData.h" />
-    <ClInclude Include="..\_src\SgUtils.h" />
-    <ClInclude Include="..\_src\transform.h" />
-    <ClInclude Include="..\_src\types.h" />
-    <ClInclude Include="..\_src\utils.h" />
+    <ClInclude Include="..\_src\Utils\AstWrapper.h" />
+    <ClInclude Include="..\_src\Utils\CommonBlock.h" />
+    <ClInclude Include="..\_src\Utils\DefUseList.h" />
+    <ClInclude Include="..\_src\Utils\errors.h" />
+    <ClInclude Include="..\_src\Utils\leak_detector.h" />
+    <ClInclude Include="..\_src\Utils\PassManager.h" />
+    <ClInclude Include="..\_src\Utils\SgUtils.h" />
+    <ClInclude Include="..\_src\Utils\types.h" />
+    <ClInclude Include="..\_src\Utils\utils.h" />
+    <ClInclude Include="..\_src\Utils\version.h" />
     <ClInclude Include="..\_src\VerificationCode\verifications.h" />
-    <ClInclude Include="..\_src\version.h" />
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h" />
+    <ClInclude Include="..\_src\VisualizerCalls\SendMessage.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
@@ -276,9 +367,6 @@
     <Library Include="..\_lib\boost_Release_64\libboost_date_time-vc141-mt-1_64.lib" />
     <Library Include="..\_lib\boost_Release_64\libboost_system-vc141-mt-1_64.lib" />
     <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformCommonLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformUtils.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

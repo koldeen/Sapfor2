@@ -3,13 +3,14 @@
 #include <map>
 #include <stack>
 #include "../SageAnalysisTool/depGraph.h"
-#include <dependency/DependencyType.hpp>
 #include "../GraphLoop/graph_loops.h"
 
 void reverseCreatedNestedLoops(const std::string &file, std::vector<LoopGraph*> &loopsInFile);
 bool createNestedLoops(LoopGraph *current, const std::map<LoopGraph*, depGraph*> &depInfoForLoopGraph,
                        std::vector<Messages> &messages);
 
+//TODO: need to delete
+/*
 namespace Sapfor2017 {
     using SageTransform::DependencyType;
 
@@ -24,3 +25,4 @@ namespace Sapfor2017 {
         static DependencyType fromDepNode(depNode *node);
     };
 }
+*/

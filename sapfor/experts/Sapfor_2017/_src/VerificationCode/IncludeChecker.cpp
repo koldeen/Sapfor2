@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -8,8 +8,8 @@
 
 #include "dvm.h"
 #include "verifications.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/DvmhDirective.h"
 
 using std::vector;
@@ -34,6 +34,9 @@ void IncludeChecker(SgFile *file, const string &fileName, set<pair<string, int>>
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             if (st->fileName() == fileName)
                 lastLine = st->lineNumber();

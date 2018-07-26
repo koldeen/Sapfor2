@@ -4,9 +4,9 @@
 #include <set>
 #include <map>
 
-#include "AstWrapper.h"
-#include "GraphLoop/graph_loops.h"
-#include "Distribution/DvmhDirective.h"
+#include "../Utils/AstWrapper.h"
+#include "../GraphLoop/graph_loops.h"
+#include "../Distribution/DvmhDirective.h"
 
 bool isSPF_NoInline(SgStatement *stPrev);
 

@@ -1,4 +1,4 @@
-#include "leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -12,9 +12,9 @@
 #include <assert.h>
 
 #include "directive_parser.h"
-#include "SgUtils.h"
-#include "LoopAnalyzer/loop_analyzer.h"
-#include "AstWrapper.h"
+#include "../Utils/SgUtils.h"
+#include "../LoopAnalyzer/loop_analyzer.h"
+#include "../Utils/AstWrapper.h"
 
 using std::string;
 using std::vector;

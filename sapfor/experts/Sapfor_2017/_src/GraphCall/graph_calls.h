@@ -3,9 +3,9 @@
 #include <string>
 #include <set>
 
-#include "../transform.h"
-#include "../AstWrapper.h"
-#include "../utils.h"
+#include "../Sapfor.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/utils.h"
 
 typedef enum parF { NONE_T, ARRAY_T, 
                     SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,

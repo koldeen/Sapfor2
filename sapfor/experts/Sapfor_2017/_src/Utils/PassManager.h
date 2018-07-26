@@ -3,7 +3,7 @@
 #include <map>
 #include <set>
 #include <vector>
-#include "transform.h"
+#include "../Sapfor.h"
 
 using std::vector;
 using std::map;
@@ -146,7 +146,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, EXTRACT_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF,
                                    EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE, REMOVE_AND_CALC_SHADOW,
-                                   REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS });
+                                   REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS, TRANSFORM_SHADOW_IF_FULL });
         
     //only for print
     if (printTree)

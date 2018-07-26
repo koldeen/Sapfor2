@@ -38,7 +38,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   23 "can not calculate index expression for array ref '%s'"
 //   24 "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet"
 //   25 "can not map write to array '%s' to this loop"
-//   26 "write to non distributed array '%s' to loop"
+//   26 "write to non distributed array '%s' in this loop"
 //   27 "array '%s' in function '%s' is not a private, this functionality has not supported yet"
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer
@@ -49,6 +49,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"
 //   36 "Can not build align graph from user's DVM directives in this region"
+//   37 "Array can not be distributed because of DVM's I/O constraints"
+
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -70,7 +72,10 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   08 "internal error in analysis, parallel directives will not be generated for this file!"
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
+//   11 "Arrays have different align rules in this loop according to their write accesses"
 
+// 40xx LOW LEVEL WARNINGS
+//   01 
 struct Messages
 {
 public:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../errors.h"
+#include "../Utils/errors.h"
 
 void ConverToEndDo(SgFile *file, std::vector<Messages> &messagesForFile);
 

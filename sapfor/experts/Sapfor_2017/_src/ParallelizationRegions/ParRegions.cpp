@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,8 +10,8 @@
 
 #include "dvm.h"
 #include "ParRegions.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Distribution/Distribution.h"
@@ -188,6 +188,9 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
         while (st != NULL && st != lastNode)
         {
             currProcessing.second = st;
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             int attrNum = st->numberOfAttributes();
             for (int k = 0; k < attrNum; ++k)
             {
@@ -257,6 +260,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
             switch (st->variant())
             {
+            case DVM_VAR_DECL:
             case DVM_DISTRIBUTE_DIR:
                 userDvmDistrDirs.push_back(new Statement(st));
                 break;

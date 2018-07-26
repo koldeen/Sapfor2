@@ -4,7 +4,7 @@
 #include <set>
 #include <string>
 
-#include "Distribution/Distribution.h"
+#include "../Distribution/Distribution.h"
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);
@@ -28,9 +28,6 @@ void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<s
 std::string splitDirective(const std::string &in);
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
 
-void startLineControl(const std::string &file, const int lineStart, const int lineEnd);
-int checkThisLine(const std::string &file, const int line);
-
 bool isSPF_comment(const std::string &bufStr);
 
 void sortFilesBySize(const char *proj_name);
@@ -47,6 +44,17 @@ bool isAllRulesEqual(const std::vector<const std::vector<std::pair<int, int>>*> 
 bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 
 int getNextNegativeLineNumber();
+void findAndReplaceDimentions(std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>> &rule, const DIST::Arrays<int> &allArrays);
 
 extern "C" void removeFromCollection(void *pointer);
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+
+#ifndef _WIN32
+inline void sendMessage_1lvl(const std::wstring &toSend);
+inline void sendMessage_2lvl(const std::wstring &toSend);
+#else
+extern void sendMessage_1lvl(const std::wstring &toSend);
+extern void sendMessage_2lvl(const std::wstring &toSend);
+#endif
+
+std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
