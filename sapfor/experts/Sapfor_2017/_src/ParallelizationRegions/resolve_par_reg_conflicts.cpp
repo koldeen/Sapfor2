@@ -350,11 +350,19 @@ static void copyLocalArray(ParallelRegion *region,
             string newArrName = arrayName + string("_") + suffix;
             SgSymbol *arrSymb = array.getOrigSymbol();
             SgSymbol *newArrSymb = NULL;
+            SgStatement *decl = declaratedInStmt(arrSymb);
+            SgStatement *newDecl = NULL;
 
             newArrSymb = &arrSymb->copy();
             newArrSymb->changeName(newArrName.c_str());
+            newDecl = makeSymbolDeclaration(newArrSymb);
+            //decl->insertStmtAfter(*decl, *newDecl);
 
-            SgStatement *decl = declaratedInStmt(arrSymb);
+            decl->unparsestdout();
+            newDecl->unparsestdout();
+
+            __spf_print(1, "new array '%s' for '%s' (line: %d)\n",
+                newArrName.c_str(), arrSymb->identifier(), decl->lineNumber()); // remove
 
         }
         else
@@ -387,21 +395,20 @@ static void copyFunction(ParallelRegion *region,
             // create copy function symbol and copy function for original function
             SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
             SgSymbol *newFuncSymb = NULL;
-            string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
-
-            __spf_print(1, "new function '%s' for '%s' (scope: %d)\n",
-                        newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber()); // remove
-
             SgFile *file = func->funcPointer->GetOriginal()->getFile();
+            string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
 
             newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
             newFuncSymb = &newFuncSymb->copy();
             newFuncSymb->changeName(newFuncName.c_str());
             file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
+            __spf_print(1, "new function '%s' for '%s' (scope: %d)\n",
+                        newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber()); // remove
+
             region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
-            __spf_print(1, "add (%s, %s) and function for file %s\n",
+            __spf_print(1, "  add (%s, %s) and function for file %s\n",
                         funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
 
             // create copy function symbol for other calling functions
@@ -419,10 +426,10 @@ static void copyFunction(ParallelRegion *region,
                     newFuncSymb = &funcSymb->copy();
                     newFuncSymb->changeName(newFuncName.c_str());
 
-                    __spf_print(1, "add (%s, %s) for file %s\n",
-                                funcSymb->identifier(), newFuncSymb->identifier(), callTo->fileName.c_str()); // remove
-
                     region->AddReplacedSymbols(callTo->fileName, funcSymb, newFuncSymb);
+
+                    __spf_print(1, "  add (%s, %s) for file %s\n",
+                                funcSymb->identifier(), newFuncSymb->identifier(), callTo->fileName.c_str()); // remove
                 }
                 else
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -441,9 +448,9 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
 {
     for (auto &region : regions)
     {
-        __spf_print(1, "[%s]:\n", region->GetName().c_str()); // remove
-
         auto crossedFuncs = region->GetCrossedFuncs();
+
+        __spf_print(1, "[%s]: create functions\n", region->GetName().c_str()); // remove
 
         // creating new functions
         for (auto &crossedFunc : crossedFuncs)
@@ -456,10 +463,14 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
                 copyFunction(region, commonFunc, region->GetName(), allFuncInfo, funcMap);
         }
 
+        __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // remove
+
         // creating new arrays
         for (auto &funcArrays : region->GetLocalArrays())
             for (auto &nameLocalArray : funcArrays.second)
                 copyLocalArray(region, nameLocalArray.second, funcArrays.first, nameLocalArray.first, string("copy"), allFuncInfo, funcMap);
+
+        //__spf_print(1, "[%s]: create common arrays\n", region->GetName().c_str()); // remove
 
         // creating common-blocks
         for (auto &commonArray : allUsedCommonArrays)
@@ -472,11 +483,11 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
     if (exp)
     {
         // Alex, TODO: exp->symbol()->identifier()
-        // if (exp->symbol() && exp->symbol() == from)
         if (exp->symbol() && exp->symbol()->identifier() == from)
         {
-            __spf_print(1, "replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
             exp->setSymbol(to);
+
+            __spf_print(1, "replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
         }
 
         recursiveReplace(exp->lhs(), from, to);
@@ -515,11 +526,11 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                 {
                                     if (iterator->symbol() && iterator->symbol()->identifier() == string(fromTo.first->identifier()))
                                     {
+                                        iterator->setSymbol(*fromTo.second);
+
                                         __spf_print(1, "replace '%s' to '%s' in file %s on line %d\n",
                                                     fromTo.first->identifier(), fromTo.second->identifier(),
                                                     fileLines.first.c_str(), iterator->lineNumber()); // remove
-
-                                        iterator->setSymbol(*fromTo.second);
                                     }
 
                                     for (int i = 0; i < 3; ++i)
