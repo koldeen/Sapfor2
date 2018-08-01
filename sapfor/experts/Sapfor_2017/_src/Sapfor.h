@@ -80,6 +80,9 @@ enum passes {
     DEF_USE_STAGE2,
     REVERT_SPF_DIRS,
     CLEAR_SPF_DIRS,
+
+    INLINE_PROCEDURES,
+
     EMPTY_PASS
 };
 
@@ -167,5 +170,6 @@ static void setPassValues()
     passNames[CLEAR_SPF_DIRS] = "CLEAR_SPF_DIRS";
     passNames[RESTORE_LOOP_FROM_ASSIGN] = "RESTORE_LOOP_FROM_ASSIGN";
     passNames[RESTORE_LOOP_FROM_ASSIGN_BACK] = "RESTORE_LOOP_FROM_ASSIGN_BACK";
+    passNames[INLINE_PROCEDURES] = "INLINE_PROCEDURES";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

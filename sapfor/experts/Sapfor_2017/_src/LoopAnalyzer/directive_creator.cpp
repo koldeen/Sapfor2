@@ -1443,7 +1443,20 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                     {
                         if (leftPartVal[i].first || elem.second[i].first)
                         {
-                            const int foundVal = leftPartVal[i].second;
+                            int foundVal = 0;
+                            if (leftPartVal[i].first)
+                                foundVal = leftPartVal[i].second;
+                            else
+                            {
+                                auto rules = elem.first->GetAlignRulesWithTemplate(regId);
+                                auto links = elem.first->GetLinksWithTemplate(regId);
+                                if (links[i] == -1)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                const auto &currRule = rules[i];
+                                foundVal = std::stoi(parDirective->on[links[i]].first) + currRule.second;
+                            }
+
                             auto shadowElem = elem.second[i].second;
                             shadowElem.first -= foundVal;
                             shadowElem.second -= foundVal;

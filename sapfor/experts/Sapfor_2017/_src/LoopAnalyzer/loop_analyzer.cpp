@@ -637,9 +637,23 @@ static int fillSizes(SgExpression *res, int &left, int &right)
     return err;
 }
 
-void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+static pair<Expression*, Expression*> getElem(SgExpression *exp)
+{
+    if (exp->lhs() && exp->rhs())
+        return make_pair(new Expression(exp->lhs()), new Expression(exp->rhs()));
+    else if (exp->lhs())
+        return make_pair(new Expression(exp->lhs()), (Expression*)NULL);
+    else if (exp->rhs())
+        return make_pair((Expression*)NULL, new Expression(exp->rhs()));
+    else
+        return make_pair((Expression*)NULL, (Expression*)NULL);
+}
+
+vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
+    vector<pair<Expression*, Expression*>> retVal;
+
     if (type != NULL)
     {
         SgExpression *dimList = type->getDimList();
@@ -650,7 +664,10 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
         {
             SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs());
             if (res && res->variant() == INT_VAL)
+            {
                 sizes.push_back(make_pair(1, res->valueInteger()));
+                retVal.push_back(make_pair((Expression*)NULL, new Expression(dimList->lhs())));
+            }
             else if (res && res->variant() == DDOT)
             {
                 int err, tmpRes;
@@ -677,7 +694,10 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
                 }
 
                 if (ok)
+                {
                     sizes.push_back(make_pair(left, right));
+                    retVal.push_back(getElem(dimList->lhs()));
+                }
                 else
                 {
                     if (alloc == NULL)
@@ -706,7 +726,10 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
                     }
 
                     if (consistInAllocates != 1)
+                    {
                         sizes.push_back(make_pair(-1, -1));
+                        retVal.push_back(make_pair((Expression*)NULL, (Expression*)NULL));
+                    }
                     else
                     {
                         SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs());
@@ -725,9 +748,13 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
                         }
 
                         if (result->variant() == INT_VAL)
+                        {
                             sizes.push_back(make_pair(1, result->valueInteger()));
+                            retVal.push_back(make_pair((Expression*)NULL, new Expression(alloc->lhs())));
+                        }
                         else if (result->variant() == DDOT)
                         {
+                            retVal.push_back(getElem(alloc->lhs()));
                             int left = 0, right = 0;
                             bool ok = result->lhs() && result->rhs();
 
@@ -743,17 +770,23 @@ void getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *d
                                 sizes.push_back(make_pair(-1, -1));
                         }
                         else
+                        {
                             sizes.push_back(make_pair(-1, -1));
-
-                        alloc = alloc->rhs();
+                            retVal.push_back(make_pair((Expression*)NULL, (Expression*)NULL));
+                        }
                     }
                 }
             }
             else
+            {
                 sizes.push_back(make_pair(-1, -1));
+                retVal.push_back(make_pair((Expression*)NULL, (Expression*)NULL));
+            }
             dimList = dimList->rhs();
         }
     }
+
+    return retVal;
 }
 
 bool isIntrinsic(const char *funName)
@@ -1608,9 +1641,9 @@ static void findArrayRefs(SgExpression *ex,
                     itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 
                     vector<pair<int, int>> sizes;
-                    getArraySizes(sizes, symb, decl);
+                    auto sizesExpr = getArraySizes(sizes, symb, decl);
                     arrayToAdd->SetSizes(sizes);
-
+                    arrayToAdd->SetSizesExpr(sizesExpr);
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 

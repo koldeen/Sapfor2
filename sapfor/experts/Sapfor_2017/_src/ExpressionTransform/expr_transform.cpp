@@ -33,19 +33,20 @@ using std::queue;
 /*
  * Contains original SgExpressions.
  * map <string, ...> key is a file, where replacements take place
- * map <StatementObj, vector<SgExpression*>> key is a changed SgStetement, value - 3 SgEpression*'s
+ * map <SgStatement*, vector<SgExpression*>> key is a changed SgStetement, value - 3 SgEpression*'s
  * [i] SgExpresson* is null, if it has not been changed
+ *
+ * NOTE: 2 levels of replacements: first -- replace constant values, second -- replace other expressions with CFG  
  */
 
-map<string, map<StatementObj, vector<SgExpression*>>> replacementsInFiles;
-map<StatementObj, vector<SgExpression*>>* curFileReplacements;
 
-map<SgStatement*, map<StatementObj, vector<SgExpression*>>> replacementsInFunctions;
-map<StatementObj, vector<SgExpression*>>* curFunctionReplacements;
-//map<string, map<pair<pair<void*, REPLACE_PTR_TYPE>, int>, pair<SgExpression*, int>>> replacementsInFiles;
-set<SgStatement*> visitedStatements;
-GraphsKeeper *graphsKeeper = NULL;
-CommonVarsOverseer overseer;
+static map<string, map<SgStatement*, vector<SgExpression*>>> replacementsOfConstsInFiles;
+static map<string, map<SgStatement*, vector<SgExpression*>>> replacementsInFiles;
+static map<SgStatement*, vector<SgExpression*>>* curFileReplacements;
+
+static set<SgStatement*> visitedStatements;
+static CommonVarsOverseer overseer;
+static GraphsKeeper *graphsKeeper = NULL;
 
 GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 {
@@ -71,49 +72,42 @@ GraphItem* GraphsKeeper::getGraph(const string &funcName)
     return res;
 }
 
-
-void revertReplacements(SgStatement* function)
+static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
 {
-    auto tmpF = replacementsInFunctions.find(function);
-    if (tmpF == replacementsInFunctions.end())
-        return;
-
-    auto replacements = &(tmpF->second);
-    for (auto it = replacements->begin(); it != replacements->end(); ++it)
+    for (auto &toReplace : toRev)
     {
-        SgStatement *parent = it->first.stmt;
+        SgStatement *parent = toReplace.first;
         for (int i = 0; i < 3; ++i)
         {
-            if (it->second[i] != NULL)
+            if (toReplace.second[i] != NULL)
             {
-                SgExpression* replacement = parent->expr(i);
-                parent->setExpression(i, *(it->second[i]));
-                it->second[i] = replacement;
+                SgExpression *replacement = parent->expr(i);
+                parent->setExpression(i, *(toReplace.second[i]));
+                toReplace.second[i] = replacement;
             }
         }
     }
 }
 
-void revertReplacements(string filename)
+void revertReplacements(const string &filename, bool back)
 {
+    auto constF = replacementsOfConstsInFiles.find(filename);
     auto tmpF = replacementsInFiles.find(filename);
-    if (tmpF == replacementsInFiles.end())
-        return;
 
-    auto replacements = &(tmpF->second);
-    for (auto it = replacements->begin(); it != replacements->end(); ++it)
+    if (back)
     {
-        SgStatement *parent = it->first.stmt;
-        for (int i = 0; i < 3; ++i)
-        {
-            if (it->second[i] != NULL)
-            {
-                SgExpression* replacement = parent->expr(i);
-                parent->setExpression(i, *(it->second[i]));
-                it->second[i] = replacement;
-            }
-        }
+        if (tmpF != replacementsInFiles.end())
+            revertReplacements(tmpF->second);
+        if (constF != replacementsOfConstsInFiles.end())
+            revertReplacements(constF->second);
     }
+    else
+    {        
+        if (constF != replacementsOfConstsInFiles.end())
+            revertReplacements(constF->second);
+        if (tmpF != replacementsInFiles.end())
+            revertReplacements(tmpF->second);
+    }    
 }
 
 SgExpression* ReplaceParameter(SgExpression *e)
@@ -522,7 +516,7 @@ static void createBackup(SgStatement* stmt, int expNumber)
     auto foundedParent = curFileReplacements->find(stmt);
     if (foundedParent == curFileReplacements->end())
     {
-        auto inserted = curFileReplacements->insert(std::make_pair(StatementObj(stmt), vector<SgExpression*>()));
+        auto inserted = curFileReplacements->insert(make_pair(stmt, vector<SgExpression*>()));
         foundedParent = inserted.first;
         foundedParent->second.resize(3);
         for (int i = 0; i < 3; ++i)
@@ -531,11 +525,11 @@ static void createBackup(SgStatement* stmt, int expNumber)
 
     if (foundedParent->second[expNumber] == NULL)
     {
-        SgExpression* expToCopy = exp->copyPtr();
+        SgExpression *expToCopy = exp->copyPtr();
         foundedParent->second[expNumber] = expToCopy;
-
-        string orig = string(exp->unparse());
-        string copy = string(expToCopy->unparse());
+                
+        const string orig = string(exp->unparse());
+        const string copy = string(expToCopy->unparse());
         if (orig == copy)
             createLinksToCopy(exp, expToCopy);
     }
@@ -563,7 +557,7 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
 
 bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b, bool replaceFirstVar)
 {
-    std::queue<SgExpression*> toCheck;
+    queue<SgExpression*> toCheck;
     bool wereReplacements = false;
     SgExpression* exp = parent->expr(expNumber);
     if (exp->variant() == VAR_REF && !replaceFirstVar)
@@ -629,7 +623,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
     return wereReplacements;
 }
 
-bool needReplacements(SgExpression* exp, map<SymbolKey, std::vector<SgExpression*>>* ins, bool checkVar)
+bool needReplacements(SgExpression* exp, map<SymbolKey, vector<SgExpression*>>* ins, bool checkVar)
 {
     if (exp->variant() == VAR_REF)
     {
@@ -827,7 +821,7 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph)
 
 void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
 {
-    std::vector<FuncCallSE> funcCalls;
+    vector<FuncCallSE> funcCalls;
     for(auto &file : allFuncInfo)
         for(auto& funcInfo : file.second)
             funcCalls.push_back(FuncCallSE(funcInfo->funcName, funcInfo->callsFrom));
@@ -869,6 +863,54 @@ void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string
     overseer.riseInited();
 }
 
+static bool findConstRef(SgExpression *ex)
+{
+    bool ret = false;
+    if (ex)
+    {
+        if (ex->variant() == CONST_REF)
+            return true;
+
+        ret = ret || findConstRef(ex->lhs());
+        ret = ret || findConstRef(ex->rhs());
+    }
+    return ret;
+}
+
+static void replaceConstants(const string &file, SgStatement *st)
+{
+    auto it = replacementsOfConstsInFiles.find(file);
+    if (it == replacementsOfConstsInFiles.end())    
+        it = replacementsOfConstsInFiles.insert(it, make_pair(file, map<SgStatement*, vector<SgExpression*>>()));
+    
+    auto last = st->lastNodeOfStmt();
+    for (SgStatement *currS = st; currS != last; currS = currS->lexNext())
+    {
+        if (currS->variant() == CONTAINS_STMT)
+            break;
+
+        if (isSgExecutableStatement(currS))
+        {
+            vector<SgExpression*> toRepl = { NULL, NULL, NULL };
+            vector<SgExpression*> original = { currS->expr(0), currS->expr(1), currS->expr(2) };
+            for (int i = 0; i < 3; ++i)
+            {
+                if (findConstRef(currS->expr(i)))
+                {
+                    SgExpression *copy = currS->expr(i)->copyPtr();
+                    copy = ReplaceConstant(copy);
+                    calculate(copy);
+                    toRepl[i] = copy;
+                    currS->setExpression(i, *copy);
+                }
+            }
+
+            if (toRepl[0] || toRepl[1] || toRepl[2])
+                it->second[currS] = original;
+        }
+    }
+}
+
 void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
 {
     if(!overseer.isInited())
@@ -876,17 +918,18 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
 
     int funcNum = file->numberOfFunctions();
     __spf_print(PRINT_PROF_INFO, "functions num in file = %d\n", funcNum);
-    const string &filename = string(file->filename());
+    const string filename = file->filename();
 
     auto itRep = replacementsInFiles.find(filename);
     if (itRep == replacementsInFiles.end())
-        itRep = replacementsInFiles.insert(itRep, make_pair(filename, map<StatementObj, vector<SgExpression*>>()));
-    else // replecemets are have been made alredy
+        itRep = replacementsInFiles.insert(itRep, make_pair(filename, map<SgStatement*, vector<SgExpression*>>()));
+    else // replecemets are have been made already
     {
         revertReplacements(filename);
         return;
     }
     curFileReplacements = &(itRep->second);
+
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -910,8 +953,15 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();
 
+        replaceConstants(filename, st);
+
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph);
         BuildUnfilteredReachingDefinitions(CGraph);
     }
+}
+
+void deleteGraphKeeper()
+{
+    delete graphsKeeper;
 }

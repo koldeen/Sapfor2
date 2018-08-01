@@ -15,7 +15,7 @@ using std::pair;
 
 static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs);
 static void showDefs(map<SymbolKey, SgExpression*> *defs);
-static void showDefs(std::map <SymbolKey, std::set<SgExpression*>> *defs);
+static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
 
@@ -394,7 +394,7 @@ static void showDefs(map<SymbolKey, SgExpression*> *defs)
     printf("\n");
 }
 
-static void showDefs(std::map <SymbolKey, std::set<SgExpression*>> *defs)
+static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
 {
     printf("Defs: %d\n", defs->size());
     for(auto it = defs->begin(); it != defs->end(); ++it)

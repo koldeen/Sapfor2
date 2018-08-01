@@ -715,7 +715,8 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     }
 }
 
-static map<string, set<string>> dynamicDirsByFile;
+map<string, set<string>> dynamicDirsByFile;
+static map<string, set<string>> dynamicArraysByFile;
 static map<string, set<string>> alignArraysByFile;
 static map<string, map<string, pair<SgExpression*, SgExpression*>>> insertedShadowByFile;
 
@@ -769,6 +770,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         
     map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name];
     set<string> &dynamicDirs = dynamicDirsByFile[fin_name];
+    set<string> &dynamicArraysAdded = dynamicArraysByFile[fin_name];
     set<string> &alignArrays = alignArraysByFile[fin_name];
 
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
@@ -900,22 +902,34 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 }
 
                 string toInsert = "!DVM$ DYNAMIC ";
-                int z = 0;
+                
+                vector<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
                     if (array->GetLocation().first != 0) // not local
                     {
-                        if (z != 0)
-                            toInsert += ",";
-                        toInsert += array->GetShortName();
-                        ++z;
+                        if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
+                        {
+                            dynamicArraysAdded.insert(array->GetShortName());
+                            toInsertArrays.push_back(array->GetShortName());
+                        }
                     }
+                }
+
+                int z = 0;
+                for (auto &array : toInsertArrays)
+                {
+                    if (z != 0)
+                        toInsert += ",";
+                    toInsert += array;
+                    ++z;
                 }
 
                 if (z != 0)
                 {
                     toInsert += "\n";
                     auto dynIt = dynamicDirs.find(toInsert);
+
                     if (dynIt == dynamicDirs.end() && !extractDir)
                         dynamicDirs.insert(dynIt, toInsert);
                     else if (extractDir && dynIt != dynamicDirs.end())
@@ -974,7 +988,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             {
                 SgStatement *toDel = inheritDir.second->lexPrev();
                 if (isDVM_stat(toDel))
-                    toDel->deleteStmt();                
+                    toDel->deleteStmt();
             }
         }
     }
