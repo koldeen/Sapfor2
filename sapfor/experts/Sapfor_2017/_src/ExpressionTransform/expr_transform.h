@@ -16,6 +16,7 @@ struct VariableItem;
 class VarsKeeper;
 class DataFlowItem;
 
+void deleteGraphKeeper();
 SgExpression* ReplaceParameter(SgExpression *e);
 SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
@@ -32,18 +33,7 @@ void replaceConstatRec(SgExpression *&exp);
 
 enum REPLACE_PTR_TYPE { SG_EXPRESSION, SG_STATEMENT };
 
-void revertReplacements(std::string filename);
-
-struct StatementObj {
-    SgStatement* stmt;
-
-    StatementObj(SgStatement* st): stmt(st) { }
-
-    inline bool operator<(const StatementObj& rhs) const
-    {
-        return stmt->id() < rhs.stmt->id();
-    }
-};
+void revertReplacements(const std::string &filename, bool back = false);
 
 struct GraphItem {
     GraphItem(): CGraph(NULL), file_id(-1), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()) {}

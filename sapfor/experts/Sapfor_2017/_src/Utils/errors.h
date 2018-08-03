@@ -50,7 +50,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   35 "parallel region '%s' has data statement(s)"
 //   36 "Can not build align graph from user's DVM directives in this region"
 //   37 "Array can not be distributed because of DVM's I/O constraints"
-//   38 "'%s' contain an equivalence operator"
+//   38 "An equivalence operator at line %d is not supported yet"
+//   39 "Variables '%s' and '%s' in one storage association (common block '%s') have different types" 
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

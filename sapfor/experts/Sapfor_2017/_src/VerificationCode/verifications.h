@@ -4,14 +4,15 @@
 #include <string>
 #include <map>
 #include "dvm.h"
+#include "../Utils/errors.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
+#include "../_src/Utils/CommonBlock.h"
 
-using std::vector;
-
-void EndDoLoopChecker(SgFile *file, std::vector<int> &errors);
-void IncludeChecker(SgFile *file, const std::string &fileName, std::set<std::pair<std::string, int>> &errors);
-void EquivalenceChecker(SgFile *file, const std::string &fileName, vector<ParallelRegion*> &regions, std::set<std::pair<std::string, int>> &errors);
+bool EquivalenceChecker(SgFile *file, const std::string &fileName, std::vector<ParallelRegion*> &regions, std::vector<Messages> &currM);
+bool CommonBlockChecker(SgFile *file, const std::string &fileName, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &currMessages);
+bool EndDoLoopChecker(SgFile *file, std::vector<Messages> &currM);
+bool IncludeChecker(SgFile *file, const std::string &fileName, std::vector<Messages> &currM);
 void VarDeclCorrecter(SgFile *file);
-void DvmDirectiveChecker(SgFile *file, std::map<std::string, std::vector<int>> &errors);
+bool DvmDirectiveChecker(SgFile *file, std::map<std::string, std::vector<int>> &errors, const int, const int);
 int VerifyFile(SgFile *file);
