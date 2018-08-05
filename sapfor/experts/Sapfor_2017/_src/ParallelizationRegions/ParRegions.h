@@ -11,7 +11,7 @@
 #include "../Distribution/Distribution.h"
 #include "../Utils/AstWrapper.h"
 
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 struct ParallelRegionLines
 {

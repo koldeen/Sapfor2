@@ -1,7 +1,8 @@
 #pragma once
 
 #include "ParRegions.h"
-#include "SgUtils.h"
+#include "../Utils/SgUtils.h"
+#include "Utils/SgUtils.h"
 #include "../GraphCall/graph_calls.h"
 
 void fillRegionArrays(std::vector<ParallelRegion*> &regions, const std::map<std::string, CommonBlock> &commonBlocks, std::set<std::string> &allUsedCommonArrays, std::map<std::string, ParallelRegionArray> &allCommonArrays);

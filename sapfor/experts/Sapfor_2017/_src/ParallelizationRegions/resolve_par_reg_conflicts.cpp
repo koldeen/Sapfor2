@@ -7,7 +7,7 @@
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
 
-#include "SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 #include "../GraphCall/graph_calls_func.h"
 
