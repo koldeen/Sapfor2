@@ -23,7 +23,7 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
 
 DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName);
 
-SgStatement* declaratedInStmt(SgSymbol *toFind);
+SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
 bool isSPF_comment(const int variant);
 void initTags();
 bool isDVM_stat(SgStatement *st);
