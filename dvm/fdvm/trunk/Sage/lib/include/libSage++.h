@@ -203,7 +203,7 @@ public:
     inline void replaceTypeInStmt(SgType &old, SgType &newtype);
     char* unparse();
     inline void unparsestdout();
-    void sunparse(char *buffer); //unparsing functions.
+    std::string sunparse(); //unparsing functions.
     inline char *comments();      //preceding comment lines.
     void addComment(const char *com);
     void addComment(char *com);
@@ -327,7 +327,7 @@ public:
   inline SgExpression &copy();
   inline SgExpression *copyPtr();
   char *unparse(); 
-  void sunparse(char *buffer);
+  std::string sunparse();
   inline void unparsestdout();
   inline SgExpression *IsSymbolInExpression(SgSymbol &symbol);
   inline void replaceSymbolByExpression(SgSymbol &symbol, SgExpression &expr);
@@ -1644,6 +1644,8 @@ public:
   inline SgIfStmt(SgExpression &cond, SgStatement &body, int t);
   inline SgIfStmt(SgExpression &cond);
 
+  // added by A.S. Kolganov 27.07.2018,
+  inline void setBodies(SgStatement *trueBody, SgStatement *falseBody);
   inline SgStatement *trueBody();      // the first stmt in the True clause
   // SgBlock is needed? 
   inline SgStatement *trueBody(int i); // i-th stmt in True clause
@@ -3349,20 +3351,19 @@ inline char* SgStatement::unparse()
 
 inline void SgStatement::unparsestdout()
 {
-  UnparseBif(thebif);
+    UnparseBif(thebif);
 }
 
-inline char * SgStatement::comments()
+inline char* SgStatement::comments()
 {
-  char *x;
+    char *x;
 
-  if (BIF_CMNT(thebif))
-    x = CMNT_STRING(BIF_CMNT(thebif));
-  else
-    x = NULL;
+    if (BIF_CMNT(thebif))
+        x = CMNT_STRING(BIF_CMNT(thebif));
+    else
+        x = NULL;
 
-  return x;
-
+    return x;
 }
 
 inline void SgStatement::addDeclSpec(int type)
@@ -3472,7 +3473,10 @@ inline char* SgExpression::unparse()
 }
 
 inline void SgExpression::unparsestdout()
-{ UnparseLLND(thellnd); }
+{ 
+    UnparseLLND(thellnd);
+    printf("\n");
+}
 
 
 // SgSymbol--inlines
@@ -6234,6 +6238,21 @@ inline SgIfStmt::SgIfStmt(SgExpression &cond, SgStatement &trueBody, SgStatement
   insertBfndListIn(trueBody.thebif,thebif,thebif);
   appendBfndListToList2(falseBody.thebif,thebif);
   addControlEndToStmt(thebif);
+}
+
+inline void SgIfStmt::setBodies(SgStatement *trueBody, SgStatement *falseBody)
+{
+    if (trueBody && falseBody)
+    {
+        insertBfndListIn(trueBody->thebif, thebif, thebif);
+        appendBfndListToList2(falseBody->thebif, thebif);
+        addControlEndToStmt(thebif);
+    }
+    else if (trueBody)
+    {        
+        insertBfndListIn(trueBody->thebif, thebif, thebif);
+        addControlEndToStmt(thebif);
+    }
 }
 
 inline SgIfStmt::SgIfStmt(SgExpression &cond, SgStatement &trueBody):SgStatement(IF_NODE)

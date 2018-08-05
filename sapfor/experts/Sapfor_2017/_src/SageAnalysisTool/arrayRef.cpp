@@ -323,6 +323,7 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
                 if (privVars.find(ex1->symbol()->identifier()) == privVars.end())
                 {
                     res1 = linearRepArray(ex1, tsymb, size, linear1, cst1, isLinear);
+
                     el = new struct arrayAccess;
 #ifdef _WIN32
                     addToCollection(__LINE__, __FILE__, el, 1);

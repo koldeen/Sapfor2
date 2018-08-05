@@ -1990,7 +1990,7 @@ void  SgStatement::setExpression (int i, SgExpression &e)
     }
 }
  
-SgStatement * SgStatement::nextInChildList()
+SgStatement* SgStatement::nextInChildList()
 {
   PTR_BLOB blob;
   SgStatement *x;
@@ -2013,25 +2013,10 @@ SgStatement * SgStatement::nextInChildList()
    
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char*  SgStatement::unparse()
-{
-  UnparseBif(thebif);
-  SORRY;
-  return NULL;
+std::string SgStatement::sunparse()
+{    
+    return std::string(unparse());
 }
-#endif
-
-
-#ifdef NOT_YET_IMPLEMENTED
-void  SgStatement::sunparse(char *buffer)
-{
-  UnparseBif(thebif);
-  SORRY;
-  return;
-}
-#endif
-
 
 
 #ifdef NOT_YET_IMPLEMENTED
@@ -2216,22 +2201,11 @@ SgExpression *SgExpression::operand(int i)
   return LlndMapping(ll);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char *SgExpression::unparse()
+std::string SgExpression::sunparse()
 {
-  
-  UnparseLLND(thellnd);
-  SORRY;
-  return NULL;
+    return std::string(unparse());
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
-void SgExpression::sunparse(char *buffer)
-{
-  SORRY;
-}
-#endif
 
 #define ERR_TOOMANYSYMS -1
 

@@ -21,7 +21,7 @@ enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
-void getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
+std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 

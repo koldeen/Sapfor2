@@ -10,6 +10,7 @@
 #include "verifications.h"
 #include "../Utils/utils.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
 
 using std::vector;
 using std::map;
@@ -17,10 +18,11 @@ using std::pair;
 using std::string;
 using std::make_pair;
 
-void EndDoLoopChecker(SgFile *file, vector<int> &errors)
+bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
 {
     int funcNum = file->numberOfFunctions();
-    
+    bool checkOK = true;
+
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -42,16 +44,26 @@ void EndDoLoopChecker(SgFile *file, vector<int> &errors)
             {
                 SgForStmt *currSt = (SgForStmt*)st;
                 if (currSt->isEnddoLoop() == 0)
-                    errors.push_back(st->lineNumber());
+                {
+                    __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), "This loop does not have END DO format", 1018));
+                    checkOK = false;
+                }
             }
             st = st->lexNext();
         }
     }
+    return checkOK;
 }
-
-void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
+ 
+bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const int keepDvmDirectives, const int ignoreDvmChecker)
 {
+    if (keepDvmDirectives != 0)
+        return true;
+
     int funcNum = file->numberOfFunctions();
+    bool checkOK = true;
+    __spf_print(1, "  ignoreDvmChecker = %d\n", ignoreDvmChecker);
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -68,4 +80,6 @@ void DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors)
                 errors[st->fileName()].push_back(st->lineNumber());
         }
     }
+
+    return checkOK;
 }

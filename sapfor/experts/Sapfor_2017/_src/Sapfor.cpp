@@ -15,6 +15,9 @@
 #include <crtdbg.h>
 #endif
 
+#define DEBUG_LVL1 true
+#define RELEASE_CANDIDATE _WIN32
+
 #include "ParallelizationRegions/ParRegions_func.h"
 
 #include "Distribution/Distribution.h"
@@ -40,6 +43,9 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#if RELEASE_CANDIDATE
+#include "Inliner/inliner.h"
+#endif
 
 #ifdef _WIN32
 #include "VisualizerCalls/get_information.h"
@@ -50,7 +56,6 @@
 #include "Utils/PassManager.h"
 
 using namespace std;
-#define DEBUG_LVL1 true
 
 int PASSES_DONE[EMPTY_PASS];
 bool PASSES_DONE_INIT = false;
@@ -63,8 +68,9 @@ static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
-//from expr_transform.cpp
-extern GraphsKeeper *graphsKeeper;
+//from insert_directive.cpp
+extern map<string, set<string>> dynamicDirsByFile;
+
 void deleteAllAllocatedData()
 {
 #ifdef _WIN32
@@ -105,22 +111,36 @@ void deleteAllAllocatedData()
         delete []ALGORITHMS_DONE[i];
     delete project;
 
-    delete graphsKeeper;
+    deleteGraphKeeper();
     deletePointerAllocatedData();
 #endif
 }
 
-static vector<Messages>& getMessagesForFile(const char *fileName)
+template<typename objT>
+static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
 {
-    auto it = SPF_messages.find(fileName);
-    if (it == SPF_messages.end())
-        it = SPF_messages.insert(it, make_pair(fileName, vector<Messages>()));
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, make_pair(fileName, objT()));
     return it->second;
+}
+
+static inline void printDvmActiveDirsErrors()
+{
+    for (auto &err : dvmDirErrors)
+    {
+        vector<Messages> &currMessages = getObjectForFileFromMap(err.first.c_str(), SPF_messages);
+        for (auto &code : err.second)
+        {
+            __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
+            currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet", 1020));
+        }
+    }
 }
 
 extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group)
 {
-    vector<Messages> &currM = getMessagesForFile(fileName);
+    vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "WARR: line %d: %s\n", line, message);
 
     currM.push_back(Messages(WARR, line, message, group));
@@ -128,7 +148,7 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
 
 extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
 {
-    vector<Messages> &currM = getMessagesForFile(fileName);
+    vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "NOTE: line %d: %s\n", line, message);
 
     currM.push_back(Messages(NOTE, line, message, group));
@@ -170,9 +190,68 @@ static void updateStatsExprs(const int id, const string &file)
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
 
-pair<SgFile*, SgStatement*> currProcessing;
+static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, const bool need_to_unparse,
+                                        const char *newVer, const char *folderName, const char *file_name,
+                                        set<string> &allIncludeFiles)
+{
+    if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
+    {
+        if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
+            newVer = "";
 
-static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparce, const char *newVer = NULL, const char *folderName = NULL)
+        if (newVer == NULL)
+        {
+            __spf_print(1, "  ERROR: null file addition name\n");
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+            throw(-1);
+        }
+
+        string fout_name = "";
+        if (folderName == NULL)
+            fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+        else
+        {
+            if (strlen(newVer) == 0)
+                fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
+            else
+                fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+        }
+
+        __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
+        if (curr_regime == INSERT_INCLUDES)
+        {
+            __spf_print(1, "  try to find file <%s>\n", file_name);
+            __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
+        }
+
+        if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
+        {
+            FILE *fOut = fopen(fout_name.c_str(), "w");
+            if (fOut)
+            {
+                file->unparse(fOut);
+                fclose(fOut);
+            }
+            else
+            {
+                __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+                throw(-1);
+            }
+        }
+        else
+        {
+            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
+
+            // copy includes that have not changed
+            if (folderName != NULL)
+                copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
+        }
+    }
+}
+
+pair<SgFile*, SgStatement*> currProcessing;
+static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
     if (PASSES_DONE_INIT == false)
     {
@@ -192,7 +271,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #endif
 
     const int n = project.numberOfFiles();
-    bool veriyOK = true;
+    bool verifyOK = true;
     int internalExit = 0;
 
     //for process include files
@@ -221,6 +300,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         updateStatsExprs(current_file_id, file->filename());
     }
     currProcessing.first = NULL; currProcessing.second = NULL;
+
     for (int i = n - 1; i >= 0; --i)
     {
 #if _WIN32 && NDEBUG
@@ -240,7 +320,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
         if (curr_regime == CONVERT_TO_ENDDO)
-            ConverToEndDo(file, getMessagesForFile(file_name));
+            ConverToEndDo(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == UNROLL_LOOPS)
         {
             __spf_print(DEBUG_LVL1, "  it is not implemented yet\n");
@@ -254,10 +334,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 /*if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
                     states.push_back(new SapforState());*/
 
-                auto itFound = loopGraph.find(file_name);
-                auto itFound2 = allFuncInfo.find(file_name);
-                loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), DATA_DISTR, itFound2->second,
-                             declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+                loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
+                             allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             &(loopGraph.find(file_name)->second));
             }
             catch (...)
             {
@@ -267,9 +346,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == LOOP_ANALYZER_COMP_DIST)
         {
             auto itFound = loopGraph.find(file_name);
-            auto itFound2 = allFuncInfo.find(file_name);
-            loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), COMP_DISTR, itFound2->second,
-                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
+            loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
+                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         &(itFound->second));
 
             currProcessing.second = NULL;
             UniteNestedDirectives(itFound->second);
@@ -281,71 +360,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 functionAnalyzer(file, allFuncInfo);
         }
         else if (curr_regime == CALL_GRAPH2)
-            checkForRecursion(file, allFuncInfo, getMessagesForFile(file_name));
-        else if (curr_regime == LOOP_GRAPH)
-        {
-            auto it = loopGraph.find(file_name);
-            if (it == loopGraph.end())
-            {
-                loopGraph[file_name] = vector<LoopGraph*>();
-                loopGraphAnalyzer(file, loopGraph[file_name]);
-            }
-        }
+            checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
+        else if (curr_regime == LOOP_GRAPH)        
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
         else if (curr_regime == VERIFY_ENDDO)
-        {
-            vector<int> errors;
-            EndDoLoopChecker(file, errors);
-            if (errors.size() != 0)
-            {
-                veriyOK = false;
-                vector<Messages> &currMessages = getMessagesForFile(file_name);
-                for (int z = 0; z < errors.size(); ++z)
-                {
-                    __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", errors[z]);
-                    currMessages.push_back(Messages(ERROR, errors[z], "This loop does not have END DO format", 1018));
-                }
-            }
-        }
+            verifyOK = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_INCLUDE)
-        {
-            set<pair<string, int>> errors;
-            IncludeChecker(file, file_name, errors);
-            if (errors.size() != 0)
-            {
-                veriyOK = false;
-                vector<Messages> &currMessages = getMessagesForFile(file_name);
-                for (auto z = errors.begin(); z != errors.end(); ++z)
-                {
-                    __spf_print(1, "  ERROR: include '%s' at line %d has executable operators\n", z->first.c_str(), z->second);
-
-                    string currM;
-                    __spf_printToBuf(currM, "Include '%s' has executable operators", z->first.c_str());
-                    currMessages.push_back(Messages(ERROR, z->second, currM, 1019));
-                }
-            }
-        }
+            verifyOK = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
-            if (keepDvmDirectives == 0)
-            {
-                DvmDirectiveChecker(file, dvmDirErrors);
-
-                __spf_print(1, "  ignoreDvmChecker = %d\n", ignoreDvmChecker);
-
-                if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
-                {
-                    veriyOK = false;
-                    for (auto &err : dvmDirErrors)
-                    {
-                        vector<Messages> &currMessages = getMessagesForFile(err.first.c_str());
-                        for (auto &code : err.second)
-                        {
-                            __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
-                            currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet", 1020));
-                        }
-                    }
-                }
-            }
+            verifyOK = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
+            if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
+                printDvmActiveDirsErrors();
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
@@ -367,7 +393,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, itFound->second, currentVar,
                                                   dataDirectives.alignRules, toInsert, parallelRegions[z]->GetId(), arrayLinksByFuncCalls,
-                                                  depInfoForLoopGraph, getMessagesForFile(file_name));
+                                                  depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
 
                 if (toInsert.size() > 0)
                 {
@@ -383,7 +409,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-            insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getMessagesForFile(file_name));
+            if (i == n - 1)
+                dynamicDirsByFile.clear();
+
+            insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = NULL;
 
             //clear shadow specs
@@ -409,7 +438,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 const vector<string> alignRules = dataDirectives.GenAlignsRules();
 
                 insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, alignRules, loopGraph,
-                                         allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getMessagesForFile(file_name),
+                                         allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getObjectForFileFromMap(file_name, SPF_messages),
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
@@ -460,7 +489,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
                     distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
 
-                insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getMessagesForFile(file_name), declaratedArrays);
+                insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
             }
         }
         else if (curr_regime == REVERT_SPF_DIRS)
@@ -495,7 +524,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == PREPROC_SPF)
         {
-            bool noError = preprocess_spf_dirs(file, commonBlocks, getMessagesForFile(file_name));
+            bool noError = preprocess_spf_dirs(file, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
             if (!noError)
                 internalExit = 1;
         }
@@ -504,12 +533,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CORRECT_VAR_DECL)
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
-        {
-            auto itFound = loopGraph.find(file_name);
-            auto itFound2 = allFuncInfo.find(file_name);
-            loopAnalyzer(file, parallelRegions, createdArrays, getMessagesForFile(file_name), REMOTE_ACC, itFound2->second,
-                         declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, &(itFound->second));
-        }
+            loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
+                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         &(loopGraph.find(file_name)->second));        
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
@@ -521,7 +547,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 insertSpfAnalysisBeforeParalleLoops(itFound->second);
         }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
-            arrayAccessAnalyzer(file, getMessagesForFile(file_name), declaratedArrays, PRIVATE_STEP4);
+            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
             fillRegionLines(file, parallelRegions, loopGraph[file_name]);
         else if (curr_regime == FILL_COMMON_BLOCKS)
@@ -580,16 +606,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == SUBST_EXPR)
             expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo);
         else if (curr_regime == REVERT_SUBST_EXPR)
-            revertReplacements(file->filename());
+            revertReplacements(file->filename(), true);
         else if (curr_regime == CREATE_NESTED_LOOPS)
         {
             auto itFound = loopGraph.find(file_name);
             if (itFound != loopGraph.end())
                 for (int i = 0; i < itFound->second.size(); ++i)
-                    createNestedLoops(itFound->second[i], depInfoForLoopGraph, getMessagesForFile(file_name));
+                    createNestedLoops(itFound->second[i], depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getMessagesForFile(file_name));
+            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -622,7 +648,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
             transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
-            doMacroExpand(file, getMessagesForFile(file_name));    
+            doMacroExpand(file, getObjectForFileFromMap(file_name, SPF_messages));    
         else if (curr_regime == REVERSE_CREATED_NESTED_LOOPS)
         {
             auto itFound = loopGraph.find(file_name);
@@ -630,18 +656,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
-            convertFromAssignToLoop(file, getMessagesForFile(file_name));
+            convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
         else if (curr_regime == PREDICT_SCHEME)
         {
             auto itFound = loopGraph.find(file_name);
-            if (itFound == loopGraph.end())
-            {
-                auto tmp = vector<LoopGraph*>();
-                processFileToPredict(file, tmp);
-            }
-            else
+            if (itFound != loopGraph.end())
                 processFileToPredict(file, itFound->second);
         }
         else if (curr_regime == DEF_USE_STAGE1)
@@ -653,70 +674,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
             restoreConvertedLoopForParallelLoops(file, true);
 
-        if (curr_regime == CORRECT_CODE_STYLE || need_to_unparce)
-        {
-            if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
-                newVer = "";
-
-            if (newVer == NULL)
-            {
-                __spf_print(1, "  ERROR: null file addition name\n");
-                getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
-                throw(-1);
-            }
-            
-            string fout_name = "";
-            if (folderName == NULL)
-                fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
-            else
-            {
-                if (strlen(newVer) == 0)
-                    fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
-                else
-                    fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
-            }
-
-            __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
-            if (curr_regime == INSERT_INCLUDES)
-            {
-                __spf_print(1, "  try to find file <%s>\n", file_name);
-                __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
-            }
-
-            if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
-            {
-                FILE *fOut = fopen(fout_name.c_str(), "w");
-                if (fOut)
-                {
-                    file->unparse(fOut);
-                    fclose(fOut);
-                }
-                else
-                {
-                    __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-                    getMessagesForFile(file_name).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
-                    throw(-1);
-                }
-            }
-            else
-            {
-                removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
-
-                // copy includes that have not changed
-                if (folderName != NULL)
-                    copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
-            }
-        }
-
-        //TODO:
-        /*if (need_to_save)
-        {
-            sprintf(fout_name, "%s.dep", OnlyName(file_name).c_str());
-            file->saveDepFile(fout_name);
-            __spf_print(DEBUG_LVL1, "  Saving to <%s> file\n", fout_name);
-        }*/
+        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);     
     } // end of FOR by files
-
+        
     if (internalExit != 0)
         throw -1;
 
@@ -768,7 +728,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         const auto &vecLines = lines.second;
                         const string &fileName = lines.first;
 
-                        auto messages = getMessagesForFile(fileName.c_str());
+                        auto messages = getObjectForFileFromMap(fileName.c_str(), SPF_messages);
                         for (auto &line : vecLines)
                         {
                             if (line.stats.first && line.stats.second)
@@ -863,7 +823,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
                     for (auto it = currLines.begin(); it != currLines.end(); ++it)
                     {
-                        vector<Messages> &currMessages = getMessagesForFile(it->first.c_str());
+                        vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
                         char buf[256];
                         sprintf(buf, "Can not find arrays for distribution for parallel region '%s', ignored", regToDel->GetName().c_str());
                         for (int k = 0; k < it->second.size(); ++k)
@@ -930,7 +890,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
              curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS)
     {
-        if (veriyOK == false)
+        if (verifyOK == false)
             throw(-1);
     }
     else if (curr_regime == PRIVATE_ANALYSIS_SPF)
@@ -1055,15 +1015,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT" && dvmDirErrors.size())
             {
-                for (auto &err : dvmDirErrors)
-                {
-                    vector<Messages> &currMessages = getMessagesForFile(err.first.c_str());
-                    for (auto &code : err.second)
-                    {
-                        __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet for only one DEFAULT parallel region\n", code);
-                        currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet for only one DEFAULT parallel region", 1020));
-                    }
-                }
+                printDvmActiveDirsErrors();
                 throw(-1);
             }
         }
@@ -1370,8 +1322,15 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
-    case REMOVE_DVM_DIRS_TO_COMMENTS:
+    case REMOVE_DVM_DIRS_TO_COMMENTS:    
         runAnalysis(*project, curr_regime, true, "", folderName);
+        break;
+    case INLINE_PROCEDURES:
+        runAnalysis(*project, curr_regime, false);
+        if (folderName)
+            runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
+        else
+            __spf_print(1, "can not run UNPARSE_FILE - folder name is null\n");
         break;
     case UNPARSE_FILE:
         if (folderName)
