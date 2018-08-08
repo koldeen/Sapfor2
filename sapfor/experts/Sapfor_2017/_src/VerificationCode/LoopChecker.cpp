@@ -113,7 +113,10 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, vector<ParallelReg
 					currMessages.push_back(Messages(ERROR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
                 }
 				else
-					__spf_print(1, "The equivalence operator is not supported yet\n");
+				{
+                    __spf_print(1, "The equivalence operator is not supported yet\n");
+                    currMessages.push_back(Messages(WARR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
+                }
 			}
 
             st = st->lexNext();
@@ -126,27 +129,32 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
 {
 	bool checkOK = true;
 
-    for (auto block = commonBlocks.begin(); block != commonBlocks.end(); ++block)
+    for (auto block : commonBlocks)
     {
-		auto vars = block->second.getVariables();
+		auto vars = block.second.getVariables();
 
-		for (auto var = vars.begin(); var != vars.end(); ++var)
+		for (int i = 0; i < vars.size(); i++)
 		{
-			int pos = var->getPosition();
-			varType type = var->getType();
+			int pos = vars[i].getPosition();
+			varType type = vars[i].getType();
 
-			for (auto anotherVar = vars.begin(); var != vars.end(); ++anotherVar)
+			for (int j = i + 1; j < vars.size(); j++)
 			{
-				if ((anotherVar->getPosition() == pos) &&
-					((anotherVar->getType() == ARRAY && type != ARRAY) || (anotherVar->getType() != ARRAY && type == ARRAY)))
-				{
+				if ((vars[j].getPosition() == pos) &&
+					((vars[j].getType() == ARRAY && type != ARRAY) || (vars[j].getType() != ARRAY && type == ARRAY)))
+                {
 					checkOK = false;
-					// currMessages.push_back(Messages(ERROR, var->getName(), anotherVar->getName(), block->first, "Variables in one storage association (common block) have different types", 1039));
-					__spf_print(1, "Variables '%s' and '%s' in one storage association (common block '%s') have different types", var->getName(), anotherVar->getName(), block->first);
-				}
-				else if (anotherVar->getPosition() == pos && anotherVar->getType() != type)
-					__spf_print(1, "Variables '%s' and '%s' in one storage association (common block '%s') have different types", var->getName(), anotherVar->getName(), block->first);
-
+                    string message;
+                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
+                    currMessages.push_back(Messages(ERROR, pos, message, 1039));
+                }
+				else if (vars[j].getPosition() == pos && vars[j].getType() != type)
+				{
+					string message;
+                    __spf_print(1, "Variables in one storage association have different types\n");
+					__spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
+					currMessages.push_back(Messages(WARR, pos, message, 1039));
+                }
 			}
 		}
     }

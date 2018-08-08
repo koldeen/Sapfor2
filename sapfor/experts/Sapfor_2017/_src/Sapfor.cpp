@@ -367,8 +367,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             verifyOK = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_INCLUDE)
             verifyOK = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
-        else if (curr_regime == VERIFY_EQUIVALENCE)
-            verifyOK = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
             verifyOK = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
@@ -537,7 +535,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
                          allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
-                         &(loopGraph.find(file_name)->second));        
+                         &(loopGraph.find(file_name)->second));
+        else if (curr_regime == VERIFY_EQUIVALENCE)
+            verifyOK = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
