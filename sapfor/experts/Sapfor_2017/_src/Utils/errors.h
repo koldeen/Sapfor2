@@ -139,7 +139,10 @@ public:
    buf = new char[bufLen];\
    const int countW = sprintf(buf, format, ##__VA_ARGS__);\
    if (countW + 1 > bufLen) \
+   { \
+        delete []buf; \
         printInternalError(__FILE__, __LINE__);\
+   } \
 } while (0)
 
 #define __spf_printToBuf(outval, format, ...) do {\

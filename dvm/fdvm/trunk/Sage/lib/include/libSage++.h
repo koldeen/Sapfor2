@@ -30,6 +30,10 @@ the include file are within a #if 0  #endif.  These refer to the unimplemented
 portions of Sage++ library.
 ***************************************************************/
 
+#if __SPF
+extern "C" void removeFromCollection(void *pointer);
+#endif
+
 class  SgProject {
   public:
   inline SgProject(SgProject &);
@@ -2966,7 +2970,11 @@ public:
 // SgProject--inlines
 
 inline SgProject::~SgProject()
-{}
+{
+#if __SPF
+    removeFromCollection(this);
+#endif
+}
 inline SgProject::SgProject(SgProject &)
 { 
  Message("SgProject copy constructor not allowed",0);

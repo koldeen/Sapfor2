@@ -4,7 +4,7 @@
 #include "definesValues.h"
 #include "set.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -235,19 +235,19 @@ void Set::Reallocatedata()
     void **pt;
 
     pt = new void *[nballocated + ALLOCATECHUNKSET];
-#ifdef _WIN32
+
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, pt, 2);
 #endif
     for (i = 0; i < nballocated + ALLOCATECHUNKSET; i++)
         pt[i] = NULL;
 
     for (i = 0; i < nballocated; i++)
-    {
         pt[i] = data[i];
-    }
+
     if (nballocated)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(data);
 #endif
         delete[] data;
@@ -288,7 +288,7 @@ Set *Set::compact()
     }
     // look at duplicate elements, and combine (to see later) if necessary
     newset = new Set(equal, combine, printEl);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, newset, 1);
 #endif
     for (i = 0; i < this->size(); i++)
@@ -372,7 +372,7 @@ Set *Set::copy()
     int i, k;
     Set *newset;
     newset = new Set(equal, combine, printEl);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, newset, 1);
 #endif
     for (i = 0; i < this->size(); i++)
@@ -409,17 +409,17 @@ Set::~Set()
     {
         if (deallocelem)
         {
-            for (i = 0; i < this->size(); i++)
+            for (i = 0; i < nbelement; i++)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(data[i]);
 #endif
-                delete data[i];
+                delete [](char*)data[i];
             }
         }
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(data);
 #endif
-        delete[] data;
+        delete []data;
     }
 }

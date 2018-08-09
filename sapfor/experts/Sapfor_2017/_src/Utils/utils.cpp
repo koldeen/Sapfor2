@@ -64,7 +64,7 @@ string OnlyName(const char *filename)
     }
 
     string retVal(basename);
-#ifdef _WIN32
+#ifdef __SPF
     removeFromCollection(basename);
 #endif
     delete []basename;
@@ -93,7 +93,7 @@ string OnlyExt(const char *filename)
     }
 
     string retVal(extname);
-#ifdef _WIN32
+#ifdef __SPF
     removeFromCollection(extname);
 #endif
     delete []extname;
@@ -433,15 +433,17 @@ void sortFilesBySize(const char *proj_name)
             string filename(buf);
             long size;
             FILE *fin = fopen(filename.c_str(), "rb");
+            FILE *p_fin = fin;
             if (fin)
             {
-                fseek(fin, 0, SEEK_END);
-                size = ftell(fin);
+                fseek(p_fin, 0, SEEK_END);
+                size = ftell(p_fin);
+                fclose(fin);
             }
             else
                 size = 0;
 
-            files[make_pair(size, filename)] = filename;
+            files[make_pair(size, filename)] = filename;            
         }
 
         fclose(proj);
@@ -534,38 +536,37 @@ extern "C" void removeFromCollection(void *pointer)
 
 void deletePointerAllocatedData()
 {
-#ifdef _WIN32
     int leaks = 0;
     int failed = 0;
-    for (auto it = pointerCollection.begin(); it != pointerCollection.end(); ++it)
+    for (auto &pointer : pointerCollection)
     {
         //printf("%d %s\n", std::get<1>(it->second), std::get<2>(it->second));
         //fflush(NULL);
-        if (std::get<0>(it->second) == 0)
+        if (std::get<0>(pointer.second) == 0)
         {
-            if (it->first)
+            if (pointer.first)
             {
-                free((char*)(it->first));
+                free((char*)(pointer.first));
                 leaks++;
             }
             else
                 failed++;
         }
-        else if (std::get<0>(it->second) == 1)
+        else if (std::get<0>(pointer.second) == 1)
         {
-            if (it->first)
+            if (pointer.first)
             {
-                delete (char*)(it->first);
+                delete (char*)(pointer.first);
                 leaks++;
             }
             else
                 failed++;
         }
-        else if (std::get<0>(it->second) == 2)
+        else if (std::get<0>(pointer.second) == 2)
         {
-            if (it->first)
+            if (pointer.first)
             {
-                delete [](char*)(it->first);
+                delete [](char*)(pointer.first);
                 leaks++;
             }
             else
@@ -577,7 +578,6 @@ void deletePointerAllocatedData()
         printf("SAPFOR: detected %d leaks of memory\n", leaks);
     if (failed > 0)
         printf("SAPFOR: detected failed %d leaks of memory\n", failed);
-#endif
 }
 
 static unsigned arrayIdCounter = 0;

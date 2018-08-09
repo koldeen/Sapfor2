@@ -886,11 +886,11 @@ int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, sh
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-extern void deleteAllAllocatedData();
+extern void deleteAllAllocatedData(bool enable);
 void SPF_deleteAllAllocatedData()
 {
     MessageManager::clearCache();
-    deleteAllAllocatedData();
+    deleteAllAllocatedData(true);
 }
 
 void createNeededException()

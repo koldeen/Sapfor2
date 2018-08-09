@@ -382,10 +382,8 @@ void addNumberOfFileToAttribute(SgProject *project)
     {
         SgFile *currF = &(project->file(i));
         int *num = new int[1];
-#ifdef _WIN32
 #ifdef __SPF
         addToCollection(__LINE__, __FILE__, num, 2);
-#endif
 #endif
         num[0] = i;
         currF->addAttribute(SG_FILE_ATTR, num, sizeof(int));

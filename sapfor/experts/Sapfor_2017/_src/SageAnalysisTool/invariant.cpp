@@ -5,7 +5,7 @@
 #include "set.h"
 #include "definitionSet.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 #endif
 
@@ -81,7 +81,7 @@ Set *loopInvariantStmt(SgStatement *func, SgStatement *stmt)
 
     last = stmt->lastNodeOfStmt();
     invariant = new Set(stmtEqual, NULL, stmtPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, invariant, 1);
 #endif
     change = 1;

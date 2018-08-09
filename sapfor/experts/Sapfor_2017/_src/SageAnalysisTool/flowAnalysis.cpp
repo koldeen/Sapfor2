@@ -5,7 +5,7 @@
 #include "definesValues.h"
 #include "set.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -96,13 +96,13 @@ void iterativeForwardFlowAnalysis(SgFile *file,
             controlFlow(temp, func, pred, suc, &nbpred, &nbsuc);
             if (inSet[cid])
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(inSet[cid]);
 #endif
                 delete inSet[cid];
             }
             tps = new Set(feq, fcomb, fp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, tps, 1);
 #endif
             for (i = 0; i < nbpred; i++)
@@ -115,7 +115,7 @@ void iterativeForwardFlowAnalysis(SgFile *file,
             oldout = outSet[cid];
             outSet[cid] = new Set(feq, fcomb, fp);
             tpt = new Set(feq, fcomb, fp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, outSet[cid], 1);
             addToCollection(__LINE__, __FILE__, tpt, 1);
 #endif
@@ -125,7 +125,7 @@ void iterativeForwardFlowAnalysis(SgFile *file,
             outSet[cid]->unionSet(tpt);
             pt1 = outSet[cid];
             outSet[cid] = pt1->compact();
-#ifdef _WIN32
+#ifdef __SPF
             removeFromCollection(pt1);
 #endif
             delete pt1;
@@ -136,14 +136,14 @@ void iterativeForwardFlowAnalysis(SgFile *file,
                     change = 1;
             if (oldout)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(oldout);
 #endif
                 delete oldout;
             }
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;
@@ -219,13 +219,13 @@ void generalIterativeFlowAnalysis(SgFile *file,
             controlFlow(temp, func, pred, suc, &nbpred, &nbsuc);
             if (inSet[cid])
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(inSet[cid]);
 #endif            
                 delete inSet[cid];
             }
             tps = new Set(feq, fcomb, fp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, tps, 1);
 #endif
             for (i = 0; i < nbpred; i++)
@@ -237,7 +237,7 @@ void generalIterativeFlowAnalysis(SgFile *file,
             inSet[cid] = tps;
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;
@@ -263,7 +263,7 @@ void generalIterativeFlowAnalysis(SgFile *file,
                 }
             if (oldout)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(oldout);
 #endif
                 delete oldout;

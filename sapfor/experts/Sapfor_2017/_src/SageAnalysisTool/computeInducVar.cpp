@@ -11,7 +11,7 @@ extern Set *killSet[MAXNODE];
 extern Set *inSet[MAXNODE];
 extern Set *outSet[MAXNODE];
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -178,7 +178,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
         return NULL;
     last = stmtin->lastNodeOfStmt();
     constante = new Set(inducVarEqual, NULL, inducVarPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, constante, 1);
 #endif
     for (stmt = stmtin; stmt; stmt = stmt->lexNext())
@@ -195,7 +195,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
             if (cst)
             {
                 elin = new struct inducvar;
-#ifdef _WIN32
+#ifdef __SPF
                 addToCollection(__LINE__, __FILE__, elin, 1);
 #endif
                 elin->constante = TRUE;
@@ -240,7 +240,7 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
         return NULL;
 
     induc = new Set(inducVarEqual, NULL, inducVarPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, induc, 1);
 #endif
     def = (SgExpression *)stmt->attributeValue(0, DEFINEDLIST_ATTRIBUTE);
@@ -259,7 +259,7 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
         if (inducF)
         {
             elin = new struct inducvar;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, elin, 1);
 #endif
             elin->constante = FALSE;
@@ -330,7 +330,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
             induc->unionSet(tpt = getAllInductionVar(func, child, newlevel, num, tmpincl));
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;
@@ -355,7 +355,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
             induc->unionSet(tpt = getAllInductionVar(func, child, newlevel, num, tmpincl));
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;

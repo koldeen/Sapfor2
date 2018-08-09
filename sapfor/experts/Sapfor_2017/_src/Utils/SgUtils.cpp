@@ -276,9 +276,9 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
 static string getValue(SgExpression *exp)
 {
     if (exp == NULL)
-        return "( )";
+        return "";
 
-    string ret = "( )";
+    string ret = "";
     if (exp->symbol())
     {
         if (exp->symbol()->identifier())
@@ -298,6 +298,8 @@ static string getValue(SgExpression *exp)
         ret = "(mod)";
     else if (exp->variant() == EXP_OP)
         ret = "(**)";
+    else if (exp->variant() == KEYWORD_VAL)
+        ret = "(" + string(((SgKeywordValExp*)exp)->value()) + ")";
     return ret;
 }
 

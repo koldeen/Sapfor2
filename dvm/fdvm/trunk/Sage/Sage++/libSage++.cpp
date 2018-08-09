@@ -4,11 +4,13 @@
 /*********************************************************************/
 #include "leak_detector.h"
 #include <stdio.h>
+#include <stdlib.h>
+
 #include <map>
 #include <string>
 
 #ifndef __GNUC__
-# include <stdlib.h>
+
 #else
 extern "C" void abort(void);
 extern "C" void exit(int status);
@@ -673,28 +675,28 @@ void ResetbfndTableClass()
 
 void ReallocatellndTableClass()
 {
-  int i;
-  void **pt;
-  
-  pt  =  new void *[allocatedForllndTableClass + ALLOCATECHUNK];
+    int i;
+    void **pt;
+
+    pt = new void *[allocatedForllndTableClass + ALLOCATECHUNK];
 #ifdef __SPF   
-  addToCollection(__LINE__, __FILE__, pt, 2);
+    addToCollection(__LINE__, __FILE__, pt, 2);
 #endif
-  for (i=0; i<allocatedForllndTableClass + ALLOCATECHUNK; i++)
-    pt[i] = NULL;
-  for (i=0 ; i < allocatedForllndTableClass; i++)
+    for (i = 0; i < allocatedForllndTableClass + ALLOCATECHUNK; i++)
+        pt[i] = NULL;
+    for (i = 0; i < allocatedForllndTableClass; i++)
     {
-      pt[i] = llndTableClass[i];
+        pt[i] = llndTableClass[i];
     }
-  if (allocatedForllndTableClass)
-  {
+    if (allocatedForllndTableClass)
+    {
 #ifdef __SPF   
-      removeFromCollection(llndTableClass);
+        removeFromCollection(llndTableClass);
 #endif
-      delete llndTableClass;
-  }
-  llndTableClass = pt;
-  allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
+        delete llndTableClass;
+    }
+    llndTableClass = pt;
+    allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
 }
 
 void ReallocatesymbolTableClass()
@@ -1576,6 +1578,9 @@ SgProject::SgProject(const char * proj_file_name)
 
     // we have to initialize some specific data for this interface 
     CurrentProject = this;
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
 }
 
 
@@ -2255,7 +2260,7 @@ int SgExpression::isInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2271,7 +2276,7 @@ int SgExpression::valueInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
