@@ -556,7 +556,7 @@ std::string ControlFlowGraph::GetVisualGraph(CallData* calls)
     }
     for (CBasicBlock* b = first; b != NULL; b = b->getLexNext()) {
         if (!b->IsEmptyBlock())
-            result += b->GetEdgesForBlock(b->GetGraphVisDescription(), true);
+            result += b->GetEdgesForBlock(b->GetGraphVisDescription(), true, "");
     }
     result += '}';
     ResetDrawnStatusForAllItems();
@@ -605,10 +605,13 @@ std::string GetActualCondition(ControlFlowItem** pItem) {
     }
 }
 
-std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original)
+std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original, std::string modifier)
 {
     std::string result;
     for (BasicBlockItem* it = getSucc(); it != NULL; it = it->next) {
+        if (it->drawn)
+            continue;
+        it->drawn = true;
         char lo = original;
         std::string cond;
         ControlFlowItem* eit = NULL;
@@ -628,9 +631,9 @@ std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original)
             lo = false;
             eit = eit->GetFriend();
         }
-        if (!it->block->IsEmptyBlock()) {
+        if (!it->block->IsEmptyBlock() || cond.length() != 0) {
             if (cond.length() != 0 && eit && !pf){
-                char tmp[16];
+                char tmp[32];
                 sprintf(tmp, "c_%llx", (uintptr_t)eit);
                 if (!eit->IsDrawn()) {
                     result += '\t';
@@ -642,30 +645,41 @@ std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original)
                 if (it->cond_value && !pf) {
                     result += '\t' + name + "->";
                     result += tmp;
+                    result += modifier;
                     result += '\n';
                 }
                 eit->SetIsDrawn();
             }
             if (cond.length() != 0) {
                 if (lo) {
-                    char tmp[16];
+                    char tmp[32];
                     sprintf(tmp, "c_%llx", (uintptr_t)eit);
-                    result += '\t';
-                    result += tmp;
-                    result += "->" + it->block->GetGraphVisDescription();
-                    result += "[label=";
-                    result += (!pf && it->cond_value) ? "T]" : "F]";
-                    result += ";\n";
+                    if (!it->block->IsEmptyBlock()) {
+                        result += '\t';
+                        result += tmp;
+                        result += "->" + it->block->GetGraphVisDescription();
+                        result += "[label=";
+                        result += (!pf && it->cond_value) ? "T]" : "F]";
+                        result += ";\n";
+                    }
+                    else {
+                        std::string n = tmp;
+                        std::string label;
+                        label += "[label=";
+                        label += (!pf && it->cond_value) ? "T]" : "F]";
+                        result += it->block->GetEdgesForBlock(n, original, label);
+                    }
                 }
             }
             else {
                 result += '\t' + name + " -> " + it->block->GetGraphVisDescription();
+                result += modifier;
                 result += ";\n";
             }
             
         }
         else {
-            result += it->block->GetEdgesForBlock(name, original);
+            result += it->block->GetEdgesForBlock(name, original, "");
         }
     }
     return result;

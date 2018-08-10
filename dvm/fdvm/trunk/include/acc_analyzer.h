@@ -644,10 +644,11 @@ struct BasicBlockItem
     CBasicBlock* block;
     bool for_jump_flag;
     bool cond_value;
+    bool drawn;
     ControlFlowItem* jmp;
     BasicBlockItem* next;
 
-    BasicBlockItem()
+    BasicBlockItem() : drawn(false)
     {
 #if __SPF
         addToCollection(__LINE__, __FILE__, this, 1);
@@ -849,7 +850,7 @@ public:
     std::string GetGraphVisDescription();
     std::string GetGraphVisData();
     bool IsEmptyBlock();
-    std::string GetEdgesForBlock(std::string name, bool original);
+    std::string GetEdgesForBlock(std::string name, bool original, std::string);
 
     void addUniqObjects(std::set<ControlFlowItem*> &pointers) const
     {
