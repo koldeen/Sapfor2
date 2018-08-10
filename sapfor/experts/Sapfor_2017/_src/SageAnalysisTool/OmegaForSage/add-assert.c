@@ -449,16 +449,16 @@ build_zap_problem(dd_current dd, Problem *p, zap_prob_desc *zpd)
     }
 }
 
-bool try_to_eliminate(dd_current dd)
+/*bool try_to_eliminate(dd_current dd)
 {
     int old_reduceWithSubs;
     Problem p;
     zap_prob_desc zpd;
-    bool result;
+    bool result; ?!
     elimination_possible ep;
 
     old_reduceWithSubs = reduceWithSubs;
-    reduceWithSubs = 0;  /* to make combining problems easier */
+    reduceWithSubs = 0
 
     if ((ep = build_zap_problem(dd, &p, &zpd)) == possible)
     {
@@ -487,7 +487,7 @@ bool try_to_eliminate(dd_current dd)
 
     reduceWithSubs = old_reduceWithSubs;
     return result;
-}
+}*/
 
 elimination_possible possible_to_eliminate(dd_current dd)
 {

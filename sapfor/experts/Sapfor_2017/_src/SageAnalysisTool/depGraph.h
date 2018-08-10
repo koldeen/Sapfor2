@@ -64,7 +64,6 @@ public:
     depNode *isThereAnEdge(SgStatement *s1, SgStatement *s2);
     int isThereAnEdgeSCC(SgStatement *s1, SgStatement *s2, SgStatement *doloop);
     void depthTraversal(int stmtid, SgStatement *doloop);
-    void depthTraversalReverse(int stmtid, int mark, SgStatement *doloop);
     int getHigherMark();
     int getZeroMark();
     int computeSCC(SgStatement *stmtin);

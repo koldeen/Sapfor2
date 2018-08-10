@@ -96,7 +96,10 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     }
                 }
                 if (posF == -1)
+                {
+                    ++lineBefore;
                     continue;
+                }
 
                 posF += sizeof("include") - 1;
                 int tok = 0;
@@ -140,14 +143,15 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     notClosed = false;
                 }
             }
-            ++lineBefore;
         }
+        ++lineBefore;
     }
-
 
     const string fileN = file->filename();
     //insert comment
     lineBefore = -1;
+
+    map<string, vector<pair<int, int>> > insertedIncludeFiles;
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         string currFileName = st->fileName();
@@ -162,11 +166,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
                 SgStatement *locSt = st->lexNext();
                 while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
+                {
+                    if (locSt->fileName() != fileN)
+                        allIncludeFiles.insert(locSt->fileName());
                     locSt = locSt->lexNext();
+                }
                 lines.second = locSt->lineNumber();
+                st = locSt;
+
+                auto prev = locSt->lexPrev();
+                if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
+                    locSt = prev;
 
                 if (locSt && ifIntevalExists(it->second.second, lines))
                 {
+                    insertedIncludeFiles[currFileName].push_back(lines);
                     char *comm = locSt->comments();
                     if (comm)
                     {
@@ -182,7 +196,16 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             lineBefore = st->lineNumber();
     }
     
-    vector<pair<SgStatement*, SgStatement*>> wasLinked;
+    for (auto &inserted : insertedIncludeFiles)
+    {
+        auto it = includeFiles.find(inserted.first);
+        if (it == includeFiles.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (inserted.second.size() != it->second.second.size())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
     //remove
     //XXX: use Sage hack!!
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
@@ -276,9 +299,9 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
 static string getValue(SgExpression *exp)
 {
     if (exp == NULL)
-        return "( )";
+        return "";
 
-    string ret = "( )";
+    string ret = "";
     if (exp->symbol())
     {
         if (exp->symbol()->identifier())
@@ -298,6 +321,8 @@ static string getValue(SgExpression *exp)
         ret = "(mod)";
     else if (exp->variant() == EXP_OP)
         ret = "(**)";
+    else if (exp->variant() == KEYWORD_VAL)
+        ret = "(" + string(((SgKeywordValExp*)exp)->value()) + ")";
     return ret;
 }
 

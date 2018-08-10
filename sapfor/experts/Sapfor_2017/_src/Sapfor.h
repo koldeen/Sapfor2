@@ -83,6 +83,7 @@ enum passes {
     REVERT_SPF_DIRS,
     CLEAR_SPF_DIRS,
 
+    SHADOW_GROUPING,
     INLINE_PROCEDURES,
 
     EMPTY_PASS
@@ -175,5 +176,6 @@ static void setPassValues()
     passNames[RESTORE_LOOP_FROM_ASSIGN] = "RESTORE_LOOP_FROM_ASSIGN";
     passNames[RESTORE_LOOP_FROM_ASSIGN_BACK] = "RESTORE_LOOP_FROM_ASSIGN_BACK";
     passNames[INLINE_PROCEDURES] = "INLINE_PROCEDURES";
+    passNames[SHADOW_GROUPING] = "SHADOW_GROUPING";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

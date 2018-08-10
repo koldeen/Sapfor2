@@ -6,7 +6,7 @@
 #include "set.h"
 #include "definitionSet.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -154,7 +154,7 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             vr = new SgVarRefExp(*(stmt->symbol()));
             *def = new SgExprListExp(*vr);
             *use = new SgExprListExp(*vr);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, vr, 1);
             addToCollection(__LINE__, __FILE__, *def, 1);
             addToCollection(__LINE__, __FILE__, *use, 1);
@@ -480,7 +480,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
     def = (SgExpression *)stmt->attributeValue(0, DEFINEDLIST_ATTRIBUTE);
     // Defined[stmt->id()];
     defset = new Set(symbRefEqual, NULL, myPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, defset, 1);
 #endif
     if (def)
@@ -492,7 +492,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
                 if (!NOARRAYREF || !isSgArrayRefExp(pt->lhs()))
                 {
                     el = new struct elset;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     el->stmt = stmt;
@@ -509,7 +509,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
     defset = defset->compact();
     if (pts)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(pts);
 #endif
         delete pts;
@@ -532,7 +532,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
         return NULL;
 
     killset = new Set(symbRefEqual, NULL, myPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, killset, 1);
 #endif
     last = func->lastNodeOfStmt();
@@ -559,7 +559,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
                                     if (pt->lhs()->symbol() == expr1->symbol())
                                     {
                                         el = new struct elset;
-#ifdef _WIN32
+#ifdef __SPF
                                         addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                                         el->stmt = temp;
@@ -583,7 +583,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
     //   killset->printSet();
     if (pts)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(pts);
 #endif
         delete pts;

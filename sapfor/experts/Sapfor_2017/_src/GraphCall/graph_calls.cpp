@@ -364,7 +364,7 @@ static void findIdxRef(SgExpression *exp, FuncInfo &currInfo)
     }
 }
 
-static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
+static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
 {
     if (exp)
     {
@@ -388,12 +388,15 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
                 }
+
+                if (isWrite)
+                    currInfo.writeToArray.insert(arrayRef);
             }
         }
         else
         {
-            findArrayRef(exp->lhs(), currInfo);
-            findArrayRef(exp->rhs(), currInfo);
+            findArrayRef(exp->lhs(), currInfo, isWrite);
+            findArrayRef(exp->rhs(), currInfo, isWrite);
         }
     }
 }
@@ -773,7 +776,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 for (auto &proc : entryProcs)
                     if (proc->isParamUsedAsIndex.size())
                         for (int i = 0; i < 3; i++)
-                            findArrayRef(st->expr(i), *proc);
+                            findArrayRef(st->expr(i), *proc, st->variant() == ASSIGN_STAT && i == 0);
 
             st = st->lexNext();
         }
@@ -1123,23 +1126,26 @@ static bool findFuncCall(SgExpression *ex, const FuncInfo *func, vector<Messages
     return ret;
 }
 
-static map<string, map<int, SgStatement*>> statByLine; //file -> map
-
-static SgStatement* getStatByLine(string file, const int line)
+static SgStatement* getStatByLine(string file, const int line, const map<string, map<int, SgStatement*>> &statByLine)
 {
-    auto itS = statByLine[file].find(line);
-    if (itS == statByLine[file].end())
+    auto itF = statByLine.find(file);
+    if (itF == statByLine.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto itS = itF->second.find(line);
+    if (itS == itF->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return itS->second;
 }
 
 static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<string> &needToInsert, SgFile *currF, 
-                                      vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName)
+                                      vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
+                                      const map<string, map<int, SgStatement*>> &statByLine)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum));
+        SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum, statByLine));
         if (loop == NULL)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -1166,7 +1172,7 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     continue;
 
                 int funcOnLine = childs[k]->calls[i].second;
-                SgStatement *func = getStatByLine(currF->filename(), funcOnLine);
+                SgStatement *func = getStatByLine(currF->filename(), funcOnLine, statByLine);
 
                 bool needInsert = false;
                 const int var = func->variant();
@@ -1180,13 +1186,14 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName);
+        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
     }
 }
 
 static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loopGraph, set<string> &needToInsert,
                                       SgProject *proj, const map<string, int> &files, map<string, vector<Messages>> &allMessages,
-                                      bool needToAddErrors, const map<string, FuncInfo*> &funcByName)
+                                      bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
+                                      const map<string, map<int, SgStatement*>> &statByLine)
 {
     for (auto it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
@@ -1196,14 +1203,14 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
         auto itM = allMessages.find(it->first);
         if (itM == allMessages.end())
             itM = allMessages.insert(itM, make_pair(it->first, vector<Messages>()));
-        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName);
+        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine);
     }
 }
 
 int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const char *fileName, map<string, vector<FuncInfo*>> &funcByFile, 
                             const map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &allMessages, bool needToAddErrors)
 {
-    statByLine.clear();
+    map<string, map<int, SgStatement*>> statByLine; //file -> map    
     //build info
     for (int i = 0; i < proj->numberOfFiles(); ++i)
     {
@@ -1239,7 +1246,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     }
 
     set<string> needToInsert;
-    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName);
+    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine);
 
     if (needToInsert.size() > 0)
     {
@@ -1637,6 +1644,11 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             }
         }
     }
+}
+
+void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
+{
+
 }
 
 #undef DEBUG

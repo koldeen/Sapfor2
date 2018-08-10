@@ -41,8 +41,19 @@ static SgLabel* getUniqLabel(unsigned was)
     return ret;
 }
 
-//TODO: dont compute expression twice
-static SgStatement* convertArithIf(SgStatement *curr)
+static void makeDeclaration(SgStatement *curr, SgSymbol *s)
+{
+    SgStatement *decl = s->makeVarDeclStmt();
+    SgStatement *place = curr;
+    while (place->variant() != PROG_HEDR && place->variant() != PROC_HEDR && place->variant() != FUNC_HEDR)
+        place = place->controlParent();
+    auto scope = place;
+    while (isSgExecutableStatement(place) == NULL)
+        place = place->lexNext();
+    place->insertStmtBefore(*decl, *scope);
+}
+
+static vector<SgStatement*> convertArithIf(SgStatement *curr)
 {
     SgExpression *cond = curr->expr(0);
     SgExpression *lb = curr->expr(1);
@@ -59,18 +70,28 @@ static SgStatement* convertArithIf(SgStatement *curr)
 
     SgStatement *replaceSt;
 
-    if (arith_lab[1]->getLabNumber() == arith_lab[2]->getLabNumber())
-        replaceSt = new SgIfStmt(*cond < *new SgValueExp(0), *new SgGotoStmt(*arith_lab[0]), *new SgGotoStmt(*arith_lab[1]));
+    SgType *type = NULL;
+    if (cond->type())
+        type = cond->type();
     else
-        replaceSt = new SgIfStmt(*cond < *new SgValueExp(0),
-                    *new SgGotoStmt(*arith_lab[0]),
-                    *new SgIfStmt(*cond == *new SgValueExp(0), *new SgGotoStmt(*arith_lab[1]), *new SgGotoStmt(*arith_lab[2])));
+        type = SgTypeInt();
 
-    return replaceSt;
+    auto condS = new SgSymbol(VARIABLE_NAME, ("arithIfCond" + std::to_string(curr->lineNumber())).c_str(), type, curr->getScopeForDeclare());
+    SgStatement *assignCond = new SgAssignStmt(*new SgVarRefExp(*condS), *cond);
+
+    makeDeclaration(curr, condS);
+
+    if (arith_lab[1]->getLabNumber() == arith_lab[2]->getLabNumber())
+        replaceSt = new SgIfStmt(*new SgVarRefExp(*condS) < *new SgValueExp(0), *new SgGotoStmt(*arith_lab[0]), *new SgGotoStmt(*arith_lab[1]));
+    else
+        replaceSt = new SgIfStmt(*new SgVarRefExp(*condS) < *new SgValueExp(0),
+                    *new SgGotoStmt(*arith_lab[0]),
+                    *new SgIfStmt(*new SgVarRefExp(*condS) == *new SgValueExp(0), *new SgGotoStmt(*arith_lab[1]), *new SgGotoStmt(*arith_lab[2])));
+
+    return { assignCond, replaceSt };
 }
 
-//TODO: dont compute expression twice
-static SgStatement* convertComGoto(SgStatement *curr)
+static vector<SgStatement*> convertComGoto(SgStatement *curr)
 {
     SgExpression *cond = curr->expr(1);
     SgExpression *lb = curr->expr(0);
@@ -83,25 +104,31 @@ static SgStatement* convertComGoto(SgStatement *curr)
     }
 
     SgStatement *replace = NULL;
+
+    auto condS = new SgSymbol(VARIABLE_NAME, ("comGotoCond" + std::to_string(curr->lineNumber())).c_str(), SgTypeInt(), curr->getScopeForDeclare());
+    SgStatement *assignCond = new SgAssignStmt(*new SgVarRefExp(*condS), *cond);
     
+    makeDeclaration(curr, condS);
+       
     if (labs.size() == 1)
-        replace = new SgIfStmt(*cond == *new SgValueExp(1), *new SgGotoStmt(*labs[0]));
+        replace = new SgIfStmt(*new SgVarRefExp(*condS) == *new SgValueExp(1), *new SgGotoStmt(*labs[0]));
     else
-        replace = new SgIfStmt(*cond == *new SgValueExp((int)labs.size()), *new SgGotoStmt(*labs.back()));
+        replace = new SgIfStmt(*new SgVarRefExp(*condS) == *new SgValueExp((int)labs.size()), *new SgGotoStmt(*labs.back()));
         
     for (int z = (int)labs.size() - 2; z >= 0; --z)
-        replace = new SgIfStmt(*cond == *new SgValueExp(z + 1), *new SgGotoStmt(*labs[z]), *replace);
+        replace = new SgIfStmt(*new SgVarRefExp(*condS) == *new SgValueExp(z + 1), *new SgGotoStmt(*labs[z]), *replace);
     
-    return replace;
+    return { assignCond, replace };
 }
 
-template<SgStatement* funcConv(SgStatement*)>
+template<vector<SgStatement*> funcConv(SgStatement*)>
 static void convert(SgStatement *&curr, const string &message)
 {
     const int lineNum = curr->lineNumber();
-    SgStatement *replaceSt = funcConv(curr);
+    vector<SgStatement*> replaceSt = funcConv(curr);
 
-    curr->insertStmtAfter(*replaceSt, *curr->controlParent());
+    for (int k = (int)replaceSt.size() - 1; k >= 0; --k)
+        curr->insertStmtAfter(*(replaceSt[k]), *curr->controlParent());
     copyLabelAndComentsToNext(curr);
 
     SgStatement *toDel = curr;
