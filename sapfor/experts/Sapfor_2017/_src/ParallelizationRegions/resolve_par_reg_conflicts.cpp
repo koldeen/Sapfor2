@@ -403,18 +403,20 @@ static void copyFunction(ParallelRegion *region,
             newFuncSymb->changeName(newFuncName.c_str());
             file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
-            __spf_print(1, "new function '%s' for '%s' (scope: %d)\n",
-                        newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber()); // remove
+            __spf_print(1, "new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
+                        newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
 
             region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
-            __spf_print(1, "  add (%s, %s) and function for file %s\n",
+            __spf_print(1, "  add (%s, %s) for file %s\n",
                         funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
 
             // create copy function symbol for other calling functions
             for (auto &callTo : func->callsTo)
             {
                 // TODO: create symbol copy only in file with regions
+
+                __spf_print(1, "FUNC %s CALLS FUNC %s\n", callTo->funcName.c_str(), funcSymb->identifier()); // remove
 
                 if (SgFile::switchToFile(callTo->fileName) != -1)
                 {
@@ -442,10 +444,12 @@ static void copyFunction(ParallelRegion *region,
 
 void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
                               const map<string, vector<FuncInfo*>> &allFuncInfo,
-                              const map<string, FuncInfo*> &funcMap,
                               const set<string> &allCommonFunctions,
                               const set<string> &allUsedCommonArrays)
 {
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
     for (auto &region : regions)
     {
         auto crossedFuncs = region->GetCrossedFuncs();
@@ -459,8 +463,9 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
         for (auto &commonFunc : allCommonFunctions)
         {
             auto it = crossedFuncs.find(commonFunc);
-            if (it == crossedFuncs.end())
-                copyFunction(region, commonFunc, region->GetName(), allFuncInfo, funcMap);
+            auto itt = region->GetAllFuncCalls().find(commonFunc);
+            if (it == crossedFuncs.end() && itt != region->GetAllFuncCalls().end())
+                copyFunction(region, commonFunc, string("copy"), allFuncInfo, funcMap);
         }
 
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // remove
@@ -497,7 +502,6 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
 
 void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                const map<string, vector<FuncInfo*>> &allFuncInfo,
-                               const map<string, FuncInfo*> &funcMap,
                                const set<string> &allCommonFunctions)
 {
     for (auto &region : regions)
@@ -512,15 +516,21 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                 auto it = fileReplacingSymbols.find(fileLines.first);
                 if (it != fileReplacingSymbols.end())
                 {
+                    __spf_print(1, "replace in file %s\n", fileLines.first.c_str()); // remove
+
                     for (auto &regionLines : fileLines.second)
                     {
                         // explicit lines
                         if (!isImplicit(regionLines))
                         {
-                            SgStatement *iterator = regionLines.stats.first;
-                            SgStatement *end = regionLines.stats.second;
+                            SgStatement *iterator = regionLines.stats.first->GetOriginal();
+                            SgStatement *end = regionLines.stats.second->GetOriginal()->lexNext();
 
-                            for (; iterator && iterator != end; iterator = iterator->lexNext())
+                            //__spf_print(1, "  explicit lines %d-%d with id %d,%d in fileid %d,%d \n",
+                            //            iterator->lineNumber(), end->lineNumber() - 1, iterator->id(), end->id(),
+                            //            iterator->getFileId(), end->getFileId()); // remove
+
+                            for (; iterator != end; iterator = iterator->lexNext())
                             {
                                 for (auto &fromTo : it->second)
                                 {
@@ -536,6 +546,10 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                     for (int i = 0; i < 3; ++i)
                                         recursiveReplace(iterator->expr(i), fromTo.first->identifier(), fromTo.second);
                                 }
+
+                                //__spf_print(1, "CURRENT LINE IS %d WITH ID %d IN FILEID %d, END IS ON LINES %d WITH ID %d IN FILEID %d\n",
+                                //            iterator->lineNumber(), iterator->id(), iterator->getFileId(), end->lineNumber(),
+                                //            end->id(), end->getFileId()); // remove
                             }
                         }
                     }
@@ -548,9 +562,11 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
 }
 
 void insertArraysCopy(const vector<ParallelRegion*> &regions,
-                      const map<string, vector<FuncInfo*>> &allFuncInfo,
-                      const map<string, FuncInfo*> &funcMap)
+                      const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
     for (auto &region : regions)
     {
         for (auto &funcArrays : region->GetUsedLocalArrays())
@@ -600,7 +616,7 @@ void printCheckRegions(const vector<ParallelRegion*> &regions, const set<string>
         string toPrint = "";
         for (auto &elem : region->GetUsedLocalArrays())
         {
-            toPrint += "function '" + elem.first + "': ";
+            toPrint += "\n  function '" + elem.first + "': ";
             for (auto &arrayName : elem.second)
             {
                 toPrint += arrayName + " ";
@@ -642,14 +658,13 @@ void printCheckRegions(const vector<ParallelRegion*> &regions, const set<string>
         __spf_print(1, "all common functions: %s\n", toPrint.c_str());
 
     // -------------------------------------
-    __spf_print(1, "NEW TYPES:\n");
 
     for (auto &region : regions)
     {
         string toPrint = "";
         for (auto &funcArrays : region->GetLocalArrays())
         {
-            toPrint += "function '" + funcArrays.first + "':";
+            toPrint += "\n  function '" + funcArrays.first + "':";
             for (auto &nameArray : funcArrays.second)
             {
                 toPrint += " " + nameArray.first;
@@ -664,7 +679,7 @@ void printCheckRegions(const vector<ParallelRegion*> &regions, const set<string>
         }
 
         if (toPrint != "")
-            __spf_print(1, "[%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
+            __spf_print(1, "[NEW TYPES][%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
 
         toPrint = "";
         for (auto &elem : region->GetCommonArrays())
@@ -702,13 +717,12 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
             fprintf(file, " %s", elem.c_str());
 
         fprintf(file, "\n");
-        fprintf(file, "  LOCAL ARRAYS in [FUNC, ARRAY]:");
+        fprintf(file, "  LOCAL ARRAYS in [FUNC, ARRAY]:\n");
 
         for (auto &elem : region->GetUsedLocalArrays())
             for (auto &arrayName : elem.second)
-                fprintf(file, " [%s, %s]", elem.first.c_str(), arrayName.c_str());
+                fprintf(file, "    [%s, %s]\n", elem.first.c_str(), arrayName.c_str());
 
-        fprintf(file, "\n");
         fprintf(file, "  CROSSED FUNCTIONS:");
 
         for (auto &elem : region->GetCrossedFuncs())

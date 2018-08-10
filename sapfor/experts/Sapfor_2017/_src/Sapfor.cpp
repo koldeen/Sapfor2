@@ -1043,12 +1043,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        map<string, FuncInfo*> funcMap;
-        createMapOfFunc(allFuncInfo, funcMap);
-
-        createFunctionsAndArrays(parallelRegions, allFuncInfo, funcMap, allCommonFunctions, allUsedCommonArrays);
-        replaceFunctionsAndArrays(parallelRegions, allFuncInfo, funcMap, allCommonFunctions);
-        insertArraysCopy(parallelRegions, allFuncInfo, funcMap);
+        createFunctionsAndArrays(parallelRegions, allFuncInfo, allCommonFunctions, allUsedCommonArrays);
+        replaceFunctionsAndArrays(parallelRegions, allFuncInfo, allCommonFunctions);
+        insertArraysCopy(parallelRegions, allFuncInfo);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
