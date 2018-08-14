@@ -15,6 +15,7 @@ using std::set;
 using std::pair;
 
 #ifdef __SPF
+
 static void getText(const char *s, const char *t, int num, SgStatement *stmt, string &toPrint, int &line)
 {
     char buf[1024];
@@ -59,7 +60,10 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
     return ret;
 }
 
-inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
+template<typename fillType>
+void fillPrivatesFromComment(SgStatement *st, std::set<fillType> &privates);
+
+inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
 {
     //TODO: is it correct?
     if (stmt == NULL)
@@ -73,8 +77,13 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
             if (ifVarIsLoopSymb(found, t))
                 return;
         }
+
+        set<string> privates;
+        fillPrivatesFromComment(stmt, privates);
+        if (privates.find(t) != privates.end())
+            return;
     }
-    
+
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);

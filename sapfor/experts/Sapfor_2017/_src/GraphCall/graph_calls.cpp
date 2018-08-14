@@ -1097,6 +1097,14 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
 
             needInsert = true;
         }
+        else
+        {
+            while (parList)
+            {
+                needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func);
+                parList = parList->rhs();
+            }
+        }
     }
     else
     {
@@ -1176,6 +1184,7 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
 
                 bool needInsert = false;
                 const int var = func->variant();
+
                 if (var == PROC_STAT || var == FUNC_STAT)
                     needInsert = needInsert || processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages);
                 else

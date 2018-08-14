@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include <vector>
+
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -53,7 +55,8 @@ extern int isSymbolIntrinsic(SgSymbol *symb);
 // computes the definition for each file;
 /////////////////////////////////////////////////////////////////////
 
-void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
+//old variant
+static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
 {
     SgExpression *expr1, *expr2;
     SgExpression *temp, *pt, *pt1;
@@ -61,8 +64,7 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
     SgExprListExp *exprli;
     SgFunctionCallExp *fc;
     SgInputOutputStmt *iostmt;
-    SgCallStmt *callStat;
-    int change;
+    SgCallStmt *callStat;    
     if (!stmt || !func)
         return;
 
@@ -154,11 +156,6 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             vr = new SgVarRefExp(*(stmt->symbol()));
             *def = new SgExprListExp(*vr);
             *use = new SgExprListExp(*vr);
-#ifdef __SPF
-            addToCollection(__LINE__, __FILE__, vr, 1);
-            addToCollection(__LINE__, __FILE__, *def, 1);
-            addToCollection(__LINE__, __FILE__, *use, 1);
-#endif
         }
         else
         {
@@ -329,7 +326,46 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             *use = pt->symbRefs();
             // if not an intrinsic, needs to be added to the def list;
             if (!isSymbolIntrinsic(callStat->name()))
-                *def = pt->symbRefs();            
+                *def = pt->symbRefs(); 
+
+            SgExpression *list = *use;
+            std::vector<SgExpression*> newList;
+            bool needUpdate = false;
+
+            while (list)
+            {
+                auto ex1 = list->lhs();
+                if (!isSymbolIntrinsic(ex1->symbol()))
+                    newList.push_back(list);
+                else
+                    needUpdate = true;
+                list = list->rhs();
+            }
+
+            if (needUpdate)
+                for (int i = 0; i < newList.size() - 1; ++i)
+                    newList[i]->setRhs(newList[i + 1]);
+            *use = list;
+
+            list = *def;
+            newList.clear();
+            needUpdate = false;
+
+            while (list)
+            {
+                auto ex1 = list->lhs();
+                if (!isSymbolIntrinsic(ex1->symbol()))
+                    newList.push_back(list);
+                else
+                    needUpdate = true;
+                list = list->rhs();
+            }
+
+            if (needUpdate)
+                for (int i = 0; i < newList.size() - 1; ++i)
+                    newList[i]->setRhs(newList[i + 1]);
+            *def = list;
+
             /*pt->unparsestdout();
             printf("\n");
             printf("%s %d\n", callStat->name()->identifier(), stmt->lineNumber());
@@ -401,8 +437,8 @@ void initDefUseTable(SgStatement *func)
         if (isSgExecutableStatement(temp))
         {
             defUseVar(temp, func, &def, &use);
-            temp->addAttribute(USEDLIST_ATTRIBUTE, (void *)use, 0);
-            temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void *)def, 0);
+            temp->addAttribute(USEDLIST_ATTRIBUTE, (void*)use, 0);
+            temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void*)def, 0);
         }
         if (temp == lastfunc)
             break;

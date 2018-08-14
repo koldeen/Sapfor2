@@ -688,7 +688,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
-        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);     
+        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
     } // end of FOR by files
         
     if (internalExit != 0)
