@@ -1169,7 +1169,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             if (line.stats.first && line.stats.second)
                             {
-                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 1027));
+                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3012));
                                 internalExit = 1;
                                 ok = true;
                                 break;
