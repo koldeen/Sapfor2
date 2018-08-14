@@ -1137,6 +1137,53 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
     }
+    else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
+    {
+        if (parallelRegions.size() > 1)
+        {
+            map<string, vector<ParallelRegion*>> crossedByFunction;
+            for (auto &reg : parallelRegions)
+            {
+                auto crossed = reg->GetCrossedFuncs();
+                for (auto &crossedF : crossed)
+                    crossedByFunction[crossedF].push_back(reg);
+            }
+
+            for (auto &crByF : crossedByFunction)
+            {
+                if (crByF.second.size() > 1)
+                {
+                    string regions = "";
+                    for (auto &reg : crByF.second)
+                        regions += "'" + reg->GetName() + "' ";
+                    __spf_print(1, "parallel regions %swere crossed by function '%s'\n", regions.c_str(), crByF.first.c_str());
+
+                    string message;
+                    __spf_printToBuf(message, "parallel regions %swere crossed by function '%s'", regions.c_str(), crByF.first.c_str());
+
+                    auto lines = crByF.second[0]->GetAllLines();
+                    bool ok = false;
+                    for (auto &linePair : lines)
+                    {                        
+                        for (auto &line : linePair.second)
+                        {
+                            if (line.stats.first && line.stats.second)
+                            {
+                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 1027));
+                                internalExit = 1;
+                                ok = true;
+                                break;
+                            }
+                        }
+                        if (ok)
+                            break;
+                    }
+                    if (ok == false)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
+        }
+    }
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;

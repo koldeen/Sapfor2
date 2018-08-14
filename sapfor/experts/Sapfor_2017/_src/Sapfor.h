@@ -53,6 +53,7 @@ enum passes {
 
     FILL_PAR_REGIONS_LINES,
     CHECK_PAR_REGIONS,
+    PRINT_PAR_REGIONS_ERRORS,
     RESOLVE_PAR_REGIONS,
     LOOP_DATA_DEPENDENCIES,
     INSERT_INCLUDES,
@@ -177,5 +178,6 @@ static void setPassValues()
     passNames[RESTORE_LOOP_FROM_ASSIGN_BACK] = "RESTORE_LOOP_FROM_ASSIGN_BACK";
     passNames[INLINE_PROCEDURES] = "INLINE_PROCEDURES";
     passNames[SHADOW_GROUPING] = "SHADOW_GROUPING";
+    passNames[PRINT_PAR_REGIONS_ERRORS] = "PRINT_PAR_REGIONS_ERRORS";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
