@@ -16,6 +16,7 @@ using std::pair;
 using std::set;
 using std::vector;
 using std::string;
+using std::to_string;
 using std::make_pair;
 
 static bool recursiveFindCall(SgExpression *exp, const string &funcName)
@@ -187,7 +188,7 @@ static void recursiveFill(SgExpression *exp,
                 {
                     vector<SgStatement*> declStatemets;
                     declaratedInStmt(arraySymbol, &declStatemets);
-                    allCommonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, fileName, arraySymbol, NULL, lines, declStatemets)));
+                    allCommonArrays.insert(it, make_pair(arrayName, ParallelRegionArray(arrayName, fileName, arraySymbol, NULL, lines, declStatemets)));
                 }
             }
             else
@@ -627,156 +628,59 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
     }
 }
 
-void printCheckRegions(const vector<ParallelRegion*> &regions, const set<string> &allUsedCommonArrays, const set<string> &allCommonFunctions, const map<string, ParallelRegionArray> &allCommonArrays)
-{
-    for (auto &region : regions)
-    {
-        string toPrint = "";
-        for (auto &elem : region->GetUsedLocalArrays())
-        {
-            toPrint += "\n  function '" + elem.first + "': ";
-            for (auto &arrayName : elem.second)
-            {
-                toPrint += arrayName + " ";
-            }
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
-
-        toPrint = "";
-        for (auto &elem : region->GetUsedCommonArrays())
-        {
-            toPrint += elem + " ";
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
-
-        toPrint = "";
-        for (auto &elem : region->GetCrossedFuncs())
-            toPrint += elem + " ";
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
-    }
-
-    string toPrint = "";
-    for (auto &elem : allUsedCommonArrays)
-        toPrint += elem + " ";
-
-    if (toPrint != "")
-        __spf_print(1, "all common arrays: %s\n", toPrint.c_str());
-
-    toPrint = "";
-    for (auto &elem : allCommonFunctions)
-        toPrint += elem + " ";
-
-    if (toPrint != "")
-        __spf_print(1, "all common functions: %s\n", toPrint.c_str());
-
-    // -------------------------------------
-
-    for (auto &region : regions)
-    {
-        string toPrint = "";
-        for (auto &funcArrays : region->GetLocalArrays())
-        {
-            toPrint += "\n  function '" + funcArrays.first + "':";
-            for (auto &nameArray : funcArrays.second)
-            {
-                toPrint += " " + nameArray.first;
-                toPrint += " ";
-                for (auto &lines : nameArray.second.getAllLines())
-                {
-                    toPrint += "[" + std::to_string(lines.lines.first);
-                    toPrint += "-" + std::to_string(lines.lines.second);
-                    toPrint += "]";
-                }
-            }
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[NEW TYPES][%s]: local arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
-
-        toPrint = "";
-        for (auto &elem : region->GetCommonArrays())
-        {
-            toPrint += elem.first + " ";
-        }
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: common arrays: %s\n", region->GetName().c_str(), toPrint.c_str());
-
-        toPrint = "";
-        for (auto &elem : region->GetCrossedFuncs())
-            toPrint += elem + " ";
-
-        if (toPrint != "")
-            __spf_print(1, "[%s]: crossed functions: %s\n", region->GetName().c_str(), toPrint.c_str());
-    }
-}
-
 int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const set<string> &allUsedCommonArrays, const set<string> &allCommonFunctions, const map<string, ParallelRegionArray> &allCommonArrays)
 {
-    FILE *file = fopen(fileName, "w");
-    if (file == NULL)
-    {
-        __spf_print(1, "can not open file %s\n", fileName);
-        return -1;
-    }
-
+    string outText = "";    
     for (auto &region : regions)
-    {
-        fprintf(file, "*** REGION '%s'\n", region->GetName().c_str());
-        fprintf(file, "  COMMON ARRAYS:");
-
+    {   
+        outText += "*** REGION '" + region->GetName() + "'\n";
+        outText += "  COMMON ARRAYS:";
+        
         for (auto &elem : region->GetUsedCommonArrays())
-            fprintf(file, " %s", elem.c_str());
+            outText += " " + elem;
 
-        fprintf(file, "\n");
-        fprintf(file, "  LOCAL ARRAYS in [FUNC, ARRAY]:\n");
-
+        outText += "\n";
+        outText += "  LOCAL ARRAYS in [FUNC, ARRAY]:\n";
+        
         for (auto &elem : region->GetUsedLocalArrays())
             for (auto &arrayName : elem.second)
-                fprintf(file, "    [%s, %s]\n", elem.first.c_str(), arrayName.c_str());
+                outText += "    [" + elem.first + ", " + arrayName + "]\n";                
 
-        fprintf(file, "  CROSSED FUNCTIONS:");
-
+        outText += "  CROSSED FUNCTIONS:";
+        
         for (auto &elem : region->GetCrossedFuncs())
-            fprintf(file, " %s", elem.c_str());
+            outText += " " + elem;
 
-        fprintf(file, "\n\n");
+        outText += "\n\n";
     }
 
-    fprintf(file, "*** SUMMARY\n");
-    fprintf(file, "  ALL GLOBAL ARRAYS:");
+    outText += "*** SUMMARY\n";
+    outText += "  ALL GLOBAL ARRAYS:";
 
-    for (auto &elem: allUsedCommonArrays)
-        fprintf(file, " %s", elem.c_str());
+    for (auto &elem : allUsedCommonArrays)
+        outText += " " + elem;
 
-    fprintf(file, "\n");
-    fprintf(file, "  ALL COMMON FUNCTIONS:");
+    outText += "\n";
+    outText += "  ALL COMMON FUNCTIONS:";
 
     for (auto &elem : allCommonFunctions)
-        fprintf(file, " %s", elem.c_str());
-
-    fprintf(file, "\n");
+        outText += " " + elem;
+    outText += "\n";
 
     // -------------------------------------
-    fprintf(file, "\nNEW TYPES:\n");
+    outText += "\nNEW TYPES:\n";
 
     for (auto &region : regions)
     {
-        fprintf(file, "*** REGION '%s'\n", region->GetName().c_str());
-        fprintf(file, "  COMMON ARRAYS:");
+        outText += "*** REGION '" + region->GetName() + "'\n";
+        outText += "  COMMON ARRAYS:";
 
         for (auto &elem : region->GetCommonArrays())
-            fprintf(file, " %s", elem.first.c_str());
+            outText += " " + elem.first;
 
-        fprintf(file, "\n");
-        fprintf(file, "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n");
-
+        outText += "\n";
+        outText += "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n";
+        
         for (auto &funcArrays : region->GetLocalArrays())
         {
             for (auto &nameArray : funcArrays.second)
@@ -784,37 +688,46 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
                 string toPrint = "";
                 for (auto &lines : nameArray.second.getAllLines())
                 {
-                    toPrint += "[" + std::to_string(lines.lines.first);
-                    toPrint += "-" + std::to_string(lines.lines.second);
+                    toPrint += "[" + to_string(lines.lines.first);
+                    toPrint += "-" + to_string(lines.lines.second);
                     toPrint += "]";
                 }
 
-                fprintf(file, "    [%s, %s, %s]\n", funcArrays.first.c_str(), nameArray.first.c_str(), toPrint.c_str());
+                outText += "    [" + funcArrays.first + ", " + nameArray.first + ", " + toPrint + "]\n";                
             }
         }
-
-        fprintf(file, "  CROSSED FUNCTIONS:");
+        outText += "  CROSSED FUNCTIONS:";
 
         for (auto &elem : region->GetCrossedFuncs())
-            fprintf(file, " %s", elem.c_str());
-
-        fprintf(file, "\n\n");
+            outText += " " + elem;
+        outText += "\n\n";
     }
 
-    fprintf(file, "*** SUMMARY\n");
-    fprintf(file, "  ALL GLOBAL ARRAYS:");
+    outText += "*** SUMMARY\n";
+    outText += "  ALL GLOBAL ARRAYS:";
 
     for (auto &elem : allCommonArrays)
-        fprintf(file, " %s", elem.first.c_str());
+        outText += " " + elem.first;
 
-    fprintf(file, "\n");
-    fprintf(file, "  ALL COMMON FUNCTIONS:");
+    outText += "\n";
+    outText += "  ALL COMMON FUNCTIONS:";
 
     for (auto &elem : allCommonFunctions)
-        fprintf(file, " %s", elem.c_str());
-
-    fprintf(file, "\n");
-
-    fclose(file);
+        outText += " " + elem;
+    outText += "\n";
+           
+    if (fileName == NULL)
+        __spf_print(1, "%s", outText.c_str());    
+    else
+    {
+        FILE *file = fopen(fileName, "w");
+        if (file == NULL)
+        {
+            __spf_print(1, "can not open file '%s'\n", fileName);
+            return -1;
+        }
+        fprintf(file, "%s", outText.c_str());
+        fclose(file);
+    }
     return 0;
 }

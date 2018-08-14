@@ -1051,8 +1051,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (keepFiles)
         {
-            printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
-            printCheckRegions(parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            int err = printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            if (err == -1)
+                internalExit = 1;
+            err = printCheckRegions(NULL, parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            if (err == -1)
+                internalExit = 1;
         }
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
@@ -1138,6 +1142,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     timeForPass = omp_get_wtime() - timeForPass;
     __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
 #endif
+
+    if (internalExit != 0)
+        throw - 1;
 
     return true;
 }
