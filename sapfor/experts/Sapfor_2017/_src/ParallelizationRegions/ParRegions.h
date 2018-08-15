@@ -11,7 +11,9 @@
 #include "../Distribution/Distribution.h"
 #include "../Utils/AstWrapper.h"
 
+#if __SPF
 #include "../Utils/SgUtils.h"
+#endif
 
 struct ParallelRegionLines
 {
@@ -39,12 +41,15 @@ struct ParallelRegionLines
             fprintf(fileOut, "\n");
     }
 
+    bool isImplicit() const { return stats.first == NULL || stats.second == NULL; }
+
     // <start, end> lines
     std::pair<int, int> lines;
     // <start, end> stats
     std::pair<Statement*, Statement*> stats;
 };
 
+#if __SPF
 struct ParallelRegionArray
 {
 private:
@@ -57,7 +62,7 @@ private:
 public:
     explicit ParallelRegionArray(const std::string &name, const std::string &fileName, SgSymbol *origSymbol, SgSymbol *copySymbol,
                                  const ParallelRegionLines &lines, std::vector<SgStatement*> &declStatements) :
-        name(name), fileName(fileName), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
+                                 name(name), fileName(fileName), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
     {
         allLines.push_back(lines);
     }
@@ -80,6 +85,7 @@ public:
 
     void setCopySymbol(SgSymbol *copySymbol) { this->copySymbol = copySymbol; }
 };
+#endif
 
 struct ParallelRegion
 {
@@ -115,12 +121,15 @@ public:
     void AddFuncCalls(const std::string &func)
     {
         functionsCall.insert(func);
+#if __SPF
         allFunctionsCall.insert(func);
+#endif
     }
 
+#if __SPF
     void AddAllFuncCalls(const std::string &func) { allFunctionsCall.insert(func); }
-
     void AddCrossedFunc(const std::string &func) { crossedFunctions.insert(func); }
+#endif
 
     int GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
@@ -151,19 +160,15 @@ public:
 
     const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
 
+#if __SPF
     const std::set<std::string>& GetAllFuncCalls() const { return allFunctionsCall; }
-
     const std::set<std::string>& GetCrossedFuncs() const { return crossedFunctions; }
-
     const std::map<std::string, std::set<std::string>>& GetUsedLocalArrays() const { return usedLocalArrays; }
-
     const std::map<std::string, std::map<std::string, ParallelRegionArray>>& GetLocalArrays() const { return localArrays; }
-
     const std::set<std::string>& GetUsedCommonArrays() const { return usedCommonArrays; }
-
     const std::map<std::string, ParallelRegionArray>& GetCommonArrays() const { return commonArrays; }
-
     const std::map<std::string, std::map<SgSymbol*, SgSymbol*>>& GetReplacedSymbols() const { return replacedSymbols; }
+    void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
 
     void AddUsedLocalArray(const std::string &functionName, const std::string &arrayName)
     {
@@ -196,9 +201,7 @@ public:
 
         itt->second.addLines(lines);
     }
-
-    void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
-
+    
     void AddCommonArray(const std::string &arrayName,
                         const std::string &fileName,
                         SgSymbol *origSymbol,
@@ -227,6 +230,7 @@ public:
         if (itt == it->second.end())
             it->second.insert(std::make_pair(origin, copy));
     }
+#endif
 
     bool HasThisLine(const int line, const std::string &file) const
     {
@@ -369,6 +373,7 @@ private:
     std::map<std::string, std::vector<ParallelRegionLines>> lines;
     std::set<std::string> functionsCall;
 
+#if __SPF
     // for RESOLVE_PAR_REGIONS
     std::set<std::string> allFunctionsCall;
     std::set<std::string> usedCommonArrays;
@@ -379,6 +384,7 @@ private:
     std::map<std::string, ParallelRegionArray> commonArrays; // array name -> array
     std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> array name -> array
     //
+#endif
 
     // for LOOP_ANALYZER_DATA_DIST
     DIST::GraphCSR<int, double, attrType> G;

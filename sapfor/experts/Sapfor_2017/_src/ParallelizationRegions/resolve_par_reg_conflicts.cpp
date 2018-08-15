@@ -154,11 +154,6 @@ static bool isInCommon(const map<string, CommonBlock> &commonBlocks, const strin
     return false;
 }
 
-static bool isImplicit(const ParallelRegionLines &regionLines)
-{
-    return regionLines.stats.first == NULL && regionLines.stats.second == NULL;
-}
-
 static void recursiveFill(SgExpression *exp,
                           ParallelRegion *region,
                           const ParallelRegionLines &lines,
@@ -224,7 +219,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
                     string functionName = "";
 
                     // implicit lines
-                    if (isImplicit(regionLines))
+                    if (regionLines.isImplicit())
                     {
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                         end = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.second);
@@ -235,7 +230,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
 
                     functionName = iterator->symbol()->identifier();
 
-                    if (isImplicit(regionLines))
+                    if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                     else
                         iterator = regionLines.stats.first;
@@ -307,11 +302,11 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
         {
             for (auto &regionLine : fileLines.second)
             {
-                if (!isImplicit(regionLine))
+                if (!regionLine.isImplicit())
                 {
                     for (auto &regionLine2 : fileLines.second)
                     {
-                        if (isImplicit(regionLine2) && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
+                        if (regionLine2.isImplicit() && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
                                         fileLines.first.c_str(), regionLine2.lines.first);
@@ -510,7 +505,6 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
         if (exp->symbol() && exp->symbol()->identifier() == from)
         {
             exp->setSymbol(to);
-
             __spf_print(1, "replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
         }
 
@@ -540,7 +534,7 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                     for (auto &regionLines : fileLines.second)
                     {
                         // explicit lines
-                        if (!isImplicit(regionLines))
+                        if (!regionLines.isImplicit())
                         {
                             SgStatement *iterator = regionLines.stats.first->GetOriginal();
                             SgStatement *end = regionLines.stats.second->GetOriginal()->lexNext();
