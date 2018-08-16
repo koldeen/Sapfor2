@@ -527,9 +527,8 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
     for (int f = 0; f < file->numberOfFunctions(); ++f)
     {
         SgStatement *func = file->functions(f);
-        string containsPrefix = getContainsPrefix(func);
 
-        auto it = mapF.find(containsPrefix + func->symbol()->identifier());
+        auto it = mapF.find(((SgProgHedrStmt*)func)->nameWithContains());
         if (it == mapF.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 

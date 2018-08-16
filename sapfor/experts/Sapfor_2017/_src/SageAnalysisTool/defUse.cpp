@@ -55,6 +55,90 @@ extern int isSymbolIntrinsic(SgSymbol *symb);
 // computes the definition for each file;
 /////////////////////////////////////////////////////////////////////
 
+static inline bool isVarRef(SgExpression *ex)
+{
+    const int var = ex->variant();
+    return (var == ARRAY_REF || var == VAR_REF || var == ARRAY_OP);
+}
+
+static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL);
+
+static void fillUse(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+{
+    if (ex)
+    {
+        if (isVarRef(ex))
+        {
+            useL.push_back(ex);
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+        else if (ex->variant() == FUNC_CALL)
+            fillDef(ex, useL, defL);
+        else
+        {
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+    }
+}
+
+static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+{
+    if (ex)
+    {
+        if (isVarRef(ex))
+        {
+            useL.push_back(ex);
+            defL.push_back(ex);
+
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+        else if (ex->variant() == FUNC_CALL && !isSymbolIntrinsic(ex->symbol()))
+        {
+            SgFunctionCallExp *call = (SgFunctionCallExp*)ex;
+            for (int z = 0; z < call->numberOfArgs(); ++z)
+            {
+                SgExpression *arg = call->arg(z);
+                if (isVarRef(arg))
+                {
+                    defL.push_back(arg);
+                    useL.push_back(arg);
+                }
+
+                fillUse(arg->lhs(), useL, defL);
+                fillUse(arg->rhs(), useL, defL);
+            }
+        }
+        else
+        {
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+    }
+}
+
+SgExpression* makeList(const std::vector<SgExpression*> &vec)
+{
+    if (vec.size() == 0)
+        return NULL;
+    
+    SgExpression *list = new SgExpression(EXPR_LIST);
+    SgExpression *r_list = list;
+    for (int i = 0; i < vec.size(); ++i)
+    {
+        list->setLhs(vec[i]);
+        if (i != vec.size() - 1)
+        {
+            list->setRhs(new SgExpression(EXPR_LIST));
+            list = list->rhs();
+        }
+    }
+
+    return r_list;
+}
+
 //old variant
 static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
 {
@@ -323,59 +407,45 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
         pt = callStat->expr(0);
         if (pt)
         {
-            *use = pt->symbRefs();
+            /**use = pt->symbRefs();
             // if not an intrinsic, needs to be added to the def list;
             if (!isSymbolIntrinsic(callStat->name()))
                 *def = pt->symbRefs(); 
+            printf("old use:\n");
+            recExpressionPrint(*use);
+            printf("old def:\n");
+            recExpressionPrint(*def);*/
 
-            SgExpression *list = *use;
-            std::vector<SgExpression*> newList;
-            bool needUpdate = false;
-
-            while (list)
+            callStat->unparsestdout();
+            std::vector<SgExpression*> defL;
+            std::vector<SgExpression*> useL;
+            for (int z = 0; z < callStat->numberOfArgs(); ++z)
             {
-                auto ex1 = list->lhs();
-                if (!isSymbolIntrinsic(ex1->symbol()))
-                    newList.push_back(list);
-                else
-                    needUpdate = true;
-                list = list->rhs();
+                SgExpression *arg = callStat->arg(z);
+                if (arg->variant() == VAR_REF || arg->variant() == ARRAY_REF || arg->variant() == ARRAY_OP)
+                {
+                    defL.push_back(arg);
+                    useL.push_back(arg);
+                }
+                
+                fillUse(arg->lhs(), useL, defL);
+                fillUse(arg->rhs(), useL, defL);
             }
 
-            if (needUpdate)
-                for (int i = 0; i < newList.size() - 1; ++i)
-                    newList[i]->setRhs(newList[i + 1]);
-            *use = list;
+            *use = makeList(useL);
+            *def = makeList(defL);
 
-            list = *def;
-            newList.clear();
-            needUpdate = false;
-
-            while (list)
-            {
-                auto ex1 = list->lhs();
-                if (!isSymbolIntrinsic(ex1->symbol()))
-                    newList.push_back(list);
-                else
-                    needUpdate = true;
-                list = list->rhs();
-            }
-
-            if (needUpdate)
-                for (int i = 0; i < newList.size() - 1; ++i)
-                    newList[i]->setRhs(newList[i + 1]);
-            *def = list;
-
-            /*pt->unparsestdout();
-            printf("\n");
-            printf("%s %d\n", callStat->name()->identifier(), stmt->lineNumber());
-            if (*use)
-            {
-                (*use)->unparsestdout();
-                printf("\n");
-            }
-            printf("\n");*/
-        }        
+            /*printf("new use:\n");
+            recExpressionPrint(*use);
+            printf("new def:\n");
+            recExpressionPrint(*def);
+            printf("");*/
+        }
+        else
+        {
+            *def = NULL;
+            *use = NULL;
+        }
         break;
     case GOTO_NODE:
     case STOP_STAT:

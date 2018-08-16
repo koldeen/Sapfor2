@@ -959,6 +959,19 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
         ExpandExpressions(CGraph);
         BuildUnfilteredReachingDefinitions(CGraph);
     }
+
+    for (auto &stmt : *curFileReplacements)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            auto expr = stmt.first->expr(i);
+            if (expr)
+            {
+                calculate(expr);
+                stmt.first->setExpression(i, *expr);
+            }
+        }
+    }
 }
 
 void deleteGraphKeeper()

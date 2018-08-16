@@ -814,6 +814,13 @@ static int isParameterOneOfThese(const string& name, const vector<string>& names
     return parameterOfFunctionItself;
 }
 
+#define DEF_T 0
+#define USE_T 1
+#define DEF_USE_T 2
+
+static void processPartOfAssign(int type, SgExpression *exp, vector<DefUseList> &currentLists, SgFile *file, SgStatement *inStat, 
+                                vector<string> &parameterNames, pair<SgSymbol*, string> underCall, int funcPos);
+
 static void addSymbolsToDefUse(const int type, SgExpression *ex, vector<DefUseList> &currentList, 
                                pair<SgSymbol*, string> underCall, int funcPos,
                                SgFile *file, SgStatement *inStat, vector<string>& parameterNames)
@@ -834,8 +841,14 @@ static void addSymbolsToDefUse(const int type, SgExpression *ex, vector<DefUseLi
             underCall = make_pair(ex->symbol(), string(ex->symbol()->identifier()));
             funcPos = 0;
 
+            bool isIntrinsic = isIntrinsicFunctionName(ex->symbol()->identifier());
             for (SgExpression *list = ex->lhs(); list; list = list->rhs(), funcPos++)
-                addSymbolsToDefUse(type, list->lhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+            {
+                if (!isIntrinsic)
+                    processPartOfAssign(DEF_USE_T, list->lhs(), currentList, file, inStat, parameterNames, underCall, funcPos);
+                else
+                    addSymbolsToDefUse(type, list->lhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+            }
             next = false;
         }
 
@@ -847,57 +860,70 @@ static void addSymbolsToDefUse(const int type, SgExpression *ex, vector<DefUseLi
     }    
 }
 
-static void processPartOfAssign(SgExpression *exp, map<string, vector<DefUseList>> &currentLists, SgFile *file, SgStatement *inStat, vector<string> &parameterNames)
+static void processPartOfAssign(int type, SgExpression *exp, vector<DefUseList> &currentList, SgFile *file, SgStatement *inStat,
+                                vector<string> &parameterNames, pair<SgSymbol*, string> underCall, int funcPos)
 {
     if (exp->symbol() && exp->variant() == VAR_REF) // simple assign
     {
-        SgSymbol *tmp = exp->symbol();
-        for (auto &list : currentLists)
+        SgSymbol *tmp = exp->symbol();        
+        string name = string(tmp->identifier());
+
+        if (type == DEF_USE_T)
         {
-            string name = string(tmp->identifier());
-            list.second.push_back(DefUseList(0, inStat, exp, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, name), -1, isParameterOneOfThese(name, parameterNames)));
+            currentList.push_back(DefUseList(DEF_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+            currentList.push_back(DefUseList(USE_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
         }
+        else
+            currentList.push_back(DefUseList(DEF_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
     }
     //TODO
     else // array ref and etc.
     {
-        vector<DefUseList> tmpList;
         if (exp->variant() == ARRAY_OP)
         {            
             SgSymbol *tmp = exp->lhs()->symbol();
-            for (auto &list : currentLists)
-            {
-                string name = string(tmp->identifier());
-                list.second.push_back(DefUseList(0, inStat, exp, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, name), -1, isParameterOneOfThese(name, parameterNames)));
-            }
+            string name = string(tmp->identifier());
 
-            addSymbolsToDefUse(1, exp->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, inStat, parameterNames);
+            if (type == DEF_USE_T)
+            {
+                currentList.push_back(DefUseList(DEF_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+                currentList.push_back(DefUseList(USE_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+            }
+            else
+                currentList.push_back(DefUseList(type, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+            
+            addSymbolsToDefUse(1, exp->lhs()->lhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+            addSymbolsToDefUse(1, exp->lhs()->rhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
         }
         else if (exp->variant() == ARRAY_REF)
         {
-            SgSymbol *tmp = exp->symbol();
-            for (auto &list : currentLists)
+            SgSymbol *tmp = exp->symbol();            
+            string name = string(tmp->identifier());
+
+            if (type == DEF_USE_T)
             {
-                string name = string(tmp->identifier());
-                list.second.push_back(DefUseList(0, inStat, exp, file, make_pair((SgSymbol*)NULL, string("")), make_pair(tmp, name), -1, isParameterOneOfThese(name, parameterNames)));
+                currentList.push_back(DefUseList(DEF_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+                currentList.push_back(DefUseList(USE_T, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
             }
-
-            addSymbolsToDefUse(1, exp->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, inStat, parameterNames);
+            else
+                currentList.push_back(DefUseList(type, inStat, exp, file, underCall, make_pair(tmp, name), funcPos, isParameterOneOfThese(name, parameterNames)));
+            
+            addSymbolsToDefUse(1, exp->lhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+            addSymbolsToDefUse(1, exp->rhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
         }
-
-        for (auto &list : currentLists)
-            for (auto &elem : tmpList)
-                list.second.push_back(elem);
+        else
+        {
+            addSymbolsToDefUse(1, exp->lhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+            addSymbolsToDefUse(1, exp->rhs(), currentList, underCall, funcPos, file, inStat, parameterNames);
+        }
     }
 }
 
-string getContainsPrefix(SgStatement *st)
+static void inline addToLists(map<string, vector<DefUseList>> &currentLists, const vector<DefUseList> &tmpList)
 {
-    string containsPrefix = "";
-    SgStatement *st_cp = st->controlParent();
-    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
-        containsPrefix = st_cp->symbol()->identifier() + string(".");
-    return containsPrefix;
+    for (auto &list : currentLists)
+        for (auto &elem : tmpList)
+            list.second.push_back(elem);
 }
 
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -923,7 +949,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         SgStatement *end = start->lastNodeOfStmt();
         int pos;
 
-        auto founded = funcToFuncInfo.find(getContainsPrefix(start) + start->symbol()->identifier());
+        auto founded = funcToFuncInfo.find(((SgProgHedrStmt*)start)->nameWithContains());
         start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
@@ -940,15 +966,10 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
                 switch (st->variant())
                 {
                 case ASSIGN_STAT:
-                    processPartOfAssign(st->expr(0), currentLists, file, st, parameterNames);
+                    processPartOfAssign(DEF_T, st->expr(0), tmpList, file, st, parameterNames, make_pair((SgSymbol*)NULL, string("")), -1);
+                    addSymbolsToDefUse(USE_T, st->expr(1), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
 
-                    addSymbolsToDefUse(1, st->expr(0)->lhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-                    addSymbolsToDefUse(1, st->expr(1)->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-
-                    addSymbolsToDefUse(1, st->expr(1), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-                    for (auto &list : currentLists)
-                        for (auto &elem : tmpList)
-                            list.second.push_back(elem);
+                    addToLists(currentLists, tmpList);                    
                     break;
                 case FOR_NODE:
                     if (st->symbol())
@@ -962,11 +983,33 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
                         }
 
                     for (int i = 0; i < 3; ++i)
-                        addSymbolsToDefUse(1, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-
-                    for (auto &list : currentLists)
-                        for (auto &elem : tmpList)
-                            list.second.push_back(elem);
+                        addSymbolsToDefUse(USE_T, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
+                    addToLists(currentLists, tmpList);
+                    break;                
+                case READ_STAT:
+                    {
+                        SgInputOutputStmt *io = isSgInputOutputStmt(st);
+                        auto list = io->itemList();
+                        int pos = 0;
+                        while (list)
+                        {
+                            if (list->lhs())
+                                processPartOfAssign(DEF_T, list->lhs(), tmpList, file, st, parameterNames, make_pair(io->symbol(), string("READ")), pos);
+                            pos++;
+                            list = list->rhs();
+                        }
+                    }
+                    addToLists(currentLists, tmpList);
+                    break;
+                case PROC_STAT:
+                    pos = 0;
+                    for (SgExpression *ex = st->expr(0); ex; ex = ex->rhs(), pos++)
+                        processPartOfAssign(DEF_USE_T, ex->lhs(), tmpList, file, st, parameterNames, make_pair(st->symbol(), string(st->symbol()->identifier())), pos);
+                    addToLists(currentLists, tmpList);
+                    break;
+                case ENTRY_STAT:
+                    currentLists[string(st->symbol()->identifier())] = vector<DefUseList>();
+                    break;
                 case LOGIF_NODE:
                 case CONT_STAT:
                 case IF_NODE:
@@ -988,46 +1031,10 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
                 case COMGOTO_NODE:
                 case WRITE_STAT:
                 case PRINT_STAT:
-                    for (int i = 0; i < 3; ++i)
-                        addSymbolsToDefUse(1, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-
-                    for (auto &list : currentLists)
-                        for (auto &elem : tmpList)
-                            list.second.push_back(elem);
-                    break;
-                case READ_STAT:
-                    {
-                        SgInputOutputStmt *io = isSgInputOutputStmt(st);
-                        auto list = io->itemList();
-                        while (list)
-                        {
-                            if (list->lhs())
-                            {
-                                processPartOfAssign(list->lhs(), currentLists, file, st, parameterNames);
-                                addSymbolsToDefUse(1, list->lhs()->lhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-                                addSymbolsToDefUse(1, list->lhs()->rhs(), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
-                            }
-                            list = list->rhs();
-                        }
-                    }
-
-                    for (auto &list : currentLists)
-                        for (auto &elem : tmpList)
-                            list.second.push_back(elem);
-                    break;
-                case PROC_STAT:
-                    pos = 0;
-                    for (SgExpression *ex = st->expr(0); ex; ex = ex->rhs(), pos++)
-                        addSymbolsToDefUse(1, ex->lhs(), tmpList, make_pair(st->symbol(), string(st->symbol()->identifier())), pos, file, st, parameterNames);
-
-                    for (auto &list : currentLists)
-                        for (auto &elem : tmpList)
-                            list.second.push_back(elem);
-                    break;
-                case ENTRY_STAT:
-                    currentLists[string(st->symbol()->identifier())] = vector<DefUseList>();
-                    break;
                 default:
+                    for (int i = 0; i < 3; ++i)
+                        addSymbolsToDefUse(USE_T, st->expr(i), tmpList, make_pair((SgSymbol*)NULL, string("")), -1, file, st, parameterNames);
+                    addToLists(currentLists, tmpList);
                     break;
                 }
             }
@@ -1048,6 +1055,10 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         }
     }
 }
+
+#undef DEF_T
+#undef USE_T
+#undef DEF_USE_T
 
 extern map<string, vector<DefUseList>> defUseByFunctions;
 set<string> getAllDefVars(const string &funcName)

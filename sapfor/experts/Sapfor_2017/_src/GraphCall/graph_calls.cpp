@@ -55,7 +55,7 @@ static void correctNameIfContains(SgStatement *call, SgExpression *exCall, strin
             SgProgHedrStmt *f = (SgProgHedrStmt*)func;
             //XXX
             if (f->numberOfParameters() == numPar)
-                name = prefix  + name;
+                name = prefix + name;
             break;
         }
     }
@@ -601,25 +601,29 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
-        string containsPrefix = getContainsPrefix(st);
 
+        string containsPrefix = "";
+        SgStatement *st_cp = st->controlParent();
+        if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+            containsPrefix = st_cp->symbol()->identifier() + string(".");
+        
         string currFunc = "";
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-            currFunc = containsPrefix + progH->symbol()->identifier();
+            currFunc = progH->nameWithContains();
             __spf_print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-            currFunc = containsPrefix + procH->symbol()->identifier();
+            currFunc = procH->nameWithContains();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            currFunc = containsPrefix + funcH->symbol()->identifier();
+            currFunc = funcH->nameWithContains();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else
@@ -721,7 +725,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
 
             if (st->variant() == CONTAINS_STMT)
                 break;
-
+                        
             const string prefix = containsPrefix == "" ? currFunc + "." : containsPrefix;
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)

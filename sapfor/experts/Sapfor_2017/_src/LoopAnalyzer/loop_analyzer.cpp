@@ -670,7 +670,7 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
 
         while (dimList)
         {
-            SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs());
+            SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs()->copyPtr());
             if (res && res->variant() == INT_VAL)
             {
                 sizes.push_back(make_pair(1, res->valueInteger()));
@@ -742,7 +742,7 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
                     }
                     else
                     {
-                        SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs());
+                        SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs()->copyPtr());
 
                         if (result->lhs())
                         {

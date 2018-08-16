@@ -515,6 +515,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             if (st->variant() == ASSIGN_STAT)
             {
                 SgStatement *conv = convertFromAssignToLoop(st, file, messagesForFile);
+
                 if (conv)
                 {
                     st->insertStmtBefore(*conv, *st->controlParent());
