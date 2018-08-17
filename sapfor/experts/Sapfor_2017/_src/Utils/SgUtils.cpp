@@ -171,12 +171,15 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                         allIncludeFiles.insert(locSt->fileName());
                     locSt = locSt->lexNext();
                 }
-                lines.second = locSt->lineNumber();
-                st = locSt;
 
-                auto prev = locSt->lexPrev();
-                if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
-                    locSt = prev;
+                if (locSt)
+                {
+                    lines.second = locSt->lineNumber();
+                    st = locSt;
+                    auto prev = locSt->lexPrev();
+                    if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
+                        locSt = prev;
+                }
 
                 if (locSt && ifIntevalExists(it->second.second, lines))
                 {

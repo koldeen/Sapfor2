@@ -84,6 +84,12 @@ std::map<std::string, std::vector<int>> dvmDirErrors; // file->lines
 
 //for DEF USE
 map<string, vector<DefUseList>> defUseByFunctions;
+//
+
+//for EXPR SUBSTITUTION
+std::map<std::string, std::vector<FuncInfo*>> subs_allFuncInfo; // file -> Info  
+std::vector<ParallelRegion*> subs_parallelRegions;
+//
 
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;

@@ -24,9 +24,10 @@ void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSym
 int CalculateInteger(SgExpression *expr, int &result);
 SgExpression* CalculateInteger(SgExpression *expr);
 void expressionAnalyzer(SgFile *file,
-        std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
-        std::map<std::string, CommonBlock> &commonBlocks,
-        std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);
+        const std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
+        const std::map<std::string, CommonBlock> &commonBlocks,
+        const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
+        const std::vector<ParallelRegion*> &regions);
 
 void calculate(SgExpression *&exp);
 void replaceConstatRec(SgExpression *&exp);

@@ -30,6 +30,14 @@ static map<string, ParallelRegion*> regionByName;
 
 static int regionIdConuter = 1;
 
+void clearRegionStaticData()
+{
+    regionIdByName.clear();
+    regionByName.clear();
+    regionIdConuter = 1;
+}
+
+
 static inline void extendRegionInfo(SgStatement *st, map<string, pair<Statement*, Statement*>> &startEnd, map<string, pair<int, int>> &lines_, bool addEndSt = false)
 {
     auto it_st_en = startEnd.find(st->fileName());
@@ -145,7 +153,7 @@ static void filterUserDirectives(ParallelRegion *currReg, set<string> usedArrayI
     currReg->AddUserDirectives(userDvmShadowDirsF, DVM_SHADOW_DIR);
 }
 
-void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> &loops)
+void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops)
 {
     //fill default
     SgStatement *st = file->firstStatement();
@@ -162,7 +170,8 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
     defaultR->AddLines(lines, file->filename());
 
     map<int, LoopGraph*> allLoopsInFile;
-    createMapLoopGraph(allLoopsInFile, &loops);
+    if (loops)
+        createMapLoopGraph(allLoopsInFile, loops);
 
     //fill user's
     int funcNum = file->numberOfFunctions();
@@ -333,7 +342,7 @@ static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops
         getAllLoops(elem->childs, loops);
 }
 
-void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<LoopGraph*>> &loopGraph)
+void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<LoopGraph*>> *loopGraph)
 {
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
@@ -394,15 +403,18 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         regions.erase(regions.begin());
     }
 
-    //fill regions for loop 
-    vector<LoopGraph*> loops;
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        getAllLoops(it->second, loops);
-
-    for (auto &loop : loops)
+    if (loopGraph)
     {
-        const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
-        loop->region = getRegionByLine(regions, loop->fileName, currLine);
+        //fill regions for loop 
+        vector<LoopGraph*> loops;
+        for (auto loop : *loopGraph)
+            getAllLoops(loop.second, loops);
+
+        for (auto &loop : loops)
+        {
+            const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
+            loop->region = getRegionByLine(regions, loop->fileName, currLine);
+        }
     }
 }
 
