@@ -537,7 +537,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                          allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
         else if (curr_regime == VERIFY_EQUIVALENCE)
-            verifyOK = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+        {
+            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
@@ -602,8 +605,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == VERIFY_COMMON)
-			verifyOK = CommonBlockChecker(file, file_name, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
-
+        {
+            bool res = CommonBlockChecker(file, file_name, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
