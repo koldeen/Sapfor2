@@ -374,12 +374,16 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         int *valueSubs = new int[2];
         valueSubs[0] = coefs.first;
         valueSubs[1] = coefs.second;
-#ifdef _WIN32
+#ifdef __SPF
         addToCollection(__LINE__, __FILE__, valueSubs, 2);
 #endif
-        subscr->addAttribute(INT_VAL, valueSubs, sizeof(int*));
-        if (position != -1 && allPositions.size() == 1 && position < parentLoops.size())
-            subscr->addAttribute(FOR_NODE, parentLoops[position], sizeof(SgStatement));
+        const vector<int*> &coefs = getAttributes<SgExpression*, int*>(subscr, set<int>{ INT_VAL });
+        if (coefs.size() == 0)
+        {
+            subscr->addAttribute(INT_VAL, valueSubs, sizeof(int*));
+            if (position != -1 && allPositions.size() == 1 && position < parentLoops.size())
+                subscr->addAttribute(FOR_NODE, parentLoops[position], sizeof(SgStatement));
+        }
     }
 
     return allPositions;
@@ -451,9 +455,13 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     else if (side == RIGHT)
     {
         SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
+        
         if (ifUnknownFound && (currRegime == REMOTE_ACC))
         {
-            if (sumMatched != numOfSubs || maxMatched != 1 || sumMatched != parentLoops.size())
+            if (sumMatched != numOfSubs || 
+                maxMatched != 1 || 
+                (sumMatched != parentLoops.size() && sumMatched != numOfSubs)
+                )
             {
                 for (int i = 0; i < wasFound.size(); ++i)
                     if (wasFound[i] != 1)
@@ -662,7 +670,7 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
 
         while (dimList)
         {
-            SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs());
+            SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs()->copyPtr());
             if (res && res->variant() == INT_VAL)
             {
                 sizes.push_back(make_pair(1, res->valueInteger()));
@@ -706,7 +714,7 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
                         {
                             if (data->variant() != ALLOCATE_STMT)
                                 continue;
-                            
+
                             SgExpression *list = data->expr(0);
                             while (list)
                             {
@@ -724,6 +732,8 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
                             }
                         }
                     }
+                    else // set next in list 
+                        alloc = alloc->rhs();
 
                     if (consistInAllocates != 1)
                     {
@@ -732,7 +742,8 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
                     }
                     else
                     {
-                        SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs());
+                        SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs()->copyPtr());
+
                         if (result->lhs())
                         {
                             err = CalculateInteger(result->lhs(), tmpRes);

@@ -71,49 +71,60 @@ static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<
 //from insert_directive.cpp
 extern map<string, set<string>> dynamicDirsByFile;
 
-void deleteAllAllocatedData()
+void deleteAllAllocatedData(bool enable)
 {
-#ifdef _WIN32
-    for (int i = 0; i < parallelRegions.size(); ++i)
-        delete parallelRegions[i];
+	if (enable)
+	{
+		for (int i = 0; i < parallelRegions.size(); ++i)
+			delete parallelRegions[i];
+		parallelRegions.clear();
 
-    shortFileNames.clear();
-    for (auto &it : allFuncInfo)
-        for (auto &toDel : it.second)
-            delete toDel;
-    allFuncInfo.clear();
+		for (int i = 0; i < subs_parallelRegions.size(); ++i)
+			delete subs_parallelRegions[i];
+		subs_parallelRegions.clear();
 
-    for (auto &elem : temporaryAllFuncInfo)
-        for (auto &toDel : elem.second)
-            delete toDel;
-    temporaryAllFuncInfo.clear();
+		shortFileNames.clear();
+		for (auto &it : allFuncInfo)
+			for (auto &toDel : it.second)
+				delete toDel;
+		allFuncInfo.clear();
 
-    for (auto &loop : loopGraph)
-        for (auto &toDel : loop.second)
-            delete toDel;
-    loopGraph.clear();
+		for (auto &it : subs_allFuncInfo)
+			for (auto &toDel : it.second)
+				delete toDel;
+		subs_allFuncInfo.clear();
 
-    for (auto &toDel : depInfoForLoopGraph)
-        delete toDel.second;
-    depInfoForLoopGraph.clear();
+		for (auto &elem : temporaryAllFuncInfo)
+			for (auto &toDel : elem.second)
+				delete toDel;
+		temporaryAllFuncInfo.clear();
 
-    for (auto &toDel : declaratedArrays)
-    {
-        delete toDel.second.first;
-        delete toDel.second.second;
-    }
-    declaratedArrays.clear();
+		for (auto &loop : loopGraph)
+			for (auto &toDel : loop.second)
+				delete toDel;
+		loopGraph.clear();
 
-    commentsToInclude.clear();
-    SPF_messages.clear();
+		for (auto &toDel : depInfoForLoopGraph)
+			delete toDel.second;
+		depInfoForLoopGraph.clear();
 
-    for (int i = 0; i < EMPTY_ALGO; ++i)
-        delete []ALGORITHMS_DONE[i];
-    delete project;
+		for (auto &toDel : declaratedArrays)
+		{
+			delete toDel.second.first;
+			delete toDel.second.second;
+		}
+		declaratedArrays.clear();
 
-    deleteGraphKeeper();
-    deletePointerAllocatedData();
-#endif
+		commentsToInclude.clear();
+		SPF_messages.clear();
+
+		for (int i = 0; i < EMPTY_ALGO; ++i)
+			delete[]ALGORITHMS_DONE[i];
+		delete project;
+
+        deleteGraphKeeper();
+        deletePointerAllocatedData();
+	}
 }
 
 template<typename objT>
@@ -364,12 +375,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == LOOP_GRAPH)        
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
         else if (curr_regime == VERIFY_ENDDO)
-            verifyOK = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
+        {
+            bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == VERIFY_INCLUDE)
-            verifyOK = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
+        {
+            bool res = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
-            verifyOK = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
+            bool res = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
+            verifyOK &= res;
             if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 printDvmActiveDirsErrors();
         }
@@ -554,7 +572,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
             arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
-            fillRegionLines(file, parallelRegions, loopGraph[file_name]);
+            fillRegionLines(file, parallelRegions, &(loopGraph[file_name]));
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
@@ -614,7 +632,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
             removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
         else if (curr_regime == SUBST_EXPR)
-            expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo);
+        {
+            expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo, subs_parallelRegions);
+            // analyze again for substituted expressions
+            arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
+        }
         else if (curr_regime == REVERT_SUBST_EXPR)
             revertReplacements(file->filename(), true);
         else if (curr_regime == CREATE_NESTED_LOOPS)
@@ -683,8 +705,26 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             restoreConvertedLoopForParallelLoops(file);
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
             restoreConvertedLoopForParallelLoops(file, true);
+        else if (curr_regime == SHADOW_GROUPING)
+        {
+            //TODO for all parallel regions
+            if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
+            {
+                for (int z = 0; z < parallelRegions.size(); ++z)
+                    GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
+            }
+        }
+        else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
+        {
+            auto it = subs_allFuncInfo.find(file_name);
+            if (it == subs_allFuncInfo.end())
+                functionAnalyzer(file, subs_allFuncInfo);
 
-        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);     
+            fillRegionLines(file, subs_parallelRegions);
+        }
+
+        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
+
     } // end of FOR by files
         
     if (internalExit != 0)
@@ -1020,7 +1060,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
     {
-        fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
+        fillRegionLinesStep2(parallelRegions, allFuncInfo, &loopGraph);
 
         if (ignoreDvmChecker == 1)
         {
@@ -1108,6 +1148,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
+    }
+    else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
+    {
+        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages);
+        fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
+        clearRegionStaticData();
     }
 
 #if _WIN32
@@ -1215,8 +1261,8 @@ static SgProject* createProject(const char *proj_name)
     SgProject *project = new SgProject(proj_name);
     addNumberOfFileToAttribute(project);
 
-    ParallelRegion *defaultParRegion = new ParallelRegion(0, "DEFAULT");
-    parallelRegions.push_back(defaultParRegion);
+    parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
+    subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     return project;
 }
 
@@ -1285,6 +1331,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(CREATE_REMOTES, proj_name, folderName);
 
             runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+            runPass(SHADOW_GROUPING, proj_name, folderName);
             runPass(TRANSFORM_SHADOW_IF_FULL, proj_name, folderName);
 
             runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
@@ -1301,6 +1348,18 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
             runPass(CLEAR_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN_BACK, proj_name, folderName);
+
+            //clear shadow grouping
+            for (auto &funcbyFile : allFuncInfo)
+            {
+                for (auto &func : funcbyFile.second)
+                {
+                    func->shadowTree = NULL;
+                    for (auto &sh : func->allShadowNodes)
+                        delete sh.second;
+                    func->allShadowNodes.clear();
+                }
+            }
         }
     }
         break;
@@ -1351,6 +1410,11 @@ int main(int argc, char **argv)
 #endif
 
     int leakMemDump = 0;
+#if _WIN32
+    bool withDel = true;
+#else
+    bool withDel = false;
+#endif
     try
     {
         setPassValues();
@@ -1462,6 +1526,8 @@ int main(int argc, char **argv)
                     keepDvmDirectives = 1;
                 else if (string(curr_arg) == "-allVars")
                     genAllVars = 1;
+                else if (string(curr_arg) == "-delLeak")
+                    withDel = true;
                 else if (string(curr_arg) == "-Var" || string(curr_arg) == "-var")
                 {
                     //User sees variants starting from 1, internally they start from 0
@@ -1501,7 +1567,7 @@ int main(int argc, char **argv)
         printf("exception occurred\n");
     }
 
-    deleteAllAllocatedData();
+    deleteAllAllocatedData(withDel);
 #if _WIN32 && _DEBUG
     if (leakMemDump)
     {

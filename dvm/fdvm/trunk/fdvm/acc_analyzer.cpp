@@ -3,6 +3,8 @@
 #include "dvm.h"
 #include "acc_analyzer.h"
 #include "calls.h"
+#include <fstream>
+#include <stdint.h>
 
 using std::string;
 using std::vector;
@@ -13,6 +15,7 @@ using std::set;
 using std::pair;
 
 #ifdef __SPF
+
 static void getText(const char *s, const char *t, int num, SgStatement *stmt, string &toPrint, int &line)
 {
     char buf[1024];
@@ -57,7 +60,10 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
     return ret;
 }
 
-inline void Warning(const char *s, const char *t, int num, SgStatement *stmt) 
+template<typename fillType>
+void fillPrivatesFromComment(SgStatement *st, std::set<fillType> &privates);
+
+inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
 {
     //TODO: is it correct?
     if (stmt == NULL)
@@ -71,8 +77,13 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
             if (ifVarIsLoopSymb(found, t))
                 return;
         }
+
+        set<string> privates;
+        fillPrivatesFromComment(stmt, privates);
+        if (privates.find(t) != privates.end())
+            return;
     }
-    
+
     string toPrint;
     int line;
     getText(s, t, num, stmt, toPrint, line);
@@ -313,12 +324,23 @@ void Private_Vars_Analyzer(SgStatement* start)
     ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, start, &calls, &commons);
     calls.AssociateGraphWithHeader(start, CGraph);
     commons.MarkEndOfCommon(currentProcedure);
+
+    //test: graphvis
+    /*
+    std::fstream fs;
+    fs.open("graph.txt", std::fstream::out);
+    fs << CGraph->GetVisualGraph(&calls);
+    fs.close();
+    */
+
     currentProcedure->graph->getPrivate();
     //calls.printControlFlows();
     //stage 2: data flow analysis
     FillCFGSets(CGraph);
     //stage 3: fulfilling loop data
     FillPrivates(CGraph);
+
+
     delete CGraph;
 
     if (privateDelayedList)
@@ -328,6 +350,9 @@ void Private_Vars_Analyzer(SgStatement* start)
 
 CallData::~CallData()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     for (AnalysedCallsList* l = calls_list; l != NULL;) 
     {
         if (!l->isIntrinsic && l->graph)
@@ -347,6 +372,9 @@ CallData::~CallData()
 
 CommonData::~CommonData()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     for (CommonDataItem* i = list; i != NULL;) {
         for (CommonVarInfo* info = i->info; info != NULL;) {
             CommonVarInfo* t = info;
@@ -361,7 +389,9 @@ CommonData::~CommonData()
 
 ControlFlowGraph::~ControlFlowGraph()
 {
-
+#if __SPF
+    removeFromCollection(this);
+#endif
     while (common_def != NULL) 
     {
         CommonVarSet* t = common_def;
@@ -396,6 +426,9 @@ ControlFlowGraph::~ControlFlowGraph()
 
 CBasicBlock::~CBasicBlock()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     CommonVarSet* d = getCommonDef();
     while (d != NULL) 
     {
@@ -461,6 +494,9 @@ CBasicBlock::~CBasicBlock()
 
 doLoops::~doLoops()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     for (doLoopItem *it = first; it != NULL; ) 
     {
         doLoopItem *tmp = it;
@@ -471,6 +507,9 @@ doLoops::~doLoops()
 
 PrivateDelayedItem::~PrivateDelayedItem()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     if (delay)
         delete delay;
     if (next)
@@ -479,6 +518,9 @@ PrivateDelayedItem::~PrivateDelayedItem()
 
 VarSet::~VarSet()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     for (VarItem* it = list; it != NULL;) 
     {
         VarItem* tmp = it;
@@ -497,6 +539,220 @@ CommonVarSet::CommonVarSet(const CommonVarSet& c)
         next = new CommonVarSet(*c.next);
     else
         next = NULL;
+
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+}
+
+std::string ControlFlowGraph::GetVisualGraph(CallData* calls)
+{
+    std::string result;
+    result += "digraph ";
+    char tmp[512];
+    AnalysedCallsList* cd = calls->GetDataForGraph(this);
+    //if (cd == NULL || cd->header == NULL)
+        sprintf(tmp, "g_%llx", (uintptr_t)this);
+    //else
+    //    sprintf(tmp, "g_%500s", cd->header->symbol());
+    result += tmp;
+    result += "{ \n";
+    for (CBasicBlock* b = this->first; b != NULL; b = b->getLexNext()) {
+        if (!b->IsEmptyBlock()) {
+            result += '\t' + b->GetGraphVisDescription() + "[shape=box,label=\"";
+            result += b->GetGraphVisData() + "\"];\n";
+        }
+    }
+    for (CBasicBlock* b = first; b != NULL; b = b->getLexNext()) {
+        if (!b->IsEmptyBlock())
+            result += b->GetEdgesForBlock(b->GetGraphVisDescription(), true, "");
+    }
+    result += '}';
+    ResetDrawnStatusForAllItems();
+    return result;
+}
+
+void ControlFlowGraph::ResetDrawnStatusForAllItems() {
+    for (CBasicBlock* b = first; b != NULL; b = b->getLexNext()) {
+        for (ControlFlowItem* it = b->getStart(); it != NULL && (it->isLeader() == false || it == b->getStart()); it = it->getNext()) {
+            it->ResetDrawnStatus();
+        }
+    }
+}
+
+std::string GetConditionWithLineNumber(ControlFlowItem* eit)
+{
+    std::string res;
+    if (eit->getOriginalStatement()) {
+        char tmp[16];
+        sprintf(tmp, "%d: ", eit->getOriginalStatement()->lineNumber());
+        res = tmp;
+    }
+    return res + eit->getExpression()->unparse();
+}
+
+std::string GetActualCondition(ControlFlowItem** pItem) {
+    std::string res;
+    ControlFlowItem* eit = *pItem;
+    while (true) {
+        if (eit == NULL || eit->getJump() != NULL || eit->getStatement() != NULL) {
+            if (eit && eit->getJump() != NULL) {
+                if (eit->getExpression() != NULL) {
+                    *pItem = eit;
+                    return GetConditionWithLineNumber(eit);
+                }
+                else {
+                    *pItem = NULL;
+                    return res;
+                }
+                break;
+            }
+            *pItem = NULL;
+            return res;
+        }
+        eit = eit->GetPrev();
+    }
+}
+
+std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original, std::string modifier)
+{
+    std::string result;
+    for (BasicBlockItem* it = getSucc(); it != NULL; it = it->next) {
+        if (it->drawn)
+            continue;
+        it->drawn = true;
+        char lo = original;
+        std::string cond;
+        ControlFlowItem* eit = NULL;
+        bool pf = false;
+        if (it->jmp != NULL) {
+            if (it->jmp->getExpression() != NULL) {
+                eit = it->jmp;
+                cond = GetConditionWithLineNumber(eit);
+            }
+            else {
+                pf = true;
+                eit = it->jmp->GetPrev();
+                cond = GetActualCondition(&eit);
+            }
+        }
+        if (eit && eit->GetFriend()) {
+            lo = false;
+            eit = eit->GetFriend();
+        }
+        if (!it->block->IsEmptyBlock() || cond.length() != 0) {
+            if (cond.length() != 0 && eit && !pf){
+                char tmp[32];
+                sprintf(tmp, "c_%llx", (uintptr_t)eit);
+                if (!eit->IsDrawn()) {
+                    result += '\t';
+                    result += tmp;
+                    result += "[shape=diamond,label=\"";
+                    result += cond;
+                    result += "\"];\n";
+                }
+                if (it->cond_value && !pf) {
+                    result += '\t' + name + "->";
+                    result += tmp;
+                    result += modifier;
+                    result += '\n';
+                }
+                eit->SetIsDrawn();
+            }
+            if (cond.length() != 0) {
+                if (lo) {
+                    char tmp[32];
+                    sprintf(tmp, "c_%llx", (uintptr_t)eit);
+                    if (!it->block->IsEmptyBlock()) {
+                        result += '\t';
+                        result += tmp;
+                        result += "->" + it->block->GetGraphVisDescription();
+                        result += "[label=";
+                        result += (!pf && it->cond_value) ? "T]" : "F]";
+                        result += ";\n";
+                    }
+                    else {
+                        std::string n = tmp;
+                        std::string label;
+                        label += "[label=";
+                        label += (!pf && it->cond_value) ? "T]" : "F]";
+                        result += it->block->GetEdgesForBlock(n, original, label);
+                    }
+                }
+            }
+            else {
+                result += '\t' + name + " -> " + it->block->GetGraphVisDescription();
+                result += modifier;
+                result += ";\n";
+            }
+            
+        }
+        else {
+            result += it->block->GetEdgesForBlock(name, original, "");
+        }
+    }
+    return result;
+}
+
+std::string CBasicBlock::GetGraphVisDescription()
+{
+    if (visname.length() != 0)
+        return visname;
+    char tmp[16];
+    sprintf(tmp, "%d", num);
+    visname = tmp;
+    return visname;
+}
+
+std::string CBasicBlock::GetGraphVisData()
+{
+    if (visunparse.length() != 0)
+        return visunparse;
+    std::string result;
+    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {
+        if (it->getStatement() != NULL) {
+            int ln = it->GetLineNumber();
+            char tmp[16];
+            sprintf(tmp, "%d: ", ln);
+            result += tmp;
+            result += it->getStatement()->unparse();
+        }
+    }
+    visunparse = result;
+    return result;
+}
+
+int ControlFlowItem::GetLineNumber()
+{
+    if (getStatement() == NULL)
+        return 0;
+    if (getStatement()->lineNumber() == 0){
+        if (getOriginalStatement() == NULL)
+            return 0;
+        return getOriginalStatement()->lineNumber();
+    }
+    return getStatement()->lineNumber();
+}
+
+bool CBasicBlock::IsEmptyBlock()
+{
+    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {
+        if (it->getStatement() != NULL && it->getStatement()->lineNumber() == 54) {
+            printf("test");
+        }
+        if (!it->IsEmptyCFI())
+            return false;
+    }
+    return true;
+}
+
+AnalysedCallsList* CallData::GetDataForGraph(ControlFlowGraph* s)
+{
+    for (AnalysedCallsList* it = calls_list; it != NULL; it = it->next) {
+        if (it->graph == s)
+            return it;
+    }
+    return NULL;
 }
 
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, CallData* calls, CommonData* commons)
@@ -1244,6 +1500,9 @@ void DoLoopDataList::AddLoop(int file_id, SgStatement* st, SgExpression* l, SgEx
 
 DoLoopDataList::~DoLoopDataList()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     while (list != NULL) {
         DoLoopDataItem* t = list->next;
         delete list;
@@ -1428,6 +1687,9 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             ControlFlowItem* gotoStart = new ControlFlowItem(NULL, emptyBeforeDo, emptyAfterDo, NULL, currentProcedure);
             ControlFlowItem* gotoEnd = new ControlFlowItem(endc, emptyAfterDo, gotoStart, NULL, currentProcedure);
             gotoEnd->setOriginalStatement(fst);
+            if (needs_goto) {
+                gotoEnd->SetConditionFriend(gotoEndInitial);
+            }
             ControlFlowItem* loop_d = new ControlFlowItem(add, gotoEnd, currentProcedure);
             loop_d->setOriginalStatement(fst);
             ControlFlowItem* loop_emp = new ControlFlowItem(NULL, loop_d, currentProcedure);
@@ -1585,6 +1847,9 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
 , pointers(set<SymbolKey>())
 #endif
 {
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
     int n = 0;
     ControlFlowItem* orig = list;
     CBasicBlock* prev = NULL;
@@ -1608,8 +1873,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
         if (prev != NULL){
             prev->setNext(bb);
             if (!last_prev->isUnconditionalJump()){
-                bb->addToPrev(prev, last_prev->IsForJumpFlagSet());
-                prev->addToSucc(bb, last_prev->IsForJumpFlagSet());
+                bb->addToPrev(prev, last_prev->IsForJumpFlagSet(), false, last_prev);
+                prev->addToSucc(bb, last_prev->IsForJumpFlagSet(), false, last_prev);
             }
         }
         if (start == NULL)
@@ -1648,8 +1913,8 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
                     }
                 }
                 if (tmp1 && tmp2) {
-                    tmp1->addToPrev(tmp2, list->IsForJumpFlagSet());
-                    tmp2->addToSucc(tmp1, list->IsForJumpFlagSet());
+                    tmp1->addToPrev(tmp2, list->IsForJumpFlagSet(), true, list);
+                    tmp2->addToSucc(tmp1, list->IsForJumpFlagSet(), true, list);
                 }
 //            }
         }
@@ -3132,6 +3397,9 @@ bool GetExpressionAndCoefficientOfBound(SgExpression* exp, SgExpression** end, i
 
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s)
 {
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
     disabled = false;
     if (!r)
         subscripts = 0;
@@ -3201,11 +3469,14 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
 
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub), disabled(ds)
 { 
-    if (sub > 0) {
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    if (sub > 0) 
+    {
         data = new ArraySubscriptData[sub];
-        for (int i = 0; i < sub; i++) {
-            data[i] = d[i];
-        }
+        for (int i = 0; i < sub; i++)
+            data[i] = d[i];        
     }
     else
         data = NULL;
@@ -3742,6 +4013,9 @@ unsigned int counter = 0;
 
 CLAStatementItem::~CLAStatementItem()
 {
+#if __SPF
+    removeFromCollection(this);
+#endif
     if (next)
         delete next;
 }
@@ -3799,21 +4073,25 @@ void VarSet::unite(VarSet* set, bool la)
 
 
 
-void CBasicBlock::addToPrev(CBasicBlock* bb, bool for_jump_flag)
+void CBasicBlock::addToPrev(CBasicBlock* bb, bool for_jump_flag, bool c, ControlFlowItem* check)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
     n->next = prev;
     n->for_jump_flag = for_jump_flag;
+    n->cond_value = c;
+    n->jmp = check;
     prev = n;
 }
 
-void CBasicBlock::addToSucc(CBasicBlock* bb, bool for_jump_flag)
+void CBasicBlock::addToSucc(CBasicBlock* bb, bool for_jump_flag, bool c, ControlFlowItem* check)
 {
     BasicBlockItem* n = new BasicBlockItem();
     n->block = bb;
     n->for_jump_flag = for_jump_flag;
     n->next = succ;
+    n->cond_value = c;
+    n->jmp = check;
     succ = n;
 }
 

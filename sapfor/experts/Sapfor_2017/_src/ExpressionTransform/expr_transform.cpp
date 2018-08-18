@@ -11,6 +11,7 @@
 #include <iterator>
 
 #include "../ParallelizationRegions/ParRegions.h"
+#include "../ParallelizationRegions/ParRegions_func.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
@@ -819,7 +820,7 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph)
         b->clearGenKill();
 }
 
-void initOverseer(map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
+static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     vector<FuncCallSE> funcCalls;
     for(auto &file : allFuncInfo)
@@ -911,7 +912,25 @@ static void replaceConstants(const string &file, SgStatement *st)
     }
 }
 
-void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, CommonBlock> &commonBlocks, map<string, vector<FuncInfo*>>& allFuncInfo)
+static bool isInParallelRegion(SgStatement *func, const vector<ParallelRegion*> &regions)
+{
+    bool ok = false;
+    auto last = func->lastNodeOfStmt();
+    for (auto st = func; st != last; st = st->lexNext())
+    {
+        if (getRegionByLine(regions, st->fileName(), st->lineNumber()))
+        {
+            ok = true;
+            break;
+        }
+    }
+
+    return ok;
+}
+
+void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &defUseByFunctions, 
+                        const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo,
+                        const vector<ParallelRegion*> &regions)
 {
     if(!overseer.isInited())
         initOverseer(defUseByFunctions, commonBlocks, allFuncInfo);
@@ -933,6 +952,12 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
+
+        if (isInParallelRegion(st, regions) == false)
+        {
+            __spf_print(1, "  skip function '%s\n", st->symbol()->identifier());
+            continue;
+        }
 
         if (st->variant() == PROG_HEDR)
         {
@@ -958,6 +983,19 @@ void expressionAnalyzer(SgFile *file, map<string, vector<DefUseList>> &defUseByF
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph);
         BuildUnfilteredReachingDefinitions(CGraph);
+    }
+
+    for (auto &stmt : *curFileReplacements)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            auto expr = stmt.first->expr(i);
+            if (expr)
+            {
+                calculate(expr);
+                stmt.first->setExpression(i, *expr);
+            }
+        }
     }
 }
 

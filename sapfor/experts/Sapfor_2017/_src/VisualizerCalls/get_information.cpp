@@ -836,6 +836,15 @@ int SPF_CorrectCodeStylePass(int winHandler, int *options, short *projName, shor
     return simpleTransformPass(CORRECT_CODE_STYLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_ResolveParallelRegionConflicts(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                                       int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(RESOLVE_PAR_REGIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+
 int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
@@ -886,11 +895,11 @@ int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, sh
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-extern void deleteAllAllocatedData();
+extern void deleteAllAllocatedData(bool enable);
 void SPF_deleteAllAllocatedData()
 {
     MessageManager::clearCache();
-    deleteAllAllocatedData();
+    deleteAllAllocatedData(true);
 }
 
 void createNeededException()

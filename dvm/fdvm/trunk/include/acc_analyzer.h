@@ -26,6 +26,7 @@ class ControlFlowItem
     ControlFlowItem *jmp;
     bool for_jump_flag;
     SgLabel* label_jump;
+    ControlFlowItem* prev;
     ControlFlowItem *next;
     bool leader;
     int bbno;
@@ -37,9 +38,11 @@ class ControlFlowItem
     SgFunctionCallExp* func;
     SgExpression* pPl;
     bool fPl;
+    bool drawn;
     AnalysedCallsList* thisproc;
     //int refs;
     SgStatement* originalStatement;
+    ControlFlowItem* conditionFriend;
     union
     {
         SgStatement *stmt;
@@ -49,7 +52,8 @@ public:
     inline ControlFlowItem(AnalysedCallsList* proc) : 
         stmtNo(-1), label(NULL), jmp(NULL), label_jump(NULL), next(NULL), leader(false), bbno(0), 
         stmt(NULL), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(NULL), 
-        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false)
+        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false), drawn(false),
+        prev(NULL), conditionFriend(NULL)
     {
 #if __SPF
         addToCollection(__LINE__, __FILE__, this, 1);
@@ -59,8 +63,12 @@ public:
     inline ControlFlowItem(SgStatement *s, ControlFlowItem *n, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : 
         stmtNo(-1), label(s ? s->label() : NULL), jmp(NULL), label_jump(NULL), next(n), leader(false), 
         bbno(0), stmt(s), is_parloop_start(false), is_parloop_end(false), private_list(NULL), 
-        call(c), func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false)
+        call(c), func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false), drawn(false),
+        prev(NULL), conditionFriend(NULL)
     {
+        if (n) {
+            n->prev = this;
+        }
 #if __SPF
         addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -69,8 +77,12 @@ public:
     inline ControlFlowItem(SgExpression *e, ControlFlowItem *j, ControlFlowItem *n, SgLabel* l, AnalysedCallsList* proc, bool fjf = false, AnalysedCallsList* c = NULL) :
         stmtNo(-1), label(l), jmp(j), label_jump(NULL), next(n), leader(false), bbno(0), 
         expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), 
-        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(fjf)
+        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(fjf), drawn(false),
+        prev(NULL), conditionFriend(NULL)
     {
+        if (n) {
+            n->prev = this;
+        }
 #if __SPF
         addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -79,8 +91,12 @@ public:
     inline ControlFlowItem(SgExpression *e, SgLabel* j, ControlFlowItem* n, SgLabel* l, AnalysedCallsList* proc, AnalysedCallsList* c = NULL) : 
         stmtNo(-1), label(l), jmp(NULL), label_jump(j), next(n), leader(false), bbno(0), 
         expr(e), is_parloop_start(false), is_parloop_end(false), private_list(NULL), call(c), 
-        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false)
+        func(NULL), thisproc(proc), originalStatement(NULL), for_jump_flag(false), drawn(false),
+        prev(NULL), conditionFriend(NULL)
     {
+        if (n) {
+            n->prev = this;
+        }
 #if __SPF
         addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -102,7 +118,7 @@ public:
     { return bbno; }
 
     inline void AddNextItem(ControlFlowItem *n)
-    { next = n; }
+    { next = n; if (n) n->prev = this; }
 
     inline void MakeParloopStart()
     { is_parloop_start = true; }
@@ -195,6 +211,29 @@ public:
     inline bool IsForJumpFlagSet()
     { return for_jump_flag; }
 
+    inline bool IsEmptyCFI()
+    { return getStatement() == NULL; }
+
+    inline void SetIsDrawn()
+    { drawn = true; }
+
+    inline void ResetDrawnStatus()
+    { drawn = false; }
+
+    inline bool IsDrawn()
+    { return drawn; }
+
+    inline ControlFlowItem* GetPrev()
+    { return prev; }
+
+    inline void SetConditionFriend(ControlFlowItem* f)
+    { conditionFriend = f; }
+
+    inline ControlFlowItem* GetFriend()
+    { return conditionFriend; }
+
+    int GetLineNumber();
+
 #if ACCAN_DEBUG
     void printDebugInfo();
 
@@ -207,7 +246,8 @@ public:
     }
 };
 
-class doLoopItem{
+class doLoopItem
+{
     int label;
     SgSymbol* name;
     ControlFlowItem* iter;
@@ -222,7 +262,18 @@ class doLoopItem{
 public:
     inline doLoopItem(int l, SgSymbol* s, ControlFlowItem* i, ControlFlowItem* e) : 
         label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL), parallel_depth(-1)
-    { }
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
+    ~doLoopItem()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
     inline void HandleNewItem(doLoopItem* it) { setParallelDepth(it->parallel_depth, it->prl, it->prs, it->pPl, it->plf); }
     inline void setNext(doLoopItem* n) { next = n; }
     inline void setNewLabel(int l) { label = l; }
@@ -246,13 +297,19 @@ public:
     inline SgExpression* getExpressionToModifyPrivateList(bool* rhs)  { if (rhs) *rhs = plf; return pPl; }
 };
 
-class doLoops{
+class doLoops
+{
     doLoopItem* first;
     doLoopItem* current;
+    
     doLoopItem* findLoop(SgSymbol*);
 public:
     inline doLoops() : first(NULL), current(NULL)
-    { }
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
     
     inline ControlFlowItem* getSourceForCycle() { return current ? current->getSourceForCycle() : NULL; }
     inline ControlFlowItem* getSourceForCycle(SgSymbol* loop) { return loop ? findLoop(loop)->getSourceForCycle() : getSourceForCycle(); }
@@ -270,17 +327,39 @@ public:
     inline ~doLoops();
 };
 
-struct LabelCFI{
+struct LabelCFI
+{
     int l;
     ControlFlowItem* item;
+
+    LabelCFI() : item(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~LabelCFI()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 struct CLAStatementItem
 {
     SgStatement* stmt;
     CLAStatementItem* next;
+
     ~CLAStatementItem();
     CLAStatementItem* GetLast();
+
+    CLAStatementItem() : stmt(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
 };
 
 enum eVariableType
@@ -305,6 +384,19 @@ struct VarItem
     std::list<SgStatement*> lastAssignments;
 #endif
     VarItem* next;
+
+    VarItem() : var(NULL), ov(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~VarItem()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 class CArrayVarEntryInfo;
@@ -314,7 +406,11 @@ class VarSet
     VarItem* list;
 public:
     inline VarSet() : list(NULL)
-    {}
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
 
     void addToSet(CVarEntryInfo*, SgStatement*, CVarEntryInfo* ov = NULL);
     void PossiblyAffectArrayEntry(CArrayVarEntryInfo*);
@@ -350,12 +446,32 @@ struct DoLoopDataItem
     SgExpression* st;
     SgSymbol* loop_var;
     DoLoopDataItem* next;
+
+    DoLoopDataItem() : l(NULL), r(NULL), st(NULL), loop_var(NULL), next(NULL), statement(NULL), file_id(-1)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~DoLoopDataItem()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
-class DoLoopDataList {
+class DoLoopDataList 
+{
     DoLoopDataItem* list;
+
 public:
-    DoLoopDataList() : list(NULL) {}
+    DoLoopDataList() : list(NULL) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
     void AddLoop(int file_id, SgStatement* st, SgExpression* l, SgExpression* r, SgExpression* step, SgSymbol* lv);
     DoLoopDataItem* FindLoop(SgStatement* st);
     ~DoLoopDataList();
@@ -367,9 +483,21 @@ class CVarEntryInfo
 {
     SgSymbol* symbol;
     int references;
+
 public:
-    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) {};
-    virtual ~CVarEntryInfo() {};
+    CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
+    virtual ~CVarEntryInfo() 
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
     virtual eVariableType GetVarType() const = 0;
     virtual CVarEntryInfo* Clone(SgSymbol*) const = 0;
     virtual CVarEntryInfo* Clone() const = 0;
@@ -386,41 +514,63 @@ public:
 class CScalarVarEntryInfo: public CVarEntryInfo
 {
 public:
-    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) {};
-    ~CScalarVarEntryInfo() {};
+    CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~CScalarVarEntryInfo() 
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
     eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
     CVarEntryInfo* Clone(SgSymbol* s) const { return new CScalarVarEntryInfo(s); }
     CVarEntryInfo* Clone() const { return new CScalarVarEntryInfo(GetSymbol()); }
     bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_VAR_EXP && rhs.GetSymbol() == GetSymbol(); }
     CVarEntryInfo* GetLeftmostParent() { return this; }
-    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st)
+    {
         if (def == NULL || !def->belongs(this))
             use->addToSet(this, st);
     }
-    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); };
+    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); }
 };
 
 class CRecordVarEntryInfo : public CVarEntryInfo
 {
     CVarEntryInfo* parent;
 public:
-    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) {};
+    CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
     ~CRecordVarEntryInfo()
     {
+#if __SPF
+        removeFromCollection(this);
+#endif
         if (parent->RemoveReference())
             delete parent;
     }
+
     eVariableType GetVarType() const { return VAR_REF_RECORD_EXP; }
     CVarEntryInfo* Clone(SgSymbol* s) const { return new CRecordVarEntryInfo(s, parent->Clone()); }
     CVarEntryInfo* Clone() const { return new CRecordVarEntryInfo(GetSymbol(), parent->Clone()); }
     bool operator==(const CVarEntryInfo& rhs) const { return rhs.GetVarType() == VAR_REF_RECORD_EXP && rhs.GetSymbol() == GetSymbol() &&
         parent && static_cast<const CRecordVarEntryInfo&>(rhs).parent && *static_cast<const CRecordVarEntryInfo&>(rhs).parent == *parent; }
     CVarEntryInfo* GetLeftmostParent() { return parent->GetLeftmostParent(); }
-    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) {
+    void RegisterUsage(VarSet* def, VarSet* use, SgStatement* st) 
+    {
         if (def == NULL || !def->belongs(this))
             use->addToSet(this, st);
     }
-    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); };
+    void RegisterDefinition(VarSet* def, VarSet* use, SgStatement* st) { def->addToSet(this, st); }
 };
 
 struct ArraySubscriptData
@@ -432,6 +582,19 @@ struct ArraySubscriptData
     DoLoopDataItem* loop;
     SgExpression* left_bound;
     SgExpression* right_bound;
+
+    ArraySubscriptData() : loop(NULL), left_bound(NULL), right_bound(NULL)
+    {
+#if __SPF
+    //    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~ArraySubscriptData()
+    {
+#if __SPF
+    //    removeFromCollection(this);
+#endif
+    }
 };
 
 class CArrayVarEntryInfo : public CVarEntryInfo
@@ -449,6 +612,9 @@ public:
             delete []data; 
             data = NULL;
         }
+#if __SPF
+        removeFromCollection(this);
+#endif
     } 
 
     CVarEntryInfo* Clone(SgSymbol* s) const { return new CArrayVarEntryInfo(s, subscripts, disabled, data); }
@@ -477,7 +643,23 @@ struct BasicBlockItem
 {
     CBasicBlock* block;
     bool for_jump_flag;
+    bool cond_value;
+    bool drawn;
+    ControlFlowItem* jmp;
     BasicBlockItem* next;
+
+    BasicBlockItem() : drawn(false)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~BasicBlockItem()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 struct CommonVarSet;
@@ -488,12 +670,38 @@ struct CallAnalysisLog
     AnalysedCallsList* el;
     int depth;
     CallAnalysisLog* prev;
+
+    CallAnalysisLog() : el(NULL), prev(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~CallAnalysisLog()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 struct CExprList
 {
     SgExpression* entry;
     CExprList* next;
+
+    CExprList() : entry(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~CExprList()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 #ifdef __SPF
@@ -503,10 +711,27 @@ private:
     SgSymbol *var;
     std::string varName;
     bool pointer;
-public:
-    SymbolKey(SgSymbol *v): var(v), varName(v->identifier()), pointer(false) {}
-    SymbolKey(SgSymbol *v, bool isPointer): var(v), varName(v->identifier()), pointer(isPointer) {}
 
+public:
+    SymbolKey(SgSymbol *v): var(v), varName(v->identifier()), pointer(false) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
+    SymbolKey(SgSymbol *v, bool isPointer): var(v), varName(v->identifier()), pointer(isPointer) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~SymbolKey()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
     inline const std::string& getVarName() const { return varName; }
     inline bool isPointer() const { return pointer; }
     inline bool operator<(const SymbolKey &rhs) const   { return varName < rhs.varName; }
@@ -547,6 +772,8 @@ class CBasicBlock
     void AddOneExpressionToDef(SgExpression*, SgStatement*, CArrayVarEntryInfo*);
     PrivateDelayedItem* privdata;
     CVarEntryInfo* findentity;
+    std::string visname;
+    std::string visunparse;
 #ifdef __SPF
     bool varIsPointer(SgSymbol* symbol);
     void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
@@ -560,10 +787,15 @@ class CBasicBlock
 #endif
 
 public:
-    inline CBasicBlock(bool t, ControlFlowItem* st, int n, ControlFlowGraph* par, AnalysedCallsList* pr) : temp(t), num(n), start(st), prev(NULL), lexNext(NULL), def(NULL), use(NULL), mrd_in(new VarSet()), mrd_out(new VarSet()), undef(true),
-        lv_in(new VarSet()), lv_out(new VarSet()), lv_undef(false), succ(NULL), lexPrev(NULL), prev_status(-1), parent(par), common_def (NULL), common_use(NULL), old_mrd_in(NULL), old_mrd_out(NULL), old_lv_in(NULL), old_lv_out(NULL),
-        privdata(NULL), findentity(NULL), proc(pr)
-    { }
+    inline CBasicBlock(bool t, ControlFlowItem* st, int n, ControlFlowGraph* par, AnalysedCallsList* pr) : 
+        temp(t), num(n), start(st), prev(NULL), lexNext(NULL), def(NULL), use(NULL), mrd_in(new VarSet()), mrd_out(new VarSet()), undef(true),
+        lv_in(new VarSet()), lv_out(new VarSet()), lv_undef(false), succ(NULL), lexPrev(NULL), prev_status(-1), parent(par), common_def (NULL), 
+        common_use(NULL), old_mrd_in(NULL), old_mrd_out(NULL), old_lv_in(NULL), old_lv_out(NULL), privdata(NULL), findentity(NULL), proc(pr)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
 
     ~CBasicBlock();
     inline CommonVarSet* getCommonDef() { return common_def; }
@@ -571,8 +803,8 @@ public:
     inline void setNext(CBasicBlock* next) { lexNext = next; }
     inline void setPrev(CBasicBlock* prev) { lexPrev = prev; }
 
-    void addToPrev(CBasicBlock* pr, bool);
-    void addToSucc(CBasicBlock* su, bool);
+    void addToPrev(CBasicBlock* pr, bool, bool, ControlFlowItem*);
+    void addToSucc(CBasicBlock* su, bool, bool, ControlFlowItem*);
     VarSet* getDef();
     VarSet* getUse();
     VarSet* getMrdIn(bool);
@@ -615,6 +847,11 @@ public:
     bool IsVarDefinedAfterThisBlock(CVarEntryInfo*, bool);
     bool ShouldThisBlockBeCheckedAgain(CVarEntryInfo* var) { return findentity && var && *var == *findentity; }
 
+    std::string GetGraphVisDescription();
+    std::string GetGraphVisData();
+    bool IsEmptyBlock();
+    std::string GetEdgesForBlock(std::string name, bool original, std::string);
+
     void addUniqObjects(std::set<ControlFlowItem*> &pointers) const
     {
         for (ControlFlowItem *it = start; it != NULL; it = it->getNext())
@@ -650,13 +887,26 @@ struct CommonVarSet
 {
     CommonVarInfo* cvd;
     CommonVarSet* next;
+
     CommonVarSet(const CommonVarSet&);
-    CommonVarSet() {}
+    CommonVarSet() : cvd(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~CommonVarSet()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 struct ActualDelayedData;
 class CommonData;
 
+class CallData;
 
 class ControlFlowGraph
 {
@@ -695,6 +945,9 @@ public:
     inline CBasicBlock* getFirst() { return first; }
     inline CBasicBlock* getLast() { return last; }
 
+    std::string GetVisualGraph(CallData*);
+    void ResetDrawnStatusForAllItems();
+
     inline void addCFItoCollection(std::set<ControlFlowItem*> &collection) const
     {
         for (CBasicBlock *bb = first; bb != NULL; bb = bb->getLexNext())
@@ -718,11 +971,18 @@ struct AnalysedCallsList
     int file_id;
 
     AnalysedCallsList(SgStatement* h, bool intr, bool pure, bool fun, const char* name, int fid) :
-        header(h), isIntrinsic(intr), isPure(pure), isFunction(fun), hasBeenAnalysed(false), graph(NULL), funName(name), file_id(fid)
+        header(h), isIntrinsic(intr), isPure(pure), isFunction(fun), hasBeenAnalysed(false), graph(NULL), funName(name), file_id(fid), next(NULL)
     {
-        
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
     }
-
+    ~AnalysedCallsList()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
     bool isArgIn(int num, CArrayVarEntryInfo**);
     bool isArgOut(int num, CArrayVarEntryInfo**);
     const char* funName;
@@ -739,7 +999,16 @@ public:
     AnalysedCallsList* AddHeader(SgStatement*, bool isFun, SgSymbol* name, int fid);
     void AssociateGraphWithHeader(SgStatement*, ControlFlowGraph*);
     AnalysedCallsList* IsHeaderInList(SgStatement*);
-    CallData() { recursion_flag = false; calls_list = NULL; }
+    AnalysedCallsList* GetDataForGraph(ControlFlowGraph*);
+    CallData() 
+    {
+        recursion_flag = false; 
+        calls_list = NULL; 
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
     void printControlFlows();
     ~CallData();
 };
@@ -752,6 +1021,19 @@ struct CommonVarInfo
     bool isInUse;
     CommonDataItem* parent;
     CommonVarInfo* next;
+
+    CommonVarInfo() : var(NULL), parent(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~CommonVarInfo()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 struct CommonDataItem
@@ -765,6 +1047,20 @@ struct CommonDataItem
     AnalysedCallsList* first;
     CommonVarInfo* info;
     CommonDataItem* next;
+
+    CommonDataItem() : cb(NULL), proc(NULL), first(NULL), info(NULL), next(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+
+    ~CommonDataItem()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 class CommonData
@@ -781,7 +1077,12 @@ public:
     CommonDataItem* GetItemForName(const std::string&, AnalysedCallsList*);
     CommonVarSet* GetCommonsForVarSet(VarSet*, AnalysedCallsList*);
     CommonDataItem* IsThisCommonVar(VarItem*, AnalysedCallsList*);
-    CommonData() : list(NULL) {}
+    CommonData() : list(NULL) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
     ~CommonData();
 };
 
@@ -796,7 +1097,13 @@ class PrivateDelayedItem
     PrivateDelayedItem* next;
     int file_id;
 public:
-    PrivateDelayedItem(VarSet* d, VarSet* o, VarSet* p, ControlFlowItem* l, PrivateDelayedItem* n, ControlFlowGraph* g, VarSet* dl, int fd) : detected(d), original(o), lp(p), lstart(l), next(n), graph(g), delay(dl), file_id(fd) {}
+    PrivateDelayedItem(VarSet* d, VarSet* o, VarSet* p, ControlFlowItem* l, PrivateDelayedItem* n, ControlFlowGraph* g, VarSet* dl, int fd) : 
+        detected(d), original(o), lp(p), lstart(l), next(n), graph(g), delay(dl), file_id(fd) 
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
     ~PrivateDelayedItem();
     void PrintWarnings();
     void MoveFromPrivateToLastPrivate(CVarEntryInfo*);
@@ -829,8 +1136,22 @@ struct ActualDelayedData
     VarSet* buse;
     ActualDelayedData* next;
     AnalysedCallsList* call;
+
     void MoveVarFromPrivateToLastPrivate(CVarEntryInfo*, CommonVarSet*, VarSet*);
     void RemoveVarFromCommonList(CommonVarSet*);
+
+    ActualDelayedData() : original(NULL), commons(NULL), next(NULL), call(NULL)
+    {
+#if __SPF
+        addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+    }
+    ~ActualDelayedData()
+    {
+#if __SPF
+        removeFromCollection(this);
+#endif
+    }
 };
 
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, CommonData*);

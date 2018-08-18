@@ -168,7 +168,7 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
 
     //check for distributed in loop
     if (dimInTepml >= 0 && dimInTepml < parallelOnRule.size())
-        if (parallelOnRule[get<1>(ruleForOn[dimInTepml])].first == "*")
+        if (parallelOnRule[dimInTepml].first == "*")
             return true;
 
     return false;
@@ -180,10 +180,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                                      const pair<pair<string, string>, vector<pair<int, int>>> &coeffs,
                                      vector<pair<int, int>> &shifts,
                                      vector<map<pair<int, int>, int>> &shiftsByAccess,
-                                     const vector<pair<string, pair<int, int>>> on,
+                                     const vector<pair<string, pair<int, int>>> parallelOnRule,
                                      const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, const bool isAcross,
                                      const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                     const vector<pair<string, pair<int, int>>> &parallelOnRule,
                                      const int regionId,
                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
@@ -248,7 +247,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                     int err = findRule(get<1>(ruleForShadow[k]), ruleForOn, currRuleOn);
                     if (err == 0)
                     {
-                        const pair<int, int> loopRule = DIST::Fx(on[currRuleOn.first].second, currRuleOn.second);
+                        const pair<int, int> loopRule = DIST::Fx(parallelOnRule[currRuleOn.first].second, currRuleOn.second);
 
                         if (loopRule.first != 0)
                         {
@@ -352,16 +351,32 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     DIST::Array *shadowArray = allArrays.GetArrayByName(shadowOp.first.second);
     checkNull(shadowArray, convertFileName(__FILE__).c_str(), __LINE__);
     
+    auto on_ext = on;
+    //replace to template align ::on
+    if (arrayRef->isTemplate() == false)
+    {
+        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef;
+        reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForRef, regionId);
+        findAndReplaceDimentions(ruleForRef, allArrays);
+
+        on_ext.clear();
+        on_ext.resize(get<0>(ruleForRef[0])->GetDimSize());
+        std::fill(on_ext.begin(), on_ext.end(), make_pair("*", make_pair(0, 0)));
+
+        for (int i = 0; i < ruleForRef.size(); ++i)
+            on_ext[get<1>(ruleForRef[i])] = on[i];        
+    }
+
     string ret = "";
     if (isAcross)
     {
         arraysInAcross.insert(shadowArray);
-        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId, arrayLinksByFuncCalls);
+        ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on_ext, readOps, isAcross, distribution, regionId, arrayLinksByFuncCalls);
     }
     else
     {
         if (arraysInAcross.find(shadowArray) == arraysInAcross.end())
-            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on, readOps, isAcross, distribution, on, regionId, arrayLinksByFuncCalls);
+            ret = calculateShifts(reducedG, allArrays, arrayRef, shadowArray, shadowOp, shadowOpShift, shiftsByAccess, on_ext, readOps, isAcross, distribution, regionId, arrayLinksByFuncCalls);
     }
 
     return ret;

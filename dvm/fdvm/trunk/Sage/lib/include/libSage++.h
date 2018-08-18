@@ -30,6 +30,10 @@ the include file are within a #if 0  #endif.  These refer to the unimplemented
 portions of Sage++ library.
 ***************************************************************/
 
+#if __SPF
+extern "C" void removeFromCollection(void *pointer);
+#endif
+
 class  SgProject {
   public:
   inline SgProject(SgProject &);
@@ -1117,6 +1121,17 @@ public:
   inline SgProgHedrStmt(SgSymbol &name);
   inline SgProgHedrStmt(char *name);
   inline SgSymbol &name();
+  // added 15.08.2018 by A.S. Kolganov. <contains cp name>.funcName
+  inline std::string nameWithContains()
+  {
+      std::string containsName = "";
+      SgStatement *st_cp = this->controlParent();
+      if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+          containsName = st_cp->symbol()->identifier() + std::string(".");
+
+      return containsName + this->symbol()->identifier();
+  }
+
   inline void setName(SgSymbol &symbol); // set program name 
 
   inline int numberOfFunctionsCalled();  // the number of functions called
@@ -2966,7 +2981,11 @@ public:
 // SgProject--inlines
 
 inline SgProject::~SgProject()
-{}
+{
+#if __SPF
+    removeFromCollection(this);
+#endif
+}
 inline SgProject::SgProject(SgProject &)
 { 
  Message("SgProject copy constructor not allowed",0);

@@ -7,7 +7,7 @@
 #include "definitionSet.h"
 #include "constanteSet.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 #endif
 
@@ -156,7 +156,7 @@ Set *transConstante(SgStatement *func, SgStatement *stmt, Set *setin)
         else
         {
             outset = new Set(constPropEqual, constPropCombine, constPropPrint);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, outset, 1);
 #endif
             for (i = 0; i < setin->size(); i++)
@@ -165,7 +165,7 @@ Set *transConstante(SgStatement *func, SgStatement *stmt, Set *setin)
                 if (el)
                 { // create new one otherwise side effect can appear;
                     el1 = new struct constprop;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el1, 1);
 #endif
                     el1->flag = UNDEFFLAG;
@@ -195,7 +195,7 @@ Set *transConstante(SgStatement *func, SgStatement *stmt, Set *setin)
     else
     {
         outset = new Set(constPropEqual, constPropCombine, constPropPrint);
-#ifdef _WIN32
+#ifdef __SPF
         addToCollection(__LINE__, __FILE__, outset, 1);
 #endif
     }
@@ -242,7 +242,7 @@ Set *transConstante(SgStatement *func, SgStatement *stmt, Set *setin)
                 }
                 expr = stmt->expr(1);
                 el = new struct constprop;
-#ifdef _WIN32
+#ifdef __SPF
                 addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                 if (!el)

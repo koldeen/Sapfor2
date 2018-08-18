@@ -260,16 +260,15 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
 
             if (st->variant() == CONTAINS_STMT)
                 break;
-
             const int var = st->variant();
             //for details see dvm_tag.h
-            if ((var >= 128 && var <= 129) || 
-                (var >= 146 && var <= 149) ||
+            if ((var >= 146 && var <= 149) ||
                 (var >= 211 && var <= 224) ||
                 (var >= 247 && var <= 249) ||
-                (var >= 605 && var <= 634) ||
+                (var >= 605 && var <= 640) ||
                 (var >= 900 && var <= 949) ||
-                (var == 277 || var == 299))
+                (var >= 296 || var == 299) ||
+                (var == 277))
             {
                 if (st->fileName() == currFile)
                     toDel.push_back(st);

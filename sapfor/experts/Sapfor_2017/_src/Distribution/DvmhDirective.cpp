@@ -28,7 +28,7 @@ using std::make_pair;
 using std::min;
 using std::max;
 
-static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess)
+static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, const vector<map<pair<int, int>, int>> &shiftsByAccess, const int line)
 {
     bool res = false;
     if (ex)
@@ -51,6 +51,12 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
                             if (it->second != 0)
                                 countOfShadows++;
                     }
+                    else if (coefs.size() == 0)
+                    {
+                        __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d\n", arrayName.c_str(), line);
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+
                 }
 
                 if (countOfShadows > 1)
@@ -60,13 +66,13 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
 
         if (ex->lhs())
         {
-            bool tmp = findArrayRefAndCheck(ex->lhs(), arrayName, shiftsByAccess);
+            bool tmp = findArrayRefAndCheck(ex->lhs(), arrayName, shiftsByAccess, line);
             res = res || tmp;
         }
 
         if (ex->rhs())
         {
-            bool tmp = findArrayRefAndCheck(ex->rhs(), arrayName, shiftsByAccess);
+            bool tmp = findArrayRefAndCheck(ex->rhs(), arrayName, shiftsByAccess, line);
             res = res || tmp;
         }
     }
@@ -78,32 +84,34 @@ static bool needCorner(const string &arrayName, const vector<map<pair<int, int>,
     bool need = false;
 
     SgStatement *orig = loop->GetOriginal();
-
+    
     for (auto st = orig; st != orig->lastNodeOfStmt() && !need; st = st->lexNext())
     {
         if (st->variant() == ASSIGN_STAT)
-            need = findArrayRefAndCheck(st->expr(1), arrayName, shiftsByAccess);        
+            need = findArrayRefAndCheck(st->expr(1), arrayName, shiftsByAccess, st->lineNumber());        
         else
         {
             for (int i = 0; i < 3; ++i)
-                need = need || findArrayRefAndCheck(st->expr(i), arrayName, shiftsByAccess);
+                need = need || findArrayRefAndCheck(st->expr(i), arrayName, shiftsByAccess, st->lineNumber());
         }
     }
     return need;
 }
 
-static inline void genSubscripts(const vector<pair<int, int>> &shadowRenew, const vector<pair<int, int>> &shadowRenewShifts, SgArrayRefExp *&newArrayRef)
+
+vector<SgExpression*> genSubscripts(const vector<pair<int, int>> &shadowRenew, const vector<pair<int, int>> &shadowRenewShifts)
 {
+    vector<SgExpression*> subs;
     for (int z = 0; z < shadowRenew.size(); ++z)
     {
         SgValueExp *tmp = new SgValueExp(shadowRenew[z].first + shadowRenewShifts[z].first);
         SgValueExp *tmp1 = new SgValueExp(shadowRenew[z].second + shadowRenewShifts[z].second);
-        SgExpression *toAdd = new SgExpression(DDOT, tmp, tmp1, NULL);
-        newArrayRef->addSubscript(*toAdd);
+        subs.push_back(new SgExpression(DDOT, tmp, tmp1, NULL));
     }
+    return subs;
 }
 
-static inline SgExpression* createAndSetNext(const int side, const int variant, SgExpression *p)
+SgExpression* createAndSetNext(const int side, const int variant, SgExpression *p)
 {
     if (side == LEFT)
     {
@@ -175,7 +183,7 @@ pair<string, vector<Expression*>>
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
                                 DIST::GraphCSR<int, double, attrType> &reducedG,
-                                DIST::Arrays<int> &allArrays,    
+                                DIST::Arrays<int> &allArrays,
                                 const std::set<DIST::Array*> &acrossOutAttribute,
                                 const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, 
                                 Statement *loop, const int regionId,
@@ -341,7 +349,9 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
                     SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope));
-                    genSubscripts(across[i1].second, acrossShifts[i1], newArrayRef);
+                    for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
+                        newArrayRef->addSubscript(*elem);
+
                     p->setLhs(newArrayRef);
                     inserted++;
                 }
@@ -407,7 +417,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     SgArrayRefExp *newArrayRef = new SgArrayRefExp(*currArray->GetDeclSymbol());
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
-                    genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1], newArrayRef);
+                    for (auto &elem : genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1]))
+                        newArrayRef->addSubscript(*elem);
 
                     if (shadowRenew[i1].second.size() > 1 && needCorner(currArray->GetShortName(), shiftsByAccess, loop))
                     {

@@ -1250,7 +1250,8 @@ OpenProj(pname, no, file_list)
 
     p->proj_name = malloc(strlen(pname) + 1);
 #ifdef __SPF
-    addToCollection(__LINE__, __FILE__,p->proj_name, 0);
+    addToCollection(__LINE__, __FILE__, p->proj_name, 0);
+    addToCollection(__LINE__, __FILE__, p, 0);
 #endif
     (void)strcpy(p->proj_name, pname);
 
@@ -1265,7 +1266,7 @@ OpenProj(pname, no, file_list)
     if (p->hash_tbl == NULL)
         return NULL;
 #ifdef __SPF
-    addToCollection(__LINE__, __FILE__,p->hash_tbl, 0);
+    addToCollection(__LINE__, __FILE__, p->hash_tbl, 0);
 #endif
 
     if (open_proj_file(p, no, file_list))

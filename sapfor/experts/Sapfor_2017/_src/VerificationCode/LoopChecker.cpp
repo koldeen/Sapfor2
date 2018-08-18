@@ -82,6 +82,7 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
                 errors[st->fileName()].push_back(st->lineNumber());
         }
     }
+
     return checkOK;
 }
 
@@ -163,4 +164,3 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
 	
     return checkOK;
 }
-

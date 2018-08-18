@@ -12636,11 +12636,15 @@ int DistrArrayAssign(SgStatement *stmt)
      headr = HeaderRef(ar);
      if(!headr)
      {         //Warning("'%s' isn't distributed array", ar->identifier(), 72,stmt);
+      /*
         if(re->lhs())  // section
         { dvm_ind = HeaderForNonDvmArray(ar,stmt);
           headr = DVM000(dvm_ind);
         } else         // whole array
-          headr = FirstElementOfSection(re);  
+          headr = FirstElementOfSection(re);
+      */ 
+        dvm_ind = HeaderForNonDvmArray(ar,stmt);
+        headr = DVM000(dvm_ind); 
      }
      from_init = ArraySection(re,ar,rr,stmt);  
      doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));
@@ -12695,6 +12699,7 @@ int AssignDistrArray(SgStatement *stmt)
      typel = ar->type()->baseType();
                       //Warning("'%s' isn't distributed array", ar->identifier(), 72,stmt);
      rl = Rank(ar);
+   /*
      if(le->lhs())  // section
      { dvm_ind = HeaderForNonDvmArray(ar,stmt);
        headl = DVM000(dvm_ind);
@@ -12702,6 +12707,9 @@ int AssignDistrArray(SgStatement *stmt)
      { dvm_ind = 0; 
        headl = FirstElementOfSection(le); 
      }
+   */
+     dvm_ind = HeaderForNonDvmArray(ar,stmt);
+     headl = DVM000(dvm_ind);
      to_init = ArraySection(le,ar,rl,stmt);
      ar = re->symbol();
      typer = ar->type()->baseType();
