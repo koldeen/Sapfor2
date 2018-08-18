@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-#define maxVars 300
+#define maxVars 150
 #define maxGEQs 150
 #define maxEQs 27
 
