@@ -85,7 +85,7 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
     return checkOK;
 }
 
-bool EquivalenceChecker(SgFile *file, const string &fileName, vector<ParallelRegion*> &regions, vector<Messages> &currMessages)
+bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<ParallelRegion*> &regions, vector<Messages> &currMessages)
 {
     int funcNum = file->numberOfFunctions();
     bool checkOK = true;
@@ -109,6 +109,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, vector<ParallelReg
 			if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT))
 			{
 				if (getRegionByLine(regions, st->fileName(), lastLine) == NULL) {
+                    __spf_print(1, "The equivalence operator is not supported yet\n");
 					checkOK = false;
 					currMessages.push_back(Messages(ERROR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
                 }
@@ -145,6 +146,7 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                 {
 					checkOK = false;
                     string message;
+                    __spf_print(1, "Variables in one storage association have different types\n");
                     __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
                     currMessages.push_back(Messages(ERROR, pos, message, 1039));
                 }
