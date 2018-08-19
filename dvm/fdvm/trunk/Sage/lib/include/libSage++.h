@@ -1122,6 +1122,17 @@ public:
   inline SgProgHedrStmt(SgSymbol &name);
   inline SgProgHedrStmt(char *name);
   inline SgSymbol &name();
+  // added 15.08.2018 by A.S. Kolganov. <contains cp name>.funcName
+  inline std::string nameWithContains()
+  {
+      std::string containsName = "";
+      SgStatement *st_cp = this->controlParent();
+      if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+          containsName = st_cp->symbol()->identifier() + std::string(".");
+
+      return containsName + this->symbol()->identifier();
+  }
+
   inline void setName(SgSymbol &symbol); // set program name 
 
   inline int numberOfFunctionsCalled();  // the number of functions called

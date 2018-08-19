@@ -5,6 +5,7 @@ struct DefUseList
 private:
     int type; // def(0) or use(1)
     SgStatement *place;
+    SgExpression *expr;
     SgFile *file;
     std::pair<SgSymbol*, std::string> paramOfFunction;
     int parameterPosition;
@@ -12,11 +13,12 @@ private:
     int parameterPositionInFunction;
 
 public:
-    explicit DefUseList(int type, SgStatement *place, SgFile *file,
+    explicit DefUseList(int type, SgStatement *place, SgExpression *expr, SgFile *file,
         const std::pair<SgSymbol*, std::string> &inFuncParam,
         const std::pair<SgSymbol*, std::string> &varName,
         const int parameterPosition, const int paramenterPostionInFunction) :
-        type(type), place(place), file(file), paramOfFunction(inFuncParam), varName(varName), parameterPosition(parameterPosition), parameterPositionInFunction(paramenterPostionInFunction)
+        type(type), place(place), expr(expr), file(file), paramOfFunction(inFuncParam), varName(varName), 
+        parameterPosition(parameterPosition), parameterPositionInFunction(paramenterPostionInFunction)
     {
 
     }
@@ -27,6 +29,7 @@ public:
     SgSymbol* getVarS() const { return varName.first; }
     SgFile* getFile() const { return file; }
     SgStatement* getPlace() const { return place; }
+    SgExpression* getExpr() const { return expr; }
     std::string getParamOfFunction() const { return paramOfFunction.second; }
     SgSymbol* getParamOfFunctionS() const { return paramOfFunction.first; }
     int getParameterPosition() const { return parameterPosition; }

@@ -46,5 +46,3 @@ const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName)
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
 int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);
-
-std::string getContainsPrefix(SgStatement *st);

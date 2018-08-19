@@ -77,12 +77,22 @@ void deleteAllAllocatedData(bool enable)
     {
         for (int i = 0; i < parallelRegions.size(); ++i)
             delete parallelRegions[i];
+        parallelRegions.clear();
+
+        for (int i = 0; i < subs_parallelRegions.size(); ++i)
+            delete subs_parallelRegions[i];
+        subs_parallelRegions.clear();
 
         shortFileNames.clear();
         for (auto &it : allFuncInfo)
             for (auto &toDel : it.second)
                 delete toDel;
         allFuncInfo.clear();
+
+        for (auto &it : subs_allFuncInfo)
+            for (auto &toDel : it.second)
+                delete toDel;
+        subs_allFuncInfo.clear();
 
         for (auto &elem : temporaryAllFuncInfo)
             for (auto &toDel : elem.second)
@@ -365,12 +375,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == LOOP_GRAPH)        
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
         else if (curr_regime == VERIFY_ENDDO)
-            verifyOK = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
+        {
+            bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == VERIFY_INCLUDE)
-            verifyOK = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
+        {
+            bool res = IncludeChecker(file, file_name, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == VERIFY_DVM_DIRS)
         {
-            verifyOK = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
+            bool res = DvmDirectiveChecker(file, dvmDirErrors, keepDvmDirectives, ignoreDvmChecker);
+            verifyOK &= res;
             if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 printDvmActiveDirsErrors();
         }
@@ -550,7 +567,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
             arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
-            fillRegionLines(file, parallelRegions, loopGraph[file_name]);
+            fillRegionLines(file, parallelRegions, &(loopGraph[file_name]));
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
@@ -606,7 +623,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
         else if (curr_regime == SUBST_EXPR)
         {
-            expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo);
+            expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo, subs_parallelRegions);
             // analyze again for substituted expressions
             arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         }
@@ -687,8 +704,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
             }
         }
+        else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
+        {
+            auto it = subs_allFuncInfo.find(file_name);
+            if (it == subs_allFuncInfo.end())
+                functionAnalyzer(file, subs_allFuncInfo);
 
-        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);     
+            fillRegionLines(file, subs_parallelRegions);
+        }
+
+        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
     } // end of FOR by files
         
     if (internalExit != 0)
@@ -1023,7 +1048,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PAR_REGIONS_LINES)
     {
-        fillRegionLinesStep2(parallelRegions, allFuncInfo, loopGraph);
+        fillRegionLinesStep2(parallelRegions, allFuncInfo, &loopGraph);
 
         if (ignoreDvmChecker == 1)
         {
@@ -1164,7 +1189,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     auto lines = crByF.second[0]->GetAllLines();
                     bool ok = false;
                     for (auto &linePair : lines)
-                    {                        
+                    {
                         for (auto &line : linePair.second)
                         {
                             if (line.stats.first && line.stats.second)
@@ -1183,6 +1208,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+    }
+    else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
+    {
+        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages);
+        fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
+        clearRegionStaticData();
     }
 
 #if _WIN32
@@ -1293,8 +1324,8 @@ static SgProject* createProject(const char *proj_name)
     SgProject *project = new SgProject(proj_name);
     addNumberOfFileToAttribute(project);
 
-    ParallelRegion *defaultParRegion = new ParallelRegion(0, "DEFAULT");
-    parallelRegions.push_back(defaultParRegion);
+    parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
+    subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     return project;
 }
 

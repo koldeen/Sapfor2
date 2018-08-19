@@ -2214,20 +2214,24 @@ std::string SgExpression::sunparse()
 
 #define ERR_TOOMANYSYMS -1
 
-int  SgExpression::linearRepresentation(int *coeff, SgSymbol **symb,int *cst, int size)
+int SgExpression::linearRepresentation(int *coeff, SgSymbol **symb, int *cst, int size)
 {
-  PTR_SYMB ts[100];
-  int i;
-  if (!symb || !coeff || !cst)
-    return 0;
-  if (size > 100)
+    const int maxElem = 300;
+    PTR_SYMB *ts = new PTR_SYMB[maxElem];
+    int i;
+    if (!symb || !coeff || !cst)
+        return 0;
+    if (size > maxElem)
     {
-      Message (" Too many symbols in linearRepresentation ",0);
-      return ERR_TOOMANYSYMS;
+        Message(" Too many symbols in linearRepresentation ", 0);
+        return ERR_TOOMANYSYMS;
     }
-  for (i=0 ; i < size; i++)
-    ts[i] = symb[i]->thesymb;
-  return buildLinearRep(thellnd,coeff,ts,size,cst);
+    for (i = 0; i < size; i++)
+        ts[i] = symb[i]->thesymb;
+
+    int retVal = buildLinearRep(thellnd, coeff, ts, size, cst);
+    delete ts;
+    return retVal;
 }
 
 
