@@ -130,11 +130,9 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ PREPROC_SPF, CALL_GRAPH2, FILL_PAR_REGIONS_LINES }) <= Pass(CHECK_PAR_REGIONS) <= Pass(RESOLVE_PAR_REGIONS);
     
-<<<<<<< HEAD
     Pass(CHECK_PAR_REGIONS) <= Pass(PRINT_PAR_REGIONS_ERRORS);
-=======
+
     list({ PREPROC_SPF, CORRECT_VAR_DECL }) <= Pass(FILL_PAR_REGIONS_LINES);
->>>>>>> master
 
     list({ LOOP_ANALYZER_COMP_DIST, CONVERT_LOOP_TO_ASSIGN }) << list({ CREATE_DISTR_DIRS, CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS });
     
