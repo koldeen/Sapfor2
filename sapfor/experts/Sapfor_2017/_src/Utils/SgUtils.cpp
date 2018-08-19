@@ -36,6 +36,7 @@ using std::set;
 using std::vector;
 using std::string;
 using std::make_pair;
+using std::make_tuple;
 
 const char *tag[];
 
@@ -700,7 +701,7 @@ static SgExpression* isInCommon(const vector<SgExpression*> &commonBlocks, const
     return NULL;
 }
 
-map<pair<string, int>, tuple<int, string, string>> tableOfUniqNames;
+static map<tuple<string, string, int>, tuple<int, string, string>> tableOfUniqNames;
 tuple<int, string, string> getUniqName(const map<string, vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb)
 {
     bool inCommon = false;
@@ -748,10 +749,26 @@ tuple<int, string, string> getUniqName(const map<string, vector<SgExpression*>> 
     else
         retVal = make_tuple(decl->lineNumber(), string(decl->fileName()), string(symb->identifier()));
 
-    auto it = tableOfUniqNames.find(make_pair(symb->identifier(), decl->lineNumber()));
+    auto key = make_tuple(symb->identifier(), decl->fileName(), decl->lineNumber());
+    auto it = tableOfUniqNames.find(key);
     if (it == tableOfUniqNames.end())
-        tableOfUniqNames.insert(it, make_pair(make_pair(symb->identifier(), decl->lineNumber()), retVal));
+        tableOfUniqNames.insert(it, make_pair(key, retVal));
+    else
+    {
+        if (it->first != key)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     return retVal;
+}
+
+tuple<int, string, string> getFromUniqTable(SgSymbol *symb)
+{
+    auto place = declaratedInStmt(symb);
+    auto localIt = tableOfUniqNames.find(std::make_tuple(symb->identifier(), place->fileName(), place->lineNumber()));
+    if (localIt == tableOfUniqNames.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    
+    return localIt->second;
 }
 
 SgStatement* findMainUnit(SgProject *proj)

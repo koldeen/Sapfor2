@@ -772,17 +772,17 @@ int SPF_SetDistributionFlagToArray(char *key, int flag)
     string keyStr(key);
     try
     {
-        for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
+        for (auto &array : declaratedArrays)
         {
-            if (it->second.first->GetName() == keyStr)
+            if (array.second.first->GetName() == keyStr)
             {
-                __spf_print(1, "change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
-                printf("SAPFOR: change flag for array '%s': %d -> %d\n", it->second.first->GetName().c_str(), it->second.first->GetNonDistributeFlag(), flag);
+                __spf_print(1, "change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
+                printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
 
                 if (flag == 0)
-                    it->second.first->SetNonDistributeFlag(DIST::DISTR);
+                    array.second.first->SetNonDistributeFlag(DIST::DISTR);
                 else
-                    it->second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
                 break;
             }
         }

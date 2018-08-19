@@ -812,87 +812,83 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         {
                             SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
                             const string currArray(currSymb->identifier());
-                            auto toFind = std::make_pair(currSymb->identifier(), declaratedInStmt(currSymb)->lineNumber());
-                            auto itS = tableOfUniqNames.find(toFind);
 
-                            if (itS != tableOfUniqNames.end())
-                            {
-                                const string fullArrayName = getShortName(itS->second);
-                                pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir);
+                            auto uniqKey = getFromUniqTable(currSymb);
+                            const string fullArrayName = getShortName(uniqKey);
+                            pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir);
                                 
-                                string toInsert = dirWithArray.second;
-                                if (toInsert != "")
+                            string toInsert = dirWithArray.second;
+                            if (toInsert != "")
+                            {
+                                auto alignIt = alignArrays.find(fullArrayName);
+                                if (alignIt == alignArrays.end() && !extractDir)
+                                    alignArrays.insert(alignIt, fullArrayName);
+                                else if (alignIt != alignArrays.end() && extractDir)
+                                    alignArrays.erase(alignIt);
+                                else
+                                    toInsert = "";
+
+                                const pair<tuple<string, string, string>, string> &templDir =
+                                    getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, arrayLinksByFuncCalls, regionId, !isModule);
+                                string templDecl = std::get<0>(templDir.first);
+
+                                //if array is inherit array 
+                                if (templDir.second == "!DVM$ INHERIT\n")
                                 {
-                                    auto alignIt = alignArrays.find(fullArrayName);
-                                    if (alignIt == alignArrays.end() && !extractDir)
-                                        alignArrays.insert(alignIt, fullArrayName);
-                                    else if (alignIt != alignArrays.end() && extractDir)
-                                        alignArrays.erase(alignIt);
-                                    else
-                                        toInsert = "";
+                                    toInsert = "";
 
-                                    const pair<tuple<string, string, string>, string> &templDir =
-                                        getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, arrayLinksByFuncCalls, regionId, !isModule);
-                                    string templDecl = std::get<0>(templDir.first);
-
-                                    //if array is inherit array 
-                                    if (templDir.second == "!DVM$ INHERIT\n")
+                                    if (inheritDir.first == NULL)
                                     {
-                                        toInsert = "";
-
-                                        if (inheritDir.first == NULL)
+                                        if (extractDir == false)
                                         {
-                                            if (extractDir == false)
-                                            {
-                                                inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
-                                                SgExpression *list = new SgExpression(EXPR_LIST);
-                                                SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                                list->setLhs(ref);
-                                                inheritDir.first->setExpression(0, *list);
-                                            }
-                                            inheritDir.second = st;
+                                            inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
+                                            SgExpression *list = new SgExpression(EXPR_LIST);
+                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
+                                            list->setLhs(ref);
+                                            inheritDir.first->setExpression(0, *list);
                                         }
-                                        else 
+                                        inheritDir.second = st;
+                                    }
+                                    else 
+                                    {
+                                        if (extractDir == false)
                                         {
-                                            if (extractDir == false)
-                                            {
-                                                SgExpression *list = new SgExpression(EXPR_LIST);
-                                                SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                                list->setLhs(ref);
-                                                list->setRhs(inheritDir.first->expr(0));
-                                                inheritDir.first->setExpression(0, *list);
-                                            }
+                                            SgExpression *list = new SgExpression(EXPR_LIST);
+                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
+                                            list->setLhs(ref);
+                                            list->setRhs(inheritDir.first->expr(0));
+                                            inheritDir.first->setExpression(0, *list);
                                         }
                                     }
-                                    else
-                                        dynamicArraysLocal.insert(dirWithArray.first);
-                                    dynamicArrays.insert(dirWithArray.first);
-                                    dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
+                                }
+                                else
+                                    dynamicArraysLocal.insert(dirWithArray.first);
+                                dynamicArrays.insert(dirWithArray.first);
+                                dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
 
-                                    if (templateDelc.find(templDecl) == templateDelc.end())
-                                        templateDelc.insert(templDecl);
-                                    else
-                                        templDecl = "";
+                                if (templateDelc.find(templDecl) == templateDelc.end())
+                                    templateDelc.insert(templDecl);
+                                else
+                                    templDecl = "";
                                     
-                                    if (templDecl != "")
-                                        templDecl = createFullTemplateDir(templDir.first);
+                                if (templDecl != "")
+                                    templDecl = createFullTemplateDir(templDir.first);
 
-                                    if (!strcmp(st->fileName(), fin_name))
-                                    {
-                                        if (modulesAndFuncs[i]->variant() == PROG_HEDR)
-                                            templDecl = "";
+                                if (!strcmp(st->fileName(), fin_name))
+                                {
+                                    if (modulesAndFuncs[i]->variant() == PROG_HEDR)
+                                        templDecl = "";
 
-                                        const string toAdd = templDecl + toInsert;
-                                        if (extractDir)
-                                            extractComments(st, toAdd); 
-                                        else
-                                            st->addComment(toAdd.c_str());
-                                    }
+                                    const string toAdd = templDecl + toInsert;
+                                    if (extractDir)
+                                        extractComments(st, toAdd); 
                                     else
-                                    {
-                                        addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
-                                        templateDeclInIncludes[st->fileName()] = templDecl;
-                                    }
+                                        st->addComment(toAdd.c_str());
+                                }
+                                else
+                                {
+                                    addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
+                                    templateDeclInIncludes[st->fileName()] = templDecl;
                                 }
                             }
                         }
@@ -1038,11 +1034,11 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                         if (distrArrays.find(OriginalSymbol(varList->lhs()->symbol())->identifier()) != distrArrays.end())
                         {
                             SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
-                            auto toFind = std::make_pair(currSymb->identifier(), declaratedInStmt(currSymb)->lineNumber());
-                            auto itS = tableOfUniqNames.find(toFind);
 
-                            if (itS != tableOfUniqNames.end())
-                                declaratedDistrArrays.insert(declaratedArrays.find(itS->second)->second.first);
+                            auto uniqKey = getFromUniqTable(currSymb);
+                            auto itArr = declaratedArrays.find(uniqKey);
+                            if (itArr != declaratedArrays.end())                                
+                                declaratedDistrArrays.insert(itArr->second.first);
                         }
                     }
                     varList = varList->rhs();
