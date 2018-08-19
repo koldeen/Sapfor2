@@ -280,6 +280,7 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         bool callsFromCode = false;
 
         fillRegionCover(funcPair.second, funcMap);
+
         //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
         //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // remove
 
@@ -351,15 +352,25 @@ static void copyLocalArray(ParallelRegion *region,
 
             newArrSymb = &arrSymb->copy();
             newArrSymb->changeName(newArrName.c_str());
-            newDecl = makeSymbolDeclaration(newArrSymb);
-            //decl->insertStmtAfter(*decl, *newDecl);
+            newDecl = newArrSymb->makeVarDeclStmt();
+            decl->insertStmtAfter(*newDecl, *decl);
 
             decl->unparsestdout();
             newDecl->unparsestdout();
+            newDecl->lexPrev()->unparsestdout();
+            decl->lexNext()->unparsestdout();
+            decl->lexNext()->lexNext()->unparsestdout();
 
-            __spf_print(1, "new array '%s' for '%s' (line: %d)\n",
-                newArrName.c_str(), arrSymb->identifier(), decl->lineNumber()); // remove
+            __spf_print(1, "  array '%s' variant is %d\n", arrSymb->identifier(), arrSymb->variant()); // remove
+            __spf_print(1, "  array '%s' variant is %d\n", newArrSymb->identifier(), newArrSymb->variant()); // remove
 
+            __spf_print(1, "new array '%s' as copy of array '%s' (line: %d)\n",
+                        newArrName.c_str(), arrSymb->identifier(), decl->lineNumber()); // remove
+
+            region->AddReplacedSymbols(func->fileName, arrSymb, newArrSymb);
+
+            __spf_print(1, "  add (%s, %s) for file %s\n",
+                        arrSymb->identifier(), newArrSymb->identifier(), func->fileName.c_str()); // remove
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -409,10 +420,11 @@ static void copyFunction(ParallelRegion *region,
             pair<int, int> newLines = make_pair(startEnd.first->lineNumber(), startEnd.second->lineNumber());
             region->AddLines(newLines, file->filename(), &startEnd);
 
-            __spf_print(1, "explicit lines %d-%d added with statement ids %d,%d\n",
+            __spf_print(1, "  explicit lines %d-%d added with statement ids %d,%d\n",
                         newLines.first, newLines.second,
                         startEnd.first->id(), startEnd.second->id()); // remove
 
+            // TODO: change replace algorithm for array raplacing
             region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
             __spf_print(1, "  add (%s, %s) for file %s\n",
@@ -487,7 +499,7 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
         // creating new arrays
         for (auto &funcArrays : region->GetLocalArrays())
             for (auto &nameLocalArray : funcArrays.second)
-                copyLocalArray(region, nameLocalArray.second, funcArrays.first, nameLocalArray.first, string("copy"), allFuncInfo, funcMap);
+                copyLocalArray(region, nameLocalArray.second, funcArrays.first, nameLocalArray.first, region->GetName(), allFuncInfo, funcMap);
 
         //__spf_print(1, "[%s]: create common arrays\n", region->GetName().c_str()); // remove
 
@@ -582,7 +594,7 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
 
     for (auto &region : regions)
     {
-        for (auto &funcArrays : region->GetUsedLocalArrays())
+        for (auto &funcArrays : region->GetLocalArrays())
         {
             string funcName = funcArrays.first;
             auto func = getFuncInfo(funcMap, funcName);
@@ -597,15 +609,34 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
                         {
                             for (auto &originCopy : funcSymbols.second)
                             {
-                                if (originCopy.first->identifier() == arrayName)
+                                if (originCopy.first->identifier() == arrayName.first)
                                 {
-                                    SgStatement *assign = new SgStatement(ASSIGN_STAT);
-                                    SgExpression *left = new SgArrayRefExp(*originCopy.second);
-                                    SgExpression *right = new SgArrayRefExp(*originCopy.first);
-                                    assign->setExpression(0, *left);
-                                    assign->setExpression(1, *right);
+                                    // insert copy statement
+                                    for (auto &regionLines : arrayName.second.getAllLines())
+                                    {
+                                        if (!regionLines.isImplicit())
+                                        {
+                                            regionLines.stats.first->unparsestdout();
+                                            regionLines.stats.second->unparsestdout();
 
-                                    // TODO: insert copy statement
+                                            // A_reg = A
+                                            SgStatement *assign = new SgStatement(ASSIGN_STAT);
+                                            SgExpression *left = new SgArrayRefExp(*originCopy.second);
+                                            SgExpression *right = new SgArrayRefExp(*originCopy.first);
+
+                                            assign->setExpression(0, *left);
+                                            assign->setExpression(1, *right);
+                                            regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first);
+
+                                            // A = A_reg
+                                            assign = new SgStatement(ASSIGN_STAT);
+                                            left = new SgArrayRefExp(*originCopy.first);
+                                            right = new SgArrayRefExp(*originCopy.second);
+                                            assign->setExpression(0, *left);
+                                            assign->setExpression(1, *right);
+                                            regionLines.stats.second->insertStmtAfter(*assign, *regionLines.stats.second);
+                                        }
+                                    }
 
                                     break;
                                 }
