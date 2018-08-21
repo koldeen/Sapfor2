@@ -73,58 +73,58 @@ extern map<string, set<string>> dynamicDirsByFile;
 
 void deleteAllAllocatedData(bool enable)
 {
-	if (enable)
-	{
-		for (int i = 0; i < parallelRegions.size(); ++i)
-			delete parallelRegions[i];
-		parallelRegions.clear();
+    if (enable)
+    {
+        for (int i = 0; i < parallelRegions.size(); ++i)
+            delete parallelRegions[i];
+        parallelRegions.clear();
 
-		for (int i = 0; i < subs_parallelRegions.size(); ++i)
-			delete subs_parallelRegions[i];
-		subs_parallelRegions.clear();
+        for (int i = 0; i < subs_parallelRegions.size(); ++i)
+            delete subs_parallelRegions[i];
+        subs_parallelRegions.clear();
 
-		shortFileNames.clear();
-		for (auto &it : allFuncInfo)
-			for (auto &toDel : it.second)
-				delete toDel;
-		allFuncInfo.clear();
+        shortFileNames.clear();
+        for (auto &it : allFuncInfo)
+            for (auto &toDel : it.second)
+                delete toDel;
+        allFuncInfo.clear();
 
-		for (auto &it : subs_allFuncInfo)
-			for (auto &toDel : it.second)
-				delete toDel;
-		subs_allFuncInfo.clear();
+        for (auto &it : subs_allFuncInfo)
+            for (auto &toDel : it.second)
+                delete toDel;
+        subs_allFuncInfo.clear();
 
-		for (auto &elem : temporaryAllFuncInfo)
-			for (auto &toDel : elem.second)
-				delete toDel;
-		temporaryAllFuncInfo.clear();
+        for (auto &elem : temporaryAllFuncInfo)
+            for (auto &toDel : elem.second)
+                delete toDel;
+        temporaryAllFuncInfo.clear();
 
-		for (auto &loop : loopGraph)
-			for (auto &toDel : loop.second)
-				delete toDel;
-		loopGraph.clear();
+        for (auto &loop : loopGraph)
+            for (auto &toDel : loop.second)
+                delete toDel;
+        loopGraph.clear();
 
-		for (auto &toDel : depInfoForLoopGraph)
-			delete toDel.second;
-		depInfoForLoopGraph.clear();
+        for (auto &toDel : depInfoForLoopGraph)
+            delete toDel.second;
+        depInfoForLoopGraph.clear();
 
-		for (auto &toDel : declaratedArrays)
-		{
-			delete toDel.second.first;
-			delete toDel.second.second;
-		}
-		declaratedArrays.clear();
+        for (auto &toDel : declaratedArrays)
+        {
+            delete toDel.second.first;
+            delete toDel.second.second;
+        }
+        declaratedArrays.clear();
 
-		commentsToInclude.clear();
-		SPF_messages.clear();
+        commentsToInclude.clear();
+        SPF_messages.clear();
 
-		for (int i = 0; i < EMPTY_ALGO; ++i)
-			delete[]ALGORITHMS_DONE[i];
-		delete project;
+        for (int i = 0; i < EMPTY_ALGO; ++i)
+            delete[]ALGORITHMS_DONE[i];
+        delete project;
 
         deleteGraphKeeper();
         deletePointerAllocatedData();
-	}
+    }
 }
 
 template<typename objT>
@@ -234,7 +234,6 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             __spf_print(1, "  try to find file <%s>\n", file_name);
             __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
         }
-
         if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
         {
             FILE *fOut = fopen(fout_name.c_str(), "w");
@@ -391,6 +390,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 printDvmActiveDirsErrors();
         }
+		else if (curr_regime == VERIFY_EQUIVALENCE)
+		{
+			bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+			verifyOK &= res;
+		}
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
             auto itFound = loopGraph.find(file_name);
@@ -554,11 +558,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
                          allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
-        else if (curr_regime == VERIFY_EQUIVALENCE)
-        {
-            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
-            verifyOK &= res;
-        }
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
@@ -939,7 +938,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == VERIFY_ENDDO ||
              curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS ||
-			 curr_regime == VERIFY_EQUIVALENCE)
+			 curr_regime == VERIFY_EQUIVALENCE ||
+			 curr_regime == VERIFY_COMMON)
     {
         if (verifyOK == false)
             throw(-1);
