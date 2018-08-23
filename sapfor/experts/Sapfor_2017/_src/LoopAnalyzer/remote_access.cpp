@@ -56,7 +56,7 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     if (expr == NULL)
         return retVal;
 
-    if (expr->variant() == ARRAY_REF)
+    if (expr->variant() == ARRAY_REF && expr->symbol() && expr->symbol()->type()->variant() != T_STRING)
     {
         DIST::Array *currArray = GetArrayByShortName(allArrays, OriginalSymbol(expr->symbol()));
 

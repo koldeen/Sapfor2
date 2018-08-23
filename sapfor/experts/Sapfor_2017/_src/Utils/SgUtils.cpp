@@ -56,6 +56,7 @@ static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<
     return retVal;
 }
 
+//TODO: read includes and find last lines, all included files
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
 {
     fflush(NULL);
@@ -166,10 +167,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 pair<int, int> lines = make_pair(lineBefore, -1);
 
                 SgStatement *locSt = st->lexNext();
+                set<string> nearIncludes;
+
                 while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
                 {
-                    if (locSt->fileName() != fileN)
-                        allIncludeFiles.insert(locSt->fileName());
+                    const string locName = locSt->fileName();
+                    if (locName != fileN)
+                    {
+                        allIncludeFiles.insert(locName);
+                        if (locName != currFileName)
+                        {
+                            auto itNear = includeFiles.find(locName);
+                            if (itNear != includeFiles.end())
+                                nearIncludes.insert(locName);
+                        }
+                    }
                     locSt = locSt->lexNext();
                 }
 
@@ -185,14 +197,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 if (locSt && ifIntevalExists(it->second.second, lines))
                 {
                     insertedIncludeFiles[currFileName].push_back(lines);
+                    for (auto &elem : nearIncludes)
+                        insertedIncludeFiles[elem].push_back(lines);
+
+                    string toInsert = it->second.first;
+                    for (auto &elem : nearIncludes)
+                        toInsert += includeFiles[elem].first;
+
                     char *comm = locSt->comments();
                     if (comm)
                     {
-                        if (string(locSt->comments()).find(it->second.first) == string::npos)
-                            locSt->addComment(it->second.first.c_str());
+                        if (string(locSt->comments()).find(toInsert) == string::npos)
+                            locSt->addComment(toInsert.c_str());
                     }
                     else
-                        locSt->addComment(it->second.first.c_str());
+                        locSt->addComment(toInsert.c_str());
                 }
             }
         }
@@ -1362,4 +1381,107 @@ void CommonBlock::print(FILE *fileOut) const
 }
 
 // END of CommonBlock::
+
+void groupDeclarations(SgFile *file)
+{
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
+    {
+        SgStatement *func = file->functions(i);
+        SgStatement *lastNode = func->lastNodeOfStmt();
+
+        map<SgType*, pair<vector<SgStatement*>, vector<SgExpression*>>> refs;
+        
+        vector<SgStatement*> toDel;
+        for (auto st = func; st != lastNode; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            
+            if (st->variant() == VAR_DECL)
+            {
+                auto varDecl = isSgVarDeclStmt(st);
+                SgExpression *varList = varDecl->varList();
+                
+                int count = 0;
+                for (auto lst = varList; lst; lst = lst->rhs())
+                    count++;
+
+                vector<SgExpression*> notMoved;
+
+                int countOfMoved = 0;
+                for (auto lst = varList; lst; lst = lst->rhs())
+                {
+                    SgExpression *var = lst->lhs();
+                    if (var->variant() == VAR_REF)
+                    {
+                        auto type = var->symbol()->type();
+                        if (st->lineNumber() == 72)
+                            printf("type %d, line %d\n", type->variant(), st->lineNumber());
+                        if (type && isSgArrayType(type) == NULL && type->variant() != T_STRING)
+                        {
+                            countOfMoved++;                            
+                            refs[type].second.push_back(var);
+
+                            SgStatement *prev = st->lexPrev();
+                            while (prev && prev->variant() == SPF_ANALYSIS_DIR)
+                            {
+                                refs[type].first.push_back(prev->extractStmt());
+                                prev = st->lexPrev();
+                            }
+                        }
+                        else
+                            notMoved.push_back(var);
+                    }
+                    else
+                        notMoved.push_back(var);
+                }
+                                
+                if (countOfMoved != count)
+                {
+                    if (countOfMoved != 0)
+                    {
+                        SgExpression *varList = new SgExpression(EXPR_LIST);
+                        SgExpression *pVar = varList;
+
+                        for (int z = 0; z < notMoved.size(); z++)
+                        {                            
+                            pVar->setLhs(notMoved[z]);
+                            if (z != notMoved.size() - 1)
+                            {
+                                pVar->setRhs(new SgExpression(EXPR_LIST));
+                                pVar = pVar->rhs();
+                            }
+                        }                        
+                        st->setExpression(0, *varList);
+                    }
+                }
+                else
+                    toDel.push_back(st);
+            }
+        }
+
+        for (auto st = func; st != lastNode; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st->lexNext()))
+            {
+                for (auto &newDecl : refs)
+                {
+                    SgVarDeclStmt *newDeclSt = newDecl.second.second[0]->symbol()->makeVarDeclStmt();
+                    for (int z = 1; z < newDecl.second.second.size(); ++z)
+                        newDeclSt->addVar(*newDecl.second.second[z]);
+                    st->insertStmtAfter(*newDeclSt, *func);
+
+                    for (auto &spf : newDecl.second.first)
+                        st->insertStmtAfter(*spf, *func);                    
+                }                
+                break;
+            }
+        }
+          
+        //TODO: move comments
+        for (auto &elem : toDel)
+            elem->deleteStmt();
+    }
+}
+
 

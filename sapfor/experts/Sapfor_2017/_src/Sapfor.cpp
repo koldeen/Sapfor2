@@ -210,6 +210,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
 
+        /*if (curr_regime == CORRECT_CODE_STYLE)
+            groupDeclarations(file);*/
+
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
