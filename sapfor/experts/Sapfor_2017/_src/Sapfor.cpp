@@ -390,11 +390,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 printDvmActiveDirsErrors();
         }
-		else if (curr_regime == VERIFY_EQUIVALENCE)
-		{
-			bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
-			verifyOK &= res;
-		}
+        else if (curr_regime == VERIFY_EQUIVALENCE)
+        {
+            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
             auto itFound = loopGraph.find(file_name);
@@ -938,8 +938,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == VERIFY_ENDDO ||
              curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS ||
-			 curr_regime == VERIFY_EQUIVALENCE ||
-			 curr_regime == VERIFY_COMMON)
+             curr_regime == VERIFY_EQUIVALENCE ||
+             curr_regime == VERIFY_COMMON)
     {
         if (verifyOK == false)
             throw(-1);

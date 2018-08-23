@@ -100,26 +100,26 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
         while (st != lastNode)
         {
             currProcessing.second = st;
-			lastLine = st->lineNumber();
+            lastLine = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
 
-			if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT))
-			{
-				if (getRegionByLine(regions, st->fileName(), lastLine) == NULL) {
+            if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT))
+            {
+                if (getRegionByLine(regions, st->fileName(), lastLine) == NULL) {
                     __spf_print(1, "The equivalence operator is not supported yet\n");
-					checkOK = false;
-					currMessages.push_back(Messages(ERROR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
+                    checkOK = false;
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
                 }
-				else
-				{
+                else
+                {
                     __spf_print(1, "The equivalence operator is not supported yet\n");
                     currMessages.push_back(Messages(WARR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
                 }
-			}
+            }
 
             st = st->lexNext();
         }
@@ -129,38 +129,38 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
 
 bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, CommonBlock> &commonBlocks, vector<Messages> &currMessages)
 {
-	bool checkOK = true;
+    bool checkOK = true;
 
     for (auto block : commonBlocks)
     {
-		auto vars = block.second.getVariables();
+        auto vars = block.second.getVariables();
 
-		for (int i = 0; i < vars.size(); i++)
-		{
-			int pos = vars[i].getPosition();
-			varType type = vars[i].getType();
+        for (int i = 0; i < vars.size(); i++)
+        {
+            int pos = vars[i].getPosition();
+            varType type = vars[i].getType();
 
-			for (int j = i + 1; j < vars.size(); j++)
-			{
-				if ((vars[j].getPosition() == pos) &&
-					((vars[j].getType() == ARRAY && type != ARRAY) || (vars[j].getType() != ARRAY && type == ARRAY)))
+            for (int j = i + 1; j < vars.size(); j++)
+            {
+                if ((vars[j].getPosition() == pos) &&
+                    ((vars[j].getType() == ARRAY && type != ARRAY) || (vars[j].getType() != ARRAY && type == ARRAY)))
                 {
-					checkOK = false;
+                    checkOK = false;
                     string message;
                     __spf_print(1, "Variables in one storage association have different types\n");
                     __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
                     currMessages.push_back(Messages(ERROR, pos, message, 1039));
                 }
-				else if (vars[j].getPosition() == pos && vars[j].getType() != type)
-				{
-					string message;
+                else if (vars[j].getPosition() == pos && vars[j].getType() != type)
+                {
+                    string message;
                     __spf_print(1, "Variables in one storage association have different types\n");
-					__spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
-					currMessages.push_back(Messages(WARR, pos, message, 1039));
+                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
+                    currMessages.push_back(Messages(WARR, pos, message, 1039));
                 }
-			}
-		}
+            }
+        }
     }
-	
+    
     return checkOK;
 }
