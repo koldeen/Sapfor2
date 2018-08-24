@@ -12,6 +12,6 @@ bool checkRegions(const std::vector<ParallelRegion*> &regions, std::map<std::str
 
 void createFunctionsAndArrays(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::set<std::string> &allCommonFunctions, const std::set<std::string> &allUsedCommonArrays);
 void replaceFunctionsAndArrays(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::set<std::string> &allCommonFunctions);
-void insertArraysCopy(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
+void insertArraysCopying(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 int printCheckRegions(const char *fileName, const std::vector<ParallelRegion*> &regions, const std::set<std::string> &allUsedCommonArrays, const std::set<std::string> &allCommonFunctions, const std::map<std::string, ParallelRegionArray> &allCommonArrays);

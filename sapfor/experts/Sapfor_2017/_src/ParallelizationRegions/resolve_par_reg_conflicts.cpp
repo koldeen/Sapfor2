@@ -353,7 +353,7 @@ static void copyLocalArray(ParallelRegion *region,
             newArrSymb = &arrSymb->copy();
             newArrSymb->changeName(newArrName.c_str());
             newDecl = newArrSymb->makeVarDeclStmt();
-            decl->insertStmtAfter(*newDecl, *decl);
+            decl->insertStmtAfter(*newDecl, *decl->controlParent());
 
             decl->unparsestdout();
             newDecl->unparsestdout();
@@ -371,6 +371,8 @@ static void copyLocalArray(ParallelRegion *region,
 
             __spf_print(1, "  add (%s, %s) for file %s\n",
                         arrSymb->identifier(), newArrSymb->identifier(), func->fileName.c_str()); // remove
+
+            // TODO: SPF_ANALYSIS(decl)
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -385,7 +387,7 @@ static void copyCommonArray(ParallelRegion *region,
                             const map<string, vector<FuncInfo*>> &allFuncInfo,
                             const map<string, FuncInfo*> &funcMap)
 {
-
+    
 }
 
 static void copyFunction(ParallelRegion *region,
@@ -500,12 +502,20 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
         for (auto &funcArrays : region->GetLocalArrays())
             for (auto &nameLocalArray : funcArrays.second)
                 copyLocalArray(region, nameLocalArray.second, funcArrays.first, nameLocalArray.first, region->GetName(), allFuncInfo, funcMap);
+    }
 
-        //__spf_print(1, "[%s]: create common arrays\n", region->GetName().c_str()); // remove
+    __spf_print(1, "create common arrays\n"); // remove
 
-        // creating common-blocks
-        for (auto &commonArray : allUsedCommonArrays)
-            ; // copyCommonArray(region, commonArray, string("copy"), allFuncInfo, funcMap);
+    // creating common-block
+    // TODO: create new common-block
+    SgStatement *commDecl = new SgStatement(COMM_STAT);
+    SgExprListExp *commList = new SgExprListExp(COMM_LIST);
+    commDecl->setExpression(0, *commList);
+
+    // TODO: create new arrays into new common-block
+    for (auto &commonArray : allUsedCommonArrays)
+    {
+        ;
     }
 }
 
@@ -517,7 +527,7 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
         if (exp->symbol() && exp->symbol()->identifier() == from)
         {
             exp->setSymbol(to);
-            __spf_print(1, "replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
+            __spf_print(1, "  replace '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
         }
 
         recursiveReplace(exp->lhs(), from, to);
@@ -563,7 +573,7 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                     {
                                         iterator->setSymbol(*fromTo.second);
 
-                                        __spf_print(1, "replace '%s' to '%s' in file %s on line %d\n",
+                                        __spf_print(1, "  replace '%s' to '%s' in file %s on line %d\n",
                                                     fromTo.first->identifier(), fromTo.second->identifier(),
                                                     fileLines.first.c_str(), iterator->lineNumber()); // remove
                                     }
@@ -586,8 +596,8 @@ void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
     }
 }
 
-void insertArraysCopy(const vector<ParallelRegion*> &regions,
-                      const map<string, vector<FuncInfo*>> &allFuncInfo)
+void insertArraysCopying(const vector<ParallelRegion*> &regions,
+                         const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
@@ -605,7 +615,7 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
                 {
                     for (auto &funcSymbols : region->GetReplacedSymbols())
                     {
-                        if (funcSymbols.first == funcName)
+                        if (funcSymbols.first == func->fileName)
                         {
                             for (auto &originCopy : funcSymbols.second)
                             {
@@ -616,17 +626,17 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
                                     {
                                         if (!regionLines.isImplicit())
                                         {
-                                            regionLines.stats.first->unparsestdout();
-                                            regionLines.stats.second->unparsestdout();
-
                                             // A_reg = A
+                                            // TODO: use SgAssignStmt
                                             SgStatement *assign = new SgStatement(ASSIGN_STAT);
                                             SgExpression *left = new SgArrayRefExp(*originCopy.second);
                                             SgExpression *right = new SgArrayRefExp(*originCopy.first);
 
                                             assign->setExpression(0, *left);
                                             assign->setExpression(1, *right);
-                                            regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first);
+                                            regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+
+                                            __spf_print(1, "insert '%s = %s'\n", originCopy.second->identifier(), originCopy.first->identifier()); // remove
 
                                             // A = A_reg
                                             assign = new SgStatement(ASSIGN_STAT);
@@ -634,7 +644,9 @@ void insertArraysCopy(const vector<ParallelRegion*> &regions,
                                             right = new SgArrayRefExp(*originCopy.second);
                                             assign->setExpression(0, *left);
                                             assign->setExpression(1, *right);
-                                            regionLines.stats.second->insertStmtAfter(*assign, *regionLines.stats.second);
+                                            regionLines.stats.second->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
+
+                                            __spf_print(1, "insert '%s = %s'\n", originCopy.first->identifier(), originCopy.second->identifier()); // remove
                                         }
                                     }
 
