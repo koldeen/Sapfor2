@@ -51,8 +51,8 @@ std::map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 //
 
 //for RESOLVE_PAR_REGIONS
-std::set<std::string> allUsedCommonArrays;
-std::set<std::string> allCommonFunctions;
+std::set<FuncInfo*> allCommonFunctions;
+std::set<DIST::Array*> allUsedCommonArrays;
 
 std::map<std::string, ParallelRegionArray> allCommonArrays;
 //

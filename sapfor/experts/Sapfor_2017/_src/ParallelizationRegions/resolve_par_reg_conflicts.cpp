@@ -160,7 +160,7 @@ static void recursiveFill(SgExpression *exp,
                           const string &functionName,
                           const string &fileName,
                           const map<string, CommonBlock> &commonBlocks,
-                          set<string> &allUsedCommonArrays,
+                          set<DIST::Array*> &allUsedCommonArrays,
                           map<string, ParallelRegionArray> &allCommonArrays)
 {
     if (exp)
@@ -169,11 +169,12 @@ static void recursiveFill(SgExpression *exp,
         {
             SgSymbol *arraySymbol = exp->symbol();
             string arrayName = string(arraySymbol->identifier());
+            DIST::Array *array = getArrayFromDeclarated(arraySymbol->declaredInStmt(), arrayName);
 
             if (isInCommon(commonBlocks, arrayName))
             {
-                region->AddUsedCommonArray(arrayName);
-                allUsedCommonArrays.insert(arrayName);
+                region->AddUsedCommonArray(array);
+                allUsedCommonArrays.insert(array);
 
                 //new type
                 region->AddCommonArray(arrayName, fileName, arraySymbol, NULL, lines);
@@ -188,7 +189,7 @@ static void recursiveFill(SgExpression *exp,
             }
             else
             {
-                region->AddUsedLocalArray(functionName, arrayName);
+                region->AddUsedLocalArray(array);
 
                 //new type
                 region->AddLocalArray(functionName, arrayName, fileName, arraySymbol, NULL, lines);
@@ -200,7 +201,7 @@ static void recursiveFill(SgExpression *exp,
     }
 }
 
-void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, CommonBlock> &commonBlocks, set<string> &allUsedCommonArrays, map<string, ParallelRegionArray> &allCommonArrays)
+void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, CommonBlock> &commonBlocks, set<DIST::Array*> &allUsedCommonArrays, map<string, ParallelRegionArray> &allCommonArrays)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
@@ -251,28 +252,24 @@ void fillRegionArrays(vector<ParallelRegion*> &regions, const map<string, Common
     }
 }
 
-void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, set<string> &allCommonFunctions)
+void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, set<FuncInfo*> &allCommonFunctions)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
 
+    for (auto &region : regions)
+    {
+        for (auto &func : region->GetAllFuncCalls())
+        {
+            auto callingRegions = getAllRegionsByLine(regions, func->fileName, func->linesNum.first);
+            if (callingRegions.size() > 1)
+                region->AddCrossedFunc(func);
+        }
+    }
+
     // funcName -> funcInfo
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
-
-    for (auto &region : regions)
-    {
-        for (auto &functionName : region->GetAllFuncCalls())
-        {
-            auto func = funcMap.find(functionName);
-            if (func != funcMap.end())
-            {
-                auto callingRegions = getAllRegionsByLine(regions, func->second->fileName, func->second->linesNum.first);
-                if (callingRegions.size() > 1)
-                    region->AddCrossedFunc(functionName);
-            }
-        }
-    }
 
     for (auto &funcPair : funcMap)
     {
@@ -288,7 +285,7 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
             findCall(funcPair.second, call, callsFromRegion, callsFromCode);
 
         if (callsFromCode && callsFromRegion)
-            allCommonFunctions.insert(funcPair.first);
+            allCommonFunctions.insert(funcPair.second);
     }
 }
 
@@ -390,57 +387,49 @@ static void copyCommonArray(ParallelRegion *region,
     
 }
 
-static void copyFunction(ParallelRegion *region,
-                         const string &funcName,
-                         const string &suffix,
-                         const map<string, vector<FuncInfo*>> &allFuncInfo,
-                         const map<string, FuncInfo*> &funcMap)
+static void copyFunction(ParallelRegion *region, const FuncInfo *func, const string &suffix)
 {
-    auto func = getFuncInfo(funcMap, funcName);
-    if (func)
+    if (SgFile::switchToFile(func->fileName) != -1)
     {
-        if (SgFile::switchToFile(func->fileName) != -1)
-        {
-            // create copy function symbol and copy function for original function
-            SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
-            SgSymbol *newFuncSymb = NULL;
-            SgFile *file = func->funcPointer->GetOriginal()->getFile();
-            string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
+        // create copy function symbol and copy function for original function
+        SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
+        SgSymbol *newFuncSymb = NULL;
+        SgFile *file = func->funcPointer->GetOriginal()->getFile();
+        string newFuncName = string(funcSymb->identifier()) + string("_") + suffix;
 
-            newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
-            newFuncSymb = &newFuncSymb->copy();
-            newFuncSymb->changeName(newFuncName.c_str());
-            file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
+        newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
+        newFuncSymb = &newFuncSymb->copy();
+        newFuncSymb->changeName(newFuncName.c_str());
+        file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
-            __spf_print(1, "new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
-                        newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
+        __spf_print(1, "new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
+                    newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
 
-            // add copy function lines to explicit lines for next changes
-            Statement *begin = new Statement(file->firstStatement()->lexNext());
-            Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
-            pair<Statement*, Statement*> startEnd = make_pair(begin, end);
-            pair<int, int> newLines = make_pair(startEnd.first->lineNumber(), startEnd.second->lineNumber());
-            region->AddLines(newLines, file->filename(), &startEnd);
+        // add copy function lines to explicit lines for next changes
+        Statement *begin = new Statement(file->firstStatement()->lexNext());
+        Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
+        pair<Statement*, Statement*> startEnd = make_pair(begin, end);
+        pair<int, int> newLines = make_pair(startEnd.first->lineNumber(), startEnd.second->lineNumber());
+        region->AddLines(newLines, file->filename(), &startEnd);
 
-            __spf_print(1, "  explicit lines %d-%d added with statement ids %d,%d\n",
-                        newLines.first, newLines.second,
-                        startEnd.first->id(), startEnd.second->id()); // remove
+        __spf_print(1, "  explicit lines %d-%d added with statement ids %d,%d\n",
+                    newLines.first, newLines.second,
+                    startEnd.first->id(), startEnd.second->id()); // remove
 
-            // TODO: change replace algorithm for array raplacing
-            region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
+        // TODO: change replace algorithm for array raplacing
+        region->AddReplacedSymbols(func->fileName, funcSymb, newFuncSymb);
 
-            __spf_print(1, "  add (%s, %s) for file %s\n",
-                        funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
-        }
-        else
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        __spf_print(1, "  add (%s, %s) for file %s\n",
+                    funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
     }
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
 void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
                               const map<string, vector<FuncInfo*>> &allFuncInfo,
-                              const set<string> &allCommonFunctions,
-                              const set<string> &allUsedCommonArrays)
+                              const set<FuncInfo*> &allCommonFunctions,
+                              const set<DIST::Array*> &allUsedCommonArrays)
 {
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
@@ -454,46 +443,40 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
 
         // creating new functions
         for (auto &crossedFunc : crossedFuncs)
-            copyFunction(region, crossedFunc, region->GetName(), allFuncInfo, funcMap);
+            copyFunction(region, crossedFunc, region->GetName());
 
         for (auto &commonFunc : allCommonFunctions)
         {
             auto it = crossedFuncs.find(commonFunc);
             auto itt = region->GetAllFuncCalls().find(commonFunc);
             if (it == crossedFuncs.end() && itt != region->GetAllFuncCalls().end())
-                copyFunction(region, commonFunc, region->GetName(), allFuncInfo, funcMap);
+                copyFunction(region, commonFunc, region->GetName());
         }
 
         // forall funcs B, C: B is not crossed & C is crossed & B call C ==> B is explicit
         //                    B is not all-common
-        for (auto &funcName : allFuncs)
+        for (auto &func : allFuncs)
         {
-            auto func = getFuncInfo(funcMap, funcName);
-            if (func)
+            auto it = crossedFuncs.find(func);
+            auto itt = allCommonFunctions.find(func);
+            if (it == crossedFuncs.end() && itt == allCommonFunctions.end())
             {
-                auto it = crossedFuncs.find(funcName);
-                auto itt = allCommonFunctions.find(funcName);
-                if (it == crossedFuncs.end() && itt == allCommonFunctions.end())
+                for (auto &crossedFunc : crossedFuncs)
                 {
-                    for (auto &crossedFunc : crossedFuncs)
+                    auto it = func->callsFrom.find(crossedFunc->funcName);
+                    if (it != func->callsFrom.end())
                     {
-                        auto it = func->callsFrom.find(crossedFunc);
-                        if (it != func->callsFrom.end())
-                        {
-                            Statement *end = new Statement(func->funcPointer->GetOriginal()->lastNodeOfStmt());
-                            pair<Statement*, Statement*> beginEnd = make_pair(func->funcPointer, end);
-                            pair<int, int> funcLines = make_pair(beginEnd.first->GetOriginal()->lineNumber(), beginEnd.second->GetOriginal()->lineNumber());
-                            region->AddLines(funcLines, func->fileName, &beginEnd);
+                        Statement *end = new Statement(func->funcPointer->GetOriginal()->lastNodeOfStmt());
+                        pair<Statement*, Statement*> beginEnd = make_pair(func->funcPointer, end);
+                        pair<int, int> funcLines = make_pair(beginEnd.first->GetOriginal()->lineNumber(), beginEnd.second->GetOriginal()->lineNumber());
+                        region->AddLines(funcLines, func->fileName, &beginEnd);
 
-                            __spf_print(1, "explicit lines %d-%d added with statement ids %d,%d\n",
-                                        funcLines.first, funcLines.second,
-                                        beginEnd.first->GetOriginal()->id(), beginEnd.second->GetOriginal()->id()); // remove
-                        }
+                        __spf_print(1, "explicit lines %d-%d added with statement ids %d,%d\n",
+                                    funcLines.first, funcLines.second,
+                                    beginEnd.first->GetOriginal()->id(), beginEnd.second->GetOriginal()->id()); // remove
                     }
                 }
             }
-            else
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
 
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // remove
@@ -537,7 +520,7 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
 
 void replaceFunctionsAndArrays(const vector<ParallelRegion*> &regions,
                                const map<string, vector<FuncInfo*>> &allFuncInfo,
-                               const set<string> &allCommonFunctions)
+                               const set<FuncInfo*> &allCommonFunctions)
 {
     for (auto &region : regions)
     {
@@ -665,7 +648,7 @@ void insertArraysCopying(const vector<ParallelRegion*> &regions,
     }
 }
 
-int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const set<string> &allUsedCommonArrays, const set<string> &allCommonFunctions, const map<string, ParallelRegionArray> &allCommonArrays)
+int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const set<DIST::Array*> &allUsedCommonArrays, const set<FuncInfo*> &allCommonFunctions, const map<string, ParallelRegionArray> &allCommonArrays)
 {
     string outText = "";    
     for (auto &region : regions)
@@ -673,20 +656,19 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
         outText += "*** REGION '" + region->GetName() + "'\n";
         outText += "  COMMON ARRAYS:";
         
-        for (auto &elem : region->GetUsedCommonArrays())
-            outText += " " + elem;
+        for (auto &array : region->GetUsedCommonArrays())
+            outText += " " + array->GetShortName();
 
         outText += "\n";
         outText += "  LOCAL ARRAYS in [FUNC, ARRAY]:\n";
         
-        for (auto &elem : region->GetUsedLocalArrays())
-            for (auto &arrayName : elem.second)
-                outText += "    [" + elem.first + ", " + arrayName + "]\n";                
+        for (auto &array : region->GetUsedLocalArrays())
+            outText += "    [" + string(array->GetDeclSymbol()->GetOriginal()->declaredInStmt()->controlParent()->symbol()->identifier()) + ", " + array->GetShortName() + "]\n";
 
         outText += "  CROSSED FUNCTIONS:";
         
-        for (auto &elem : region->GetCrossedFuncs())
-            outText += " " + elem;
+        for (auto &func : region->GetCrossedFuncs())
+            outText += " " + func->funcName;
 
         outText += "\n\n";
     }
@@ -694,14 +676,14 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
     outText += "*** SUMMARY\n";
     outText += "  ALL GLOBAL ARRAYS:";
 
-    for (auto &elem : allUsedCommonArrays)
-        outText += " " + elem;
+    for (auto &array : allUsedCommonArrays)
+        outText += " " + array->GetShortName();
 
     outText += "\n";
     outText += "  ALL COMMON FUNCTIONS:";
 
-    for (auto &elem : allCommonFunctions)
-        outText += " " + elem;
+    for (auto &func : allCommonFunctions)
+        outText += " " + func->funcName;
     outText += "\n";
 
     // -------------------------------------
@@ -735,8 +717,9 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
         }
         outText += "  CROSSED FUNCTIONS:";
 
-        for (auto &elem : region->GetCrossedFuncs())
-            outText += " " + elem;
+        for (auto &func : region->GetCrossedFuncs())
+            outText += " " + func->funcName;
+
         outText += "\n\n";
     }
 
@@ -749,8 +732,9 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
     outText += "\n";
     outText += "  ALL COMMON FUNCTIONS:";
 
-    for (auto &elem : allCommonFunctions)
-        outText += " " + elem;
+    for (auto &func : allCommonFunctions)
+        outText += " " + func->funcName;
+
     outText += "\n";
            
     if (fileName == NULL)

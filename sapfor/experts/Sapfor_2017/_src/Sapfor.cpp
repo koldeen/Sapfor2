@@ -1186,7 +1186,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             {
                 auto crossed = reg->GetCrossedFuncs();
                 for (auto &crossedF : crossed)
-                    crossedByFunction[crossedF].push_back(reg);
+                    crossedByFunction[crossedF->funcName].push_back(reg);
             }
 
             for (auto &crByF : crossedByFunction)

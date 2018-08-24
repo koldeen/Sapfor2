@@ -121,14 +121,11 @@ public:
     void AddFuncCalls(const std::string &func)
     {
         functionsCall.insert(func);
-#if __SPF
-        allFunctionsCall.insert(func);
-#endif
     }
 
 #if __SPF
-    void AddAllFuncCalls(const std::string &func) { allFunctionsCall.insert(func); }
-    void AddCrossedFunc(const std::string &func) { crossedFunctions.insert(func); }
+    void AddAllFuncCalls(FuncInfo *funcInfo) { allFunctionsCall.insert(funcInfo); }
+    void AddCrossedFunc(FuncInfo *funcInfo) { crossedFunctions.insert(funcInfo); }
 #endif
 
     int GetId() const { return regionId; }
@@ -161,23 +158,16 @@ public:
     const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
 
 #if __SPF
-    const std::set<std::string>& GetAllFuncCalls() const { return allFunctionsCall; }
-    const std::set<std::string>& GetCrossedFuncs() const { return crossedFunctions; }
-    const std::map<std::string, std::set<std::string>>& GetUsedLocalArrays() const { return usedLocalArrays; }
+    const std::set<FuncInfo*>& GetAllFuncCalls() const { return allFunctionsCall; }
+    const std::set<FuncInfo*>& GetCrossedFuncs() const { return crossedFunctions; }
+    const std::set<DIST::Array*>& GetUsedLocalArrays() const { return usedLocalArrays; }
+    const std::set<DIST::Array*>& GetUsedCommonArrays() const { return usedCommonArrays; }
     const std::map<std::string, std::map<std::string, ParallelRegionArray>>& GetLocalArrays() const { return localArrays; }
-    const std::set<std::string>& GetUsedCommonArrays() const { return usedCommonArrays; }
     const std::map<std::string, ParallelRegionArray>& GetCommonArrays() const { return commonArrays; }
     const std::map<std::string, std::map<SgSymbol*, SgSymbol*>>& GetReplacedSymbols() const { return replacedSymbols; }
-    void AddUsedCommonArray(const std::string &arrayName) { usedCommonArrays.insert(arrayName); }
 
-    void AddUsedLocalArray(const std::string &functionName, const std::string &arrayName)
-    {
-        auto it = usedLocalArrays.find(functionName);
-        if (it == usedLocalArrays.end())
-            it = usedLocalArrays.insert(it, make_pair(functionName, std::set<std::string>()));
-
-        it->second.insert(arrayName);
-    }
+    void AddUsedLocalArray(DIST::Array *array) { usedLocalArrays.insert(array); }
+    void AddUsedCommonArray(DIST::Array *array) { usedCommonArrays.insert(array); }
 
     void AddLocalArray(const std::string &functionName,
                        const std::string &arrayName,
@@ -375,10 +365,10 @@ private:
 
 #if __SPF
     // for RESOLVE_PAR_REGIONS
-    std::set<std::string> allFunctionsCall;
-    std::set<std::string> usedCommonArrays;
-    std::map<std::string, std::set<std::string>> usedLocalArrays; // func name -> array names
-    std::set<std::string> crossedFunctions;
+    std::set<FuncInfo*> allFunctionsCall;
+    std::set<FuncInfo*> crossedFunctions;
+    std::set<DIST::Array*> usedLocalArrays;
+    std::set<DIST::Array*> usedCommonArrays;
     std::map<std::string, std::map<SgSymbol*, SgSymbol*>> replacedSymbols; // file name -> (origin symbol, new symbol)
 
     std::map<std::string, ParallelRegionArray> commonArrays; // array name -> array
