@@ -210,6 +210,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
 
+        /*if (curr_regime == CORRECT_CODE_STYLE)
+            groupDeclarations(file);*/
+
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
@@ -234,7 +237,6 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             __spf_print(1, "  try to find file <%s>\n", file_name);
             __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
         }
-
         if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
         {
             FILE *fOut = fopen(fout_name.c_str(), "w");
@@ -390,6 +392,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             verifyOK &= res;
             if (dvmDirErrors.size() != 0 && ignoreDvmChecker == 0)
                 printDvmActiveDirsErrors();
+        }
+        else if (curr_regime == VERIFY_EQUIVALENCE)
+        {
+            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
@@ -617,6 +624,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+        else if (curr_regime == VERIFY_COMMON)
+        {
+            bool res = CommonBlockChecker(file, file_name, commonBlocks, getObjectForFileFromMap(file_name, SPF_messages));
+            verifyOK &= res;
+        }
         else if (curr_regime == LOOP_DATA_DEPENDENCIES)
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
@@ -714,6 +726,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
+
     } // end of FOR by files
         
     if (internalExit != 0)
@@ -927,7 +940,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         commentsToInclude.clear();
     else if (curr_regime == VERIFY_ENDDO ||
              curr_regime == VERIFY_INCLUDE ||
-             curr_regime == VERIFY_DVM_DIRS)
+             curr_regime == VERIFY_DVM_DIRS ||
+             curr_regime == VERIFY_EQUIVALENCE ||
+             curr_regime == VERIFY_COMMON)
     {
         if (verifyOK == false)
             throw(-1);

@@ -31,7 +31,7 @@ bool isSPF_stat(SgStatement *st);
 bool isEqExpressions(SgExpression *left, SgExpression *right, std::map<SgExpression*, std::string> &collection);
 void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end);
 
-extern std::map<std::pair<std::string, int>, std::tuple<int, std::string, std::string>> tableOfUniqNames;
+std::tuple<int, std::string, std::string> getFromUniqTable(SgSymbol *symb);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb);
 SgStatement* findMainUnit(SgProject *proj);
 
@@ -46,3 +46,4 @@ const std::vector<DefUseList>& getAllDefUseVarsList(const std::string &funcName)
 const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, const std::string varName);
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
 int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);
+void groupDeclarations(SgFile *file);

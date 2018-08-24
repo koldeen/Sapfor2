@@ -232,11 +232,8 @@ static void fillShadowAcross(const int type, SgStatement *st, vector<pair<pair<f
 
                     if (!cond)
                     {
-                        auto localIt = tableOfUniqNames.find(make_pair(symb->identifier(), declaratedInStmt(symb)->lineNumber()));
-                        if (localIt == tableOfUniqNames.end())
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                        data.push_back(make_pair(make_pair(arrayName, getShortName(localIt->second)), vector<pair<int, int>>()));
+                        auto uniqKey = getFromUniqTable(symb);
+                        data.push_back(make_pair(make_pair(arrayName, getShortName(uniqKey)), vector<pair<int, int>>()));
                         toAdd = &data.back();
                     }
 

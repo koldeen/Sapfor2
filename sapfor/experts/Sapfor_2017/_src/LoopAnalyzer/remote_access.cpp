@@ -41,15 +41,9 @@ using std::string;
 
 static DIST::Array* GetArrayByShortName(const DIST::Arrays<int> &allArrays, SgSymbol *name)
 {
-    auto it = tableOfUniqNames.find(make_pair(name->identifier(), declaratedInStmt(name)->lineNumber()));
-    if (it == tableOfUniqNames.end())
-        return NULL;
-    else
-    {
-        tuple<int, string, string> tmp = it->second;
-        string nameFromUniq = getShortName(tmp);
-        return allArrays.GetArrayByName(nameFromUniq);
-    }
+    auto uniqKey = getFromUniqTable(name);
+    string nameFromUniq = getShortName(uniqKey);
+    return allArrays.GetArrayByName(nameFromUniq);
 }
 
 static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, const map<int, LoopGraph*> &sortedLoopGraph,
@@ -62,7 +56,7 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
     if (expr == NULL)
         return retVal;
 
-    if (expr->variant() == ARRAY_REF)
+    if (expr->variant() == ARRAY_REF && expr->symbol() && expr->symbol()->type()->variant() != T_STRING)
     {
         DIST::Array *currArray = GetArrayByShortName(allArrays, OriginalSymbol(expr->symbol()));
 

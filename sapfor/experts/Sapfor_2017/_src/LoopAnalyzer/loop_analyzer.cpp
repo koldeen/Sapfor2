@@ -278,6 +278,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, message, 1022));
             }
+
+
         }
     }
     else
@@ -415,7 +417,20 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         maxMatched = std::max(maxMatched, (int)matchToLoops.size());
         currExp = currExp->rhs();
     }
-    
+
+    //full array is used, add unknown operations to all loops
+    if (numOfSubs == 0)
+    {
+        SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
+        auto arrType = isSgArrayType(currOrigArrayS->type());
+        if (arrType != NULL)
+        {
+            for (int d = 0; d < arrType->dimension(); ++d)
+                for (int i = 0; i < parentLoops.size(); ++i)
+                    addInfoToVectors(loopInfo, parentLoops[i], currOrigArrayS, d, make_pair(0, 0), UNREC_OP, arrType->dimension());
+        }
+    }
+
     if (currRegime == PRIVATE_STEP4)
         return;
 
@@ -1309,9 +1324,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     }
                     else
                     {
+                        int const var = st->variant();
+                        int side = (var == READ_STAT || var == WRITE_STAT || var == PRINT_STAT) ? LEFT : RIGHT;
+
                         for (int z = 0; z < 3; ++z)
                             if (st->expr(z))
-                                findArrayRef(parentLoops, st->expr(z), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+                                findArrayRef(parentLoops, st->expr(z), st->lineNumber(), side, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
                     }
                 }
             }
