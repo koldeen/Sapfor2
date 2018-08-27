@@ -124,8 +124,8 @@ public:
     }
 
 #if __SPF
-    void AddAllFuncCalls(FuncInfo *funcInfo) { allFunctionsCall.insert(funcInfo); }
-    void AddCrossedFunc(FuncInfo *funcInfo) { crossedFunctions.insert(funcInfo); }
+    void AddAllFuncCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
+    void AddCrossedFunc(FuncInfo *func) { crossedFunctions.insert(func); }
 #endif
 
     int GetId() const { return regionId; }
@@ -160,61 +160,49 @@ public:
 #if __SPF
     const std::set<FuncInfo*>& GetAllFuncCalls() const { return allFunctionsCall; }
     const std::set<FuncInfo*>& GetCrossedFuncs() const { return crossedFunctions; }
-    const std::set<DIST::Array*>& GetUsedLocalArrays() const { return usedLocalArrays; }
-    const std::set<DIST::Array*>& GetUsedCommonArrays() const { return usedCommonArrays; }
-    const std::map<std::string, std::map<std::string, ParallelRegionArray>>& GetLocalArrays() const { return localArrays; }
-    const std::map<std::string, ParallelRegionArray>& GetCommonArrays() const { return commonArrays; }
-    const std::map<std::string, std::map<SgSymbol*, SgSymbol*>>& GetReplacedSymbols() const { return replacedSymbols; }
+    const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedLocalArrays() const { return usedLocalArrays; }
+    const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedCommonArrays() const { return usedCommonArrays; }
+    const std::map<std::string, std::map<SgSymbol*, SgSymbol*>>& GetFuncSymbols() const { return funcSymbols; }
 
-    void AddUsedLocalArray(DIST::Array *array) { usedLocalArrays.insert(array); }
-    void AddUsedCommonArray(DIST::Array *array) { usedCommonArrays.insert(array); }
-
-    void AddLocalArray(const std::string &functionName,
-                       const std::string &arrayName,
-                       const std::string &fileName,
-                       SgSymbol *origSymbol,
-                       SgSymbol *copySymbol,
-                       const ParallelRegionLines &lines)
+    void AddUsedLocalArray(FuncInfo *func, DIST::Array *array, const ParallelRegionLines &lines)
     {
-        auto it = localArrays.find(functionName);
-        if (it == localArrays.end())
-            it = localArrays.insert(it, std::make_pair(functionName, std::map<std::string, ParallelRegionArray>()));
+        auto it = usedLocalArrays.find(func);
+        if (it == usedLocalArrays.end())
+            it = usedLocalArrays.insert(it, std::make_pair(func, std::map<DIST::Array*, std::vector<ParallelRegionLines>>()));
 
-        auto itt = it->second.find(arrayName);
+        auto itt = it->second.find(array);
         if (itt == it->second.end())
-        {
-            std::vector<SgStatement*> declStatemets;
-            declaratedInStmt(origSymbol, &declStatemets);
-            itt = it->second.insert(itt, std::make_pair(arrayName, ParallelRegionArray(arrayName, fileName, origSymbol, copySymbol, lines, declStatemets)));
-            return;
-        }
+            itt = it->second.insert(itt, std::make_pair(array, std::vector<ParallelRegionLines>()));
 
-        itt->second.addLines(lines);
-    }
-    
-    void AddCommonArray(const std::string &arrayName,
-                        const std::string &fileName,
-                        SgSymbol *origSymbol,
-                        SgSymbol *copySymbol,
-                        const ParallelRegionLines &lines)
-    {
-        auto it = commonArrays.find(arrayName);
-        if (it != commonArrays.end())
-        {
-            it->second.addLines(lines);
-            return;
-        }
+        for (auto &curLines : itt->second)
+            if (curLines == lines)
+                return;
 
-        std::vector<SgStatement*> declStatemets;
-        declaratedInStmt(origSymbol, &declStatemets);
-        commonArrays.insert(it, std::make_pair(arrayName, ParallelRegionArray(arrayName, fileName, origSymbol, copySymbol, lines, declStatemets)));
+        itt->second.push_back(lines);
     }
 
-    void AddReplacedSymbols(const std::string &fileName, SgSymbol *origin, SgSymbol *copy)
+    void AddUsedCommonArray(FuncInfo *func, DIST::Array *array, const ParallelRegionLines &lines)
     {
-        auto it = replacedSymbols.find(fileName);
-        if (it == replacedSymbols.end())
-            it = replacedSymbols.insert(it, std::make_pair(fileName, std::map<SgSymbol*, SgSymbol*>()));
+        auto it = usedCommonArrays.find(func);
+        if (it == usedCommonArrays.end())
+            it = usedCommonArrays.insert(it, std::make_pair(func, std::map<DIST::Array*, std::vector<ParallelRegionLines>>()));
+
+        auto itt = it->second.find(array);
+        if (itt == it->second.end())
+            itt = it->second.insert(itt, std::make_pair(array, std::vector<ParallelRegionLines>()));
+
+        for (auto &curLines : itt->second)
+            if (curLines == lines)
+                return;
+
+        itt->second.push_back(lines);
+    }
+
+    void AddFuncSymbols(const std::string &fileName, SgSymbol *origin, SgSymbol *copy)
+    {
+        auto it = funcSymbols.find(fileName);
+        if (it == funcSymbols.end())
+            it = funcSymbols.insert(it, std::make_pair(fileName, std::map<SgSymbol*, SgSymbol*>()));
 
         auto itt = it->second.find(origin);
         if (itt == it->second.end())
@@ -367,12 +355,9 @@ private:
     // for RESOLVE_PAR_REGIONS
     std::set<FuncInfo*> allFunctionsCall;
     std::set<FuncInfo*> crossedFunctions;
-    std::set<DIST::Array*> usedLocalArrays;
-    std::set<DIST::Array*> usedCommonArrays;
-    std::map<std::string, std::map<SgSymbol*, SgSymbol*>> replacedSymbols; // file name -> (origin symbol, new symbol)
-
-    std::map<std::string, ParallelRegionArray> commonArrays; // array name -> array
-    std::map<std::string, std::map<std::string, ParallelRegionArray>> localArrays; // func -> array name -> array
+    std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedLocalArrays;  // func -> array -> lines
+    std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedCommonArrays; // func -> array -> lines
+    std::map<std::string, std::map<SgSymbol*, SgSymbol*>> funcSymbols;                              // file name -> (origin symbol, new symbol)
     //
 #endif
 
