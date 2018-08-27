@@ -3,6 +3,7 @@
 #include "dvm.h"
 #include "acc_analyzer.h"
 #include "expr_transform.h"
+#include <stack>
 
 using std::string;
 using std::vector;
@@ -13,24 +14,29 @@ using std::set;
 using std::pair;
 
 
-static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs);
-static void showDefs(map<SymbolKey, SgExpression*> *defs);
+void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs);
+void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
 
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
-    if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
-        return symbol == exp->symbol();
+    bool result = false;
+    if (exp)
+    {
+        if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
+            return (symbol == exp->symbol());
 
-    bool hasSymbolInRHS = false;
-    if (exp->rhs())
-        hasSymbolInRHS = symbolInExpression(symbol, exp->rhs());
-    if ((!hasSymbolInRHS) && exp->lhs())
-        return symbolInExpression(symbol, exp->lhs());
-    else
-        return false;
+        bool hasSymbol = false;
+        if (exp->rhs())
+            hasSymbol |= symbolInExpression(symbol, exp->rhs());
+        if (exp->lhs())
+            hasSymbol |= symbolInExpression(symbol, exp->lhs());
+
+        result |= hasSymbol;
+    }
+    return result;
 }
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
@@ -50,9 +56,6 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
             it = gen.erase(it);
         else
             ++it;
-
-    if(key.isPointer())
-        extraPointersGen.erase(key);
 }
 
 bool argIsReplaceable(int i, AnalysedCallsList *callData)
@@ -75,7 +78,7 @@ bool argIsReplaceable(int i, AnalysedCallsList *callData)
         return true;
 }
 
-void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi) 
+void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
 {
     SgStatement *st = NULL;
     AnalysedCallsList *callData = cfi->getCall();
@@ -111,9 +114,9 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
 
 set<SymbolKey>* CBasicBlock::getOutVars()
 {
-    set<SymbolKey> *outVars = new set<SymbolKey>();
-    for (auto it = out_defs.begin(); it != out_defs.end(); ++it)
-        outVars->insert(it->first);
+    set<SymbolKey> *outVars = new set<SymbolKey>();    
+    for (auto elem : out_defs)
+        outVars->insert(elem.first);
     return outVars;
 }
 
@@ -122,24 +125,14 @@ bool CBasicBlock::varIsPointer(SgSymbol *symbol)
     auto found = parent->getPointers()->find(symbol);
     if(found != parent->getPointers()->end())
         return true;
-    /*
-    auto found_inDefs = in_defs.find(symbol);
-    if(found_inDefs != in_defs.end())
-        return found_inDefs->first.isPointer();
 
-    auto found_extra = extraPointersGen.find(symbol);
-    if(found_extra != extraPointersGen.end())
-        return true;
-
-    auto found = gen.find(symbol);
-    if(found != gen.end())
-        return found->first.isPointer();
-*/
     return false;
 }
 
 void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *right)
 {
+
+    //printf("processAssignThroughPointer REBUILD?!\n");
     auto found = gen.find(symbol);
     if (found != gen.end())
     {
@@ -147,30 +140,10 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
         return;
     }
 
-    auto found_extra = extraPointersGen.find(symbol);
-    if (found_extra != extraPointersGen.end())
-    {
-        /*
-        if(found_extra->second.size() == 1)
-        {
-            addVarToGen((*(found_extra->second.begin()))->symbol(), right);
-            return;
-        }
-        else*/
-            for (auto value : found_extra->second)
-                addVarToKill(value->symbol());
-    }
-
     auto found_inDefs = in_defs.find(symbol);
     if (found_inDefs != in_defs.end())
     {
-/*        if(found_inDefs->second.size() == 1)
-        {
-            addVarToGen((*(found_inDefs->second.begin())).second->symbol(), right);
-            return;
-        }
-        else*/
-            for (auto& value : found_inDefs->second)
+        for (auto& value : found_inDefs->second)
                 addVarToKill(value.second->symbol());
     }
 }
@@ -183,22 +156,52 @@ void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right
     if(varIsPointer(rSymbol))
     {
         auto found = gen.find(rSymbol);
+        //auto found_inDefsP = in_defs_p.find(rSymbol);
         if(found != gen.end())
             addVarToGen(SymbolKey(symbol, true), found->second);
-        else
-        {
-            auto found_inDefs = in_defs.find(rSymbol);
-            if (found_inDefs != in_defs.end())
-            {
-                addVarToKill(symbol);
-                auto inserted = extraPointersGen.insert(make_pair(symbol, set<SgExpression*>()));
-                for (auto val : found_inDefs->second)
-                    inserted.first->second.insert(val.second);
-            }
-        }
+        //else if(found_inDefsP != in_defs_p.end())
+            //addVarToGenP(SymbolKey(symbol, true), found_inDefsP->second);
+
     }
     else
         addVarToGen(SymbolKey(symbol, true), right);
+}
+
+void CBasicBlock::adjustGenAndKillP(ControlFlowItem *cfi)
+{
+    SgStatement *st = cfi->getStatement();
+    if (st != NULL)
+    {
+        SgExpression *left = st->expr(0);
+        SgExpression *right = st->expr(1);
+
+        if (st->variant() == POINTER_ASSIGN_STAT)
+            processPointerAssignment(left->symbol(), right);
+    }
+
+    //checkFuncAndProcCalls(cfi);
+}
+
+void CBasicBlock::processReadStat(SgStatement* readSt)
+{
+    SgExpression *input = readSt->expr(0);
+    std::stack<SgExpression*> toCheck;
+    toCheck.push(input);
+    while (!toCheck.empty())
+    {
+        SgExpression *exp = toCheck.top();
+        toCheck.pop();
+        if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
+            addVarToGen(exp->symbol(), NULL);
+            //addVarToKill(exp->symbol());
+        else
+        {
+            if (exp->rhs())
+                toCheck.push(exp->rhs());
+            if (exp->lhs())
+                toCheck.push(exp->lhs());
+        }
+    }
 }
 
 void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
@@ -206,17 +209,14 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
     SgStatement *st = cfi->getStatement();
     if (st != NULL)
     {
-/*        printf("Before: %s", st->unparse());
-                printf("\n In ");
-                showDefs(getInDefs());
-*/
         SgExpression *left = st->expr(0);
         SgExpression *right = st->expr(1);
+
         if (st->variant() == ASSIGN_STAT)
         {
             if (left->variant() == VAR_REF) // x = ...
             {
-                if(varIsPointer(left->symbol()))
+                if (varIsPointer(left->symbol()))
                     processAssignThroughPointer(left->symbol(), right);
                 else
                     addVarToGen(left->symbol(), right);
@@ -224,12 +224,10 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
             else if (left->variant() == ARRAY_REF) // a(...) = ...
                 addVarToKill(left->symbol());
         }
+        else if(st->variant() == READ_STAT)
+            processReadStat(st);
         else if (st->variant() == POINTER_ASSIGN_STAT)
             processPointerAssignment(left->symbol(), right);
-
-/*        printf("After: %s", st->unparse());
-        printf("\n Gen ");
-        showDefs(getGen());*/
     }
 
     checkFuncAndProcCalls(cfi);
@@ -254,18 +252,6 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
     map<SymbolKey, set<SgExpression*>> defs;
     if (founded)
     {
-        for (auto &it : gen)
-        {
-            auto insertedSet = &(defs.insert(make_pair(it.first, set<SgExpression*>())).first->second);
-            insertedSet->insert(it.second);
-            if(it.first.isPointer())
-            {
-                auto foundExtra = extraPointersGen.find(it.first);
-                if(foundExtra != extraPointersGen.end())
-                    insertedSet->insert(foundExtra->second.begin(), foundExtra->second.end());
-            }
-        }
-
         for (auto &it : in_defs)
         {
             if (kill.find(it.first) == kill.end())
@@ -275,22 +261,11 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
                     founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
 
                 for (auto &exp : it.second)
-                    founded->second.insert(exp.second);
+                        founded->second.insert(exp.second);
             }
         }
     }
     return defs;
-}
-
-static void setGensAndKills(CBasicBlock *b)
-{
-    ControlFlowItem *cfi = b->getStart();
-    ControlFlowItem *till = b->getEnd()->getNext();
-    while (cfi != till)
-    {
-        b->adjustGenAndKill(cfi);
-        cfi = cfi->getNext();
-    }
 }
 
 static bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpression*> &term)
@@ -325,20 +300,19 @@ void CBasicBlock::initializeOutWithGen()
     for (auto it = gen.begin(); it != gen.end(); ++it)
     {
         auto inserted = out_defs.insert(make_pair(it->first, map<string, SgExpression*>()));
-        SgExpression *newExp = it->second->copyPtr();
-        inserted.first->second.insert(make_pair(newExp->unparse(), newExp));
-        if(it->first.isPointer())
+        SgExpression *newExp = NULL;
+        string newUnparsed = "";
+        if (it->second)
         {
-            auto foundExtra = extraPointersGen.find(it->first);
-            if(foundExtra != extraPointersGen.end())
-                for(auto extraVal : foundExtra->second)
-                    inserted.first->second.insert(make_pair(extraVal->unparse(), extraVal));
+            newExp = it->second->copyPtr();
+            newUnparsed = newExp->unparse();
         }
+        inserted.first->second.insert(make_pair(newUnparsed, newExp));        
     }
 }
 
 static bool addDefsFilteredByKill(map<SymbolKey, map<string, SgExpression*>> *main,
-                           map<SymbolKey, map<string, SgExpression*>> *defs, set<SymbolKey> *kill)
+                                  map<SymbolKey, map<string, SgExpression*>> *defs, set<SymbolKey> *kill)
 {
     bool mainChanged = false;
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -361,7 +335,7 @@ static bool addDefsFilteredByKill(map<SymbolKey, map<string, SgExpression*>> *ma
     return mainChanged;
 }
 
-static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
+void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -372,7 +346,10 @@ static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
             printf("--- %s = ", it->first.getVarName().c_str());
         for (auto iter = it->second.begin(); iter != it->second.end(); ++iter)
         {
-            printf("%s", iter->second->unparse());
+            if(iter->second)
+                printf("%s", iter->second->unparse());
+            else
+                printf("empty value");
             if (iter != it->second.end())
                 printf(", ");
         }
@@ -381,7 +358,7 @@ static void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
     printf("\n");
 }
 
-static void showDefs(map<SymbolKey, SgExpression*> *defs)
+void showDefs(map<SymbolKey, SgExpression*> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -407,16 +384,6 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
     }
 
     printf("\n");
-}
-
-static bool adjustInsAndOuts(CBasicBlock *b)
-{
-    /*Updating IN*/
-    for (BasicBlockItem* prev = b->getPrev(); prev != NULL; prev = prev->next)
-        mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
-
-    /*Updating OUT, true, if OUT has been changed*/
-    return addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
 }
 
 static void showDefsOfGraph(ControlFlowGraph *CGraph)
@@ -466,21 +433,19 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
             }
         }
 
-        /*if (printed)
+        if (printed)
         {
             printf("\n In ");
             showDefs(b->getInDefs());
             printf("\n Gen");
             showDefs(b->getGen());
-            printf("\n Pointers gen");
-            showDefs(b->getPointersGen());
             printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
             printf("\n Out ");
             showDefs(b->getOutDefs());
-        }*/
+        }
         b = b->getLexNext();
     }
 }
@@ -496,13 +461,75 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
     }
 }
 
+//TODO
+//TODO
+//TODO
+void BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
+{
+    CBasicBlock* b = CGraph->getFirst();
+    while (b != NULL)
+    {
+
+        ControlFlowItem *cfi = b->getStart();
+        ControlFlowItem *till = b->getEnd()->getNext();
+        while (cfi != till)
+        {
+            b->adjustGenAndKillP(cfi);
+            cfi = cfi->getNext();
+        }
+        b = b->getLexNext();
+
+        //Обновить OUT
+        b->getOutDefsP();
+    }
+}
+
+/*
+ * Отдельная подготовка достигающих определений для указателей.
+ * Она не может быть проведена вместе с быной т.к. GEN для указателей зависит от IN.
+ * Всё также, только GEN обновляется на каждой итерации.
+ */
+void PreparePointers(ControlFlowGraph *CGraph)
+{
+    bool setsChanged = true;
+    while (setsChanged)
+    {
+        setsChanged = false;
+        //Вычисление KILL и GEN, GEN могло измениться
+        BuildGenKillAndUpdateOutP(CGraph);
+
+        CBasicBlock* b = CGraph->getFirst();
+        while (b != NULL)
+        {
+            /*Updating IN for pointers*/
+            for (BasicBlockItem* prev = b->getPrev(); prev != NULL; prev = prev->next)
+                mergeDefs(b->getInDefsP(), prev->block->getOutDefsP(), NULL);
+
+            /*Updating OUT for pointers, true, if OUT has been changed*/
+            setsChanged |= addDefsFilteredByKill(b->getOutDefsP(), b->getInDefsP(), b->getKillP());
+            b = b->getLexNext();
+        }
+    }
+}
+
 void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, SgExpression*>> *inDefs, CommonVarsOverseer *overseer_Ptr)
 {
     overseerPtr = overseer_Ptr;
     CBasicBlock *b = CGraph->getFirst();
+
+    PreparePointers(CGraph);
+
+    b = CGraph->getFirst();
     while (b != NULL)
     {
-        setGensAndKills(b);
+        ControlFlowItem *cfi = b->getStart();
+        ControlFlowItem *till = b->getEnd()->getNext();
+        while (cfi != till)
+        {
+            b->adjustGenAndKill(cfi);
+            cfi = cfi->getNext();
+        }
+
         /*Initialization of OUT, it equals to GEN	*/
         b->initializeOutWithGen();
         b = b->getLexNext();
@@ -518,8 +545,13 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, 
         b = CGraph->getFirst();
         while (b != NULL)
         {
-            if (adjustInsAndOuts(b))
-                setsChanged = true;
+            /*Updating IN*/
+            for (BasicBlockItem* prev = b->getPrev(); prev != NULL; prev = prev->next)
+                mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
+
+            /*Updating OUT, true, if OUT has been changed*/
+            setsChanged |= addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
+
             b = b->getLexNext();
         }
     }
@@ -559,8 +591,9 @@ bool valueWithFunctionCall(SgExpression *exp)
 /*
 * Can't expand var if:
 * 1. it has multiple values
-* 2. value has function call
-* 3. value has itself within (recursion)
+* 2. it is a NULL value
+* 3. value has function call
+* 4. value has itself within (recursion)
 */
 void CBasicBlock::correctInDefsSimple() 
 {
@@ -568,9 +601,11 @@ void CBasicBlock::correctInDefsSimple()
     {
         if (it->second.size() != 1) //1
             it = in_defs.erase(it);
-        else if (valueWithFunctionCall(it->second.begin()->second)) //2
+        else if(it->second.begin()->second == NULL)
             it = in_defs.erase(it);
-        else if (valueWithRecursion(it->first, it->second.begin()->second)) //3
+        else if (valueWithFunctionCall(it->second.begin()->second)) //3
+            it = in_defs.erase(it);
+        else if (valueWithRecursion(it->first, it->second.begin()->second)) //4
             it = in_defs.erase(it);
         else
             it++;
@@ -605,7 +640,6 @@ bool CBasicBlock::correctInDefsIterative()
         }
 
         //Clean inDefs
-
         for (auto it = in_defs.begin(); it != in_defs.end();)
             if (allowedVars->find(it->first) == allowedVars->end())
                 it = in_defs.erase(it);
@@ -641,7 +675,7 @@ void CorrectInDefs(ControlFlowGraph *CGraph)
     }
 
     bool changes = true;
-    while (changes)
+/*    while (changes)
     {
         changes = false;
         b = CGraph->getFirst();
@@ -650,5 +684,5 @@ void CorrectInDefs(ControlFlowGraph *CGraph)
             changes |= b->correctInDefsIterative();
             b = b->getLexNext();
         }
-    }
+    }*/
 }

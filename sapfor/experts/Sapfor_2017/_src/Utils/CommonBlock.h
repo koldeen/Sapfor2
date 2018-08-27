@@ -7,13 +7,14 @@ struct CommonVariableUse
 private:
     std::string fileName;
     std::string functionName;
+    SgSymbol *useS;
 
     SgFile *file;
     SgStatement *function;
     bool isBlockData;
 public:
-    explicit CommonVariableUse(SgFile *file, SgStatement *function) :
-        file(file), function(function),
+    explicit CommonVariableUse(SgFile *file, SgStatement *function, SgSymbol *useS) :
+        file(file), function(function), useS(useS),
         fileName(std::string(file->filename())), functionName(std::string(function->symbol()->identifier()))
     {
         if (function->variant() == BLOCK_DATA)
@@ -27,6 +28,12 @@ public:
     bool isBlockDataUse() const { return isBlockData; }
     SgFile* getFile() const { return file; }
     SgStatement* getFunction() const { return function; }
+    SgStatement* getDeclaratedPlace() const 
+    {
+        if (current_file->filename() != fileName)
+            SgFile::switchToFile(fileName);
+        return useS->declaredInStmt(); 
+    }
 };
 
 struct Variable
@@ -34,6 +41,8 @@ struct Variable
 private:
     std::vector<CommonVariableUse> allUse;
     SgSymbol *symbol; // variable symbol
+    SgStatement *declPace;
+
     std::string name; // variable name
     varType type;     // variable type
     int position;
@@ -41,7 +50,8 @@ public:
     explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type, const int position) :
         symbol(symbol), name(name), type(type), position(position)
     {
-        allUse.push_back(CommonVariableUse(file, function));
+        declPace = symbol->declaredInStmt();
+        allUse.push_back(CommonVariableUse(file, function, symbol));
     }
 
     SgSymbol* getSymbol() const { return symbol; }
@@ -49,14 +59,15 @@ public:
     const std::string& getName() const { return name; }
     varType getType() const { return type; }
     int getPosition() const { return position; }
+    SgStatement *getDeclarated() const { return declPace; }
 
-    void addUse(SgFile *file, SgStatement *function)
+    void addUse(SgFile *file, SgStatement *function, SgSymbol *useS)
     {
         for (auto &use : allUse)
             if (use.getFile() == file && use.getFunction() == function)
                 return;
 
-        allUse.push_back(CommonVariableUse(file, function));
+        allUse.push_back(CommonVariableUse(file, function, useS));
     }
 
     bool hasUse(const std::string &file, const std::string &function) const

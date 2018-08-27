@@ -129,7 +129,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>C:\Users\kolganov\Documents\visualizer\Visual_DVM\Visual_DVM\bin\Release\Components\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -228,6 +228,7 @@
       <Optimization>Full</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -244,16 +245,26 @@
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</IntrinsicFunctions>
-      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</IntrinsicFunctions>
     </ClCompile>
     <ClCompile Include="..\_src\Distribution\Cycle.cpp" />
     <ClCompile Include="..\_src\Distribution\Distribution.cpp" />
-    <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp" />
+    <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</InlineFunctionExpansion>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</WholeProgramOptimization>
+    </ClCompile>
     <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Full</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Full</Optimization>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</InlineFunctionExpansion>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
@@ -306,7 +317,14 @@
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c" />
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
     <ClCompile Include="..\_src\Sapfor.cpp" />
-    <ClCompile Include="..\_src\Utils\SgUtils.cpp" />
+    <ClCompile Include="..\_src\Utils\SgUtils.cpp">
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</InlineFunctionExpansion>
+      <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</IntrinsicFunctions>
+      <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Size</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</WholeProgramOptimization>
+    </ClCompile>
     <ClCompile Include="..\_src\Utils\utils.cpp" />
     <ClCompile Include="..\_src\VerificationCode\CorrectVarDecl.cpp" />
     <ClCompile Include="..\_src\VerificationCode\IncludeChecker.cpp" />
@@ -332,8 +350,10 @@
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h" />
+    <ClInclude Include="..\_src\Inliner\inliner.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h" />
+    <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />

@@ -1359,7 +1359,7 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
         }
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
-            exist->addUse(file, function);
+            exist->addUse(file, function, varPair.first);
         else
             variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
     }

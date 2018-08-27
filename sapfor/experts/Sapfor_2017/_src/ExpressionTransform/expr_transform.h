@@ -16,7 +16,7 @@ struct VariableItem;
 class VarsKeeper;
 class DataFlowItem;
 
-void deleteGraphKeeper();
+void deleteGraphsKeeper();
 SgExpression* ReplaceParameter(SgExpression *e);
 SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
@@ -43,6 +43,7 @@ struct GraphItem {
     CallData calls;
     CommonData commons;
     DoLoopDataList dldl;
+    ~GraphItem() { if(CGraph) delete CGraph; }
 };
 
 class GraphsKeeper {
@@ -53,18 +54,11 @@ public:
     ~GraphsKeeper()
     {
         for (auto &it : graphs)
-        {
             if (it.second)
             {
-                if (it.second->CGraph)
-                {
-                    delete it.second->CGraph;
-                    it.second->CGraph = NULL;
-                }
                 delete it.second;
                 it.second = NULL;
             }
-        }
         graphs.clear();
     }
 
@@ -114,3 +108,5 @@ bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
+void showDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>> *defs);
+void showDefs(std::map<SymbolKey, SgExpression*> *defs);

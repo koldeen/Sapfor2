@@ -40,7 +40,6 @@ using std::queue;
  * NOTE: 2 levels of replacements: first -- replace constant values, second -- replace other expressions with CFG  
  */
 
-
 static map<string, map<SgStatement*, vector<SgExpression*>>> replacementsOfConstsInFiles;
 static map<string, map<SgStatement*, vector<SgExpression*>>> replacementsInFiles;
 static map<SgStatement*, vector<SgExpression*>>* curFileReplacements;
@@ -467,6 +466,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
             if (!valueWithRecursion(founded->first, founded->second))
                     exp = founded->second;
 
+
     if (exp == NULL)
     {
         //second, check defs from previous blocks
@@ -550,6 +550,7 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
 
     __spf_print(PRINT_PROF_INFO, "%d: %s -> ",lineNumber, oldExp->unparse());
     __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+
     SgExpression* expToCopy = newExp->copyPtr();
     calculate(expToCopy);
 
@@ -764,6 +765,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+                b->adjustGenAndKill(cfi);
                 break;
             case POINTER_ASSIGN_STAT:
                 b->adjustGenAndKill(cfi);
@@ -789,7 +791,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
     return wereReplacements;
 }
 
-void ExpandExpressions(ControlFlowGraph* CGraph)
+void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, map<string, SgExpression*>> &inDefs)
 {
     bool wereReplacements = true;
     while (wereReplacements)
@@ -798,7 +800,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
         wereReplacements = false;
         visitedStatements.clear();
         ClearCFGInsAndOutsDefs(CGraph);
-        FillCFGInsAndOutsDefs(CGraph, NULL, &overseer);
+        FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
         CorrectInDefs(CGraph);
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -810,12 +812,12 @@ void ExpandExpressions(ControlFlowGraph* CGraph)
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, map<string, SgExpression*>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
-    FillCFGInsAndOutsDefs(CGraph, NULL, &overseer);
+    FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
     for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         b->clearGenKill();
 }
@@ -975,14 +977,22 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
+        map<SymbolKey, map<string, SgExpression*>> inDefs;
+
+        if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+            for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
+                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), map<string, SgExpression*>()))
+                .first->second.insert(make_pair("", (SgExpression*)NULL));
+
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();
 
         replaceConstants(filename, st);
 
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
-        ExpandExpressions(CGraph);
-        BuildUnfilteredReachingDefinitions(CGraph);
+        ExpandExpressions(CGraph, inDefs);
+        BuildUnfilteredReachingDefinitions(CGraph, inDefs);
+
     }
 
     for (auto &stmt : *curFileReplacements)
@@ -999,7 +1009,7 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
     }
 }
 
-void deleteGraphKeeper()
+void deleteGraphsKeeper()
 {
     delete graphsKeeper;
 }

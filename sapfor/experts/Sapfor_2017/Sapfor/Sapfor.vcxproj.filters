@@ -398,6 +398,12 @@
     <ClInclude Include="..\_src\Sapfor.h">
       <Filter>Файлы исходного кода</Filter>
     </ClInclude>
+    <ClInclude Include="..\_src\Inliner\inliner.h">
+      <Filter>Файлы исходного кода\Inliner</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopAnalyzer\shadow.h">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="..\_lib\boost_Release_64\libboost_chrono-vc141-mt-1_64.lib">

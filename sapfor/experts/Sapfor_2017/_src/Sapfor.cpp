@@ -1,4 +1,4 @@
-#include "Utils/leak_detector.h"
+п»ї#include "Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -122,7 +122,7 @@ void deleteAllAllocatedData(bool enable)
             delete[]ALGORITHMS_DONE[i];
         delete project;
 
-        deleteGraphKeeper();
+        deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
 }
@@ -280,7 +280,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
     auto toSendStrMessage = string(passNames[curr_regime]);
 #ifdef _WIN32
-    sendMessage_1lvl(wstring(L"выполняется проход '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+    sendMessage_1lvl(wstring(L"РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РїСЂРѕС…РѕРґ '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
 
     const int n = project.numberOfFiles();
@@ -325,7 +325,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         toSendStrMessage = file->filename();
 #ifdef _WIN32
-        sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+        sendMessage_2lvl(wstring(L"РѕР±СЂР°Р±РѕС‚РєР° С„Р°Р№Р»Р° '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
         currProcessing.first = file; currProcessing.second = NULL;
 
@@ -395,7 +395,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == VERIFY_EQUIVALENCE)
         {
-            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+            bool res = EquivalenceChecker(file, file_name, parallelRegions, SPF_messages);
             verifyOK &= res;
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
