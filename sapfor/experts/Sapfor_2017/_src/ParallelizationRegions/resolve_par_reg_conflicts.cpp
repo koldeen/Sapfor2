@@ -455,7 +455,10 @@ static void copyArray(ParallelRegion *region,
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void copyFunction(ParallelRegion *region, const FuncInfo *func, const string &suffix = "")
+static void copyFunction(ParallelRegion *region,
+                         const FuncInfo *func,
+                         const set<DIST::Array*> &allUsedCommonArrays,
+                         const string &suffix = "")
 {
     if (SgFile::switchToFile(func->fileName) != -1)
     {
@@ -476,26 +479,126 @@ static void copyFunction(ParallelRegion *region, const FuncInfo *func, const str
         // add copy function lines to explicit lines for next changes
         Statement *begin = new Statement(file->firstStatement()->lexNext());
         Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
-        pair<Statement*, Statement*> startEnd = make_pair(begin, end);
-        pair<int, int> newLines = make_pair(startEnd.first->lineNumber(), startEnd.second->lineNumber());
-        region->AddLines(newLines, file->filename(), &startEnd);
+        pair<Statement*, Statement*> beginEnd = make_pair(begin, end);
+        pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
+        region->AddLines(newLines, file->filename(), &beginEnd);
 
         __spf_print(1, "    explicit lines %d-%d added with statement ids %d,%d\n",
                     newLines.first, newLines.second,
-                    startEnd.first->id(), startEnd.second->id()); // remove
+                    beginEnd.first->id(), beginEnd.second->id()); // remove
 
         region->AddFuncSymbols(func->fileName, funcSymb, newFuncSymb);
 
         __spf_print(1, "    add replaced symbols (%s, %s) for file %s\n",
                     funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
+
+        // add common-block if it is nessesary
+        SgStatement *iterator = begin->GetOriginal();
+        for (; iterator != end->GetOriginal() && !isSgExecutableStatement(iterator); iterator = iterator->lexNext())
+            ;
+
+        Statement *start = new Statement(iterator);
+        vector<ParallelRegionLines> lines;
+        lines.push_back(ParallelRegionLines(make_pair(start->lineNumber(), end->lineNumber()) , make_pair(start, end)));
+
+        for (auto iterator = begin->GetOriginal(); iterator && !isSgExecutableStatement(iterator) && iterator != end->GetOriginal(); iterator = iterator->lexNext())
+        {
+            if (iterator->variant() == COMM_STAT)
+            {
+                // creating new common-block
+                map<string, SgSymbol*> commArrSymbs; // origin common array name -> new common array symbol
+
+                string commBlockName = "reg";
+                SgStatement *commDecl = new SgStatement(COMM_STAT);
+                SgSymbol *commSymb = new SgSymbol(DEFAULT, commBlockName.c_str());
+                SgExprListExp *commList = new SgExprListExp(COMM_LIST);
+                SgExprListExp *curNode = NULL;
+                commDecl->setSymbol(*commSymb);
+                commDecl->setExpression(0, *commList);
+                commList->setSymbol(commSymb);
+
+                for (auto &commonArray : allUsedCommonArrays)
+                {
+                    // get array type
+                    auto place = *commonArray->GetDeclInfo().begin();
+
+                    if (SgFile::switchToFile(place.first) != -1)
+                    {
+                        SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
+                        SgSymbol *arrSymb = NULL;
+
+                        for (auto exp = decl->expr(0); exp; exp = exp->rhs())
+                        {
+                            if (exp->lhs()->symbol() && exp->lhs()->symbol()->identifier() == commonArray->GetShortName())
+                            {
+                                arrSymb = exp->lhs()->symbol();
+                                break;
+                            }
+                        }
+
+                        if (!arrSymb)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        SgType arrType = *arrSymb->type();
+
+                        // insert array
+                        if (SgFile::switchToFile(func->fileName) != -1)
+                        {
+                            string newArrName = commonArray->GetShortName() + "_" + commBlockName;
+                            SgSymbol *newArrSymb = new SgSymbol(VAR_REF, newArrName.c_str(), &arrType, file->firstStatement());
+                            SgStatement *newDecl = NULL;
+
+                            commArrSymbs.insert(make_pair(commonArray->GetShortName(), newArrSymb));
+                            newDecl = newArrSymb->makeVarDeclStmt();
+                            iterator->insertStmtAfter(*newDecl, *iterator->controlParent());
+
+                            __spf_print(1, "  new common array '%s' as copy of array '%s'\n",
+                                        newArrName.c_str(),
+                                        commonArray->GetShortName().c_str()); // remove
+
+                            // inserting newArrSymb to COMM_STAT
+                            if (!curNode)
+                            {
+                                curNode = new SgExprListExp();
+                                commList->setLhs(curNode);
+                            }
+                            else
+                            {
+                                SgExprListExp *newNode = new SgExprListExp();
+                                curNode->setRhs(newNode);
+                                curNode = (SgExprListExp*)curNode->rhs();
+                            }
+
+                            SgExpression *arrNode = new SgExpression(VAR_REF, NULL, NULL, newArrSymb);
+                            curNode->setLhs(arrNode);
+                        }
+                        else
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                    else
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
+                // replace common arrays to new common arrays
+                for (auto exp = iterator->expr(0)->lhs(); exp; exp = exp->rhs())
+                    replaceSymbol(func->fileName, lines, exp->lhs()->symbol(), commArrSymbs.find(exp->lhs()->symbol()->identifier())->second);
+
+                iterator->insertStmtAfter(*commDecl, *iterator->controlParent());
+
+                iterator->unparsestdout(); // remove
+                iterator->lexNext()->unparsestdout(); // remove
+
+                break;
+            }
+        }
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
-                              const set<FuncInfo*> &allCommonFunctions,
-                              const set<DIST::Array*> &allUsedCommonArrays)
+void resolveParRegions(vector<ParallelRegion*> &regions,
+                       const set<FuncInfo*> &allCommonFunctions,
+                       const set<DIST::Array*> &allUsedCommonArrays)
 {
     for (auto &region : regions)
     {
@@ -511,6 +614,17 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
             }
         }
 
+        /*
+        for (auto &funcArrays : region->GetUsedCommonArrays())
+        {
+            for (auto &arrayLines : funcArrays.second)
+            {
+                auto place = *arrayLines.first->GetDeclInfo().begin();
+                copyArray(region, place, funcArrays.first->funcName, arrayLines.first, arrayLines.second, string("_reg"));
+            }
+        }
+        */
+
         __spf_print(1, "[%s]: create functions\n", region->GetName().c_str()); // remove
 
         // creating new functions
@@ -519,14 +633,14 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
         // map<string, vector<ParallelRegionLines>> linesToEdit;
 
         for (auto &crossedFunc : crossedFuncs)
-            copyFunction(region, crossedFunc, string("_") + region->GetName());
+            copyFunction(region, crossedFunc, allUsedCommonArrays, string("_") + region->GetName());
 
         for (auto &commonFunc : allCommonFunctions)
         {
             auto it = crossedFuncs.find(commonFunc);
             auto itt = region->GetAllFuncCalls().find(commonFunc);
             if (it == crossedFuncs.end() && itt != region->GetAllFuncCalls().end())
-                copyFunction(region, commonFunc, string("_") + region->GetName());
+                copyFunction(region, commonFunc, allUsedCommonArrays, string("_") + region->GetName());
         }
 
         // forall funcs B, C: B is not crossed & C is crossed & B call C ==> B is explicit
@@ -566,41 +680,9 @@ void createFunctionsAndArrays(vector<ParallelRegion*> &regions,
                 for (auto &origCopy : it->second)
                     replaceSymbol(fileLines.first, fileLines.second, origCopy.first, origCopy.second);
             }
-        }
-    }
 
-    /*
-    __spf_print(1, "create common arrays\n"); // remove
+            // TODO: make common array copying for explicit lines
 
-    // creating common-blocks
-    // TODO: create new common-block
-    SgStatement *commDecl = new SgStatement(COMM_STAT);
-    SgExprListExp *commList = new SgExprListExp(COMM_LIST);
-    commDecl->setExpression(0, *commList);
-
-    // TODO: create new arrays into new common-block
-    for (auto &commonArray : allUsedCommonArrays)
-    {
-        ;
-    }
-    */
-}
-
-void insertArraysCopying(const vector<ParallelRegion*> &regions)
-{
-    for (auto &region : regions)
-    {
-        for (auto &origCopy : region->GetFuncSymbols())
-        {
-            // insert local arrays copying
-            for (auto &funcArrays : region->GetUsedLocalArrays())
-                for (auto &arrayLines : funcArrays.second)
-                    ; // insertArrayCopying(funcArrays.first->fileName, funcArrays.first->funcName, arrayLines.second, origCopy.first, origCopy.second);
-
-            // insert common arrays copying
-            for (auto &funcArrays : region->GetUsedCommonArrays())
-                for (auto &array : funcArrays.second)
-                    ; // insertArrayCopying(funcArrays.first->fileName, funcArrays.first->funcName, arrayLines.second, origCopy.first, origCopy.second);
         }
     }
 }
