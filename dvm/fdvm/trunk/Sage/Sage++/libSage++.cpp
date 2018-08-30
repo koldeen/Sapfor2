@@ -4,11 +4,13 @@
 /*********************************************************************/
 #include "leak_detector.h"
 #include <stdio.h>
+#include <stdlib.h>
+
 #include <map>
 #include <string>
 
 #ifndef __GNUC__
-# include <stdlib.h>
+
 #else
 extern "C" void abort(void);
 extern "C" void exit(int status);
@@ -673,28 +675,28 @@ void ResetbfndTableClass()
 
 void ReallocatellndTableClass()
 {
-  int i;
-  void **pt;
-  
-  pt  =  new void *[allocatedForllndTableClass + ALLOCATECHUNK];
+    int i;
+    void **pt;
+
+    pt = new void *[allocatedForllndTableClass + ALLOCATECHUNK];
 #ifdef __SPF   
-  addToCollection(__LINE__, __FILE__, pt, 2);
+    addToCollection(__LINE__, __FILE__, pt, 2);
 #endif
-  for (i=0; i<allocatedForllndTableClass + ALLOCATECHUNK; i++)
-    pt[i] = NULL;
-  for (i=0 ; i < allocatedForllndTableClass; i++)
+    for (i = 0; i < allocatedForllndTableClass + ALLOCATECHUNK; i++)
+        pt[i] = NULL;
+    for (i = 0; i < allocatedForllndTableClass; i++)
     {
-      pt[i] = llndTableClass[i];
+        pt[i] = llndTableClass[i];
     }
-  if (allocatedForllndTableClass)
-  {
+    if (allocatedForllndTableClass)
+    {
 #ifdef __SPF   
-      removeFromCollection(llndTableClass);
+        removeFromCollection(llndTableClass);
 #endif
-      delete llndTableClass;
-  }
-  llndTableClass = pt;
-  allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
+        delete llndTableClass;
+    }
+    llndTableClass = pt;
+    allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
 }
 
 void ReallocatesymbolTableClass()
@@ -1576,6 +1578,9 @@ SgProject::SgProject(const char * proj_file_name)
 
     // we have to initialize some specific data for this interface 
     CurrentProject = this;
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
 }
 
 
@@ -1691,10 +1696,102 @@ SgFile::SgFile(int Language, const char * dep_file_name)
 #endif
 }
 
+std::map<std::string, std::pair<SgFile*, int> > SgFile::files;
+int SgFile::switchToFile(const std::string &name)
+{
+    std::map<std::string, std::pair<SgFile*, int> >::iterator it = files.find(name);
+    if (it == files.end())
+        return -1;
+    else
+    {
+        if (current_file_id != it->second.second)
+        {
+            SgFile *file = &(CurrentProject->file(it->second.second));
+            current_file_id = it->second.second;
+            current_file = file;
+        }
+    }
 
-     
+    return it->second.second;
+}
 
-SgStatement * SgFile::functions(int i)
+void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
+{
+    files[toAdd.first->filename()] = toAdd;
+}
+
+
+std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > SgStatement::statsByLine;
+std::map<SgExpression*, SgStatement*> SgStatement::parentStatsForExpression;
+
+void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate)
+{
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        toUpdate[std::make_pair(st->fileName(), st->lineNumber())] = st;
+}
+
+SgStatement* SgStatement::getStatementByFileAndLine(const std::string &fName, const int lineNum)
+{
+    const int fildID = SgFile::switchToFile(fName);
+    std::map<int, std::map<std::pair<std::string, int>, SgStatement*> >::iterator itID = statsByLine.find(fildID);
+    if (itID == statsByLine.end())
+        itID = statsByLine.insert(itID, std::make_pair(fildID, std::map<std::pair<std::string, int>, SgStatement*>()));
+
+    if (itID->second.size() == 0)
+        updateStatsByLine(itID->second);
+    
+    std::map<std::pair<std::string, int>, SgStatement*>::iterator itPair = itID->second.find(make_pair(fName, lineNum));
+    if (itPair == itID->second.end())
+        return NULL;
+    else
+        return itPair->second;
+}
+
+void SgStatement::updateStatsByExpression(SgStatement *where, SgExpression *what)
+{
+    if (what)
+    {
+        parentStatsForExpression[what] = where;
+
+        updateStatsByExpression(where, what->lhs());
+        updateStatsByExpression(where, what->rhs());
+    }
+}
+
+void SgStatement::updateStatsByExpression()
+{
+    SgFile* save = current_file;
+    const int save_id = current_file_id;
+
+    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(CurrentProject->file(i));
+        current_file_id = i;
+        current_file = file;
+
+        for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            for (int z = 0; z < 3; ++z)
+                updateStatsByExpression(st, st->expr(z));
+    }
+
+    CurrentProject->file(save_id);
+    current_file_id = save_id;
+    current_file = save;
+}
+
+SgStatement* SgStatement::getStatmentByExpression(SgExpression *toFind)
+{
+    if (parentStatsForExpression.size() == 0)
+        updateStatsByExpression();
+
+    std::map<SgExpression*, SgStatement*>::iterator itS = parentStatsForExpression.find(toFind);
+    if (itS == parentStatsForExpression.end())
+        return NULL;
+    else
+        return itS->second;
+}
+
+SgStatement* SgFile::functions(int i)
 {
   PTR_BFND bif;
   SgStatement *pt = NULL;
@@ -1762,6 +1859,9 @@ SgStatement::SgStatement(int variant)
         thebif = (PTR_BFND)newNode(variant);
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1775,6 +1875,10 @@ SgStatement::SgStatement(SgStatement &s)
     thebif = s.thebif;
 
 #if __SPF
+    fileID = s.getFileId();
+    project = s.getProject();
+    unparseIgnore = s.getUnparseIgnore();
+
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
 }
@@ -1800,6 +1904,9 @@ SgStatement::SgStatement(PTR_BFND bif)
     thebif = bif;
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1888,7 +1995,7 @@ void  SgStatement::setExpression (int i, SgExpression &e)
     }
 }
  
-SgStatement * SgStatement::nextInChildList()
+SgStatement* SgStatement::nextInChildList()
 {
   PTR_BLOB blob;
   SgStatement *x;
@@ -1911,25 +2018,10 @@ SgStatement * SgStatement::nextInChildList()
    
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char*  SgStatement::unparse()
-{
-  UnparseBif(thebif);
-  SORRY;
-  return NULL;
+std::string SgStatement::sunparse()
+{    
+    return std::string(unparse());
 }
-#endif
-
-
-#ifdef NOT_YET_IMPLEMENTED
-void  SgStatement::sunparse(char *buffer)
-{
-  UnparseBif(thebif);
-  SORRY;
-  return;
-}
-#endif
-
 
 
 #ifdef NOT_YET_IMPLEMENTED
@@ -2114,39 +2206,32 @@ SgExpression *SgExpression::operand(int i)
   return LlndMapping(ll);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char *SgExpression::unparse()
+std::string SgExpression::sunparse()
 {
-  
-  UnparseLLND(thellnd);
-  SORRY;
-  return NULL;
+    return std::string(unparse());
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
-void SgExpression::sunparse(char *buffer)
-{
-  SORRY;
-}
-#endif
 
 #define ERR_TOOMANYSYMS -1
 
-int  SgExpression::linearRepresentation(int *coeff, SgSymbol **symb,int *cst, int size)
+int SgExpression::linearRepresentation(int *coeff, SgSymbol **symb, int *cst, int size)
 {
-  PTR_SYMB ts[100];
-  int i;
-  if (!symb || !coeff || !cst)
-    return 0;
-  if (size > 100)
+    const int maxElem = 300;
+    PTR_SYMB *ts = new PTR_SYMB[maxElem];
+    int i;
+    if (!symb || !coeff || !cst)
+        return 0;
+    if (size > maxElem)
     {
-      Message (" Too many symbols in linearRepresentation ",0);
-      return ERR_TOOMANYSYMS;
+        Message(" Too many symbols in linearRepresentation ", 0);
+        return ERR_TOOMANYSYMS;
     }
-  for (i=0 ; i < size; i++)
-    ts[i] = symb[i]->thesymb;
-  return buildLinearRep(thellnd,coeff,ts,size,cst);
+    for (i = 0; i < size; i++)
+        ts[i] = symb[i]->thesymb;
+
+    int retVal = buildLinearRep(thellnd, coeff, ts, size, cst);
+    delete ts;
+    return retVal;
 }
 
 
@@ -2179,7 +2264,7 @@ int SgExpression::isInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2195,7 +2280,7 @@ int SgExpression::valueInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2272,41 +2357,47 @@ SgExpression &operator >= ( SgExpression &lhs, SgExpression &rhs)
     return makeAnBinaryExpression(GE_OP,lhs.thellnd,rhs.thellnd);
 } 
 
-SgExpression &operator & ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITAND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator | ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator |( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITOR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &&( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &&( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ||( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ||( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(OR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator +=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator +=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(PLUS_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator *=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator *=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MULT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator /=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator /=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(DIV_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator %=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MOD_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ^=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(XOR_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator <<=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(LSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator >>=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(RSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);}
+
+SgExpression& operator==(SgExpression &lhs, SgExpression &rhs)
+{ return SgEqOp(lhs, rhs); }
+
+SgExpression& operator!=(SgExpression &lhs, SgExpression &rhs)
+{ return SgNeqOp(lhs, rhs); }
 
 SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
@@ -8093,6 +8184,9 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
         break;
     }
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif

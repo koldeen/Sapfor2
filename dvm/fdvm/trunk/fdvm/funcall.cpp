@@ -576,9 +576,9 @@ SgExpression *CreateConsistArray(SgSymbol *cas, SgExpression *array_header, SgEx
   return(fe);
 }
 
-SgStatement *CreateDvmArray(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) 
+SgStatement *CreateDvmArrayHeader(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) 
 {
-// creates function call:
+// creates subroutine call:
 //       crtraf or  crtra9 (ArrayHeader,ExtHdrSign,Base,Rank,TypeSize,SizeArray, StaticSign, ReDistrSign, Memory) 
 //           
   SgCallStmt *call;
@@ -616,7 +616,6 @@ SgStatement *CreateDvmArray(SgSymbol *cas, SgExpression *array_header, SgExpress
   return(call);
 }
 
- 
 /**************************************************************\
 *              Parallel Loop Defining                         *
 \**************************************************************/
@@ -2986,40 +2985,6 @@ SgExpression *CalculateLinear(SgExpression *ar_header, int n, SgExpression *inde
 
 }
 
-SgExpression *VarGenHeader(SgExpression *item)
-{
-  // generates function call:
-  //                   dvmh_variable_gen_header(const void *addr, const DvmType *pRank, const DvmType *pTypeSize,
-  //                                          \* const DvmType *pSpaceLow, const DvmType *pSpaceHigh \*...)
-  
-  //	dvmh_variable_gen_header(C, 0_8, int(-rt_FLOAT, 8)) for scalar variables
-  //	dvmh_variable_gen_header(B, 2_8, int(-rt_FLOAT, 8), 1_8, 30_8, 1_8, 40_8) for array of size 40*30
-  
-  fmask[VAR_GEN_HDR] = 1;
-  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[VAR_GEN_HDR]);
-  fe->addArg(*item);
-  
-  int nsubs;
-  if (item->symbol() && isSgArrayType(item->symbol()->type()))
-    nsubs = isSgArrayType(item->symbol()->type())->dimension();
-  else nsubs = 0;
-  fe->addArg(*ConstRef_F95(nsubs));
-  
-  // fe->addArg(*TypeSize_RTS2(item->symbol()->type()));
-  
-  if (item->symbol()) fe->addArg(*TypeSize_RTS2(item->symbol()->type()));
-  else fe->addArg(*TypeSize_RTS2(item->type())); // array expressions don't have symbol
-  
-  if (nsubs) {
-    for (int i = nsubs-1; i >= 0; --i) {
-      fe->addArg(*DvmType_Ref(LowerBound(item->symbol(), i)));
-      fe->addArg(*DvmType_Ref(UpperBound(item->symbol(), i)));
-    }
-  }
-  
-  return fe;
-  
-}
 
 /*
 SgStatement *RegisterBufferArray(int irgn, SgSymbol *c_intent, SgExpression *bufref, int ilow, int ihigh)
@@ -3068,8 +3033,6 @@ SgStatement *SetVariableName(int irgn, SgSymbol *var)
   return(call);
 }
 
-
-
 SgStatement *RegionBeforeLoadrb(SgExpression *bufref)
 {  //generating Subroutine Call:  
    //    dvmh_remote_access( dvmDesc[]) 
@@ -3080,7 +3043,6 @@ SgStatement *RegionBeforeLoadrb(SgExpression *bufref)
   call -> addArg(*bufref);
   return(call);
 }
-
 
 SgStatement *RegionAfterWaitrb(int irgn, SgExpression *bufref)
 {  //generating Subroutine Call:  
@@ -3323,6 +3285,20 @@ SgStatement *DeleteObject_H(SgExpression *objref)
  
  return(call);
 }   
+
+SgStatement *ForgetHeader(SgExpression *objref) 
+{
+//generating Subroutine Call:
+//        dvmh_forget_header(DvmType dvmDesc[])
+ 
+ SgCallStmt *call = new SgCallStmt(*fdvm[FORGET_HEADER]);
+ fmask[FORGET_HEADER] = 2;
+
+ call->addArg(*objref);
+ 
+ return(call);
+}   
+
 
 SgStatement *ScopeStart() 
 {
@@ -3869,8 +3845,62 @@ SgStatement *DvmhTemplateCreate(SgSymbol *das, SgExpression *array_header, int r
   call->addArg(*ConstRef(rank)); //Rank
   AddListToList(call->expr(0),arglist);  
   return(call);
-
 }
+
+SgExpression *VarGenHeader(SgExpression *item)
+{
+  // generates function call:
+  //                   dvmh_variable_gen_header(const void *addr, const DvmType *pRank, const DvmType *pTypeSize,
+  //                                          \* const DvmType *pSpaceLow, const DvmType *pSpaceHigh \*...)
+  
+  //	dvmh_variable_gen_header(C, 0_8, int(-rt_FLOAT, 8)) for scalar variables
+  //	dvmh_variable_gen_header(B, 2_8, int(-rt_FLOAT, 8), 1_8, 30_8, 1_8, 40_8) for array of size 40*30
+  
+  fmask[VAR_GEN_HDR] = 1;
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[VAR_GEN_HDR]);
+  fe->addArg(*item);
+  
+  int nsubs;
+  if (item->symbol() && isSgArrayType(item->symbol()->type()))
+    nsubs = isSgArrayType(item->symbol()->type())->dimension();
+  else nsubs = 0;
+  fe->addArg(*ConstRef_F95(nsubs));
+  
+  // fe->addArg(*TypeSize_RTS2(item->symbol()->type()));
+  
+  if (item->symbol()) fe->addArg(*TypeSize_RTS2(item->symbol()->type()));
+  else fe->addArg(*TypeSize_RTS2(item->type())); // array expressions don't have symbol
+  
+  if (nsubs) {
+    for (int i = nsubs-1; i >= 0; --i) {
+      fe->addArg(*DvmType_Ref(LowerBound(item->symbol(), i)));
+      fe->addArg(*DvmType_Ref(UpperBound(item->symbol(), i)));
+    }
+  }
+  
+  return fe;
+  
+}
+
+SgStatement *CreateDvmArrayHeader_2(SgSymbol *ar, SgExpression *array_header,  int rank,  SgExpression *shape_list) 
+{
+// creates subroutine call:
+//       dvmh_variable_fill_header(DvmType dvmDesc[], const void *baseAddr, const void *addr, const DvmType *pRank, const DvmType *pTypeSize,/* const DvmType *pSpaceLow, const DvmType *pSpaceHigh */...);
+           
+  SgCallStmt *call = new SgCallStmt(*fdvm[VAR_FILL_HDR]);
+  fmask[VAR_FILL_HDR] = 2;
+
+  call->addArg(*array_header);
+  SgType *t = (isSgArrayType(ar->type())) ? ar->type()->baseType() : ar->type();
+  SgExpression *base = (t->variant() != T_DERIVED_TYPE && t->variant() != T_STRING ) ? new SgArrayRefExp(*baseMemory(SgTypeInt())) : new SgArrayRefExp(*baseMemory(t));   
+  call->addArg(*base);
+  call->addArg(*new SgArrayRefExp(*ar));  
+  call->addArg(*ConstRef(rank)); 
+  call->addArg(*TypeSize_RTS2(t)); 
+  AddListToList(call->expr(0),shape_list);  
+  return(call);
+} 
+
 SgExpression *DvmhReplicated()
 {
   // generates function call:     DvmType dvmh_distribution_replicated()

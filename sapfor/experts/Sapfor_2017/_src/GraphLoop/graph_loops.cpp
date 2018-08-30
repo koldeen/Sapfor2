@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,11 +20,11 @@
 #include "../Distribution/Distribution.h"
 
 #include "graph_loops.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 
-#include "../errors.h"
-#include "../AstWrapper.h"
+#include "../Utils/errors.h"
+#include "../Utils/AstWrapper.h"
 
 using std::vector;
 using std::map;
@@ -417,6 +417,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == FOR_NODE)
             {
@@ -534,7 +537,7 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
 
 void convertToString(const LoopGraph *currLoop, string &result)
 {
-    if (currLoop)
+    if (currLoop && currLoop->lineNum > 0)
     {
         char buf[512];
         result += " " + std::to_string(currLoop->calls.size());

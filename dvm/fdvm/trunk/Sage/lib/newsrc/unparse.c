@@ -2501,37 +2501,40 @@ Tool_Unparse2_LLnode(ll)
   return Buf_address;
 }
 
-char *
-Tool_Unparse_Bif(bif)
-     PTR_BFND bif;
+char *Tool_Unparse_Bif(PTR_BFND bif)
 {
-  int variant;
-  int kind;
-  char *str;
-  char c;
-  int i;
+    int variant;
+    int kind;
+    char *str;
+    char c;
+    int i;
 
-  if (!bif)
-    return NULL;
+    if (!bif)
+        return NULL;
 
-  variant = BIF_CODE(bif);
-  kind = (int) node_code_kind[(int) variant];
-  if (kind  != (int)BIFNODE)
-    Message("Error in Unparse, not a bif node",0);
-  if (BIF_LINE(bif)==-1) BufPutString("!$",0); 
-  //if (BIF_DECL_SPECS(bif) == BIT_OPENMP) BufPutString("!$",0); 
-  str = Unparse_Def[variant].str;
-  /*printf("variant = %d, str = %s\n", variant, str);*/
-  /* now we have to interpret the code to unparse it */
+    variant = BIF_CODE(bif);
+#ifdef __SPF
+    if (variant < 0)
+        return NULL;
+#endif
+    kind = (int) node_code_kind[(int) variant];
+    if (kind  != (int)BIFNODE)
+        Message("Error in Unparse, not a bif node", 0);
+    if (BIF_LINE(bif) == -1)
+        BufPutString("!$", 0);
+    //if (BIF_DECL_SPECS(bif) == BIT_OPENMP) BufPutString("!$",0); 
+    str = Unparse_Def[variant].str;
+    /*printf("variant = %d, str = %s\n", variant, str);*/
+    /* now we have to interpret the code to unparse it */
   
-  if (str == NULL)
-    return NULL;
-  if (strcmp( str, "n") == 0)
-    if (strcmp ( str, "n") == 0)
-    {
-      Message("Node not define for unparse",BIF_LINE(bif));
-      return NULL;
-    }
+    if (str == NULL)
+        return NULL;
+    if (strcmp( str, "n") == 0)
+        if (strcmp(str, "n") == 0)
+        {
+            Message("Node not define for unparse", BIF_LINE(bif));
+            return NULL;
+        }
 
 
   i = 0 ;

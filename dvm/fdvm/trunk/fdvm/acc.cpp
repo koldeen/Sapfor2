@@ -1180,7 +1180,7 @@ int isACCdirective(SgStatement *stmt)
 SgStatement *ACC_Directive(SgStatement *stmt)
 {
     if (!ACC_program)       // by option -noH regime
-        return(stmt);                                 //printf(" %d \n",stmt->lineNumber());
+        return(stmt);                                
     switch (stmt->variant()) {
     case(ACC_REGION_DIR) :
         return(ACC_REGION_Directive(stmt));
@@ -1233,7 +1233,7 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
             doCallAfter(ActualScalar(s));
             continue;
         }
-        if (isSgArrayRefExp(e))
+        if (isSgArrayRefExp(e) && isSgArrayType(s->type()))
         {
             if (HEADER(s)) //is distributed array reference
             {
@@ -1252,15 +1252,28 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
                         ihigh = SectionBounds(e);
                         doCallAfter(ActualSubArray(s, ilow, ihigh)); //inserting after current statement 
                      }
-                     continue;
                 }
             }
             else
             {//if(isSgArrayType(s->type()))  //may be T_STRING
                 //Warning("%s is not DVM-array",s->identifier(),606,cur_region->region_dir);
-                doCallAfter(ActualScalar(s));
-                continue;
+                //doCallAfter(ActualScalar(s));
+                //continue;
+                if (!e->lhs())  //whole array
+                    doCallAfter(ActualScalar(s));   //inserting after current statement
+                else
+                {
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(ActualSubVariable_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(ActualSubVariable(s, ilow, ihigh)); //inserting after current statement
+                    } 
+                }
             }
+            continue;
         }
         /* scalar in list is variable name !!!
          if(isSgRecordrefExp(e) || e->variant()==ARRAY_OP)  //structure component or substring
@@ -1269,6 +1282,8 @@ SgStatement *ACC_ACTUAL_Directive(SgStatement *stmt)
          continue;
          }
          */
+        err("Illegal element of list",636, stmt);
+        break;
     }
     return(cur_st);
 }
@@ -1295,16 +1310,13 @@ SgStatement *ACC_GET_ACTUAL_Directive(SgStatement *stmt)
             doCallAfter(GetActualScalar(s));   //inserting after current statement
             continue;
         }
-        if (isSgArrayRefExp(e))
+        if (isSgArrayRefExp(e) && isSgArrayType(s->type()))   // array reference
         {
             if (HEADER(s)) //is distributed array reference
 
-            {
+            {                   
                 if (!e->lhs())  //whole array
-                {
                     doCallAfter(GetActualArray(HeaderRef(s)));   //inserting after current statement
-                    continue;
-                }
                 else
                 {
                     if(INTERFACE_RTS2)                  
@@ -1315,17 +1327,29 @@ SgStatement *ACC_GET_ACTUAL_Directive(SgStatement *stmt)
                         ihigh = SectionBounds(e);
                         doCallAfter(GetActualSubArray(s, ilow, ihigh)); //inserting after current statement
                     } 
-                    continue;
                 }
-
             }
-            else
-            {//Warning("%s is not DVM-array",s->identifier(),606,cur_region->region_dir);
-                doCallAfter(GetActualScalar(s));   //inserting after current statement
-                continue;
+            else  // is not distributed array reference
+            {
+                if (!e->lhs())  //whole array
+                    doCallAfter(GetActualScalar(s));   //inserting after current statement
+                else
+                {
+                    if(INTERFACE_RTS2)                  
+                        doCallAfter(GetActualSubVariable_2(s, Rank(s), SectionBoundsList(e)));           
+                    else
+                    {
+                        ilow = ndvm;
+                        ihigh = SectionBounds(e);
+                        doCallAfter(GetActualSubVariable(s, ilow, ihigh)); //inserting after current statement
+                    } 
+                }
             }
+            continue;
         }
-    }
+        err("Illegal element of list",636, stmt);
+        break;
+    }   
     return(cur_st);
 }
 
@@ -1825,7 +1849,8 @@ void DeleteNonDvmArrays()
     for (sl = non_dvm_list; sl; sl = sl->next)
     if (HEADER_OF_REPLICATED(sl->symb))
     {        //doCallAfter(  DestroyArray(DVM000(*HEADER_OF_REPLICATED(sl->symb))));
-        doCallAfter(DeleteObject_H(DVM000(*HEADER_OF_REPLICATED(sl->symb))));
+        SgExpression *header_ref = DVM000(*HEADER_OF_REPLICATED(sl->symb));
+        doCallAfter(INTERFACE_RTS2 ? ForgetHeader(header_ref) : DeleteObject_H(header_ref));
         *HEADER_OF_REPLICATED(sl->symb) = 0;
     }
 }
@@ -1860,7 +1885,13 @@ int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat)
     if (IN_COMPUTE_REGION)
         *HEADER_OF_REPLICATED(s) = dvm_ind;
     ndvm += 2 * rank + DELTA;   // extended header
-
+    if(INTERFACE_RTS2)
+    {
+        doCallAfter(CreateDvmArrayHeader_2(s, DVM000(dvm_ind), rank, doShapeList(s,stat)));
+        if (TestType_RTS2(s->type()->baseType()) == -1)
+             Error("Array reference of illegal type in region: %s ", s->identifier(), 583, stat);
+        return (dvm_ind);
+    }  
     //store lower bounds of array in Header(rank+3:2*rank+2)
     for (i = 0; i < rank; i++)
         doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Exprn(LowerBound(s, i)));  //header_ref(ar,rank+3+i)    
@@ -1869,7 +1900,7 @@ int HeaderForNonDvmArray(SgSymbol *s, SgStatement *stat)
     size_array = DVM000(ndvm);
     re_sign = 0;     // created array may not be redistributed 
 
-    doCallAfter(CreateDvmArray(s, DVM000(dvm_ind), size_array, rank, static_sign, re_sign));
+    doCallAfter(CreateDvmArrayHeader(s, DVM000(dvm_ind), size_array, rank, static_sign, re_sign));
     if (TypeIndex(s->type()->baseType()) == -1)
         Error("Array reference of illegal type in region: %s ", s->identifier(), 583, stat);
     where = cur_st;
@@ -1885,10 +1916,11 @@ void DoHeadersForNonDvmArrays()
     SgExpression *size_array;
     SgStatement *save = cur_st;
     non_dvm_list = NULL;
-    cur_st = dvm_parallel_dir->lexNext();
+    if(!INTERFACE_RTS2)
+      cur_st = dvm_parallel_dir->lexNext();
     for (sl = acc_array_list; sl; sl = sl->next)
-    if (!HEADER(sl->symb))
-    {
+      if (!HEADER(sl->symb))
+      {
         non_dvm_list = AddToSymbList(non_dvm_list, sl->symb); // creating list of non-dvm-arrays for deleting after region
         rank = Rank(sl->symb);
         dvm_ind = ndvm;  //header index
@@ -1909,6 +1941,14 @@ void DoHeadersForNonDvmArrays()
 
         *HEADER_OF_REPLICATED(sl->symb) = dvm_ind;
         ndvm += 2 * rank + DELTA;   // extended header
+        if(INTERFACE_RTS2)
+        {
+             doCallAfter(CreateDvmArrayHeader_2(sl->symb, DVM000(dvm_ind), rank, doShapeList(sl->symb,dvm_parallel_dir)));
+             if (TestType_RTS2(sl->symb->type()->baseType()) == -1)
+                 Error("Array reference of illegal type in region: %s ", sl->symb->identifier(), 583, dvm_parallel_dir);
+             continue;
+        }  
+
         //store lower bounds of array in Header(rank+3:2*rank+2)
         for (i = 0; i < rank; i++)
             doAssignTo_After(DVM000(dvm_ind + rank + 2 + i), Exprn(LowerBound(sl->symb, i)));  //header_ref(ar,rank+3+i)    
@@ -1917,15 +1957,16 @@ void DoHeadersForNonDvmArrays()
         size_array = DVM000(ndvm);
         re_sign = 0;     // aligned array may not be redistributed 
 
-        doCallAfter(CreateDvmArray(sl->symb, DVM000(dvm_ind), size_array, rank, static_sign, re_sign));
+        doCallAfter(CreateDvmArrayHeader(sl->symb, DVM000(dvm_ind), size_array, rank, static_sign, re_sign));
         if (TypeIndex(sl->symb->type()->baseType()) == -1)
             Error("Array reference of illegal type in parallel loop: %s", sl->symb->identifier(), 583, dvm_parallel_dir);
 
         where = cur_st;
         doSizeFunctionArray(sl->symb, dvm_parallel_dir);
         cur_st = where;
-    }
-    cur_st = save;
+      }
+    if(!INTERFACE_RTS2)
+      cur_st = save;
 }
 
 int AnalyzeRegion(SgStatement *reg_dir) //AnalyzeLoopBody()  AnalyzeBlock()
@@ -2433,7 +2474,7 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
 
     if(in_checksection)
         return;            
-    
+
     FormatAndDataStatementExport(par_dir, first_do);
                       //!printf("loop on gpu %d\n",first_do->lineNumber() );
     dvm_parallel_dir = par_dir;

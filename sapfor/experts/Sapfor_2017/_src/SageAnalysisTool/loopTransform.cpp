@@ -6,8 +6,9 @@
 #include "definitionSet.h"
 #include "inducVar.h"
 #include "depGraph.h"
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+extern "C" void removeFromCollection(void *pointer);
 #endif
 
 
@@ -155,7 +156,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
     {
         sprintf(strfoname, "iT%d_%d", loop->id(), i);
         tab_symb[i + nb] = new SgVariableSymb(strfoname);
-#ifdef _WIN32
+#ifdef __SPF
         addToCollection(__LINE__, __FILE__, tab_symb[i + nb], 1);
 #endif
         tab_symb[i + nb]->declareTheSymbol(*func);
@@ -167,7 +168,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
         {
             SgValueExp *tmp = (new SgValueExp(size[i] + 1));
             last_loop->setStep(*tmp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, tmp, 1);
 #endif
         }
@@ -176,7 +177,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
 
     // create a min function; 
     min_fonc = new SgSymbol(FUNCTION_NAME, "min", *typint, *(loop->controlParent()));
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, min_fonc, 1);
 #endif
     // creation of the bound expressions;
@@ -194,7 +195,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
             SgVarRefExp *tmp1 = (new SgVarRefExp(*tab_symb[i]));
             cexp->addArg(((last_loop->end())->copy()) - *tmp1);
             cexp->addArg(*tmp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, borne_inf[i + nb], 1);
             addToCollection(__LINE__, __FILE__, cexp, 1);
             addToCollection(__LINE__, __FILE__, tmp, 1);
@@ -206,7 +207,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
             borne_inf[i + nb] = new SgValueExp(1);
             borne_sup[i + nb] = &((last_loop->end())->copy());
 
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, borne_inf[i + nb], 1);
 #endif
         }
@@ -224,7 +225,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
         {
             SgValueExp *tmp = (new SgValueExp(1));
             last_loop->setEnd(*tmp);
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, tmp, 1);
 #endif
         }
@@ -235,7 +236,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
     for (i = 0; i < nb; i++)
     {
         loop = new SgForStmt(tab_symb[i + nb], borne_inf[i + nb], borne_sup[i + nb], step[i + nb], NULL);
-#ifdef _WIN32
+#ifdef __SPF
         addToCollection(__LINE__, __FILE__, loop, 1);
 #endif
         last_loop->insertStmtAfter(*loop, *last_loop);
@@ -262,7 +263,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
                     SgVarRefExp *tmp = (new SgVarRefExp(*tab_symb[i]));
                     SgVarRefExp *tmp1 = (new SgVarRefExp(*tab_symb[i + nb]));
                     ptstmt->replaceSymbByExp(*tab_symb[i], *tmp + *tmp1);
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, tmp, 1);
                     addToCollection(__LINE__, __FILE__, tmp1, 1);
 #endif
@@ -271,7 +272,7 @@ int tileLoops(SgStatement *func, SgStatement *b, int *size, int nb)
                 {
                     SgVarRefExp *tmp = (new SgVarRefExp(*tab_symb[i]));
                     ptstmt->replaceSymbByExp(*tab_symb[i], *tmp);
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, tmp, 1);
 #endif
                 }
@@ -312,7 +313,7 @@ int distributeLoopSCC(SgStatement *b, int *sccTable, int leadingdim, int numSCC)
     nbstat = loop->numberOfChildrenList1() - 1; // does not remove the controlend;
     sccloop = new SgStatement *[numSCC];
     sccextracted = new SgStatement *[nbstat];
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, sccloop, 2);
     addToCollection(__LINE__, __FILE__, sccextracted, 2);
 #endif
@@ -353,16 +354,17 @@ int distributeLoopSCC(SgStatement *b, int *sccTable, int leadingdim, int numSCC)
             // insert in the right body the statement;
             // go revserse order; simpler;
             if (sccTable[j*leadingdim + i])
-            {
                 if (sccextracted[sccTable[j*leadingdim + i] - 1])
-                {
-                    sccloop[j]->insertStmtAfter(*sccextracted[sccTable[j*leadingdim + i] - 1],
-                        *sccloop[j]);
-                }
-            }
+                    sccloop[j]->insertStmtAfter(*sccextracted[sccTable[j*leadingdim + i] - 1], *sccloop[j]);
         }
     }
 
+#ifdef __SPF
+    removeFromCollection(sccloop);
+    removeFromCollection(sccextracted);
+#endif
+    delete []sccloop;
+    delete []sccextracted;
     return 1;
 }
 
@@ -387,7 +389,7 @@ int loopFusion(SgStatement *loop1, SgStatement *loop2)
 
     SgVarRefExp *tmp = (new SgVarRefExp(*doloop1->symbol()));
     doloop2->replaceSymbByExp(*doloop2->symbol(), *tmp);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, tmp, 1);
 #endif
     body = doloop2->extractStmtBody();

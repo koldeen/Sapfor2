@@ -8,6 +8,5 @@
 
 typedef enum { impossible, possible, too_hard } elimination_possible;
 elimination_possible possible_to_eliminate(dd_current dd);
-bool try_to_eliminate(dd_current dd);
 
 #endif

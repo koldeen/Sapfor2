@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,7 +8,7 @@
 #include <set>
 
 #include "dvm.h"
-#include "../SgUtils.h"
+#include "../Utils/SgUtils.h"
 
 using std::set;
 using std::string;
@@ -30,7 +30,9 @@ void preprocess_allocates(SgFile *file)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-            
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             // save SgStatement PROC call to declaration attribute
             if (st->variant() == ALLOCATE_STMT)
             {

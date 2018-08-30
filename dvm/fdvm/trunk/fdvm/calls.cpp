@@ -1193,7 +1193,7 @@ graph_node *NewGraphNode(SgSymbol *s, SgStatement *header_st)
     gnode->symb = s;
     gnode->name = new char[strlen(s->identifier()) + 1];
 #if __SPF
-    addToCollection(__LINE__, __FILE__, gnode->name, 1);
+    addToCollection(__LINE__, __FILE__, gnode->name, 2);
 #endif
     strcpy(gnode->name, s->identifier());
     gnode->to_called = NULL;

@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,11 +18,11 @@
 #include "../Distribution/DvmhDirective_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "loop_analyzer.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
-#include "../transform.h"
+#include "directive_parser.h"
+#include "../Utils/SgUtils.h"
+#include "../Sapfor.h"
 
 using std::string;
 using std::vector;
@@ -114,6 +114,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         int numSt = 0;
         do
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             currProcessing.second = st;
             if (numSt != 0)
                 st = st->lexNext();
@@ -160,7 +163,8 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     var == DVM_REDISTRIBUTE_DIR ||
                     var == DVM_REALIGN_DIR ||
                     var == DVM_REMOTE_ACCESS_DIR ||
-                    var == DVM_SHADOW_DIR)
+                    var == DVM_SHADOW_DIR ||
+                    var == DVM_INHERIT_DIR)
                 {
                     toDel.push_back(st);
 
@@ -183,7 +187,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         if (extractDir)
         {
             for (int k = 0; k < toDel.size(); ++k)
-                toDel[k]->deleteStmt();
+                toDel[k]->deleteStmt();            
         }
     }
 }
@@ -254,15 +258,17 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
             const int var = st->variant();
             //for details see dvm_tag.h
-            if ((var >= 128 && var <= 129) || 
-                (var >= 146 && var <= 149) ||
+            if ((var >= 146 && var <= 149) ||
                 (var >= 211 && var <= 224) ||
                 (var >= 247 && var <= 249) ||
-                (var >= 605 && var <= 634) ||
+                (var >= 605 && var <= 640) ||
                 (var >= 900 && var <= 949) ||
-                (var == 277 || var == 299))
+                (var >= 296 || var == 299) ||
+                (var == 277))
             {
                 if (st->fileName() == currFile)
                     toDel.push_back(st);
@@ -311,6 +317,10 @@ static inline string genTemplateDelc(const DIST::Array *templ, const bool common
     string templDecl = (common) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     const vector<pair<int, int>> &sizes = templ->GetSizes();
 
+    for (auto &size : sizes)    
+        if (size.first > size.second)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    
     templDecl += templ->GetShortName() + "(";
     for (int z = 0; z < sizes.size(); ++z)
     {
@@ -406,7 +416,7 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
                                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                                        const DataDirective &dataDir, const vector<string> &distrRules,
                                                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                                       const int regionId)
+                                                       const int regionId, bool commonTempl = true)
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
 
@@ -442,15 +452,16 @@ static pair<tuple<string, string, string>, string> getNewTemplateDirective(DIST:
         }
 
         int templIdx = findTeplatePosition(templ, dataDir);
-        string templDecl = genTemplateDelc(templ);
+        string templDecl = genTemplateDelc(templ, commonTempl);
         string templDist = genTemplateDistr(templ, distrRules, regionId, templIdx);
+        string templDyn = "!DVM$ DYNAMIC " + templ->GetShortName() + "\n";
 
-        return make_pair(make_tuple(templDecl, templDist, ""), "!DVM$ INHERIT\n");
+        return make_pair(make_tuple(templDecl, templDist, templDyn), "!DVM$ INHERIT\n");
     }
     else
     {
         int templIdx = findTeplatePosition(templ, dataDir);
-        string templDecl = genTemplateDelc(templ);
+        string templDecl = genTemplateDelc(templ, commonTempl);
         string templDist = genTemplateDistr(templ, distrRules, regionId, templIdx);
         string templDyn = "!DVM$ DYNAMIC " + templ->GetShortName() + "\n";
 
@@ -535,10 +546,13 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
 
 static inline void extractComments(SgStatement *where, const string &what)
 {
-    char *str = CMNT_STRING(BIF_CMNT(where->thebif));
-    string source(str);
-    removeSubstrFromStr(source, what.c_str());
-    sprintf(str, "%s", source.c_str());
+    if (BIF_CMNT(where->thebif))
+    {
+        char *str = CMNT_STRING(BIF_CMNT(where->thebif));
+        string source(str);
+        removeSubstrFromStr(source, what.c_str());
+        sprintf(str, "%s", source.c_str());
+    }
 }
 
 //NOTE: this function inserts also local templates for parallel loop with out distributed arrays!
@@ -551,6 +565,13 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);
 
+    map<string, SgStatement*> modules;
+    for (int i = 0; i < modulesAndFuncs.size(); ++i)
+    {
+        if (modulesAndFuncs[i]->variant() == MODULE_STMT)
+            modules[modulesAndFuncs[i]->symbol()->identifier()] = modulesAndFuncs[i];
+    }
+
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
@@ -559,10 +580,21 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
         {
             SgStatement *last = st->lastNodeOfStmt();
             set<string> includes;
+
             for (SgStatement *stLoc = modulesAndFuncs[i]; stLoc != last; stLoc = stLoc->lexNext())
             {
+                if (stLoc->variant() == CONTAINS_STMT)
+                    break;
+
                 if (stLoc->fileName() != string(file->filename()))
                     includes.insert(stLoc->fileName());
+            }
+
+            vector<SgStatement*> useStmt;
+            for (SgStatement *stLoc = modulesAndFuncs[i]; stLoc != last; stLoc = stLoc->lexNext())
+            {
+                if (stLoc->variant() == USE_STMT)
+                    useStmt.push_back(stLoc);
             }
 
             const set<DIST::Array*> &arrays = allArrays.GetArrays();
@@ -585,6 +617,42 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                         auto hasInThisFunc = includes.find(inIncl->first);
                         if (hasInThisFunc != includes.end())
                             needToInsert = false;
+                    }
+
+                    //check modules
+                    if (needToInsert)
+                    {
+                        for (auto &use : useStmt)
+                        {
+                            string name = use->symbol()->identifier();
+                            auto it = modules.find(name);
+                            if (it == modules.end())
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            else
+                            {
+                                auto last = it->second->lastNodeOfStmt();
+                                for (SgStatement *stLoc = it->second; stLoc != last; stLoc = stLoc->lexNext())
+                                {
+                                    const string &templName = array->GetShortName();
+
+                                    if (stLoc->variant() == CONTAINS_STMT)
+                                        break;
+
+                                    char *comment = stLoc->comments();
+                                    if (comment)
+                                    {
+                                        if (string(comment).find(templName) != string::npos)
+                                        {
+                                            needToInsert = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (needToInsert)
+                                    break;
+                            }
+                        }
                     }
 
                     if (needToInsert && includedToThisFile.find(fullDecl) == includedToThisFile.end())
@@ -646,7 +714,8 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     }
 }
 
-static map<string, set<string>> dynamicDirsByFile;
+map<string, set<string>> dynamicDirsByFile;
+static map<string, set<string>> dynamicArraysByFile;
 static map<string, set<string>> alignArraysByFile;
 static map<string, map<string, pair<SgExpression*, SgExpression*>>> insertedShadowByFile;
 
@@ -700,6 +769,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         
     map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name];
     set<string> &dynamicDirs = dynamicDirsByFile[fin_name];
+    set<string> &dynamicArraysAdded = dynamicArraysByFile[fin_name];
     set<string> &alignArrays = alignArraysByFile[fin_name];
 
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
@@ -707,12 +777,12 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
         set<string> templateDelc;
-        
+        bool isModule = st->variant() == MODULE_STMT;
+
         pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>
-        startLineControl(fin_name, st->lineNumber(), lastNode->lineNumber());
         while (st != lastNode)
         {
-            if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
+            if (st == NULL)
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
@@ -722,6 +792,9 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 break;
             }
             
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)
             {
@@ -739,87 +812,83 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                         {
                             SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
                             const string currArray(currSymb->identifier());
-                            auto toFind = std::make_pair(currSymb->identifier(), declaratedInStmt(currSymb)->lineNumber());
-                            auto itS = tableOfUniqNames.find(toFind);
 
-                            if (itS != tableOfUniqNames.end())
-                            {
-                                const string fullArrayName = getShortName(itS->second);
-                                pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir);
+                            auto uniqKey = getFromUniqTable(currSymb);
+                            const string fullArrayName = getShortName(uniqKey);
+                            pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir);
                                 
-                                string toInsert = dirWithArray.second;
-                                if (toInsert != "")
+                            string toInsert = dirWithArray.second;
+                            if (toInsert != "")
+                            {
+                                auto alignIt = alignArrays.find(fullArrayName);
+                                if (alignIt == alignArrays.end() && !extractDir)
+                                    alignArrays.insert(alignIt, fullArrayName);
+                                else if (alignIt != alignArrays.end() && extractDir)
+                                    alignArrays.erase(alignIt);
+                                else
+                                    toInsert = "";
+
+                                const pair<tuple<string, string, string>, string> &templDir =
+                                    getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, arrayLinksByFuncCalls, regionId, !isModule);
+                                string templDecl = std::get<0>(templDir.first);
+
+                                //if array is inherit array 
+                                if (templDir.second == "!DVM$ INHERIT\n")
                                 {
-                                    auto alignIt = alignArrays.find(fullArrayName);
-                                    if (alignIt == alignArrays.end() && !extractDir)
-                                        alignArrays.insert(alignIt, fullArrayName);
-                                    else if (alignIt != alignArrays.end() && extractDir)
-                                        alignArrays.erase(alignIt);
-                                    else
-                                        toInsert = "";
+                                    toInsert = "";
 
-                                    const pair<tuple<string, string, string>, string> &templDir =
-                                        getNewTemplateDirective(dirWithArray.first, allArrays, reducedG, dataDir, distrRules, arrayLinksByFuncCalls, regionId);
-                                    string templDecl = std::get<0>(templDir.first);
-
-                                    //if array is inherit array 
-                                    if (templDir.second == "!DVM$ INHERIT\n")
+                                    if (inheritDir.first == NULL)
                                     {
-                                        toInsert = "";
-
-                                        if (inheritDir.first == NULL)
+                                        if (extractDir == false)
                                         {
-                                            if (extractDir == false)
-                                            {
-                                                inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
-                                                SgExpression *list = new SgExpression(EXPR_LIST);
-                                                SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                                list->setLhs(ref);
-                                                inheritDir.first->setExpression(0, *list);
-                                            }
-                                            inheritDir.second = st;
+                                            inheritDir.first = new SgStatement(DVM_INHERIT_DIR);
+                                            SgExpression *list = new SgExpression(EXPR_LIST);
+                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
+                                            list->setLhs(ref);
+                                            inheritDir.first->setExpression(0, *list);
                                         }
-                                        else 
+                                        inheritDir.second = st;
+                                    }
+                                    else 
+                                    {
+                                        if (extractDir == false)
                                         {
-                                            if (extractDir == false)
-                                            {
-                                                SgExpression *list = new SgExpression(EXPR_LIST);
-                                                SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
-                                                list->setLhs(ref);
-                                                list->setRhs(inheritDir.first->expr(0));
-                                                inheritDir.first->setExpression(0, *list);
-                                            }
+                                            SgExpression *list = new SgExpression(EXPR_LIST);
+                                            SgExpression *ref = new SgVarRefExp(findSymbolOrCreate(file, dirWithArray.first->GetShortName()));
+                                            list->setLhs(ref);
+                                            list->setRhs(inheritDir.first->expr(0));
+                                            inheritDir.first->setExpression(0, *list);
                                         }
                                     }
-                                    else
-                                        dynamicArraysLocal.insert(dirWithArray.first);
-                                    dynamicArrays.insert(dirWithArray.first);
-                                    dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
+                                }
+                                else
+                                    dynamicArraysLocal.insert(dirWithArray.first);
+                                dynamicArrays.insert(dirWithArray.first);
+                                dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
 
-                                    if (templateDelc.find(templDecl) == templateDelc.end())
-                                        templateDelc.insert(templDecl);
-                                    else
-                                        templDecl = "";
+                                if (templateDelc.find(templDecl) == templateDelc.end())
+                                    templateDelc.insert(templDecl);
+                                else
+                                    templDecl = "";
                                     
-                                    if (templDecl != "")
-                                        templDecl = createFullTemplateDir(templDir.first);
+                                if (templDecl != "")
+                                    templDecl = createFullTemplateDir(templDir.first);
 
-                                    if (!strcmp(st->fileName(), fin_name))
-                                    {
-                                        if (modulesAndFuncs[i]->variant() == PROG_HEDR)
-                                            templDecl = "";
+                                if (!strcmp(st->fileName(), fin_name))
+                                {
+                                    if (modulesAndFuncs[i]->variant() == PROG_HEDR)
+                                        templDecl = "";
 
-                                        const string toAdd = templDecl + toInsert;
-                                        if (extractDir)
-                                            extractComments(st, toAdd); 
-                                        else
-                                            st->addComment(toAdd.c_str());
-                                    }
+                                    const string toAdd = templDecl + toInsert;
+                                    if (extractDir)
+                                        extractComments(st, toAdd); 
                                     else
-                                    {
-                                        addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
-                                        templateDeclInIncludes[st->fileName()] = templDecl;
-                                    }
+                                        st->addComment(toAdd.c_str());
+                                }
+                                else
+                                {
+                                    addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
+                                    templateDeclInIncludes[st->fileName()] = templDecl;
                                 }
                             }
                         }
@@ -828,22 +897,34 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 }
 
                 string toInsert = "!DVM$ DYNAMIC ";
-                int z = 0;
+                
+                vector<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
                     if (array->GetLocation().first != 0) // not local
                     {
-                        if (z != 0)
-                            toInsert += ",";
-                        toInsert += array->GetShortName();
-                        ++z;
+                        if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
+                        {
+                            dynamicArraysAdded.insert(array->GetShortName());
+                            toInsertArrays.push_back(array->GetShortName());
+                        }
                     }
+                }
+
+                int z = 0;
+                for (auto &array : toInsertArrays)
+                {
+                    if (z != 0)
+                        toInsert += ",";
+                    toInsert += array;
+                    ++z;
                 }
 
                 if (z != 0)
                 {
                     toInsert += "\n";
                     auto dynIt = dynamicDirs.find(toInsert);
+
                     if (dynIt == dynamicDirs.end() && !extractDir)
                         dynamicDirs.insert(dynIt, toInsert);
                     else if (extractDir && dynIt != dynamicDirs.end())
@@ -899,7 +980,11 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             if (extractDir == false)
                 inheritDir.second->insertStmtBefore(*inheritDir.first, *inheritDir.second->controlParent());
             else
-                inheritDir.second->lexPrev()->deleteStmt();
+            {
+                SgStatement *toDel = inheritDir.second->lexPrev();
+                if (isDVM_stat(toDel))
+                    toDel->deleteStmt();
+            }
         }
     }
 }
@@ -919,11 +1004,10 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
     {
         SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
-
-        startLineControl(fin_name, st->lineNumber(), lastNode->lineNumber());
+                
         while (st != lastNode)
         {
-            if (st == NULL || checkThisLine(st->fileName(), st->lineNumber()) == -1)
+            if (st == NULL)
             {
                 string message;
                 __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
@@ -932,6 +1016,9 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)
@@ -947,11 +1034,11 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                         if (distrArrays.find(OriginalSymbol(varList->lhs()->symbol())->identifier()) != distrArrays.end())
                         {
                             SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
-                            auto toFind = std::make_pair(currSymb->identifier(), declaratedInStmt(currSymb)->lineNumber());
-                            auto itS = tableOfUniqNames.find(toFind);
 
-                            if (itS != tableOfUniqNames.end())
-                                declaratedDistrArrays.insert(declaratedArrays.find(itS->second)->second.first);
+                            auto uniqKey = getFromUniqTable(currSymb);
+                            auto itArr = declaratedArrays.find(uniqKey);
+                            if (itArr != declaratedArrays.end())                                
+                                declaratedDistrArrays.insert(itArr->second.first);
                         }
                     }
                     varList = varList->rhs();

@@ -1,23 +1,22 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
+
+#include <vector>
+#include <string>
+#include <set>
 
 #include "loop_transform.h"
-#include <directive_parser.h>
+#include "../LoopAnalyzer/directive_parser.h"
+#include "../SageAnalysisTool/OmegaForSage/include/lang-interf.h"
+#include "../SageAnalysisTool/definesValues.h"
+#include "../Utils/SgUtils.h"
 
-#include <LoopTransformTighten.hpp>
-#include <SageTransformException.hpp>
-#include <LineReorderer.hpp>
-#include <SageUtils.hpp>
-#include "SageAnalysisTool/OmegaForSage/include/lang-interf.h"
-#include <SageAnalysisTool/definesValues.h>
-#include "../SgUtils.h"
-
-using SageTransform::SageUtils::getLastLoopStatement;
-using SageTransform::DependencyType;
-using Sapfor2017::CreateNestedLoopsUtils;
 using std::pair;
 using std::map;
 using std::tuple;
 using std::stack;
+using std::string;
+using std::vector;
+using std::set;
 
 static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
 {
@@ -44,6 +43,8 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
         buildTopParentLoop(elem, elem, loopTopMap);
     }
 
+    //TODO: need to rewrite
+    /*
     auto *launches = SageTransform::LoopTransformTighten::getLaunches();
     if (launches->count(file) == 0) {
         __spf_print(1, "  nothing to revert in %s\n", file.c_str());
@@ -69,7 +70,7 @@ void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFi
     {
         elem->recalculatePerfect();
         elem->restoreDirective();
-    }
+    }*/
 }
 
 //use this for TODO below!
@@ -93,7 +94,9 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
     bool outerTightened = false;
     bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
-    
+
+    // TODO: need to rewrite
+    /*
     if (loopCondition)
     {
         //not using inner loop dependencies for now
@@ -132,9 +135,12 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     //update perfect loop
     current->recalculatePerfect();
     __spf_print(1, "createNestedLoops for loop at %d. End\n", current->lineNum);
+    */
     return wasTightened;
 }
 
+//TODO: need to delete! 
+/*
 pair<SgForStmt*, depGraph*> Sapfor2017::CreateNestedLoopsUtils::getDepGraph(LoopGraph *loopGraph, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
     SgForStmt *sgForStmt = nullptr;
@@ -226,4 +232,6 @@ DependencyType CreateNestedLoopsUtils::fromDepNode(depNode *node)
         }
     }
     return SageTransform::DependencyType::UNKNOWN_DEP;
-}
+} 
+
+*/ 

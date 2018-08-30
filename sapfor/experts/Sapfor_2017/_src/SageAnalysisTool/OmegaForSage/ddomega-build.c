@@ -249,7 +249,10 @@ establish_one_bound(Problem *p, int color,
 
         c = prob_add_zero_GEQ(p, color);
         add_coefficients(&p->_GEQs[c], indices, b, ae);
-        assert(p->_GEQs[c].coef[r_first(indices) - 1 + depth] == 0);
+        //assert(p->_GEQs[c].coef[r_first(indices) - 1 + depth] == 0);
+        if (p->_GEQs[c].coef[r_first(indices) - 1 + depth] != 0)
+            return 0;
+
         p->_GEQs[c].coef[r_first(indices) - 1 + depth] = -b;
         ae = ae->other_branch;
     }
@@ -286,7 +289,10 @@ handle_nonunit_increments(Problem *p, range *indices, int *which_step, int color
 
         /* we now have the EQ "lower_bound = 0" */
 
-        assert(p->_EQs[c].coef[r_first(indices) - 1 + depth] == 0);
+        //assert(p->_EQs[c].coef[r_first(indices) - 1 + depth] == 0);
+        if (p->_EQs[c].coef[r_first(indices) - 1 + depth] != 0)
+            return 0;
+
         p->_EQs[c].coef[r_first(indices) - 1 + depth] = -1;
 
         /* we now have the EQ "lower_bound - index = 0" */

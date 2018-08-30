@@ -6,12 +6,12 @@
 #include <map>
 #include <algorithm>
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
 
-#if _WIN32 && NDEBUG
+#if __SPF && NDEBUG
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -295,7 +295,7 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         perfectNestedLevel = doloop->isPerfectLoopNest();
         // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
-#if _WIN32 && NDEBUG
+#if __SPF && NDEBUG
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif        
@@ -315,7 +315,7 @@ depGraph::~depGraph()
     //Message("Delete depGraph Not implemented yet", 0);
     for (int i = 0; i < nodes.size(); ++i)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(nodes[i]);
 #endif
         delete nodes[i];
@@ -329,7 +329,7 @@ void depGraph::addAnEdge(SgStatement *sin, SgStatement *sout,
 {
     depNode *datadep;
     datadep = new depNode(sin, sout, vin, vout, tdep, kdep, dist, kdist, le);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, datadep, 1);
 #endif
     nodes.push_back(datadep);
@@ -529,6 +529,7 @@ int lookForOperationKind(PT_ACCESSARRAY access)
         switch (father->variant())
         {
         case ADD_OP:
+        case SUBT_OP:
             switch (sy->type()->variant())
             {
             case T_INT:
@@ -589,7 +590,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case FUNC_CALL://TODO with max and min
-            if (father->symbol() && (strcmp(father->symbol()->identifier(), "max") == 0))
+            if (father->symbol() && 
+                    (strcmp(father->symbol()->identifier(), "max") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmax") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmax1") == 0))
             {
                 switch (sy->type()->variant())
                 {
@@ -603,7 +607,10 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                     return DMAXREDUCTION;
                 }
             }
-            if (father->symbol() && (strcmp(father->symbol()->identifier(), "min") == 0))
+            if (father->symbol() && 
+                    (strcmp(father->symbol()->identifier(), "min") == 0 ||
+                     strcmp(father->symbol()->identifier(), "dmin") == 0 || 
+                     strcmp(father->symbol()->identifier(), "dmin1") == 0))
             {
                 switch (sy->type()->variant())
                 {
@@ -911,7 +918,7 @@ void depGraph::redoScalarRefAnalysis(SgStatement *loop)
         if (temp->typedep >= PRIVATEDEP)
         {
             idxToDel.push_back(i);
-#ifdef _WIN32
+#ifdef __SPF
             removeFromCollection(nodes[i]);
 #endif
             delete nodes[i];
@@ -1101,25 +1108,6 @@ void depGraph::depthTraversal(int stmtid, SgStatement *stmt)
     }
 }
 
-// not used;
-void depGraph::depthTraversalReverse(int stmtid, int mark, SgStatement *doloop)
-{
-    int i, j;
-
-    if (tabtag[stmtid] <= 0)
-        return;
-
-    tabtag[stmtid] = mark;
-
-    for (i = 0; i < nbstmt; i++)
-    {
-        // look for pred
-        if ((j != stmtid) &&
-            isThereAnEdgeSCC(tabstat[i], tabstat[stmtid], doloop))
-            depthTraversalReverse(i, mark, doloop);
-    }
-}
-
 int depGraph::getHigherMark()
 {
     int i;
@@ -1181,14 +1169,14 @@ int  depGraph::computeSCC(SgStatement *stmtin)
 
     if (tabstat)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(tabstat);
 #endif
         delete[] tabstat;
     }
     if (tabtag)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(tabtag);
 #endif
         delete[] tabtag;
@@ -1201,7 +1189,7 @@ int  depGraph::computeSCC(SgStatement *stmtin)
         return  FALSE;
     tabstat = new SgStatement *[nbstmt];
     tabtag = new int[nbstmt];
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, tabstat, 2);
     addToCollection(__LINE__, __FILE__, tabtag, 2);
 #endif

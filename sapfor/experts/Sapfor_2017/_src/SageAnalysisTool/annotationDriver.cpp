@@ -10,7 +10,7 @@
 // set of functions in the library
 //////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -87,7 +87,7 @@ SgAnnotation::SgAnnotation(int ident)
         if (nbDirectiveFields)
         {
             directiveFields = new  SgExpression *[nbDirectiveFields];
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, directiveFields, 2);
 #endif
             for (i = 0; i < nbDirectiveFields; i++)
@@ -108,7 +108,7 @@ SgAnnotation::~SgAnnotation()
 {
     if (directiveFields)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(directiveFields);
 #endif
         delete[] directiveFields;
@@ -181,7 +181,7 @@ getTheAnnotationThatApply(SgStatement *stmt, char *kind)
                             if (!listann)
                             {
                                 listann = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                                 addToCollection(__LINE__, __FILE__, listann, 1);
 #endif
                                 lastann = listann;
@@ -189,7 +189,7 @@ getTheAnnotationThatApply(SgStatement *stmt, char *kind)
                             else
                             {
                                 lastann->next = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                                 addToCollection(__LINE__, __FILE__, listann->next, 1);
 #endif
                                 lastann = lastann->next;
@@ -207,7 +207,7 @@ getTheAnnotationThatApply(SgStatement *stmt, char *kind)
                         if (!listann)
                         {
                             listann = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                             addToCollection(__LINE__, __FILE__, listann, 1);
 #endif
                             lastann = listann;
@@ -215,7 +215,7 @@ getTheAnnotationThatApply(SgStatement *stmt, char *kind)
                         else
                         {
                             lastann->next = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                             addToCollection(__LINE__, __FILE__, listann->next, 1);
 #endif
                             lastann = lastann->next;
@@ -252,7 +252,7 @@ getTheAnnotationWithString(char *kind)
                     if (!listann)
                     {
                         listann = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                         addToCollection(__LINE__, __FILE__, listann, 1);
 #endif
                         lastann = listann;
@@ -260,7 +260,7 @@ getTheAnnotationWithString(char *kind)
                     else
                     {
                         lastann->next = new SgAnnotation(i);
-#ifdef _WIN32
+#ifdef __SPF
                         addToCollection(__LINE__, __FILE__, listann->next, 1);
 #endif
                         lastann = lastann->next;
