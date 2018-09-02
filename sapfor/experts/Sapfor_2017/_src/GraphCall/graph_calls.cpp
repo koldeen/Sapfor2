@@ -596,7 +596,7 @@ static void fillIn(FuncInfo *currF, SgExpression *ex, const map<string, int> &pa
 {
     if (ex)
     {
-        if (ex->symbol())
+        if (ex->variant() == VAR_REF && ex->variant() == ARRAY_REF)
         {
             const char *name = ex->symbol()->identifier();
             if (name && name != string(""))

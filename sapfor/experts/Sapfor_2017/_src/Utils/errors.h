@@ -108,7 +108,11 @@ public:
 };
 
 // from Utils.cpp
+#ifdef _WIN32
 extern void printStackTrace();
+#else
+static void printStackTrace() { };
+#endif
 
 #if __SPC
 #define printInternalError(file, line) do {\
