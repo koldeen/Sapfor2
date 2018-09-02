@@ -182,11 +182,14 @@ void CBasicBlock::adjustGenAndKillP(ControlFlowItem *cfi)
     //checkFuncAndProcCalls(cfi);
 }
 
-void CBasicBlock::processReadStat(SgStatement* readSt)
+void CBasicBlock::processReadStat(SgStatement *readSt)
 {
     SgExpression *input = readSt->expr(0);
     std::stack<SgExpression*> toCheck;
-    toCheck.push(input);
+
+    if (input)
+        toCheck.push(input);
+
     while (!toCheck.empty())
     {
         SgExpression *exp = toCheck.top();
@@ -562,6 +565,9 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, 
 
 bool valueWithRecursion(const SymbolKey &var, SgExpression *exp)
 {
+    if (!exp)
+        return false;
+
     if (exp->variant() == VAR_REF)
         return var == exp->symbol();
 
@@ -576,6 +582,9 @@ bool valueWithRecursion(const SymbolKey &var, SgExpression *exp)
 
 bool valueWithFunctionCall(SgExpression *exp) 
 {
+    if (!exp)
+        return false;
+
     if (exp->variant() == FUNC_CALL)
         return true;
 

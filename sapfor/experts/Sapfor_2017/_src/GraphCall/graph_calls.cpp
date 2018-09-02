@@ -592,7 +592,65 @@ static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
     }
 }
 
-void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
+static void fillIn(FuncInfo *currF, SgExpression *ex, const map<string, int> &parNames)
+{
+    if (ex)
+    {
+        if (ex->symbol())
+        {
+            const char *name = ex->symbol()->identifier();
+            if (name && name != string(""))
+            {
+                auto it = parNames.find(name);
+                if (it != parNames.end())
+                    currF->funcParams.inout_types[it->second] |= IN_BIT;
+            }
+        }
+
+        fillIn(currF, ex->lhs(), parNames);
+        fillIn(currF, ex->rhs(), parNames);
+    }
+}
+
+static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
+{
+    if (currF->funcParams.countOfPars == 0)
+        return;
+
+    map<string, int> parNames;
+
+    for (int i = 0; i < currF->funcParams.identificators.size(); ++i)
+        parNames[currF->funcParams.identificators[i]] = i;
+
+    for (auto st = start; st != last; st = st->lexNext())
+    {
+        if (st->variant() == CONTAINS_STMT)
+            break;
+
+        if (isSgExecutableStatement(st) == NULL)
+            continue;
+
+        if (st->variant() == ASSIGN_STAT)
+        {
+            SgExpression *left = st->expr(0);
+
+            fillIn(currF, left->lhs(), parNames);
+            fillIn(currF, left->rhs(), parNames);
+            fillIn(currF, st->expr(1), parNames);
+        }
+        else if (st->variant() == READ_STAT)
+        {
+
+        }
+        else
+        {
+            for (int i = 0; i < 3; ++i)
+                fillIn(currF, st->expr(i), parNames);
+        }
+    }
+}
+
+void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam)
 {
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
@@ -601,7 +659,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
-
+                
         string containsPrefix = "";
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
@@ -665,7 +723,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         {
             SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
 
-            fillFuncParams(currInfo, commonBlocks, procFuncHedr);
+            if (!dontFillFuncParam)
+                fillFuncParams(currInfo, commonBlocks, procFuncHedr);
             
             // Fill in names of function parameters
             for (int i = 0; i < procFuncHedr->numberOfParameters(); ++i)
@@ -673,6 +732,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 currInfo->funcParams.identificators.push_back((procFuncHedr->parameter(i))->identifier());
                 currInfo->isParamUsedAsIndex.push_back(false);
             }
+
+            /*if (!dontFillFuncParam)
+                fillInOut(currInfo, st, st->lastNodeOfStmt());*/
         }
 
         if (isSPF_NoInline(st->lexNext()))
@@ -739,7 +801,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                     proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
                     proc->actualParams.push_back(FuncParam());
-                    processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
+                    if (!dontFillFuncParam)
+                        processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
 
                     // Add func call which we've just found
                     NestedFuncCall funcCall(st->symbol()->identifier());
@@ -758,14 +821,15 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             }
 
             for (int i = 0; i < 3; ++i)
-                if (st->expr(i))
+                if (st->expr(i) && !dontFillFuncParam)
                     findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames, containsFunctions, prefix);
 
             if (st->variant() == ENTRY_STAT)
             {
                 string entryName = st->symbol()->identifier();
                 FuncInfo *entryInfo = new FuncInfo(entryName, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
-                fillFuncParams(entryInfo, commonBlocks, st);
+                if (!dontFillFuncParam)
+                    fillFuncParams(entryInfo, commonBlocks, st);
 
                 if (isSPF_NoInline(st->lexNext()))
                 {
@@ -1090,12 +1154,12 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         if (isLoopSymbUsedAsIndex)
         {
             char buf[256];
-            sprintf(buf, "Function '%s' needs to be inlined due to use of loop on line %d symbol as index of an array, in parameter num %d", 
+            sprintf(buf, "Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array, in parameter num %d", 
                           func->funcName.c_str(), loop->lineNumber(), idx);
             if (needToAddErrors)
             {
                 messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
-                __spf_print(1, "Function '%s' needs to be inlined due to use of loop on line %d symbol as index of an array, in parameter num %d\n", 
+                __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array, in parameter num %d\n", 
                                 func->funcName.c_str(), loop->lineNumber(), idx);
             }
 
@@ -1451,7 +1515,7 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
 }
 
 // Find dead functions and fill callTo information
-void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages)
+void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages, bool noPrint)
 {
     map<string, FuncInfo*> mapFuncInfo;
     createMapOfFunc(allFuncInfo, mapFuncInfo);
@@ -1471,16 +1535,19 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
                 currInfo->deadFunction = currInfo->doNotAnalyze = true;
     }
 
-    for (auto &it : allFuncInfo)
+    if (!noPrint)
     {
-        const string &currF = it.first;
-        auto itM = allMessages.find(currF);
-        if (itM == allMessages.end())
-            itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
+        for (auto &it : allFuncInfo)
+        {
+            const string &currF = it.first;
+            auto itM = allMessages.find(currF);
+            if (itM == allMessages.end())
+                itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
 
-        for (auto &func : it.second)
-            if (func->deadFunction)
-                itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project", 1015));
+            for (auto &func : it.second)
+                if (func->deadFunction)
+                    itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project", 1015));
+        }
     }
 
     for (auto &it : mapFuncInfo)

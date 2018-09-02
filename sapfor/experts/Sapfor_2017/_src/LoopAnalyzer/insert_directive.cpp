@@ -312,19 +312,49 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
     }
 }
 
+static inline string genBoundsOfDim(const pair<int, int> &intBounds, const pair<Expression*, Expression*> &exprBounds)
+{
+    if (intBounds.first > intBounds.second)
+    {
+        if (exprBounds.first == NULL || exprBounds.second == NULL)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        else
+            return string(exprBounds.first->unparse()) + ":" + string(exprBounds.second->unparse());
+    }
+    else
+        return std::to_string(intBounds.first) + ":" + std::to_string(intBounds.second);
+}
+
 static inline string genTemplateDelc(const DIST::Array *templ, const bool common = true)
 {
     string templDecl = (common) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     const vector<pair<int, int>> &sizes = templ->GetSizes();
+    const auto &sizesExpr = templ->GetSizesExpr();
+        
+    for (auto &size : sizes)
+    {
+        if (templ->isLoopArray())
+        {
+            // TODO: move gen sizes to TEMPLATE CREATE directive immediately before parallel loop
+            bool ok = true;
+            for (auto &elem : sizesExpr)
+                if (elem.first.first == NULL || elem.second.first == NULL)
+                    ok = false;
 
-    for (auto &size : sizes)    
-        if (size.first > size.second)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            if (size.first > size.second && common && !ok)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        else
+        {
+            if (size.first > size.second)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+    }
     
     templDecl += templ->GetShortName() + "(";
     for (int z = 0; z < sizes.size(); ++z)
     {
-        templDecl += std::to_string(sizes[z].first) + ":" + std::to_string(sizes[z].second);
+        templDecl += genBoundsOfDim(sizes[z], make_pair(sizesExpr[z].first.first, sizesExpr[z].second.first));
         if (z != sizes.size() - 1)
             templDecl += ",";
     }

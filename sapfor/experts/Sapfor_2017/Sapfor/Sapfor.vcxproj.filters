@@ -270,6 +270,9 @@
     <ClCompile Include="..\_src\LoopAnalyzer\shadow.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\Utils\BoostStackTrace.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -406,18 +409,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\_lib\boost_Release_64\libboost_chrono-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_date_time-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_system-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
     <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib">
       <Filter>Файлы ресурсов</Filter>
     </Library>

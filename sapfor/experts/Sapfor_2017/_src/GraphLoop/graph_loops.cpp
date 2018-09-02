@@ -453,6 +453,41 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);
                 }
+                else
+                {
+                    SgExpression *start = currLoopRef->start();
+                    SgExpression *end = currLoopRef->end();
+                    SgExpression *step = currLoopRef->step();
+
+                    Expression *endE = NULL;
+                    Expression *startE = NULL;
+                    if (step == NULL)
+                    {
+                        startE = new Expression(start);
+                        endE = new Expression(end);
+                    }
+                    else
+                    {
+                        int res = -1;
+                        int err = CalculateInteger(step, res);
+                        if (err == 0 && res != 0)
+                        {
+                            if (res > 0)
+                            {
+                                startE = new Expression(start);
+                                endE = new Expression(&((*end - *start + *step) / *step));
+                            }
+                            else
+                            {
+                                endE = new Expression(end);
+                                endE = new Expression(&((*start - *end + *step) / *step));
+                            }
+                        }
+                    }
+
+                    newLoop->startEndExpr = std::make_pair(startE, endE);
+                }
+
                 newLoop->loop = new Statement(st);
 
                 SgStatement *lexPrev = st->lexPrev();

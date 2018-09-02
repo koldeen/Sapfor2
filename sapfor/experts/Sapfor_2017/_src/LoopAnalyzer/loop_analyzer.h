@@ -67,7 +67,8 @@ std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string
 std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKey);
 
 void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages);
+                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
+                            const std::vector<ParallelRegion*> &regions);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 
 // dep_analyzer.cpp

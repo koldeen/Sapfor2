@@ -17,3 +17,4 @@ bool IncludeChecker(SgFile *file, const std::string &fileName, std::vector<Messa
 void VarDeclCorrecter(SgFile *file);
 bool DvmDirectiveChecker(SgFile *file, std::map<std::string, std::vector<int>> &errors, const int, const int);
 int VerifyFile(SgFile *file);
+void fixUseOnlyStmt(SgFile *file, const std::vector<ParallelRegion*> &regs);

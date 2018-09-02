@@ -297,7 +297,7 @@ int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *
         if (ex == -99)
             return -99;
         else
-            retSize = -1;
+            retSize = -1;   
     }
     catch (...)
     {

@@ -58,3 +58,8 @@ extern void sendMessage_2lvl(const std::wstring &toSend);
 #endif
 
 std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
+#ifdef _WIN32
+void printStackTrace();
+#else
+static void printStackTrace() { }
+#endif

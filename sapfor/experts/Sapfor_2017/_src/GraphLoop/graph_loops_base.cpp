@@ -418,7 +418,8 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
 {
     ParallelRegion *currReg = loopInfo->region;
-    if (currReg == NULL || loopInfo->calculatedCountOfIters == 0 || loopInfo->hasLimitsToParallel())
+
+    if (currReg == NULL || loopInfo->hasLimitsToParallel())
     {
         __spf_print(1, "Skip loop on line %d\n", loopInfo->lineNum);
         return false;
@@ -432,8 +433,17 @@ bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
     string fullLoopName = loopInfo->genLoopArrayName(inFunction);
     string loopName = fullLoopName;
 
-    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction), NULL);
-
+    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, 
+                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName());
+    
+    if (loopInfo->calculatedCountOfIters == 0)
+    {
+        if (loopInfo->startEndExpr.first && loopInfo->startEndExpr.second)
+        {
+            const vector<pair<Expression*, Expression*>> toAdd = { loopInfo->startEndExpr };
+            loopArray->SetSizesExpr(toAdd);
+        }
+    }
     loopArray->ExtendDimSize(0, make_pair(loopInfo->startVal, loopInfo->endVal));
     loopArray->setLoopArray(true);
 
