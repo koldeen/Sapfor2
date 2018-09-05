@@ -86,6 +86,8 @@ namespace Distribution
         PAIR<int, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
 
+        SET<STRING> containsInRegions;
+
         TemplateLink* getTemlateInfo(const int regionId)
         {
             auto it = templateInfo.find(regionId);
@@ -117,7 +119,7 @@ namespace Distribution
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol) :
+              Symbol *declSymbol, const STRING &regName) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
@@ -135,6 +137,8 @@ namespace Distribution
             }
                         
             GenUniqKey();
+            if (regName != "")
+                containsInRegions.insert(regName);
         }
 
         Array(const Array &copy)
@@ -160,6 +164,7 @@ namespace Distribution
 
             declSymbol = copy.declSymbol;
             uniqKey = copy.uniqKey;
+            containsInRegions = copy.containsInRegions;
         }
 
         int GetDimSize() const { return dimSize; }
@@ -184,7 +189,7 @@ namespace Distribution
         bool isTemplate() const { return isTemplFlag; }
         bool isLoopArray() const { return isLoopArrayFlag; }
         void setLoopArray(const bool flag) { isLoopArrayFlag = flag; }
-        void SetSizesExpr(VECTOR<PAIR<Expression*, Expression*>> &_sizesExpr)
+        void SetSizesExpr(const VECTOR<PAIR<Expression*, Expression*>> &_sizesExpr)
         {
             for (int i = 0; i < _sizesExpr.size(); ++i)
             {
@@ -357,6 +362,9 @@ namespace Distribution
         Symbol* GetDeclSymbol() const { return declSymbol; }
 
         const STRING& GetArrayUniqKey() const { return uniqKey; }
+
+        const SET<STRING>& GetRgionsName() const { return containsInRegions; }
+        void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
 
         ~Array() 
         {

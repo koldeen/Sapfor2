@@ -471,17 +471,40 @@ static void matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     {
         SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
         
-        if (ifUnknownFound && (currRegime == REMOTE_ACC))
+        if (ifUnknownFound && (currRegime == REMOTE_ACC)) // TODO: check array's alignment
         {
             if (sumMatched != numOfSubs || 
                 maxMatched != 1 || 
-                (sumMatched != parentLoops.size() && sumMatched != numOfSubs)
+                sumMatched != parentLoops.size() // && sumMatched != numOfSubs)
                 )
             {
+                int local = 0;
+                bool hasLimits = false;
                 for (int i = 0; i < wasFound.size(); ++i)
+                {
+                    if (wasFound[i] == 1)
+                    {
+                        auto itLoop = sortedLoopGraph.find(parentLoops[i]->lineNumber());
+                        if (itLoop == sortedLoopGraph.end())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        if (itLoop->second->hasLimitsToParallel())
+                            hasLimits = true;
+                    }
+                }
+                for (int i = 0; i < wasFound.size(); ++i)
+                {
+                    local += wasFound[i];
+                    if (local == sumMatched)
+                        break;
+
                     if (wasFound[i] != 1)
+                    {
                         for (int k = 0; k < numOfSubs; ++k)
-                            addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
+                            if (hasLimits)
+                                addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);                        
+                    }
+                }
             }
         }
     }
@@ -1631,7 +1654,8 @@ static void findArrayRefs(SgExpression *ex,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                           const set<string> &privates, const set<string> &deprecatedByIO, 
-                          bool isExecutable, SgStatement *declSt, const string &currFunctionName, bool isWrite)
+                          bool isExecutable, SgStatement *declSt, const string &currFunctionName, bool isWrite,
+                          const ParallelRegion *inRegion)
 {
     if (ex == NULL)
         return;
@@ -1664,8 +1688,10 @@ static void findArrayRefs(SgExpression *ex,
                 auto itNew = declaratedArrays.find(uniqKey);
                 if (itNew == declaratedArrays.end())
                 {
-                    DIST::Array *arrayToAdd = new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
-                                                              getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb));
+                    DIST::Array *arrayToAdd = 
+                        new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
+                                        getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb),
+                                        (inRegion != NULL) ? inRegion->GetName() : "");
 
                     itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 
@@ -1675,6 +1701,8 @@ static void findArrayRefs(SgExpression *ex,
                     arrayToAdd->SetSizesExpr(sizesExpr);
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
+                else
+                    itNew->second.first->SetRegionPlace((inRegion != NULL) ? inRegion->GetName() : "");
                 
                 const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
                 if (oldVal == DIST::DISTR || oldVal == DIST::NO_DISTR)
@@ -1709,8 +1737,8 @@ static void findArrayRefs(SgExpression *ex,
         }
     }
 
-    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite);
-    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite);
+    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion);
+    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion);
 }
 
 static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
@@ -1745,7 +1773,8 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
 }
 
 void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                            map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages)
+                            map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages,
+                            const vector<ParallelRegion*> &regions)
 {
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
@@ -1863,12 +1892,14 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+
             //TODO: need to add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)
                 findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                               isSgExecutableStatement(st) ? true : false, st, currFunctionName,
-                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false);
+                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, currReg);
             st = st->lexNext();
         }
     }

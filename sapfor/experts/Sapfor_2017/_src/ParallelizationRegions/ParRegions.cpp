@@ -200,65 +200,65 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            int attrNum = st->numberOfAttributes();
-            for (int k = 0; k < attrNum; ++k)
+            SgStatement *prev = st->lexPrev();
+            SgStatement *next = st->lexNext();
+
+            if (prev && prev->variant() == SPF_PARALLEL_REG_DIR)
             {
-                SgAttribute *attr = st->getAttribute(k);
-                int type = st->attributeType(k);
-                if (type == SPF_PARALLEL_REG_DIR)
-                {
-                    SgStatement *data = (SgStatement *)(attr->getAttributeData());
-                    regionStarted = true;
-                    regionName = data->symbol()->identifier();
-                    updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
-                }
-                else if (type == SPF_END_PARALLEL_REG_DIR)
-                {
-                    SgStatement *data = (SgStatement *)(attr->getAttributeData());
-                    lines.second = data->lineNumber();
-                    regionStarted = false;
+                SgStatement *data = prev;
 
-                    if (regionName == "")
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    auto it = regionIdByName.find(regionName);
-                    ParallelRegion *currReg = NULL;
-                    if (it == regionIdByName.end())
-                    {
-                        it = regionIdByName.insert(it, make_pair(regionName, regionIdConuter));
-                        currReg = new ParallelRegion(regionIdConuter, regionName);
-                        regions.push_back(currReg);
-                        regionByName[regionName] = currReg;
-                        regionName = "";
-                        regionIdConuter++;
-                    }
-                    else
-                        currReg = regionByName[regionName];
-
-                    if (currReg == NULL)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    extendRegionInfo(st, startEnd, lines_, true);
-                    for (auto itRegInfo = startEnd.begin(); itRegInfo != startEnd.end(); ++itRegInfo)
-                        currReg->AddLines(lines_[itRegInfo->first], itRegInfo->first, &itRegInfo->second);
-
-                    for (auto &func : funcCallFromReg)
-                        currReg->AddFuncCalls(func);
-
-                    filterUserDirectives(currReg, usedArrayInRegion, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs);
-                    currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
-                    currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
-
-                    startEnd.clear();
-                    lines_.clear();
-                    funcCallFromReg.clear();
-
-                    userDvmRealignDirs.clear();
-                    userDvmRedistrDirs.clear();
-
-                    usedArrayInRegion.clear();
-                }
+                regionStarted = true;
+                regionName = data->symbol()->identifier();
+                updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
             }
+            else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
+            {
+                SgStatement *data = next;
+
+                lines.second = data->lineNumber();
+                regionStarted = false;
+
+                if (regionName == "")
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                auto it = regionIdByName.find(regionName);
+                ParallelRegion *currReg = NULL;
+                if (it == regionIdByName.end())
+                {
+                    it = regionIdByName.insert(it, make_pair(regionName, regionIdConuter));
+                    currReg = new ParallelRegion(regionIdConuter, regionName);
+                    regions.push_back(currReg);
+                    regionByName[regionName] = currReg;
+                    regionName = "";
+                    regionIdConuter++;
+                }
+                else
+                    currReg = regionByName[regionName];
+
+                if (currReg == NULL)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                extendRegionInfo(st, startEnd, lines_, true);
+                for (auto itRegInfo = startEnd.begin(); itRegInfo != startEnd.end(); ++itRegInfo)
+                    currReg->AddLines(lines_[itRegInfo->first], itRegInfo->first, &itRegInfo->second);
+
+                for (auto &func : funcCallFromReg)
+                    currReg->AddFuncCalls(func);
+
+                filterUserDirectives(currReg, usedArrayInRegion, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs);
+                currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
+                currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
+
+                startEnd.clear();
+                lines_.clear();
+                funcCallFromReg.clear();
+
+                userDvmRealignDirs.clear();
+                userDvmRedistrDirs.clear();
+
+                usedArrayInRegion.clear();
+            }
+
 
             if (regionStarted)
             {

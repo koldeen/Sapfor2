@@ -5,16 +5,19 @@
 #include <vector>
 #include <set>
 #include <string>
-
-using std::string;
+#include <map>
 
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
 #include "../Utils/SgUtils.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #include <vector>
 
 using std::vector;
+using std::string;
+using std::map;
+using std::set;
 
 void VarDeclCorrecter(SgFile *file)
 {
@@ -50,6 +53,68 @@ void VarDeclCorrecter(SgFile *file)
                     st->setVariant(VAR_DECL_90);
             }
             st = st->lexNext();
+        }
+    }
+}
+
+void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
+{
+    for (int z = 0; z < file->numberOfFunctions(); ++z)
+    {
+        vector<SgStatement*> modules;
+        findModulesInFile(file, modules);
+        map<string, SgStatement*> mod;
+        for (auto &elem : modules)
+            mod[elem->symbol()->identifier()] = elem;
+
+        if (modules.size())
+        {
+            SgStatement *func = file->functions(z);
+            for (auto st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
+            {
+                if (isSgExecutableStatement(st))
+                    break;
+
+                if (st->variant() == USE_STMT)
+                {
+                    SgExpression *ex = st->expr(0);
+                    string modName = st->symbol()->identifier();
+
+                    auto it = mod.find(modName);
+
+                    set<string> allS;
+                    for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                        allS.insert(exI->lhs()->symbol()->identifier());
+                    
+                    if (ex && ex->variant() == ONLY_NODE && it != mod.end())
+                    {
+                        set<DIST::Array*> needToAdd;
+                        for (auto &parReg : regs)
+                        {
+                            const DataDirective &dataDir = parReg->GetDataDir();
+                            for (auto &rule : dataDir.distrRules)
+                            {
+                                DIST::Array *curr = rule.first;
+                                auto location = curr->GetLocation();
+                                if (location.first == 2 && location.second == modName)
+                                    needToAdd.insert(curr);
+                            }
+                        }
+
+                        for (auto &array : needToAdd)
+                        {
+                            if (allS.find(array->GetShortName()) == allS.end())
+                            {
+                                SgExpression *newEx = new SgExpression(EXPR_LIST);
+                                newEx->setRhs(ex->lhs());
+                                auto s = findSymbolOrCreate(file, array->GetShortName());
+                                newEx->setLhs(new SgExpression(RENAME_NODE, new SgVarRefExp(s), NULL, s));
+                                ex->setLhs(newEx);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

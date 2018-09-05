@@ -489,7 +489,7 @@ CBasicBlock::~CBasicBlock()
         delete lv_in;
     
     if (lv_out)
-        delete lv_out;    
+        delete lv_out;
 }
 
 doLoops::~doLoops()

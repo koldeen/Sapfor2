@@ -778,8 +778,12 @@ class CBasicBlock
     bool varIsPointer(SgSymbol* symbol);
     void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
     void processPointerAssignment(SgSymbol *symbol, SgExpression *right);
+    void processReadStat(SgStatement* readSt);
+    std::map <SymbolKey, std::set<SgExpression*>> gen_p;
+    std::set <SymbolKey> kill_p;
+    std::map <SymbolKey, std::map<std::string, SgExpression*>> in_defs_p;
+    std::map <SymbolKey, std::map<std::string, SgExpression*>> out_defs_p;
 
-    std::map <SymbolKey, std::set<SgExpression*>> extraPointersGen;
     std::map <SymbolKey, SgExpression*> gen;
     std::set <SymbolKey> kill;
     std::map <SymbolKey, std::map<std::string, SgExpression*>> in_defs;
@@ -860,12 +864,15 @@ public:
 
 #ifdef __SPF
     AnalysedCallsList* getProc() { return proc; }
-    void clearGenKill() { gen.clear(); kill.clear(); extraPointersGen.clear(); }
+    void clearGenKill() { gen.clear(); kill.clear(); }
+    void clearGenKillPointers() { gen_p.clear(); kill_p.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
+    void clearDefsPointers() { in_defs_p.clear(); out_defs_p.clear(); }
     void addVarToGen(SymbolKey var, SgExpression* value);
     void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
+    void adjustGenAndKillP(ControlFlowItem* cfi);
     std::set<SymbolKey>* getOutVars();
     void correctInDefsSimple();
     bool correctInDefsIterative();
@@ -873,12 +880,18 @@ public:
     void initializeOutWithGen();
 
 
+    inline std::map<SymbolKey, std::set<SgExpression*>>* getGenP() { return &gen_p; }
+    inline std::set<SymbolKey>* getKillP() { return &kill_p; }
+    inline void setInDefsP(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefsP) { in_defs_p = *inDefsP; }
+    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefsP() { return &in_defs_p; }
+    inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getOutDefsP() { return &out_defs_p; }
+
     inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
-    inline std::map <SymbolKey, std::set<SgExpression*>>* getPointersGen() { return &extraPointersGen; }
     inline std::set<SymbolKey>* getKill() { return &kill; }
     inline void setInDefs(std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs) { in_defs = *inDefs; }
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getInDefs() { return &in_defs; }
     inline std::map<SymbolKey, std::map<std::string, SgExpression*>>* getOutDefs() { return &out_defs; }    
+
 #endif
 };
 

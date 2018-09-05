@@ -211,6 +211,7 @@ public:
     int startVal;
     int endVal;
     int stepVal;
+    std::pair<Expression*, Expression*> startEndExpr;
 
     bool hasGoto;
     std::vector<int> linesOfInternalGoTo;

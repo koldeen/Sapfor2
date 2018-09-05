@@ -107,6 +107,13 @@ public:
     std::string value;
 };
 
+// from Utils.cpp
+#ifdef _WIN32
+extern void printStackTrace();
+#else
+static void printStackTrace() { };
+#endif
+
 #if __SPC
 #define printInternalError(file, line) do {\
     char buf[512];\
@@ -116,6 +123,7 @@ public:
 } while (0)
 #else
 #define printInternalError(file, line) do {\
+    printStackTrace(); \
     char buf[512];\
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
@@ -161,3 +169,4 @@ public:
         delete []buf;\
     } \
 } while (0)
+

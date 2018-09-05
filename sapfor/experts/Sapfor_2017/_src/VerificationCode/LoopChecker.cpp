@@ -86,7 +86,7 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
     return checkOK;
 }
 
-bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<ParallelRegion*> &regions, vector<Messages> &currMessages)
+bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &currMessages)
 {
     int funcNum = file->numberOfFunctions();
     bool checkOK = true;
@@ -109,15 +109,19 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
 
             if ((st->variant() == EQUI_LIST) || (st->variant() == EQUI_STAT))
             {
-                if (getRegionByLine(regions, st->fileName(), lastLine) == NULL) {
-                    __spf_print(1, "The equivalence operator is not supported yet\n");
+                bool needToReport = false;
+                if (getRegionByLine(regions, st->fileName(), lastLine))
+                {
                     checkOK = false;
-                    currMessages.push_back(Messages(ERROR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
+                    needToReport = true;
                 }
                 else
+                    needToReport = true;
+
+                if (needToReport)
                 {
-                    __spf_print(1, "The equivalence operator is not supported yet\n");
-                    currMessages.push_back(Messages(WARR, st->lineNumber(), "An equivalence operator at this line is not supported yet", 1038));
+                    __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
+                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), "An equivalence operator is not supported yet", 1038));
                 }
             }
 
@@ -140,23 +144,62 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
             int pos = vars[i].getPosition();
             varType type = vars[i].getType();
 
+            //only this file
+            bool needToSkip = true;
+            const CommonVariableUse *currUse = NULL;
+            for (auto &elem : vars[i].getAllUse())
+            {
+                if (elem.getFile() == file)
+                {
+                    needToSkip = false;
+                    currUse = &elem;
+                }
+            }
+
+            if (needToSkip)
+                continue;
+
             for (int j = i + 1; j < vars.size(); j++)
             {
+                bool needToReport = false;
+                auto typeMessage = NOTE;
+
                 if ((vars[j].getPosition() == pos) &&
                     ((vars[j].getType() == ARRAY && type != ARRAY) || (vars[j].getType() != ARRAY && type == ARRAY)))
                 {
-                    checkOK = false;
-                    string message;
-                    __spf_print(1, "Variables in one storage association have different types\n");
-                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
-                    currMessages.push_back(Messages(ERROR, pos, message, 1039));
+                    DIST::Array *array = NULL;
+                    if (vars[j].getType() == ARRAY)
+                        array = getArrayFromDeclarated(vars[j].getDeclarated(), vars[j].getName());
+                    else
+                        array = getArrayFromDeclarated(vars[i].getDeclarated(), vars[i].getName());
+
+                    if (array == NULL)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    if (array->GetNonDistributeFlag())
+                        typeMessage = WARR;                    
+                    else
+                    {
+                        checkOK = false;
+                        typeMessage = ERROR;
+                    }
+                    needToReport = true;
                 }
                 else if (vars[j].getPosition() == pos && vars[j].getType() != type)
                 {
+                    typeMessage = WARR;
+                    needToReport = true;
+                }
+
+                if (needToReport)
+                {
                     string message;
-                    __spf_print(1, "Variables in one storage association have different types\n");
-                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association(common block '%s') have different types", vars[i].getName(), vars[j].getName(), block.first);
-                    currMessages.push_back(Messages(WARR, pos, message, 1039));
+                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association (common block '%s') have different types",
+                        vars[i].getName().c_str(), vars[j].getName().c_str(), block.first.c_str());
+                    __spf_print(1, "%s\n", message.c_str());
+
+                    const int line = currUse->getDeclaratedPlace()->lineNumber();
+                    currMessages.push_back(Messages(typeMessage, line, message, 1039));
                 }
             }
         }

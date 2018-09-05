@@ -1,4 +1,4 @@
-#include "Utils/leak_detector.h"
+ï»¿#include "Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -122,7 +122,7 @@ void deleteAllAllocatedData(bool enable)
             delete[]ALGORITHMS_DONE[i];
         delete project;
 
-        deleteGraphKeeper();
+        deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
 }
@@ -280,7 +280,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
     auto toSendStrMessage = string(passNames[curr_regime]);
 #ifdef _WIN32
-    sendMessage_1lvl(wstring(L"âûïîëíÿåòñÿ ïðîõîä '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+    sendMessage_1lvl(wstring(L"Ð²Ñ‹Ð¿Ð¾Ð»Ð½ÑÐµÑ‚ÑÑ Ð¿Ñ€Ð¾Ñ…Ð¾Ð´ '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
 
     const int n = project.numberOfFiles();
@@ -325,7 +325,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         toSendStrMessage = file->filename();
 #ifdef _WIN32
-        sendMessage_2lvl(wstring(L"îáðàáîòêà ôàéëà '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
+        sendMessage_2lvl(wstring(L"Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ° Ñ„Ð°Ð¹Ð»Ð° '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
         currProcessing.first = file; currProcessing.second = NULL;
 
@@ -395,7 +395,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == VERIFY_EQUIVALENCE)
         {
-            bool res = EquivalenceChecker(file, file_name, parallelRegions, getObjectForFileFromMap(file_name, SPF_messages));
+            bool res = EquivalenceChecker(file, file_name, parallelRegions, SPF_messages);
             verifyOK &= res;
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
@@ -649,7 +649,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages));
+            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions);
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -720,10 +720,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
-                functionAnalyzer(file, subs_allFuncInfo);
+                functionAnalyzer(file, subs_allFuncInfo, true);
 
             fillRegionLines(file, subs_parallelRegions);
         }
+        else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
+            fixUseOnlyStmt(file, parallelRegions);        
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
@@ -787,7 +789,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             {
                                 messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), message, 1036));
 
-                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n", 
+                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
                                             fileName.c_str(), line.stats.first->lineNumber());
                             }
                         }
@@ -795,7 +797,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
             }
-            
+
             G.SetMaxAvailMemory(currentAvailMemory);
             G.ChangeQuality(QUALITY, SPEED);
 
@@ -862,39 +864,37 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
+        vector<ParallelRegion*> newParReg;
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            if (idxToDel.find(z) != idxToDel.end())
+            {
+                ParallelRegion *regToDel = parallelRegions[z];
+                const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
+                for (auto it = currLines.begin(); it != currLines.end(); ++it)
+                {
+                    vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
+                    char buf[256];
+                    sprintf(buf, "Can not find arrays / loops for distribution in parallel region '%s', ignored", regToDel->GetName().c_str());
+                    for (int k = 0; k < it->second.size(); ++k)
+                    {
+                        currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
+                        __spf_print(1, "  Can not find arrays for distribution in parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
+                    }
+                }
+#ifdef _WIN32
+                removeFromCollection(parallelRegions[z]);
+#endif
+                delete parallelRegions[z];
+            }
+            else
+                newParReg.push_back(parallelRegions[z]);
+        }
+        parallelRegions.clear();
+        parallelRegions = newParReg;
+
         if (idxToDel.size() == parallelRegions.size())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else if (idxToDel.size() > 0)
-        {
-            vector<ParallelRegion*> newParReg;
-            for (int z = 0; z < parallelRegions.size(); ++z)
-            {
-                if (idxToDel.find(z) != idxToDel.end())
-                {
-                    ParallelRegion *regToDel = parallelRegions[z];
-                    const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
-                    for (auto it = currLines.begin(); it != currLines.end(); ++it)
-                    {
-                        vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
-                        char buf[256];
-                        sprintf(buf, "Can not find arrays for distribution for parallel region '%s', ignored", regToDel->GetName().c_str());
-                        for (int k = 0; k < it->second.size(); ++k)
-                        {
-                            currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
-                            __spf_print(1, "  Can not find arrays for distribution for parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
-                        }
-                    }
-#ifdef _WIN32
-                    removeFromCollection(parallelRegions[z]);
-#endif
-                    delete parallelRegions[z];
-                }
-                else
-                    newParReg.push_back(parallelRegions[z]);
-            }
-            parallelRegions.clear();
-            parallelRegions = newParReg;
-        }
     }
     else if (curr_regime == CALL_GRAPH)
     {
@@ -1224,7 +1224,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
-        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages);
+        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages, true);
         fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
         clearRegionStaticData();
     }
@@ -1414,6 +1414,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runPass(REVERT_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
+            runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
@@ -1642,6 +1643,7 @@ int main(int argc, char **argv)
     }
     catch (...)
     {
+        printStackTrace();
         printf("exception occurred\n");
     }
 
