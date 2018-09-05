@@ -53,8 +53,8 @@ std::map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 //for RESOLVE_PAR_REGIONS
 std::set<FuncInfo*> allCommonFunctions;
 std::set<DIST::Array*> allUsedCommonArrays;
-
-std::map<std::string, ParallelRegionArray> allCommonArrays;
+std::map<FuncInfo*, std::map<DIST::Array*, std::pair<SgSymbol*, SgSymbol*>>> createdCommonArrays; // func -> array -> (orig, copy)
+std::map<FuncInfo*, SgStatement*> createdCommonBlocks; // func -> new common statement
 //
 
 //for directive creator

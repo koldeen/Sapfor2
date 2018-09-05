@@ -47,3 +47,5 @@ const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, 
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
 int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);
 void groupDeclarations(SgFile *file);
+
+bool ifSymbolExists(SgFile *file, const std::string &symbName);

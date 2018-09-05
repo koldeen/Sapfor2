@@ -1082,8 +1082,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == CHECK_PAR_REGIONS)
     {
-        fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks, allUsedCommonArrays, allCommonArrays);
         fillRegionFunctions(parallelRegions, allFuncInfo, allCommonFunctions);
+        fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks, allUsedCommonArrays);
 
         bool noError = checkRegions(parallelRegions, SPF_messages);
         if (!noError)
@@ -1091,17 +1091,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (keepFiles)
         {
-            int err = printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            int err = printCheckRegions("_checkRegions.txt", parallelRegions, allUsedCommonArrays, allCommonFunctions);
             if (err == -1)
                 internalExit = 1;
-            err = printCheckRegions(NULL, parallelRegions, allUsedCommonArrays, allCommonFunctions, allCommonArrays);
+            err = printCheckRegions(NULL, parallelRegions, allUsedCommonArrays, allCommonFunctions);
             if (err == -1)
                 internalExit = 1;
         }
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveParRegions(parallelRegions, allCommonFunctions, allUsedCommonArrays);
+        resolveParRegions(parallelRegions, commonBlocks, allCommonFunctions, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
     }
     else if (curr_regime == LOOP_GRAPH)
     {

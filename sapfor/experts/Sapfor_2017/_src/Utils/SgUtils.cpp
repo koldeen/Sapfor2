@@ -1487,3 +1487,23 @@ void groupDeclarations(SgFile *file)
             elem->deleteStmt();
     }
 }
+
+bool ifSymbolExists(SgFile *file, const string &symbName)
+{
+    if (SgFile::switchToFile(file->filename()) != -1)
+    {
+        SgSymbol *symb = file->firstSymbol();
+
+        while (symb)
+        {
+            if (symb->identifier() == symbName)
+                return true;
+
+            symb = symb->next();
+        }
+    }
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return false;
+}
