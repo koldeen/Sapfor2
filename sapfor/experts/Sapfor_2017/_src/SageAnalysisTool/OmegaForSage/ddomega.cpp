@@ -44,9 +44,7 @@ Problem deltas;    /* original problem -- needed in refine */
 
 
 
-PROC void dd_omega_test(a_access access1, a_access access2,
-    ddnature oitype, ddnature iotype,
-    uint nest1, uint nest2, uint bnest)
+PROC void dd_omega_test(a_access access1, a_access access2, ddnature oitype, ddnature iotype, uint nest1, uint nest2, uint bnest)
 {
     Problem prob;
     delta_prob_desc dpd;   /* must have extent >= that of "prob" */

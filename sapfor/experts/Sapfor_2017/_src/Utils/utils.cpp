@@ -416,7 +416,7 @@ string splitDirective(const string &in_)
     return out + lastEnd;
 }
 
-extern "C" void ExitFromOmegaTest(const int c) { throw c; }
+extern void ExitFromOmegaTest(const int c) { throw c; }
 
 void sortFilesBySize(const char *proj_name)
 {

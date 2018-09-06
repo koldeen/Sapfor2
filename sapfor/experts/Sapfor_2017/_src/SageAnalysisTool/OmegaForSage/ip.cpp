@@ -19,8 +19,8 @@
 #endif
 
 #ifdef _WIN32
-extern void addToCollection(const int line, const char *file, void *pointer, int type);
-extern void removeFromCollection(void *pointer);
+extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+extern "C" void removeFromCollection(void *pointer);
 #endif
 
 #include "include/portable.h"
@@ -118,11 +118,8 @@ int hashVersion = 0;
 
 Problem *originalProblem = noProblem;
 
-void noProcedure(Problem *problemPtr)
-{
-}
-
-void(*whenReduced) () = noProcedure;
+void noProcedure(Problem *problemPtr) { }
+void(*whenReduced) (Problem *problemPtr) = noProcedure;
 
 static int gcd(int b, int a)
 {
@@ -351,9 +348,7 @@ void sprintEqn(char *str, Problem *problemPtr, Eqn e, int test, int extra)
     }
 }
 
-void
-printVars(problemPtr)
-Problem *problemPtr;
+void printVars(Problem *problemPtr)
 {
     int i;
     fprintf(outputFile, "variables = ");
@@ -369,9 +364,7 @@ Problem *problemPtr;
     fprintf(outputFile, "\n");
 }
 
-void
-printProblem(problemPtr)
-Problem *problemPtr;
+void printProblem(Problem *problemPtr)
 {
     int e;
 
@@ -403,9 +396,7 @@ Problem *problemPtr;
 }
 
 
-void
-printRedEquations(problemPtr)
-Problem *problemPtr;
+void printRedEquations(Problem *problemPtr)
 {
     int e;
 
@@ -443,9 +434,7 @@ Problem *problemPtr;
 }
 
 
-void
-prettyPrintProblem(problemPtr)
-Problem *problemPtr;
+void prettyPrintProblem(Problem *problemPtr)
 {
     int e;
     int v;
@@ -671,10 +660,7 @@ Problem *problemPtr;
 }
 
 
-static void
-nameWildcard(problemPtr, i)
-Problem *problemPtr;
-int i;
+static void nameWildcard(Problem *problemPtr, int i)
 {
     --nextWildCard;
     if (nextWildCard < -maxWildCards)
@@ -682,9 +668,7 @@ int i;
     problemPtr->_var[i] = nextWildCard;
 }
 
-static int
-addNewWildcard(problemPtr)
-Problem *problemPtr;
+static int addNewWildcard(Problem *problemPtr)
 {
     int e;
     int i = ++safeVars;
@@ -714,16 +698,10 @@ Problem *problemPtr;
     return (i);
 }
 
-extern void
-substitute(Problem * problemPtr,
-    Eqn sub, int i, int c);
-extern void deleteVariable();
+extern void substitute(Problem * problemPtr, Eqn sub, int i, int c); 
+extern void deleteVariable(Problem *problemPt, int j);
 
-static void
-doMod(problemPtr, factor, e, j)
-Problem *problemPtr;
-int factor;
-int e, j;
+static void doMod(Problem *problemPtr, int factor, int e, int j)
 /* Solve e = factor alpha for x_j and substitute */
 {
     int k, i;
@@ -771,9 +749,7 @@ negateGEQ(Problem * problemPtr, int e)
     GEQs[e].touched = TRUE;
 }
 
-static int
-verifyProblem(problemPtr)
-Problem *problemPtr;
+static int verifyProblem(Problem *problemPtr)
 {
     int result, e, anyColor;
     Problem *tmpProblem;
@@ -822,8 +798,7 @@ Problem *problemPtr;
 
 void resurrectSubs(Problem * problemPtr);
 
-int
-eliminateRedundant(Problem * problemPtr, bool expensive)
+int eliminateRedundant(Problem *problemPtr, bool expensive)
 {
     int e, e1, e2, e3, p, q, i, k, alpha, alpha1, alpha2, alpha3;
     int c;
@@ -1022,9 +997,7 @@ eliminateRedundant(Problem * problemPtr, bool expensive)
 }
 
 
-int
-smoothWeirdEquations(problemPtr)
-Problem *problemPtr;
+int smoothWeirdEquations(Problem *problemPtr)
 {
     int e1, e2, e3, p, q, k, alpha, alpha1, alpha2, alpha3;
     int c;
@@ -1140,8 +1113,7 @@ coalesce(Problem * problemPtr)
         }
 }
 
-void
-eliminateRed(Problem * problemPtr, bool eliminateAll)
+void eliminateRed(Problem *problemPtr, bool eliminateAll)
 {
     int e, e2, e3, i, j, k, a, alpha1, alpha2;
     int c = 0;
@@ -1300,8 +1272,7 @@ eliminateRed(Problem * problemPtr, bool eliminateAll)
 
 
 
-void
-swap(int *i, int *j)
+void swap(int *i, int *j)
 {
     int tmp;
     tmp = *i;
@@ -1309,10 +1280,7 @@ swap(int *i, int *j)
     *j = tmp;
 }
 
-void
-chainUnprotect(problemPtr)
-Problem *problemPtr;
-
+void chainUnprotect(Problem *problemPtr)
 {
     int i, e;
     int unprotect[maxVars];
@@ -1450,9 +1418,7 @@ resurrectSubs(Problem * problemPtr)
 }
 
 
-static void
-problemReduced(problemPtr)
-Problem *problemPtr;
+static void problemReduced(Problem *problemPtr)
 {
 #ifdef verifySimplification
     int result;
@@ -1489,10 +1455,7 @@ Problem *problemPtr;
 }
 
 
-static void
-freeEliminations(problemPtr, fv)
-Problem *problemPtr;
-int fv;
+static void freeEliminations(Problem *problemPtr, int fv)
 /* do free eliminations */
 {
     int tryAgain = 1;
@@ -1550,8 +1513,7 @@ int fv;
     };
 }
 
-static void
-freeRedEliminations(Problem * problemPtr)
+static void freeRedEliminations(Problem * problemPtr)
 /* do free red eliminations */
 {
     int tryAgain = 1;
@@ -1630,8 +1592,7 @@ freeRedEliminations(Problem * problemPtr)
     };
 }
 
-void
-addingEqualityConstraint(Problem * problemPtr, int e)
+void addingEqualityConstraint(Problem *problemPtr, int e)
 {
     int e2, i, j;
 
@@ -1663,8 +1624,7 @@ addingEqualityConstraint(Problem * problemPtr, int e)
 
 
 
-void
-substitute(Problem * problemPtr, Eqn sub, int i, int c)
+void substitute(Problem * problemPtr, Eqn sub, int i, int c)
 {
     int e, j, j0, k;
     int topVar;
@@ -1796,8 +1756,7 @@ substitute(Problem * problemPtr, Eqn sub, int i, int c)
 
 }
 
-void
-substituteRed(Problem * problemPtr, Eqn sub, int i, int c, bool * foundBlack)
+void substituteRed(Problem *problemPtr, Eqn sub, int i, int c, bool * foundBlack)
 {
     int e, j, j0, k;
     int topVar;
@@ -1896,10 +1855,7 @@ substituteRed(Problem * problemPtr, Eqn sub, int i, int c, bool * foundBlack)
 
 
 
-void
-deleteVariable(problemPtr, i)
-Problem *problemPtr;
-int i;
+void deleteVariable(Problem *problemPtr, int i)
 {
     int nV = nVars;
     int e;
@@ -1938,8 +1894,7 @@ int i;
     nVars--;
 }
 
-static void
-convertEQtoGEQs(Problem * problemPtr, int eq)
+static void convertEQtoGEQs(Problem * problemPtr, int eq)
 {
     int i;
     if (DBUG)
@@ -1957,10 +1912,7 @@ convertEQtoGEQs(Problem * problemPtr, int eq)
 }
 
 
-static void
-doElimination(problemPtr, e, i)
-Problem *problemPtr;
-int e, i;
+static void  doElimination(Problem *problemPtr, int e, int i)
 {
     struct _eqn sub;
     int c;
@@ -2027,11 +1979,8 @@ int e, i;
         deleteVariable(problemPtr, i);
     };
 }
-
-static int
-solveEQ(problemPtr, desiredResult)
-register Problem *problemPtr;
-int desiredResult;
+ 
+static int solveEQ(Problem *problemPtr, int desiredResult)
 {
     int i, j, e;
     int g, g2;
@@ -2313,14 +2262,10 @@ int desiredResult;
 }
 
 
-static int solveGEQ();
-
+static int solveGEQ(Problem *problemPtr, int desiredResult);
 static int solveDepth = 0;
 
-int
-solve(problemPtr, desiredResult)
-Problem *problemPtr;
-int desiredResult;
+int solve(Problem *problemPtr, int desiredResult)
 {
     int result;
 
@@ -2370,10 +2315,7 @@ int desiredResult;
 
 static int fastLookup[maxKeys * 2];
 
-static int
-solveGEQ(problemPtr, desiredResult)
-register Problem *problemPtr;
-int desiredResult;
+static int solveGEQ(Problem *problemPtr, int desiredResult)
 {
     int i, j, k, e;
     int nV, fv;
@@ -3480,8 +3422,7 @@ solveGEQstart:
  * equations by themselves, so if there is no solution to the combined problem, we return 1.
  */
 
-int
-hasRedEquations(Problem * problemPtr, bool expensive)
+int hasRedEquations(Problem * problemPtr, bool expensive)
 {
     int result;
     int e;
@@ -3561,9 +3502,7 @@ hasRedEquations(Problem * problemPtr, bool expensive)
     return result;
 }
 
-int
-simplifyApproximate(problemPtr)
-Problem *problemPtr;
+int simplifyApproximate(Problem *problemPtr)
 {
     int result;
 
@@ -3591,9 +3530,7 @@ Problem *problemPtr;
     return (result);
 }
 
-int
-simplifyProblem(problemPtr)
-Problem *problemPtr;
+int simplifyProblem(Problem *problemPtr)
 {
     int i;
     foundReduction = FALSE;
@@ -3646,10 +3583,7 @@ Problem *problemPtr;
 }
 
 
-void
-unprotectVariable(problemPtr, v)
-Problem *problemPtr;
-int v;
+void unprotectVariable(Problem *problemPtr, int v)
 {
     int e, t, j, i;
     i = problemPtr->forwardingAddress[v];
@@ -3748,10 +3682,7 @@ int v;
 }
 
 
-int
-constrainVariableSign(problemPtr, color, i, sign)
-Problem *problemPtr;
-int color, i, sign;
+int constrainVariableSign(Problem *problemPtr, int color, int i, int sign)
 {
     int nV = nVars;
     int e, k, j;
@@ -3796,10 +3727,7 @@ int color, i, sign;
     return (simplifyProblem(problemPtr));
 }
 
-void
-constrainVariableValue(problemPtr, color, i, value)
-Problem *problemPtr;
-int color, i, value;
+void constrainVariableValue(Problem *problemPtr, int color, int i, int value)
 {
     int e, k;
 
@@ -3822,12 +3750,7 @@ int color, i, value;
     EQs[e].color = color;
 }
 
-int
-queryVariable(problemPtr, i, lowerBound, upperBound)
-Problem *problemPtr;
-int i;
-int *lowerBound;
-int *upperBound;
+int queryVariable(Problem *problemPtr, int i, int *lowerBound, int *upperBound)
 {
     int nV = nVars;
     int e, j;
@@ -3885,13 +3808,9 @@ int *upperBound;
     return (coupled);
 }
 
-extern void queryCoupledVariable();
+extern void queryCoupledVariable(Problem *problemPtr, int i, int *l, int *u, int *couldBeZero, int lowerBound, int upperBound);
 
-int
-queryVariableBounds(problemPtr, i, l, u)
-Problem *problemPtr;
-int i;
-int *l, *u;
+int queryVariableBounds(Problem *problemPtr, int i, int *l, int *u)
 {
     int coupled;
     *l = negInfinity;
@@ -3907,12 +3826,7 @@ int *l, *u;
     return 1;
 }
 
-void
-queryCoupledVariable(problemPtr, i, l, u, couldBeZero, lowerBound, upperBound)
-Problem *problemPtr;
-int i;
-int *l, *u, *couldBeZero;
-int lowerBound, upperBound;
+void queryCoupledVariable(Problem *problemPtr, int i, int *l, int *u, int *couldBeZero, int lowerBound, int upperBound)
 {
     int e, b1, b2;
     Eqn eqn;
@@ -3986,12 +3900,7 @@ int lowerBound, upperBound;
 
 
 
-int
-queryVariableSigns(problemPtr, i, dd_lt, dd_eq, dd_gt, lowerBound, upperBound, distKnown, dist)
-Problem *problemPtr;
-int i, dd_lt, dd_eq, dd_gt, lowerBound, upperBound;
-bool *distKnown;
-int *dist;
+int queryVariableSigns(Problem *problemPtr, int i, int dd_lt, int dd_eq, int dd_gt, int lowerBound, int upperBound, bool *distKnown, int *dist)
 {
     int result;
     int l, u;
@@ -4012,9 +3921,8 @@ int *dist;
         *distKnown = 1;
         *dist = l;
     }
-    else {
-        *distKnown = 0;
-    };
+    else 
+        *distKnown = 0;    
     return (result);
 }
 
@@ -4056,8 +3964,7 @@ void initializeOmega()
 }
 
 
-void
-setOutputFile(FILE * file)
+void setOutputFile(FILE * file)
 {
     /* sets the file to which printProblem should send its output to "file" */
 

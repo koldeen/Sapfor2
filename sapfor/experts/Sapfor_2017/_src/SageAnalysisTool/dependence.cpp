@@ -26,11 +26,11 @@ extern int passDone;
 #include "OmegaForSage/include/portable.h"
 #include "OmegaForSage/include/affine.h"
 
-extern "C" void SetSTuff();
+extern void SetSTuff();
 extern "C" void SetOmegaDebug();
 extern "C" void initAnnotation();
 extern "C" void Look_For_Align_Declaration();
-extern "C" void dd_omega_test(...);
+extern void dd_omega_test(a_access access1, a_access access2, ddnature oitype, ddnature iotype, uint nest1, uint nest2, uint bnest);
 
 ///////////////////////////////////////////////////////////////////////////
 // Some global declaration 
