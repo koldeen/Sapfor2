@@ -295,13 +295,17 @@ static void mergeDefs(map<SymbolKey, set<ExpressionValue>> *main, map<SymbolKey,
 
 void CBasicBlock::initializeOutWithGen()
 {
-    for (auto it = gen.begin(); it != gen.end(); ++it)
+    for (auto &elem : gen)
     {
-        auto inserted = out_defs.insert(make_pair(it->first, set<ExpressionValue>()));
         SgExpression *newExp = NULL;
-        if (it->second)
-            newExp = it->second->copyPtr();
-        inserted.first->second.insert(newExp);
+        if (elem.second)
+        {
+            newExp = elem.second->copyPtr();
+            auto inserted = out_defs.find(elem.first);
+            if (inserted == out_defs.end())
+                inserted = out_defs.insert(inserted, make_pair(elem.first, set<ExpressionValue>()));
+            inserted->second.insert(newExp);
+        }
     }
 }
 
