@@ -1313,6 +1313,18 @@ const vector<const Variable*> CommonBlock::getVariables(const string &file, cons
     return retVariables;
 }
 
+const vector<const Variable*> CommonBlock::getVariables(int position) const
+{
+    vector <const Variable*> retVariables;
+
+    auto it = groupedVars.find(position);
+    if (it != groupedVars.end())
+        for (auto &variable : it->second)
+            retVariables.push_back(&variable);
+
+    return retVariables;
+}
+
 static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 {
     if (ex && type == ANOTHER)
@@ -1365,7 +1377,15 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
         if (exist)
             exist->addUse(file, function, varPair.first);
         else
+        {
             variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));
+
+            auto it = groupedVars.find(varPair.second);
+            if (it == groupedVars.end())
+                it = groupedVars.insert(it, make_pair(varPair.second, vector<Variable>()));
+
+            it->second.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));
+        }
     }
 }
 

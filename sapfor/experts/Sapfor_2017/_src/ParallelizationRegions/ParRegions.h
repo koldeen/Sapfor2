@@ -208,6 +208,13 @@ public:
         if (itt == it->second.end())
             it->second.insert(std::make_pair(origin, copy));
     }
+
+    void AddFileForFuncSymbols(const std::string &fileName)
+    {
+        auto it = funcSymbols.find(fileName);
+        if (it == funcSymbols.end())
+            it = funcSymbols.insert(it, std::make_pair(fileName, std::map<SgSymbol*, SgSymbol*>()));
+    }
 #endif
 
     bool HasThisLine(const int line, const std::string &file) const
