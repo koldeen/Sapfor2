@@ -396,6 +396,12 @@ void addNumberOfFileToAttribute(SgProject *project)
             st->setFileId(i);
             st->setProject(project);
         }
+
+        for (SgSymbol *sm = currF->firstSymbol(); sm; sm = sm->next())
+        {
+            sm->setFileId(i);
+            sm->setProject(project);
+        }
     }
 }
 
