@@ -5,6 +5,8 @@
 #include "../Distribution/Distribution.h"
 #include "../GraphCall/graph_calls.h"
 
+SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
+
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
@@ -23,7 +25,6 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
 
 DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName);
 
-SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
 bool isSPF_comment(const int variant);
 void initTags();
 bool isDVM_stat(SgStatement *st);

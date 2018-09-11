@@ -50,7 +50,7 @@ public:
     explicit Variable(SgFile *file, SgStatement *function, SgSymbol *symbol, const std::string &name, const varType type, const int position) :
         symbol(symbol), name(name), type(type), position(position)
     {
-        declPace = symbol->declaredInStmt();
+        declPace = declaratedInStmt(symbol);
         allUse.push_back(CommonVariableUse(file, function, symbol));
     }
 

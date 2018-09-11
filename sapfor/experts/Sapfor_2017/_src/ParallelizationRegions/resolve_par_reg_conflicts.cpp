@@ -169,18 +169,14 @@ static void recursiveFill(SgExpression *exp,
         {
             SgSymbol *arraySymbol = exp->symbol();
             string arrayName = string(arraySymbol->identifier());
-            DIST::Array *array = getArrayFromDeclarated(arraySymbol->declaredInStmt(), arrayName);
+            DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(arraySymbol), arrayName);
             FuncInfo *func = getFuncInfo(funcMap, funcName);
 
             auto commonBlock = isInCommon(commonBlocks, arrayName);
             if (commonBlock)
             {
-                auto it = region->GetCrossedFuncs().find(func);
-                if (it == region->GetCrossedFuncs().end())
-                {
-                    region->AddUsedCommonArray(func, array, lines);
-                    allUsedCommonArrays.insert(make_pair(array, commonBlock));
-                }
+                region->AddUsedCommonArray(func, array, lines);
+                allUsedCommonArrays.insert(make_pair(array, commonBlock));
             }
             else if (!lines.isImplicit())
                 region->AddUsedLocalArray(func, array, lines);
@@ -595,12 +591,19 @@ static void copyFunction(ParallelRegion *region,
 {
     if (SgFile::switchToFile(func->fileName) != -1)
     {
-        // create copy function symbol and copy function for original function
         SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
         SgSymbol *newFuncSymb = NULL;
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
         string newFuncName = string(funcSymb->identifier()) + suffix;
 
+        // get current lines count in file
+        int linesCount = 0;
+        for (auto st = file->firstStatement(); st; st = st->lexNext())
+            ++linesCount;
+
+        __spf_print(1, "TOTAL LINES IN FILE: %d\n", linesCount);
+
+        // create copy function symbol and copy function for original function
         newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
         newFuncSymb = &newFuncSymb->copy();
         newFuncSymb->changeName(newFuncName.c_str());
@@ -608,6 +611,12 @@ static void copyFunction(ParallelRegion *region,
 
         __spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
                     newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
+
+        // set line numbers
+        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
+             origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
+             origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
+            copyStat->setlineNumber(origStat->lineNumber() + linesCount);
 
         // add copy function lines to explicit lines for next changes
         Statement *begin = new Statement(file->firstStatement()->lexNext());
@@ -629,25 +638,17 @@ static void copyFunction(ParallelRegion *region,
         __spf_print(1, "    add replaced symbols (%s, %s) for file %s\n",
                     funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
 
-        // add common-block if it is nessesary
-        SgStatement *iterator = begin->GetOriginal();
-        for (; iterator != end->GetOriginal() && !isSgExecutableStatement(iterator); iterator = iterator->lexNext())
-            ;
-
-        Statement *start = new Statement(iterator);
-        vector<ParallelRegionLines> lines;
-        lines.push_back(ParallelRegionLines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end)));
-
-        for (auto iterator = begin->GetOriginal(); iterator && !isSgExecutableStatement(iterator) && iterator != end->GetOriginal(); iterator = iterator->lexNext())
+        // try to find common-block and add new if common-block exists
+        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
+             origStat && !isSgExecutableStatement(origStat);
+             origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
-            if (iterator->variant() == COMM_STAT)
+            if (origStat->variant() == COMM_STAT)
             {
-                // SERG: массивы для замены
-                set<string> toReplace;
                 SgStatement *commDecl = createCommonBlock(file, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
                 SgStatement *copyDecl = commDecl->copyPtr();
 
-                iterator->insertStmtAfter(*commDecl, *iterator->controlParent());
+                copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
                 __spf_print(1, "  new common block 'reg'\n"); // remove
 
                 // making declaration of new common array symbols
@@ -655,34 +656,70 @@ static void copyFunction(ParallelRegion *region,
                 for (auto &arraySymbols : it->second)
                 {
                     SgStatement *newDecl = arraySymbols.second.second->makeVarDeclStmt();
-                    iterator->insertStmtAfter(*newDecl, *iterator->controlParent());
+                    copyStat->insertStmtAfter(*newDecl, *copyStat->controlParent());
                 }
 
+                SgStatement *iterator = begin->GetOriginal();
+                for (; iterator != end->GetOriginal() && !isSgExecutableStatement(iterator); iterator = iterator->lexNext())
+                    ;
+
+                Statement *start = new Statement(iterator);
+                vector<ParallelRegionLines> lines;
+                lines.push_back(ParallelRegionLines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end)));
+
                 // replace common arrays to new common arrays
-                for (auto exp = iterator->expr(0)->lhs(); exp; exp = exp->rhs())
+                for (origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
+                     origStat && !isSgExecutableStatement(origStat);
+                     origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
                 {
-                    __spf_print(1, "TRYING TO REPLACE '%s'\n", exp->lhs()->symbol()->identifier()); // remove
-                    SgSymbol *varSymb = exp->lhs()->symbol();
-                    string varName = varSymb->identifier();
-                    DIST::Array *array = getArrayFromDeclarated(varSymb->declaredInStmt(), varName);
-
-                    if (array)
+                    if (origStat->variant() == COMM_STAT)
                     {
-                        auto arrayBlock = allUsedCommonArrays.find(array);
-                        int pos = -1;
-                        for (auto &var : arrayBlock->second->getVariables())
+                        for (auto commExp = origStat->expr(0); commExp; commExp = commExp->rhs())
                         {
-                            if (var.getName() == varName && var.getType() == ARRAY)
-                                pos = var.getPosition();
+                            for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
+                            {
+                                SgSymbol *varSymb = exp->lhs()->symbol();
+                                SgSymbol *toReplace = NULL; // FIND THIS SYMBOL OR CHANGE REPLACE FUNCTION
+                                string varName = varSymb->identifier();
+                                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
+
+                                __spf_print(1, "TRYING TO REPLACE '%s'\n", varName.c_str()); // remove
+
+                                if (array)
+                                {
+                                    __spf_print(1, "ARRAY '%s' FOUND\n", array->GetShortName().c_str());
+
+                                    auto arrayBlock = allUsedCommonArrays.find(array);
+                                    int pos = -1;
+                                    for (auto &var : arrayBlock->second->getVariables())
+                                    {
+                                        if (var.getName() == varName && var.getType() == ARRAY)
+                                            pos = var.getPosition();
+                                    }
+
+                                    auto varsOnPos = arrayBlock->second->getVariables(pos);
+                                    auto var = varsOnPos[0];
+
+                                    if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
+                                    {
+                                        DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
+
+                                        if (!commArr)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        __spf_print(1, "COMMON ARRAY '%s' FOUND\n", commArr->GetShortName().c_str());
+
+                                        auto itt = it->second.find(commArr);
+                                        if (itt == it->second.end())
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        replaceSymbol(func->fileName, lines, toReplace, itt->second.second);
+                                    }
+                                    else
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                }
+                            }
                         }
-
-                        auto varsOnPos = arrayBlock->second->getVariables(pos);
-                        auto var = varsOnPos[0];
-
-                        DIST::Array *commArr = getArrayFromDeclarated(, );
-                        auto itt = it->second.find(commArr);
-
-                        replaceSymbol(func->fileName, lines, varSymb, );
                     }
                 }
 
@@ -721,6 +758,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
 
         __spf_print(1, "[%s]: create common arrays\n", region->GetName().c_str()); // remove
 
+        /*
         // creating new common arrays
         for (auto &funcArrays : region->GetUsedCommonArrays())
         {
@@ -771,6 +809,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
             }
         }
 
+        */
         __spf_print(1, "[%s]: create functions\n", region->GetName().c_str()); // remove
 
         // creating new functions
