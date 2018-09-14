@@ -19,6 +19,38 @@ using std::string;
 using std::to_string;
 using std::make_pair;
 
+static void recPrint(SgStatement *st, SgExpression *exp)
+{
+    if (exp)
+    {
+        if (exp->symbol())
+            __spf_print(1, "line %d, symb %s, id %d\n", st->lineNumber(), exp->symbol()->identifier(), exp->symbol()->id());
+
+        recPrint(st, exp->lhs());
+        recPrint(st, exp->rhs());
+    }
+}
+
+static void statPrint(SgStatement *start, SgStatement *end)
+{
+    for (auto st = start; st != end; st = st->lexNext())
+        for (auto i = 0; i < 3; ++i)
+            recPrint(st, st->expr(i));
+
+    __spf_print(1, "end\n");
+}
+
+static void funcPrint(const FuncInfo *func)
+{
+    statPrint(func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
+}
+
+static void symbPrint(SgFile *file)
+{
+    for (auto s = file->firstSymbol(); s; s = s->next())
+        __spf_print(1, "SYMB ID %d : %s\n", s->id(), s->identifier());
+}
+
 static bool recursiveFindCall(SgExpression *exp, const string &funcName)
 {
     if (exp)
@@ -347,7 +379,7 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
     }
 }
 
-static void replaceSymbol(const string &fileName, const vector<ParallelRegionLines> &lines, SgSymbol *origSymb, SgSymbol *newSymb)
+static void replaceSymbol(const string &fileName, const vector<ParallelRegionLines> &lines, const string &origSymbName, SgSymbol *newSymb)
 {
     if (SgFile::switchToFile(fileName) != -1)
     {
@@ -361,19 +393,19 @@ static void replaceSymbol(const string &fileName, const vector<ParallelRegionLin
 
                 for (; iterator != end; iterator = iterator->lexNext())
                 {
-                    if (iterator->symbol() && iterator->symbol()->identifier() == string(origSymb->identifier()))
+                    if (iterator->symbol() && iterator->symbol()->identifier() == origSymbName)
                     {
                         iterator->setSymbol(*newSymb);
 
                         __spf_print(1, "  replace symbol '%s' to '%s' in file %s on line %d\n",
-                                    origSymb->identifier(),
+                                    origSymbName.c_str(),
                                     newSymb->identifier(),
                                     fileName.c_str(),
                                     iterator->lineNumber()); // remove
                     }
 
                     for (int i = 0; i < 3; ++i)
-                        recursiveReplace(iterator->expr(i), origSymb->identifier(), newSymb);
+                        recursiveReplace(iterator->expr(i), origSymbName, newSymb);
                 }
             }
         }
@@ -453,6 +485,7 @@ static SgStatement* createCommonBlock(SgFile *file,
                             }
 
                             SgType *arrType = arrSymb->type()->copyPtr();
+                            string newDecl(arrSymb->makeVarDeclStmt()->unparse());
 
                             // create array symbol
                             if (SgFile::switchToFile(file->filename()) != -1)
@@ -465,7 +498,6 @@ static SgStatement* createCommonBlock(SgFile *file,
 
                                 newArrSymb = new SgSymbol(VAR_REF, newArrName.c_str(), arrType, file->firstStatement());
                                 itt = it->second.insert(itt, make_pair(arrayBlock.first, make_pair((SgSymbol*)NULL, newArrSymb)));
-                                
                             }
                             else
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -497,7 +529,6 @@ static SgStatement* createCommonBlock(SgFile *file,
 
                     SgExpression *arrNode = new SgExpression(VAR_REF, NULL, NULL, newArrSymb);
                     curNode->setLhs(arrNode);
-
                 }
             }
 
@@ -596,12 +627,14 @@ static void copyFunction(ParallelRegion *region,
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
         string newFuncName = string(funcSymb->identifier()) + suffix;
 
+        symbPrint(file);
+
         // get current lines count in file
         int linesCount = 0;
         for (auto st = file->firstStatement(); st; st = st->lexNext())
-            ++linesCount;
+            linesCount = std::max(linesCount, st->lineNumber());
 
-        __spf_print(1, "TOTAL LINES IN FILE: %d\n", linesCount);
+        funcPrint(func);
 
         // create copy function symbol and copy function for original function
         newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
@@ -609,14 +642,18 @@ static void copyFunction(ParallelRegion *region,
         newFuncSymb->changeName(newFuncName.c_str());
         file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
+        funcPrint(func);
+        statPrint(file->firstStatement()->lexNext(), file->firstStatement()->lexNext()->lastNodeOfStmt());
+
         __spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
                     newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
 
         // set line numbers
+        int i = 0;
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
              origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
-            copyStat->setlineNumber(origStat->lineNumber() + linesCount);
+            copyStat->setlineNumber(++i + linesCount);
 
         // add copy function lines to explicit lines for next changes
         Statement *begin = new Statement(file->firstStatement()->lexNext());
@@ -645,19 +682,23 @@ static void copyFunction(ParallelRegion *region,
         {
             if (origStat->variant() == COMM_STAT)
             {
+                /*
                 SgStatement *commDecl = createCommonBlock(file, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
                 SgStatement *copyDecl = commDecl->copyPtr();
 
                 copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
                 __spf_print(1, "  new common block 'reg'\n"); // remove
+                */
 
                 // making declaration of new common array symbols
                 auto it = createdCommonArrays.find(file->filename());
+                /*
                 for (auto &arraySymbols : it->second)
                 {
                     SgStatement *newDecl = arraySymbols.second.second->makeVarDeclStmt();
                     copyStat->insertStmtAfter(*newDecl, *copyStat->controlParent());
                 }
+                */
 
                 SgStatement *iterator = begin->GetOriginal();
                 for (; iterator != end->GetOriginal() && !isSgExecutableStatement(iterator); iterator = iterator->lexNext())
@@ -667,10 +708,11 @@ static void copyFunction(ParallelRegion *region,
                 vector<ParallelRegionLines> lines;
                 lines.push_back(ParallelRegionLines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end)));
 
+                symbPrint(file);
+
                 // replace common arrays to new common arrays
-                for (origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
-                     origStat && !isSgExecutableStatement(origStat);
-                     origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
+                // TODO: getCommonBlocksRef()
+                for (origStat = func->funcPointer->GetOriginal(); origStat && !isSgExecutableStatement(origStat); origStat = origStat->lexNext())
                 {
                     if (origStat->variant() == COMM_STAT)
                     {
@@ -679,9 +721,10 @@ static void copyFunction(ParallelRegion *region,
                             for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
                             {
                                 SgSymbol *varSymb = exp->lhs()->symbol();
-                                SgSymbol *toReplace = NULL; // FIND THIS SYMBOL OR CHANGE REPLACE FUNCTION
                                 string varName = varSymb->identifier();
+                                auto tmp = declaratedInStmt(varSymb);
                                 DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
+                                //DIST::Array *array = getArrayFromDeclarated(varSymb->declaredInStmt(), varName);
 
                                 __spf_print(1, "TRYING TO REPLACE '%s'\n", varName.c_str()); // remove
 
@@ -713,7 +756,7 @@ static void copyFunction(ParallelRegion *region,
                                         if (itt == it->second.end())
                                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                        replaceSymbol(func->fileName, lines, toReplace, itt->second.second);
+                                        replaceSymbol(func->fileName, lines, varName, itt->second.second);
                                     }
                                     else
                                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -751,7 +794,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
             {
                 auto place = *arrayLines.first->GetDeclInfo().begin();
                 auto origCopy = copyArray(place, arrayLines.first, string("_") + region->GetName());
-                replaceSymbol(place.first, arrayLines.second, origCopy.first, origCopy.second);
+                replaceSymbol(place.first, arrayLines.second, origCopy.first->identifier(), origCopy.second);
                 insertArrayCopying(place.first, arrayLines.second, origCopy.first, origCopy.second);
             }
         }
@@ -868,7 +911,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
             if (it != funcSymbols.end())
             {
                 for (auto &origCopy : it->second)
-                    replaceSymbol(fileLines.first, fileLines.second, origCopy.first, origCopy.second);
+                    replaceSymbol(fileLines.first, fileLines.second, origCopy.first->identifier(), origCopy.second);
             }
         }
 
@@ -878,7 +921,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
             if (it != funcSymbols.end())
             {
                 for (auto &origCopy : it->second)
-                    replaceSymbol(fileLines.first, fileLines.second, origCopy.first, origCopy.second);
+                    replaceSymbol(fileLines.first, fileLines.second, origCopy.first->identifier(), origCopy.second);
             }
         }
     }
