@@ -2,7 +2,6 @@
 
 #include "ParRegions.h"
 #include "../Utils/SgUtils.h"
-#include "Utils/SgUtils.h"
 #include "../GraphCall/graph_calls.h"
 
 void fillRegionArrays(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::map<std::string, CommonBlock> &commonBlocks, std::map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays);
