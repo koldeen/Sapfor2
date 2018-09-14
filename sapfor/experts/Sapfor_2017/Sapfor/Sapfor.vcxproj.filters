@@ -186,39 +186,6 @@
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp">
       <Filter>Файлы исходного кода\SageExtensions</Filter>
     </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.c">
-      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
-    </ClCompile>
     <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
@@ -272,6 +239,39 @@
     </ClCompile>
     <ClCompile Include="..\_src\Utils\BoostStackTrace.cpp">
       <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -407,16 +407,5 @@
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
   </ItemGroup>
 </Project>

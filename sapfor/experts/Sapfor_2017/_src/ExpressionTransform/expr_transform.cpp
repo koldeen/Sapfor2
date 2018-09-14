@@ -474,7 +474,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         if (founded_inDefs != b->getInDefs()->end())
             //if smth is founded_inDefs, it has single value
             //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = founded_inDefs->second.begin()->second;
+            exp = founded_inDefs->second.begin()->getExp();
 
         //we have to check if this value was killed inside block
         if (exp != NULL)
@@ -791,7 +791,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
     return wereReplacements;
 }
 
-void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, map<string, SgExpression*>> &inDefs)
+void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
 {
     bool wereReplacements = true;
     while (wereReplacements)
@@ -812,7 +812,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, map<string, SgEx
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, map<string, SgExpression*>> &inDefs)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
     visitedStatements.clear();
@@ -977,12 +977,12 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        map<SymbolKey, map<string, SgExpression*>> inDefs;
+        map<SymbolKey, set<ExpressionValue>> inDefs;
 
         if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
-                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), map<string, SgExpression*>()))
-                .first->second.insert(make_pair("", (SgExpression*)NULL));
+                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue>()))
+                .first->second.insert(ExpressionValue());
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();

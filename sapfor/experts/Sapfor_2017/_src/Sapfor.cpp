@@ -725,8 +725,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             fillRegionLines(file, subs_parallelRegions);
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
-            fixUseOnlyStmt(file, parallelRegions);        
-
+            fixUseOnlyStmt(file, parallelRegions);
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
     } // end of FOR by files
@@ -1440,7 +1439,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         }
     }
         break;
-    case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
+    case CREATE_NESTED_LOOPS:
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:

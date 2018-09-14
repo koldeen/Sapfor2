@@ -570,6 +570,14 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
 }
 
+static int calculateNormalChildSize(const LoopGraph *currLoop)
+{
+    int count = 0;
+    for (auto &elem : currLoop->childs)
+        count += (elem->lineNum > 0) ? 1 : 0;
+    return count;
+}
+
 void convertToString(const LoopGraph *currLoop, string &result)
 {
     if (currLoop && currLoop->lineNum > 0)
@@ -578,7 +586,7 @@ void convertToString(const LoopGraph *currLoop, string &result)
         result += " " + std::to_string(currLoop->calls.size());
         for (int i = 0; i < currLoop->calls.size(); ++i)
             result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        printToBuffer(currLoop, calculateNormalChildSize(currLoop), buf);
         result += string(buf);
 
         result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());

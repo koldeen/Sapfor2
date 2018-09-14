@@ -164,9 +164,7 @@ int definitionOnlyInsideStmt(SgStatement *func, SgStatement *stmtin, SgExpressio
 // For a statement create an induction var set that contains the SCALAR constante
 // based on the use set which have to be defined later
 //
-
-Set *
-computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
+Set* computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
 {
     SgStatement *last, *stmt;
     SgExpression *use, *expr;
@@ -221,9 +219,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
 //
 // compute effectively induction variables (limited to basic induction variable for now)
 //
-
-Set *
-computeInductionVariables(SgStatement *func, SgStatement *stmt)
+Set* computeInductionVariables(SgStatement *func, SgStatement *stmt)
 {
     SgStatement *last, *first, *defreach, *temp, *cp;
     SgForStmt *loop;
@@ -282,10 +278,8 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
 
 
 
-//Get all induction var ;
-
-Set *
-getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, int include)
+//Get all induction var;
+Set* getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, int include)
 {
     SgStatement       *temp, *child;
     int               i, newlevel;
@@ -316,6 +310,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
     }
     else
         tmpincl = include;
+
     i = 1;
     temp = stmt;
     child = temp->childList1(0);
@@ -341,6 +336,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
         child = temp->childList1(i);
         i++;
     }
+
     i = 1;
     temp = stmt;
     child = temp->childList2(0);

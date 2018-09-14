@@ -7440,32 +7440,28 @@ PTR_SYMB symb;
 
 
 /***************************************************************************/
-void replaceSymbInExpression(exprold,symb, new)
-     PTR_LLND exprold;
-     PTR_SYMB symb, new;
+void replaceSymbInExpression(PTR_LLND exprold, PTR_SYMB symb, PTR_SYMB new)
 {
-  if (!exprold || !symb || !new)
-    return;
-  if (!isASymbNode(SYMB_CODE(symb)))
+    if (!exprold || !symb || !new)
+        return;
+    if (!isASymbNode(SYMB_CODE(symb)))
     {
-      Message(" not a symbol node in replaceSymbInExpression",0);
-      return;
+        Message(" not a symbol node in replaceSymbInExpression", 0);
+        return;
     }
-  if (!isASymbNode(SYMB_CODE(new)))
+    if (!isASymbNode(SYMB_CODE(new)))
     {
-      Message(" not a symbol node in replaceSymbInExpression",0);
-      return;
+        Message(" not a symbol node in replaceSymbInExpression", 0);
+        return;
     }
-  
-  if (hasNodeASymb(NODE_CODE(exprold)))
+
+    if (hasNodeASymb(NODE_CODE(exprold)))
     {
-      if (NODE_SYMB(exprold) == symb)
-	{
-	  NODE_SYMB(exprold) = new;
-	}
+        if (NODE_SYMB(exprold) == symb)
+            NODE_SYMB(exprold) = new;
     }
-  replaceSymbInExpression(NODE_OPERAND0(exprold), symb, new);
-  replaceSymbInExpression(NODE_OPERAND1(exprold), symb, new);
+    replaceSymbInExpression(NODE_OPERAND0(exprold), symb, new);
+    replaceSymbInExpression(NODE_OPERAND1(exprold), symb, new);
 }
 
 /***************************************************************************/
@@ -7473,18 +7469,18 @@ void replaceSymbInStmts(debut, fin, symb, new)
      PTR_BFND debut, fin;
      PTR_SYMB symb,new;
 {
-  PTR_BFND temp;
-  
-  for (temp = debut; temp ; temp = BIF_NEXT(temp))
+    PTR_BFND temp;
+
+    for (temp = debut; temp; temp = BIF_NEXT(temp))
     {
-      if (BIF_SYMB(temp) == symb)
-	BIF_SYMB(temp) = new;
-      replaceSymbInExpression(BIF_LL1(temp), symb,new);
-      replaceSymbInExpression(BIF_LL2(temp), symb,new);
-      replaceSymbInExpression(BIF_LL3(temp), symb,new);
-      if (fin && (temp == fin))
-        break;
-    }  
+        if (BIF_SYMB(temp) == symb)
+            BIF_SYMB(temp) = new;
+        replaceSymbInExpression(BIF_LL1(temp), symb, new);
+        replaceSymbInExpression(BIF_LL2(temp), symb, new);
+        replaceSymbInExpression(BIF_LL3(temp), symb, new);
+        if (fin && (temp == fin))
+            break;
+    }
 }
 
 /***************************************************************************/
@@ -8715,78 +8711,73 @@ PTR_LLND exp;
 }
 
 /*podd 06.06.06*/
-
-void updateTypeAndSymbolInStmts(stmt, last, oldsymb, newsymb)
-     PTR_SYMB oldsymb, newsymb;
-     PTR_BFND stmt,last;
+void updateTypeAndSymbolInStmts(PTR_BFND stmt, PTR_BFND last, PTR_SYMB oldsymb, PTR_SYMB newsymb)
 {
-  PTR_TYPE type,new;
- 
-  type = SYMB_TYPE(oldsymb);
-  new = duplicateTypeAcrossFiles(type);
-  SYMB_TYPE(newsymb) = new;
-  replaceTypeInStmts(stmt, last, type, new);
-  replaceSymbInStmts(stmt,last,oldsymb,newsymb);
+    PTR_TYPE type, new;
+
+    type = SYMB_TYPE(oldsymb);
+    new = duplicateTypeAcrossFiles(type);
+    SYMB_TYPE(newsymb) = new;
+    replaceTypeInStmts(stmt, last, type, new);
+    replaceSymbInStmts(stmt, last, oldsymb, newsymb);
 }
 
 
-void updateTypesAndSymbolsInBodyOfRoutine(symb, stmt, new_stmt, where)
-     PTR_BFND stmt, new_stmt, where;
-     PTR_SYMB symb;
+void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND new_stmt, PTR_BFND where)
 {
-  PTR_SYMB oldsymb, param, newsymb, until;
-  PTR_BFND last;
-  PTR_TYPE type;
-  /*int isparam;*/
-  if (!stmt)
-    return;
-  last = getLastNodeOfStmt(stmt);
+    PTR_SYMB oldsymb, param, newsymb, until;
+    PTR_BFND last;
+    PTR_TYPE type;
+    /*int isparam;*/
+    if (!stmt)
+        return;
+    last = getLastNodeOfStmt(stmt);
 
-  if(BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last))!=COMMENT_STAT )
-    until = BIF_SYMB(BIF_NEXT(last));   
-  else
-    until = SYMB_NEXT(last_file_symbol);    //last_file_symbol is last symbol of source file's Symbol Table
-  
-  param = SYMB_FUNC_PARAM (symb);
-  for(oldsymb=SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb=SYMB_NEXT(oldsymb))
-  {  if(SYMB_SCOPE(oldsymb) == stmt) 
-       {              /*
-                       isparam = 0;
-                       while (param)
-                         {
-                           if (param == oldsymb )
-                             {
-                               isparam = 1;
-                               break;
-                             }
-                           param  = SYMB_NEXT_DECL (param );
-                         }
-                       if (! isparam)
-                      */
+    if (BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last)) != COMMENT_STAT)
+        until = BIF_SYMB(BIF_NEXT(last));
+    else
+        until = SYMB_NEXT(last_file_symbol);    //last_file_symbol is last symbol of source file's Symbol Table
 
-                       if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
-
-                         {
-                           newsymb = duplicateSymbolOfRoutine(oldsymb, where);
-                           /*newsymb = duplicateSymbolAcrossFiles(oldsymb, where);)*/
-                           SYMB_SCOPE(newsymb) = new_stmt;
-                           updateTypeAndSymbolInStmts(stmt, last, oldsymb, newsymb);
-                         }
-
-       }     
-  }
-
- param = SYMB_FUNC_PARAM (new_stmt->entry.Template.symbol);
- while (param)
- { type=param->type;
-   param  = SYMB_NEXT_DECL (param );
-
-  if (isAtomicType(TYPE_CODE(type)) || TYPE_CODE(type)==T_ARRAY)
+    param = SYMB_FUNC_PARAM(symb);
+    for (oldsymb = SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb = SYMB_NEXT(oldsymb))
     {
-      if (TYPE_RANGES(type))
-        updateExpression(TYPE_RANGES(type),symb,new_stmt->entry.Template.symbol);
+        if (SYMB_SCOPE(oldsymb) == stmt)
+        {              /*
+                        isparam = 0;
+                        while (param)
+                          {
+                            if (param == oldsymb )
+                              {
+                                isparam = 1;
+                                break;
+                              }
+                            param  = SYMB_NEXT_DECL (param );
+                          }
+                        if (! isparam)
+                       */
+
+            if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
+            {
+                newsymb = duplicateSymbolOfRoutine(oldsymb, where);
+                //newsymb = duplicateSymbolAcrossFiles(oldsymb, where);
+                SYMB_SCOPE(newsymb) = new_stmt;
+                updateTypeAndSymbolInStmts(new_stmt, getLastNodeOfStmt(new_stmt), oldsymb, newsymb);
+            }
+        }
     }
- }
+
+    param = SYMB_FUNC_PARAM(new_stmt->entry.Template.symbol);
+    while (param)
+    {
+        type = param->type;
+        param = SYMB_NEXT_DECL(param);
+
+        if (isAtomicType(TYPE_CODE(type)) || TYPE_CODE(type) == T_ARRAY)
+        {
+            if (TYPE_RANGES(type))
+                updateExpression(TYPE_RANGES(type), symb, new_stmt->entry.Template.symbol);
+        }
+    }
 }
 
 PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)

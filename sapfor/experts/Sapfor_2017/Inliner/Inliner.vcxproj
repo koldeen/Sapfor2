@@ -102,11 +102,13 @@
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>..\_lib\x64\Release;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>..\_lib\x64\Release_Vis;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -118,6 +120,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>..\_lib\x64\Debug;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -146,6 +149,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
@@ -163,6 +167,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -189,6 +194,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -229,11 +235,6 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\InlineExpansion\hlp.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\InlineExpansion\inliner.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\InlineExpansion\inl_exp.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

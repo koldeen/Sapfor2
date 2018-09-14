@@ -107,7 +107,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>C:\local\boost_1_68_0\;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>..\_lib\x64\Debug;C:\local\boost_1_68_0\lib64-msvc-14.1\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -123,15 +124,15 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>C:\local\boost_1_68_0\;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)\_bin\$(Platform)\$(Configuration)\</OutDir>
-    <LibraryPath>..\_lib\boost_release_68;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <LibraryPath>..\_lib\x64\Release;C:\local\boost_1_68_0\lib64-msvc-14.1\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\_src;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>C:\local\boost_1_68_0\;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <OutDir>C:\Users\kolganov\Documents\visualizer\Visual_DVM\Visual_DVM\bin\Release\Components\</OutDir>
-    <LibraryPath>..\_lib\boost_release_68;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <LibraryPath>..\_lib\x64\Release_Vis;C:\local\boost_1_68_0\lib64-msvc-14.1\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -160,6 +161,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -215,6 +217,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
@@ -231,6 +234,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SageOldSrc.lib;SageNewSrc.lib;SageLib.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -300,17 +304,17 @@
     <ClCompile Include="..\_src\SageAnalysisTool\intrinsic.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\invariant.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\loopTransform.cpp" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.c" />
-    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.c" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.cpp" />
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
     <ClCompile Include="..\_src\Sapfor.cpp" />
     <ClCompile Include="..\_src\Utils\BoostStackTrace.cpp" />
@@ -375,11 +379,6 @@
     <ClInclude Include="..\_src\VisualizerCalls\get_information.h" />
     <ClInclude Include="..\_src\VisualizerCalls\SendMessage.h" />
     <ClInclude Include="resource.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

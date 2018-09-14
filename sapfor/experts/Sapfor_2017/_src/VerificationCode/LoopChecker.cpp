@@ -79,7 +79,10 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
                 break;
 
             if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
+            {
                 errors[st->fileName()].push_back(st->lineNumber());
+                checkOK = false;
+            }
         }
     }
 

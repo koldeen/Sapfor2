@@ -93,13 +93,11 @@ uint prob_add_zero_GEQ(Problem *p, int color)
 
 /* delta = access1 - access2, so for flow dep, delta = write - read */
 
-void set_deltas(Problem *p, int delta_color,
-    range *deltas, range *a1, range *a2)
+void set_deltas(Problem *p, int delta_color, range *deltas, range *a1, range *a2)
 {
     uint e, c;
 
-    assert(r_length(deltas) <= r_length(a1)
-        && r_length(deltas) <= r_length(a2));
+    assert(r_length(deltas) <= r_length(a1) && r_length(deltas) <= r_length(a2));
 
     for (e = 0; e < r_length(deltas); e++) {
         c = prob_add_zero_EQ(p, delta_color);

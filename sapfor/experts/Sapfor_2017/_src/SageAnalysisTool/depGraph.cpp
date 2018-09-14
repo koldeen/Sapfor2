@@ -1232,7 +1232,7 @@ int  depGraph::computeSCC(SgStatement *stmtin)
 // function  store_dependence
 ///////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" int toBeCalledByOmegaTest(int tdep, int kdep, int *dist, int *kdist, int le, int from, int to)
+extern int toBeCalledByOmegaTest(int tdep, int kdep, int *dist, int *kdist, int le, int from, int to)
 {
     if (!currentDepGraph)
     {
