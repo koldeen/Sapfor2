@@ -652,6 +652,30 @@ static void copyFunction(ParallelRegion *region,
         newFuncSymb->changeName(newFuncName.c_str());
         file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
+        // create copy function symbol in other region files
+        for (auto &fileSymbs : region->GetFuncSymbols())
+        {
+            if (fileSymbs.first != file->filename())
+            {
+                if (SgFile::switchToFile(fileSymbs.first) != -1)
+                {
+                    for (auto symb = current_file->firstSymbol(); symb; symb = symb->next())
+                    {
+                        if (symb->variant() == PROCEDURE_NAME && symb->identifier() == func->funcName)
+                        {
+                            newFuncSymb = new SgSymbol(FUNCTION_NAME, newFuncName.c_str());
+                            region->AddFuncSymbols(fileSymbs.first, symb, newFuncSymb);
+                        }
+                    }
+                }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
+
+        if (SgFile::switchToFile(func->fileName) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         //__spf_print(1, "after function '%s' copy\n", funcSymb->identifier()); // remove
         //symbPrint(file); // remove
         //funcPrint(func); // remove
