@@ -592,16 +592,21 @@ std::string GetConditionWithLineNumber(ControlFlowItem* eit)
 }
 
 std::string GetActualCondition(ControlFlowItem** pItem) {
-    std::string res;
+    std::string res = "";
     ControlFlowItem* eit = *pItem;
-    while (true) {
-        if (eit == NULL || eit->getJump() != NULL || eit->getStatement() != NULL) {
-            if (eit && eit->getJump() != NULL) {
-                if (eit->getExpression() != NULL) {
+    while (true) 
+    {
+        if (eit == NULL || eit->getJump() != NULL || eit->getStatement() != NULL) 
+        {
+            if (eit && eit->getJump() != NULL) 
+            {
+                if (eit->getExpression() != NULL) 
+                {
                     *pItem = eit;
                     return GetConditionWithLineNumber(eit);
                 }
-                else {
+                else 
+                {
                     *pItem = NULL;
                     return res;
                 }

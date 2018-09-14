@@ -355,6 +355,20 @@ void transformShadowIfFull(SgFile *file, const map<DIST::Array*, set<DIST::Array
     }
 }
 
+static SgStatement *getLast(SgStatement *nextStart, SgStatement *st, SgStatement *end)
+{
+    SgStatement *last = st;
+    if (nextStart->lineNumber() > st->lineNumber())
+    {
+        if (nextStart->lineNumber() > end->lineNumber())
+            last = nextStart->controlParent()->lastNodeOfStmt();
+        else
+            last = end;
+    }
+
+    return last;
+}
+
 static void findNext(SgStatement *st, SgStatement *end, vector<pair<ShadowNode*, set<string>>> &next,  const map<void*, ShadowNode*> &allShadowNodes, 
                      const ShadowNode *currDir, map<int, SgStatement*> &labeledStmts, set<string> arrayAssigns)
 {
@@ -420,8 +434,10 @@ static void findNext(SgStatement *st, SgStatement *end, vector<pair<ShadowNode*,
                 SgGotoStmt *gotoS = (SgGotoStmt*)st;
                 int labNum = gotoS->branchLabel()->thelabel->stateno;
                 auto nextStart = labeledStmts[labNum];
-
-                findNext(nextStart, nextStart->lineNumber() < st->lineNumber() ? st : end, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
+                
+                SgStatement *last = getLast(nextStart, st, end);                
+                findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
+                
                 break;
             }
             else if (var == COMGOTO_NODE)
@@ -439,7 +455,8 @@ static void findNext(SgStatement *st, SgStatement *end, vector<pair<ShadowNode*,
                 for (auto &lab : uniqLab)
                 {
                     auto nextStart = labeledStmts[lab];
-                    findNext(nextStart, nextStart->lineNumber() < st->lineNumber() ? st : end, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
+                    SgStatement *last = getLast(nextStart, st, end);
+                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
                 }
                 break;
             }
@@ -468,7 +485,8 @@ static void findNext(SgStatement *st, SgStatement *end, vector<pair<ShadowNode*,
                 for (int i = 0; i < 2; ++i)
                 {
                     auto nextStart = labeledStmts[((SgLabelRefExp*)(arith->label(i)))->label()->thelabel->stateno];
-                    findNext(nextStart, nextStart->lineNumber() < st->lineNumber() ? st : end, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
+                    SgStatement *last = getLast(nextStart, st, end);
+                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
                 }
                 break;
             }
