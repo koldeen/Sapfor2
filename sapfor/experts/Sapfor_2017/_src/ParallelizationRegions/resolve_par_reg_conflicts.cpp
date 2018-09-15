@@ -661,9 +661,9 @@ static void copyFunction(ParallelRegion *region,
                 {
                     for (auto symb = current_file->firstSymbol(); symb; symb = symb->next())
                     {
-                        if (symb->variant() == PROCEDURE_NAME && symb->identifier() == func->funcName)
+                        if ((symb->variant() == PROCEDURE_NAME || symb->variant() == FUNCTION_NAME) && symb->identifier() == func->funcName)
                         {
-                            newFuncSymb = new SgSymbol(FUNCTION_NAME, newFuncName.c_str());
+                            newFuncSymb = new SgSymbol(symb->variant(), newFuncName.c_str());
                             region->AddFuncSymbols(fileSymbs.first, symb, newFuncSymb);
                         }
                     }
