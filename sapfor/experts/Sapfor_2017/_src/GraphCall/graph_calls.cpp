@@ -851,8 +851,11 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
     }
 }
 
-int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile, set<string> &V, vector<string> &E)
+int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile, map<string, CallV> &V, vector<string> &E)
 {
+    map<string, FuncInfo*> allFuncs;
+    createMapOfFunc(funcByFile, allFuncs);
+
     string graph = "";
     graph += "digraph G{\n";
 
@@ -897,6 +900,8 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
         for (int k = 0; k < dimSize; ++k)
         {
             const string &callFrom = it->second[k]->funcName;
+            const FuncInfo *callFromP = it->second[k];
+
             for (auto &i : it->second[k]->callsFrom)
             {
                 sprintf(buf, formatString, callFrom.c_str(), i.c_str());
@@ -906,10 +911,20 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
                     unknownCluster.insert(callFrom);
                 if (inCluster.find(i) == inCluster.end())
                     unknownCluster.insert(i);
-                                
-                V.insert(i);
-                V.insert(callFrom);
-
+                
+                if (V.find(callFrom) == V.end())
+                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                if (V.find(i) == V.end())
+                {
+                    auto it = allFuncs.find(i);
+                    auto currF = it->second;
+                    if (it == allFuncs.end())
+                        V[i] = CallV(i);
+                    else
+                        V[i] = CallV(i, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                }
+                
+                
                 E.push_back(callFrom);
                 E.push_back(i);                
             }

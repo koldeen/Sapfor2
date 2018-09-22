@@ -67,6 +67,30 @@
     <Filter Include="Файлы исходного кода\Inliner">
       <UniqueIdentifier>{6adb59da-08fb-4506-a8b1-37527a084d54}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы исходного кода\DEAR">
+      <UniqueIdentifier>{9448c15c-2941-4027-9572-c93f1a6ff97b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\Addons">
+      <UniqueIdentifier>{4c0ba5aa-da18-46fc-bc1f-96911c5f9407}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\Addons\collection">
+      <UniqueIdentifier>{755323a3-a0cd-4bb7-8702-85094f583d23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\Addons\exception">
+      <UniqueIdentifier>{228b9660-f2ca-4bc3-bd23-952073d6d2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\Addons\expression">
+      <UniqueIdentifier>{b5f073e9-d5ce-4f2a-8a1f-6d09758c68e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\Addons\math">
+      <UniqueIdentifier>{ddca3615-cd4a-43be-9210-42fb7307e507}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\depAnalysis">
+      <UniqueIdentifier>{f2245098-220c-4cb0-a16e-2ef87cf5e154}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы исходного кода\DEAR\includes">
+      <UniqueIdentifier>{cadd49f1-1b0b-4078-a9e7-5f1bfb163c9f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
@@ -273,6 +297,33 @@
     <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.cpp">
       <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\DEAR\help.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\ivar_collection.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\memory_unit.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_collection.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_routine_call.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\database.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -406,6 +457,240 @@
     </ClInclude>
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\macros.h">
+      <Filter>Файлы исходного кода\DEAR\Addons</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\object.h">
+      <Filter>Файлы исходного кода\DEAR\Addons</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\collection\coll_list_element.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\collection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\collection\collection.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\collection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\collection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_new_mem_size.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\exception</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_null_pointer.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\exception</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_type_cast.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\exception</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\exception\exception.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\exception</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\exception\main_exception.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\exception</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_exception.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_language.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_variable.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expression.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\int_expression.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\linear_expression.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_equations.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_functions.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var_1.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var_2.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_sle_two_var.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\additional\math\math_slie_tv_param.h">
+      <Filter>Файлы исходного кода\DEAR\Addons\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\debug.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\isg_expression.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop_t_print.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\coll_list.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\index_variable.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\ivar_collection.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\program_unit.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_call_region.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_collection.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_file.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_r_call_collection.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_r_call_list.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_routine.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_routine_call.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tn_loops.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_exception.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_region_usage.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_ru_collection.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\memory_unit.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_array.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_array_usage.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_collection.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_dimension.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_exception.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_scalar.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_scalar_usage.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_usage.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_array_preproc.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_chain.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_controller.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_exception.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_index_info.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_scalar.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_status.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_tree_browse.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_usages.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\routine\test_r_arr_p.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\routine\test_usage_in_r.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_cond.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_cond_str.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_info.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_range_cond.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dependence.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dependence_1.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_info.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\math_gcd.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_gcd.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_i_const.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_i_linear2.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_il_2_cstep.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_index.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_read_only.h">
+      <Filter>Файлы исходного кода\DEAR\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\anl.h">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DEAR\dep_analyzer.h">
+      <Filter>Файлы исходного кода\DEAR</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

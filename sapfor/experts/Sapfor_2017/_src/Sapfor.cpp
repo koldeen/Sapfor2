@@ -43,6 +43,8 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+//#include "DEAR/dep_analyzer.h"
+
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
 #endif
@@ -709,12 +711,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             restoreConvertedLoopForParallelLoops(file, true);
         else if (curr_regime == SHADOW_GROUPING)
         {
+            // TODO: temporary disabled
+            /*
             //TODO for all parallel regions
             if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
             {
                 for (int z = 0; z < parallelRegions.size(); ++z)
                     GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
-            }
+            }*/
         }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
         {
@@ -726,6 +730,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
     } // end of FOR by files
@@ -899,7 +904,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         if (keepFiles)
         {
-            set<string> V;
+            map<string, CallV> V;
             vector<string> E;
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
