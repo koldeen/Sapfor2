@@ -158,6 +158,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
+      <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -212,6 +213,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -229,6 +231,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -242,6 +245,15 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp" />
+    <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp" />
+    <ClCompile Include="..\_src\DEAR\database.cpp" />
+    <ClCompile Include="..\_src\DEAR\dep_cpp\ivar_collection.cpp" />
+    <ClCompile Include="..\_src\DEAR\dep_cpp\memory_unit.cpp" />
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_collection.cpp" />
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_routine_call.cpp" />
+    <ClCompile Include="..\_src\DEAR\help.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
@@ -336,6 +348,84 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
+    <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
+    <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h" />
+    <ClInclude Include="..\_src\DEAR\additional\collection\coll_list_element.h" />
+    <ClInclude Include="..\_src\DEAR\additional\exception\exception.h" />
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_new_mem_size.h" />
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_null_pointer.h" />
+    <ClInclude Include="..\_src\DEAR\additional\exception\ex_type_cast.h" />
+    <ClInclude Include="..\_src\DEAR\additional\exception\main_exception.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expression.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_exception.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_language.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\expr_variable.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\int_expression.h" />
+    <ClInclude Include="..\_src\DEAR\additional\expression\h\linear_expression.h" />
+    <ClInclude Include="..\_src\DEAR\additional\macros.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_equations.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_functions.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var_1.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_le_two_var_2.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_sle_two_var.h" />
+    <ClInclude Include="..\_src\DEAR\additional\math\math_slie_tv_param.h" />
+    <ClInclude Include="..\_src\DEAR\additional\object.h" />
+    <ClInclude Include="..\_src\DEAR\anl.h" />
+    <ClInclude Include="..\_src\DEAR\dep_analyzer.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\debug.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\isg_expression.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\coll_list.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\index_variable.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\ivar_collection.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\program_unit.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_call_region.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_collection.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_file.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_routine.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_routine_call.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_r_call_collection.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\pu_r_call_list.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_exception.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_region_usage.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tnl_ru_collection.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop\tn_loops.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\loop_t_print.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\memory_unit.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_array.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_array_usage.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_collection.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_dimension.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_exception.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_scalar.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_scalar_usage.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\mu\mu_usage.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\math_gcd.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_gcd.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_il_2_cstep.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_index.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_i_const.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_i_linear2.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\array\test_read_only.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dependence.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dependence_1.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_cond.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_cond_str.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_info.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_dep_range_cond.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\dependence\test_info.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\routine\test_r_arr_p.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\routine\test_usage_in_r.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_array_preproc.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_chain.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_controller.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_exception.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_index_info.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_scalar.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_status.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_tree_browse.h" />
+    <ClInclude Include="..\_src\DEAR\dep_h\test\test_usages.h" />
     <ClInclude Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h" />
     <ClInclude Include="..\_src\Distribution\Array.h" />
     <ClInclude Include="..\_src\Distribution\Arrays.h" />

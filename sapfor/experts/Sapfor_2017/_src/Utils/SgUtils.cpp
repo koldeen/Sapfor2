@@ -56,21 +56,8 @@ static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<
     return retVal;
 }
 
-//TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
-    fflush(NULL);
-    int funcNum = file->numberOfFunctions();
-    FILE *currFile = fopen(fileName, "r");
-    if (currFile == NULL)
-    {
-        char buf[256];
-        sprintf(buf, "ERROR: Can't open file %s for read", fileName);
-        addToGlobalBufferAndPrint(buf);
-        throw(-1);
-    }
-
-    // name -> unparse comment
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
     bool notClosed = false;
     // TODO: extend buff size in dynamic
@@ -134,7 +121,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
-            else
+            else if (line[0] != 'c' && line[0] != '!' && line != "")
             {
                 if (notClosed)
                 {
@@ -149,9 +136,29 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         ++lineBefore;
     }
 
+    return includeFiles;
+}
+
+//TODO: read includes and find last lines, all included files
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+{
+    fflush(NULL);
+    int funcNum = file->numberOfFunctions();
+    FILE *currFile = fopen(fileName, "r");
+    if (currFile == NULL)
+    {
+        char buf[256];
+        sprintf(buf, "ERROR: Can't open file %s for read", fileName);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
+    }
+
+    // name -> unparse comment
+    map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
+    
     const string fileN = file->filename();
     //insert comment
-    lineBefore = -1;
+    int lineBefore = -1;
 
     map<string, vector<pair<int, int>> > insertedIncludeFiles;
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())

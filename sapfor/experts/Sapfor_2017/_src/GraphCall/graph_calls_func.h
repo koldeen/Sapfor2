@@ -7,7 +7,7 @@
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 
-int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::set<std::string> &V, std::vector<std::string> &E);
+int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::map<std::string, CallV> &V, std::vector<std::string> &E);
 std::string removeString(const std::string toRemove, const std::string inStr);
 FuncInfo* isUserFunctionInProject(const std::string &func);
 std::string convertToString(const FuncInfo *currFunc);

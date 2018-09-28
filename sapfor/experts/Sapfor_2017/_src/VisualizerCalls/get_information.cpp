@@ -325,13 +325,13 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     {
         runPassesForVisualizer(projName, { CALL_GRAPH2 });
 
-        set<string> V;
+        map<string, CallV> V;
         vector<string> E;
         CreateCallGraphViz(NULL, allFuncInfo, V, E);
         
         string graph = to_string(V.size()) += "|";
         for (auto &v : V)
-            graph += v + "|";
+            graph += v.second.to_string() + "|";
 
         graph += to_string(E.size()) + "|";
         for (auto &e : E)

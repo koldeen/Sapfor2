@@ -103,3 +103,26 @@ struct FuncInfo
 
     void setIsCoveredByRegion() { isCoveredByRegion = true; }
 };
+
+struct CallV
+{
+    std::string fName;
+    std::string fileName;
+    bool isMain;
+
+    CallV() { }
+
+    CallV(const std::string &fName) :
+        fName(fName), fileName(""), isMain(false)
+    { }
+
+    CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
+        fName(fName), fileName(fileName), isMain(isMain) 
+    { }
+
+    std::string to_string()
+    {
+        return fName + "@" + fileName + "@" + (isMain ? "1" : "0");
+    }
+};
+
