@@ -3,12 +3,12 @@
 #include <malloc.h>
 #include <string.h>
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
 
-#if _WIN32 && NDEBUG
+#if __SPF && NDEBUG
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -26,11 +26,11 @@ extern int passDone;
 #include "OmegaForSage/include/portable.h"
 #include "OmegaForSage/include/affine.h"
 
-extern "C" void SetSTuff();
+extern void SetSTuff();
 extern "C" void SetOmegaDebug();
 extern "C" void initAnnotation();
 extern "C" void Look_For_Align_Declaration();
-extern "C" void dd_omega_test(...);
+extern void dd_omega_test(a_access access1, a_access access2, ddnature oitype, ddnature iotype, uint nest1, uint nest2, uint bnest);
 
 ///////////////////////////////////////////////////////////////////////////
 // Some global declaration 
@@ -80,7 +80,7 @@ affine_expr *makeOmegaAffine(int size, var_id *induc, int *linear, int cst, int 
     if (WarningOutForNegativeStep)
         return  &not_affine;
     ptaff = new affine_expr;
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, ptaff, 1);
 #endif
     setForDealocatingMemory->addElement((void *)ptaff);
@@ -120,7 +120,7 @@ int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, const Set *induc, var
         if (firstiter)
         {
             itern->next = new struct omegaIterator;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, itern->next, 1);
 #endif
             setForDealocatingMemory->addElement((void *)itern->next);
@@ -130,7 +130,7 @@ int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, const Set *induc, var
         else
         {
             itern = new struct omegaIterator;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, itern, 1);
 #endif
             setForDealocatingMemory->addElement((void *)itern);
@@ -153,7 +153,7 @@ int fillOmegaAccess(PT_ACCESSARRAY  el1, a_access access1, const Set *induc, var
 
     //
     access1->str = new char[256];
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, access1->str, 2);
 #endif
     setForDealocatingMemory->addElement((void *)access1->str);
@@ -230,7 +230,7 @@ context_iterator makeOmegaIf(int depth, SgStatement  *stmt, context_iterator nex
         return NULL;
     // dealing with the conditions later...
     contiter = new struct omegaContIter;
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, contiter, 1);
 #endif
     setForDealocatingMemory->addElement((void *)contiter);
@@ -240,7 +240,7 @@ context_iterator makeOmegaIf(int depth, SgStatement  *stmt, context_iterator nex
     contiter->line = stmt->lineNumber();
     contiter->loop = NULL;
     ifstat = new struct omegaIf;
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, ifstat, 1);
 #endif
     setForDealocatingMemory->addElement((void *)ifstat);
@@ -371,7 +371,7 @@ context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, const Set *induc, var_id *in
 
 
             contiter = new struct omegaContIter;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, contiter, 1);
 #endif
             setForDealocatingMemory->addElement((void *)contiter);
@@ -382,7 +382,7 @@ context_iterator fillOmegaLoop(PT_ACCESSARRAY  el1, const Set *induc, var_id *in
             contiter->line = cur->stmt->lineNumber();
             currentstmt = cur->stmt;
             contiter->loop = new struct omegaLoop;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, contiter->loop, 1);
 #endif
             setForDealocatingMemory->addElement((void *)contiter->loop);
@@ -555,7 +555,7 @@ static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc,
     }
     // create the set for deallocation of memory;
     setForDealocatingMemory = new Set(dummyEqual, NULL, dummyPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, setForDealocatingMemory, 1);
 #endif
     setForDealocatingMemory->setDealllocateElem();
@@ -569,9 +569,9 @@ static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc,
     for (j = 0; j < induc->size(); j++)
     {
         ind = (PT_INDUCVAR)induc->getElement(j);
-        ptvar = new struct omegaVar;
-#ifdef _WIN32
-        addToCollection(__LINE__, __FILE__, ptvar, 1);
+        ptvar = (omegaVar*)malloc(sizeof(omegaVar));
+#ifdef __SPF
+        addToCollection(__LINE__, __FILE__, ptvar, 0);
 #endif
         setForDealocatingMemory->addElement((void *)ptvar);
         inducom1[j] = ptvar;
@@ -602,13 +602,13 @@ static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc,
         }
     }
 
-    access1 = new struct omegaAccess;
+    access1 = (omegaAccess*)malloc(sizeof(omegaAccess));
     setForDealocatingMemory->addElement((void *)access1);
-    access2 = new struct omegaAccess;
+    access2 = (omegaAccess*)malloc(sizeof(omegaAccess));
     setForDealocatingMemory->addElement((void *)access2);
-#ifdef _WIN32
-    addToCollection(__LINE__, __FILE__, access1, 1);
-    addToCollection(__LINE__, __FILE__, access2, 1);
+#ifdef __SPF
+    addToCollection(__LINE__, __FILE__, access1, 0);
+    addToCollection(__LINE__, __FILE__, access2, 0);
 #endif
     firstcontiter = fillOmegaLoop(el1, induc, inducom1, tsymb, &inif, setForDealocatingMemory);
     firstcontiter1 = firstcontiter;
@@ -673,7 +673,7 @@ static int isDependent(PT_ACCESSARRAY el1, PT_ACCESSARRAY el2, const Set *induc,
     }
     countOfNodes = nodes.size();
     // should delete all allocated space;
-#ifdef _WIN32
+#ifdef __SPF
     removeFromCollection(setForDealocatingMemory);
 #endif
     delete setForDealocatingMemory;
@@ -691,7 +691,7 @@ int beforeInText(SgStatement *func, SgStatement *stmt1, SgStatement *stmt2)
 
     if (!func || !stmt1 || !stmt2)
         return -1;
-    func->lastNodeOfStmt();
+    last = func->lastNodeOfStmt();
     for (temp = func; temp && (temp != last); temp = temp->lexNext())
     {
         if (temp == stmt1)
@@ -726,7 +726,7 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     int countOfNodes = currentDepGraph->getNodes().size();
     for (i = 0; i < inset->size(); i++)
     {
-#if _WIN32 && NDEBUG
+#if __SPF && NDEBUG
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif

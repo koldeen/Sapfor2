@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,11 +20,11 @@
 #include "../Distribution/Distribution.h"
 
 #include "graph_loops.h"
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 
-#include "../errors.h"
-#include "../AstWrapper.h"
+#include "../Utils/errors.h"
+#include "../Utils/AstWrapper.h"
 
 using std::vector;
 using std::map;
@@ -417,6 +417,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == FOR_NODE)
             {
@@ -451,6 +454,41 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);
                 }
+                else
+                {
+                    SgExpression *start = currLoopRef->start();
+                    SgExpression *end = currLoopRef->end();
+                    SgExpression *step = currLoopRef->step();
+
+                    Expression *endE = NULL;
+                    Expression *startE = NULL;
+                    if (step == NULL)
+                    {
+                        startE = new Expression(start);
+                        endE = new Expression(end);
+                    }
+                    else
+                    {
+                        int res = -1;
+                        int err = CalculateInteger(step, res);
+                        if (err == 0 && res != 0)
+                        {
+                            if (res > 0)
+                            {
+                                startE = new Expression(start);
+                                endE = new Expression(&((*end - *start + *step) / *step));
+                            }
+                            else
+                            {
+                                endE = new Expression(end);
+                                endE = new Expression(&((*start - *end + *step) / *step));
+                            }
+                        }
+                    }
+
+                    newLoop->startEndExpr = std::make_pair(startE, endE);
+                }
+
                 newLoop->loop = new Statement(st);
 
                 SgStatement *lexPrev = st->lexPrev();
@@ -534,15 +572,23 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
 }
 
+static int calculateNormalChildSize(const LoopGraph *currLoop)
+{
+    int count = 0;
+    for (auto &elem : currLoop->childs)
+        count += (elem->lineNum > 0) ? 1 : 0;
+    return count;
+}
+
 void convertToString(const LoopGraph *currLoop, string &result)
 {
-    if (currLoop)
+    if (currLoop && currLoop->lineNum > 0)
     {
         char buf[512];
         result += " " + std::to_string(currLoop->calls.size());
         for (int i = 0; i < currLoop->calls.size(); ++i)
             result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        printToBuffer(currLoop, calculateNormalChildSize(currLoop), buf);
         result += string(buf);
 
         result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());

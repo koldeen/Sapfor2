@@ -49,13 +49,10 @@ dvm/tools/
 dvm/CMakeLists.txt
 dvm/.svn/
 dvm/fdvm/branches/
-#these are temporary, remove later
-dvm.proj
-.cproject
-*.dep
-.project
-**/*.o
-sapfor/experts/Sapfor_2017/Sapfor/dvm.proj 
-sapfor/experts/Sapfor_2017/Sapfor/nbproject/
-sapfor/experts/Sapfor_2017/Sapfor/test.dep
-#till here
+sapfor/experts/Sapfor_2017/TransformCommonLib/TransformCommonLib.vcxproj.user
+sapfor/experts/Sapfor_2017/SageOldSrc/SageOldSrc.vcxproj.user
+sapfor/experts/Sapfor_2017/SageNewSrc/SageNewSrc.vcxproj.user
+sapfor/experts/Sapfor_2017/SageLib/SageLib.vcxproj.user
+sapfor/experts/Sapfor_2017/Inliner/Inliner.vcxproj.user
+sapfor/experts/Sapfor_2017/TransformUtils/TransformUtils.vcxproj.user
+sapfor/experts/Sapfor_2017/Parser/Parser.vcxproj.user

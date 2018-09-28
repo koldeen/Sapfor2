@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -6,20 +6,27 @@
 #include <cstdint>
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <string>
 
 using std::vector;
 using std::map;
+using std::unordered_map;
+using std::tuple;
 using std::set;
 using std::string;
 using std::pair;
 using std::make_pair;
+using std::get;
 
 #include "graph_loops.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
+#ifdef _WIN32
+#include "../VisualizerCalls/get_information.h"
+#endif
 
 static void fillWriteReadOps(LoopGraph *&currLoop, DIST::Array *symbol, const ArrayInfo *arrayOps)
 {
@@ -73,6 +80,15 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
             for (int i = 0; i < depth - 2; ++i)
                 part2 = part2->childs[0];
 
+            set<DIST::Array*> newToAdd;
+
+            for (auto it = part1->readOps.begin(); it != part1->readOps.end(); ++it)
+            {
+                auto it2 = part2->readOps.find(it->first);
+                if (it2 == part2->readOps.end())
+                    newToAdd.insert(it->first);
+            }
+
             for (auto it = part2->readOps.begin(); it != part2->readOps.end(); ++it)
             {
                 auto it2 = part1->readOps.find(it->first);
@@ -87,6 +103,10 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
                         it->second.second[i] = it->second.second[i] || toAddUnrecReads[i];
                 }
             }
+
+            for (auto &arrayMissed : newToAdd)
+                part2->readOps[arrayMissed] = part1->readOps[arrayMissed];
+
             depth--;
         }
     }
@@ -186,6 +206,53 @@ void processLoopInformationForFunction(map<LoopGraph*, map<DIST::Array*, const A
         uniteChildReadInfo(it->first);
 }
 
+#define GROUP_BY_REQUEST 1
+
+#if GROUP_BY_REQUEST
+class GroupItem
+{
+private:
+    int maxDim1;
+    int maxDim2;
+    vector<pair<pair<int, int>, map<attrType, double>>> coeffs;    
+
+public:
+    GroupItem(int maxD1, int maxD2) : maxDim1(maxD1), maxDim2(maxD2), coeffs(maxD1 * maxD2) { }
+    void inline AddToGroup(int dim1, int dim2, const attrType &key, const double currW)
+    {
+        int pos = dim2 * maxDim1 + dim1;
+        auto &current = coeffs[pos];
+        current.first = make_pair(dim1, dim2);
+
+        auto it = current.second.find(key);
+        if (it == current.second.end())
+            it = current.second.insert(it, make_pair(key, 0.0));
+        it->second += currW;
+    }
+
+    const vector<pair<pair<int, int>, map<attrType, double>>>& GetCoeffs() const { return coeffs; }
+};
+#endif
+
+static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
+                            DIST::Arrays<int> &allArrays,
+                            const map<pair<DIST::Array*, DIST::Array*>, GroupItem> &group,
+                            const links linkType)
+{
+    for (auto &elem : group)
+    {
+        DIST::Array *from = elem.first.first;
+        DIST::Array *to = elem.first.second;
+                
+        for (auto &coeffs : elem.second.GetCoeffs())
+        {
+            const auto &arc = coeffs.first;
+            for (auto &weight : coeffs.second)
+                AddArrayAccess(G, allArrays, from, to, arc, weight.second, weight.first, linkType);
+        }
+    }
+}
+
 static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        DIST::Arrays<int> &allArrays,
                        const double currWeight,
@@ -193,6 +260,11 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        const ArrayInfo *to, DIST::Array *toSymb)
 {
     bool loopHasWrite = false;
+#if GROUP_BY_REQUEST
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> ww_links;
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> wr_links;
+    map<pair<DIST::Array*, DIST::Array*>, GroupItem> rr_links;
+#endif
 
     // add W-R and W-W
     for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
@@ -207,10 +279,32 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                 for (int z = 0; z < (int)from->writeOps[dimFrom].coefficients.size(); ++z)
                 {
                     for (int z1 = 0; z1 < (int)to->writeOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                    {
+                        const auto key = make_pair(fromSymb, toSymb);
+                        auto it = ww_links.find(key);
+                        if (it == ww_links.end())
+                            it = ww_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), currWeight);
+                    }
+#else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+#endif
 
                     for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                    {
+                        const auto key = make_pair(fromSymb, toSymb);
+                        auto it = wr_links.find(key);
+                        if (it == wr_links.end())
+                            it = wr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
+                    }
+#else
                         AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
+#endif
                 }
             }
         }
@@ -224,8 +318,25 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                 if (from->readOps[dimFrom].coefficients.size() != 0 && to->readOps[dimTo].coefficients.size() != 0)
                     for (int z = 0; z < (int)from->readOps[dimFrom].coefficients.size(); ++z)
                         for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                        {
+                            const auto key = make_pair(fromSymb, toSymb);
+                            auto it = rr_links.find(key);
+                            if (it == rr_links.end())
+                                it = rr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                            it->second.AddToGroup(dimFrom, dimTo, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
+                        }
+#else
                             AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);
+#endif
     }
+
+#if GROUP_BY_REQUEST
+    addGroup(G, allArrays, ww_links, WW_link);
+    addGroup(G, allArrays, wr_links, WR_link);
+    addGroup(G, allArrays, rr_links, RR_link);
+#endif
 }
 
 //TODO: check for recursion!!
@@ -261,10 +372,13 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 {
     for (auto it = loopInfo.begin(); it != loopInfo.end(); it++)
     {
+#if _WIN32 && NDEBUG
+        createNeededException();
+#endif
         ParallelRegion *currReg = it->first->region;
         if (currReg == NULL)
         {
-            __spf_print(1, "Skip loop on line %d\n", it->first->lineNum);
+            __spf_print(1, "Skip loop on line %d - no parallel region for this loop\n", it->first->lineNum);
             continue;
         }
 
@@ -301,10 +415,11 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
     }
 }
 
-bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
+bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
 {
     ParallelRegion *currReg = loopInfo->region;
-    if (currReg == NULL || loopInfo->calculatedCountOfIters == 0 || loopInfo->hasLimitsToParallel())
+
+    if (currReg == NULL || loopInfo->hasLimitsToParallel())
     {
         __spf_print(1, "Skip loop on line %d\n", loopInfo->lineNum);
         return false;
@@ -318,8 +433,17 @@ bool addToDistributionGraph(const LoopGraph* loopInfo, const string &inFunction)
     string fullLoopName = loopInfo->genLoopArrayName(inFunction);
     string loopName = fullLoopName;
 
-    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, loopInfo->lineNum, make_pair(0, inFunction), NULL);
-
+    DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, 
+                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName());
+    
+    if (loopInfo->calculatedCountOfIters == 0)
+    {
+        if (loopInfo->startEndExpr.first && loopInfo->startEndExpr.second)
+        {
+            const vector<pair<Expression*, Expression*>> toAdd = { loopInfo->startEndExpr };
+            loopArray->SetSizesExpr(toAdd);
+        }
+    }
     loopArray->ExtendDimSize(0, make_pair(loopInfo->startVal, loopInfo->endVal));
     loopArray->setLoopArray(true);
 
@@ -412,15 +536,15 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
 }
 
 
-static void zeroAllCountIter(vector<LoopGraph*> &loops, const set<void*> &isNotOkey)
+static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &isNotOkey)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
         if (loops[i]->region)
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
-                loops[i]->countOfIters = 0;
-            zeroAllCountIter(loops[i]->childs, isNotOkey);
+                loops[i]->countOfIters = 2;
+            setToDefaultCountIter(loops[i]->childs, isNotOkey);
         }
     }
 }
@@ -452,7 +576,7 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, ve
     if (isNotOkey.size() != 0)
     {
         for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            zeroAllCountIter(it->second, isNotOkey);
+            setToDefaultCountIter(it->second, isNotOkey);
     }
 
     for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)

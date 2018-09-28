@@ -4,11 +4,13 @@
 /*********************************************************************/
 #include "leak_detector.h"
 #include <stdio.h>
+#include <stdlib.h>
+
 #include <map>
 #include <string>
 
 #ifndef __GNUC__
-# include <stdlib.h>
+
 #else
 extern "C" void abort(void);
 extern "C" void exit(int status);
@@ -673,28 +675,28 @@ void ResetbfndTableClass()
 
 void ReallocatellndTableClass()
 {
-  int i;
-  void **pt;
-  
-  pt  =  new void *[allocatedForllndTableClass + ALLOCATECHUNK];
+    int i;
+    void **pt;
+
+    pt = new void *[allocatedForllndTableClass + ALLOCATECHUNK];
 #ifdef __SPF   
-  addToCollection(__LINE__, __FILE__, pt, 2);
+    addToCollection(__LINE__, __FILE__, pt, 2);
 #endif
-  for (i=0; i<allocatedForllndTableClass + ALLOCATECHUNK; i++)
-    pt[i] = NULL;
-  for (i=0 ; i < allocatedForllndTableClass; i++)
+    for (i = 0; i < allocatedForllndTableClass + ALLOCATECHUNK; i++)
+        pt[i] = NULL;
+    for (i = 0; i < allocatedForllndTableClass; i++)
     {
-      pt[i] = llndTableClass[i];
+        pt[i] = llndTableClass[i];
     }
-  if (allocatedForllndTableClass)
-  {
+    if (allocatedForllndTableClass)
+    {
 #ifdef __SPF   
-      removeFromCollection(llndTableClass);
+        removeFromCollection(llndTableClass);
 #endif
-      delete llndTableClass;
-  }
-  llndTableClass = pt;
-  allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
+        delete llndTableClass;
+    }
+    llndTableClass = pt;
+    allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
 }
 
 void ReallocatesymbolTableClass()
@@ -1576,6 +1578,9 @@ SgProject::SgProject(const char * proj_file_name)
 
     // we have to initialize some specific data for this interface 
     CurrentProject = this;
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
 }
 
 
@@ -1854,6 +1859,9 @@ SgStatement::SgStatement(int variant)
         thebif = (PTR_BFND)newNode(variant);
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1867,6 +1875,10 @@ SgStatement::SgStatement(SgStatement &s)
     thebif = s.thebif;
 
 #if __SPF
+    fileID = s.getFileId();
+    project = s.getProject();
+    unparseIgnore = s.getUnparseIgnore();
+
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
 }
@@ -1892,6 +1904,9 @@ SgStatement::SgStatement(PTR_BFND bif)
     thebif = bif;
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1980,7 +1995,7 @@ void  SgStatement::setExpression (int i, SgExpression &e)
     }
 }
  
-SgStatement * SgStatement::nextInChildList()
+SgStatement* SgStatement::nextInChildList()
 {
   PTR_BLOB blob;
   SgStatement *x;
@@ -2003,25 +2018,10 @@ SgStatement * SgStatement::nextInChildList()
    
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char*  SgStatement::unparse()
-{
-  UnparseBif(thebif);
-  SORRY;
-  return NULL;
+std::string SgStatement::sunparse()
+{    
+    return std::string(unparse());
 }
-#endif
-
-
-#ifdef NOT_YET_IMPLEMENTED
-void  SgStatement::sunparse(char *buffer)
-{
-  UnparseBif(thebif);
-  SORRY;
-  return;
-}
-#endif
-
 
 
 #ifdef NOT_YET_IMPLEMENTED
@@ -2206,39 +2206,32 @@ SgExpression *SgExpression::operand(int i)
   return LlndMapping(ll);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char *SgExpression::unparse()
+std::string SgExpression::sunparse()
 {
-  
-  UnparseLLND(thellnd);
-  SORRY;
-  return NULL;
+    return std::string(unparse());
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
-void SgExpression::sunparse(char *buffer)
-{
-  SORRY;
-}
-#endif
 
 #define ERR_TOOMANYSYMS -1
 
-int  SgExpression::linearRepresentation(int *coeff, SgSymbol **symb,int *cst, int size)
+int SgExpression::linearRepresentation(int *coeff, SgSymbol **symb, int *cst, int size)
 {
-  PTR_SYMB ts[100];
-  int i;
-  if (!symb || !coeff || !cst)
-    return 0;
-  if (size > 100)
+    const int maxElem = 300;
+    PTR_SYMB *ts = new PTR_SYMB[maxElem];
+    int i;
+    if (!symb || !coeff || !cst)
+        return 0;
+    if (size > maxElem)
     {
-      Message (" Too many symbols in linearRepresentation ",0);
-      return ERR_TOOMANYSYMS;
+        Message(" Too many symbols in linearRepresentation ", 0);
+        return ERR_TOOMANYSYMS;
     }
-  for (i=0 ; i < size; i++)
-    ts[i] = symb[i]->thesymb;
-  return buildLinearRep(thellnd,coeff,ts,size,cst);
+    for (i = 0; i < size; i++)
+        ts[i] = symb[i]->thesymb;
+
+    int retVal = buildLinearRep(thellnd, coeff, ts, size, cst);
+    delete ts;
+    return retVal;
 }
 
 
@@ -2271,7 +2264,7 @@ int SgExpression::isInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2287,7 +2280,7 @@ int SgExpression::valueInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2364,41 +2357,47 @@ SgExpression &operator >= ( SgExpression &lhs, SgExpression &rhs)
     return makeAnBinaryExpression(GE_OP,lhs.thellnd,rhs.thellnd);
 } 
 
-SgExpression &operator & ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITAND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator | ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator |( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITOR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &&( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &&( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ||( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ||( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(OR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator +=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator +=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(PLUS_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator *=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator *=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MULT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator /=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator /=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(DIV_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator %=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MOD_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ^=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(XOR_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator <<=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(LSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator >>=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(RSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);}
+
+SgExpression& operator==(SgExpression &lhs, SgExpression &rhs)
+{ return SgEqOp(lhs, rhs); }
+
+SgExpression& operator!=(SgExpression &lhs, SgExpression &rhs)
+{ return SgNeqOp(lhs, rhs); }
 
 SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
@@ -8185,6 +8184,9 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
         break;
     }
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif

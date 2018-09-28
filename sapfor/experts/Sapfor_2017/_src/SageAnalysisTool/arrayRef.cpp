@@ -11,7 +11,7 @@
 
 #include "arrayRef.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -159,7 +159,9 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
         return NULL;
     last = stmt->lastNodeOfStmt();
     // get induction variables;
+    
     inducvar = getAllInductionVar(func, stmt, 1, &numloop, -1);
+    
     // add the constante to the induction set variable;
     // cstset = computeConstanteInStmt(func,stmt);
     //   if (cstset)
@@ -180,13 +182,13 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
     }
     tpt = inducvar;
     inducvar = inducvar->compact();
-#ifdef _WIN32
+#ifdef __SPF
     removeFromCollection(tpt);
 #endif
     delete tpt;
     *induc = inducvar;
     arset = new Set(arrayEqual, NULL, arrayPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, arset, 1);
 #endif
     size = inducvar->size();
@@ -241,7 +243,7 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
                 {
                     res1 = linearRepArray(ex1, tsymb, size, linear1, cst1, isLinear);
                     el = new struct  arrayAccess;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     for (i = 0; i < MAXDIMARRAY; i++)
@@ -290,7 +292,7 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
                 if (!trouve)
                 {
                     el = new struct  arrayAccess;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     // add the ref;
@@ -317,14 +319,16 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
                 for (j = 0; j < MAXNESTEDLOOP; j++)
                     linear1[i][j] = 0;
             }
+
             ex1 = use1->lhs();
             if (isSgArrayRefExp(ex1))
             {
                 if (privVars.find(ex1->symbol()->identifier()) == privVars.end())
                 {
                     res1 = linearRepArray(ex1, tsymb, size, linear1, cst1, isLinear);
+
                     el = new struct arrayAccess;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     for (i = 0; i < MAXDIMARRAY; i++)
@@ -373,7 +377,7 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
                 if (!trouve)
                 {
                     el = new struct arrayAccess;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     // add the ref;

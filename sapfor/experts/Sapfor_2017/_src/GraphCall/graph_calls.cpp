@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -14,8 +14,8 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "graph_calls.h"
-#include "../directive_parser.h"
-#include "../SgUtils.h"
+#include "../LoopAnalyzer/directive_parser.h"
+#include "../Utils/SgUtils.h"
 
 using std::vector;
 using std::map;
@@ -27,6 +27,39 @@ using std::make_pair;
 using std::to_string;
 using std::cout;
 using std::endl;
+
+#define DEBUG 0
+
+//TODO: improve parameter checking 
+static void correctNameIfContains(SgStatement *call, SgExpression *exCall, string &name, 
+                                  const vector<SgStatement*> &containsFunctions, const string &prefix)
+{
+    if (containsFunctions.size() <= 0)
+        return;
+
+    if (call == NULL && exCall == NULL)
+        return;
+
+    for (auto &func : containsFunctions)
+    {
+        if (func->symbol()->identifier() == name)
+        {
+            int numPar = 0;
+            if (call && call->variant() == PROC_STAT)
+                numPar = isSgCallStmt(call)->numberOfArgs();
+            else if (exCall && exCall->variant() == FUNC_CALL)
+                numPar = isSgFunctionCallExp(exCall)->numberOfArgs();
+            else
+                return;
+
+            SgProgHedrStmt *f = (SgProgHedrStmt*)func;
+            //XXX
+            if (f->numberOfParameters() == numPar)
+                name = prefix + name;
+            break;
+        }
+    }
+}
 
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
@@ -123,7 +156,6 @@ string removeString(const string toRemove, const string inStr)
     return outStr;
 }
 
-#define DEBUG 0
 //TODO:: add values
 static void processActualParams(SgExpression *parList, const map<string, vector<SgExpression*>> &commonBlocks, FuncParam *currParams)
 {
@@ -171,13 +203,16 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
 }
 
 static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
-                          const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames)
+                          const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames,
+                          const vector<SgStatement*> &containsFunctions, const string &prefix)
 {
     if (curr->variant() == FUNC_CALL && macroNames.find(curr->symbol()->identifier()) == macroNames.end())
     {
         for (auto &proc : entryProcs)
         {
             string nameOfCallFunc = curr->symbol()->identifier();
+            correctNameIfContains(NULL, curr, nameOfCallFunc, containsFunctions, prefix);
+
             proc->callsFrom.insert(nameOfCallFunc);
             proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc, line));
             proc->pointerDetailCallsFrom.push_back(make_pair(curr, FUNC_CALL));
@@ -187,9 +222,9 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
     }
 
     if (curr->lhs())
-        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames);
+        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
     if (curr->rhs())
-        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames);
+        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
 }
 
 static void findReplaceSymbolByExpression(SgExpression *parentEx, SgExpression *findIn, int pos, 
@@ -329,7 +364,7 @@ static void findIdxRef(SgExpression *exp, FuncInfo &currInfo)
     }
 }
 
-static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
+static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
 {
     if (exp)
     {
@@ -353,12 +388,15 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo)
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
                 }
+
+                if (isWrite)
+                    currInfo.writeToArray.insert(arrayRef);
             }
         }
         else
         {
-            findArrayRef(exp->lhs(), currInfo);
-            findArrayRef(exp->rhs(), currInfo);
+            findArrayRef(exp->lhs(), currInfo, isWrite);
+            findArrayRef(exp->rhs(), currInfo, isWrite);
         }
     }
 }
@@ -500,7 +538,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
     } while (changesDone);
 }
 
-void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
+static void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     cout << "*********Which parameters of current function are used in func calls inside it*********" << endl;
     for (auto &file1 : allFuncInfo)
@@ -547,47 +585,121 @@ void printParInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
     cout << endl;
 }
 
-static bool isStmtIO(SgStatement *st)
+static void findContainsFunctions(SgStatement *st, vector<SgStatement*> &found)
 {
-	bool isIO = false;
+    SgStatement *end = st->lastNodeOfStmt();
 
-	const std::set<int> ioIDs = { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT };
+    bool containsStarted = false;
+    for (; st != end; st = st->lexNext())
+    {
+        if (containsStarted)
+        {
+            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+            {
+                found.push_back(st);
+                st = st->lastNodeOfStmt();
+            }
+        }
 
-    int var = st->variant();
-    if (ioIDs.find(var) != ioIDs.end())
-        isIO = true;
-
-	return isIO;
+        if (st->variant() == CONTAINS_STMT)
+            containsStarted = true;
+    }
 }
 
-void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
+static void fillIn(FuncInfo *currF, SgExpression *ex, const map<string, int> &parNames)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF && ex->variant() == ARRAY_REF)
+        {
+            const char *name = ex->symbol()->identifier();
+            if (name && name != string(""))
+            {
+                auto it = parNames.find(name);
+                if (it != parNames.end())
+                    currF->funcParams.inout_types[it->second] |= IN_BIT;
+            }
+        }
+
+        fillIn(currF, ex->lhs(), parNames);
+        fillIn(currF, ex->rhs(), parNames);
+    }
+}
+
+static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
+{
+    if (currF->funcParams.countOfPars == 0)
+        return;
+
+    map<string, int> parNames;
+
+    for (int i = 0; i < currF->funcParams.identificators.size(); ++i)
+        parNames[currF->funcParams.identificators[i]] = i;
+
+    for (auto st = start; st != last; st = st->lexNext())
+    {
+        if (st->variant() == CONTAINS_STMT)
+            break;
+
+        if (isSgExecutableStatement(st) == NULL)
+            continue;
+
+        if (st->variant() == ASSIGN_STAT)
+        {
+            SgExpression *left = st->expr(0);
+
+            fillIn(currF, left->lhs(), parNames);
+            fillIn(currF, left->rhs(), parNames);
+            fillIn(currF, st->expr(1), parNames);
+        }
+        else if (st->variant() == READ_STAT)
+        {
+
+        }
+        else
+        {
+            for (int i = 0; i < 3; ++i)
+                fillIn(currF, st->expr(i), parNames);
+        }
+    }
+}
+
+void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam)
 {
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
+    vector<SgStatement*> containsFunctions;
 
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
+                
+        string containsPrefix = "";
+        SgStatement *st_cp = st->controlParent();
+        if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+            containsPrefix = st_cp->symbol()->identifier() + string(".");
+        
         string currFunc = "";
-
         if (st->variant() == PROG_HEDR)
         {
             SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-            currFunc = progH->symbol()->identifier();
+            currFunc = progH->nameWithContains();
             __spf_print(DEBUG, "*** Program <%s> started at line %d / %s\n", progH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == PROC_HEDR)
         {
             SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-            currFunc = procH->symbol()->identifier();
+            currFunc = procH->nameWithContains();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", procH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            currFunc = funcH->symbol()->identifier();
+            currFunc = funcH->nameWithContains();
             __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         SgStatement *lastNode = st->lastNodeOfStmt();
 
@@ -599,16 +711,14 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         map<string, vector<SgExpression*>> commonBlocks;
         getCommonBlocksRef(commonBlocks, st, lastNode);
 
+        if (st->controlParent()->variant() == GLOBAL)
+            containsFunctions.clear();
+
+        findContainsFunctions(st, containsFunctions);
+
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
 
-        currInfo->usesIO = false;
-
-        if (commonBlocks.size() != 0)
-        	currInfo->isPure = false;
-        else
-        	currInfo->isPure = true;
-
-        for(auto& item : commonBlocks)
+        for(auto &item : commonBlocks)
         {
             auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
             for(auto& list : item.second)
@@ -627,7 +737,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         {
             SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
 
-            fillFuncParams(currInfo, commonBlocks, procFuncHedr);
+            if (!dontFillFuncParam)
+                fillFuncParams(currInfo, commonBlocks, procFuncHedr);
             
             // Fill in names of function parameters
             for (int i = 0; i < procFuncHedr->numberOfParameters(); ++i)
@@ -635,6 +746,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 currInfo->funcParams.identificators.push_back((procFuncHedr->parameter(i))->identifier());
                 currInfo->isParamUsedAsIndex.push_back(false);
             }
+
+            /*if (!dontFillFuncParam)
+                fillInOut(currInfo, st, st->lastNodeOfStmt());*/
         }
 
         if (isSPF_NoInline(st->lexNext()))
@@ -653,6 +767,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
         while (st != lastNode)
         {
             currProcessing.second = st;
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -682,19 +799,24 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 break;
             }
 
-            currInfo->usesIO |= isStmtIO(st);
-
+            if (st->variant() == CONTAINS_STMT)
+                break;
+                        
+            const string prefix = containsPrefix == "" ? currFunc + "." : containsPrefix;
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
             {
+                string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                correctNameIfContains(st, NULL, pureNameOfCallFunc, containsFunctions, prefix);
+
                 for (auto &proc : entryProcs)
-                {
-                    string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
+                {                    
                     proc->callsFrom.insert(pureNameOfCallFunc);
                     proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
                     proc->actualParams.push_back(FuncParam());
-                    processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
+                    if (!dontFillFuncParam)
+                        processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
 
                     // Add func call which we've just found
                     NestedFuncCall funcCall(st->symbol()->identifier());
@@ -714,14 +836,15 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
             }
 
             for (int i = 0; i < 3; ++i)
-                if (st->expr(i))
-                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames);            
+                if (st->expr(i) && !dontFillFuncParam)
+                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames, containsFunctions, prefix);
 
             if (st->variant() == ENTRY_STAT)
             {
                 string entryName = st->symbol()->identifier();
                 FuncInfo *entryInfo = new FuncInfo(entryName, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
-                fillFuncParams(entryInfo, commonBlocks, st);
+                if (!dontFillFuncParam)
+                    fillFuncParams(entryInfo, commonBlocks, st);
 
                 if (isSPF_NoInline(st->lexNext()))
                 {
@@ -736,32 +859,32 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo)
                 for (auto &proc : entryProcs)
                     if (proc->isParamUsedAsIndex.size())
                         for (int i = 0; i < 3; i++)
-                            findArrayRef(st->expr(i), *proc);
+                            findArrayRef(st->expr(i), *proc, st->variant() == ASSIGN_STAT && i == 0);
 
             st = st->lexNext();
         }
     }
 }
 
-int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
+int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile, map<string, CallV> &V, vector<string> &E)
 {
-    FILE *out = fopen(fileName, "w");
-    if (out == NULL)
-    {
-        __spf_print(1, "can not open file %s\n", fileName);
-        return -1;
-    }
+    map<string, FuncInfo*> allFuncs;
+    createMapOfFunc(funcByFile, allFuncs);
 
-    fprintf(out, "digraph G{\n");
+    string graph = "";
+    graph += "digraph G{\n";
 
     auto it = funcByFile.begin();
     int fileNum = 0;
     set<string> inCluster;
     set<string> unknownCluster;
 
+    char buf[1024];
     while (it != funcByFile.end())
     {
-        fprintf(out, "subgraph cluster%d {\n", fileNum);
+        sprintf(buf, "subgraph cluster%d {\n", fileNum);
+        graph += buf;
+
         const int dimSize = (int)it->second.size();
         set<string> uniqNames;
         for (int k = 0; k < dimSize; ++k)
@@ -772,11 +895,13 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
             {
                 uniqNames.insert(it, currfunc);
                 inCluster.insert(currfunc);
-                fprintf(out, "\"%s\"\n", currfunc.c_str());
+                sprintf(buf, "\"%s\"\n", currfunc.c_str());
+                graph += buf;
             }
         }
-        fprintf(out, "label = \"file <%s>\"\n", removeString(".\\", it->first).c_str());
-        fprintf(out, "}\n");
+        sprintf(buf, "label = \"file <%s>\"\n", removeString(".\\", it->first).c_str());
+        graph += buf;
+        graph += "}\n";
 
         fileNum++;
         it++;
@@ -790,13 +915,33 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
         for (int k = 0; k < dimSize; ++k)
         {
             const string &callFrom = it->second[k]->funcName;
+            const FuncInfo *callFromP = it->second[k];
+
             for (auto &i : it->second[k]->callsFrom)
             {
-                fprintf(out, formatString, callFrom.c_str(), i.c_str());
+                sprintf(buf, formatString, callFrom.c_str(), i.c_str());
+                graph += buf;
+
                 if (inCluster.find(callFrom) == inCluster.end())
                     unknownCluster.insert(callFrom);
                 if (inCluster.find(i) == inCluster.end())
                     unknownCluster.insert(i);
+                
+                if (V.find(callFrom) == V.end())
+                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                if (V.find(i) == V.end())
+                {
+                    auto it = allFuncs.find(i);
+                    auto currF = it->second;
+                    if (it == allFuncs.end())
+                        V[i] = CallV(i);
+                    else
+                        V[i] = CallV(i, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                }
+                
+                
+                E.push_back(callFrom);
+                E.push_back(i);                
             }
         }
         it++;
@@ -804,16 +949,34 @@ int CreateCallGraphWiz(const char *fileName, const map<string, vector<FuncInfo*>
 
     if (unknownCluster.size() > 0)
     {
-        fprintf(out, "subgraph cluster%d {\n", fileNum);
+        sprintf(buf, "subgraph cluster%d {\n", fileNum);
+        graph += buf;
+
         for (auto &func : unknownCluster)
-            fprintf(out, "\"%s\"\n", func.c_str());
-        fprintf(out, "label = \"file <UNKNOWN>\"\n");
-        fprintf(out, "}\n");
+        {
+            sprintf(buf, "\"%s\"\n", func.c_str());
+            graph += buf;
+        }
+        sprintf(buf, "label = \"file <UNKNOWN>\"\n");
+        graph += buf;
+        graph += "}\n";
     }
 
-    fprintf(out, "overlap=false\n");
-    fprintf(out, "}\n");
-    fclose(out);
+    graph += "overlap=false\n";
+    graph += "}\n";
+    
+    if (fileName)
+    {
+        FILE *out = fopen(fileName, "w");
+        if (out == NULL)
+        {
+            __spf_print(1, "can not open file %s\n", fileName);
+            return -1;
+        }
+
+        fprintf(out, graph.c_str());
+        fclose(out);
+    }
     return 0;
 }
 
@@ -824,8 +987,11 @@ static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
     if (ex)
     {
         if (ex->variant() == VAR_REF)
-            if (ex->symbol()->identifier() == loopSymb)
+        {
+            const string ident(ex->symbol()->identifier());
+            if (ident == loopSymb)
                 retVal = true;
+        }
 
         if (ex->lhs())
             retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb);
@@ -1004,6 +1170,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         const vector<int> parsWithLoopSymb = findNoOfParWithLoopVar(parList, loop->symbol()->identifier());
         bool isLoopSymbUsedAsIndex = false;
 
+        int idx = 1;
         for (auto &par : parsWithLoopSymb)
         {
             if (func->isParamUsedAsIndex[par])
@@ -1011,19 +1178,30 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
                 isLoopSymbUsedAsIndex = true;
                 break;
             }
+            ++idx;
         }
 
         if (isLoopSymbUsedAsIndex)
         {
             char buf[256];
-            sprintf(buf, "Function '%s' needs to be inlined due to use of loop symbol as index of an array", func->funcName.c_str());
+            sprintf(buf, "Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array, in parameter num %d", 
+                          func->funcName.c_str(), loop->lineNumber(), idx);
             if (needToAddErrors)
             {
-                messages.push_back(Messages(ERROR, funcOnLine, buf));
-                __spf_print(1, "Function '%s' needs to be inlined due to use of loop symbol as index of an array\n", func->funcName.c_str());
+                messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
+                __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array, in parameter num %d\n", 
+                                func->funcName.c_str(), loop->lineNumber(), idx);
             }
 
             needInsert = true;
+        }
+        else
+        {
+            while (parList)
+            {
+                needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func);
+                parList = parList->rhs();
+            }
         }
     }
     else
@@ -1054,23 +1232,26 @@ static bool findFuncCall(SgExpression *ex, const FuncInfo *func, vector<Messages
     return ret;
 }
 
-static map<string, map<int, SgStatement*>> statByLine; //file -> map
-
-static SgStatement* getStatByLine(string file, const int line)
+static SgStatement* getStatByLine(string file, const int line, const map<string, map<int, SgStatement*>> &statByLine)
 {
-    auto itS = statByLine[file].find(line);
-    if (itS == statByLine[file].end())
+    auto itF = statByLine.find(file);
+    if (itF == statByLine.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto itS = itF->second.find(line);
+    if (itS == itF->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return itS->second;
 }
 
 static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<string> &needToInsert, SgFile *currF, 
-                                      vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName)
+                                      vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
+                                      const map<string, map<int, SgStatement*>> &statByLine)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum));
+        SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum, statByLine));
         if (loop == NULL)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -1097,10 +1278,11 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     continue;
 
                 int funcOnLine = childs[k]->calls[i].second;
-                SgStatement *func = getStatByLine(currF->filename(), funcOnLine);
+                SgStatement *func = getStatByLine(currF->filename(), funcOnLine, statByLine);
 
                 bool needInsert = false;
                 const int var = func->variant();
+
                 if (var == PROC_STAT || var == FUNC_STAT)
                     needInsert = needInsert || processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages);
                 else
@@ -1111,13 +1293,14 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName);
+        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
     }
 }
 
 static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loopGraph, set<string> &needToInsert,
                                       SgProject *proj, const map<string, int> &files, map<string, vector<Messages>> &allMessages,
-                                      bool needToAddErrors, const map<string, FuncInfo*> &funcByName)
+                                      bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
+                                      const map<string, map<int, SgStatement*>> &statByLine)
 {
     for (auto it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
@@ -1127,14 +1310,14 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
         auto itM = allMessages.find(it->first);
         if (itM == allMessages.end())
             itM = allMessages.insert(itM, make_pair(it->first, vector<Messages>()));
-        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName);
+        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine);
     }
 }
 
 int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const char *fileName, map<string, vector<FuncInfo*>> &funcByFile, 
                             const map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &allMessages, bool needToAddErrors)
 {
-    statByLine.clear();
+    map<string, map<int, SgStatement*>> statByLine; //file -> map    
     //build info
     for (int i = 0; i < proj->numberOfFiles(); ++i)
     {
@@ -1170,7 +1353,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     }
 
     set<string> needToInsert;
-    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName);
+    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine);
 
     if (needToInsert.size() > 0)
     {
@@ -1362,7 +1545,7 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
 }
 
 // Find dead functions and fill callTo information
-void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages)
+void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &allMessages, bool noPrint)
 {
     map<string, FuncInfo*> mapFuncInfo;
     createMapOfFunc(allFuncInfo, mapFuncInfo);
@@ -1382,16 +1565,19 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
                 currInfo->deadFunction = currInfo->doNotAnalyze = true;
     }
 
-    for (auto &it : allFuncInfo)
+    if (!noPrint)
     {
-        const string &currF = it.first;
-        auto itM = allMessages.find(currF);
-        if (itM == allMessages.end())
-            itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
+        for (auto &it : allFuncInfo)
+        {
+            const string &currF = it.first;
+            auto itM = allMessages.find(currF);
+            if (itM == allMessages.end())
+                itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
 
-        for (auto &func : it.second)
-            if (func->deadFunction)
-                itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project", 1015));
+            for (auto &func : it.second)
+                if (func->deadFunction)
+                    itM->second.push_back(Messages(NOTE, func->linesNum.first, "This function is not called in current project", 1015));
+        }
     }
 
     for (auto &it : mapFuncInfo)
@@ -1421,6 +1607,111 @@ static inline void addLinks(const FuncParam &actual, const FuncParam &formal, ma
     }
 }
 
+static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
+{
+    bool globalChange = false;
+    if (from->GetNonDistributeFlagVal() == flag)
+    {
+        for (auto &realRef : to)
+        {
+            auto val = realRef->GetNonDistributeFlagVal();            
+            if (val != flag)
+            {
+                //exclude this case
+                if (flag == DIST::IO_PRIV && val == DIST::SPF_PRIV)
+                    ;
+                else
+                {
+                    realRef->SetNonDistributeFlag(flag);
+                    //printf("up: set %d %s\n", flag, realRef->GetName().c_str());
+                    change = true;
+                    globalChange = true;
+                }
+            }
+        }
+    }
+
+    return globalChange;
+}
+
+static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    bool globalChange = false;
+    bool change = true;
+    while (change)
+    {
+        change = false;
+        for (auto &array : declaratedArrays)
+        {
+            set<DIST::Array*> realArrayRefs;
+            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+
+            bool allNonDistr = true;
+            bool allDistr = true;
+            bool nonDistrSpfPriv = false;
+            bool nonDistrIOPriv = false;
+            bool init = false;
+
+            // propagate SPF to down calls
+            for (auto &realRef : realArrayRefs)
+            {
+                if (realRef != array.second.first)
+                {
+                    bool nonDistr = realRef->GetNonDistributeFlag();
+                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+                        nonDistrSpfPriv = true;
+                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
+                        nonDistrIOPriv = true;
+
+                    allNonDistr = allNonDistr && nonDistr;
+                    allDistr = allDistr && !nonDistr;
+                    init = true;
+                }
+            }
+
+            if (init)
+            {
+                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
+                {
+                    if (isDown)
+                    {
+                        if (nonDistrSpfPriv)
+                        {
+                            array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
+                            //printf("down: set %d %s\n", DIST::SPF_PRIV, array.second.first->GetName().c_str());
+                        }
+                        else if (nonDistrIOPriv)
+                        {
+                            array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
+                            //printf("down: set %d %s\n", DIST::IO_PRIV, array.second.first->GetName().c_str());
+                        }
+                        else
+                        {
+                            array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                            //printf("down: set %d %s\n", DIST::NO_DISTR, array.second.first->GetName().c_str());
+                        }
+                        change = true;
+                        globalChange = true;
+                    }
+                }
+                else
+                {
+                    if (!isDown)
+                    {
+                        bool ret = propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
+                        globalChange = globalChange || ret;
+                        ret = propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
+                        globalChange = globalChange || ret;
+                        //propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
+                    }
+                }
+            }
+        }
+    }
+
+    return globalChange;
+}
+
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
 {
@@ -1437,42 +1728,12 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     bool change = true;
-    // set nonDistr flag if all links not distr
     while (change)
     {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
+        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
+        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
 
-            bool allNonDistr = true;
-            bool nonDistrSpfPrif = false;
-            bool init = false;
-            for (auto &realRef : realArrayRefs)
-            {
-                if (realRef != array.second.first)
-                {
-                    bool nonDistr = realRef->GetNonDistributeFlag();
-                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
-                        nonDistrSpfPrif = true;
-                    allNonDistr = allNonDistr && nonDistr;
-                    init = true;
-                }
-            }
-
-            if (init)
-            {
-                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
-                {
-                    if (nonDistrSpfPrif)
-                        array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
-                    else
-                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-                    change = true;
-                }
-            }
-        }
+        change = changeD || changeU;
     }
 
     //propagate distr state
@@ -1493,6 +1754,11 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
             }
         }
     }
+}
+
+void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
+{
+
 }
 
 #undef DEBUG

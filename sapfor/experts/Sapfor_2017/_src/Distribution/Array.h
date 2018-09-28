@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -15,7 +15,7 @@
 
 namespace Distribution
 {
-    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV } distFlagType;
+    typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
 
     class Array;
 
@@ -65,7 +65,11 @@ namespace Distribution
         STRING name;
         STRING shortName;
         int dimSize;
+        // calculated sizes
         VECTOR<PAIR<int, int>> sizes;
+        // original sizes + shifts
+        VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> sizesExpr;
+
         // template info by region
         MAP<int, TemplateLink*> templateInfo;
         bool isTemplFlag;
@@ -81,6 +85,8 @@ namespace Distribution
         // PAIR<NAME, TYPE>
         PAIR<int, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
+
+        SET<STRING> containsInRegions;
 
         TemplateLink* getTemlateInfo(const int regionId)
         {
@@ -113,7 +119,7 @@ namespace Distribution
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol) :
+              Symbol *declSymbol, const STRING &regName) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
@@ -121,12 +127,18 @@ namespace Distribution
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
+            sizesExpr.resize(dimSize);
+
             for (int z = 0; z < dimSize; ++z)
             {
-                sizes[z].first = INT_MAX;
-                sizes[z].second = -INT_MAX;
+                sizes[z] = std::make_pair((int)INT_MAX, (int)INT_MIN);
+                PAIR<int, int> initVal = std::make_pair(0, 0);
+                sizesExpr[z] = std::make_pair(std::make_pair((Expression*)NULL, initVal), std::make_pair((Expression*)NULL, initVal));
             }
+                        
             GenUniqKey();
+            if (regName != "")
+                containsInRegions.insert(regName);
         }
 
         Array(const Array &copy)
@@ -136,6 +148,7 @@ namespace Distribution
             shortName = copy.shortName;
             dimSize = copy.dimSize;
             sizes = copy.sizes;
+            sizesExpr = copy.sizesExpr;
 
             isTemplFlag = copy.isTemplFlag;
             isNonDistribute = copy.isNonDistribute;
@@ -151,18 +164,40 @@ namespace Distribution
 
             declSymbol = copy.declSymbol;
             uniqKey = copy.uniqKey;
+            containsInRegions = copy.containsInRegions;
         }
 
         int GetDimSize() const { return dimSize; }
         const STRING GetName() const { return name; }
         const STRING GetShortName() const { return shortName; }
         int GetId() const { return id; }
-        void SetSizes(VECTOR<PAIR<int, int>> &_sizes) { sizes = _sizes; }
+        void SetSizes(VECTOR<PAIR<int, int>> &_sizes, bool notCopyToExpr = false) 
+        { 
+            sizes = _sizes;
+            if (!notCopyToExpr)
+            {
+                for (int i = 0; i < sizesExpr.size(); ++i)
+                {
+                    sizesExpr[i].first.second.first = sizes[i].first;
+                    sizesExpr[i].second.second.first = sizes[i].second;
+                }
+            }
+        }
         const VECTOR<PAIR<int, int>>& GetSizes() const { return sizes; }
+        const VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>>& GetSizesExpr() const { return sizesExpr; }
         void SetTemplateFlag(const bool templFlag) { isTemplFlag = templFlag; }
         bool isTemplate() const { return isTemplFlag; }
         bool isLoopArray() const { return isLoopArrayFlag; }
         void setLoopArray(const bool flag) { isLoopArrayFlag = flag; }
+        void SetSizesExpr(const VECTOR<PAIR<Expression*, Expression*>> &_sizesExpr)
+        {
+            for (int i = 0; i < _sizesExpr.size(); ++i)
+            {
+                sizesExpr[i].first.first = _sizesExpr[i].first;
+                sizesExpr[i].second.first = _sizesExpr[i].second;
+            }
+        }
+
         int AddLinkWithTemplate(const int dimNum, const int value, Array *templateArray_, const PAIR<int, int> &rule, const int regionId)
         {
             int err = 0;
@@ -209,6 +244,12 @@ namespace Distribution
 
             sizes[dim].first = std::min(sizes[dim].first, size.first);
             sizes[dim].second = std::max(sizes[dim].second, size.second);
+
+            PAIR<int, int> &left = sizesExpr[dim].first.second;
+            PAIR<int, int> &right = sizesExpr[dim].second.second;
+
+            left.second = std::min(left.second, sizes[dim].first - left.first);
+            right.second = std::max(right.second, sizes[dim].second - right.first);
         }
         void SetId(const unsigned newId) { id = newId; }
 
@@ -321,6 +362,9 @@ namespace Distribution
         Symbol* GetDeclSymbol() const { return declSymbol; }
 
         const STRING& GetArrayUniqKey() const { return uniqKey; }
+
+        const SET<STRING>& GetRgionsName() const { return containsInRegions; }
+        void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
 
         ~Array() 
         {

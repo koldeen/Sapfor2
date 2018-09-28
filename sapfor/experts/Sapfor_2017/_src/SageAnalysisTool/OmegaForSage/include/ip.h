@@ -4,35 +4,64 @@
 #define Already_Included_IP 1
 
 #include <stdio.h>
+#include <vector>
 
-#define maxVars 38
+#define maxVars 50
 #define maxGEQs 150
 #define maxEQs 27
 
 
 typedef int EqnKey;
 
-typedef struct _eqn {
+
+typedef struct _eqn 
+{
+    /*_eqn()
+    {
+        coef.resize(maxVars + 1);
+
+        std::fill(coef.begin(), coef.end(), 0);
+        key = 0;
+        touched = 0;
+        color = 0;
+    }*/
+
     EqnKey  key;
     int     touched;
     int     color;
-    int     coef[maxVars + 1];
+    //std::vector<int> coef;
+    int coef[maxVars + 1];
 } *Eqn;
 
 #define headerWords 3
 
-typedef struct _problem {
-    int     _nVars, _numEQs, _numGEQs,_safeVars,_numSUBs;
-    int  hashVersion;
+typedef struct _problem 
+{
+    _problem()
+    {
+        forwardingAddress.resize(maxVars + 2);
+        _var.resize(maxVars + 2);
+        _GEQs.resize(maxGEQs);
+        _EQs.resize(maxEQs);
+        _SUBs.resize(maxVars + 1);
+    }
+
+    int _nVars, _numEQs, _numGEQs, _safeVars,_numSUBs;
+    int hashVersion;
     int variablesInitialized;
     int variablesFreed;
-    int     _var[maxVars+2];
-    int     forwardingAddress[maxVars+2];
+    std::vector<int> _var;
+    //int _var[maxVars + 2];
+    std::vector<int> forwardingAddress;
+    //int forwardingAddress[maxVars + 2];
     char *(*_getVarName)(unsigned int var, void *args);
     void *_getVarNameArgs;
-    struct _eqn _GEQs[maxGEQs];
-    struct _eqn _EQs[maxEQs];
-    struct _eqn _SUBs[maxVars+1];
+    std::vector<_eqn> _GEQs; 
+    //_eqn _GEQs [maxGEQs];
+    std::vector<_eqn> _EQs;
+    //_eqn _EQs[maxEQs];
+    std::vector<_eqn> _SUBs;
+    //_eqn _SUBs[maxVars + 1];
 } Problem;
 
 
@@ -45,8 +74,9 @@ typedef struct _problem {
 #define black 0
 
 #define eqnncpy(e1,e2,s) {int *p00,*q00,*r00; p00 = (int *)(e1); q00 = (int *)(e2); r00 = &p00[headerWords+1+s]; while(p00 < r00) *p00++ = *q00++; }
-#define eqncpy(e1,e2) eqnncpy(e1,e2,nVars)
-#define eqnnzero(e,s) {int *p00,*r00; p00 = (int *)(e); r00 = &p00[headerWords+1+(s)]; while(p00 < r00) *p00++ = 0;}
+
+#define eqncpy(e1,e2) eqnncpy(e1, e2, nVars)
+#define eqnnzero(e,s) { int *p00,*r00; p00 = (int *)(e); r00 = &p00[headerWords+1+(s)]; while(p00 < r00) *p00++ = 0;}
 #define eqnzero(e) eqnnzero(e,nVars)
 
 #define intDiv(a,b) ((1024 * b + a)/b - 1024)
@@ -117,9 +147,9 @@ extern int omegaPrintResult;
 
 extern int firstCheckForRedundantEquations;
 
-extern void (*whenReduced)();
-
-extern void noProcedure();
+extern void (*whenReduced)(Problem *problemPtr);
+extern void noProcedure(Problem *problemPtr);
+extern void Exit(int c);
 
 #endif
 

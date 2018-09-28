@@ -1,0 +1,7 @@
+{
+    "terminal.integrated.rendererType": "canvas",
+    "files.associations": {
+        "functional": "cpp",
+        "list": "cpp"
+    }
+}
