@@ -1137,7 +1137,7 @@ static vector<int> findNoOfParWithLoopVar(SgExpression *pars, const string &loop
     int parNo = 0;
     for (SgExpression *par = pars; par != NULL; par = par->rhs(), parNo++)
     {
-        if (findLoopVarInParameter(par, loopSymb))
+        if (findLoopVarInParameter(par->lhs(), loopSymb))
             parsWithLoopSymb.push_back(parNo);
     }
 
@@ -1153,20 +1153,18 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
     if (hasLoopVar)
     {
         const vector<int> parsWithLoopSymb = findNoOfParWithLoopVar(parList, loop->symbol()->identifier());
-        bool isLoopSymbUsedAsIndex = false;
 
-        int idx = 1;
+        int idx = -1;
         for (auto &par : parsWithLoopSymb)
         {
             if (func->isParamUsedAsIndex[par])
             {
-                isLoopSymbUsedAsIndex = true;
+                idx = par + 1;
                 break;
             }
-            ++idx;
         }
 
-        if (isLoopSymbUsedAsIndex)
+        if (idx != -1)
         {
             char buf[256];
             sprintf(buf, "Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array, in parameter num %d", 
