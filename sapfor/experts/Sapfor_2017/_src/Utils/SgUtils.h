@@ -30,7 +30,7 @@ void initTags();
 bool isDVM_stat(SgStatement *st);
 bool isSPF_stat(SgStatement *st);
 bool isEqExpressions(SgExpression *left, SgExpression *right, std::map<SgExpression*, std::string> &collection);
-void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end);
+void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end, const std::string *nameToSkip = NULL);
 
 std::tuple<int, std::string, std::string> getFromUniqTable(SgSymbol *symb);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb);

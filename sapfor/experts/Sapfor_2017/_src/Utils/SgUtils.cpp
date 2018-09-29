@@ -692,7 +692,7 @@ static string getCommonName(SgExpression *common)
         return string("spf_unnamed");
 }
 
-void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end)
+void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end, const string *nameToSkip)
 {
     while (start != end)
     {
@@ -705,6 +705,10 @@ void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStat
             for (SgExpression *exp = start->expr(0); exp; exp = exp->rhs())
             {
                 const string commonName = getCommonName(exp);
+
+                if (nameToSkip && *nameToSkip == commonName)
+                    continue;
+
                 auto it = commonBlocks.find(commonName);
                 if (it == commonBlocks.end())
                     it = commonBlocks.insert(it, make_pair(commonName, vector<SgExpression*>()));
