@@ -48,6 +48,13 @@ static set<SgStatement*> visitedStatements;
 static CommonVarsOverseer overseer;
 static GraphsKeeper *graphsKeeper = NULL;
 
+static unsigned int substitutionsCounter = 0;
+static void incrementSubstitutionsCounter(int print_prof_info) {
+    if(print_prof_info)
+        substitutionsCounter++;
+}
+
+
 GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 {
     GraphItem* result = new GraphItem();
@@ -464,6 +471,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     if (founded != b->getGen()->end())
         if (!valueWithFunctionCall(founded->second))
             if (!valueWithRecursion(founded->first, founded->second))
+                if(!valueWithArrayReference(founded->second))
                     exp = founded->second;
 
 
@@ -550,6 +558,7 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
 
     __spf_print(PRINT_PROF_INFO, "%d: %s -> ",lineNumber, oldExp->unparse());
     __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+    incrementSubstitutionsCounter(PRINT_PROF_INFO);
 
     SgExpression* expToCopy = newExp->copyPtr();
     calculate(expToCopy);
@@ -575,6 +584,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
             createBackup(parent, expNumber);
             __spf_print(PRINT_PROF_INFO, "%d: %s -> ",parent->lineNumber(), exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+            incrementSubstitutionsCounter(PRINT_PROF_INFO);
             SgExpression* expToCopy = newExp->copyPtr();
             calculate(expToCopy);
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
@@ -815,6 +825,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
 void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
+
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
@@ -991,8 +1002,8 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
 
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph, inDefs);
+        __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
         BuildUnfilteredReachingDefinitions(CGraph, inDefs);
-
     }
 
     for (auto &stmt : *curFileReplacements)
