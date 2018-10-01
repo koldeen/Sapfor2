@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +18,7 @@
 #include "../Distribution/DvmhDirective.h"
 #include "../GraphLoop/graph_loops.h"
 #include "DirectiveAnalyzer.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 
 using std::vector;
 using std::map;
@@ -86,6 +86,6 @@ void UniteNestedDirectives(vector<LoopGraph*> &loopGraph)
 {
     recUnite(loopGraph);
 
-    map<int, LoopGraph*> sortedLoopGraph;
-    createMapLoopGraph(sortedLoopGraph, &loopGraph);
+    /*map<int, LoopGraph*> sortedLoopGraph;
+    createMapLoopGraph(sortedLoopGraph, &loopGraph);*/
 }

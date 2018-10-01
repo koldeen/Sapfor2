@@ -28,91 +28,7 @@ PARSER_BASE_DIR = $(REPO_FDVM_BASE)parser/
 
 INLINER_BASE_DIR = $(REPO_FDVM_BASE)InlineExpansion/
 
-TR_COMMON_BASE_DIR = $(REPO_TRANSFORM_BASE)CommonLib/
-TR_LIB_BASE_DIR    = $(REPO_TRANSFORM_BASE)SageTransformLib/
-TR_UTILS_BASE_DIR  = $(REPO_TRANSFORM_BASE)SageUtils/
-TR_SAGE_INCLUDES   = -I$(LIB_INCL) -I$(SAGE_INCL_DIR) -I$(DVMINCLUDE)
-all: $(LIBDIR)/trCommonLib.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
-
-#Make transform common lib
-TR_COMMON_OBS = Log.o SageTransformException.o SignalHandling.o Stacktrace.o StringUtils.o
-TR_COMMON_INC = -I$(TR_COMMON_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(TR_UTILS_BASE_DIR)include/
-
-$(LIBDIR)/trCommonLib.a: $(TR_COMMON_OBS)
-	ar qc $(LIBDIR)/trCommonLib.a $(TR_COMMON_OBS)
-Log.o: $(TR_COMMON_BASE_DIR)src/Log.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/Log.cpp $(TR_COMMON_INC)
-SageTransformException.o: $(TR_COMMON_BASE_DIR)src/SageTransformException.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/SageTransformException.cpp $(TR_COMMON_INC)
-SignalHandling.o: $(TR_COMMON_BASE_DIR)src/SignalHandling.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/SignalHandling.cpp $(TR_COMMON_INC)
-Stacktrace.o: $(TR_COMMON_BASE_DIR)src/Stacktrace.cpp 
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/Stacktrace.cpp $(TR_COMMON_INC)
-StringUtils.o: $(TR_COMMON_BASE_DIR)src/StringUtils.cpp 
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_COMMON_BASE_DIR)/src/StringUtils.cpp $(TR_COMMON_INC)
-	
-#Make transform lib
-TR_LIB_OBS = BaseTransform.o LoopCombine.o LoopTransformBreak.o LoopTransformMerge.o LoopTransformSplit.o LoopTransformTighten.o LoopWrapTransform.o \
-             StatementOrderTransform.o StatementReorderer.o StatementReshuffler.o StatementsSplitter.o TempArrayTransform.o WriteDearray.o \
-			 Dependency.o DependencyInfo.o DependencyInfoGetter.o DependencyUtils.o
-			 
-TR_LIB_INC = -I$(TR_LIB_BASE_DIR)include/dependency/ -I$(TR_LIB_BASE_DIR)include/ -I$(TR_COMMON_BASE_DIR)include/ -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(REPO_SPF_BASE)
-
-$(LIBDIR)/trLib.a: $(TR_LIB_OBS)
-	ar qc $(LIBDIR)/trLib.a $(TR_LIB_OBS)
-BaseTransform.o: $(TR_LIB_BASE_DIR)src/BaseTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/BaseTransform.cpp $(TR_LIB_INC)
-LoopCombine.o: $(TR_LIB_BASE_DIR)src/LoopCombine.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopCombine.cpp $(TR_LIB_INC)
-LoopTransformBreak.o: $(TR_LIB_BASE_DIR)src/LoopTransformBreak.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformBreak.cpp $(TR_LIB_INC)
-LoopTransformMerge.o: $(TR_LIB_BASE_DIR)src/LoopTransformMerge.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformMerge.cpp $(TR_LIB_INC)
-LoopTransformSplit.o: $(TR_LIB_BASE_DIR)src/LoopTransformSplit.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformSplit.cpp $(TR_LIB_INC)
-LoopTransformTighten.o: $(TR_LIB_BASE_DIR)src/LoopTransformTighten.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopTransformTighten.cpp $(TR_LIB_INC)
-LoopWrapTransform.o: $(TR_LIB_BASE_DIR)src/LoopWrapTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/LoopWrapTransform.cpp $(TR_LIB_INC)
-StatementOrderTransform.o: $(TR_LIB_BASE_DIR)src/StatementOrderTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementOrderTransform.cpp $(TR_LIB_INC)
-StatementReorderer.o: $(TR_LIB_BASE_DIR)src/StatementReorderer.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementReorderer.cpp $(TR_LIB_INC)
-StatementReshuffler.o: $(TR_LIB_BASE_DIR)src/StatementReshuffler.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementReshuffler.cpp $(TR_LIB_INC)
-StatementsSplitter.o: $(TR_LIB_BASE_DIR)src/StatementsSplitter.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/StatementsSplitter.cpp $(TR_LIB_INC)
-TempArrayTransform.o: $(TR_LIB_BASE_DIR)src/TempArrayTransform.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/TempArrayTransform.cpp $(TR_LIB_INC)
-WriteDearray.o: $(TR_LIB_BASE_DIR)src/WriteDearray.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/WriteDearray.cpp $(TR_LIB_INC)
-Dependency.o: $(TR_LIB_BASE_DIR)src/dependency/Dependency.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/Dependency.cpp $(TR_LIB_INC)
-DependencyInfo.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfo.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyInfo.cpp $(TR_LIB_INC)
-DependencyInfoGetter.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyInfoGetter.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyInfoGetter.cpp $(TR_LIB_INC)
-DependencyUtils.o: $(TR_LIB_BASE_DIR)src/dependency/DependencyUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_LIB_BASE_DIR)/src/dependency/DependencyUtils.cpp $(TR_LIB_INC)
-	
-#Make transform utils
-TR_UTILS_OBS = decodeStmtVariant.o SageTransformUtils.o SageUtils.o LineReorderRecord.o LineReorderer.o
-			 
-TR_UTILS_INC = -I$(TR_UTILS_BASE_DIR)include/ $(TR_SAGE_INCLUDES) -I$(TR_COMMON_BASE_DIR)include/
-
-$(LIBDIR)/trUtils.a: $(TR_UTILS_OBS)
-	ar qc $(LIBDIR)/trUtils.a $(TR_UTILS_OBS)
-
-decodeStmtVariant.o: $(TR_UTILS_BASE_DIR)src/decodeStmtVariant.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/decodeStmtVariant.cpp $(TR_UTILS_INC)
-SageTransformUtils.o: $(TR_UTILS_BASE_DIR)src/SageTransformUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageTransformUtils.cpp $(TR_UTILS_INC)
-SageUtils.o: $(TR_UTILS_BASE_DIR)src/SageUtils.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/SageUtils.cpp $(TR_UTILS_INC)
-LineReorderRecord.o: $(TR_UTILS_BASE_DIR)src/LineReorderRecord.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderRecord.cpp $(TR_UTILS_INC)
-LineReorderer.o: $(TR_UTILS_BASE_DIR)src/LineReorderer.cpp
-	$(CXX) $(CFLAGS) -c -std=$(STD)  $(TR_UTILS_BASE_DIR)/src/LineReorderer.cpp $(TR_UTILS_INC)
+all: $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
 
 #Make SAGE++
 libSage++.o: $(SAGE_SRC_DIR)libSage++.cpp $(LIB_INCL)/macro.h $(LIB_INCL)/bif_node.def $(LIB_INCL)/type.def $(LIB_INCL)/symb.def $(LIB_INCL)/libSage++.h
@@ -222,36 +138,37 @@ hlp.o: $(INLINER_BASE_DIR)hlp.cpp $(INLINER_BASE_DIR)inline.h
 	$(CXX) $(CFLAGS) -std=$(STD)  -c $(INLINER_BASE_DIR)hlp.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 
 #Make Sapfor
-SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o transforms.o CorrectVarDecl.o IncludeChecker.o LoopChecker.o ParRegions.o \
+SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o IncludeChecker.o LoopChecker.o ParRegions.o \
              enddo_loop_converter.o array_assign_to_loop.o allocations_prepoc.o directive_creator.o insert_directive.o loop_analyzer.o spf_directive_preproc.o \
 			 graph_loops.o graph_loops_base.o graph_calls.o expr_transform.o CreateDistributionDirs.o DvmhDirective.o DvmhDirectiveBase.o DirectiveAnalyzer.o \
 			 acc_analyzer.o acc_data.o calls.o acc_utilities.o directive_parser.o GraphCSR.o Distribution.o Cycle.o \
 			 annotationDriver.o arrayRef.o computeInducVar.o constanteProp.o  controlFlow.o defUse.o dependence.o depGraph.o \
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
-			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o
+			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
+			 shadow.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
-	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/trLib.a $(LIBDIR)/trUtils.a $(LIBDIR)/trCommonLib.a
+	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 
-utils.o: $(REPO_SPF_BASE)utils.cpp $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)utils.h
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-SgUtils.o: $(REPO_SPF_BASE)SgUtils.cpp $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)utils.h
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)SgUtils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-directive_parser.o: $(REPO_SPF_BASE)directive_parser.cpp $(REPO_SPF_BASE)directive_parser.h $(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)directive_parser.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
-transforms.o: $(REPO_SPF_BASE)transforms.cpp $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h \
+utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+SgUtils.o: $(REPO_SPF_BASE)Utils/SgUtils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/SgUtils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+directive_parser.o: $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.cpp $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h $(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
+Sapfor.o: $(REPO_SPF_BASE)Sapfor.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h \
 			  $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h \
 			  $(REPO_SPF_BASE)DirectiveAnalyzer/DirectiveAnalyzer.h $(REPO_SPF_BASE)VerificationCode/verifications.h $(REPO_SPF_BASE)Distribution/CreateDistributionDirs.h \
-			  $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.h $(REPO_SPF_BASE)transform.h
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)transforms.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
+			  $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.h $(REPO_SPF_BASE)Sapfor.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Sapfor.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 CorrectVarDecl.o: $(REPO_SPF_BASE)VerificationCode/CorrectVarDecl.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)VerificationCode/CorrectVarDecl.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-IncludeChecker.o: $(REPO_SPF_BASE)VerificationCode/IncludeChecker.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h  $(REPO_SPF_BASE)utils.h  $(REPO_SPF_BASE)Distribution/DvmhDirective.h
+IncludeChecker.o: $(REPO_SPF_BASE)VerificationCode/IncludeChecker.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h  $(REPO_SPF_BASE)Utils/utils.h  $(REPO_SPF_BASE)Distribution/DvmhDirective.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)VerificationCode/IncludeChecker.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 LoopChecker.o: $(REPO_SPF_BASE)VerificationCode/LoopChecker.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)VerificationCode/LoopChecker.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-VerifySageStructures.o: $(REPO_SPF_BASE)VerificationCode/VerifySageStructures.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h $(REPO_SPF_BASE)utils.h
+VerifySageStructures.o: $(REPO_SPF_BASE)VerificationCode/VerifySageStructures.cpp $(REPO_SPF_BASE)VerificationCode/verifications.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)VerificationCode/VerifySageStructures.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 private_analyzer.o: $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.cpp $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
@@ -265,33 +182,35 @@ calls.o: $(REPO_FDVM_BASE)fdvm/calls.cpp
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_FDVM_BASE)fdvm/calls.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 ParRegions.o: $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-enddo_loop_converter.o: $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h $(REPO_SPF_BASE)errors.h
+enddo_loop_converter.o: $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h $(REPO_SPF_BASE)Utils/errors.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 array_assign_to_loop.o: $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-loop_transform.o: $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp $(REPO_SPF_BASE)LoopConverter/loop_transform.h $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h 
+loop_transform.o: $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp $(REPO_SPF_BASE)LoopConverter/loop_transform.h $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h 
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
-
-allocations_prepoc.o: $(REPO_SPF_BASE)LoopAnalyzer/allocations_prepoc.cpp $(REPO_SPF_BASE)utils.h
+shadow.o: $(REPO_SPF_BASE)LoopAnalyzer/shadow.cpp $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/shadow.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
+	
+allocations_prepoc.o: $(REPO_SPF_BASE)LoopAnalyzer/allocations_prepoc.cpp $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/allocations_prepoc.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 directive_creator.o: $(REPO_SPF_BASE)LoopAnalyzer/directive_creator.cpp $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.h \
 					 $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Distribution.h \
-					 $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)directive_parser.h $(REPO_SPF_BASE)utils.h \
-					 $(REPO_SPF_BASE)transform.h
+					 $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h $(REPO_SPF_BASE)Utils/utils.h \
+					 $(REPO_SPF_BASE)Sapfor.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/directive_creator.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 insert_directive.o: $(REPO_SPF_BASE)LoopAnalyzer/insert_directive.cpp $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h \
-					$(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h $(REPO_SPF_BASE)errors.h \
-					$(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)directive_parser.h $(REPO_SPF_BASE)utils.h
+					$(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h $(REPO_SPF_BASE)Utils/errors.h \
+					$(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/insert_directive.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loop_analyzer.o: $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.cpp $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h \
-				 $(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.h $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h \
-				 $(REPO_SPF_BASE)directive_parser.h $(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)ExpressionTransform/expr_transform.h
+				 $(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.h $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h \
+				 $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h $(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)ExpressionTransform/expr_transform.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 remote_access.o: $(REPO_SPF_BASE)LoopAnalyzer/remote_access.cpp $(REPO_SPF_BASE)Distribution/Arrays.h \
-				 $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h \
-				 $(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)GraphCall/graph_calls.h
+				 $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h \
+				 $(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)GraphCall/graph_calls.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/remote_access.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-dep_analyzer.o: $(REPO_SPF_BASE)LoopAnalyzer/dep_analyzer.cpp $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)utils.h
+dep_analyzer.o: $(REPO_SPF_BASE)LoopAnalyzer/dep_analyzer.cpp $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/dep_analyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 spf_directive_preproc.o: $(REPO_SPF_BASE)LoopAnalyzer/spf_directive_preproc.cpp
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/spf_directive_preproc.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
@@ -303,27 +222,29 @@ graph_loops_base.o: $(REPO_SPF_BASE)GraphLoop/graph_loops_base.cpp $(REPO_SPF_BA
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphLoop/graph_loops_base.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 PredictScheme.o: $(REPO_SPF_BASE)Predictor/PredictScheme.cpp $(REPO_SPF_BASE)Predictor/PredictScheme.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Predictor/PredictScheme.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-graph_calls.o: $(REPO_SPF_BASE)GraphCall/graph_calls.cpp $(REPO_SPF_BASE)GraphLoop/graph_loops.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)/directive_parser.h
+graph_calls.o: $(REPO_SPF_BASE)GraphCall/graph_calls.cpp $(REPO_SPF_BASE)GraphLoop/graph_loops.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphCall/graph_calls.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 expr_transform.o: $(REPO_SPF_BASE)ExpressionTransform/expr_transform.cpp
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ExpressionTransform/expr_transform.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+control_flow_graph_part.o: $(REPO_SPF_BASE)ExpressionTransform/control_flow_graph_part.cpp
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ExpressionTransform/control_flow_graph_part.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 CreateDistributionDirs.o: $(REPO_SPF_BASE)Distribution/CreateDistributionDirs.cpp  $(REPO_SPF_BASE)Distribution/Distribution.h  $(REPO_SPF_BASE)Distribution/GraphCSR.h \
-						  $(REPO_SPF_BASE)Distribution/Arrays.h  $(REPO_SPF_BASE)errors.h  $(REPO_SPF_BASE)GraphLoop/graph_loops.h  $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
+						  $(REPO_SPF_BASE)Distribution/Arrays.h  $(REPO_SPF_BASE)Utils/errors.h  $(REPO_SPF_BASE)GraphLoop/graph_loops.h  $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/CreateDistributionDirs.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-DvmhDirective.o: $(REPO_SPF_BASE)Distribution/DvmhDirective.cpp $(REPO_SPF_BASE)Distribution/DvmhDirective.h $(REPO_SPF_BASE)utils.h 
+DvmhDirective.o: $(REPO_SPF_BASE)Distribution/DvmhDirective.cpp $(REPO_SPF_BASE)Distribution/DvmhDirective.h $(REPO_SPF_BASE)Utils/utils.h 
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/DvmhDirective.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-DvmhDirectiveBase.o: $(REPO_SPF_BASE)Distribution/DvmhDirectiveBase.cpp $(REPO_SPF_BASE)Distribution/DvmhDirectiveBase.h $(REPO_SPF_BASE)utils.h 
+DvmhDirectiveBase.o: $(REPO_SPF_BASE)Distribution/DvmhDirectiveBase.cpp $(REPO_SPF_BASE)Distribution/DvmhDirectiveBase.h $(REPO_SPF_BASE)Utils/utils.h 
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/DvmhDirectiveBase.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 DirectiveAnalyzer.o: $(REPO_SPF_BASE)DirectiveAnalyzer/DirectiveAnalyzer.cpp $(REPO_SPF_BASE)Distribution/DvmhDirective.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h \
-					 $(REPO_SPF_BASE)DirectiveAnalyzer/DirectiveAnalyzer.h $(REPO_SPF_BASE)utils.h
+					 $(REPO_SPF_BASE)DirectiveAnalyzer/DirectiveAnalyzer.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DirectiveAnalyzer/DirectiveAnalyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 Cycle.o: $(REPO_SPF_BASE)Distribution/Cycle.cpp $(REPO_SPF_BASE)Distribution/Cycle.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/Cycle.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 Distribution.o: $(REPO_SPF_BASE)Distribution/Distribution.cpp $(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h \
-				$(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h
+				$(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/Distribution.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 GraphCSR.o: $(REPO_SPF_BASE)Distribution/GraphCSR.cpp $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h \
-				$(REPO_SPF_BASE)utils.h $(REPO_SPF_BASE)errors.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h \
+				$(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h \
 				$(REPO_SPF_BASE)Distribution/Cycle.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/GraphCSR.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 	
@@ -356,28 +277,28 @@ loopTransform.o: $(REPO_SPF_BASE)SageAnalysisTool/loopTransform.cpp $(REPO_SPF_B
 set.o: $(REPO_SPF_BASE)SageAnalysisTool/set.cpp $(REPO_SPF_BASE)SageAnalysisTool/set.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)SageAnalysisTool/set.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
-add-assert.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-affine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-cover.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega-build.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega-use.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-debug.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ip.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-kill.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+add-assert.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+affine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+cover.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega-build.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega-use.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+debug.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ip.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+kill.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
 clean:
 	rm -rf *.o

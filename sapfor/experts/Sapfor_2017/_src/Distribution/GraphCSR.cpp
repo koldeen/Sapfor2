@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <algorithm>
 #include <string>
@@ -18,8 +18,8 @@ extern int passDone;
 #include "Cycle.h"
 #include "Arrays.h"
 #include "Array.h"
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 
 #include "GraphCSR.h"
 
@@ -27,8 +27,10 @@ using std::vector;
 using std::map;
 using std::set;
 using std::pair;
+using std::make_pair;
 using std::tuple;
 using std::string;
+using std::wstring;
 
 enum { WHITE, GREY, BLACK };
 enum { CONFLICT_TYPE_1, CONFLICT_TYPE_2 };
@@ -98,6 +100,7 @@ namespace Distribution
                 neighbors.push_back(neighbors.back() + 1);
             numVerts++;
         }
+
         edges.insert(edges.begin() + neighbors[V1], V2);
         weights.insert(weights.begin() + neighbors[V1], W);
         attributes.insert(attributes.begin() + neighbors[V1], attr);
@@ -106,42 +109,29 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void GraphCSR<vType, wType, attrType>::
-         IncreaseWeight(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const attrType &attrRev)
+         IncreaseWeight(const int &idx, const int &idxRev, const wType &W)
     {
-        for (vType i = neighbors[V1]; i < neighbors[V1 + 1]; ++i)
-        {
-            vType k = edges[i];
-            if (k == V2 && attr == attributes[i])
-            {
-                weights[i] += W;
-                break;
-            }
-        }
-
-        for (vType i = neighbors[V2]; i < neighbors[V2 + 1]; ++i)
-        {
-            vType k = edges[i];
-            if (k == V1 && attrRev == attributes[i])
-            {
-                weights[i] += W;
-                break;
-            }
-        }
+        weights[idx] += W;
+        weights[idxRev] += W;
     }
 
     template<typename vType, typename wType, typename attrType>
-    bool GraphCSR<vType, wType, attrType>::
-         CheckExist(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew)
+    int GraphCSR<vType, wType, attrType>::
+         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew)
     {
-        bool ifExist = false;
+        int ifExist = -1;
         if (!ifNew)
         {
-            for (vType i = neighbors[V1]; i < neighbors[V1 + 1]; ++i)
+            auto currNeigh = neighbors.data();
+            auto currEdges = edges.data();
+            auto currAttr = attributes.data();
+
+            for (vType i = currNeigh[V1]; i < currNeigh[V1 + 1]; ++i)
             {
-                vType k = edges[i];
-                if (k == V2 && attr == attributes[i])
+                const vType k = currEdges[i];
+                if (k == V2 && attr == currAttr[i])
                 {
-                    ifExist = true;
+                    ifExist = (int)i;
                     break;
                 }
             }
@@ -155,7 +145,7 @@ namespace Distribution
     void GraphCSR<vType, wType, attrType>::
          FindLoop(vector<Cycle<vType, wType, attrType>> &cycles, const vType V, const vType VPrev)
     {
-        color[V] = GREY;
+        /*color[V] = GREY;
         for (vType i = neighbors[V]; i < neighbors[V + 1]; ++i)
         {
             vType k = edges[i];
@@ -165,7 +155,7 @@ namespace Distribution
             if (color[k] == WHITE)
             {
                 activeV.push_back(k);
-                activeArcs.push_back(std::make_pair(weights[i], attributes[i]));
+                activeArcs.push_back(make_pair(weights[i], attributes[i]));
 
                 FindLoop(cycles, k, V);
 
@@ -174,7 +164,7 @@ namespace Distribution
             }
             else if (color[k] == GREY && k == findFrom)
             {
-                activeArcs.push_back(std::make_pair(weights[i], attributes[i]));
+                activeArcs.push_back(make_pair(weights[i], attributes[i]));
 
                 auto idx = activeV.end();
                 auto idxVal = activeArcs.end();
@@ -196,7 +186,7 @@ namespace Distribution
                 activeArcs.pop_back();
             }
         }
-        color[V] = WHITE;
+        color[V] = WHITE;*/
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -353,14 +343,14 @@ namespace Distribution
                         bool sameAll = true;
                         for (vType m = 0; m < (vType)currArcs.size(); ++m)
                         {
-                            pair<vType, vType> revCurrArcs = std::make_pair(currArcs[m].second, currArcs[m].first);
+                            pair<vType, vType> revCurrArcs = make_pair(currArcs[m].second, currArcs[m].first);
                             /*bool notFound = (edgesUniq.find(make_pair(currArcs[m], currAttrArcs[m])) == edgesUniq.end()) &&
                             (edgesUniq.find(make_pair(revCurrArcs, currAttrArcs[m])) == edgesUniq.end());*/
                             /*bool notFound = (find(edgesUniq.begin(), edgesUniq.end(), (make_pair(currArcs[m], currAttrArcs[m]))) == edgesUniq.end()) &&
                             (find(edgesUniq.begin(), edgesUniq.end(), (make_pair(revCurrArcs, currAttrArcs[m]))) == edgesUniq.end());*/
 
-                            const pair<pair<vType, vType>, attrType> f1 = std::make_pair(currArcs[m], currAttrArcs[m]);
-                            const pair<pair<vType, vType>, attrType> f2 = std::make_pair(revCurrArcs, currAttrArcs[m]);
+                            const pair<pair<vType, vType>, attrType> f1 = make_pair(currArcs[m], currAttrArcs[m]);
+                            const pair<pair<vType, vType>, attrType> f2 = make_pair(revCurrArcs, currAttrArcs[m]);
                             bool notFound = true;
                             for (int t = 0; t < (int)edgesUniq.size(); ++t)
                             {
@@ -438,11 +428,63 @@ namespace Distribution
         }
         return wasFound;
     }
+    
+    pair<int, int> Fx(const pair<int, int> &x, const pair<int, int> &F)
+    {
+        return make_pair(x.first * F.first, x.second * F.first + F.second);
+    }
+
+    static pair<float, float> Fx(const pair<float, float> &x, const pair<float, float> &F)
+    {
+        return make_pair(x.first * F.first, x.second * F.first + F.second);
+    }
 
     template<typename vType, typename wType, typename attrType>
     bool GraphCSR<vType, wType, attrType>::
-         findLinkWithTempate(const vType v1, pair<float, float> &inGraphAttr, int &templV, Array *&templ, const Arrays<vType> &allArrays, set<vType> wasDone)
+        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays)
     {
+        set<vType> next = { root };
+        set<vType> done;
+        
+        bool found = false;
+        while (next.size())
+        {
+            set<vType> nextLoc;
+            for (auto &v1 : next)
+            {
+                Array *tmp = allArrays.GetArrayByVertex(globalIdx[v1]);
+                if (tmp)
+                {
+                    if (tmp->isTemplate())
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
+                {
+                    const vType currV = edges[k];
+
+                    auto it = done.find(currV);
+                    if (it == done.end())
+                    {
+                        done.insert(it, currV);
+                        nextLoc.insert(currV);
+                    }
+                }
+            }
+            next = nextLoc;
+        }
+        return found;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    pair<float, float> GraphCSR<vType, wType, attrType>::
+        findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, set<vType> wasDone)
+    {
+        const pair<float, float> nulPair = make_pair(0.f, 0.f);
+
         wasDone.insert(v1);
         bool wasFound = false;
         for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
@@ -455,53 +497,56 @@ namespace Distribution
                 {
                     wasFound = true;
 
-                    pair<float, float> nextRule;
-                    //nextRule.first = attributes[k].first.first * inGraphAttr.first;
-                    //nextRule.second = attributes[k].first.first * inGraphAttr.second + attributes[k].first.second;
-
-                    nextRule.first = attributes[k].first.first / inGraphAttr.first;
-                    nextRule.second = attributes[k].first.second - inGraphAttr.second;
-
-                    nextRule.first = attributes[k].second.first / nextRule.first;
-                    nextRule.second = attributes[k].second.second - nextRule.second;
-                    inGraphAttr = nextRule;
-
                     templV = globalIdx[currV];
                     templ = tmp;
-                    break;
+                    return make_pair(1.0f, 0.0f);
                 }
             }
         }
 
-        if (wasFound)
-            return true;
-        else
+        auto it = cacheLinks.find(v1);
+        if (it == cacheLinks.end())
+            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<float, float>>>()));
+
+        for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
         {
-            for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
+            if (wasDone.find(edges[k]) != wasDone.end())
+                continue;
+            
+            auto ruleCache = it->second.find(edges[k]);
+
+            pair<float, float> ruleToTemplate;
+            if (ruleCache == it->second.end())
             {
-                if (wasDone.find(edges[k]) != wasDone.end())
-                    continue;
+                ruleToTemplate = findLinkWithTempate2(edges[k], templV, templ, allArrays, wasDone);
+                it->second.insert(ruleCache, make_pair(edges[k], make_tuple(templV, templ, ruleToTemplate)));
+            }
+            else
+            {
+                templV = std::get<0>(ruleCache->second);
+                templ = std::get<1>(ruleCache->second);
+                ruleToTemplate = std::get<2>(ruleCache->second);
+            }
 
-                pair<float, float> nextRule;
-                //nextRule.first = attributes[k].first.first * inGraphAttr.first;
-                //nextRule.second = attributes[k].first.first * inGraphAttr.second + attributes[k].first.second;
+            if (ruleToTemplate != nulPair)
+            {
+                auto currAttribute = attributes[k];
+                auto left = currAttribute.first;
+                auto right = currAttribute.second;
 
-                nextRule.first = attributes[k].first.first / inGraphAttr.first;
-                nextRule.second = attributes[k].first.second - inGraphAttr.second;
+                pair<float, float> X;
+                X.first = (float)right.first / left.first;
 
-                nextRule.first = attributes[k].second.first / nextRule.first;
-                nextRule.second = attributes[k].second.second - nextRule.second;
+                left.first *= X.first;
+                left.second *= X.first;
 
-                wasFound = findLinkWithTempate(edges[k], nextRule, templV, templ, allArrays, wasDone);
+                X.second = right.second - left.second;
 
-                if (wasFound)
-                {
-                    inGraphAttr = nextRule;
-                    break;
-                }
+                return Fx(X, ruleToTemplate);
             }
         }
-        return wasFound;
+        
+        return nulPair;
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -548,12 +593,21 @@ namespace Distribution
         if (V1 == V2)
             return -1;
 
+        countRequestsToAdd++;
+
         vType localV1, localV2;
         bool ifNew1, ifNew2;
         localV1 = GetLocalVNum(V1, ifNew1);
         localV2 = GetLocalVNum(V2, ifNew2);
-        attrType attrRev = std::make_pair(attr.second, attr.first);
-        bool ifExist = CheckExist(localV1, localV2, W, attr, ifNew1) && CheckExist(localV2, localV1, W, attrRev, ifNew2);
+        attrType attrRev = make_pair(attr.second, attr.first);
+
+
+        int idxExist = -1, idxExistRev = -1;
+
+        idxExist = CheckExist(localV1, localV2, attr, ifNew1);
+        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2);
+
+        bool ifExist = (idxExist != -1) && (idxExistRev != -1);
 
         int status = 0;
         if (!ifExist)
@@ -561,10 +615,11 @@ namespace Distribution
             AddEdgeToGraph(localV1, localV2, W, attr, ifNew1, linkType);
             AddEdgeToGraph(localV2, localV1, W, attrRev, ifNew2, linkType);
             numEdges += 2;
+            countMissToAdd++;
         }
         else
         {
-            IncreaseWeight(localV1, localV2, W, attr, attrRev);
+            IncreaseWeight(idxExist, idxExistRev, W);
             status = 1;
         }
 
@@ -608,7 +663,7 @@ namespace Distribution
         map<vType, vType> newIdx;
         int idx = 0;
         for (auto it = allTrees.begin(); it != allTrees.end(); ++it, ++idx)
-            newIdx.insert(std::make_pair(*it, idx));
+            newIdx.insert(make_pair(*it, idx));
 
         vertByTrees.resize(allTrees.size());
         for (int i = 0; i < numVerts; ++i)
@@ -618,15 +673,18 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void GraphCSR<vType, wType, attrType>::
-         GetAllSimpleLoops(vector<vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint)
-    {
+         GetAllSimpleLoops(vector<vector<Cycle<vType, wType, attrType>>> &cycles, bool needPrint, bool useSavedQuality)
+    {        
         //cyclesNum = 0;
+        if (!useSavedQuality)
+            treesQuality.clear();
         cycles.clear();
         color.resize(numVerts);
         activeCounter = 0;
-        activeV.resize(std::max(numVerts, numEdges) + 1);
-        activeE.resize(std::max(numVerts, numEdges) + 1);
-        activeArcs.resize(std::max(numVerts, numEdges) + 1);
+
+        activeV = new vType[std::max(numVerts, numEdges) + 1];
+        activeE = new vType[std::max(numVerts, numEdges) + 1];
+        activeArcs = new pair<wType, attrType>[std::max(numVerts, numEdges) + 1];
 
         map<tuple<pair<vType, vType>, wType, attrType>, int> uniqArcs;
         vector<vType> numbers(edges.size());
@@ -638,8 +696,8 @@ namespace Distribution
             {
                 const vType V = edges[k];
                 attrType reverse = make_pair(attributes[k].second, attributes[k].first);
-                tuple<pair<vType, vType>, wType, attrType> tmp = std::make_tuple(std::make_pair(i, V), weights[k], attributes[k]);
-                tuple<pair<vType, vType>, wType, attrType> tmp1 = std::make_tuple(std::make_pair(V, i), weights[k], reverse);
+                tuple<pair<vType, vType>, wType, attrType> tmp = std::make_tuple(make_pair(i, V), weights[k], attributes[k]);
+                tuple<pair<vType, vType>, wType, attrType> tmp1 = std::make_tuple(make_pair(V, i), weights[k], reverse);
                 auto it = uniqArcs.find(tmp);
                 if (it == uniqArcs.end())
                 {
@@ -687,6 +745,45 @@ namespace Distribution
         {
             for (int t = 0; t < vertByTrees.size(); ++t)
             {
+                const int vertArraySize = vertByTrees[t].size();
+                int wasMaxChainLen = maxChainLen;
+                int wasMaxLoopDim = maxLoopDim;
+
+                int newQuality = vertArraySize * maxLoopDim / 100;
+                int newSpeed = vertArraySize * maxChainLen / 100;
+
+                if (newQuality < 3) newQuality = 3;
+                if (newSpeed < 3)   newSpeed = 3;
+
+                if (!useSavedQuality)
+                {
+                    maxLoopDim = newQuality;
+                    maxChainLen = newSpeed;
+
+                    treesQuality.push_back(make_pair(maxLoopDim, maxChainLen));
+                }
+                else
+                {
+                    if (t < treesQuality.size())
+                    {
+                        maxLoopDim = treesQuality[t].first;
+                        maxChainLen = treesQuality[t].second;
+                    }
+                    else
+                    {
+                        maxLoopDim = newQuality;
+                        maxChainLen = newSpeed;
+                    }
+                }
+
+                if (needPrint)
+                    printf("SAPFOR: [TREE %d], arrays num %d, maxLoopDim %d, maxChainLen %d\n", t, vertArraySize, maxLoopDim, maxChainLen);
+
+#ifdef _WIN32
+                wstring treeM;
+                if (needPrint)
+                    treeM = std::to_wstring(t + 1) + L"/" + std::to_wstring(vertByTrees.size());
+#endif
                 for (int k = 0; k < vertByTrees[t].size(); ++k)
                 {
                     const vType i = vertByTrees[t][k];
@@ -695,13 +792,26 @@ namespace Distribution
                         color[k] = WHITE;
 
                     findFrom = currentV;
+#ifdef _WIN32
+                    if (needPrint)
+                    {
+                        wstring vertexM = std::to_wstring(k + 1) + L"/" + std::to_wstring(vertByTrees[t].size());
+                        sendMessage_2lvl(wstring(L"поиск простых циклов в графе, обработка дерева ") + wstring(treeM.begin(), treeM.end()) + L" вершины " + wstring(vertexM.begin(), vertexM.end()));
+                    }
+#endif
                     __spf_print(PRINT_TIMES && needPrint, "v (tree %d) = %d (with neighb %d) ", t, i, neighbors[i + 1] - neighbors[i]);
                     activeV[activeCounter++] = currentV;
                     FindLoop(cyclesTmp[t], currentV, currentV, numbers);
                     activeCounter--;
                     __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
                 }
+                maxChainLen = wasMaxChainLen;
+                maxLoopDim = wasMaxLoopDim;
             }
+#ifdef _WIN32
+            if (needPrint)
+                sendMessage_2lvl(L"");
+#endif
         }
         catch (int code)
         {
@@ -728,14 +838,14 @@ namespace Distribution
                     {
                         auto itF = countOfCycles.find(len);
                         if (itF == countOfCycles.end())
-                            itF = countOfCycles.insert(itF, std::make_pair(len, 0));
+                            itF = countOfCycles.insert(itF, make_pair(len, 0));
                         itF->second++;
                     }
 
                     {
                         auto itF = countOfCyclesTree.find(len);
                         if (itF == countOfCyclesTree.end())
-                            itF = countOfCyclesTree.insert(itF, std::make_pair(len, 0));
+                            itF = countOfCyclesTree.insert(itF, make_pair(len, 0));
                         itF->second++;
                     }
                 }
@@ -754,6 +864,10 @@ namespace Distribution
             __spf_print(PRINT_TIMES && needPrint, "found cycles with size %d = %d\n", it->first, it->second);
             allCycles += it->second;
         }
+
+        delete []activeV;
+        delete []activeE;
+        delete []activeArcs;
 
         __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
         __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
@@ -860,7 +974,7 @@ namespace Distribution
                 {
                     auto it = uniqInfo.find(info.second);
                     if (it == uniqInfo.end())
-                        uniqInfo.insert(it, std::make_pair(info.second, set<vType>()));
+                        uniqInfo.insert(it, make_pair(info.second, set<vType>()));
                     it->second.insert(info.first);
                 }
 
@@ -869,7 +983,7 @@ namespace Distribution
                 {
                     auto it = uniqInfo.find(info.second);
                     if (it == uniqInfo.end())
-                        uniqInfo.insert(it, std::make_pair(info.second, set<vType>()));
+                        uniqInfo.insert(it, make_pair(info.second, set<vType>()));
                     it->second.insert(info.first);
                 }
             }
@@ -878,7 +992,7 @@ namespace Distribution
             {
                 if (tmpIt->second.size() > 1)
                 {
-                    indexOfConflict.push_back(std::make_pair(i, CONFLICT_TYPE_1));
+                    indexOfConflict.push_back(make_pair(i, CONFLICT_TYPE_1));
                     countOfConflict++;
                     cycleMarked[i] = true;
                     break;
@@ -933,7 +1047,7 @@ namespace Distribution
                     if (sameVertex == currArc.first && toFindAttrArc.first != currAttrArc.first ||
                         sameVertex == currArc.second && toFindAttrArc.second != currAttrArc.second)
                     {
-                        indexOfConflict.push_back(std::make_pair(i, CONFLICT_TYPE_2));
+                        indexOfConflict.push_back(make_pair(i, CONFLICT_TYPE_2));
                         cycleMarked[i] = true;
                         countOfConflict++;
                         break;
@@ -960,7 +1074,7 @@ namespace Distribution
                 const vType e = edges[k];
                 auto it = tmp.find(e);
                 if (it == tmp.end())
-                    tmp.insert(std::make_pair(e, std::make_pair(0, weights[k])));
+                    tmp.insert(make_pair(e, make_pair(0, weights[k])));
                 else
                     it->second.second = std::max(it->second.second, weights[k]);
             }
@@ -1091,7 +1205,7 @@ namespace Distribution
                 const vType e = edges[k];
                 auto it = numLinks.find(e);
                 if (it == numLinks.end())
-                    it = numLinks.insert(it, std::make_pair(e, make_pair(0, vector<int>())));
+                    it = numLinks.insert(it, make_pair(e, make_pair(0, vector<int>())));
                 it->second.first++;
                 it->second.second.push_back(k);
             }
@@ -1229,7 +1343,7 @@ namespace Distribution
             vType from = std::get<0>(toDelArcs[i]);
             vType to = std::get<1>(toDelArcs[i]);
             attrType attr = std::get<2>(toDelArcs[i]);
-            attrType attrRev = std::make_pair(attr.second, attr.first);
+            attrType attrRev = make_pair(attr.second, attr.first);
             dictDel.insert(make_tuple(from, to, attr));
             dictDel.insert(make_tuple(to, from, attrRev));
         }
@@ -1325,7 +1439,7 @@ namespace Distribution
             vType from = std::get<0>(toDelArcs[i]);
             vType to = std::get<1>(toDelArcs[i]);
             attrType attr = std::get<2>(toDelArcs[i]);
-            attrType attrRev = std::make_pair(attr.second, attr.first);
+            attrType attrRev = make_pair(attr.second, attr.first);
             dictDel.insert(make_tuple(from, to, attr));
             dictDel.insert(make_tuple(to, from, attrRev));
         }
@@ -1364,35 +1478,6 @@ namespace Distribution
 
         //correct graph information
         numEdges = (vType)edges.size();
-    }
-
-    //NOTE, it correctly works only with reduce graph
-    template<typename vType, typename wType, typename attrType>
-    bool GraphCSR<vType, wType, attrType>::
-         hasTheSameAlignment(const vType v1, const pair<int, int> &attr1, const vType v2, const pair<int, int> &attr2)
-    {
-        color.resize(numVerts);
-        std::fill(color.begin(), color.end(), 0);
-        color[localIdx[v1]] = 1;
-
-        bool retVal = true;
-        pair<int, int> inGraphAttr1, inGraphAttr2;
-        bool wasFound = findLink(localIdx[v1], inGraphAttr1, localIdx[v2], inGraphAttr2);
-
-        if (wasFound)
-        {
-            float A1 = (float)attr1.first - (float)inGraphAttr1.first;
-            float B1 = (float)attr1.second - (float)inGraphAttr1.second;
-
-            float A2 = (float)attr2.first - (float)inGraphAttr2.first;
-            float B2 = (float)attr2.second - (float)inGraphAttr2.second;
-
-            if (A1 != A2 || B1 != B2)
-                retVal = false;
-        }
-        else
-            retVal = false;
-        return retVal;
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -1449,7 +1534,7 @@ namespace Distribution
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             for (int i = 0; i < arrayVerts.size(); ++i)
-                rules[i] = std::make_tuple(inputArray, vertsInGraph[i], std::make_pair(1, 0));
+                rules[i] = std::make_tuple(inputArray, vertsInGraph[i], make_pair(1, 0));
         }
         else
         {
@@ -1459,30 +1544,34 @@ namespace Distribution
                 // if current vertex has links
                 if (currV != -1)
                 {
-                    pair<float, float> rule = std::make_pair(1, 0);
+                    pair<float, float> rule = make_pair(0, 0);
                     int alignDim = -1;
                     Array *templ = NULL;
 
                     set<vType> wasDone;
-                    bool found = findLinkWithTempate(currV, rule, alignDim, templ, allArrays, wasDone);
-                    if (found)
+                    
+                    if (hasLinkWithTempate(currV, allArrays))
                     {
-                        pair<int, int> intRule;
-                        intRule.first = (int)rule.first;
-                        intRule.second = (int)rule.second;
-
-                        if (intRule.first == 0)
+                        rule = findLinkWithTempate2(currV, alignDim, templ, allArrays, wasDone);
+                        if (rule != make_pair(0.0f, 0.0f))
                         {
-                            __spf_print(1, "Can not find correct align rule for array '%s'\n", inputArray->GetShortName().c_str());
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        }
+                            pair<int, int> intRule;
+                            intRule.first = (int)rule.first;
+                            intRule.second = (int)rule.second;
 
-                        rules[i] = make_tuple(templ, alignDim, intRule);
-                        int dimNum = -1;
-                        int err = allArrays.GetDimNumber(templ, alignDim, dimNum);
-                        if (err == -1)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        inputArray->AddLinkWithTemplate(i, dimNum, templ, intRule, regionId);
+                            if (intRule.first == 0)
+                            {
+                                __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            }
+
+                            rules[i] = make_tuple(templ, alignDim, intRule);
+                            int dimNum = -1;
+                            int err = allArrays.GetDimNumber(templ, alignDim, dimNum);
+                            if (err == -1)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            inputArray->AddLinkWithTemplate(i, dimNum, templ, intRule, regionId);
+                        }
                     }
                 }
             }
@@ -1499,7 +1588,8 @@ namespace Distribution
 
         vector<vType> vertNum;
         int err = allArrays.GetAllVertNumber(from, vertNum);
-        assert(err == 0);
+        if (err != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         for (int i = 0; i < from->GetDimSize(); ++i)
         {
@@ -1635,13 +1725,13 @@ namespace Distribution
                     auto itParent = trees.find(parentArray);
                     if (itParent == trees.end())
                     {
-                        itParent = trees.insert(itParent, std::make_pair(parentArray, treeCount));
+                        itParent = trees.insert(itParent, make_pair(parentArray, treeCount));
                         treeCount++;
                     }
 
                     auto itAdd = trees.find(currArray);
                     if (itAdd == trees.end())
-                        trees.insert(itAdd, std::make_pair(currArray, itParent->second));
+                        trees.insert(itAdd, make_pair(currArray, itParent->second));
                     else
                     {
                         if (itParent->second != itAdd->second)

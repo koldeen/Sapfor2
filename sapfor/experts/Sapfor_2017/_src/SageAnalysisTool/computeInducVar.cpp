@@ -11,7 +11,7 @@ extern Set *killSet[MAXNODE];
 extern Set *inSet[MAXNODE];
 extern Set *outSet[MAXNODE];
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -164,9 +164,7 @@ int definitionOnlyInsideStmt(SgStatement *func, SgStatement *stmtin, SgExpressio
 // For a statement create an induction var set that contains the SCALAR constante
 // based on the use set which have to be defined later
 //
-
-Set *
-computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
+Set* computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
 {
     SgStatement *last, *stmt;
     SgExpression *use, *expr;
@@ -178,7 +176,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
         return NULL;
     last = stmtin->lastNodeOfStmt();
     constante = new Set(inducVarEqual, NULL, inducVarPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, constante, 1);
 #endif
     for (stmt = stmtin; stmt; stmt = stmt->lexNext())
@@ -195,7 +193,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
             if (cst)
             {
                 elin = new struct inducvar;
-#ifdef _WIN32
+#ifdef __SPF
                 addToCollection(__LINE__, __FILE__, elin, 1);
 #endif
                 elin->constante = TRUE;
@@ -221,9 +219,7 @@ computeConstanteInStmt(SgStatement *func, SgStatement *stmtin)
 //
 // compute effectively induction variables (limited to basic induction variable for now)
 //
-
-Set *
-computeInductionVariables(SgStatement *func, SgStatement *stmt)
+Set* computeInductionVariables(SgStatement *func, SgStatement *stmt)
 {
     SgStatement *last, *first, *defreach, *temp, *cp;
     SgForStmt *loop;
@@ -240,7 +236,7 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
         return NULL;
 
     induc = new Set(inducVarEqual, NULL, inducVarPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, induc, 1);
 #endif
     def = (SgExpression *)stmt->attributeValue(0, DEFINEDLIST_ATTRIBUTE);
@@ -259,7 +255,7 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
         if (inducF)
         {
             elin = new struct inducvar;
-#ifdef _WIN32
+#ifdef __SPF
             addToCollection(__LINE__, __FILE__, elin, 1);
 #endif
             elin->constante = FALSE;
@@ -282,10 +278,8 @@ computeInductionVariables(SgStatement *func, SgStatement *stmt)
 
 
 
-//Get all induction var ;
-
-Set *
-getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, int include)
+//Get all induction var;
+Set* getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, int include)
 {
     SgStatement       *temp, *child;
     int               i, newlevel;
@@ -316,6 +310,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
     }
     else
         tmpincl = include;
+
     i = 1;
     temp = stmt;
     child = temp->childList1(0);
@@ -330,7 +325,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
             induc->unionSet(tpt = getAllInductionVar(func, child, newlevel, num, tmpincl));
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;
@@ -341,6 +336,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
         child = temp->childList1(i);
         i++;
     }
+
     i = 1;
     temp = stmt;
     child = temp->childList2(0);
@@ -355,7 +351,7 @@ getAllInductionVar(SgStatement *func, SgStatement *stmt, int level, int *num, in
             induc->unionSet(tpt = getAllInductionVar(func, child, newlevel, num, tmpincl));
             if (tpt)
             {
-#ifdef _WIN32
+#ifdef __SPF
                 removeFromCollection(tpt);
 #endif
                 delete tpt;

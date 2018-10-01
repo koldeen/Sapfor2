@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,10 +20,11 @@
 #include "../Distribution/Distribution.h"
 
 #include "graph_loops.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 
-#include "../errors.h"
-#include "../AstWrapper.h"
+#include "../Utils/errors.h"
+#include "../Utils/AstWrapper.h"
 
 using std::vector;
 using std::map;
@@ -253,7 +254,7 @@ static inline void findFuncCalls(SgExpression *ex, set<string> &funcCalls)
 
 static inline int tryCalculate(SgExpression *expr, int &res)
 {
-    SgExpression *copyExp = &(expr->copy());
+    SgExpression *copyExp = expr->copyPtr();
     replaceConstatRec(copyExp);
     calculate(copyExp);
     if (CalculateInteger(copyExp, res) == -1)
@@ -416,6 +417,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 break;
             }
 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == FOR_NODE)
             {
@@ -444,11 +448,51 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->countOfIters = calculateLoopIters(currLoopRef->start(), currLoopRef->end(), currLoopRef->step(), loopInfoSES);
                 if (newLoop->countOfIters != 0)
                 {
+                    newLoop->calculatedCountOfIters = newLoop->countOfIters;
                     newLoop->startVal = std::get<0>(loopInfoSES);
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);
                 }
+                else
+                {
+                    SgExpression *start = currLoopRef->start();
+                    SgExpression *end = currLoopRef->end();
+                    SgExpression *step = currLoopRef->step();
+
+                    Expression *endE = NULL;
+                    Expression *startE = NULL;
+                    if (step == NULL)
+                    {
+                        startE = new Expression(start);
+                        endE = new Expression(end);
+                    }
+                    else
+                    {
+                        int res = -1;
+                        int err = CalculateInteger(step, res);
+                        if (err == 0 && res != 0)
+                        {
+                            if (res > 0)
+                            {
+                                startE = new Expression(start);
+                                endE = new Expression(&((*end - *start + *step) / *step));
+                            }
+                            else
+                            {
+                                endE = new Expression(end);
+                                endE = new Expression(&((*start - *end + *step) / *step));
+                            }
+                        }
+                    }
+
+                    newLoop->startEndExpr = std::make_pair(startE, endE);
+                }
+
                 newLoop->loop = new Statement(st);
+
+                SgStatement *lexPrev = st->lexPrev();
+                if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
+                    newLoop->userDvmDirective = new Statement(lexPrev);
 
                 if (parentLoops.size() == 0)
                     loopGraph.push_back(newLoop);
@@ -493,11 +537,14 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
         }
         __spf_print(DEBUG, "Function ended\n");
     }
+
+    for (auto &loop : loopGraph)
+        loop->propagateUserDvmDir();
 }
 
 void LoopGraph::recalculatePerfect()
 {
-    perfectLoop = ((SgForStmt*)loop)->isPerfectLoopNest();
+    perfectLoop = ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest();
     for (auto &loop : childs)
         loop->recalculatePerfect();
 }
@@ -523,15 +570,23 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
 }
 
+static int calculateNormalChildSize(const LoopGraph *currLoop)
+{
+    int count = 0;
+    for (auto &elem : currLoop->childs)
+        count += (elem->lineNum > 0) ? 1 : 0;
+    return count;
+}
+
 void convertToString(const LoopGraph *currLoop, string &result)
 {
-    if (currLoop)
+    if (currLoop && currLoop->lineNum > 0)
     {
         char buf[512];
         result += " " + std::to_string(currLoop->calls.size());
         for (int i = 0; i < currLoop->calls.size(); ++i)
             result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        printToBuffer(currLoop, calculateNormalChildSize(currLoop), buf);
         result += string(buf);
 
         result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());

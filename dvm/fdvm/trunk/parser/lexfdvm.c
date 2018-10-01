@@ -2216,6 +2216,9 @@ analyz()
              if (eqn(11,  nextch,   "endinterval")) {
                 stkey = ENDINTERVAL;  hpf = 1;
                 nextch += 11;
+             }  else if (eqn(12, nextch, "exitinterval")) {
+                stkey = EXITINTERVAL;     hpf = 1;
+                nextch += 12;
              }  else if (eqn(8, nextch, "enddebug")) {
                 stkey = ENDDEBUG;     hpf = 1;
                 nextch += 8;
@@ -2336,7 +2339,10 @@ analyz()
                 stkey = UNKNOWN;
              break;
 	  case 't':
-             if (eqn(8, nextch, "template")) {
+             if (eqn(15, nextch, "template_create")) {
+                stkey = TEMPLATE_CREATE;   
+                nextch += 15; 
+             } else if (eqn(8, nextch, "template")) {
                 stkey = HPF_TEMPLATE;   hpf = 1;
                 nextch += 8; 
              } else if (eqn(7, nextch, "traceon")) {

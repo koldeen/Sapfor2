@@ -12,10 +12,19 @@
 #include "inline.h"
 
 #ifdef __SPF
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message) { }
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group) { }
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type) { }
 extern "C" void removeFromCollection(void *pointer) { }
+
+#include <map>
+#include <string>
+
+std::map<PTR_BFND, std::pair<std::string, int>> sgStats;
+std::map<PTR_LLND, std::pair<std::string, int>> sgExprs;
+void addToGlobalBufferAndPrint(const std::string &toPrint) { }
 #endif
+
+int current_file_id;     //number of current file 
 
 void Inliner(graph_node *gtop)
 {

@@ -9,7 +9,8 @@
 #include "../GraphCall/graph_calls.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
+#include "../Utils/SgUtils.h"
 
 #include "dvm.h"
 
@@ -20,7 +21,7 @@ enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
-void getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
+std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
@@ -30,18 +31,21 @@ void loopAnalyzer(SgFile *file,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
                   const std::vector<FuncInfo*> &funcInfo,
-                  std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                  std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
+                  const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
+                  const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                   std::vector<LoopGraph*> *loopGraph = NULL);
-void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, REGIME regime);
+void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
+                         const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
+                         REGIME regime);
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                               std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                              std::vector<Messages> &messagesForFile);
 
 void selectParallelDirectiveForVariant(SgFile *file, 
                                        ParallelRegion *currReg,
@@ -63,15 +67,14 @@ std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string
 std::string getShortName(const std::tuple<int, std::string, std::string> &uniqKey);
 
 void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
-                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt);
+                            std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
+                            const std::vector<ParallelRegion*> &regions);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
                            std::map<SgExpression*, std::string> &collection);
-
-bool isRemovableDependence(const depNode *toCheck);
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
@@ -105,7 +108,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const std::set<s
                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 
 void insertDistributionToFile(const char *origFile, const char *outFile, const std::map<int, std::set<std::string>> &commentsToInclude);
-void removeDvmDirectives(SgFile *file);
+void removeDvmDirectives(SgFile *file, const bool toComment);
 
 void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines> *currLines,
                                            const std::vector<Statement*> &reDistrRulesBefore,
@@ -113,9 +116,10 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
                                            const std::vector<Statement*> &reAlignRules);
 
 // spf_directive_preproc.cpp
-bool preprocess_spf_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
-//void AddExp2tree(SgStatement *toAdd, SgExpression *exp);
-void revertion_spf_dirs(SgFile *file);
+bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
+void revertion_spf_dirs(SgFile *file, 
+                        std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt);
 void addAcrossToLoops(LoopGraph *topLoop, const std::map<SgSymbol*, std::tuple<int, int, int>> &acrossToAdd, 
                       const std::map<int, SgForStmt*> &allLoops, 
                       std::vector<Messages> &currMessages);
@@ -144,3 +148,8 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
 template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                                        const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,
                                        const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+
+// shadow.cpp
+void devourShadowByRemote(SgFile *file);
+void transformShadowIfFull(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, DIST::Arrays<int> &allArrays);

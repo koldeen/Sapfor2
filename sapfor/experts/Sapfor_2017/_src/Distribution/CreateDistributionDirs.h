@@ -2,7 +2,7 @@
 
 #include "../GraphLoop/graph_loops.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
-#include "../errors.h"
+#include "../Utils/errors.h"
 
 void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, 
                             DataDirective &dataDirectives, std::map<std::string, std::vector<Messages>> &allMessages, 

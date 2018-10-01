@@ -143,7 +143,7 @@ struct IND_ref_list {
 };
 
 struct coeffs {
-       SgSymbol *sc[10];
+       SgSymbol *sc[MAX_DIMS+2];
        int use;
 };
 
@@ -253,6 +253,7 @@ const int RTC_CALLS         = 1045; /*ACC*/
 const int RTS2_CREATED      = 1046; /*RTS2*/
 const int HANDLER_HEADER    = 1047; /*ACC*/
 const int MODULE_USE        = 1048; /*ACC*/
+const int DEFERRED_SHAPE    = 1049; 
 
 const int MAX_LOOP_LEVEL = 10; // 7 - maximal number of loops in parallel loop nest 
 const int MAX_LOOP_NEST = 25;  // maximal number of nested loops
@@ -407,6 +408,7 @@ const int Logical_8 = 12;
 #define INTERFACE_RTS2  (parloop_by_handler == 2)
 #define HEADER_FOR_HANDLER(A)  ( (SgSymbol **)(A)->attributeValue(0,HANDLER_HEADER) )
 #define USE_STATEMENTS_ARE_REQUIRED ( (int *) first_do_par->attributeValue(0,MODULE_USE) )
+#define DEFERRED_SHAPE_TEMPLATE(A) ( (ORIGINAL_SYMBOL(A))->attributeValue(0,DEFERRED_SHAPE) )
 
 EXTERN
 SgFunctionSymb * fdvm [MAX_LIBFUN_NUM];
@@ -456,7 +458,7 @@ EXTERN SgStatement *where;//used in doAssignStmt: new statement is inserted befo
 EXTERN int nio;
 EXTERN SgSymbol *bufIO[Ntp],*IOstat;
 EXTERN int buf_use[Ntp];
-EXTERN SgSymbol *loop_var[8]; // for generatig DO statements
+EXTERN SgSymbol *loop_var[MAX_DIMS+1]; // for generatig DO statements
 EXTERN SgStatement *cur_func;  // current function 
 EXTERN int errcnt;  // counter of errors in file
 EXTERN int saveall; //= 1 if there is SAVE without name-list in current function(procedure) 
@@ -889,7 +891,9 @@ SgExpression *CalcLinearForm(SgSymbol *ar, SgExpression *el);
 SgSymbol *IOstatSymbol();
 void ShadowNames(SgSymbol *ar, int axis, SgExpression *shadow_name_list);
 int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
-
+void TemplateDeclarationTest(SgStatement *stmt);
+int DeferredShape(SgExpression *eShape);
+void Template_Create(SgStatement *stmt);
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
 int ParallelLoop_Debug(SgStatement *stmt);
@@ -1657,8 +1661,12 @@ SgStatement *RegionRegisterArray(int irgn, SgSymbol *c_intent, SgSymbol *ar);
 SgStatement *RegisterBufferArray(int irgn, SgSymbol *c_intent, SgExpression *bufref, int ilow, int ihigh);
 SgStatement *ActualScalar(SgSymbol *s);
 SgStatement *ActualSubArray(SgSymbol *ar, int ilow, int ihigh);
+SgStatement *ActualSubArray_2(SgSymbol *ar, int rank, SgExpression *index_list);
+SgStatement *ActualSubVariable(SgSymbol *s, int ilow, int ihigh);
+SgStatement *ActualSubVariable_2(SgSymbol *s, int rank, SgExpression *index_list);
 SgStatement *GetActualScalar(SgSymbol *s);
 SgStatement *GetActualSubArray(SgSymbol *ar, int ilow, int ihigh);
+SgStatement *GetActualSubArray_2(SgSymbol *ar, int rank, SgExpression *index_list);
 SgStatement *DestroyArray(SgExpression *objref);
 SgStatement *DestroyScalar(SgExpression *objref);
 SgStatement *RegistrateDVMArray(int ireg,SgExpression *header,SgExpression *gpuheader, SgExpression *gpubase,int inflag,int outflag);
@@ -1716,9 +1724,9 @@ SgStatement *RegionAfterWaitrb(int irgn, SgExpression *bufref);
 SgStatement *RegionBeforeLoadrb(SgExpression *bufref);
 SgStatement *ActualArray(SgSymbol *ar);
 SgStatement *GetActualArray(SgExpression *objref);
-SgStatement *ActualSubVariable(SgSymbol *s, int ilow, int ihigh);
 SgStatement *GetActualSubVariable(SgSymbol *s, int ilow, int ihigh);
-SgStatement *CreateDvmArray(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) ;
+SgStatement *GetActualSubVariable_2(SgSymbol *s, int rank, SgExpression *index_list);
+SgStatement *CreateDvmArrayHeader(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign) ;
 SgStatement *HandleConsistent(SgExpression *gref);
 SgExpression *HasLocalElement(SgSymbol *s_loop_ref,SgSymbol *ar, SgSymbol *IndAr);
 SgExpression *HasLocalElement_H2(SgSymbol *s_loop_ref, SgSymbol*ar, int n, SgExpression *index_list);
@@ -1772,12 +1780,12 @@ SgStatement *Dvmh_Line(int line, SgStatement *stmt);
 SgStatement *DvmhArrayCreate(SgSymbol *das, SgExpression *array_header, int rank, SgExpression *arglist);
 SgStatement *DvmhTemplateCreate(SgSymbol *das, SgExpression *array_header, int rank, SgExpression *arglist);
 SgExpression *DvmhReplicated();
-SgExpression *DvmhBlock();
-SgExpression *DvmhWgtBlock(SgSymbol *sw, SgExpression *en);
-SgExpression *DvmhGenBlock(SgSymbol *sg);
-SgExpression *DvmhMultBlock(SgExpression *em);
-SgExpression *DvmhIndirect(SgSymbol *smap);
-SgExpression *DvmhDerived(SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func);
+SgExpression *DvmhBlock(int axis);
+SgExpression *DvmhWgtBlock(int axis, SgSymbol *sw, SgExpression *en);
+SgExpression *DvmhGenBlock(int axis, SgSymbol *sg);
+SgExpression *DvmhMultBlock(int axis, SgExpression *em);
+SgExpression *DvmhIndirect(int axis, SgSymbol *smap);
+SgExpression *DvmhDerived(int axis, SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func);
 SgStatement *DvmhDistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhRedistribute(SgSymbol *das, int rank, SgExpression *distr_list);
 SgStatement *DvmhAlign(SgSymbol *als, SgSymbol *align_base, int nr, SgExpression *alignment_list);
@@ -1788,6 +1796,8 @@ SgExpression *DvmhExprConstant(SgExpression *e);
 SgExpression *DvmhExprIgnore();
 SgExpression *DvmhDerivedRhs(SgExpression *erhs);
 SgStatement *ShadowAdd(SgExpression *templ, int iaxis, SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func, SgExpression *shadow_name, int nl, SgExpression *array_list);
+SgStatement *CreateDvmArrayHeader_2(SgSymbol *ar, SgExpression *array_header,  int rank,  SgExpression *shape_list);
+SgStatement *ForgetHeader(SgExpression *objref);
 
 /*  io.cpp      */
 void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);

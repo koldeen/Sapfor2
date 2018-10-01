@@ -7,9 +7,8 @@
 #define LIBSAGEXX_H 1
 
 #include <string.h>
-
-
-
+#include <map>
+#include <string>
 
 /* includes the attributes data structure */
 
@@ -31,6 +30,10 @@ the include file are within a #if 0  #endif.  These refer to the unimplemented
 portions of Sage++ library.
 ***************************************************************/
 
+#if __SPF
+extern "C" void removeFromCollection(void *pointer);
+#endif
+
 class  SgProject {
   public:
   inline SgProject(SgProject &);
@@ -40,191 +43,254 @@ class  SgProject {
   SgFile &file(int i);   
   inline char *fileName(int i); 
   inline int Fortranlanguage(); 
-  inline int Clanguage();                         
+  inline int Clanguage();
   void addFile(char * dep_file_name);
   void deleteFile(SgFile * file);
 };
 
-class  SgFile{
-  public:
-  PTR_FILE filept;
-  SgFile(char* file_name); // the file must exist.
-  SgFile(int Language, const char* file_name); // for new empty file objects.
-  ~SgFile();
-  SgFile(SgFile &);
-  inline int languageType();
-  inline void saveDepFile(const char *dep_file);
-  inline void unparse(FILE *filedisc);
-  inline void unparsestdout();   
-  inline void unparseS(FILE *filedisc, int size);
-  const char* filename();
+class  SgFile {
+private:
+    static std::map<std::string, std::pair<SgFile*, int> > files;
 
-  inline SgStatement *mainProgram();
-  SgStatement *functions(int i);
-  inline int numberOfFunctions();
-  SgStatement *getStruct(int i);
-  inline int numberOfStructs();
+public:
+    PTR_FILE filept;
+    SgFile(char* file_name); // the file must exist.
+    SgFile(int Language, const char* file_name); // for new empty file objects.
+    ~SgFile();
+    SgFile(SgFile &);
+    inline int languageType();
+    inline void saveDepFile(const char *dep_file);
+    inline void unparse(FILE *filedisc);
+    inline void unparsestdout();
+    inline void unparseS(FILE *filedisc, int size);
+    const char* filename();
 
-  inline SgStatement *firstStatement();
-  inline SgSymbol *firstSymbol();
-  inline SgType *firstType();
-  inline SgExpression *firstExpression();
+    inline SgStatement *mainProgram();
+    SgStatement *functions(int i);
+    inline int numberOfFunctions();
+    SgStatement *getStruct(int i);
+    inline int numberOfStructs();
 
-  inline SgExpression *SgExpressionWithId(int i);
-  inline SgStatement *SgStatementWithId( int id);
-  inline SgStatement *SgStatementAtLine(int lineno);
-  inline SgSymbol *SgSymbolWithId( int id);
-  inline SgType *SgTypeWithId( int id);
-  // for attributes;
-  void saveAttributes(char *file);
-  void saveAttributes(char *file, void  (*savefunction)(void *dat,FILE *f)); 
-  void readAttributes(char *file);
-  void readAttributes(char *file, void * (*readfunction)(FILE *f));
-  int numberOfAttributes();
-  SgAttribute *attribute(int i);
+    inline SgStatement *firstStatement();
+    inline SgSymbol *firstSymbol();
+    inline SgType *firstType();
+    inline SgExpression *firstExpression();
 
-  /***** Kataev 15.07.2013 *****/
-  int numberOfFileAttributes();
-  int numberOfAttributes(int type); // of a specified type;
-  void *attributeValue(int i); 
-  int  attributeType(int i); 
-  void *attributeValue(int i,int type); // only considering one type attribute
-  void *deleteAttribute(int i); 
-  void addAttribute(int type, void *a, int size); // void * can be NULL;
-  void addAttribute(int type); //void * is NULL;
-  void addAttribute(void *a, int size); //no type specifed;
-  void addAttribute(SgAttribute *att);
-  SgAttribute *getAttribute(int i);
-  SgAttribute *getAttribute(int i,int type);
-  /*****************************/
+    inline SgExpression *SgExpressionWithId(int i);
+    inline SgStatement *SgStatementWithId(int id);
+    inline SgStatement *SgStatementAtLine(int lineno);
+    inline SgSymbol *SgSymbolWithId(int id);
+    inline SgType *SgTypeWithId(int id);
+    // for attributes;
+    void saveAttributes(char *file);
+    void saveAttributes(char *file, void(*savefunction)(void *dat, FILE *f));
+    void readAttributes(char *file);
+    void readAttributes(char *file, void * (*readfunction)(FILE *f));
+    int numberOfAttributes();
+    SgAttribute *attribute(int i);
 
-  int expressionGarbageCollection(int deleteExpressionNode, int verbose);
- //int SgFile::expressionGarbageCollection(int deleteExpressionNode, int verbose);
+    /***** Kataev 15.07.2013 *****/
+    int numberOfFileAttributes();
+    int numberOfAttributes(int type); // of a specified type;
+    void *attributeValue(int i);
+    int  attributeType(int i);
+    void *attributeValue(int i, int type); // only considering one type attribute
+    void *deleteAttribute(int i);
+    void addAttribute(int type, void *a, int size); // void * can be NULL;
+    void addAttribute(int type); //void * is NULL;
+    void addAttribute(void *a, int size); //no type specifed;
+    void addAttribute(SgAttribute *att);
+    SgAttribute *getAttribute(int i);
+    SgAttribute *getAttribute(int i, int type);
+    /*****************************/
 
+    int expressionGarbageCollection(int deleteExpressionNode, int verbose);
+    //int SgFile::expressionGarbageCollection(int deleteExpressionNode, int verbose);
+
+    static int switchToFile(const std::string &name);
+    static void addFile(const std::pair<SgFile*, int> &toAdd);    
 };
+
+
+extern SgFile *current_file;    //current file
+extern int current_file_id;     //number of current file 
 
 // Discuss about control parent, BIF structure etc
-class  SgStatement{
-  public:
-  PTR_BFND thebif;
-  SgStatement(int variant); 
-  SgStatement(PTR_BFND bif);
-  SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3);
-  SgStatement(SgStatement &);
-  // info about statement
-  inline int lineNumber();          // source text line number
-  inline int id();                  // unique id;
-  inline int variant();             // the type of the statement
-  SgExpression *expr(int i); // i = 0,1,2 returns the i-th expression.
+class  SgStatement 
+{
+private:
+    int fileID;
+    SgProject *project;
+    bool unparseIgnore;
 
-  inline int hasSymbol();  // returns TRUE if tmt has symbol, FALSE otherwise
-  // returns the symbol field. Used by loop headers to point to the
-  // loop variable symbol; Used by function and subroutine headers to
-  // point to the function or subroutine name.
-  SgSymbol *symbol();        // returns the symbol field.
-  inline char *fileName();
-  inline void setFileName(char *newFile);
+    // fileID -> [ map<FileName, line>, SgSt*]
+    static std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > statsByLine;
+    static void updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate);
+    static std::map<SgExpression*, SgStatement*> parentStatsForExpression;
+    static void updateStatsByExpression();
+    static void updateStatsByExpression(SgStatement *where, SgExpression *what);
 
-  inline int hasLabel();     // returns 1 if there is a label on the stmt.
-  SgLabel *label();          // the label
+public:
+    PTR_BFND thebif;
+    SgStatement(int variant);
+    SgStatement(PTR_BFND bif);
+    SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e1, SgExpression *e2, SgExpression *e3);
+    SgStatement(SgStatement &);
+    // info about statement
+    inline int lineNumber();          // source text line number
+    inline int localLineNumber();
+    inline int id();                  // unique id;
+    inline int variant();             // the type of the statement
+    SgExpression *expr(int i); // i = 0,1,2 returns the i-th expression.
 
-  // modifying the info.
-  inline void setlineNumber(int n); // change the line number info
-  inline void setId(int n);         // cannot change the id info
-  inline void setVariant(int n);    // change the type of the statement
-  void setExpression (int i, SgExpression &e); // change the i-th expression
-  inline void setLabel(SgLabel &l); // change the label
-  inline void setSymbol(SgSymbol &s); // change the symbol
+    inline int hasSymbol();  // returns TRUE if tmt has symbol, FALSE otherwise
+    // returns the symbol field. Used by loop headers to point to the
+    // loop variable symbol; Used by function and subroutine headers to
+    // point to the function or subroutine name.
+    SgSymbol *symbol();        // returns the symbol field.
+    inline char *fileName();
+    inline void setFileName(char *newFile);
 
-  // Control structure
-  inline SgStatement *lexNext();   // the next statement in lexical order.
-  inline SgStatement *lexPrev();   // the previous stmt in lexical order.
-  inline SgStatement *controlParent(); // the enclosing control statement
+    inline int hasLabel();     // returns 1 if there is a label on the stmt.
+    SgLabel *label();          // the label
 
-  inline void setLexNext(SgStatement &s); // change the lexical ordering
-  void setControlParent(SgStatement &s); // change the control parent.
-  void setControlParent(SgStatement *s); // change the control parent.
+    // modifying the info.
+    inline void setlineNumber(const int n); // change the line number info
+    inline void setLocalLineNumber(const int n);
+    inline void setId(int n);         // cannot change the id info
+    inline void setVariant(int n);    // change the type of the statement
+    void setExpression(int i, SgExpression &e); // change the i-th expression
+    inline void setLabel(SgLabel &l); // change the label
+    inline void setSymbol(SgSymbol &s); // change the symbol
 
-// Access statement using the tree structure
-// Describe BLOB lists here?
+    // Control structure
+    inline SgStatement *lexNext();   // the next statement in lexical order.
+    inline SgStatement *lexPrev();   // the previous stmt in lexical order.
+    inline SgStatement *controlParent(); // the enclosing control statement
 
-  inline int numberOfChildrenList1();
-  inline int numberOfChildrenList2();
-  inline SgStatement *childList1(int i);
-  inline SgStatement *childList2(int i);
-  SgStatement *nextInChildList();
+    inline void setLexNext(SgStatement &s); // change the lexical ordering
+    void setControlParent(SgStatement &s); // change the control parent.
+    void setControlParent(SgStatement *s); // change the control parent.
 
-  inline SgStatement *lastDeclaration(); 
-  inline SgStatement *lastExecutable();  
-  inline SgStatement *lastNodeOfStmt();
-  inline SgStatement *nodeBefore();
-  inline void insertStmtBefore(SgStatement &s);
-  inline void insertStmtBefore(SgStatement &s, SgStatement &cp); 
-  void insertStmtAfter(SgStatement &s);
-  void insertStmtAfter(SgStatement &s, SgStatement &cp);
-  inline SgStatement *extractStmt();
-  inline SgStatement *extractStmtBody();
-  inline void replaceWithStmt(SgStatement &s);
-  inline void deleteStmt();
-  inline SgStatement  &copy (void);
-  inline SgStatement  *copyPtr (void);
-  inline SgStatement  &copyOne (void);
-  inline SgStatement  *copyOnePtr (void);
-  inline SgStatement  &copyBlock (void);
-  inline SgStatement  *copyBlockPtr (void);
-  inline SgStatement  *copyBlockPtr (int saveLabelId);
-  inline int isIncludedInStmt(SgStatement &s);
-  inline void replaceSymbByExp(SgSymbol &symb, SgExpression &exp);
-  inline void replaceSymbBySymb(SgSymbol &symb, SgSymbol &newsymb);
-  inline void replaceSymbBySymbSameName(SgSymbol &symb, SgSymbol &newsymb);
-  inline void replaceTypeInStmt(SgType &old, SgType &newtype);
-  char* unparse();
-  inline void unparsestdout();
-  void sunparse(char *buffer); //unparsing functions.
-  inline char *comments();      //preceding comment lines.
-  void addComment(const char *com);
-  void addComment(char *com);
-  /* ajm: setComments: set ALL of the node's comments */
-  inline void setComments (char *comments);
-  inline void setComments (const char *comments);
-  inline void delComments();
-  int numberOfComments(); //number of preceeding comments. CAREFUL! 
+  // Access statement using the tree structure
+  // Describe BLOB lists here?
 
-  int hasAnnotations();   //1 if there are annotations; 0 otherwise
-  ~SgStatement();
-  // These function must be removed. Doesn't make sense here.
-  int IsSymbolInScope(SgSymbol &symb); // TRUE if symbol is in scope
-  int IsSymbolReferenced(SgSymbol &symb);
-  inline SgStatement *getScopeForDeclare(); // return where a variable can be declared;
+    inline int numberOfChildrenList1();
+    inline int numberOfChildrenList2();
+    inline SgStatement *childList1(int i);
+    inline SgStatement *childList2(int i);
+    SgStatement *nextInChildList();
 
-  /////////////// FOR ATTRIBUTES //////////////////////////
+    inline SgStatement *lastDeclaration();
+    inline SgStatement *lastExecutable();
+    inline SgStatement *lastNodeOfStmt();
+    inline SgStatement *nodeBefore();
+    inline void insertStmtBefore(SgStatement &s);
+    inline void insertStmtBefore(SgStatement &s, SgStatement &cp);
+    void insertStmtAfter(SgStatement &s);
+    void insertStmtAfter(SgStatement &s, SgStatement &cp);
+    inline SgStatement *extractStmt();
+    inline SgStatement *extractStmtBody();
+    inline void replaceWithStmt(SgStatement &s);
+    inline void deleteStmt();
+    inline SgStatement  &copy(void);
+    inline SgStatement  *copyPtr(void);
+    inline SgStatement  &copyOne(void);
+    inline SgStatement  *copyOnePtr(void);
+    inline SgStatement  &copyBlock(void);
+    inline SgStatement  *copyBlockPtr(void);
+    inline SgStatement  *copyBlockPtr(int saveLabelId);
+    inline int isIncludedInStmt(SgStatement &s);
+    inline void replaceSymbByExp(SgSymbol &symb, SgExpression &exp);
+    inline void replaceSymbBySymb(SgSymbol &symb, SgSymbol &newsymb);
+    inline void replaceSymbBySymbSameName(SgSymbol &symb, SgSymbol &newsymb);
+    inline void replaceTypeInStmt(SgType &old, SgType &newtype);
+    char* unparse();
+    inline void unparsestdout();
+    std::string sunparse(); //unparsing functions.
+    inline char *comments();      //preceding comment lines.
+    void addComment(const char *com);
+    void addComment(char *com);
+    /* ajm: setComments: set ALL of the node's comments */
+    inline void setComments(char *comments);
+    inline void setComments(const char *comments);
+    inline void delComments();
+    int numberOfComments(); //number of preceeding comments. CAREFUL! 
 
-  int numberOfAttributes();
-  int numberOfAttributes(int type); // of a specified type;
-  void *attributeValue(int i); 
-  int  attributeType(int i); 
-  void *attributeValue(int i,int type); // only considering one type attribute
-  void *deleteAttribute(int i); 
-  void addAttribute(int type, void *a, int size); // void * can be NULL;
-  void addAttribute(int type); //void * is NULL;
-  void addAttribute(void *a, int size); //no type specifed;
-  void addAttribute(SgAttribute *att);
-  SgAttribute *getAttribute(int i);
-  SgAttribute *getAttribute(int i,int type);
+    int hasAnnotations();   //1 if there are annotations; 0 otherwise
+    ~SgStatement();
+    // These function must be removed. Doesn't make sense here.
+    int IsSymbolInScope(SgSymbol &symb); // TRUE if symbol is in scope
+    int IsSymbolReferenced(SgSymbol &symb);
+    inline SgStatement *getScopeForDeclare(); // return where a variable can be declared;
 
-  //////////// FOR DECL_SPECS (friend, inline, extern, static) ////////////
+    /////////////// FOR ATTRIBUTES //////////////////////////
 
-  inline void addDeclSpec(int type);   //type should be one of BIT_EXTERN,
-                                //BIT_INLINE, BIT_FRIEND, BIT_STATIC
-  inline void clearDeclSpec();        //resets the decl_specs field to zero
-  inline int isFriend();               //returns non-zero if friend modifier set
-                                //returns zero otherwise
-  inline int isInline();
-  inline int isExtern();
-  inline int isStatic();
+    int numberOfAttributes();
+    int numberOfAttributes(int type); // of a specified type;
+    void *attributeValue(int i);
+    int  attributeType(int i);
+    void *attributeValue(int i, int type); // only considering one type attribute
+    void *deleteAttribute(int i);
+    void addAttribute(int type, void *a, int size); // void * can be NULL;
+    void addAttribute(int type); //void * is NULL;
+    void addAttribute(void *a, int size); //no type specifed;
+    void addAttribute(SgAttribute *att);
+    SgAttribute *getAttribute(int i);
+    SgAttribute *getAttribute(int i, int type);
+
+    //////////// FOR DECL_SPECS (friend, inline, extern, static) ////////////
+
+    inline void addDeclSpec(int type);   //type should be one of BIT_EXTERN,
+                                  //BIT_INLINE, BIT_FRIEND, BIT_STATIC
+    inline void clearDeclSpec();        //resets the decl_specs field to zero
+    inline int isFriend();               //returns non-zero if friend modifier set
+                                  //returns zero otherwise
+    inline int isInline();
+    inline int isExtern();
+    inline int isStatic();
+
+    // new opportunities were added by Kolganov A.S. 16.04.2018
+    inline int getFileId() const { return fileID; }
+    inline void setFileId(const int newFileId) { fileID = newFileId; }
+
+    inline SgProject* getProject() const { return project; }
+    inline void setProject(SgProject *newProj) { project = newProj; }
+
+    inline bool switchToFile()
+    {
+        if (fileID == -1 || project == NULL)
+            return false;
+
+        if (current_file_id != fileID)
+        {
+            SgFile *file = &(project->file(fileID));
+            current_file_id = fileID;
+            current_file = file;
+        }
+        return true;
+    }
+
+    inline SgFile* getFile() const 
+    { 
+        if (fileID == -1 || project == NULL)
+            return NULL;
+        else
+            return &(project->file(fileID)); 
+    }
+
+    inline void setUnparseIgnore(bool flag) { unparseIgnore = flag; }
+    inline bool getUnparseIgnore() const { return unparseIgnore; }
+
+    static SgStatement* getStatementByFileAndLine(const std::string &fName, const int lineNum);
+    static void cleanStatsByLine() { statsByLine.clear(); }
+
+    static SgStatement* getStatmentByExpression(SgExpression*);
+    static void cleanParentStatsForExprs() { parentStatsForExpression.clear(); }
 };
 
-class  SgExpression{    
+class  SgExpression
+{    
 public:
   PTR_LLND thellnd;
   // generic expression class.
@@ -265,7 +331,7 @@ public:
   inline SgExpression &copy();
   inline SgExpression *copyPtr();
   char *unparse(); 
-  void sunparse(char *buffer);
+  std::string sunparse();
   inline void unparsestdout();
   inline SgExpression *IsSymbolInExpression(SgSymbol &symbol);
   inline void replaceSymbolByExpression(SgSymbol &symbol, SgExpression &expr);
@@ -300,6 +366,8 @@ friend SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs);
 friend SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs);
+friend SgExpression &operator ==(SgExpression &lhs, SgExpression &rhs);
+friend SgExpression &operator !=(SgExpression &lhs, SgExpression &rhs);
 friend SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &SgEqOp( SgExpression &lhs, SgExpression &rhs); 
 friend SgExpression &SgNeqOp( SgExpression &lhs, SgExpression &rhs); 
@@ -1053,6 +1121,17 @@ public:
   inline SgProgHedrStmt(SgSymbol &name);
   inline SgProgHedrStmt(char *name);
   inline SgSymbol &name();
+  // added 15.08.2018 by A.S. Kolganov. <contains cp name>.funcName
+  inline std::string nameWithContains()
+  {
+      std::string containsName = "";
+      SgStatement *st_cp = this->controlParent();
+      if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+          containsName = st_cp->symbol()->identifier() + std::string(".");
+
+      return containsName + this->symbol()->identifier();
+  }
+
   inline void setName(SgSymbol &symbol); // set program name 
 
   inline int numberOfFunctionsCalled();  // the number of functions called
@@ -1579,6 +1658,8 @@ public:
   inline SgIfStmt(SgExpression &cond, SgStatement &body, int t);
   inline SgIfStmt(SgExpression &cond);
 
+  // added by A.S. Kolganov 27.07.2018,
+  inline void setBodies(SgStatement *trueBody, SgStatement *falseBody);
   inline SgStatement *trueBody();      // the first stmt in the True clause
   // SgBlock is needed? 
   inline SgStatement *trueBody(int i); // i-th stmt in True clause
@@ -1596,8 +1677,8 @@ class  SgIfElseIfStmt: public SgIfStmt {
   // For Fortran if then elseif .. elseif ... case
   // variant == ELSEIF_NODE
 public:
-  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList,
-                 SgSymbol &constructName);
+  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList, SgSymbol &constructName);
+  SgIfElseIfStmt(SgExpression &condList, SgStatement &blockList);
   int numberOfConditionals();       // the number of conditionals
   SgStatement *body(int b);          // block b
   void setBody(int b);              // sets block 
@@ -1608,9 +1689,7 @@ public:
   ~SgIfElseIfStmt();
 };
 
-inline SgIfElseIfStmt::~SgIfElseIfStmt()
-{ RemoveFromTableBfnd((void *) this); }
-
+inline SgIfElseIfStmt::~SgIfElseIfStmt() { RemoveFromTableBfnd((void *) this); }
 #endif
 
 
@@ -1669,8 +1748,9 @@ class SgCaseOptionStmt: public SgStatement{
   // Fortran case option statement
   // variant == CASE_NODE
 public:
-  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, 
-                          SgSymbol &constructName);
+  // added by A.S.Kolganov 18.07.2018
+  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body);
+  inline SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, SgSymbol &constructName);
   // added by A.V.Rakov 16.03.2015
   inline SgCaseOptionStmt(SgExpression &caseRangeList);
   inline ~SgCaseOptionStmt();
@@ -2901,7 +2981,11 @@ public:
 // SgProject--inlines
 
 inline SgProject::~SgProject()
-{}
+{
+#if __SPF
+    removeFromCollection(this);
+#endif
+}
 inline SgProject::SgProject(SgProject &)
 { 
  Message("SgProject copy constructor not allowed",0);
@@ -3040,6 +3124,9 @@ inline SgType *SgFile::SgTypeWithId( int id)
 inline int SgStatement::lineNumber()
 { return BIF_LINE(thebif); }
 
+inline int SgStatement::localLineNumber()
+{ return BIF_LOCAL_LINE(thebif); }
+
 inline int  SgStatement::id()
 { return BIF_ID(thebif);}
 
@@ -3081,8 +3168,11 @@ inline int SgStatement::hasLabel()
   return x;
 }
 
-inline void SgStatement::setlineNumber(int n)
+inline void SgStatement::setlineNumber(const int n)
 { BIF_LINE(thebif) = n; }
+
+inline void SgStatement::setLocalLineNumber(const int n)
+{ BIF_LOCAL_LINE(thebif) = n; }
 
 inline void SgStatement::setId(int)
 { Message("Id cannot be changed",BIF_LINE(thebif)); }
@@ -3172,11 +3262,21 @@ inline void  SgStatement::deleteStmt()
 inline int SgStatement::isIncludedInStmt(SgStatement &s)
 {return isInStmt(thebif, s.thebif);}
 
-inline SgStatement & SgStatement::copy()
-{ return *BfndMapping(duplicateStmtsNoExtract(thebif)); }
+inline SgStatement &SgStatement::copy()
+{
+    return *copyPtr();
+}
 
-inline SgStatement * SgStatement::copyPtr()
-{ return BfndMapping(duplicateStmtsNoExtract(thebif)); }
+inline SgStatement *SgStatement::copyPtr()
+{
+    SgStatement *copy = BfndMapping(duplicateStmtsNoExtract(thebif));
+
+#ifdef __SPF
+    copy->setProject(project);
+    copy->setFileId(fileID);
+#endif
+    return copy; 
+}
 
 inline SgStatement & SgStatement::copyOne()
 {
@@ -3191,18 +3291,28 @@ inline SgStatement * SgStatement::copyOnePtr()
 	Unfortunately, the copy function itself it badly broken. */
 
      new_stmt->setControlParent (this->controlParent());
-
+#ifdef __SPF
+     new_stmt->setProject(project);
+     new_stmt->setFileId(fileID);
+#endif
      return new_stmt;
 }
   
-inline SgStatement & SgStatement::copyBlock()
+inline SgStatement& SgStatement::copyBlock()
 { return *copyBlockPtr(); }
 
-inline SgStatement * SgStatement::copyBlockPtr()
-{ return BfndMapping(duplicateStmtsBlock(thebif,0)); }
+inline SgStatement *SgStatement::copyBlockPtr() 
+{ return copyBlockPtr(0); }
 
-inline SgStatement * SgStatement::copyBlockPtr(int saveLabelId)
-{ return BfndMapping(duplicateStmtsBlock(thebif,saveLabelId)); }
+inline SgStatement* SgStatement::copyBlockPtr(int saveLabelId)
+{
+    SgStatement *new_stmt = BfndMapping(duplicateStmtsBlock(thebif, saveLabelId));
+#ifdef __SPF
+    new_stmt->setProject(project);
+    new_stmt->setFileId(fileID);
+#endif
+    return new_stmt; 
+}
 
 inline void SgStatement::replaceSymbByExp(SgSymbol &symb, SgExpression &exp)
 {
@@ -3259,20 +3369,19 @@ inline char* SgStatement::unparse()
 
 inline void SgStatement::unparsestdout()
 {
-  UnparseBif(thebif);
+    UnparseBif(thebif);
 }
 
-inline char * SgStatement::comments()
+inline char* SgStatement::comments()
 {
-  char *x;
+    char *x;
 
-  if (BIF_CMNT(thebif))
-    x = CMNT_STRING(BIF_CMNT(thebif));
-  else
-    x = NULL;
+    if (BIF_CMNT(thebif))
+        x = CMNT_STRING(BIF_CMNT(thebif));
+    else
+        x = NULL;
 
-  return x;
-
+    return x;
 }
 
 inline void SgStatement::addDeclSpec(int type)
@@ -3382,7 +3491,10 @@ inline char* SgExpression::unparse()
 }
 
 inline void SgExpression::unparsestdout()
-{ UnparseLLND(thellnd); }
+{ 
+    UnparseLLND(thellnd);
+    printf("\n");
+}
 
 
 // SgSymbol--inlines
@@ -6146,6 +6258,21 @@ inline SgIfStmt::SgIfStmt(SgExpression &cond, SgStatement &trueBody, SgStatement
   addControlEndToStmt(thebif);
 }
 
+inline void SgIfStmt::setBodies(SgStatement *trueBody, SgStatement *falseBody)
+{
+    if (trueBody && falseBody)
+    {
+        insertBfndListIn(trueBody->thebif, thebif, thebif);
+        appendBfndListToList2(falseBody->thebif, thebif);
+        addControlEndToStmt(thebif);
+    }
+    else if (trueBody)
+    {        
+        insertBfndListIn(trueBody->thebif, thebif, thebif);
+        addControlEndToStmt(thebif);
+    }
+}
+
 inline SgIfStmt::SgIfStmt(SgExpression &cond, SgStatement &trueBody):SgStatement(IF_NODE)
 {
   BIF_LL1(thebif) = cond.thellnd;
@@ -6338,6 +6465,12 @@ inline void  SgSwitchStmt::deleteCaseOption(int i)
 
 // SgCaseOptionStmt--inlines
 
+inline SgCaseOptionStmt::SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body) : SgStatement(CASE_NODE)
+{
+  BIF_LL1(thebif) = caseRangeList.thellnd;
+  insertBfndListIn(body.thebif, thebif, thebif);
+  addControlEndToStmt(thebif);
+}
 
 inline SgCaseOptionStmt::SgCaseOptionStmt(SgExpression &caseRangeList, SgStatement &body, 
                                           SgSymbol &constructName):SgStatement(CASE_NODE)

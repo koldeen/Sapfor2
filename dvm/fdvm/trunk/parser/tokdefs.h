@@ -331,3 +331,5 @@
 #define FILES 331
 #define VARLIST 332
 #define STATUS 333
+#define EXITINTERVAL 334
+#define TEMPLATE_CREATE 335

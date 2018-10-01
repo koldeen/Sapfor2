@@ -114,6 +114,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("cosh"));
     intrinsicF.insert(string("cotan"));
     intrinsicF.insert(string("cotand"));
+    intrinsicF.insert(string("ceiling"));
     intrinsicF.insert(string("cexp"));
     intrinsicF.insert(string("conjg"));
     intrinsicF.insert(string("csqrt"));
@@ -188,10 +189,11 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("erf"));
     intrinsicF.insert(string("erfc"));
     intrinsicF.insert(string("erfc_scaled"));
-    intrinsicF.insert(string("float"));
+    intrinsicF.insert(string("float"));    
     intrinsicF.insert(string("floati"));
     intrinsicF.insert(string("floatj"));
     intrinsicF.insert(string("floatk"));
+    intrinsicF.insert(string("floor"));
     intrinsicF.insert(string("gamma"));
     intrinsicF.insert(string("habs"));
     intrinsicF.insert(string("hbclr"));
@@ -343,11 +345,24 @@ void initIntrinsicFunctionNames()
 
 int isIntrinsicFunctionName(char *name)
 {
+    if (!name)
+        return 0;
+
     int retval = 1;
     std::set<string>::iterator result = intrinsicF.find(name);
 
     if (result == intrinsicF.end())
         retval = 0;
+
+    //check for dabs, dtan and etc.
+    if (retval == 0 && name[0] == 'd')
+    {
+        string partName(name + 1);
+        result = intrinsicF.find(partName);
+
+        if (result != intrinsicF.end())
+            retval = 1;
+    }
 
     return retval;
 }
@@ -367,13 +382,20 @@ void addNumberOfFileToAttribute(SgProject *project)
     {
         SgFile *currF = &(project->file(i));
         int *num = new int[1];
-#ifdef _WIN32
 #ifdef __SPF
         addToCollection(__LINE__, __FILE__, num, 2);
 #endif
-#endif
         num[0] = i;
         currF->addAttribute(SG_FILE_ATTR, num, sizeof(int));
+
+        SgFile::addFile(std::make_pair(currF, i));
+
+        // fill private info for all statements
+        for (SgStatement *st = currF->firstStatement(); st; st = st->lexNext())
+        {
+            st->setFileId(i);
+            st->setProject(project);
+        }
     }
 }
 

@@ -7,6 +7,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../GraphCall/graph_calls.h"
+#include "../Utils/SgUtils.h"
 
 #include "acc_analyzer.h"
 
@@ -15,50 +16,98 @@ struct VariableItem;
 class VarsKeeper;
 class DataFlowItem;
 
+void deleteGraphsKeeper();
 SgExpression* ReplaceParameter(SgExpression *e);
 SgExpression* ReplaceArrayBoundSizes(SgExpression *edim);
 SgExpression* ReplaceConstant(SgExpression *e);
 void getCoefsOfSubscript(std::pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *doName);
 int CalculateInteger(SgExpression *expr, int &result);
-void expressionAnalyzer(SgFile *file);
-void expressionAnalyzer(SgStatement *function);
+SgExpression* CalculateInteger(SgExpression *expr);
+void expressionAnalyzer(SgFile *file,
+        const std::map<std::string, std::vector<DefUseList>> &defUseByFunctions,
+        const std::map<std::string, CommonBlock> &commonBlocks,
+        const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
+        const std::vector<ParallelRegion*> &regions);
 
 void calculate(SgExpression *&exp);
 void replaceConstatRec(SgExpression *&exp);
 
 enum REPLACE_PTR_TYPE { SG_EXPRESSION, SG_STATEMENT };
 
-void revertReplacements(std::string filename);
+void revertReplacements(const std::string &filename, bool back = false);
 
-struct StatementObj {
-    SgStatement* stmt;
-
-    StatementObj(SgStatement* st): stmt(st) { }
-
-    inline bool operator<(const StatementObj& rhs) const
-    {
-        return stmt->id() < rhs.stmt->id();
-    }
-};
-
-struct GraphAdjustmentItem {
-    GraphAdjustmentItem(ControlFlowGraph* cg): CGraph(cg), needAdjustment(true), in_defs(std::map<ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>>()) {}
+struct GraphItem {
+    GraphItem(): CGraph(NULL), file_id(-1), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()) {}
+    int file_id;
     ControlFlowGraph* CGraph;
-    bool needAdjustment;
-    std::map <ControlFlowGraph*, std::map<SymbolKey, std::map<std::string, SgExpression*>>> in_defs;
+    CallData calls;
+    CommonData commons;
+    DoLoopDataList dldl;
+    ~GraphItem() { if(CGraph) delete CGraph; }
 };
 
 class GraphsKeeper {
 private:
-    std::vector<GraphAdjustmentItem> graphs;
+    std::map<std::string, GraphItem*> graphs;
 public:
-    GraphsKeeper(): graphs(std::vector<GraphAdjustmentItem>()) {}
-    void addGraph(ControlFlowGraph* CGraph) { graphs.push_back(GraphAdjustmentItem(CGraph)); }
-    void addInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph, std::map<SymbolKey, std::map<std::string, SgExpression*>>* inDefs);
-    void deleteInDefs(ControlFlowGraph* targetGraph, ControlFlowGraph* parentGraph);
-    ControlFlowGraph* getGraphForAdjustment();
-    std::map <SymbolKey, std::map<std::string, SgExpression*>>* getInDefsFor(ControlFlowGraph* CGraph);
-    void deleteGraphs();
+    GraphsKeeper(): graphs(std::map<std::string, GraphItem*>()) {}
+    ~GraphsKeeper()
+    {
+        for (auto &it : graphs)
+            if (it.second)
+            {
+                delete it.second;
+                it.second = NULL;
+            }
+        graphs.clear();
+    }
 
+    GraphItem* buildGraph(SgStatement* st);
+    GraphItem* getGraph(const std::string &funcName);
 };
 
+struct FuncCallSE
+{
+    std::string funcName;
+    std::set<std::string> calls;
+    FuncCallSE(std::string &n, std::set<std::string>& v) : funcName(n), calls(v) {}
+};
+
+class CommonVarsOverseer
+{
+private:
+    bool inited;
+
+public:
+    std::map<std::string, std::set<SgSymbol*>> funcKillsVars;
+    CommonVarsOverseer() : inited(false), funcKillsVars(std::map<std::string, std::set<SgSymbol*>>()) {}
+    bool isInited() { return inited; }
+    void riseInited() { inited = true; }
+    void addKilledVar(SgSymbol* symbol, const std::string &funcName)
+    {
+        auto founded = funcKillsVars.find(funcName);
+        if (founded == funcKillsVars.end())
+            funcKillsVars.insert(founded, std::make_pair(funcName, std::set<SgSymbol*>()))->second.insert(symbol);
+        else
+            founded->second.insert(symbol);
+    }
+
+    std::set<SgSymbol*>* killedVars(const std::string &funcName)
+    {
+        auto founded = funcKillsVars.find(funcName);
+        if (founded == funcKillsVars.end())
+            return NULL;
+        return &(founded->second);
+    }
+};
+
+void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue>> *inDefs, CommonVarsOverseer *overseer_Ptr);
+void CorrectInDefs(ControlFlowGraph*);
+void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
+bool valueWithRecursion(const SymbolKey&, SgExpression*);
+bool valueWithFunctionCall(SgExpression*);
+bool valueWithArrayReference(SgExpression *exp);
+bool argIsReplaceable(int i, AnalysedCallsList* callData);
+bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
+void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
+void showDefs(std::map<SymbolKey, SgExpression*> *defs);

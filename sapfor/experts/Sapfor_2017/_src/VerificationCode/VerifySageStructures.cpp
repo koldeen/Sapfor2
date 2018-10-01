@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstring>
@@ -8,7 +8,7 @@
 
 #include "dvm.h"
 #include "verifications.h"
-#include "../utils.h"
+#include "../Utils/utils.h"
 
 int VerifyFile(SgFile *file)
 {
@@ -19,8 +19,7 @@ int VerifyFile(SgFile *file)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
-
-        startLineControl(file->filename(), st->lineNumber(), lastNode->lineNumber());
+                
         while (st != lastNode)
         {
             if (st == NULL)
@@ -29,12 +28,8 @@ int VerifyFile(SgFile *file)
                 isError = -1;
                 break;
             }
-            else if (checkThisLine(st->fileName(), st->lineNumber()) == -1)
-            {
-                __spf_print(1, "Found errors in Sage structures in file %s, -2\n", file->filename());
-                isError = -2;
+            if (st->variant() == CONTAINS_STMT)
                 break;
-            }
             st = st->lexNext();
         }
 

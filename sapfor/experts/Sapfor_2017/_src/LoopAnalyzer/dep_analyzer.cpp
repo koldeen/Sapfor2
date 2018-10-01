@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,8 +20,8 @@
 #include "dvm.h"
 #include "loop_analyzer.h"
 
-#include "../utils.h"
-#include "../SgUtils.h"
+#include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../SageAnalysisTool/depGraph.h"
 
@@ -193,7 +193,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                                     depMessage += " with unknown distance in loop on line " + std::to_string(currLoopRef->lineNumber()) + " prevents parallelization";
 
                                     __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
-                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage));
+                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
 
                                     // __spf_print only first unknown dep length
                                     findUnknownDepLen = true;
@@ -253,7 +253,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                                 string depMessage = currNode->createDepMessagebetweenArrays() + " prevents parallelization";
 
                                 __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
-                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage));
+                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
 
                                 // __spf_print only first unknown dep length
                                 findUnknownDepLen = true;
@@ -296,7 +296,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
                     string message;
                     __spf_printToBuf(message, "unknown scalar dependencies by '%s' (try to specify its type)", unknownScalarDep[k]->varin->symbol()->identifier());
-                    currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), message));
+                    currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), message, 3005));
 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());
                 }

@@ -6,7 +6,7 @@
 
 #include "../Distribution/DvmhDirective.h"
 #include "../ParallelizationRegions/ParRegions.h"
-#include "../types.h"
+#include "../Utils/types.h"
 
 struct LoopGraph
 {
@@ -26,6 +26,9 @@ public:
         hasNonRectangularBounds = false;
         hasIndirectAccess = false;
         withoutDistributedArrays = false;
+        hasWritesToNonDistribute = false;
+        hasUnknownDistributedMap = false;
+        hasDifferentAlignRules = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -34,7 +37,9 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
+        calculatedCountOfIters = 0;
     }
 
     ~LoopGraph()
@@ -58,29 +63,34 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess;
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
+               hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules;
     }
     
     void addConflictMessages(std::vector<Messages> *messages)
     {
         if (hasUnknownArrayDep)
-            messages->push_back(Messages(NOTE, lineNum, "unknown array dependency prevents parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "unknown array dependency prevents parallelization of this loop", 3006));
         if (hasUnknownScalarDep)
-            messages->push_back(Messages(NOTE, lineNum, "unknown scalar dependency prevents parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "unknown scalar dependency prevents parallelization of this loop", 3006));
         if (hasGoto)
-            messages->push_back(Messages(NOTE, lineNum, "internal/external goto operations prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "internal/external goto operations prevent parallelization of this loop", 3006));
         if (hasPrints)
-            messages->push_back(Messages(NOTE, lineNum, "IO operations prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "IO operations prevent parallelization of this loop", 3006));
         if (hasStops)
-            messages->push_back(Messages(NOTE, lineNum, "stop operations prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "stop operations prevent parallelization of this loop", 3006));
         if (hasConflicts.size() != 0)
-            messages->push_back(Messages(NOTE, lineNum, "conflict writes operations prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "conflict writes operations prevent parallelization of this loop", 3006));
         if (hasUnknownArrayAssigns)
-            messages->push_back(Messages(NOTE, lineNum, "unknown array reference for writes prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "unknown array reference for writes prevent parallelization of this loop", 3006));
         if (hasNonRectangularBounds)
-            messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop", 3006));
         if (hasIndirectAccess)
-            messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop"));
+            messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop", 3006));
+        if (hasWritesToNonDistribute)
+            messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop", 3006));
+        if (hasDifferentAlignRules)
+            messages->push_back(Messages(NOTE, lineNum, "different aligns between writes to distributed array prevents parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -165,6 +175,16 @@ public:
         }
     }
 
+    void propagateUserDvmDir()
+    {
+        for (auto &loop : childs)
+        {
+            if (loop->userDvmDirective == NULL)
+                loop->userDvmDirective = userDvmDirective;
+            loop->propagateUserDvmDir();
+        }
+    }
+
     std::string genLoopArrayName(const std::string &funcName) const
     {
         return funcName + "_loop_" + std::to_string(lineNum);
@@ -186,9 +206,12 @@ public:
     int countOfIters;
     double countOfIterNested;
 
+    int calculatedCountOfIters; // save calculated
+
     int startVal;
     int endVal;
     int stepVal;
+    std::pair<Expression*, Expression*> startEndExpr;
 
     bool hasGoto;
     std::vector<int> linesOfInternalGoTo;
@@ -211,7 +234,13 @@ public:
 
     bool hasIndirectAccess;
 
+    bool hasWritesToNonDistribute;
+
     bool withoutDistributedArrays;
+
+    bool hasUnknownDistributedMap;
+
+    bool hasDifferentAlignRules;
 
     std::vector<LoopGraph*> childs; //fixme typo 'children'
     LoopGraph *parent;
@@ -229,6 +258,8 @@ public:
     ParallelDirective *directive;        // united directive for nested loops
     ParallelDirective *oldDirective;     // save old directive for reverse
     ParallelDirective *directiveForLoop; // part of directive for loop
+    Statement *userDvmDirective;         // user's DVM PARALLEL directive
+
     ParallelRegion *region;
 
     Statement *loop;

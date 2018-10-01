@@ -9,7 +9,7 @@
 #include "../Distribution/DvmhDirective.h"
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Distribution.h"
-#include "../AstWrapper.h"
+#include "../Utils/AstWrapper.h"
 
 struct ParallelRegionLines
 {
@@ -25,6 +25,15 @@ struct ParallelRegionLines
     }
 
     ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats) { }
+
+    void print(FILE *fileOut)
+    {
+        fprintf(fileOut, " [%d -- %d]", lines.first, lines.second);
+        if (stats.first && stats.second)
+            fprintf(fileOut, " explicit\n");
+        else
+            fprintf(fileOut, "\n");
+    }
 
     // <start, end> lines
     std::pair<int, int> lines;
@@ -92,9 +101,9 @@ public:
     const DataDirective& GetDataDir() const { return dataDirectives; }
     DataDirective& GetDataDirToModify() { return dataDirectives; }
 
-    const std::set<std::string>& GetAllFuncCalls() const { return functionsCall; }
+    const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
 
-    bool hasThisLine(const int line, const std::string &file) const
+    bool HasThisLine(const int line, const std::string &file) const
     {
         bool retVal = false;
         auto it = lines.find(file);
@@ -146,13 +155,85 @@ public:
         return retVal;
     }
 
-    void cleanData()
+    void CleanData()
     {
         reducedG.cleanData();
         currentVariant.clear();
 
         dataDirectives.distrRules.clear();
         dataDirectives.alignRules.clear();
+    }
+
+    void print(FILE *fileOut)
+    {
+        fprintf(fileOut, "  regionId %d\n", regionId);
+        fprintf(fileOut, "  originalName '%s'\n", originalName.c_str());
+        fprintf(fileOut, "  functions call from %d:\n", (int)functionsCall.size());
+        for (auto &func : functionsCall)
+            fprintf(fileOut, "    '%s'\n", func.c_str());
+        fprintf(fileOut, "  total lines %d:\n", (int)lines.size());
+        for (auto &line : lines)
+        {
+            fprintf(fileOut, "    in file '%s':\n", line.first.c_str());
+            for (auto &elem : line.second)
+            {
+                fprintf(fileOut, "     ");
+                elem.print(fileOut);
+            }
+        }
+    }
+
+    void AddUserDirectives(const std::vector<Statement*> &dirs, const int type)
+    {
+        if (dirs.size() == 0)
+            return;
+
+        if (type == DVM_DISTRIBUTE_DIR || type == DVM_VAR_DECL)
+            userDvmDistrDirs.insert(userDvmDistrDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_ALIGN_DIR)
+            userDvmAlignDirs.insert(userDvmAlignDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_SHADOW_DIR)
+            userDvmShadowDirs.insert(userDvmShadowDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_REALIGN_DIR)
+            userDvmRealignDirs.insert(userDvmRealignDirs.end(), dirs.begin(), dirs.end());
+        else if (type == DVM_REDISTRIBUTE_DIR)
+            userDvmRedistrDirs.insert(userDvmRedistrDirs.end(), dirs.begin(), dirs.end());
+
+        if (type == DVM_DISTRIBUTE_DIR ||
+            type == DVM_ALIGN_DIR ||
+            type == DVM_SHADOW_DIR ||
+            type == DVM_REALIGN_DIR ||
+            type == DVM_REDISTRIBUTE_DIR ||
+            type == DVM_VAR_DECL)
+        {
+            for (auto &dir : dirs)
+                dir->extractStmt();
+        }
+    }
+
+    const std::vector<Statement*>* GetUsersDirecites(const int type) const
+    {
+        if (type == DVM_DISTRIBUTE_DIR || type == DVM_VAR_DECL)
+            return &userDvmDistrDirs;
+        else if (type == DVM_ALIGN_DIR)
+            return &userDvmAlignDirs;
+        else if (type == DVM_SHADOW_DIR)
+            return &userDvmShadowDirs;
+        else if (type == DVM_REALIGN_DIR)
+            return &userDvmRealignDirs;
+        else if (type == DVM_REDISTRIBUTE_DIR)
+            return &userDvmRedistrDirs;
+        else
+            return NULL;
+    }
+
+    bool HasUserDvmDirs() const 
+    {
+        return userDvmDistrDirs.size()   != 0 ||
+               userDvmAlignDirs.size()   != 0 ||
+               userDvmShadowDirs.size()  != 0 ||
+               userDvmRealignDirs.size() != 0 ||
+               userDvmRedistrDirs.size() != 0;
     }
 
 private:
@@ -174,4 +255,10 @@ private:
     DataDirective dataDirectives;
     std::vector<int> currentVariant;
     //
+
+    std::vector<Statement*> userDvmDistrDirs;
+    std::vector<Statement*> userDvmAlignDirs;
+    std::vector<Statement*> userDvmShadowDirs;
+    std::vector<Statement*> userDvmRealignDirs;
+    std::vector<Statement*> userDvmRedistrDirs;
 };

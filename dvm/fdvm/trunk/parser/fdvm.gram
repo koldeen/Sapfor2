@@ -42,6 +42,7 @@ dvm_exec: dvm_redistribute
         | dvm_enddebug_dir
         | dvm_interval_dir
         | dvm_endinterval_dir
+        | dvm_exit_interval_dir
         | dvm_traceon_dir
         | dvm_traceoff_dir
         | dvm_barrier_dir
@@ -58,6 +59,7 @@ dvm_exec: dvm_redistribute
         | dvm_cp_load
         | dvm_cp_save
         | dvm_cp_wait
+        | dvm_template_create
         | hpf_independent 
 	| omp_execution_directive /*OMP*/
 /*        | dvm_own      */
@@ -79,9 +81,10 @@ dvm_template: HPF_TEMPLATE in_dcl template_obj
 template_obj: name dims
              {PTR_SYMB s;
 	      PTR_LLND q;
-	      if(! explicit_shape) 
+	    /* 27.06.18
+	      if(! explicit_shape)   
                 err("Explicit shape specification is required", 50);
-	      
+	    */  
 	      s = make_array($1, TYNULL, $2, ndim, LOCAL);
               if(s->attr & TEMPLATE_BIT)
                 errstr( "Multiple declaration of identifier  %s ", s->ident, 73);
@@ -597,7 +600,9 @@ derived_elem_list: derived_elem
              ;
 
 derived_elem: expr
-            { $$ = $1;} 
+              { $$ = $1;}
+            | expr COLON expr
+              { $$ = make_llnd(fi,DDOT, $1, $3, SMNULL);} 
             ;
 
 target_spec: derived_target 
@@ -899,7 +904,7 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                     if((type_options & PROCESSORS_BIT) || (type_options & TEMPLATE_BIT)){
+                     if((type_options & PROCESSORS_BIT)) { /* 27.06.18 || (type_options & TEMPLATE_BIT)){*/
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/
@@ -2068,6 +2073,11 @@ interval_number:
                  }
                ;
 
+dvm_exit_interval_dir: EXITINTERVAL end_spec subscript_list 
+                      /* subscript_list - interval number list */ 
+       { $$ = get_bfnd(fi,DVM_EXIT_INTERVAL_DIR,SMNULL,$3,LLNULL,LLNULL);} 
+             ;
+
 dvm_endinterval_dir: ENDINTERVAL end_spec
             { $$ = get_bfnd(fi,DVM_ENDINTERVAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);} 
                    ;
@@ -2217,3 +2227,12 @@ dvm_cp_save:   CP_SAVE end_spec expr
 dvm_cp_wait:   CP_WAIT end_spec expr COMMA needkeyword STATUS LEFTPAR ident RIGHTPAR
               { $$ = get_bfnd(fi,DVM_CP_WAIT_DIR,SMNULL,$3,$8,LLNULL); }
            ;
+
+dvm_template_create: TEMPLATE_CREATE end_spec  LEFTPAR  template_list RIGHTPAR
+                     { $$ = get_bfnd(fi,DVM_TEMPLATE_CREATE_DIR,SMNULL,$4,LLNULL,LLNULL); }
+                   ;
+template_list: array_element
+	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	     | template_list COMMA array_element
+               { $$ = set_ll_list($1, $3, EXPR_LIST); }
+             ;

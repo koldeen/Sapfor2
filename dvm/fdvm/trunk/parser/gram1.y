@@ -331,6 +331,8 @@
 %token FILES 331
 %token VARLIST 332
 %token STATUS 333
+%token EXITINTERVAL 334
+%token TEMPLATE_CREATE 335
 
 %{
 #include <string.h>
@@ -527,9 +529,9 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> dvm_task_region  dvm_end_task_region dvm_map dvm_on dvm_end_on
 %type <bf_node> dvm_reset dvm_prefetch dvm_indirect_access hpf_independent 
 %type <bf_node> dvm_debug_dir dvm_enddebug_dir dvm_traceon_dir dvm_traceoff_dir
-%type <bf_node> dvm_interval_dir dvm_endinterval_dir  dvm_barrier_dir dvm_check 
+%type <bf_node> dvm_interval_dir dvm_endinterval_dir dvm_exit_interval_dir dvm_barrier_dir dvm_check 
 %type <bf_node> dvm_io_mode_dir dvm_shadow_add dvm_localize
-%type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait
+%type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait dvm_template_create
 %type <bf_node> dvm_asyncid dvm_f90 dvm_asynchronous dvm_endasynchronous dvm_asyncwait
 %type <bf_node> dvm_consistent_group dvm_consistent_start dvm_consistent_wait dvm_consistent
 %type <ll_node> dist_name dist_name_list dist_format dist_format_list
@@ -563,6 +565,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> derived_subscript derived_subscript_list opt_plus_shadow plus_shadow shadow_id
 %type <ll_node> template_ref template_obj shadow_axis shadow_axis_list opt_include_to 
 %type <ll_node> localize_target target_subscript target_subscript_list aster_expr dummy_ident 
+%type <ll_node> template_list
 %type <symbol> processors_name align_base_name 
 %type <symbol> shadow_group_name reduction_group_name reduction_group  indirect_group_name task_name
 %type <symbol> remote_group_name group_name array_name async_ident consistent_group_name consistent_group
@@ -4959,6 +4962,7 @@ dvm_exec: dvm_redistribute
         | dvm_enddebug_dir
         | dvm_interval_dir
         | dvm_endinterval_dir
+        | dvm_exit_interval_dir
         | dvm_traceon_dir
         | dvm_traceoff_dir
         | dvm_barrier_dir
@@ -4975,6 +4979,7 @@ dvm_exec: dvm_redistribute
         | dvm_cp_load
         | dvm_cp_save
         | dvm_cp_wait
+        | dvm_template_create
         | hpf_independent 
 	| omp_execution_directive /*OMP*/
 /*        | dvm_own      */
@@ -4996,9 +5001,10 @@ dvm_template: HPF_TEMPLATE in_dcl template_obj
 template_obj: name dims
              {PTR_SYMB s;
 	      PTR_LLND q;
-	      if(! explicit_shape) 
+	    /* 27.06.18
+	      if(! explicit_shape)   
                 err("Explicit shape specification is required", 50);
-	      
+	    */  
 	      s = make_array($1, TYNULL, $2, ndim, LOCAL);
               if(s->attr & TEMPLATE_BIT)
                 errstr( "Multiple declaration of identifier  %s ", s->ident, 73);
@@ -5514,7 +5520,9 @@ derived_elem_list: derived_elem
              ;
 
 derived_elem: expr
-            { $$ = $1;} 
+              { $$ = $1;}
+            | expr COLON expr
+              { $$ = make_llnd(fi,DDOT, $1, $3, SMNULL);} 
             ;
 
 target_spec: derived_target 
@@ -5816,7 +5824,7 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                     if((type_options & PROCESSORS_BIT) || (type_options & TEMPLATE_BIT)){
+                     if((type_options & PROCESSORS_BIT)) { /* 27.06.18 || (type_options & TEMPLATE_BIT)){*/
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/
@@ -6985,6 +6993,11 @@ interval_number:
                  }
                ;
 
+dvm_exit_interval_dir: EXITINTERVAL end_spec subscript_list 
+                      /* subscript_list - interval number list */ 
+       { $$ = get_bfnd(fi,DVM_EXIT_INTERVAL_DIR,SMNULL,$3,LLNULL,LLNULL);} 
+             ;
+
 dvm_endinterval_dir: ENDINTERVAL end_spec
             { $$ = get_bfnd(fi,DVM_ENDINTERVAL_DIR,SMNULL,LLNULL,LLNULL,LLNULL);} 
                    ;
@@ -7134,6 +7147,15 @@ dvm_cp_save:   CP_SAVE end_spec expr
 dvm_cp_wait:   CP_WAIT end_spec expr COMMA needkeyword STATUS LEFTPAR ident RIGHTPAR
               { $$ = get_bfnd(fi,DVM_CP_WAIT_DIR,SMNULL,$3,$8,LLNULL); }
            ;
+
+dvm_template_create: TEMPLATE_CREATE end_spec  LEFTPAR  template_list RIGHTPAR
+                     { $$ = get_bfnd(fi,DVM_TEMPLATE_CREATE_DIR,SMNULL,$4,LLNULL,LLNULL); }
+                   ;
+template_list: array_element
+	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	     | template_list COMMA array_element
+               { $$ = set_ll_list($1, $3, EXPR_LIST); }
+             ;
 omp_specification_directive: omp_threadprivate_directive
 	;
 omp_execution_directive: omp_parallel_begin_directive

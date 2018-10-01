@@ -4,14 +4,13 @@
 /*********************************************************************/
 #include "leak_detector.h"
 #include <stdio.h>
+#include <stdlib.h>
 
-#ifdef __SPF
-extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
-extern "C" void removeFromCollection(void *pointer);
-#endif
+#include <map>
+#include <string>
 
 #ifndef __GNUC__
-# include <stdlib.h>
+
 #else
 extern "C" void abort(void);
 extern "C" void exit(int status);
@@ -28,6 +27,14 @@ extern "C" void exit(int status);
 extern "C" int number_of_ll_node;
 
 #undef USER
+
+#if __SPF
+extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
+extern "C" void removeFromCollection(void *pointer);
+extern std::map<PTR_BFND, std::pair<std::string, int> > sgStats;
+extern std::map<PTR_LLND, std::pair<std::string, int> > sgExprs;
+extern void addToGlobalBufferAndPrint(const std::string &toPrint);
+#endif
 
 //
 // define for having the debugging
@@ -119,7 +126,7 @@ int allocatedForlabelTableClass;
 //
 // Some definition for this module
 //
-#define ALLOCATECHUNK 1000
+#define ALLOCATECHUNK 10000
 
 #define SORRY Message("Sorry, not implemented yet",0)
 
@@ -141,123 +148,122 @@ class SgVarDeclStmt;
 
 void InitializeTable()
 {
-  int i;
-  for (i=0 ; i < MAX_FILES; i++)
+    int i;
+    for (i = 0; i < MAX_FILES; i++)
     {
-      tablebfnd[i] = NULL;
-      tablellnd[i]= NULL;
-      tabletype[i]= NULL;
-      tablesymbol[i]= NULL;
-      tablelabel[i]= NULL;
+        tablebfnd[i] = NULL;
+        tablellnd[i] = NULL;
+        tabletype[i] = NULL;
+        tablesymbol[i] = NULL;
+        tablelabel[i] = NULL;
 
-      numtablebfnd[i]= 0;
-      numtablellnd[i]= 0;
-      numtabletype[i]= 0;
-      numtablesymbol[i]= 0;
-      numtablelabel[i]= 0;
-	
-      // FOR ATTRIBUTES;
-      tablebfndAttribute[i] = NULL;
-      tablellndAttribute[i]= NULL;
-      tabletypeAttribute[i]= NULL;
-      tablesymbolAttribute[i]= NULL;
-      tablelabelAttribute[i]= NULL;
+        numtablebfnd[i] = 0;
+        numtablellnd[i] = 0;
+        numtabletype[i] = 0;
+        numtablesymbol[i] = 0;
+        numtablelabel[i] = 0;
 
-      numtablebfndAttribute[i]= 0;
-      numtablellndAttribute[i]= 0;
-      numtabletypeAttribute[i]= 0;
-      numtablesymbolAttribute[i]= 0;
-      numtablelabelAttribute[i]= 0;
+        // FOR ATTRIBUTES;
+        tablebfndAttribute[i] = NULL;
+        tablellndAttribute[i] = NULL;
+        tabletypeAttribute[i] = NULL;
+        tablesymbolAttribute[i] = NULL;
+        tablelabelAttribute[i] = NULL;
+
+        numtablebfndAttribute[i] = 0;
+        numtablellndAttribute[i] = 0;
+        numtabletypeAttribute[i] = 0;
+        numtablesymbolAttribute[i] = 0;
+        numtablelabelAttribute[i] = 0;
     }
 
-  
-  fileTableClass =  NULL;
-  bfndTableClass =  NULL;
-  llndTableClass  = NULL;
-  typeTableClass  = NULL;
-  symbolTableClass  = NULL;
-  labelTableClass  =  NULL;
-  allocatedForfileTableClass = 0;
-  allocatedForbfndTableClass = 0;
-  allocatedForllndTableClass = 0;
-  allocatedFortypeTableClass = 0;
-  allocatedForsymbolTableClass =0;
-  allocatedForlabelTableClass = 0;
 
-  // FOR ATTRIBUTES;
-  fileTableAttribute =  NULL;
-  bfndTableAttribute =  NULL;
-  llndTableAttribute  = NULL;
-  typeTableAttribute  = NULL;
-  symbolTableAttribute  = NULL;
-  labelTableAttribute  =  NULL;
-  allocatedForfileTableAttribute = 0;
-  allocatedForbfndTableAttribute = 0;
-  allocatedForllndTableAttribute = 0;
-  allocatedFortypeTableAttribute = 0;
-  allocatedForsymbolTableAttribute =0;
-  allocatedForlabelTableAttribute = 0;
+    fileTableClass = NULL;
+    bfndTableClass = NULL;
+    llndTableClass = NULL;
+    typeTableClass = NULL;
+    symbolTableClass = NULL;
+    labelTableClass = NULL;
+    allocatedForfileTableClass = 0;
+    allocatedForbfndTableClass = 0;
+    allocatedForllndTableClass = 0;
+    allocatedFortypeTableClass = 0;
+    allocatedForsymbolTableClass = 0;
+    allocatedForlabelTableClass = 0;
+
+    // FOR ATTRIBUTES;
+    fileTableAttribute = NULL;
+    bfndTableAttribute = NULL;
+    llndTableAttribute = NULL;
+    typeTableAttribute = NULL;
+    symbolTableAttribute = NULL;
+    labelTableAttribute = NULL;
+    allocatedForfileTableAttribute = 0;
+    allocatedForbfndTableAttribute = 0;
+    allocatedForllndTableAttribute = 0;
+    allocatedFortypeTableAttribute = 0;
+    allocatedForsymbolTableAttribute = 0;
+    allocatedForlabelTableAttribute = 0;
 }
 
 
 void SwitchToFile(int i)
 {
-  if (i >= MAX_FILES)
+    if (i >= MAX_FILES)
     {
-      Message("Too many files",0);
-      exit(1);
+        Message("Too many files", 0);
+        exit(1);
     }
-  
- tablebfnd[CurrentFileNumber] = bfndTableClass;
- tablellnd[CurrentFileNumber]= llndTableClass;
- tabletype[CurrentFileNumber]= typeTableClass;
- tablesymbol[CurrentFileNumber]= symbolTableClass;
- tablelabel[CurrentFileNumber]= labelTableClass;
 
- numtablebfnd[CurrentFileNumber]= allocatedForbfndTableClass;
- numtablellnd[CurrentFileNumber]= allocatedForllndTableClass;
- numtabletype[CurrentFileNumber]= allocatedFortypeTableClass;
- numtablesymbol[CurrentFileNumber]= allocatedForsymbolTableClass;
- numtablelabel[CurrentFileNumber]= allocatedForlabelTableClass;
+    tablebfnd[CurrentFileNumber] = bfndTableClass;
+    tablellnd[CurrentFileNumber] = llndTableClass;
+    tabletype[CurrentFileNumber] = typeTableClass;
+    tablesymbol[CurrentFileNumber] = symbolTableClass;
+    tablelabel[CurrentFileNumber] = labelTableClass;
 
- bfndTableClass =  tablebfnd[i];
- llndTableClass  = tablellnd[i];
- typeTableClass  = tabletype[i];
- symbolTableClass  = tablesymbol[i];
- labelTableClass  =  tablelabel[i];
+    numtablebfnd[CurrentFileNumber] = allocatedForbfndTableClass;
+    numtablellnd[CurrentFileNumber] = allocatedForllndTableClass;
+    numtabletype[CurrentFileNumber] = allocatedFortypeTableClass;
+    numtablesymbol[CurrentFileNumber] = allocatedForsymbolTableClass;
+    numtablelabel[CurrentFileNumber] = allocatedForlabelTableClass;
 
- allocatedForbfndTableClass =  numtablebfnd[i];
- allocatedForllndTableClass = numtablellnd[i];
- allocatedFortypeTableClass = numtabletype[i];
- allocatedForsymbolTableClass =numtablesymbol[i];
- allocatedForlabelTableClass = numtablelabel[i];
- 
-  // FOR ATTRIBUTES
- tablebfndAttribute[CurrentFileNumber] = bfndTableAttribute;
- tablellndAttribute[CurrentFileNumber]= llndTableAttribute;
- tabletypeAttribute[CurrentFileNumber]= typeTableAttribute;
- tablesymbolAttribute[CurrentFileNumber]= symbolTableAttribute;
- tablelabelAttribute[CurrentFileNumber]= labelTableAttribute;
+    bfndTableClass = tablebfnd[i];
+    llndTableClass = tablellnd[i];
+    typeTableClass = tabletype[i];
+    symbolTableClass = tablesymbol[i];
+    labelTableClass = tablelabel[i];
 
- numtablebfndAttribute[CurrentFileNumber]= allocatedForbfndTableAttribute;
- numtablellndAttribute[CurrentFileNumber]= allocatedForllndTableAttribute;
- numtabletypeAttribute[CurrentFileNumber]= allocatedFortypeTableAttribute;
- numtablesymbolAttribute[CurrentFileNumber]= allocatedForsymbolTableAttribute;
- numtablelabelAttribute[CurrentFileNumber]= allocatedForlabelTableAttribute;
+    allocatedForbfndTableClass = numtablebfnd[i];
+    allocatedForllndTableClass = numtablellnd[i];
+    allocatedFortypeTableClass = numtabletype[i];
+    allocatedForsymbolTableClass = numtablesymbol[i];
+    allocatedForlabelTableClass = numtablelabel[i];
 
- bfndTableAttribute =  tablebfndAttribute[i];
- llndTableAttribute  = tablellndAttribute[i];
- typeTableAttribute  = tabletypeAttribute[i];
- symbolTableAttribute  = tablesymbolAttribute[i];
- labelTableAttribute  =  tablelabelAttribute[i];
+    // FOR ATTRIBUTES
+    tablebfndAttribute[CurrentFileNumber] = bfndTableAttribute;
+    tablellndAttribute[CurrentFileNumber] = llndTableAttribute;
+    tabletypeAttribute[CurrentFileNumber] = typeTableAttribute;
+    tablesymbolAttribute[CurrentFileNumber] = symbolTableAttribute;
+    tablelabelAttribute[CurrentFileNumber] = labelTableAttribute;
 
- allocatedForbfndTableAttribute =  numtablebfndAttribute[i];
- allocatedForllndTableAttribute = numtablellndAttribute[i];
- allocatedFortypeTableAttribute = numtabletypeAttribute[i];
- allocatedForsymbolTableAttribute =numtablesymbolAttribute[i];
- allocatedForlabelTableAttribute = numtablelabelAttribute[i];
- CurrentFileNumber = i;
+    numtablebfndAttribute[CurrentFileNumber] = allocatedForbfndTableAttribute;
+    numtablellndAttribute[CurrentFileNumber] = allocatedForllndTableAttribute;
+    numtabletypeAttribute[CurrentFileNumber] = allocatedFortypeTableAttribute;
+    numtablesymbolAttribute[CurrentFileNumber] = allocatedForsymbolTableAttribute;
+    numtablelabelAttribute[CurrentFileNumber] = allocatedForlabelTableAttribute;
 
+    bfndTableAttribute = tablebfndAttribute[i];
+    llndTableAttribute = tablellndAttribute[i];
+    typeTableAttribute = tabletypeAttribute[i];
+    symbolTableAttribute = tablesymbolAttribute[i];
+    labelTableAttribute = tablelabelAttribute[i];
+
+    allocatedForbfndTableAttribute = numtablebfndAttribute[i];
+    allocatedForllndTableAttribute = numtablellndAttribute[i];
+    allocatedFortypeTableAttribute = numtabletypeAttribute[i];
+    allocatedForsymbolTableAttribute = numtablesymbolAttribute[i];
+    allocatedForlabelTableAttribute = numtablelabelAttribute[i];
+    CurrentFileNumber = i;
 }
 
 /////////////////////////////////////////// FOR ATTRIBUTES //////////////////////////////////
@@ -669,28 +675,28 @@ void ResetbfndTableClass()
 
 void ReallocatellndTableClass()
 {
-  int i;
-  void **pt;
-  
-  pt  =  new void *[allocatedForllndTableClass + ALLOCATECHUNK];
+    int i;
+    void **pt;
+
+    pt = new void *[allocatedForllndTableClass + ALLOCATECHUNK];
 #ifdef __SPF   
-  addToCollection(__LINE__, __FILE__, pt, 2);
+    addToCollection(__LINE__, __FILE__, pt, 2);
 #endif
-  for (i=0; i<allocatedForllndTableClass + ALLOCATECHUNK; i++)
-    pt[i] = NULL;
-  for (i=0 ; i < allocatedForllndTableClass; i++)
+    for (i = 0; i < allocatedForllndTableClass + ALLOCATECHUNK; i++)
+        pt[i] = NULL;
+    for (i = 0; i < allocatedForllndTableClass; i++)
     {
-      pt[i] = llndTableClass[i];
+        pt[i] = llndTableClass[i];
     }
-  if (allocatedForllndTableClass)
-  {
+    if (allocatedForllndTableClass)
+    {
 #ifdef __SPF   
-      removeFromCollection(llndTableClass);
+        removeFromCollection(llndTableClass);
 #endif
-      delete llndTableClass;
-  }
-  llndTableClass = pt;
-  allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
+        delete llndTableClass;
+    }
+    llndTableClass = pt;
+    allocatedForllndTableClass = allocatedForllndTableClass + ALLOCATECHUNK;
 }
 
 void ReallocatesymbolTableClass()
@@ -836,101 +842,110 @@ void RemoveFromTableLlnd(void * pt);
 
 void RemoveFromTableLabel(void * pt)
 {
-  int i;
-  for (i=0 ; i < allocatedForlabelTableClass; i++)
+    int i;
+    for (i = 0; i < allocatedForlabelTableClass; i++)
     {
-      if (labelTableClass[i] == pt)
+        if (labelTableClass[i] == pt)
         {
-          labelTableClass[i] = NULL;
-          return;
+            labelTableClass[i] = NULL;
+            return;
         }
     }
 }
 
-
-
-void 
-SetMappingInTableForBfnd(PTR_BFND bif, void *pt)
+void SetMappingInTableForBfnd(PTR_BFND bif, void *pt)
 {
-  if (!bif)
-    return ;
-  while (allocatedForbfndTableClass <= BIF_ID(bif))
+    if (!bif)
+        return;
+    while (allocatedForbfndTableClass <= BIF_ID(bif))
     {
-      ReallocatebfndTableClass();
+        ReallocatebfndTableClass();
     }
-  bfndTableClass[BIF_ID(bif)] = pt;
+#if __SPF
+    std::map<PTR_BFND, std::pair<std::string, int> >::iterator it = sgStats.find(bif);
+    if (it != sgStats.end())
+    {
+        char buf[512];
+        sprintf(buf, "Internal error at line %d and file libSage++.cpp, this place was occupied\n", __LINE__);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
+    }
+#endif
+    bfndTableClass[BIF_ID(bif)] = pt;
 }
 
 
-void 
-SetMappingInTableForType(PTR_TYPE type, void *pt)
+void SetMappingInTableForType(PTR_TYPE type, void *pt)
 {
-  if (!type)
-    return ;
-  while (allocatedFortypeTableClass <= TYPE_ID(type))
+    if (!type)
+        return;
+    while (allocatedFortypeTableClass <= TYPE_ID(type))
     {
-      ReallocatetypeTableClass();
+        ReallocatetypeTableClass();
     }
-  typeTableClass[TYPE_ID(type)] = pt;
+    typeTableClass[TYPE_ID(type)] = pt;
 }
 
 
-void 
-SetMappingInTableForSymb(PTR_SYMB symb, void *pt)
+void SetMappingInTableForSymb(PTR_SYMB symb, void *pt)
 {
-  if (!symb)
-    return ;
-  while (allocatedForsymbolTableClass <= SYMB_ID(symb))
+    if (!symb)
+        return;
+    while (allocatedForsymbolTableClass <= SYMB_ID(symb))
     {
-      ReallocatesymbolTableClass();
+        ReallocatesymbolTableClass();
     }
-  symbolTableClass[SYMB_ID(symb)] = pt;
+    symbolTableClass[SYMB_ID(symb)] = pt;
 }
 
-void 
-SetMappingInTableForLabel(PTR_LABEL lab, void *pt)
+void SetMappingInTableForLabel(PTR_LABEL lab, void *pt)
 {
-  if (!lab)
-    return ;
-  while (allocatedForlabelTableClass <= LABEL_ID(lab))
+    if (!lab)
+        return;
+    while (allocatedForlabelTableClass <= LABEL_ID(lab))
     {
-      ReallocatelabelTableClass();
+        ReallocatelabelTableClass();
     }
-  labelTableClass[SYMB_ID(lab)] = pt;
+    labelTableClass[SYMB_ID(lab)] = pt;
 }
 
-
-
-void 
-SetMappingInTableForLlnd(PTR_LLND ll, void *pt)
+void SetMappingInTableForLlnd(PTR_LLND ll, void *pt)
 {
-  if (!ll)
-    return ;
-  while (allocatedForllndTableClass <= NODE_ID(ll))
+    if (!ll)
+        return;
+    while (allocatedForllndTableClass <= NODE_ID(ll))
     {
-      ReallocatellndTableClass();
+        ReallocatellndTableClass();
     }
-  llndTableClass[NODE_ID(ll)] = pt;
-}
-
-
-void 
-SetMappingInTableForFile(PTR_FILE file, void *pt)
-{
-  int id;
-  if (!file)
-    return ;
-  id = GetFileNum(FILE_FILENAME(file));
-  while (allocatedForfileTableClass <= id)
+#if __SPF
+    std::map<PTR_LLND, std::pair<std::string, int> >::iterator it = sgExprs.find(ll);
+    if (it != sgExprs.end())
     {
-      ReallocatefileTableClass();
+        char buf[512];
+        sprintf(buf, "Internal error at line %d and file libSage++.cpp, this place was occupied\n", __LINE__);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
     }
-  fileTableClass[id] = pt;
+#endif
+    llndTableClass[NODE_ID(ll)] = pt;
 }
 
 
-SgSymbol *
-GetMappingInTableForSymbol(PTR_SYMB symb)
+void SetMappingInTableForFile(PTR_FILE file, void *pt)
+{
+    int id;
+    if (!file)
+        return;
+    id = GetFileNum(FILE_FILENAME(file));
+    while (allocatedForfileTableClass <= id)
+    {
+        ReallocatefileTableClass();
+    }
+    fileTableClass[id] = pt;
+}
+
+
+SgSymbol *GetMappingInTableForSymbol(PTR_SYMB symb)
 {
   int id;
   if (!symb)
@@ -993,15 +1008,15 @@ GetMappingInTableForType(PTR_TYPE t)
 SgExpression *
 GetMappingInTableForLlnd(PTR_LLND ll)
 {
-  int id;
-  if (!ll)
-    return NULL;
-  id = NODE_ID(ll);
-  if (allocatedForllndTableClass <= id)    
+    int id;
+    if (!ll)
+        return NULL;
+    id = NODE_ID(ll);
+    if (allocatedForllndTableClass <= id)
     {
-      return NULL;
+        return NULL;
     }
-  return (SgExpression *) llndTableClass[id];
+    return (SgExpression *)llndTableClass[id];
 }
 
 
@@ -1542,51 +1557,55 @@ SgExprListExp * isSgExprListExp(SgExpression *pt)
 
 SgProject::SgProject(const char * proj_file_name)
 {
-  // first let init the library we need
+    // first let init the library we need
     if (!proj_file_name)
-      {
-        Message("Cannot open project: no file specified",0);
-#if 1
+    {
+        Message("Cannot open project: no file specified", 0);
+        exit(1);
+
+    }
+    if (open_proj_toolbox(proj_file_name, proj_file_name) < 0)
+    {
+        fprintf(stderr, "%s   ", proj_file_name);
+#if __SPF
+        throw -99;
+#else
+        Message("Cannot open project", 0);
         exit(1);
 #endif
-      }
-    if( open_proj_toolbox(proj_file_name, proj_file_name) < 0)
-      {
-        fprintf(stderr,"%s   ",proj_file_name);
-        Message("Cannot open project",0);
-#if 1
-        exit(1);
-#endif
-      }
+    }
     Init_Tool_Box();
 
-// we have to initialize some specific data for this interface 
-  CurrentProject = this;
+    // we have to initialize some specific data for this interface 
+    CurrentProject = this;
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
 }
 
 
 SgFile &SgProject::file(int i)
 {
-  PTR_FILE file;
-  SgFile *pt = NULL;
-  file = GetFileWithNum(i);
-  SetCurrentFileTo(file);
-  SwitchToFile(GetFileNumWithPt(file));
-  if (!file)
+    PTR_FILE file;
+    SgFile *pt = NULL;
+    file = GetFileWithNum(i);
+    SetCurrentFileTo(file);
+    SwitchToFile(GetFileNumWithPt(file));
+    if (!file)
     {
-      Message("SgProject::file; File not found",0);
-      return *pt;
+        Message("SgProject::file; File not found", 0);
+        return *pt;
     }
-  pt =  GetMappingInTableForFile(file);
-  if (pt)
-    return *pt;
-  else
+    pt = GetMappingInTableForFile(file);
+    if (pt)
+        return *pt;
+    else
     {
-      pt = new SgFile(FILE_FILENAME(file));
+        pt = new SgFile(FILE_FILENAME(file));
 #ifdef __SPF   
-      addToCollection(__LINE__, __FILE__, pt, 1);
+        addToCollection(__LINE__, __FILE__, pt, 1);
 #endif
-      return *pt;
+        return *pt;
     }
 }
 
@@ -1677,10 +1696,102 @@ SgFile::SgFile(int Language, const char * dep_file_name)
 #endif
 }
 
+std::map<std::string, std::pair<SgFile*, int> > SgFile::files;
+int SgFile::switchToFile(const std::string &name)
+{
+    std::map<std::string, std::pair<SgFile*, int> >::iterator it = files.find(name);
+    if (it == files.end())
+        return -1;
+    else
+    {
+        if (current_file_id != it->second.second)
+        {
+            SgFile *file = &(CurrentProject->file(it->second.second));
+            current_file_id = it->second.second;
+            current_file = file;
+        }
+    }
 
-     
+    return it->second.second;
+}
 
-SgStatement * SgFile::functions(int i)
+void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
+{
+    files[toAdd.first->filename()] = toAdd;
+}
+
+
+std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > SgStatement::statsByLine;
+std::map<SgExpression*, SgStatement*> SgStatement::parentStatsForExpression;
+
+void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate)
+{
+    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+        toUpdate[std::make_pair(st->fileName(), st->lineNumber())] = st;
+}
+
+SgStatement* SgStatement::getStatementByFileAndLine(const std::string &fName, const int lineNum)
+{
+    const int fildID = SgFile::switchToFile(fName);
+    std::map<int, std::map<std::pair<std::string, int>, SgStatement*> >::iterator itID = statsByLine.find(fildID);
+    if (itID == statsByLine.end())
+        itID = statsByLine.insert(itID, std::make_pair(fildID, std::map<std::pair<std::string, int>, SgStatement*>()));
+
+    if (itID->second.size() == 0)
+        updateStatsByLine(itID->second);
+    
+    std::map<std::pair<std::string, int>, SgStatement*>::iterator itPair = itID->second.find(make_pair(fName, lineNum));
+    if (itPair == itID->second.end())
+        return NULL;
+    else
+        return itPair->second;
+}
+
+void SgStatement::updateStatsByExpression(SgStatement *where, SgExpression *what)
+{
+    if (what)
+    {
+        parentStatsForExpression[what] = where;
+
+        updateStatsByExpression(where, what->lhs());
+        updateStatsByExpression(where, what->rhs());
+    }
+}
+
+void SgStatement::updateStatsByExpression()
+{
+    SgFile* save = current_file;
+    const int save_id = current_file_id;
+
+    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(CurrentProject->file(i));
+        current_file_id = i;
+        current_file = file;
+
+        for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            for (int z = 0; z < 3; ++z)
+                updateStatsByExpression(st, st->expr(z));
+    }
+
+    CurrentProject->file(save_id);
+    current_file_id = save_id;
+    current_file = save;
+}
+
+SgStatement* SgStatement::getStatmentByExpression(SgExpression *toFind)
+{
+    if (parentStatsForExpression.size() == 0)
+        updateStatsByExpression();
+
+    std::map<SgExpression*, SgStatement*>::iterator itS = parentStatsForExpression.find(toFind);
+    if (itS == parentStatsForExpression.end())
+        return NULL;
+    else
+        return itS->second;
+}
+
+SgStatement* SgFile::functions(int i)
 {
   PTR_BFND bif;
   SgStatement *pt = NULL;
@@ -1748,6 +1859,9 @@ SgStatement::SgStatement(int variant)
         thebif = (PTR_BFND)newNode(variant);
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1761,6 +1875,10 @@ SgStatement::SgStatement(SgStatement &s)
     thebif = s.thebif;
 
 #if __SPF
+    fileID = s.getFileId();
+    project = s.getProject();
+    unparseIgnore = s.getUnparseIgnore();
+
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
 }
@@ -1786,6 +1904,9 @@ SgStatement::SgStatement(PTR_BFND bif)
     thebif = bif;
     SetMappingInTableForBfnd(thebif, (void *)this);
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -1874,7 +1995,7 @@ void  SgStatement::setExpression (int i, SgExpression &e)
     }
 }
  
-SgStatement * SgStatement::nextInChildList()
+SgStatement* SgStatement::nextInChildList()
 {
   PTR_BLOB blob;
   SgStatement *x;
@@ -1897,25 +2018,10 @@ SgStatement * SgStatement::nextInChildList()
    
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char*  SgStatement::unparse()
-{
-  UnparseBif(thebif);
-  SORRY;
-  return NULL;
+std::string SgStatement::sunparse()
+{    
+    return std::string(unparse());
 }
-#endif
-
-
-#ifdef NOT_YET_IMPLEMENTED
-void  SgStatement::sunparse(char *buffer)
-{
-  UnparseBif(thebif);
-  SORRY;
-  return;
-}
-#endif
-
 
 
 #ifdef NOT_YET_IMPLEMENTED
@@ -2100,39 +2206,32 @@ SgExpression *SgExpression::operand(int i)
   return LlndMapping(ll);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
-char *SgExpression::unparse()
+std::string SgExpression::sunparse()
 {
-  
-  UnparseLLND(thellnd);
-  SORRY;
-  return NULL;
+    return std::string(unparse());
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
-void SgExpression::sunparse(char *buffer)
-{
-  SORRY;
-}
-#endif
 
 #define ERR_TOOMANYSYMS -1
 
-int  SgExpression::linearRepresentation(int *coeff, SgSymbol **symb,int *cst, int size)
+int SgExpression::linearRepresentation(int *coeff, SgSymbol **symb, int *cst, int size)
 {
-  PTR_SYMB ts[100];
-  int i;
-  if (!symb || !coeff || !cst)
-    return 0;
-  if (size > 100)
+    const int maxElem = 300;
+    PTR_SYMB *ts = new PTR_SYMB[maxElem];
+    int i;
+    if (!symb || !coeff || !cst)
+        return 0;
+    if (size > maxElem)
     {
-      Message (" Too many symbols in linearRepresentation ",0);
-      return ERR_TOOMANYSYMS;
+        Message(" Too many symbols in linearRepresentation ", 0);
+        return ERR_TOOMANYSYMS;
     }
-  for (i=0 ; i < size; i++)
-    ts[i] = symb[i]->thesymb;
-  return buildLinearRep(thellnd,coeff,ts,size,cst);
+    for (i = 0; i < size; i++)
+        ts[i] = symb[i]->thesymb;
+
+    int retVal = buildLinearRep(thellnd, coeff, ts, size, cst);
+    delete ts;
+    return retVal;
 }
 
 
@@ -2165,7 +2264,7 @@ int SgExpression::isInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2181,7 +2280,7 @@ int SgExpression::valueInteger()
 #ifdef __SPF   
     removeFromCollection(res);
 #endif
-    delete res;
+    free(res);
     return resul;
 }
 
@@ -2258,41 +2357,47 @@ SgExpression &operator >= ( SgExpression &lhs, SgExpression &rhs)
     return makeAnBinaryExpression(GE_OP,lhs.thellnd,rhs.thellnd);
 } 
 
-SgExpression &operator & ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITAND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator | ( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator |( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(BITOR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &&( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &&( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ||( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ||( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(OR_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator +=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator +=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(PLUS_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator &=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator &=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(AND_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator *=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator *=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MULT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator /=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator /=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(DIV_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator %=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator %=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(MOD_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator ^=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator ^=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(XOR_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator <<=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator <<=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(LSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
 
-SgExpression &operator >>=( SgExpression &lhs, SgExpression &rhs)
+SgExpression& operator >>=( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(RSHIFT_ASSGN_OP,lhs.thellnd,rhs.thellnd);}
+
+SgExpression& operator==(SgExpression &lhs, SgExpression &rhs)
+{ return SgEqOp(lhs, rhs); }
+
+SgExpression& operator!=(SgExpression &lhs, SgExpression &rhs)
+{ return SgNeqOp(lhs, rhs); }
 
 SgExpression &SgAssignOp( SgExpression &lhs, SgExpression &rhs)
 {return makeAnBinaryExpression(ASSGN_OP,lhs.thellnd,rhs.thellnd);} 
@@ -2505,24 +2610,18 @@ SgStatement *SgSymbol::declaredInStmt()
 
 int SgSymbol::attributes()
 {
-  return SYMB_ATTR(thesymb);
+    return SYMB_ATTR(thesymb);
 }
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::setAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) |= attribute;
 }
-#endif
 
-#ifdef NOT_YET_IMPLEMENTED
 void SgSymbol::removeAttribute(int attribute)
 {
-  SORRY;
-  return;
+    SYMB_ATTR(thesymb) ^= attribute;
 }
-#endif
 
 SgStatement *SgSymbol::body()
 {
@@ -4347,6 +4446,7 @@ SgDeclarationStatement * isSgDeclarationStatement (SgStatement *pt)
   switch(BIF_CODE(pt->thebif))
     {
     case VAR_DECL:
+    case VAR_DECL_90:
     case ENUM_DECL:
     case STRUCT_DECL:
     case CLASS_DECL:
@@ -8084,6 +8184,9 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
         break;
     }
 
+    fileID = -1;
+    project = NULL;
+    unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif

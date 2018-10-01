@@ -491,7 +491,7 @@ int variant;
 }
 
 #ifdef __SPF
-extern void printLowLevelWarnings(const char *fileName, const int line, const char *message);
+extern void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group);
 #endif
 /***************************************************************************/
 void Message(char *s, int l)
@@ -504,7 +504,7 @@ void Message(char *s, int l)
 #ifdef __SPF
     if (l == 0)
         l = 1;
-    printLowLevelWarnings(cur_file->filename, l, s);
+    printLowLevelWarnings(cur_file->filename, l, s, 4001);
 #endif
 }
 
@@ -3054,349 +3054,353 @@ int getNewLabelId(llab)
 
 /************************************** New version, does not need extract **************/
 /********************************* only copies a statement and the children *************/
-PTR_BFND duplicateStmtsNoExtract(body)
-     PTR_BFND body;
+PTR_BFND duplicateStmtsNoExtract(PTR_BFND body)
 {
- PTR_BFND copie, last, temp, cherche, lastnode;
- int lenght,i,j;
- PTR_BFND *alloue;
- PTR_BLOB blobtemp;
- PTR_LABEL *label_insection;
- PTR_LABEL lab;
- int maxlabelname, newlabelname;
+    PTR_BFND copie, last, temp, cherche, lastnode;
+    int lenght, i, j;
+    PTR_BFND *alloue;
+    PTR_BLOB blobtemp;
+    PTR_LABEL *label_insection;
+    PTR_LABEL lab;
+    int maxlabelname, newlabelname;
 
- if (! body) return NULL;
-  /* on calcul d'abord la longueur */
+    if (!body)
+        return NULL;
+    /* on calcul d'abord la longueur */
 
- maxlabelname = getLastLabelId();
- newlabelname = 0;
- lastnode = getLastNodeOfStmt(body);
+    maxlabelname = getLastLabelId();
+    newlabelname = 0;
+    lastnode = getLastNodeOfStmt(body);
 
- /*podd 03.06.14*/
- if(BIF_CODE(body)==IF_NODE || BIF_CODE(body)==ELSEIF_NODE)
-     while(BIF_CODE(lastnode)==ELSEIF_NODE)
-        lastnode = getLastNodeOfStmt(lastnode);
- else if(BIF_CODE(body)==FOR_NODE || BIF_CODE(body)==WHILE_NODE)
- {   while(BIF_CODE(lastnode)==FOR_NODE || BIF_CODE(lastnode)==WHILE_NODE)
-        lastnode = getLastNodeOfStmt(lastnode);
-     if(BIF_CODE(lastnode)==LOGIF_NODE) 
-        lastnode = BIF_NEXT(lastnode);
- }
- 
- lenght = 0;
- for (temp = body; temp ; temp = BIF_NEXT(temp))
-   {
-     lenght++;
-     if (lastnode == temp)
-       break;
-   }
- alloue = (PTR_BFND *) xmalloc(2*lenght * sizeof(PTR_BFND));
- memset((char *) alloue, 0, 2* lenght * sizeof(PTR_BFND));
- 
- /* label part, we record label */
- label_insection = (PTR_LABEL *) xmalloc(2*lenght * sizeof(PTR_LABEL));
- memset((char *) label_insection, 0, 2* lenght * sizeof(PTR_LABEL)); 
- temp = body;
- last = NULL;
- for (i = 0; i < lenght; i++)
-   {
-      copie = (PTR_BFND) newNode (BIF_CODE (temp));
-      BIF_SYMB (copie) = BIF_SYMB (temp);
-      BIF_LL1 (copie) = copyLlNode(BIF_LL1 (temp));
-      BIF_LL2 (copie) = copyLlNode(BIF_LL2 (temp));
-      BIF_LL3 (copie) = copyLlNode(BIF_LL3 (temp));
-      if (last)
-        BIF_NEXT(last) = copie;
+    /*podd 03.06.14*/
+    if (BIF_CODE(body) == IF_NODE || BIF_CODE(body) == ELSEIF_NODE)
+        while (BIF_CODE(lastnode) == ELSEIF_NODE)
+            lastnode = getLastNodeOfStmt(lastnode);
+    else if (BIF_CODE(body) == FOR_NODE || BIF_CODE(body) == WHILE_NODE)
+    {
+        while (BIF_CODE(lastnode) == FOR_NODE || BIF_CODE(lastnode) == WHILE_NODE)
+            lastnode = getLastNodeOfStmt(lastnode);
+        if (BIF_CODE(lastnode) == LOGIF_NODE)
+            lastnode = BIF_NEXT(lastnode);
+    }
 
-     
-      if (BIF_LABEL(temp))/* && (LABEL_BODY(BIF_LABEL(temp)) == temp))*/
-	{
-	  /* create a new label */
-	  label_insection[2*i+1] = (PTR_LABEL) newNode(LABEL_KIND); 
-	  if(maxlabelname<99999)
-            newlabelname = ++maxlabelname;  
-          else
-            newlabelname = getNewLabelId(++newlabelname); 
-	  LABEL_STMTNO(label_insection[2*i+1]) = newlabelname;
-	  LABEL_BODY(label_insection[2*i+1]) = copie;
-	  LABEL_USED(label_insection[2*i+1]) = LABEL_USED(BIF_LABEL(temp));
-	  LABEL_ILLEGAL(label_insection[2*i+1])=LABEL_ILLEGAL(BIF_LABEL(temp));
-	  LABEL_DEFINED(label_insection[2*i+1])=LABEL_DEFINED(BIF_LABEL(temp));
-	  BIF_LABEL(copie) = label_insection[2*i+1];
-	  label_insection[2*i] = BIF_LABEL(temp);
-	} 	  
+    lenght = 0;
+    for (temp = body; temp; temp = BIF_NEXT(temp))
+    {
+        lenght++;
+        if (lastnode == temp)
+            break;
+    }
+    alloue = (PTR_BFND *)xmalloc(2 * lenght * sizeof(PTR_BFND));
+    memset((char *)alloue, 0, 2 * lenght * sizeof(PTR_BFND));
 
-      /* on fait corresponde temp et copie */
-      alloue[2*i] = temp;
-      alloue[2*i+1] = copie;
-      temp = BIF_NEXT(temp);
-      last = copie;
-   }
+    /* label part, we record label */
+    label_insection = (PTR_LABEL *)xmalloc(2 * lenght * sizeof(PTR_LABEL));
+    memset((char *)label_insection, 0, 2 * lenght * sizeof(PTR_LABEL));
+    temp = body;
+    last = NULL;
+    for (i = 0; i < lenght; i++)
+    {
+        copie = (PTR_BFND)newNode(BIF_CODE(temp));
+        BIF_SYMB(copie) = BIF_SYMB(temp);
+        BIF_LL1(copie) = copyLlNode(BIF_LL1(temp));
+        BIF_LL2(copie) = copyLlNode(BIF_LL2(temp));
+        BIF_LL3(copie) = copyLlNode(BIF_LL3(temp));
+        if (last)
+            BIF_NEXT(last) = copie;
 
- /* On met a jour les labels */
- temp = body;
- for (i = 0; i < lenght; i++)
-   {
-     int cas, kind;
-     copie = alloue[2*i+1]; 
-     lab = NULL;
-     
-     /* We treat first the COMGOTO_NODE first */
-     switch(BIF_CODE(temp)) {
-       case COMGOTO_NODE:
-       case ASSGOTO_NODE:
+
+        if (BIF_LABEL(temp))/* && (LABEL_BODY(BIF_LABEL(temp)) == temp))*/
+        {
+            /* create a new label */
+            label_insection[2 * i + 1] = (PTR_LABEL)newNode(LABEL_KIND);
+            if (maxlabelname < 99999)
+                newlabelname = ++maxlabelname;
+            else
+                newlabelname = getNewLabelId(++newlabelname);
+            LABEL_STMTNO(label_insection[2 * i + 1]) = newlabelname;
+            LABEL_BODY(label_insection[2 * i + 1]) = copie;
+            LABEL_USED(label_insection[2 * i + 1]) = LABEL_USED(BIF_LABEL(temp));
+            LABEL_ILLEGAL(label_insection[2 * i + 1]) = LABEL_ILLEGAL(BIF_LABEL(temp));
+            LABEL_DEFINED(label_insection[2 * i + 1]) = LABEL_DEFINED(BIF_LABEL(temp));
+            BIF_LABEL(copie) = label_insection[2 * i + 1];
+            label_insection[2 * i] = BIF_LABEL(temp);
+        }
+
+        /* on fait corresponde temp et copie */
+        alloue[2 * i] = temp;
+        alloue[2 * i + 1] = copie;
+        temp = BIF_NEXT(temp);
+        last = copie;
+    }
+
+    /* On met a jour les labels */
+    temp = body;
+    for (i = 0; i < lenght; i++)
+    {
+        int cas, kind;
+        copie = alloue[2 * i + 1];
+        lab = NULL;
+
+        /* We treat first the COMGOTO_NODE first */
+        switch (BIF_CODE(temp)) 
+        {
+        case COMGOTO_NODE:
+        case ASSGOTO_NODE:
             kind = 2;
             break;
-       case ARITHIF_NODE:
+        case ARITHIF_NODE:
             kind = 3;
             break;
-       case WRITE_STAT:
-       case READ_STAT:
-       case PRINT_STAT:
-       case BACKSPACE_STAT:
-       case REWIND_STAT:
-       case ENDFILE_STAT:
-       case INQUIRE_STAT:
-       case OPEN_STAT:
-       case CLOSE_STAT:
+        case WRITE_STAT:
+        case READ_STAT:
+        case PRINT_STAT:
+        case BACKSPACE_STAT:
+        case REWIND_STAT:
+        case ENDFILE_STAT:
+        case INQUIRE_STAT:
+        case OPEN_STAT:
+        case CLOSE_STAT:
             kind = 1;
             break;
-       default:
+        default:
             kind = 0;
             break;
-     }
+        }
 
 
-     if(kind == 1)
-       {
-         PTR_LLND lb, list;
-	
-         list = BIF_LL2(copie); /*control list or format*/
-         if(list && NODE_CODE(list) == EXPR_LIST)
-          {  
-           for(;list;list=NODE_OPERAND1(list))
-           { 
-            lb = NODE_OPERAND1(NODE_OPERAND0(list)); 
-            if(NODE_CODE(lb) == LABEL_REF)
-              lab = NODE_LABEL(lb); 
-            if (lab)
-             { /* look where the label is the label is defined somewhere */
-	       int trouve = 0;	 
-	       for (j = 0; j < lenght; j++)
-	       {
-	         if (label_insection[2*j])
-	           if (LABEL_STMTNO(label_insection[2*j]) == LABEL_STMTNO(lab))
-		   {
-		     trouve = j+1;
-		     break;
-		   }
-	       }
-               if(trouve)
-               {
-	       NODE_LABEL(lb) = label_insection[2*(trouve-1)+1];
-               }
-             } 
-           }
-          }
+        if (kind == 1)
+        {
+            PTR_LLND lb, list;
 
-          else if(list && (NODE_CODE(list) == SPEC_PAIR))
-          {  
-            lb =(NODE_OPERAND1(list)); 
-            if(NODE_CODE(lb) == LABEL_REF)
-              lab = NODE_LABEL(lb);
-            if (lab)
-             { /* look where the label is the label is defined somewhere */
-	       int trouve = 0;	 
-	       for (j = 0; j < lenght; j++)
-	       {
-	         if (label_insection[2*j])
-	           if (LABEL_STMTNO(label_insection[2*j]) == LABEL_STMTNO(lab))
-		   {
-		     trouve = j+1;
-		     break;
-		   }
-	       }
-              if(trouve)
-              {
-	        NODE_LABEL(lb) = label_insection[2*(trouve-1)+1];
-              }
-            }       
-          }
-          temp = BIF_NEXT(temp);
-          continue;
-      }
+            list = BIF_LL2(copie); /*control list or format*/
+            if (list && NODE_CODE(list) == EXPR_LIST)
+            {
+                for (; list; list = NODE_OPERAND1(list))
+                {
+                    lb = NODE_OPERAND1(NODE_OPERAND0(list));
+                    if (NODE_CODE(lb) == LABEL_REF)
+                        lab = NODE_LABEL(lb);
+                    if (lab)
+                    { /* look where the label is the label is defined somewhere */
+                        int trouve = 0;
+                        for (j = 0; j < lenght; j++)
+                        {
+                            if (label_insection[2 * j])
+                                if (LABEL_STMTNO(label_insection[2 * j]) == LABEL_STMTNO(lab))
+                                {
+                                    trouve = j + 1;
+                                    break;
+                                }
+                        }
+                        if (trouve)
+                        {
+                            NODE_LABEL(lb) = label_insection[2 * (trouve - 1) + 1];
+                        }
+                    }
+                }
+            }
 
-
-      if(kind > 1)
-       {
-         PTR_LLND listlab, ptl;
-         int trouve = 0;	
-         
-         listlab = (kind==2) ? BIF_LL1(copie) : BIF_LL2(copie);
-         while (listlab)
-           {
-             ptl = NODE_OPERAND0(listlab);
-             /* we look in the list */
-             if (ptl)
-               {                
-                 lab = NODE_LABEL(ptl);
-                 trouve = 0;	 
-                 for (j = 0; j < lenght; j++)
-                   {
-                     if (label_insection[2*j])
-                       if (LABEL_STMTNO(label_insection[2*j]) == LABEL_STMTNO(lab))
-                         {
-                           trouve = j+1;
-                           break;
-                         }
-                   }
-                 if(trouve)
-                   {
-                     NODE_LABEL(ptl) =  label_insection[2*(trouve-1)+1];
-                   }
-               }
-             listlab = NODE_OPERAND1(listlab);             
-           }
-         temp = BIF_NEXT(temp);
-         continue;         
-       }
+            else if (list && (NODE_CODE(list) == SPEC_PAIR))
+            {
+                lb = (NODE_OPERAND1(list));
+                if (NODE_CODE(lb) == LABEL_REF)
+                    lab = NODE_LABEL(lb);
+                if (lab)
+                { /* look where the label is the label is defined somewhere */
+                    int trouve = 0;
+                    for (j = 0; j < lenght; j++)
+                    {
+                        if (label_insection[2 * j])
+                            if (LABEL_STMTNO(label_insection[2 * j]) == LABEL_STMTNO(lab))
+                            {
+                                trouve = j + 1;
+                                break;
+                            }
+                    }
+                    if (trouve)
+                    {
+                        NODE_LABEL(lb) = label_insection[2 * (trouve - 1) + 1];
+                    }
+                }
+            }
+            temp = BIF_NEXT(temp);
+            continue;
+        }
 
 
-     
-     lab=NULL;    
-     if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
-       {
-	 lab = NODE_LABEL(BIF_LL3(temp)); 
-	 cas = 2;	
-       }
-     else if (BIF_LL1(temp) && (NODE_CODE(BIF_LL1(temp)) == LABEL_REF))
-       {
-	 lab = NODE_LABEL(BIF_LL1(temp));
-	 cas = 3;	
-       }
-     else
-       {
-	 lab = BIF_LABEL_USE(temp);
-	 cas = 1;
-       }
-     if (lab)
-       { /* look where the label is the label is defined somewhere */
-	 int trouve = 0;	 
-	 for (j = 0; j < lenght; j++)
-	   {
-	     if (label_insection[2*j])
-	       if (LABEL_STMTNO(label_insection[2*j]) == LABEL_STMTNO(lab))
-		 {
-		   trouve = j+1;
-		   break;
-		 }
-	   }
-	 if(trouve)
-	   {
-	     if (cas == 1)
-	       {
-		 BIF_LABEL_USE(copie) = label_insection[2*(trouve-1)+1];
-	       }
-	     if (cas == 2)
-	       {
-		 if (BIF_LL3(copie))
-		   {
-		     NODE_LABEL(BIF_LL3(copie)) = label_insection[2*(trouve-1)+1];
-		   }
-	       }
-             if (cas == 3)
-	       {
-		 if (BIF_LL1(copie))
-		   {
-		     NODE_LABEL(BIF_LL1(copie)) = label_insection[2*(trouve-1)+1];
-		   }
-	       }
+        if (kind > 1)
+        {
+            PTR_LLND listlab, ptl;
+            int trouve = 0;
 
-	   } else
-	     {
-	       if (cas == 1)
-		 BIF_LABEL_USE(copie) = lab; /* outside */
-	       /* if ((cas == 2) no change */
-	     }
-       }
-     temp = BIF_NEXT(temp);
-   }
- 
- /* on met a jour le blob list */
- copie = alloue[1];
- for (temp = body; temp ; temp = BIF_NEXT(temp))
-   {
-     if (BIF_BLOB1(temp))
-       { /* on doit cree la blob liste */
-         for (blobtemp = BIF_BLOB1(temp);blobtemp; 
-              blobtemp = BLOB_NEXT(blobtemp)) 
-           {
-             /* on cherche la reference dans le tableaux allouer */
-             cherche = NULL;
-             for (i = 0; i <lenght ; i++)
-               {
-                 if (alloue[2*i] == BLOB_VALUE(blobtemp))
-                     {
-                       cherche = alloue[2*i+1];
-                       break;
-                     }
-               }
-             appendBfndToList1(cherche, copie);
-           }
-       }
-     if (BIF_BLOB2(temp))
-       { /* on doit cree la blob liste */
-         for (blobtemp = BIF_BLOB2(temp);blobtemp; 
-              blobtemp = BLOB_NEXT(blobtemp)) 
-           {
-             /* on cherche la reference dans le tableaux allouer */
-             cherche = NULL;
-             for (i = 0; i <lenght ; i++)
-               {
-                 if (alloue[2*i] == BLOB_VALUE(blobtemp))
-                     {
-                       cherche = alloue[2*i+1];
-                       break;
-                     }
-               }
-             appendBfndToList2(cherche, copie);
-           }
-       }
-     copie = BIF_NEXT(copie);
-     if (temp == lastnode)
-       break;
-   }
+            listlab = (kind == 2) ? BIF_LL1(copie) : BIF_LL2(copie);
+            while (listlab)
+            {
+                ptl = NODE_OPERAND0(listlab);
+                /* we look in the list */
+                if (ptl)
+                {
+                    lab = NODE_LABEL(ptl);
+                    trouve = 0;
+                    for (j = 0; j < lenght; j++)
+                    {
+                        if (label_insection[2 * j])
+                            if (LABEL_STMTNO(label_insection[2 * j]) == LABEL_STMTNO(lab))
+                            {
+                                trouve = j + 1;
+                                break;
+                            }
+                    }
+                    if (trouve)
+                    {
+                        NODE_LABEL(ptl) = label_insection[2 * (trouve - 1) + 1];
+                    }
+                }
+                listlab = NODE_OPERAND1(listlab);
+            }
+            temp = BIF_NEXT(temp);
+            continue;
+        }
 
- /* on remet ici a jour les CP */
- copie = alloue[1];
- for (temp = body; temp ; temp = BIF_NEXT(temp))
-   {
-     if (isItInSection(body, lastnode, BIF_CP(temp)))
-       { /* on cherche le bif_cp pour la copie */
-         cherche = NULL;
-         for (i = 0; i <lenght ; i++)
-           {
-             if (alloue[2*i] == BIF_CP(temp))
-               {
-                 cherche = alloue[2*i+1];
-                 break;
-               }
-           }
-         BIF_CP(copie) = cherche;
-       } else
-         BIF_CP(copie) = NULL;
-     copie = BIF_NEXT(copie);
-     if (temp == lastnode)
-       break;
-   }
- copie = alloue[1];
+
+
+        lab = NULL;
+        if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
+        {
+            lab = NODE_LABEL(BIF_LL3(temp));
+            cas = 2;
+        }
+        else if (BIF_LL1(temp) && (NODE_CODE(BIF_LL1(temp)) == LABEL_REF))
+        {
+            lab = NODE_LABEL(BIF_LL1(temp));
+            cas = 3;
+        }
+        else
+        {
+            lab = BIF_LABEL_USE(temp);
+            cas = 1;
+        }
+        if (lab)
+        { /* look where the label is the label is defined somewhere */
+            int trouve = 0;
+            for (j = 0; j < lenght; j++)
+            {
+                if (label_insection[2 * j])
+                    if (LABEL_STMTNO(label_insection[2 * j]) == LABEL_STMTNO(lab))
+                    {
+                        trouve = j + 1;
+                        break;
+                    }
+            }
+            if (trouve)
+            {
+                if (cas == 1)
+                {
+                    BIF_LABEL_USE(copie) = label_insection[2 * (trouve - 1) + 1];
+                }
+                if (cas == 2)
+                {
+                    if (BIF_LL3(copie))
+                    {
+                        NODE_LABEL(BIF_LL3(copie)) = label_insection[2 * (trouve - 1) + 1];
+                    }
+                }
+                if (cas == 3)
+                {
+                    if (BIF_LL1(copie))
+                    {
+                        NODE_LABEL(BIF_LL1(copie)) = label_insection[2 * (trouve - 1) + 1];
+                    }
+                }
+
+            }
+            else
+            {
+                if (cas == 1)
+                    BIF_LABEL_USE(copie) = lab; /* outside */
+                      /* if ((cas == 2) no change */
+            }
+        }
+        temp = BIF_NEXT(temp);
+    }
+
+    /* on met a jour le blob list */
+    copie = alloue[1];
+    for (temp = body; temp; temp = BIF_NEXT(temp))
+    {
+        if (BIF_BLOB1(temp))
+        { /* on doit cree la blob liste */
+            for (blobtemp = BIF_BLOB1(temp); blobtemp;
+                blobtemp = BLOB_NEXT(blobtemp))
+            {
+                /* on cherche la reference dans le tableaux allouer */
+                cherche = NULL;
+                for (i = 0; i < lenght; i++)
+                {
+                    if (alloue[2 * i] == BLOB_VALUE(blobtemp))
+                    {
+                        cherche = alloue[2 * i + 1];
+                        break;
+                    }
+                }
+                appendBfndToList1(cherche, copie);
+            }
+        }
+        if (BIF_BLOB2(temp))
+        { /* on doit cree la blob liste */
+            for (blobtemp = BIF_BLOB2(temp); blobtemp;
+                blobtemp = BLOB_NEXT(blobtemp))
+            {
+                /* on cherche la reference dans le tableaux allouer */
+                cherche = NULL;
+                for (i = 0; i < lenght; i++)
+                {
+                    if (alloue[2 * i] == BLOB_VALUE(blobtemp))
+                    {
+                        cherche = alloue[2 * i + 1];
+                        break;
+                    }
+                }
+                appendBfndToList2(cherche, copie);
+            }
+        }
+        copie = BIF_NEXT(copie);
+        if (temp == lastnode)
+            break;
+    }
+
+    /* on remet ici a jour les CP */
+    copie = alloue[1];
+    for (temp = body; temp; temp = BIF_NEXT(temp))
+    {
+        if (isItInSection(body, lastnode, BIF_CP(temp)))
+        { /* on cherche le bif_cp pour la copie */
+            cherche = NULL;
+            for (i = 0; i < lenght; i++)
+            {
+                if (alloue[2 * i] == BIF_CP(temp))
+                {
+                    cherche = alloue[2 * i + 1];
+                    break;
+                }
+            }
+            BIF_CP(copie) = cherche;
+        }
+        else
+            BIF_CP(copie) = NULL;
+        copie = BIF_NEXT(copie);
+        if (temp == lastnode)
+            break;
+    }
+    copie = alloue[1];
 #ifdef __SPF      
- removeFromCollection(alloue);
- removeFromCollection(label_insection);
+    removeFromCollection(alloue);
+    removeFromCollection(label_insection);
 #endif
- free(alloue);
- free(label_insection);
- return copie;
+    free(alloue);
+    free(label_insection);
+    return copie;
 }
 
 
@@ -4323,19 +4327,19 @@ PTR_CMNT Get_cmnt_with_id(id)
 /***************************************************************************/
 int getLastLabelId()
 {
-  int maxlabelname;
-  PTR_LABEL lab;
-  
-  maxlabelname = 0;
-  for (lab = PROJ_FIRST_LABEL(); lab; lab = LABEL_NEXT(lab))
+    int maxlabelname;
+    PTR_LABEL lab;
+
+    maxlabelname = 0;
+    for (lab = PROJ_FIRST_LABEL(); lab; lab = LABEL_NEXT(lab))
     {
-      if (maxlabelname < LABEL_STMTNO(lab))
-      {
-	maxlabelname =  LABEL_STMTNO(lab);
-       }
+        if (maxlabelname < LABEL_STMTNO(lab))
+        {
+            maxlabelname = LABEL_STMTNO(lab);
+        }
     }
 
-  return maxlabelname;
+    return maxlabelname;
 }
    
  
@@ -6972,179 +6976,214 @@ PTR_BFND scope;
 }
 
 /***************************************************************************/
-PTR_BLOB getLabelUDChain(label,scope)
-     PTR_LABEL label;
-     PTR_BFND scope;     
+PTR_BLOB getLabelUDChain(PTR_LABEL label, PTR_BFND scope)
 {
-  PTR_BFND func, last, temp;
-  PTR_BLOB blob, first;
-  PTR_LABEL tl;
-  
-  if (!label)
-    return NULL;
-  
+    PTR_BFND func, last, temp;
+    PTR_BLOB blob, first;
+    PTR_LABEL tl;
 
-  func = getScopeForLabel(scope);
-  if (!func)
-    return NULL;
-  last = getLastNodeOfStmt (func);
-  
-  blob = NULL;
-  first = NULL;
-  for (temp = func; temp && (temp != last); temp= BIF_NEXT(temp))
+    if (!label)
+        return NULL;
+    
+    func = getScopeForLabel(scope);
+    if (!func)
+        return NULL;
+    last = getLastNodeOfStmt(func);
+
+    blob = NULL;
+    first = NULL;
+    for (temp = func; temp && (temp != last); temp = BIF_NEXT(temp))
     {
-      tl = BIF_LABEL_USE(temp);      
-      if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
-        tl = NODE_LABEL(BIF_LL3(temp));
-      
-      if (tl && (LABEL_STMTNO(tl) == LABEL_STMTNO(label)))
+        tl = BIF_LABEL_USE(temp);
+        if (BIF_LL3(temp) && (NODE_CODE(BIF_LL3(temp)) == LABEL_REF))
+            tl = NODE_LABEL(BIF_LL3(temp));
+
+        // Kolganov 18.07.18, take into account of ARITH lables and COMGOTO
+        if (temp->variant == ARITHIF_NODE || temp->variant == COMGOTO_NODE || temp->variant == ASSGOTO_NODE)
         {
-          if (blob)
-            {              
-              BLOB_NEXT(blob) = (PTR_BLOB) newNode (BLOB_KIND);
-              blob = BLOB_NEXT(blob);
-              BLOB_VALUE(blob) = temp;              
-            } else
-              {
-                blob = (PTR_BLOB) newNode (BLOB_KIND);
-                BLOB_VALUE(blob) = temp;  
-                first = blob;
-              }
-        }
-    }
-  return first;
-}
+            PTR_LLND lb;
+            if (temp->variant == COMGOTO_NODE || temp->variant == ASSGOTO_NODE)
+                lb = BIF_LL1(temp);
+            else
+                lb = BIF_LL2(temp);
+            PTR_LABEL arith_lab[256];
 
-/***************************************************************************/
-
-void LibconvertLogicIf(ifst)
-PTR_BFND ifst;
-{
-  if (!ifst)
-    return;
-  if (BIF_CODE(ifst) == LOGIF_NODE)
-    {/* Convert to if */
-      PTR_BFND last,ctl;
-      BIF_CODE(ifst) =   IF_NODE;
-      /* need to add a contro_end */
-      last = getLastNodeOfStmt(ifst);
-      ctl = (PTR_BFND)  newNode (CONTROL_END);
-      insertBfndListIn(ctl,last,ifst);
-    }
-}
-
-/***************************************************************************/
-int convertToEnddoLoop(loop)
-     PTR_BFND loop;
-{
-  PTR_BFND cend, bif, lastcend;
-  PTR_BLOB blob, list_ud;
-  PTR_LABEL label;
-  PTR_CMNT comment;
-  
-  
-  if (! loop) 
-    return 0;
-
-  if (BIF_CODE (loop) != FOR_NODE)
-    return 0;
-  
-   if (!LibisEnddoLoop(loop))
-    {
-      bif = getLastNodeOfStmt (loop);
-      if (!bif)
-        return 0; 
-      while (BIF_CODE(bif) == FOR_NODE)
-        {          
-          /* because of continue stmt shared by loops */
-          bif = getLastNodeOfStmt (bif);
-          if (!bif)
-            return 0; 
-        }
-      if (BIF_CODE (bif) == CONT_STAT)
-        {
-          if (BIF_LABEL (bif) != NULL) 
+            int idx = 0;
+            while (lb)
             {
-              label = BIF_LABEL(bif);
-              if (BIF_LABEL_USE (loop) && 
-                  (LABEL_STMTNO(BIF_LABEL_USE (loop)) == LABEL_STMTNO(label))) 
-                {                 
-                  list_ud = getLabelUDChain(label,loop);                  
-                  if (blobListLength(list_ud) <= 1)
+                arith_lab[idx++] = NODE_LABEL(NODE_OPERAND0(lb));
+                lb = NODE_OPERAND1(lb);
+            }
+
+            int z;
+            for (z = 0; z < idx; ++z)
+            {
+                if (arith_lab[z] && (LABEL_STMTNO(arith_lab[z]) == LABEL_STMTNO(label)))
+                {
+                    if (blob)
                     {
-                      cend = (PTR_BFND) newNode (CONTROL_END);
-                      BIF_CP (cend) = loop;
-                      BIF_LABEL_USE (loop) = NULL;
-                      BIF_CMNT(cend) = BIF_CMNT(bif);
-                      BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-                      bif = deleteBfnd (bif);                       
-                      insertBfndListIn (cend,bif,loop);
-                    } else
-                      { /* more than on uses of the label check if ok */
-                        for (blob = list_ud ;blob; 
-                             blob = BLOB_NEXT (blob))
-                          {
-                            if (!BLOB_VALUE(blob) ||
-                                (BIF_CODE(BLOB_VALUE(blob)) !=  FOR_NODE)) 
-                              return 0;                            
-                          }
+                        BLOB_NEXT(blob) = (PTR_BLOB)newNode(BLOB_KIND);
+                        blob = BLOB_NEXT(blob);
+                        BLOB_VALUE(blob) = temp;
+                    }
+                    else
+                    {
+                        blob = (PTR_BLOB)newNode(BLOB_KIND);
+                        BLOB_VALUE(blob) = temp;
+                        first = blob;
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            if (tl && (LABEL_STMTNO(tl) == LABEL_STMTNO(label)))
+            {
+                if (blob)
+                {
+                    BLOB_NEXT(blob) = (PTR_BLOB)newNode(BLOB_KIND);
+                    blob = BLOB_NEXT(blob);
+                    BLOB_VALUE(blob) = temp;
+                }
+                else
+                {
+                    blob = (PTR_BLOB)newNode(BLOB_KIND);
+                    BLOB_VALUE(blob) = temp;
+                    first = blob;
+                }
+            }
+        }
+    }
+    return first;
+}
+
+/***************************************************************************/
+
+void LibconvertLogicIf(PTR_BFND ifst)
+{
+    if (!ifst)
+        return;
+    if (BIF_CODE(ifst) == LOGIF_NODE)
+    {/* Convert to if */
+        PTR_BFND last, ctl;
+        BIF_CODE(ifst) = IF_NODE;
+        /* need to add a contro_end */
+        last = getLastNodeOfStmt(ifst);
+        ctl = (PTR_BFND)newNode(CONTROL_END);
+        insertBfndListIn(ctl, last, ifst);
+    }
+}
+
+/***************************************************************************/
+int convertToEnddoLoop(PTR_BFND loop)
+{
+    PTR_BFND cend, bif, lastcend;
+    PTR_BLOB blob, list_ud;
+    PTR_LABEL label;
+    PTR_CMNT comment;
+    
+    if (!loop)
+        return 0;
+
+    if (BIF_CODE(loop) != FOR_NODE)
+        return 0;
+
+    if (!LibisEnddoLoop(loop))
+    {
+        bif = getLastNodeOfStmt(loop);
+        if (!bif)
+            return 0;
+        while (BIF_CODE(bif) == FOR_NODE)
+        {
+            /* because of continue stmt shared by loops */
+            bif = getLastNodeOfStmt(bif);
+            if (!bif)
+                return 0;
+        }
+
+        if (BIF_CODE(bif) == CONT_STAT)
+        {
+            if (BIF_LABEL(bif) != NULL)
+            {
+                label = BIF_LABEL(bif);
+                if (BIF_LABEL_USE(loop) &&
+                    (LABEL_STMTNO(BIF_LABEL_USE(loop)) == LABEL_STMTNO(label)))
+                {
+                    list_ud = getLabelUDChain(label, loop);
+                    if (blobListLength(list_ud) <= 1)
+                    {
+                        cend = (PTR_BFND)newNode(CONTROL_END);
+                        BIF_CP(cend) = loop;
+                        BIF_LABEL_USE(loop) = NULL;
+                        BIF_CMNT(cend) = BIF_CMNT(bif);
+                        BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                        bif = deleteBfnd(bif);
+                        insertBfndListIn(cend, bif, loop);
+                    }
+                    else
+                    { /* more than on uses of the label check if ok */
+                        for (blob = list_ud; blob;
+                            blob = BLOB_NEXT(blob))
+                        {
+                            if (!BLOB_VALUE(blob) || (BIF_CODE(BLOB_VALUE(blob)) != FOR_NODE))
+                                return 0;
+                        }
                         /* we insert as much enddo than necessary */
-                        comment = BIF_CMNT(bif);  
-                        bif = deleteBfnd (bif);
-                        lastcend = bif;                        
-                        for (blob = list_ud;blob; 
-                             blob = BLOB_NEXT (blob))
-                          {
-                            if (BLOB_VALUE(blob) && 
-                                (BIF_CODE(BLOB_VALUE(blob)) == FOR_NODE))
-                              {
-                                BIF_LABEL_USE (BLOB_VALUE(blob)) = NULL;
-                                cend = (PTR_BFND) newNode (CONTROL_END);
+                        comment = BIF_CMNT(bif);
+                        bif = deleteBfnd(bif);
+                        lastcend = bif;
+                        for (blob = list_ud; blob; blob = BLOB_NEXT(blob))
+                        {
+                            if (BLOB_VALUE(blob) && (BIF_CODE(BLOB_VALUE(blob)) == FOR_NODE))
+                            {
+                                BIF_LABEL_USE(BLOB_VALUE(blob)) = NULL;
+                                cend = (PTR_BFND)newNode(CONTROL_END);
                                 BIF_CMNT(cend) = comment;
                                 BIF_LINE(cend) = BIF_LINE(lastcend); /*Bakhtin 26.01.10*/
-                                comment = NULL;                                
+                                comment = NULL;
                                 BIF_CMNT(bif) = NULL;
-                                insertBfndListIn (cend,lastcend,
-                                                        BLOB_VALUE(blob));
+                                insertBfndListIn(cend, lastcend, BLOB_VALUE(blob));
                                 /*lastcend = Get_Node_Before(cend); */
-                              }
-                          }
-                      }
-                  return 1;                  
+                            }
+                        }
+                    }
+                    return 1;
                 }
-              else
-                return 0;  /* something is wrong the label is not the same */
-            }         
-          else
-            { /* should not appear CONTINUE without label */
-              cend = (PTR_BFND) newNode (CONTROL_END);/*podd 12.03.99*/
-              BIF_CMNT(cend) = BIF_CMNT(bif);
-              BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-              bif = deleteBfnd (bif);
-              insertBfndListIn (cend,bif,loop);
-              return 0; 
+                else
+                    return 0;  /* something is wrong the label is not the same */
             }
-              
-        }     
-      else 
-        { /* this not a enddo or a cont stat; probably a statement */
-          label = BIF_LABEL(bif);
-          list_ud = getLabelUDChain(label,loop);  
-          if (label && blobListLength(list_ud) <= 1)
-            {
-              cend = (PTR_BFND) newNode (CONTROL_END);
-              BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
-              insertBfndListIn (cend,bif,loop);
-              BIF_LABEL (bif) = NULL;
-              BIF_LABEL_USE (loop) = NULL;
-            } else
-              return 0;
+            else
+            { /* should not appear CONTINUE without label */
+                cend = (PTR_BFND)newNode(CONTROL_END);/*podd 12.03.99*/
+                BIF_CMNT(cend) = BIF_CMNT(bif);
+                BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                bif = deleteBfnd(bif);
+                insertBfndListIn(cend, bif, loop);
+                return 0;
+            }
+
         }
-      return 1;
-    }  
-  else
-    return 1;
- }
+        else
+        { /* this not a enddo or a cont stat; probably a statement */
+            label = BIF_LABEL(bif);
+            list_ud = getLabelUDChain(label, loop);
+            if (label && blobListLength(list_ud) <= 1)
+            {
+                cend = (PTR_BFND)newNode(CONTROL_END);
+                BIF_LINE(cend) = BIF_LINE(bif); /*Bakhtin 26.01.10*/
+                insertBfndListIn(cend, bif, loop);
+                BIF_LABEL(bif) = NULL;
+                BIF_LABEL_USE(loop) = NULL;
+            }
+            else
+                return 0;
+        }
+        return 1;
+    }
+    else
+        return 1;
+}
 
 
 /* (fbodin) Duplicate Symbol and type routine (modified phb) */
@@ -7401,32 +7440,28 @@ PTR_SYMB symb;
 
 
 /***************************************************************************/
-void replaceSymbInExpression(exprold,symb, new)
-     PTR_LLND exprold;
-     PTR_SYMB symb, new;
+void replaceSymbInExpression(PTR_LLND exprold, PTR_SYMB symb, PTR_SYMB new)
 {
-  if (!exprold || !symb || !new)
-    return;
-  if (!isASymbNode(SYMB_CODE(symb)))
+    if (!exprold || !symb || !new)
+        return;
+    if (!isASymbNode(SYMB_CODE(symb)))
     {
-      Message(" not a symbol node in replaceSymbInExpression",0);
-      return;
+        Message(" not a symbol node in replaceSymbInExpression", 0);
+        return;
     }
-  if (!isASymbNode(SYMB_CODE(new)))
+    if (!isASymbNode(SYMB_CODE(new)))
     {
-      Message(" not a symbol node in replaceSymbInExpression",0);
-      return;
+        Message(" not a symbol node in replaceSymbInExpression", 0);
+        return;
     }
-  
-  if (hasNodeASymb(NODE_CODE(exprold)))
+
+    if (hasNodeASymb(NODE_CODE(exprold)))
     {
-      if (NODE_SYMB(exprold) == symb)
-	{
-	  NODE_SYMB(exprold) = new;
-	}
+        if (NODE_SYMB(exprold) == symb)
+            NODE_SYMB(exprold) = new;
     }
-  replaceSymbInExpression(NODE_OPERAND0(exprold), symb, new);
-  replaceSymbInExpression(NODE_OPERAND1(exprold), symb, new);
+    replaceSymbInExpression(NODE_OPERAND0(exprold), symb, new);
+    replaceSymbInExpression(NODE_OPERAND1(exprold), symb, new);
 }
 
 /***************************************************************************/
@@ -7434,18 +7469,18 @@ void replaceSymbInStmts(debut, fin, symb, new)
      PTR_BFND debut, fin;
      PTR_SYMB symb,new;
 {
-  PTR_BFND temp;
-  
-  for (temp = debut; temp ; temp = BIF_NEXT(temp))
+    PTR_BFND temp;
+
+    for (temp = debut; temp; temp = BIF_NEXT(temp))
     {
-      if (BIF_SYMB(temp) == symb)
-	BIF_SYMB(temp) = new;
-      replaceSymbInExpression(BIF_LL1(temp), symb,new);
-      replaceSymbInExpression(BIF_LL2(temp), symb,new);
-      replaceSymbInExpression(BIF_LL3(temp), symb,new);
-      if (fin && (temp == fin))
-        break;
-    }  
+        if (BIF_SYMB(temp) == symb)
+            BIF_SYMB(temp) = new;
+        replaceSymbInExpression(BIF_LL1(temp), symb, new);
+        replaceSymbInExpression(BIF_LL2(temp), symb, new);
+        replaceSymbInExpression(BIF_LL3(temp), symb, new);
+        if (fin && (temp == fin))
+            break;
+    }
 }
 
 /***************************************************************************/
@@ -8676,146 +8711,138 @@ PTR_LLND exp;
 }
 
 /*podd 06.06.06*/
-
-void updateTypeAndSymbolInStmts(stmt, last, oldsymb, newsymb)
-     PTR_SYMB oldsymb, newsymb;
-     PTR_BFND stmt,last;
+void updateTypeAndSymbolInStmts(PTR_BFND stmt, PTR_BFND last, PTR_SYMB oldsymb, PTR_SYMB newsymb)
 {
-  PTR_TYPE type,new;
- 
-  type = SYMB_TYPE(oldsymb);
-  new = duplicateTypeAcrossFiles(type);
-  SYMB_TYPE(newsymb) = new;
-  replaceTypeInStmts(stmt, last, type, new);
-  replaceSymbInStmts(stmt,last,oldsymb,newsymb);
+    PTR_TYPE type, new;
+
+    type = SYMB_TYPE(oldsymb);
+    new = duplicateTypeAcrossFiles(type);
+    SYMB_TYPE(newsymb) = new;
+    replaceTypeInStmts(stmt, last, type, new);
+    replaceSymbInStmts(stmt, last, oldsymb, newsymb);
 }
 
 
-void updateTypesAndSymbolsInBodyOfRoutine(symb, stmt, new_stmt, where)
-     PTR_BFND stmt, new_stmt, where;
-     PTR_SYMB symb;
+void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND new_stmt, PTR_BFND where)
 {
-  PTR_SYMB oldsymb, param, newsymb, until;
-  PTR_BFND last;
-  PTR_TYPE type;
-  /*int isparam;*/
-  if (!stmt)
-    return;
-  last = getLastNodeOfStmt(stmt);
+    PTR_SYMB oldsymb, param, newsymb, until;
+    PTR_BFND last;
+    PTR_TYPE type;
+    /*int isparam;*/
+    if (!stmt)
+        return;
+    last = getLastNodeOfStmt(stmt);
 
-  if(BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last))!=COMMENT_STAT )
-    until = BIF_SYMB(BIF_NEXT(last));   
-  else
-    until = SYMB_NEXT(last_file_symbol);    //last_file_symbol is last symbol of source file's Symbol Table
-  
-  param = SYMB_FUNC_PARAM (symb);
-  for(oldsymb=SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb=SYMB_NEXT(oldsymb))
-  {  if(SYMB_SCOPE(oldsymb) == stmt) 
-       {              /*
-                       isparam = 0;
-                       while (param)
-                         {
-                           if (param == oldsymb )
-                             {
-                               isparam = 1;
-                               break;
-                             }
-                           param  = SYMB_NEXT_DECL (param );
-                         }
-                       if (! isparam)
-                      */
+    if (BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last)) != COMMENT_STAT)
+        until = BIF_SYMB(BIF_NEXT(last));
+    else
+        until = SYMB_NEXT(last_file_symbol);    //last_file_symbol is last symbol of source file's Symbol Table
 
-                       if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
-
-                         {
-                           newsymb = duplicateSymbolOfRoutine(oldsymb, where);
-                           /*newsymb = duplicateSymbolAcrossFiles(oldsymb, where);)*/
-                           SYMB_SCOPE(newsymb) = new_stmt;
-                           updateTypeAndSymbolInStmts(stmt, last, oldsymb, newsymb);
-                         }
-
-       }     
-  }
-
- param = SYMB_FUNC_PARAM (new_stmt->entry.Template.symbol);
- while (param)
- { type=param->type;
-   param  = SYMB_NEXT_DECL (param );
-
-  if (isAtomicType(TYPE_CODE(type)) || TYPE_CODE(type)==T_ARRAY)
+    param = SYMB_FUNC_PARAM(symb);
+    for (oldsymb = SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb = SYMB_NEXT(oldsymb))
     {
-      if (TYPE_RANGES(type))
-        updateExpression(TYPE_RANGES(type),symb,new_stmt->entry.Template.symbol);
+        if (SYMB_SCOPE(oldsymb) == stmt)
+        {              /*
+                        isparam = 0;
+                        while (param)
+                          {
+                            if (param == oldsymb )
+                              {
+                                isparam = 1;
+                                break;
+                              }
+                            param  = SYMB_NEXT_DECL (param );
+                          }
+                        if (! isparam)
+                       */
+
+            if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
+            {
+                newsymb = duplicateSymbolOfRoutine(oldsymb, where);
+                //newsymb = duplicateSymbolAcrossFiles(oldsymb, where);
+                SYMB_SCOPE(newsymb) = new_stmt;
+                updateTypeAndSymbolInStmts(new_stmt, getLastNodeOfStmt(new_stmt), oldsymb, newsymb);
+            }
+        }
     }
- }
+
+    param = SYMB_FUNC_PARAM(new_stmt->entry.Template.symbol);
+    while (param)
+    {
+        type = param->type;
+        param = SYMB_NEXT_DECL(param);
+
+        if (isAtomicType(TYPE_CODE(type)) || TYPE_CODE(type) == T_ARRAY)
+        {
+            if (TYPE_RANGES(type))
+                updateExpression(TYPE_RANGES(type), symb, new_stmt->entry.Template.symbol);
+        }
+    }
 }
 
-PTR_SYMB duplicateSymbolOfRoutine(symb, where)
-     PTR_SYMB symb;
-     PTR_BFND where;
+PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
 {
-  PTR_SYMB  newsymb;
-  PTR_BFND body,newbody,last,before,cp;
-  PTR_SYMB ptsymb,ptref;
- // PTR_TYPE type,newt;
-  if (!symb)
-    return NULL;
+    PTR_SYMB  newsymb;
+    PTR_BFND body, newbody, last, before, cp;
+    PTR_SYMB ptsymb, ptref;
+    // PTR_TYPE type,newt;
+    if (!symb)
+        return NULL;
 
-  if (!isASymbNode(NODE_CODE(symb)))
+    if (!isASymbNode(NODE_CODE(symb)))
     {
-      Message("duplicateSymbolAcrossFiles; Not a symbol node",0);
-      return NULL;
+        Message("duplicateSymbolAcrossFiles; Not a symbol node", 0);
+        return NULL;
     }
-  newsymb = duplicateSymbolLevel1(symb);
-  newsymb->dovar = 1;
-  symb->dovar = 1;
-  /* need a function resetDovar for all files and all symb to be called before*/
-  SYMB_SCOPE(newsymb) = where;
+    newsymb = duplicateSymbolLevel1(symb);
+    newsymb->dovar = 1;
+    symb->dovar = 1;
+    /* need a function resetDovar for all files and all symb to be called before*/
+    SYMB_SCOPE(newsymb) = where;
 
-  /* to be updated later Not that simple*/
-  switch (SYMB_CODE(symb))
+    /* to be updated later Not that simple*/
+    switch (SYMB_CODE(symb))
     {
     case FUNCTION_NAME:
     case PROCEDURE_NAME:
-      /* find the body in the right file????*/
-      body = getBodyOfSymb(symb);
-      if (body && (cp = BIF_CP(body)) && cp->variant != INTERFACE_STMT && cp->variant != INTERFACE_ASSIGNMENT && cp->variant != INTERFACE_OPERATOR) /*20.04.17*/
-	{
-	  before = getNodeBefore(body);
-	  //cp = BIF_CP(body);
-	  last = getLastNodeOfStmt(body);
-	  newbody = duplicateStmtsNoExtract(body);
-          if(where)
-          {
-          if (BIF_CODE (where) == GLOBAL)
-            insertBfndListIn (newbody, where,where);
-          else
-            insertBfndListIn (newbody, where,BIF_CP(where));
-          }
-	  BIF_SYMB(newbody) = newsymb;
-	  SYMB_FUNC_HEDR(newsymb) = newbody;
-	  last = getLastNodeOfStmt(newbody);
-          updateTypeAndSymbolInStmts(newbody, last, symb, newsymb);
+        /* find the body in the right file????*/
+        body = getBodyOfSymb(symb);
+        if (body && (cp = BIF_CP(body)) && cp->variant != INTERFACE_STMT && cp->variant != INTERFACE_ASSIGNMENT && cp->variant != INTERFACE_OPERATOR) /*20.04.17*/
+        {
+            before = getNodeBefore(body);
+            //cp = BIF_CP(body);
+            last = getLastNodeOfStmt(body);
+            newbody = duplicateStmtsNoExtract(body);
+            if (where)
+            {
+                if (BIF_CODE(where) == GLOBAL)
+                    insertBfndListIn(newbody, where, where);
+                else
+                    insertBfndListIn(newbody, where, BIF_CP(where));
+            }
+            BIF_SYMB(newbody) = newsymb;
+            SYMB_FUNC_HEDR(newsymb) = newbody;
+            last = getLastNodeOfStmt(newbody);
+            updateTypeAndSymbolInStmts(newbody, last, symb, newsymb);
 
-	  /* we have to propagate change in the param list in the new body */
-	  ptsymb = SYMB_FUNC_PARAM (newsymb);
-	  ptref =  SYMB_FUNC_PARAM (symb);
+            /* we have to propagate change in the param list in the new body */
+            ptsymb = SYMB_FUNC_PARAM(newsymb);
+            ptref = SYMB_FUNC_PARAM(symb);
 
-	  while (ptsymb)
-	    {
-              SYMB_SCOPE(ptsymb) = newbody;
-              updateTypeAndSymbolInStmts(newbody, last, ptref,ptsymb);
-	      ptsymb = SYMB_NEXT_DECL (ptsymb);
-	      ptref = SYMB_NEXT_DECL (ptref);
-	    }
-          /* update the all the symbol and type used in the statement */
-          updateTypesAndSymbolsInBodyOfRoutine(symb, body, newbody, where);
-/*          printf(">>>>>>>>>>>>>>>>>>>>>>\n");
-          UnparseProgram(stdout);
-          printf("<<<<<<<<<<<<<<<<<<<<<<\n");*/
-	}
-      break;
+            while (ptsymb)
+            {
+                SYMB_SCOPE(ptsymb) = newbody;
+                updateTypeAndSymbolInStmts(newbody, last, ptref, ptsymb);
+                ptsymb = SYMB_NEXT_DECL(ptsymb);
+                ptref = SYMB_NEXT_DECL(ptref);
+            }
+            /* update the all the symbol and type used in the statement */
+            updateTypesAndSymbolsInBodyOfRoutine(symb, body, newbody, where);
+            /*          printf(">>>>>>>>>>>>>>>>>>>>>>\n");
+                      UnparseProgram(stdout);
+                      printf("<<<<<<<<<<<<<<<<<<<<<<\n");*/
+        }
+        break;
     }
-  return newsymb;
+    return newsymb;
 }
-

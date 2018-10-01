@@ -372,8 +372,10 @@
      FILES = 331,
      VARLIST = 332,
      STATUS = 333,
-     BINARY_OP = 336,
-     UNARY_OP = 337
+     EXITINTERVAL = 334,
+     TEMPLATE_CREATE = 335,
+     BINARY_OP = 338,
+     UNARY_OP = 339
    };
 #endif
 /* Tokens.  */
@@ -710,15 +712,17 @@
 #define FILES 331
 #define VARLIST 332
 #define STATUS 333
-#define BINARY_OP 336
-#define UNARY_OP 337
+#define EXITINTERVAL 334
+#define TEMPLATE_CREATE 335
+#define BINARY_OP 338
+#define UNARY_OP 339
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 416 "gram1.y"
+#line 418 "gram1.y"
 {
     int token;
     char charv;
@@ -731,7 +735,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 735 "gram1.tab.h"
+#line 739 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

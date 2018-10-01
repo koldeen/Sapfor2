@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "../types.h"
+#include "../Utils/types.h"
 
 namespace Distribution
 {

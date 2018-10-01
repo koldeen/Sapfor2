@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include <vector>
+
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
 #include "definitionSet.h"
 
-#ifdef _WIN32
+#ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);
 #endif
@@ -53,7 +55,92 @@ extern int isSymbolIntrinsic(SgSymbol *symb);
 // computes the definition for each file;
 /////////////////////////////////////////////////////////////////////
 
-void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
+static inline bool isVarRef(SgExpression *ex)
+{
+    const int var = ex->variant();
+    return (var == ARRAY_REF || var == VAR_REF || var == ARRAY_OP);
+}
+
+static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL);
+
+static void fillUse(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+{
+    if (ex)
+    {
+        if (isVarRef(ex))
+        {
+            useL.push_back(ex);
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+        else if (ex->variant() == FUNC_CALL)
+            fillDef(ex, useL, defL);
+        else
+        {
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+    }
+}
+
+static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+{
+    if (ex)
+    {
+        if (isVarRef(ex))
+        {
+            useL.push_back(ex);
+            defL.push_back(ex);
+
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+        else if (ex->variant() == FUNC_CALL && !isSymbolIntrinsic(ex->symbol()))
+        {
+            SgFunctionCallExp *call = (SgFunctionCallExp*)ex;
+            for (int z = 0; z < call->numberOfArgs(); ++z)
+            {
+                SgExpression *arg = call->arg(z);
+                if (isVarRef(arg))
+                {
+                    defL.push_back(arg);
+                    useL.push_back(arg);
+                }
+
+                fillUse(arg->lhs(), useL, defL);
+                fillUse(arg->rhs(), useL, defL);
+            }
+        }
+        else
+        {
+            fillUse(ex->lhs(), useL, defL);
+            fillUse(ex->rhs(), useL, defL);
+        }
+    }
+}
+
+SgExpression* makeList(const std::vector<SgExpression*> &vec)
+{
+    if (vec.size() == 0)
+        return NULL;
+    
+    SgExpression *list = new SgExpression(EXPR_LIST);
+    SgExpression *r_list = list;
+    for (int i = 0; i < vec.size(); ++i)
+    {
+        list->setLhs(vec[i]);
+        if (i != vec.size() - 1)
+        {
+            list->setRhs(new SgExpression(EXPR_LIST));
+            list = list->rhs();
+        }
+    }
+
+    return r_list;
+}
+
+//old variant
+static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
 {
     SgExpression *expr1, *expr2;
     SgExpression *temp, *pt, *pt1;
@@ -61,8 +148,7 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
     SgExprListExp *exprli;
     SgFunctionCallExp *fc;
     SgInputOutputStmt *iostmt;
-    SgCallStmt *callStat;
-    int change;
+    SgCallStmt *callStat;    
     if (!stmt || !func)
         return;
 
@@ -154,11 +240,6 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             vr = new SgVarRefExp(*(stmt->symbol()));
             *def = new SgExprListExp(*vr);
             *use = new SgExprListExp(*vr);
-#ifdef _WIN32
-            addToCollection(__LINE__, __FILE__, vr, 1);
-            addToCollection(__LINE__, __FILE__, *def, 1);
-            addToCollection(__LINE__, __FILE__, *use, 1);
-#endif
         }
         else
         {
@@ -321,27 +402,50 @@ void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpre
             Message("internal error : IO statements not found\n", 0);
         break;
     case PROC_STAT:
-        //TODO:
-        break;
         callStat = (SgCallStmt*)stmt;
+        
         pt = callStat->expr(0);
         if (pt)
         {
-            *use = pt->symbRefs();
+            /**use = pt->symbRefs();
             // if not an intrinsic, needs to be added to the def list;
             if (!isSymbolIntrinsic(callStat->name()))
-                *def = pt->symbRefs();
-            
-            /*pt->unparsestdout();
-            printf("\n");
-            printf("%s %d\n", callStat->name()->identifier(), stmt->lineNumber());
-            if (*use)
+                *def = pt->symbRefs(); 
+            printf("old use:\n");
+            recExpressionPrint(*use);
+            printf("old def:\n");
+            recExpressionPrint(*def);*/
+
+            callStat->unparsestdout();
+            std::vector<SgExpression*> defL;
+            std::vector<SgExpression*> useL;
+            for (int z = 0; z < callStat->numberOfArgs(); ++z)
             {
-                (*use)->unparsestdout();
-                printf("\n");
+                SgExpression *arg = callStat->arg(z);
+                if (arg->variant() == VAR_REF || arg->variant() == ARRAY_REF || arg->variant() == ARRAY_OP)
+                {
+                    defL.push_back(arg);
+                    useL.push_back(arg);
+                }
+                
+                fillUse(arg->lhs(), useL, defL);
+                fillUse(arg->rhs(), useL, defL);
             }
-            printf("\n");*/
-        }        
+
+            *use = makeList(useL);
+            *def = makeList(defL);
+
+            /*printf("new use:\n");
+            recExpressionPrint(*use);
+            printf("new def:\n");
+            recExpressionPrint(*def);
+            printf("");*/
+        }
+        else
+        {
+            *def = NULL;
+            *use = NULL;
+        }
         break;
     case GOTO_NODE:
     case STOP_STAT:
@@ -403,8 +507,8 @@ void initDefUseTable(SgStatement *func)
         if (isSgExecutableStatement(temp))
         {
             defUseVar(temp, func, &def, &use);
-            temp->addAttribute(USEDLIST_ATTRIBUTE, (void *)use, 0);
-            temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void *)def, 0);
+            temp->addAttribute(USEDLIST_ATTRIBUTE, (void*)use, 0);
+            temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void*)def, 0);
         }
         if (temp == lastfunc)
             break;
@@ -482,7 +586,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
     def = (SgExpression *)stmt->attributeValue(0, DEFINEDLIST_ATTRIBUTE);
     // Defined[stmt->id()];
     defset = new Set(symbRefEqual, NULL, myPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, defset, 1);
 #endif
     if (def)
@@ -494,7 +598,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
                 if (!NOARRAYREF || !isSgArrayRefExp(pt->lhs()))
                 {
                     el = new struct elset;
-#ifdef _WIN32
+#ifdef __SPF
                     addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                     el->stmt = stmt;
@@ -511,7 +615,7 @@ Set *makeGenSet(SgStatement *func, SgStatement *stmt)
     defset = defset->compact();
     if (pts)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(pts);
 #endif
         delete pts;
@@ -534,7 +638,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
         return NULL;
 
     killset = new Set(symbRefEqual, NULL, myPrint);
-#ifdef _WIN32
+#ifdef __SPF
     addToCollection(__LINE__, __FILE__, killset, 1);
 #endif
     last = func->lastNodeOfStmt();
@@ -561,7 +665,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
                                     if (pt->lhs()->symbol() == expr1->symbol())
                                     {
                                         el = new struct elset;
-#ifdef _WIN32
+#ifdef __SPF
                                         addToCollection(__LINE__, __FILE__, el, 1);
 #endif
                                         el->stmt = temp;
@@ -585,7 +689,7 @@ Set *makeKillSet(SgStatement *func, SgStatement *stmt)
     //   killset->printSet();
     if (pts)
     {
-#ifdef _WIN32
+#ifdef __SPF
         removeFromCollection(pts);
 #endif
         delete pts;
