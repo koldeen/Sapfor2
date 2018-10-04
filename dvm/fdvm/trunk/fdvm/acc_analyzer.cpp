@@ -156,6 +156,9 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
+static map<SgStatement*, ControlFlowGraph*> CFG_cache;
+
+
 static bool isIntrinsicFunctionNameACC(char* name)
 {
 #if USE_INTRINSIC_DVM_LIST
@@ -340,8 +343,9 @@ void Private_Vars_Analyzer(SgStatement* start)
     //stage 3: fulfilling loop data
     FillPrivates(CGraph);
 
-
+#if !__SPF
     delete CGraph;
+#endif
 
     if (privateDelayedList)
         delete privateDelayedList;
@@ -762,15 +766,25 @@ AnalysedCallsList* CallData::GetDataForGraph(ControlFlowGraph* s)
 
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, CallData* calls, CommonData* commons)
 {
-    if (start == NULL) {
+    if (start == NULL) 
+    {
         //is_correct = "no body for call found";
         return NULL;
     }
+
+    ControlFlowGraph *cfgRet = NULL;
+    if (CFG_cache.find(start) != CFG_cache.end())
+        return CFG_cache[start];
+
     doLoops l;
     ControlFlowItem* funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
     fillLabelJumps(funcGraph);
     setLeaders(funcGraph);
-    return new ControlFlowGraph(false, main, funcGraph, NULL);
+
+    
+    cfgRet = new ControlFlowGraph(false, main, funcGraph, NULL);
+    CFG_cache[start] = cfgRet;
+    return cfgRet;
 }
 
 void FillCFGSets(ControlFlowGraph* graph)
@@ -3407,7 +3421,9 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
-    disabled = false;
+    // TODO: need to check all alhorithm!!
+    disabled = true;
+
     if (!r)
         subscripts = 0;
     else

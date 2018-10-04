@@ -1,5 +1,10 @@
 #include "../Utils/leak_detector.h"
 
+#if _WIN32 && NDEBUG && __SPF
+#include <boost/thread.hpp>
+extern int passDone;
+#endif
+
 #include "dvm.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -117,10 +122,25 @@ void revertReplacements(const string &filename, bool back)
     }    
 }
 
+static SgExpression* getFromConstructor(SgExpression *e, int num)
+{
+    int i = 1;
+    while (e)
+    {
+        if (i == num)
+            return e->lhs();
+        ++i;
+        e = e->rhs();
+    }
+
+    return NULL;
+}
+
 SgExpression* ReplaceParameter(SgExpression *e)
 {
     if (!e)
         return e;
+    
     if (e->variant() == CONST_REF)
     {
         SgConstantSymb *sc = isSgConstantSymb(e->symbol());
@@ -128,6 +148,27 @@ SgExpression* ReplaceParameter(SgExpression *e)
             return e;
         return (ReplaceParameter(&(sc->constantValue()->copy())));
     }
+    else if (e->variant() == ARRAY_REF)
+    {
+        SgConstantSymb *sc = isSgConstantSymb(e->symbol());
+        if (sc)
+        {            
+            SgExpression *constructor = sc->constantValue();
+            SgArrayRefExp *ref = isSgArrayRefExp(e);
+            if (ref->numberOfSubscripts() == 1)
+            {
+                auto sub = ref->subscript(0);
+                if (sub->isInteger())
+                {
+                    int num = sub->valueInteger();
+                    SgExpression *value = getFromConstructor(constructor->lhs(), num);
+                    if (value && value->lhs() == NULL && value->rhs() == NULL)
+                        return (ReplaceParameter(&(value->copy())));
+                }
+            }
+        }
+    }
+
     e->setLhs(ReplaceParameter(e->lhs()));
     e->setRhs(ReplaceParameter(e->rhs()));
     return e;
@@ -806,6 +847,10 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
     bool wereReplacements = true;
     while (wereReplacements)
     {
+#if _WIN32 && NDEBUG && __SPF 
+        if (passDone == 2)
+            throw boost::thread_interrupted();
+#endif
         __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
         wereReplacements = false;
         visitedStatements.clear();

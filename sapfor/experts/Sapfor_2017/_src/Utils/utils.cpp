@@ -24,6 +24,9 @@
 #include "version.h"
 
 #include "../GraphLoop/graph_loops.h"
+#include "../Distribution/Array.h"
+#include "../Distribution/Arrays.h"
+#include "../Sapfor.h"
 
 using std::map;
 using std::pair;

@@ -24,6 +24,7 @@ using std::get;
 #include "graph_loops.h"
 #include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
 #include "../VisualizerCalls/get_information.h"
 #endif
@@ -458,36 +459,44 @@ static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlan
             fprintf(file, " ");
 }
 
-static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl)
+static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl, bool withRegs = false)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        printBlanks(file, 2, lvl);
-        fprintf(file, "FOR on line %d", childs[k]->lineNum);
-        if (childs[k]->perfectLoop > 1)
-            fprintf(file, " [PERFECT]");
-        if (childs[k]->hasGoto)
-            fprintf(file, " [HAS GOTO]");
-        if (childs[k]->hasPrints)
-            fprintf(file, " [HAS I/O OPS]");
-        if (childs[k]->region)
-            fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
-        if (childs[k]->userDvmDirective)
-            fprintf(file, " [USER DVM]");
+        bool needToPrint = true;
+        if (withRegs)
+            if (childs[k]->region == NULL)
+                needToPrint = false;
 
-        fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
-        fprintf(file, "\n");
-
-        for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+        if (needToPrint)
         {
             printBlanks(file, 2, lvl);
-            fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            fprintf(file, "FOR on line %d", childs[k]->lineNum);
+            if (childs[k]->perfectLoop > 1)
+                fprintf(file, " [PERFECT]");
+            if (childs[k]->hasGoto)
+                fprintf(file, " [HAS GOTO]");
+            if (childs[k]->hasPrints)
+                fprintf(file, " [HAS I/O OPS]");
+            if (childs[k]->region)
+                fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
+            if (childs[k]->userDvmDirective)
+                fprintf(file, " [USER DVM]");
+
+            fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
+            fprintf(file, "\n");
+
+            for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+            {
+                printBlanks(file, 2, lvl);
+                fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            }
         }
-        printLoopGraphLvl(file, childs[k]->childs, lvl + 1);
+        printLoopGraphLvl(file, childs[k]->childs, lvl + 1, withRegs);
     }
 }
 
-int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph)
+int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph, bool withRegs)
 {
     FILE *file = fopen(fileName, "w");
     if (file == NULL)
@@ -500,7 +509,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
     for (it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
         fprintf(file, "*** FILE %s\n", it->first.c_str());
-        printLoopGraphLvl(file, it->second, 1);
+        printLoopGraphLvl(file, it->second, 1, withRegs);
         fprintf(file, "\n");
     }
 

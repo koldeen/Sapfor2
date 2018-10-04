@@ -8,6 +8,7 @@
 #include <string>
 #include <algorithm>
 #include <map>
+#include <climits>
 
 #include "Distribution.h"
 #include "GraphCSR.h"
