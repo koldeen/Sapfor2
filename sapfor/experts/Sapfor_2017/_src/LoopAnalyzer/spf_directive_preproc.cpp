@@ -1,4 +1,4 @@
-#include "../leak_detector.h"
+#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -11,12 +11,12 @@
 #include <set>
 
 #include "dvm.h"
-#include "../transform.h"
+#include "../Sapfor.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
-#include "../SgUtils.h"
-#include "../errors.h"
-#include "../directive_parser.h"
+#include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
+#include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
 
 using std::string;
@@ -87,7 +87,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
    string message;\
    __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
-   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message)); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, 1001)); \
 } while(0)
 
 static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
@@ -102,7 +102,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*>
         }
         else
         {
-            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == false)
+            if (iterator->variant() == ASSIGN_STAT || isSgExecutableStatement(iterator) == NULL)
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varDef, funcCalls);
             else
                 fillVars(iterator->expr(0), { ARRAY_REF, VAR_REF }, varUse, funcCalls);
@@ -136,7 +136,7 @@ static bool checkPrivate(SgStatement *st,
 
     if (!isSgExecutableStatement(st) || var == FOR_NODE)
     {
-        SgStatement *iterator = var == FOR_NODE ? st->lexNext() : st;
+        SgStatement *iterator = st;
         SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
         set<SgSymbol*> varDef;
         set<SgSymbol*> varUse;
@@ -160,14 +160,14 @@ static bool checkPrivate(SgStatement *st,
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 else if (!defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
             }
@@ -225,14 +225,14 @@ static bool checkReduction(SgStatement *st,
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not used in loop", setElem->identifier());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 if (var == FOR_NODE && !defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "variable '%s' is not changed in loop", setElem->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
             }
@@ -267,7 +267,7 @@ static bool checkReduction(SgStatement *st,
             vars.insert(std::get<0>(setElem));
             arrs.insert(std::get<1>(setElem));
 
-            // TODO: FIND ARRAY DECLARATION && ADD CHECKING DIMENTION
+            // CHECK ARRAY DECLARATION && DIMENTION
             SgSymbol *arraySymbol = std::get<1>(setElem);
             SgStatement *declStatement = declaratedInStmt(arraySymbol);
             SgArrayType *arrayType = NULL;
@@ -283,27 +283,33 @@ static bool checkReduction(SgStatement *st,
                 if (dim != 1)
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1004));
+
                     retVal = false;
                 }
 
                 if (!arrayType->baseType()->equivalentToType(SgTypeInt()))
                 {
                     __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+
                     string message;
                     __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1005));
+
                     retVal = false;
                 }
             }
             else
             {
-                __spf_print(1, "'%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                __spf_print(1, "type of variable '%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+
                 string message;
-                __spf_printToBuf(message, "'%s' must be array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                __spf_printToBuf(message, "type of variable '%s' must be array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
+
                 retVal = false;
             }
 
@@ -316,6 +322,12 @@ static bool checkReduction(SgStatement *st,
 
             while (iterator != end)
             {
+                if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                {
+                    iterator = iterator->lexNext();
+                    continue;
+                }
+
                 if (!isSgExecutableStatement(iterator))
                 {
                     for (SgExpression *exp = iterator->expr(0); exp; exp = exp->rhs())
@@ -333,22 +345,24 @@ static bool checkReduction(SgStatement *st,
 
                         if (err != 0)
                         {
-                            // Expression can not be computed                        
+                            // Expression can not be computed
                             __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
 
                             string message;
                             __spf_printToBuf(message, "array size can't be computed");
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1007));
+
                             retVal = false;
                         }
                         else if (size != count)
                         {
                             __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n",
-                                arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
+                                        arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
 
                             string message;
                             __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
+
                             retVal = false;
                         }
                         break;
@@ -393,10 +407,10 @@ static bool checkShadowAcross(SgStatement *st,
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
-            //__spf_print(1, "isPriv(decl, %s) = %d\n", arraySymbol->identifier(), varIsPrivate(declStatement, arraySymbol));
+
             notPrivCond = !isPrivateVar(st, arraySymbol) && !isPrivateVar(declStatement, arraySymbol);
 
             if (!notPrivCond)
@@ -404,7 +418,7 @@ static bool checkShadowAcross(SgStatement *st,
                 __spf_print(1, "array '%s' on line %d is private\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                 retVal = false;
             }
             
@@ -421,16 +435,16 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
                     retVal = false;
                 }
             }
             else
             {
-                __spf_print(1, "'%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
+                __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                 string message;
-                __spf_printToBuf(message, "'%s' is not array", arraySymbol->identifier());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
 
@@ -441,7 +455,7 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "only positive numbers are supported");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1010));
                     retVal = false;
                 }
             }
@@ -474,22 +488,7 @@ static int hasName(SgExpression *exp, const string &varName)
 
     return 0;
 }
-/*
-static int hasTextualInclude(SgExpression *exp, const string &varName)
-{
-    string stringExp = exp->unparse();
-    int count = 0;
-    auto pos = stringExp.find(varName, 0);
 
-    while (pos != string::npos)
-    {
-        ++count;
-        pos = stringExp.find(varName, pos + 1);
-    }
-
-    return count;
-}
-*/
 static bool isRemoteExpressions(SgExpression *exp, SgExpression *remoteExp, map<SgExpression*, string> &collection)
 {
     if (exp == remoteExp)
@@ -556,7 +555,7 @@ static bool checkRemote(SgStatement *st,
                     __spf_print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
                     string message;
                     __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                     retVal = false;
                 }
             }
@@ -600,7 +599,7 @@ static bool checkRemote(SgStatement *st,
                                 __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
                                 string message;
                                 __spf_printToBuf(message, "bad directive expression: too many DO variables");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
                                 retVal = false;
                             }
 
@@ -637,7 +636,7 @@ static bool checkRemote(SgStatement *st,
                                 __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());
                                 string message;
                                 __spf_printToBuf(message, "bad directive expression: only a * i + b");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
                                 retVal = false;
                             }
                         }
@@ -665,7 +664,7 @@ static bool checkRemote(SgStatement *st,
                 __spf_print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
                 string message;
                 __spf_printToBuf(message, "no such expression '%s' on loop", remElem.second->unparse());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1111));
                 retVal = false;
             }
         }
@@ -679,22 +678,199 @@ static bool checkRemote(SgStatement *st,
     return retVal;
 }
 
-static bool checkParallelregions(SgStatement *st,
-                                 SgStatement *attributeStatement,
+static bool checkParallelRegions(SgStatement *st,
+                                 const map<string, CommonBlock> &commonBlocks,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
-    // TODO
+    if (isSgExecutableStatement(st->lexNext()) || st->lexNext()->variant() == ENTRY_STAT)
+    {
+        if (st->variant() == SPF_PARALLEL_REG_DIR)
+        {
+            SgSymbol *identSymbol = st->symbol();
+
+            // declaration checking
+            SgStatement *iterator = st;
+            SgStatement *end = st;
+
+            while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+                iterator = iterator->controlParent();
+
+            for (; iterator != end && retVal; iterator = iterator->lexNext())
+            {
+                if (isSPF_stat(iterator) || isDVM_stat(iterator))
+                    continue;
+                
+                if (!isSgExecutableStatement(iterator))
+                {
+                    if (iterator->variant() == VAR_DECL || iterator->variant() == VAR_DECL_90)
+                    {
+                        for (SgExpression *exp = iterator->expr(0); exp && retVal; exp = exp->rhs())
+                        {
+                            if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
+                            {
+                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+
+                                string message;
+                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
+
+                                retVal = false;
+                            }
+                        }
+                    }
+                }
+                else
+                    break;
+            }
+
+            // common blocks checking
+            for (auto &commonBlockPair : commonBlocks)
+            {
+                for (auto &variable : commonBlockPair.second.getVariables())
+                {
+                    if (variable.getName() == identSymbol->identifier())
+                    {
+                        __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
+
+                        string message;
+                        __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identSymbol->identifier(), commonBlockPair.first.c_str());
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
+
+                        retVal = false;
+                    }
+                }
+            }
+
+            // try to find SPF_END_PARALLEL_REG_DIR
+            iterator = st->lexNext();
+            bool found = false;
+
+            for (; iterator && !found; iterator = iterator->lexNext())
+            {
+                const int var = iterator->variant();
+                if (var == SPF_PARALLEL_REG_DIR)
+                {
+                    // intersection
+                    __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identSymbol->identifier(), st->lineNumber());
+
+                    string message;
+                    __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identSymbol->identifier());
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                    retVal = false;
+                    break;
+                }
+                else if (var == SPF_END_PARALLEL_REG_DIR)
+                {
+                    found = true;
+
+                    if (iterator->controlParent() != st->controlParent())
+                    {
+                        __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
+                                    identSymbol->identifier(), st->lineNumber());
+
+                        string message;
+                        __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
+                                         identSymbol->identifier());
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                        retVal = false;
+                    }
+
+                    break;
+                }
+            }
+
+            if (!found && retVal)
+            {
+                __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                retVal = false;
+            }
+        }
+        else
+        {
+            // type == SPF_END_PARALLEL_REG_DIR
+            // try to find SPF_PARALLEL_REG_DIR
+            SgStatement *iterator = st->lexPrev();
+            SgStatement *end = st->controlParent();
+            bool found = false;
+            
+            for (; iterator != end && retVal && !found; iterator = iterator->lexPrev())
+            {
+                const int var = iterator->variant();
+                if (var == SPF_END_PARALLEL_REG_DIR)
+                {
+                    // intersection
+                    __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+
+                    string message;
+                    __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                    retVal = false;
+                    break;
+                }
+                else if (var == SPF_PARALLEL_REG_DIR)
+                {
+                    found = true;
+
+                    if (iterator->controlParent() != st->controlParent())
+                    {
+                        __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
+
+                        string message;
+                        __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope");
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                        retVal = false;
+                    }
+
+                    break;
+                }
+            }
+
+            if (!found && retVal)
+            {
+                __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR'");
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+
+                retVal = false;
+            }
+        }
+    }
+    else
+    {
+        BAD_POSITION(1, ERROR, "after", "", "all DATA statements", st->lineNumber());
+        retVal = false;
+    }
 
     return retVal;
 }
 
-static inline bool processStat(SgStatement *st, const string &currFile, vector<Messages> &messagesForFile)
+static inline bool processStat(SgStatement *st, const string &currFile,
+                               const map<string, CommonBlock> &commonBlocks,
+                               vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+
+    if (st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR)
+    {
+        bool result = checkParallelRegions(st, commonBlocks, messagesForFile);
+        retVal = retVal && result;
+    }
+
     // ignore SPF statements
-    if (isSPF_comment(st))
+    if (isSPF_comment(st->variant()))
         return retVal;
 
     bool cond = false;
@@ -703,7 +879,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
     {
         SgStatement *prev = iterator->lexPrev();
         const int prevVar = prev->variant();
-        cond = (isSPF_comment(prev) && prevVar != SPF_END_PARALLEL_REG_DIR);
+        cond = (isSPF_comment(prev->variant()) && prevVar != SPF_END_PARALLEL_REG_DIR);
         if (cond)
         {
             addToattribute(prev, st, prevVar);
@@ -756,7 +932,7 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 bool result = checkShadowAcross(st, attributeStatement, data, messagesForFile);
                 retVal = retVal && result;
             }
-            
+
             // REMOTE_ACCESS (EXPR)
             map<pair<SgSymbol*, string>, Expression*> remote;
             fillRemoteFromComment(attributeStatement, remote, true);
@@ -772,7 +948,6 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
             // NOINLINE
             if (isSPF_NoInline(st))
             {
-                //__spf_print(1, "DIRECTIVE NOINLINE\n");
                 SgStatement *prev = st->lexPrev();
                 const int prevVar = prev->variant();
                 if (prevVar != PROC_HEDR && prevVar != FUNC_HEDR)
@@ -782,27 +957,32 @@ static inline bool processStat(SgStatement *st, const string &currFile, vector<M
                 }
             }
         }
-        else if (type == SPF_PARALLEL_REG_DIR)
-        {
-            bool result = checkParallelregions(st, attributeStatement, messagesForFile);
-            retVal = retVal && result;
-        }
     }
 
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
+
     for (int i = 0; i < modules.size(); ++i)
     {
         SgStatement *modIterator = modules[i];
         SgStatement *modEnd = modules[i]->lastNodeOfStmt();
         while (modIterator != modEnd)
         {
-            bool result = processStat(modIterator, currFile, messagesForFile);
+            if (modIterator->variant() == CONTAINS_STMT)
+                break;
+
+            bool result = processStat(modIterator, currFile, commonBlocks, messagesForFile);
             retVal = retVal && result;
+
+            SgStatement *next = modIterator->lexNext();
+            if (next)
+                if (next->variant() == SPF_END_PARALLEL_REG_DIR)
+                    addToattribute(next, modIterator, SPF_END_PARALLEL_REG_DIR);
+
             modIterator = modIterator->lexNext();
         }
     }
@@ -810,7 +990,7 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
-bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
+bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
     const string currFile = file->filename();
@@ -829,7 +1009,11 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-            bool result = processStat(st, currFile, messagesForFile);
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            bool result = processStat(st, currFile, commonBlocks, messagesForFile);
             noError = noError && result;
 
             SgStatement *next = st->lexNext();
@@ -842,7 +1026,7 @@ bool preprocess_spf_dirs(SgFile *file, vector<Messages> &messagesForFile)
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
-    bool result = processModules(modules, currFile, messagesForFile);
+    bool result = processModules(modules, currFile, commonBlocks, messagesForFile);
     noError = noError && result;
     return noError;
 }
@@ -1014,7 +1198,7 @@ void addAcrossToLoops(LoopGraph *topLoop,
 
             string message;
             __spf_printToBuf(message, "add across dependencies by array '%s' to loop", arrayS->identifier());
-            currMessages.push_back(Messages(NOTE, topLoop->lineNum, message));
+            currMessages.push_back(Messages(NOTE, topLoop->lineNum, message, 3001));
 
             if (k != acrossToAdd.size() - 1)
             {
@@ -1093,7 +1277,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
 
                 string message;
                 __spf_printToBuf(message, "add private scalar '%s' to loop on line %d", identifier.c_str(), topLoop->lineNum);
-                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3002));
 
                 if (k != addForCurrLoop.size() - 1)
                 {
@@ -1112,7 +1296,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
 static bool addReductionToList(const char *oper, SgExpression *exprList, SgExpression *varin)
 {
     SgExpression *tmp3 = new SgKeywordValExp(oper);
-    SgExpression *tmp4 = new SgExpression(EXPR_LIST, tmp3, varin, NULL);
+    SgExpression *tmp4 = new SgExpression(ARRAY_OP, tmp3, varin, NULL);
     exprList->setLhs(tmp4);
     return true;
 }
@@ -1214,7 +1398,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
 
                     string message;
                     __spf_printToBuf(message, "add reduction scalar '%s' with operation '%s' to loop on line %d", addForCurrLoop[k]->varin->symbol()->identifier(), oper, topLoop->lineNum);
-                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3003));
                 }
                 else
                 {
@@ -1223,7 +1407,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
 
                     string message;
                     __spf_printToBuf(message, "unknown type of reduction scalar '%s'", addForCurrLoop[k]->varin->symbol()->identifier());
-                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message));
+                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message, 3004));
 
                     topLoop->hasUnknownScalarDep = true;
                     topLoop->linesOfScalarDep.push_back(addForCurrLoop[k]->stmtin->lineNumber());
