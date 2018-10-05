@@ -1276,7 +1276,7 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
+        findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
     }
 }
 

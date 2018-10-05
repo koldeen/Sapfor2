@@ -459,13 +459,12 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
 
 //TODO
 //TODO
-//TODO
-void BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
+//TODO вернуть true если GEN изменился
+bool BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
 {
     CBasicBlock* b = CGraph->getFirst();
     while (b != NULL)
     {
-
         ControlFlowItem *cfi = b->getStart();
         ControlFlowItem *till = b->getEnd()->getNext();
         while (cfi != till)
@@ -478,6 +477,8 @@ void BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
         //Обновить OUT
         b->getOutDefsP();
     }
+
+    return false;
 }
 
 /*
@@ -492,7 +493,7 @@ void PreparePointers(ControlFlowGraph *CGraph)
     {
         setsChanged = false;
         //Вычисление KILL и GEN, GEN могло измениться
-        BuildGenKillAndUpdateOutP(CGraph);
+        setsChanged |= BuildGenKillAndUpdateOutP(CGraph);
 
         CBasicBlock* b = CGraph->getFirst();
         while (b != NULL)

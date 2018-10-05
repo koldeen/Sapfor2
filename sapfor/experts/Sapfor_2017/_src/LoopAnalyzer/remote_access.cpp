@@ -698,9 +698,9 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         if (SECOND(under_dvm_dir)->perfectLoop > 1)
         {
             tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> nextDir = under_dvm_dir;
-            SECOND(nextDir) = SECOND(under_dvm_dir)->childs[0];
+            SECOND(nextDir) = SECOND(under_dvm_dir)->children[0];
 
-            auto it = allLoops.find(SECOND(under_dvm_dir)->childs[0]->lineNum);
+            auto it = allLoops.find(SECOND(under_dvm_dir)->children[0]->lineNum);
             if (it == allLoops.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 

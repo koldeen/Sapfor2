@@ -62,8 +62,8 @@ public:
         if (directiveForLoop != NULL)
             delete directiveForLoop;
 
-        for (int i = 0; i < childs.size(); ++i)
-            delete childs[i];
+        for (int i = 0; i < children.size(); ++i)
+            delete children[i];
 
         calls.clear();
         readOpsArray.clear();
@@ -109,8 +109,8 @@ public:
     {
         // set to top and for all childs
         redistributeRules = newRedistributeRules;
-        for (int i = 0; i < childs.size(); ++i)
-            childs[i]->setNewRedistributeRules(newRedistributeRules);
+        for (int i = 0; i < children.size(); ++i)
+            children[i]->setNewRedistributeRules(newRedistributeRules);
     }
 
     DistrVariant* getRedistributeRule(const DIST::Array *arrayT) const
@@ -137,7 +137,7 @@ public:
         {
             baseDirs[z] = next->directiveForLoop;
             if (z != perfectLoop - 1)
-                next = next->childs[0];
+                next = next->children[0];
         }
 
         ParallelDirective *parDirective = baseDirs[0];
@@ -163,13 +163,13 @@ public:
             directive = oldDirective;
         }
 
-        for (int i = 0; i < childs.size(); ++i)
-            childs[i]->restoreDirective();
+        for (int i = 0; i < children.size(); ++i)
+            children[i]->restoreDirective();
     }
 
     void setRegionToChilds()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             loop->region = region;
             loop->setRegionToChilds();
@@ -180,7 +180,7 @@ public:
 
     void setWithOutDistrFlagToFalse()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             loop->withoutDistributedArrays = false;
             loop->setWithOutDistrFlagToFalse();
@@ -189,7 +189,7 @@ public:
 
     void propagateUserDvmDir()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             if (loop->userDvmDirective == NULL)
                 loop->userDvmDirective = userDvmDirective;
@@ -254,7 +254,7 @@ public:
 
     bool hasDifferentAlignRules;
 
-    std::vector<LoopGraph*> childs; //fixme typo 'children'
+    std::vector<LoopGraph*> children;
     LoopGraph *parent;
 
     std::vector<std::pair<std::string, int>> calls;

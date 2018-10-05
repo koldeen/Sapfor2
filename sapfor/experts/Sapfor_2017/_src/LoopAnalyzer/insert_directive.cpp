@@ -556,7 +556,7 @@ static void createShadowSpec(const vector<LoopGraph*> &loopGraph,
 {
     for (int i = 0; i < loopGraph.size(); ++i)
     {
-        createShadowSpec(loopGraph[i]->childs, shadowSpecs);
+        createShadowSpec(loopGraph[i]->children, shadowSpecs);
         if (loopGraph[i]->directive == NULL)
             continue;
         if (loopGraph[i]->directive->shadowRenew.size() == 0 && loopGraph[i]->directive->across.size() == 0)

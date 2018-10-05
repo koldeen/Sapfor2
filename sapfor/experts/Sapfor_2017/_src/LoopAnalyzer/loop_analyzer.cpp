@@ -1932,7 +1932,7 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
             //uncomment it to debug private analysis
             //loop->loop->insertStmtBefore(*spfStat);
         }
-        insertSpfAnalysisBeforeParalleLoops(loop->childs);
+        insertSpfAnalysisBeforeParalleLoops(loop->children);
     }
 }
 #undef PRINT_ARRAY_ARCS
