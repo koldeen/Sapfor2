@@ -34,7 +34,7 @@ void preprocess_allocates(SgFile *file)
                 break;
 
             // save SgStatement PROC call to declaration attribute
-            if (st->variant() == ALLOCATE_STMT)
+            if (st->variant() == ALLOCATE_STMT || st->variant() == DEALLOCATE_STMT)
             {
                 SgExpression *list = st->expr(0);
                 set<SgStatement*> decls;
@@ -48,7 +48,7 @@ void preprocess_allocates(SgFile *file)
                 char buf[256];
                 for (auto it = decls.begin(); it != decls.end(); ++it)
                 {
-                    (*it)->addAttribute(ALLOCATE_STMT, st, sizeof(SgStatement*));
+                    (*it)->addAttribute(st->variant(), st, sizeof(SgStatement*));
                     sprintf(buf, "  attribute is added to declaration on line %d\n", (*it)->lineNumber());
                     addToGlobalBufferAndPrint(buf);
                 }
