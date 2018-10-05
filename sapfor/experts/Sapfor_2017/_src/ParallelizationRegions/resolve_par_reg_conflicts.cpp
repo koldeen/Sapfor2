@@ -722,6 +722,73 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                     arrSymb->identifier(),
                     decl->lineNumber()); // remove
 
+        if (IS_ALLOCATABLE(arrSymb))
+        {
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATABLE_STMT, ALLOCATE_STMT, DEALLOCATE_STMT }))
+            {
+                data->unparsestdout(); // remove
+                recExpressionPrint(data->expr(0)); // remove
+
+                SgExpression *list = data->expr(0);
+                while (list)
+                {
+                    SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
+                    if (arrayRef != NULL)
+                    {
+                        if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(arrSymb->identifier()))
+                        {
+                            SgExprListExp *newNode = new SgExprListExp();
+                            SgArrayRefExp *newArrRef = new SgArrayRefExp(*newArrSymb);
+
+                            // TODO: add allocatable operator
+                            if (data->variant() == ALLOCATABLE_STMT)
+                            {
+
+                            }
+                            // add parameter to allocate() operator
+                            else if (data->variant() == ALLOCATE_STMT)
+                            {
+                                while (list->rhs())
+                                {
+                                    list = list->rhs();
+                                }
+
+                                list->setRhs(newNode);
+                                newNode->setLhs(newArrRef);
+                                
+                                SgExprListExp *curNode = (SgExprListExp*)newArrRef;
+                                list = arrayRef->lhs();
+                                while (list)
+                                {
+                                    newNode = new SgExprListExp();
+                                    SgExpression *valNode = new SgExpression(*list->lhs());
+
+                                    curNode->setLhs(newNode);
+                                    newNode->setLhs(valNode);
+
+                                    curNode = (SgExprListExp*)valNode;
+                                    list = list->lhs()->lhs();
+                                }
+                            }
+                            // add parameter to deallocate() operator
+                            else if (data->variant() == DEALLOCATE_STMT)
+                            {
+                                newNode->setLhs(newArrRef);
+                                newNode->setRhs(data->expr(0));
+                                data->setExpression(0, *newNode);
+                            }
+
+                            break;
+                        }
+                    }
+                    list = list->rhs();
+                }
+
+                data->unparsestdout(); // remove
+                recExpressionPrint(data->expr(0)); // remove
+            }
+        }
+
         return make_pair(arrSymb, newArrSymb);
     }
     else
