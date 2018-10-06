@@ -606,7 +606,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+            regionLines.stats.first->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
 
             __spf_print(1, "insert '%s = %s'\n", newSymb->identifier(), origSymb->identifier()); // remove
 
@@ -616,7 +616,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             right = new SgArrayRefExp(*newSymb);
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.second->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
+            regionLines.stats.second->lexNext()->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
 
             __spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
@@ -724,7 +724,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
         if (IS_ALLOCATABLE(arrSymb))
         {
-            // add allocatable operator
+            // add parameter to allocatable operator
             vector<SgStatement*> allDecls;
             declaratedInStmt(arrSymb, &allDecls);
 
