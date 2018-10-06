@@ -724,11 +724,32 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
         if (IS_ALLOCATABLE(arrSymb))
         {
-            for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATABLE_STMT, ALLOCATE_STMT, DEALLOCATE_STMT }))
-            {
-                data->unparsestdout(); // remove
-                recExpressionPrint(data->expr(0)); // remove
+            // add allocatable operator
+            vector<SgStatement*> allDecls;
+            declaratedInStmt(arrSymb, &allDecls);
 
+            for (auto &decl : allDecls)
+            {
+                if (decl->variant() == ALLOCATABLE_STMT)
+                {
+                    SgExpression *list = decl->expr(0);
+                    SgExprListExp *newNode = new SgExprListExp();
+                    SgArrayRefExp *newArrRef = new SgArrayRefExp(*newArrSymb);
+
+                    while (list && list->rhs())
+                    {
+                        list = list->rhs();
+                    }
+
+                    list->setRhs(newNode);
+                    newNode->setLhs(newArrRef);
+                    break;
+                }
+            }
+
+            // add allocate/deallocate operators
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT, DEALLOCATE_STMT }))
+            {
                 SgExpression *list = data->expr(0);
                 while (list)
                 {
@@ -740,13 +761,8 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                             SgExprListExp *newNode = new SgExprListExp();
                             SgArrayRefExp *newArrRef = new SgArrayRefExp(*newArrSymb);
 
-                            // TODO: add allocatable operator
-                            if (data->variant() == ALLOCATABLE_STMT)
-                            {
-
-                            }
                             // add parameter to allocate() operator
-                            else if (data->variant() == ALLOCATE_STMT)
+                            if (data->variant() == ALLOCATE_STMT)
                             {
                                 while (list->rhs())
                                 {
@@ -783,9 +799,6 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
                     }
                     list = list->rhs();
                 }
-
-                data->unparsestdout(); // remove
-                recExpressionPrint(data->expr(0)); // remove
             }
         }
 
