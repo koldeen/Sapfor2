@@ -1025,7 +1025,8 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                 for (auto &lines : arrayLines.second)
                 {
                     replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
-                    insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                    if (!arrayLines.first->GetNonDistributeFlag())
+                        insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
                 }
             }
         }
