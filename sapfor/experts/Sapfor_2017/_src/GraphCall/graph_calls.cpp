@@ -140,6 +140,12 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpres
     }
 }
 
+void createMapOfFunc(const vector<FuncInfo*> &allFuncInfo, map<string, FuncInfo*> &mapFuncInfo)
+{
+    for (auto &func : allFuncInfo)        
+        mapFuncInfo[func->funcName] = func;
+}
+
 void createMapOfFunc(const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, FuncInfo*> &mapFuncInfo)
 {
     for (auto it = allFuncInfo.begin(); it != allFuncInfo.end(); ++it)
@@ -902,31 +908,38 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
             const string &callFrom = it->second[k]->funcName;
             const FuncInfo *callFromP = it->second[k];
 
-            for (auto &i : it->second[k]->callsFrom)
+            for (auto &callItem : it->second[k]->callsFrom)
             {
-                sprintf(buf, formatString, callFrom.c_str(), i.c_str());
+                sprintf(buf, formatString, callFrom.c_str(), callItem.c_str());
                 graph += buf;
 
                 if (inCluster.find(callFrom) == inCluster.end())
                     unknownCluster.insert(callFrom);
-                if (inCluster.find(i) == inCluster.end())
-                    unknownCluster.insert(i);
+                if (inCluster.find(callItem) == inCluster.end())
+                    unknownCluster.insert(callItem);
                 
                 if (V.find(callFrom) == V.end())
-                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
-                if (V.find(i) == V.end())
                 {
-                    auto it = allFuncs.find(i);
-                    auto currF = it->second;
+                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                    V[callFrom].inRegion = callFromP->inRegion;
+                }
+
+                if (V.find(callItem) == V.end())
+                {
+                    auto it = allFuncs.find(callItem);                    
                     if (it == allFuncs.end())
-                        V[i] = CallV(i);
+                        V[callItem] = CallV(callItem);
                     else
-                        V[i] = CallV(i, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                    {
+                        auto currF = it->second;
+                        V[callItem] = CallV(callItem, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                        V[callItem].inRegion = currF->inRegion;
+                    }
                 }
                 
                 
                 E.push_back(callFrom);
-                E.push_back(i);                
+                E.push_back(callItem);
             }
         }
         it++;

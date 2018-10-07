@@ -195,7 +195,7 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
                     break;
                 case ENTRY_STAT:
                     if (entry && isEntryCovered)
-                        entry->setIsCoveredByRegion();
+                        entry->setIsCoveredByRegion(1);
 
                     entry = getFuncInfo(funcMap, string(iterator->symbol()->identifier()));
                     isEntryCovered = true;
@@ -216,10 +216,10 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
             // ALEX, TODO: а проверка на entry?
             // SERG, TODO: а нужно? флаг isEntryCovered выставляется в true, только если встретился entry
             if (isEntryCovered)
-                entry->setIsCoveredByRegion();
+                entry->setIsCoveredByRegion(1);
 
             if (isFuncCovered)
-                func->setIsCoveredByRegion();
+                func->setIsCoveredByRegion(1);
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

@@ -153,8 +153,19 @@ static void filterUserDirectives(ParallelRegion *currReg, set<string> usedArrayI
     currReg->AddUserDirectives(userDvmShadowDirsF, DVM_SHADOW_DIR);
 }
 
-void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops)
+static void setExplicitFlag(const string &name, const map<string, FuncInfo*> &mapFuncs)
 {
+    auto it = mapFuncs.find(name);
+    if (it != mapFuncs.end())
+        it->second->inRegion = 1;
+}
+
+void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops, vector<FuncInfo*> *funcs)
+{
+    map<string, FuncInfo*> mapFuncs;
+    if (funcs)
+        createMapOfFunc(*funcs, mapFuncs);
+
     //fill default
     SgStatement *st = file->firstStatement();
     ParallelRegion *defaultR = regions[0];
@@ -209,7 +220,8 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
                 regionStarted = true;
                 regionName = data->symbol()->identifier();
-
+                if (funcs)
+                    setExplicitFlag(file->functions(i)->symbol()->identifier(), mapFuncs);
             }
             else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
             {
@@ -367,6 +379,13 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
     for (int i = 0; i < regions.size(); ++i)
     {
         if (regions[i]->GetName() != "DEFAULT")
+            for (auto &func : regions[i]->GetFuncCalls())
+                setExplicitFlag(func, funcMap);        
+    }
+
+    for (int i = 0; i < regions.size(); ++i)
+    {
+        if (regions[i]->GetName() != "DEFAULT")
         {
             set<string> uniqFuncCalls;
             for (auto &elem : regions[i]->GetFuncCalls())
@@ -402,6 +421,10 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                 {
                     regions[i]->AddLines(it->second->linesNum, it->second->fileName);
                     regions[i]->AddAllFuncCalls(it->second);
+
+                    if (it->second->inRegion == 0)
+                        it->second->inRegion = 2;
+
                     toPrint += elem + " ";
                 }
             }
@@ -419,6 +442,31 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
 #endif
         delete regions[0];
         regions.erase(regions.begin());
+    }
+
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &func : funcMap)
+        {
+            if (func.second->inRegion != 0)
+                continue;
+
+            for (auto &callsFrom : func.second->callsFrom)
+            {
+                auto it = funcMap.find(callsFrom);
+                if (it != funcMap.end())
+                {
+                    if (it->second->inRegion > 0)
+                    {
+                        func.second->inRegion = 3;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     if (loopGraph)
