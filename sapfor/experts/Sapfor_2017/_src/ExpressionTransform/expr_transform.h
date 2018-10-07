@@ -106,6 +106,7 @@ void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+bool valueWithArrayReference(SgExpression *exp);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);

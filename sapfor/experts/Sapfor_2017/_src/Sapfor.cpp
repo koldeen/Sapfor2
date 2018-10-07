@@ -487,10 +487,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                         if (currLines)
                         {
+                            //TODO: to be removed with new algorithm for parallel regions
                             File *fileT = new File(file);
                             const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
                             const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
+                            const vector<Statement*> reAlignRules;
+                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
 
                             insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
                         }
@@ -897,7 +899,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         parallelRegions.clear();
         parallelRegions = newParReg;
 
-        if (idxToDel.size() == parallelRegions.size())
+        if (parallelRegions.size() == 0)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
@@ -1080,7 +1082,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)
         {
-            printLoopGraph("_loopGraph.txt", loopGraph);
+            printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
@@ -1231,6 +1233,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages, true);
         fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
         clearRegionStaticData();
+    }
+    else if (curr_regime == GET_ALL_ARRAY_DECL)
+    {
+        for (auto array : declaratedArrays)
+        {
+            if (array.second.first->GetRgionsName().size() == 0)
+                array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+        }
     }
 
 #if _WIN32

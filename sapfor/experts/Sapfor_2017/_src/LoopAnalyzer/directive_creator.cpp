@@ -488,7 +488,7 @@ static void fillArraysWithAcrossStatus(LoopGraph *loopInfo, set<string> &uniqNam
     LoopGraph *curr = loopInfo;
     while (curr->perfectLoop > 1)
     {
-        curr = curr->childs[0];
+        curr = curr->children[0];
         fillArrays(curr, uniqNames);
     }
 
@@ -779,20 +779,20 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     LoopGraph *next = current;
 
     for (int i = 0; i < current->perfectLoop - 1; ++i)
-        next = next->childs[0];
+        next = next->children[0];
 
-    if (next->childs.size() == 0)
+    if (next->children.size() == 0)
         return true;
     else
     //    return false;
     {
-        while (next->childs.size() != 0)
+        while (next->children.size() != 0)
         {
-            if (next->childs.size() > 1)
+            if (next->children.size() > 1)
                 return false;
             else
             {
-                next = next->childs[0];
+                next = next->children[0];
                 bool condition = next->directive != NULL;
                 if (condition)
                     condition = next->directive->arrayRef != NULL;
@@ -911,7 +911,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             vector<vector<int>> AllLinks(realArrayRef.size());
             int currL = 0;
             for (auto &array : realArrayRef)
-                reducedG.FindLinksBetweenArrays(allArrays, array, currDistArray, AllLinks[currL++]);
+                AllLinks[currL++] = findLinksBetweenArrays(array, currDistArray, regionId);
 
             if (isAllRulesEqual(AllLinks))
                 links = AllLinks[0];
@@ -1539,8 +1539,8 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         }
         else //TODO: add checker for indexing in this loop
         {
-            if (loopGraph[i]->childs.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->childs, 
+            if (loopGraph[i]->children.size() != 0)
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, 
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }

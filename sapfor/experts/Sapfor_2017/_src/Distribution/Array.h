@@ -4,7 +4,10 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "../Utils/AstWrapper.h"
+#include <climits>
+
+class Symbol;
+class Expression;
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -81,7 +84,7 @@ namespace Distribution
         // PAIR<FILE, LINE>
         SET<PAIR<STRING, int>> declPlaces;
 
-        //TYPE: 0 - local, 1 - common, 2 - module
+        //TYPE: 0 - local, 1 - common, 2 - module, 3 - function parameter
         // PAIR<NAME, TYPE>
         PAIR<int, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
@@ -339,6 +342,10 @@ namespace Distribution
 
             for (auto &place : declPlaces)
                 retVal += "|" + place.first + "|" + TO_STR(place.second);
+
+            retVal += "|" + TO_STR(containsInRegions.size());
+            for (auto &reg : containsInRegions)
+                retVal += "|" + reg;
             return retVal;
         }
 

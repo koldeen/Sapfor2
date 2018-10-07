@@ -459,13 +459,12 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
 
 //TODO
 //TODO
-//TODO
-void BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
+//TODO вернуть true если GEN изменился
+bool BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
 {
     CBasicBlock* b = CGraph->getFirst();
     while (b != NULL)
     {
-
         ControlFlowItem *cfi = b->getStart();
         ControlFlowItem *till = b->getEnd()->getNext();
         while (cfi != till)
@@ -478,6 +477,8 @@ void BuildGenKillAndUpdateOutP(ControlFlowGraph* CGraph)
         //Обновить OUT
         b->getOutDefsP();
     }
+
+    return false;
 }
 
 /*
@@ -492,7 +493,7 @@ void PreparePointers(ControlFlowGraph *CGraph)
     {
         setsChanged = false;
         //Вычисление KILL и GEN, GEN могло измениться
-        BuildGenKillAndUpdateOutP(CGraph);
+        setsChanged |= BuildGenKillAndUpdateOutP(CGraph);
 
         CBasicBlock* b = CGraph->getFirst();
         while (b != NULL)
@@ -590,12 +591,30 @@ bool valueWithFunctionCall(SgExpression *exp)
     return funcFounded;
 }
 
+bool valueWithArrayReference(SgExpression *exp)
+{
+    if (!exp)
+        return false;
+
+    if (exp->variant() == ARRAY_REF)
+        return true;
+
+    bool arrayFounded = false;
+    if (exp->rhs())
+        arrayFounded = valueWithArrayReference(exp->rhs());
+    if (exp->lhs() && !arrayFounded)
+        arrayFounded = valueWithArrayReference(exp->lhs());
+
+    return arrayFounded;
+}
+
 /*
 * Can't expand var if:
 * 1. it has multiple values
 * 2. it is a NULL value
 * 3. value has function call
 * 4. value has itself within (recursion)
+* 5. value has array reference
 */
 void CBasicBlock::correctInDefsSimple() 
 {
@@ -608,6 +627,8 @@ void CBasicBlock::correctInDefsSimple()
         else if (valueWithFunctionCall(it->second.begin()->getExp())) //3
             it = in_defs.erase(it);
         else if (valueWithRecursion(it->first, it->second.begin()->getExp())) //4
+            it = in_defs.erase(it);
+        else if(valueWithArrayReference(it->second.begin()->getExp()))
             it = in_defs.erase(it);
         else
             it++;

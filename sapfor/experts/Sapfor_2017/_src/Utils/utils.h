@@ -4,7 +4,12 @@
 #include <set>
 #include <string>
 
-#include "../Distribution/Distribution.h"
+namespace Distribution
+{
+    class Array;
+    template<typename vType> class Arrays;
+}
+namespace DIST = Distribution;
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);

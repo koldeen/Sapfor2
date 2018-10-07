@@ -209,10 +209,11 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
                 regionStarted = true;
                 regionName = data->symbol()->identifier();
-                updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
+
             }
             else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
             {
+                updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
                 SgStatement *data = next;
 
                 lines.second = data->lineNumber();
@@ -355,7 +356,7 @@ static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops
         loops.push_back(elem);
 
     for (auto &elem : loopGraph)
-        getAllLoops(elem->childs, loops);
+        getAllLoops(elem->children, loops);
 }
 
 void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<LoopGraph*>> *loopGraph)

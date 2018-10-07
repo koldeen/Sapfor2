@@ -9,6 +9,7 @@
 
 #include "dvm.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
 
 using std::set;
 using std::string;

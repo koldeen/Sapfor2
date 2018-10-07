@@ -24,6 +24,7 @@ using std::get;
 #include "graph_loops.h"
 #include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
 #include "../VisualizerCalls/get_information.h"
 #endif
@@ -76,9 +77,9 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
         {
             LoopGraph *part1 = currLoop, *part2 = currLoop;
             for (int i = 0; i < depth - 1; ++i)
-                part1 = part1->childs[0];
+                part1 = part1->children[0];
             for (int i = 0; i < depth - 2; ++i)
-                part2 = part2->childs[0];
+                part2 = part2->children[0];
 
             set<DIST::Array*> newToAdd;
 
@@ -112,21 +113,21 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
     }
     else
     {
-        for (int i = 0; i < currLoop->childs.size(); ++i)
-            uniteChildReadInfo(currLoop->childs[i]);
+        for (int i = 0; i < currLoop->children.size(); ++i)
+            uniteChildReadInfo(currLoop->children[i]);
     }
 }
 
 static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foundConflicts, map<DIST::Array*, vector<ArrayOp>> &unitedWROps)
 {
-    for (int i = 0; i < currLoop->childs.size(); ++i)
+    for (int i = 0; i < currLoop->children.size(); ++i)
     {
         if (i > 0)
         {
             foundConflicts.clear();
             unitedWROps.clear();
         }
-        fillConflictState(currLoop->childs[i], foundConflicts, unitedWROps);
+        fillConflictState(currLoop->children[i], foundConflicts, unitedWROps);
     }
 
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
@@ -458,36 +459,44 @@ static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlan
             fprintf(file, " ");
 }
 
-static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl)
+static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl, bool withRegs = false)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        printBlanks(file, 2, lvl);
-        fprintf(file, "FOR on line %d", childs[k]->lineNum);
-        if (childs[k]->perfectLoop > 1)
-            fprintf(file, " [PERFECT]");
-        if (childs[k]->hasGoto)
-            fprintf(file, " [HAS GOTO]");
-        if (childs[k]->hasPrints)
-            fprintf(file, " [HAS I/O OPS]");
-        if (childs[k]->region)
-            fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
-        if (childs[k]->userDvmDirective)
-            fprintf(file, " [USER DVM]");
+        bool needToPrint = true;
+        if (withRegs)
+            if (childs[k]->region == NULL)
+                needToPrint = false;
 
-        fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
-        fprintf(file, "\n");
-
-        for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+        if (needToPrint)
         {
             printBlanks(file, 2, lvl);
-            fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            fprintf(file, "FOR on line %d", childs[k]->lineNum);
+            if (childs[k]->perfectLoop > 1)
+                fprintf(file, " [PERFECT]");
+            if (childs[k]->hasGoto)
+                fprintf(file, " [HAS GOTO]");
+            if (childs[k]->hasPrints)
+                fprintf(file, " [HAS I/O OPS]");
+            if (childs[k]->region)
+                fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
+            if (childs[k]->userDvmDirective)
+                fprintf(file, " [USER DVM]");
+
+            fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
+            fprintf(file, "\n");
+
+            for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+            {
+                printBlanks(file, 2, lvl);
+                fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            }
         }
-        printLoopGraphLvl(file, childs[k]->childs, lvl + 1);
+        printLoopGraphLvl(file, childs[k]->children, lvl + 1, withRegs);
     }
 }
 
-int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph)
+int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph, bool withRegs)
 {
     FILE *file = fopen(fileName, "w");
     if (file == NULL)
@@ -500,7 +509,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
     for (it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
         fprintf(file, "*** FILE %s\n", it->first.c_str());
-        printLoopGraphLvl(file, it->second, 1);
+        printLoopGraphLvl(file, it->second, 1, withRegs);
         fprintf(file, "\n");
     }
 
@@ -530,7 +539,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                 }
                 isNotOkey.insert(loops[i]->region);
             }
-            isAllOk(loops[i]->childs, currMessages, isNotOkey, uniqMessages);
+            isAllOk(loops[i]->children, currMessages, isNotOkey, uniqMessages);
         }
     }
 }
@@ -544,7 +553,7 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
                 loops[i]->countOfIters = 2;
-            setToDefaultCountIter(loops[i]->childs, isNotOkey);
+            setToDefaultCountIter(loops[i]->children, isNotOkey);
         }
     }
 }
@@ -555,7 +564,7 @@ static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, 
     {
         if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
             loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
+        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested, isNotOkey);
     }
 }
 
