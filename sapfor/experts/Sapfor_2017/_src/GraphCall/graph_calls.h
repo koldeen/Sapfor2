@@ -76,16 +76,18 @@ struct FuncInfo
     bool needToInline;
     bool deadFunction;
 
+    int inRegion; // 0 - none, 1 - explicit, 2 - implicit, 3 - indirect
+
     FuncInfo() :
-        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false) { }
+        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
-        doNotAnalyze(false), needToInline(false), deadFunction(false) { }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
-        doNotAnalyze(false), needToInline(false), deadFunction(false) { fileName = pointer->fileName(); }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {
@@ -104,20 +106,21 @@ struct CallV
     std::string fName;
     std::string fileName;
     bool isMain;
+    int inRegion;
 
-    CallV() { }
+    CallV() : inRegion(0) { }
 
     CallV(const std::string &fName) :
-        fName(fName), fileName(""), isMain(false)
+        fName(fName), fileName(""), isMain(false), inRegion(0)
     { }
 
     CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
-        fName(fName), fileName(fileName), isMain(isMain) 
+        fName(fName), fileName(fileName), isMain(isMain), inRegion(0)
     { }
 
     std::string to_string()
     {
-        return fName + "@" + fileName + "@" + (isMain ? "1" : "0");
+        return fName + "@" + fileName + "@" + (isMain ? "1" : "0") + "@" + std::to_string(inRegion);
     }
 };
 
