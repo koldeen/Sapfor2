@@ -53,6 +53,11 @@ static void symbPrint(SgFile *file)
         __spf_print(1, "  SYMB ID: %d, NAME : %s\n", s->id(), s->identifier());
 }
 
+static bool isSPF_reg(SgStatement *st)
+{
+    return st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR;
+}
+
 static void replaceString(string &str, const string &oldStr, const string &newStr)
 {
     string::size_type pos = 0;
@@ -115,13 +120,13 @@ static bool recursiveFindCall(SgExpression *exp, const string &funcName)
     return false;
 }
 
-static void findCall(const FuncInfo *funcFrom, const FuncInfo *funcTo, bool &callsFromRegion, bool &callsFromCode)
+static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callsFromRegion, bool &callsFromCode)
 {
-    if (SgFile::switchToFile(funcTo->fileName) != -1)
+    if (SgFile::switchToFile(callFunc->fileName) != -1)
     {
         bool isRegion = false;
-        SgStatement *iterator = funcTo->funcPointer->GetOriginal();
-        SgStatement *end = SgStatement::getStatementByFileAndLine(funcTo->fileName, funcTo->linesNum.second);
+        SgStatement *iterator = callFunc->funcPointer->GetOriginal();
+        SgStatement *end = SgStatement::getStatementByFileAndLine(callFunc->fileName, callFunc->linesNum.second);
 
         for (; iterator != end; iterator = iterator->lexNext())
         {
@@ -137,11 +142,11 @@ static void findCall(const FuncInfo *funcFrom, const FuncInfo *funcTo, bool &cal
             bool retVal = false;
 
             if (iterator->variant() == PROC_STAT)
-                if (iterator->symbol()->identifier() == funcFrom->funcName)
+                if (iterator->symbol()->identifier() == func->funcName)
                     retVal = true;
 
             for (int i = 0; i < 3; ++i)
-                retVal = retVal || recursiveFindCall(iterator->expr(i), funcFrom->funcName);
+                retVal = retVal || recursiveFindCall(iterator->expr(i), func->funcName);
 
             if (retVal)
             {
@@ -171,14 +176,14 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     {
         if (SgFile::switchToFile(func->fileName) != -1)
         {
-            SgStatement *iterator = func->funcPointer;
+            SgStatement *iterator = func->funcPointer->GetOriginal();
             FuncInfo *entry = NULL;
             bool isFuncCovered = true;
-            bool isEntryCovered = true;
+            bool isEntryCovered = false;
             bool isRegion = false;
 
             // ALEX, TODO: а DVM директивы являеются нужными?
-            for (; !isSgExecutableStatement(iterator) && !isSPF_stat(iterator) && iterator->variant() != ENTRY_STAT; iterator = iterator->lexNext())
+            for (; !isSgExecutableStatement(iterator) && !isSPF_reg(iterator) && iterator->variant() != ENTRY_STAT; iterator = iterator->lexNext())
             {
                 // skip not executable and not necessary statements
             }
@@ -517,40 +522,14 @@ static SgStatement* createCommonBlock(SgFile *file,
                     if (itt == it->second.end())
                     {
                         // need to create symbol
-                        // get array type
-                        auto place = *arrayBlock.first->GetDeclInfo().begin();
+                        string newArrName = arrayBlock.first->GetShortName() + "_" + commBlockName;
 
-                        if (SgFile::switchToFile(place.first) != -1)
-                        {
-                            SgSymbol *arrSymb = NULL;
-                            SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
+                        // TODO: check new array name
+                        //if (ifSymbolExists(file, newArrName))
+                        //    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                            for (auto exp = decl->expr(0); exp; exp = exp->rhs())
-                            {
-                                if (exp->lhs()->symbol() && exp->lhs()->symbol()->identifier() == arrayBlock.first->GetShortName())
-                                {
-                                    arrSymb = exp->lhs()->symbol();
-                                    break;
-                                }
-                            }
-
-                            // create array symbol
-                            if (SgFile::switchToFile(file->filename()) != -1)
-                            {
-                                string newArrName = arrayBlock.first->GetShortName() + "_" + commBlockName;
-
-                                // TODO: check new array name
-                                //if (ifSymbolExists(file, newArrName))
-                                //    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                newArrSymb = new SgSymbol(VAR_REF, newArrName.c_str(), file->firstStatement());
-                                itt = it->second.insert(itt, make_pair(arrayBlock.first, make_pair((SgSymbol*)NULL, newArrSymb)));
-                            }
-                            else
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        }
-                        else
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        newArrSymb = new SgSymbol(VAR_REF, newArrName.c_str(), file->firstStatement());
+                        itt = it->second.insert(itt, make_pair(arrayBlock.first, make_pair((SgSymbol*)NULL, newArrSymb)));
                     }
                     else
                     {
@@ -606,7 +585,14 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.first->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+            regionLines.stats.first->GetOriginal()->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+
+            /*
+            if (regionLines.stats.first->lexPrev()->variant() != GLOBAL)
+                regionLines.stats.first->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->lexPrev()->controlParent());
+            else
+                regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+            */
 
             __spf_print(1, "insert '%s = %s'\n", newSymb->identifier(), origSymb->identifier()); // remove
 
@@ -616,7 +602,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             right = new SgArrayRefExp(*newSymb);
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.second->lexNext()->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
+            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
 
             __spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
@@ -630,7 +616,8 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 static void replaceAndInsertCopyingCommonArrays(const string &fileName,
                                                 const ParallelRegionLines &lines,
                                                 const map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays,
-                                                const map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> &createdCommonArrays)
+                                                const map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> &createdCommonArrays,
+                                                const bool needInsertCopying = false)
 {
     auto it = createdCommonArrays.find(fileName);
     if (it == createdCommonArrays.end())
@@ -656,7 +643,6 @@ static void replaceAndInsertCopyingCommonArrays(const string &fileName,
             {
                 SgSymbol *varSymb = exp->lhs()->symbol();
                 string varName = varSymb->identifier();
-                auto tmp = declaratedInStmt(varSymb);
                 DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
 
                 if (array)
@@ -688,7 +674,8 @@ static void replaceAndInsertCopyingCommonArrays(const string &fileName,
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         replaceSymbol(fileName, lines, varName, itt->second.second);
-                        insertArrayCopying(fileName, lines, varSymb, itt->second.second);
+                        if (needInsertCopying) // if (!array->GetNonDistributeFlag())
+                            insertArrayCopying(fileName, lines, varSymb, itt->second.second);
                     }
                     else
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -935,6 +922,7 @@ static void copyFunction(ParallelRegion *region,
 
                 // replace common arrays to new common arrays
                 SgStatement *iterator = begin->GetOriginal();
+
                 for (; iterator != end->GetOriginal() && !isSgExecutableStatement(iterator); iterator = iterator->lexNext())
                     ;
 
@@ -953,7 +941,6 @@ static void copyFunction(ParallelRegion *region,
                         {
                             SgSymbol *varSymb = exp->lhs()->symbol();
                             string varName = varSymb->identifier();
-                            auto tmp = declaratedInStmt(varSymb);
                             DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
 
                             if (array)
@@ -1046,8 +1033,8 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                 SgStatement *insertPlace = NULL;
 
                 for (auto iterator = funcArrays.first->funcPointer->GetOriginal()->lexNext();
-                    !isSgExecutableStatement(iterator);
-                    iterator = iterator->lexNext())
+                     !isSgExecutableStatement(iterator);
+                     iterator = iterator->lexNext())
                 {
                     if (iterator->variant() == COMM_STAT)
                     {
@@ -1081,77 +1068,12 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                 */
             }
 
-            auto it = createdCommonArrays.find(funcArrays.first->fileName);
-            if (it == createdCommonArrays.end())
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            // replace common arrays to new common arrays
-            auto func = funcArrays.first;
-                
+            // replace common arrays to new common arrays and insert copying
             for (auto &arrayLines : funcArrays.second)
             {
                 for (auto &lines : arrayLines.second)
                 {
-                    SgStatement *iterator = lines.stats.first->GetOriginal();
-
-                    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
-                        iterator = iterator->controlParent();
-
-                    SgStatement *end = iterator->lastNodeOfStmt();
-
-                    // get common-blocks ref
-                    const string commName = "reg";
-                    map<string, vector<SgExpression*>> commonBlocksRef;
-                    getCommonBlocksRef(commonBlocksRef, iterator, end, &commName);
-
-                    for (auto &commonBlockRef : commonBlocksRef)
-                    {
-                        for (auto &commExp : commonBlockRef.second)
-                        {
-                            for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
-                            {
-                                SgSymbol *varSymb = exp->lhs()->symbol();
-                                string varName = varSymb->identifier();
-                                auto tmp = declaratedInStmt(varSymb);
-                                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
-
-                                if (array)
-                                {
-                                    auto arrayBlock = allUsedCommonArrays.find(array);
-                                    int pos = -1;
-                                    for (auto &var : arrayBlock->second->getVariables())
-                                    {
-                                        if (var.getName() == varName && var.getType() == ARRAY)
-                                            pos = var.getPosition();
-                                    }
-
-                                    auto varsOnPos = arrayBlock->second->getVariables(pos);
-
-                                    if (pos == -1 || !varsOnPos.size())
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                    auto var = varsOnPos[0];
-
-                                    if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
-                                    {
-                                        DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
-
-                                        if (!commArr)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        auto itt = it->second.find(commArr);
-                                        if (itt == it->second.end())
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        replaceSymbol(func->fileName, lines, varName, itt->second.second);
-                                        insertArrayCopying(func->fileName, lines, varSymb, itt->second.second);
-                                    }
-                                    else
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                }
-                            }
-                        }
-                    }
+                    replaceAndInsertCopyingCommonArrays(funcArrays.first->fileName, lines, allUsedCommonArrays, createdCommonArrays, true);
                 }
             }
         }

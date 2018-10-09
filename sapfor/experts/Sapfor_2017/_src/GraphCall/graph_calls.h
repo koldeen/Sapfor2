@@ -101,7 +101,7 @@ struct FuncInfo
         return result;
     }
 
-    void setIsCoveredByRegion(int val) { inRegion = val; }
+    void setIsCoveredByRegion(int val) { }
 };
 
 struct CallV
