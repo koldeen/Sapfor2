@@ -13,6 +13,8 @@ typedef enum parF { NONE_T, ARRAY_T,
                     UNKNOWN_T } paramType;
 struct FuncParam
 {
+    FuncParam() { countOfPars = 0; }
+
     void init(const int numPar)
     {
         countOfPars = numPar;

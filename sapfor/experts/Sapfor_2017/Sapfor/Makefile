@@ -146,7 +146,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
-			 shadow.o
+			 shadow.o private_arrays_breeder.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
@@ -299,6 +299,8 @@ refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp
 	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp
 	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+private_arrays_breeder.o: $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.cpp $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
 clean:
 	rm -rf *.o

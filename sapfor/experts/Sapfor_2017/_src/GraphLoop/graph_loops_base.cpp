@@ -558,13 +558,12 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
     }
 }
 
-static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, const set<void*> &isNotOkey)
+static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested, isNotOkey);
+        loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested);
     }
 }
 
@@ -584,11 +583,11 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, ve
 
     if (isNotOkey.size() != 0)
     {
-        for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            setToDefaultCountIter(it->second, isNotOkey);
+        for (auto &loopsV : loopGraph)
+            setToDefaultCountIter(loopsV.second, isNotOkey);
     }
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        multiplyCountIter(it->second, 1.0, isNotOkey);
+    for (auto &loopsV : loopGraph)
+        multiplyCountIter(loopsV.second, 1.0);
 
 }

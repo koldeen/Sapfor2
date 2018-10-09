@@ -13,6 +13,7 @@
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Arrays.h"
 #include "../Distribution/Distribution.h"
+#include "../Distribution/DvmhDirective_func.h"
 
 #include "../Utils/errors.h"
 #include "loop_analyzer.h"
@@ -1265,6 +1266,48 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
     }
 }
 
+
+static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &arrays, const int regId,
+    const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+    DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+{
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &elem : arrays)
+        {
+            auto array = elem.first;
+            if (array->GetTemplateArray(regId) == NULL)
+            {
+                vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
+                    getAlignRuleWithTemplate(array, arrayLinksByFuncCalls, reducedG, allArrays, regId);
+
+                int idx = 0;
+                for (auto &elem : templRule)
+                {
+                    if (get<0>(elem) == NULL)
+                    {
+                        idx++;
+                        continue;
+                    }
+                    auto templ = get<0>(elem);
+                    auto alignDim = get<1>(elem);
+                    auto intRule = get<2>(elem);
+
+                    int dimNum = -1;
+                    int err = allArrays.GetDimNumber(get<0>(elem), alignDim, dimNum);
+                    if (err == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    array->AddLinkWithTemplate(idx, dimNum, templ, intRule, regId);
+                    ++idx;
+                    changed = true;
+                }
+            }
+        }
+    }
+}
+
 static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updateOn,
                                   const map<DIST::Array*, vector<bool>> &dimsNotMatch,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1430,6 +1473,8 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     
     if (resolved)
     {
+        propagateTemplateInfo(rightValues, regId, arrayLinksByFuncCalls, reducedG, allArrays);
+
         for (auto &elem : rightValues)
         {
             auto &shortName = elem.first->GetShortName();

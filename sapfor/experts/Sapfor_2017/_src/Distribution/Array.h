@@ -359,9 +359,14 @@ namespace Distribution
         bool GetNonDistributeFlag() const { return (isNonDistribute == DISTR) ? false : true; }
         distFlag GetNonDistributeFlagVal() const { return isNonDistribute; }
 
+        void ChangeLocation(int loc, const STRING &name)
+        {
+            locationPos = std::make_pair(loc, name);
+        }
+
         void SetLocation(int loc, const STRING &name) 
         {
-            locationPos = std::make_pair(loc, name); 
+            ChangeLocation(loc, name);
             GenUniqKey();
         }
         PAIR<int, STRING> GetLocation() const { return locationPos; }
