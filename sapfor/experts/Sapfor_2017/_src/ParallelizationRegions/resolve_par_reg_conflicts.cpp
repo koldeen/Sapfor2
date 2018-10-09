@@ -585,7 +585,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.first->GetOriginal()->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
+            regionLines.stats.first->GetOriginal()->insertStmtBefore(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             /*
             if (regionLines.stats.first->lexPrev()->variant() != GLOBAL)
@@ -602,7 +602,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             right = new SgArrayRefExp(*newSymb);
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->lexNext()->controlParent());
+            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->GetOriginal()->controlParent());
 
             __spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
@@ -1073,7 +1073,15 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
             {
                 for (auto &lines : arrayLines.second)
                 {
-                    replaceAndInsertCopyingCommonArrays(funcArrays.first->fileName, lines, allUsedCommonArrays, createdCommonArrays, true);
+                    if (lines.isImplicit())
+                    {
+                        Statement *begin = new Statement(SgStatement::getStatementByFileAndLine(funcArrays.first->fileName, lines.lines.first));
+                        Statement *end = new Statement(SgStatement::getStatementByFileAndLine(funcArrays.first->fileName, lines.lines.second));
+                        ParallelRegionLines linesWithStats(lines.lines, make_pair(begin, end));
+                        replaceAndInsertCopyingCommonArrays(funcArrays.first->fileName, linesWithStats, allUsedCommonArrays, createdCommonArrays, true);
+                    }
+                    else
+                        replaceAndInsertCopyingCommonArrays(funcArrays.first->fileName, lines, allUsedCommonArrays, createdCommonArrays, true);
                 }
             }
         }
