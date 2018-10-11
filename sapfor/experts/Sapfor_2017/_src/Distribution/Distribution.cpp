@@ -9,7 +9,7 @@
 #include <string>
 #include <algorithm>
 #include <omp.h>
-#include <limits.h>
+#include <climits>
 
 #if _WIN32 && NDEBUG
 #include <boost/thread.hpp>
@@ -29,6 +29,9 @@ using std::vector;
 #include "Array.h"
 #include "Distribution.h"
 #include "../Utils/utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/types.h"
+#include "../Distribution/Cycle.h"
 
 extern int keepFiles;
 
@@ -345,6 +348,8 @@ namespace Distribution
 
         string FullName = "_full_graph_reg" + std::to_string(regionNum) + ".txt";
         string ReducedName = "_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
+        //__spf_print(1, "flag keepFiles %d, flag onlyGraph %d\n", keepFiles, onlyGraph);
+            
         if (keepFiles)
         {
             if (!onlyGraph)

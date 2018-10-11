@@ -56,21 +56,8 @@ static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<
     return retVal;
 }
 
-//TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
-    fflush(NULL);
-    int funcNum = file->numberOfFunctions();
-    FILE *currFile = fopen(fileName, "r");
-    if (currFile == NULL)
-    {
-        char buf[256];
-        sprintf(buf, "ERROR: Can't open file %s for read", fileName);
-        addToGlobalBufferAndPrint(buf);
-        throw(-1);
-    }
-
-    // name -> unparse comment
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
     bool notClosed = false;
     // TODO: extend buff size in dynamic
@@ -134,7 +121,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
-            else
+            else if (line[0] != 'c' && line[0] != '!' && line != "" && line[0] != '\n')
             {
                 if (notClosed)
                 {
@@ -149,11 +136,33 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         ++lineBefore;
     }
 
+    return includeFiles;
+}
+
+//TODO: read includes and find last lines, all included files
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+{
+    fflush(NULL);
+    int funcNum = file->numberOfFunctions();
+    FILE *currFile = fopen(fileName, "r");
+    if (currFile == NULL)
+    {
+        char buf[256];
+        sprintf(buf, "ERROR: Can't open file %s for read", fileName);
+        addToGlobalBufferAndPrint(buf);
+        throw(-1);
+    }
+
+    // name -> unparse comment
+    map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
+    
     const string fileN = file->filename();
     //insert comment
-    lineBefore = -1;
+    int lineBefore = -1;
 
     map<string, vector<pair<int, int>> > insertedIncludeFiles;
+    map<int, pair<int, int>> placesForInsert;
+
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         string currFileName = st->fileName();
@@ -172,6 +181,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 while (locSt && (locSt->fileName() != fileN || locSt->lineNumber() <= 0))
                 {
                     const string locName = locSt->fileName();
+
                     if (locName != fileN)
                     {
                         allIncludeFiles.insert(locName);
@@ -192,33 +202,32 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     auto prev = locSt->lexPrev();
                     if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
                         locSt = prev;
+                    placesForInsert.insert(make_pair(locSt->id(), lines));
                 }
+            }
 
-                if (locSt && ifIntevalExists(it->second.second, lines))
+            for(auto &it : includeFiles)
+            {
+                auto found = placesForInsert.find(st->id());
+                if(found != placesForInsert.end())
                 {
-                    insertedIncludeFiles[currFileName].push_back(lines);
-                    for (auto &elem : nearIncludes)
-                        insertedIncludeFiles[elem].push_back(lines);
-
-                    string toInsert = it->second.first;
-                    for (auto &elem : nearIncludes)
-                        toInsert += includeFiles[elem].first;
-
-                    char *comm = locSt->comments();
-                    if (comm)
+                    if(ifIntevalExists(it.second.second, found->second))
                     {
-                        if (string(locSt->comments()).find(toInsert) == string::npos)
-                            locSt->addComment(toInsert.c_str());
+                        if (st->comments())
+                        {
+                            if (string(st->comments()).find(it.second.first) == string::npos)
+                                st->addComment(it.second.first.c_str());
+                        }
+                        else
+                            st->addComment(it.second.first.c_str());
                     }
-                    else
-                        locSt->addComment(toInsert.c_str());
                 }
             }
         }
         else
             lineBefore = st->lineNumber();
     }
-    
+
     for (auto &inserted : insertedIncludeFiles)
     {
         auto it = includeFiles.find(inserted.first);
@@ -234,6 +243,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
         if (st->fileName() != fileN || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
+
 #ifdef _WIN32
     FILE *fOut;
     errno_t err = fopen_s(&fOut, fout, "w");

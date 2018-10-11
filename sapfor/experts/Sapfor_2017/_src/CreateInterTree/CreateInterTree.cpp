@@ -3,21 +3,21 @@
 std::vector<FileIntervals> fileIntervals;
 
 //Debug funcs
-void printTree(Interval* inter, int depth = 0)
+void printTree(Interval* inter)
 {
     if(!(inter->ifInclude))
         return;
 
-    for(int i = 0; i < depth; i++) std::cout << "  ";
-    std::cout << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << " " << std::endl;
+    std::cout << inter->tag << " ";
+    std::cout << "Begin " << tag[inter->begin->variant()] << " " << inter->begin->lineNumber() << " " << std::endl;
 
     for(int i = 0; i < inter->includes.size(); i++)
-        printTree(inter->includes[i], depth + 1);
+        printTree(inter->includes[i]);
 
     for(int i = 0; i < inter->ends.size(); i++)
     {
-        for(int j = 0; j < depth; j++) std::cout << "  ";
-        std::cout << "End " << i << " " << tag[inter->ends[i]->variant()] << std::endl;
+        std::cout << inter->tag << " ";
+        std::cout << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << std::endl;
     }
 }
 
@@ -35,7 +35,7 @@ static bool checkIfHasCall(SgExpression* exp)
     return false;
 }
 
-static void findIntervals(Interval* interval, SgStatement* &currentSt)
+static void findIntervals(Interval* interval, SgStatement* &currentSt, int level)
 {
     bool if_has_call;
     int currentVar;
@@ -47,28 +47,45 @@ static void findIntervals(Interval* interval, SgStatement* &currentSt)
         if_has_call = checkIfHasCall(currentSt->expr(0)) || checkIfHasCall(currentSt->expr(1)) || checkIfHasCall(currentSt->expr(2));
         currentVar = currentSt->variant();
 
+        if(currentVar == RETURN_STAT)
+        {
+            interval->ends.push_back(currentSt);
+            interval->exit_levels.push_back(level);
+        }
+
+        if(currentVar == EXIT_STMT)
+        {
+            interval->ends.push_back(currentSt);
+            interval->exit_levels.push_back(1);   
+        }
+
         if(currentVar == GOTO_NODE)
         {
-            continue;
+
         }
 
-        if(currentVar == RETURN_STAT || currentVar == EXIT_STMT)
-            interval->ends.push_back(currentSt);
-
-        if(currentSt == interval->ends[0])
+        if(currentVar == ASSGOTO_NODE)
         {
-            continue;
+
         }
 
-        if(currentVar != FOR_NODE && currentVar != PROG_HEDR && currentVar != FUNC_HEDR && currentVar != PROC_HEDR & currentVar != PROC_STAT && !if_has_call)
+        if(currentVar == COMGOTO_NODE)
+        {
+
+        }        
+
+        if(currentSt == interval->ends[0] || currentVar != FOR_NODE && currentVar != PROC_STAT && !if_has_call)
             continue;
 
         Interval* inter = new Interval();
         inter->begin = currentSt;
+        inter->parent = interval;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
+        inter->exit_levels.push_back(0);
+        inter->tag = interval->tag + 1;
         interval->includes.push_back(inter);
 
-        findIntervals(inter, currentSt);
+        findIntervals(inter, currentSt, level + 1);
     }
 }
 
@@ -81,45 +98,76 @@ void createInterTree(SgFile *file)
     for (int i = 0; i < funcNum; i++)
     {
         Interval* func_inters = new Interval();
-        func_inters->begin = file->functions(i);
-        func_inters->ends.push_back(func_inters->begin->lastNodeOfStmt());
+
+        SgStatement* begin = file->functions(i)->lexNext();
+        while(!isSgExecutableStatement(begin)) 
+            begin = begin->lexNext();
+        func_inters->begin = begin;
+        
+        func_inters->ends.push_back(file->functions(i)->lastNodeOfStmt());
+        func_inters->exit_levels.push_back(0);
 
         SgStatement* currentSt = func_inters->begin;
-        findIntervals(func_inters, currentSt);
+        findIntervals(func_inters, currentSt, 1);
 
         fi.intervals.push_back(func_inters);
     }
 
     fileIntervals.push_back(fi);
+
+    for(int i = 0; i < fi.intervals.size(); i++)
+        printTree(fi.intervals[i]);
 }
 
 //Interval insertion funcs
-static void insertTree(Interval* interval, int &i_inter)
+static void insertTree(Interval* interval)
 {
-    SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
-    SgExpression* expr = new SgValueExp(i_inter);
-    beg_inter->setExpression(0, *expr);
-    i_inter++;
+    if(interval->ifInclude)
+    {
+        SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
+        SgExpression* expr = new SgValueExp(interval->tag);
+        beg_inter->setExpression(0, *expr);
 
-    SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
+        SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
 
-    interval->begin->insertStmtAfter(*beg_inter, *interval->begin->controlParent());
-    interval->ends[0]->insertStmtAfter(*end_inter, *interval->ends[0]->controlParent());
+        interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
+        if(interval->tag)
+            interval->ends[0]->insertStmtAfter(*end_inter, *interval->ends[0]->controlParent());
+        else
+            interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
+
+        for(int i = 1; i < interval->ends.size(); i++)
+        {
+            int depth = interval->exit_levels[i];
+            Interval* curr_inter = interval->parent;
+
+            SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
+            SgExprListExp* curr_list_elem = expli;
+
+            for(int j = 1; j < depth; j++)
+            {
+                curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
+                
+                curr_inter = curr_inter->parent;
+                curr_list_elem = curr_list_elem->next();
+            }
+
+            curr_list_elem->setRhs(NULL);
+            SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
+            exit_inter->setExpression(0, *expli);
+            interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
+        }
+    }
 
     for(int i = 0; i < interval->includes.size(); i++)
-        insertTree(interval->includes[i], i_inter);
+        insertTree(interval->includes[i]);
 }
 
 void insertIntervals()
 {
-    int i_inter;
-
     for(int i = 0; i < fileIntervals.size(); i++)
-    {
-        i_inter = 0;
         for(int j = 0; j < fileIntervals[i].intervals.size(); j++)
-            insertTree(fileIntervals[i].intervals[j], i_inter);
-    }
+            insertTree(fileIntervals[i].intervals[j]);
 }
 
 //Profiling funcs
@@ -165,23 +213,20 @@ static void assignRec(Interval* inter, FileProfile &fp)
     for(int i = 0; i < inter->includes.size(); i++)
         assignRec(inter->includes[i], fp);
 
-    inter->calls = fp.profile[inter->begin->lineNumber()];
+    if(inter->tag)
+        inter->calls = fp.profile[inter->begin->lineNumber()];
+    else
+        inter->calls = fp.profile[inter->begin->controlParent()->lineNumber()];
 }
 
 static void assignCallsToFile(FileIntervals &fi, FileProfile &fp)
 {
     for(int i = 0; i < fi.intervals.size(); i++)
-    {
-        fi.intervals[i]->calls = fp.profile[fi.intervals[i]->begin->lineNumber()];
         assignRec(fi.intervals[i], fp);
-    }
 }
 
 void assignCallsToAllFiles(std::vector<std::string> filenames)
 {
-    for(int i = 0; i < filenames.size(); i++)
-        filenames[i] = filenames[i].append(".gcov");
-
     std::vector<FileProfile> fileProfiles = parseProfiles(filenames);
 
     for(int i = 0; i < fileIntervals.size(); i++)
@@ -191,16 +236,11 @@ void assignCallsToAllFiles(std::vector<std::string> filenames)
 //Deleting intervals funcs
 static void removeNode(Interval* inter, int threshold)
 {
-    std::vector<Interval*> &func = inter->includes;
-    for(int i = 0; i < func.size(); i++)
-       if(func[i]->calls > threshold)
-       {
-            for(int j = 0; j < func[i]->includes.size(); j++)
-                func.push_back(func[i]->includes[j]);
-            func[i]->ifInclude = false;
-        } 
-        else
-            removeNode(func[i], threshold);
+    if(inter->calls > threshold)
+        inter->ifInclude = false;
+
+    for(int i = 0; i < inter->includes.size(); i++)
+        removeNode(inter->includes[i], threshold);
 }
 
 static void removeFromFile(FileIntervals &fi, int threshold)

@@ -453,6 +453,41 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                     newLoop->endVal = std::get<1>(loopInfoSES);
                     newLoop->stepVal = std::get<2>(loopInfoSES);
                 }
+                else
+                {
+                    SgExpression *start = currLoopRef->start();
+                    SgExpression *end = currLoopRef->end();
+                    SgExpression *step = currLoopRef->step();
+
+                    Expression *endE = NULL;
+                    Expression *startE = NULL;
+                    if (step == NULL)
+                    {
+                        startE = new Expression(start);
+                        endE = new Expression(end);
+                    }
+                    else
+                    {
+                        int res = -1;
+                        int err = CalculateInteger(step, res);
+                        if (err == 0 && res != 0)
+                        {
+                            if (res > 0)
+                            {
+                                startE = new Expression(start);
+                                endE = new Expression(&((*end - *start + *step) / *step));
+                            }
+                            else
+                            {
+                                endE = new Expression(end);
+                                endE = new Expression(&((*start - *end + *step) / *step));
+                            }
+                        }
+                    }
+
+                    newLoop->startEndExpr = std::make_pair(startE, endE);
+                }
+
                 newLoop->loop = new Statement(st);
 
                 SgStatement *lexPrev = st->lexPrev();
@@ -535,6 +570,14 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
 }
 
+static int calculateNormalChildSize(const LoopGraph *currLoop)
+{
+    int count = 0;
+    for (auto &elem : currLoop->childs)
+        count += (elem->lineNum > 0) ? 1 : 0;
+    return count;
+}
+
 void convertToString(const LoopGraph *currLoop, string &result)
 {
     if (currLoop && currLoop->lineNum > 0)
@@ -543,7 +586,7 @@ void convertToString(const LoopGraph *currLoop, string &result)
         result += " " + std::to_string(currLoop->calls.size());
         for (int i = 0; i < currLoop->calls.size(); ++i)
             result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
-        printToBuffer(currLoop, (int)currLoop->childs.size(), buf);
+        printToBuffer(currLoop, calculateNormalChildSize(currLoop), buf);
         result += string(buf);
 
         result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());

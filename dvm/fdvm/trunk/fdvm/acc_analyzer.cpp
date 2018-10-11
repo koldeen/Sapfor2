@@ -156,6 +156,9 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
+static map<SgStatement*, ControlFlowGraph*> CFG_cache;
+
+
 static bool isIntrinsicFunctionNameACC(char* name)
 {
 #if USE_INTRINSIC_DVM_LIST
@@ -340,8 +343,9 @@ void Private_Vars_Analyzer(SgStatement* start)
     //stage 3: fulfilling loop data
     FillPrivates(CGraph);
 
-
+#if !__SPF
     delete CGraph;
+#endif
 
     if (privateDelayedList)
         delete privateDelayedList;
@@ -592,16 +596,21 @@ std::string GetConditionWithLineNumber(ControlFlowItem* eit)
 }
 
 std::string GetActualCondition(ControlFlowItem** pItem) {
-    std::string res;
+    std::string res = "";
     ControlFlowItem* eit = *pItem;
-    while (true) {
-        if (eit == NULL || eit->getJump() != NULL || eit->getStatement() != NULL) {
-            if (eit && eit->getJump() != NULL) {
-                if (eit->getExpression() != NULL) {
+    while (true) 
+    {
+        if (eit == NULL || eit->getJump() != NULL || eit->getStatement() != NULL) 
+        {
+            if (eit && eit->getJump() != NULL) 
+            {
+                if (eit->getExpression() != NULL) 
+                {
                     *pItem = eit;
                     return GetConditionWithLineNumber(eit);
                 }
-                else {
+                else 
+                {
                     *pItem = NULL;
                     return res;
                 }
@@ -757,15 +766,25 @@ AnalysedCallsList* CallData::GetDataForGraph(ControlFlowGraph* s)
 
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, CallData* calls, CommonData* commons)
 {
-    if (start == NULL) {
+    if (start == NULL) 
+    {
         //is_correct = "no body for call found";
         return NULL;
     }
+
+    ControlFlowGraph *cfgRet = NULL;
+    if (CFG_cache.find(start) != CFG_cache.end())
+        return CFG_cache[start];
+
     doLoops l;
     ControlFlowItem* funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
     fillLabelJumps(funcGraph);
     setLeaders(funcGraph);
-    return new ControlFlowGraph(false, main, funcGraph, NULL);
+
+    
+    cfgRet = new ControlFlowGraph(false, main, funcGraph, NULL);
+    CFG_cache[start] = cfgRet;
+    return cfgRet;
 }
 
 void FillCFGSets(ControlFlowGraph* graph)
@@ -2167,7 +2186,7 @@ void ControlFlowGraph::privateAnalyzer()
     liveAnalysis();
     while (1) 
     {
-        ControlFlowItem* lstart, *lend;
+        ControlFlowItem* lstart;
         CBasicBlock* of = p;
         p->PrivateAnalysisForAllCalls();
         if ((lstart = p->containsParloopStart()) != NULL) 
@@ -2214,7 +2233,8 @@ bool CArrayVarEntryInfo::HasActiveElements() const
         return false;
     if (subscripts == 0)
         return true;
-    for (int i = 0; i < subscripts; i++) {
+    for (int i = 0; i < subscripts; i++) 
+    {
         if (!data[i].defined)
             return false;
         if (data[i].left_bound != data[i].right_bound)
@@ -2228,7 +2248,8 @@ bool CArrayVarEntryInfo::HasActiveElements() const
 void CArrayVarEntryInfo::MakeInactive()
 {
     disabled = true;
-    for (int i = 0; i < subscripts; i++) {
+    for (int i = 0; i < subscripts; i++) 
+    {
         data[i].left_bound = data[i].right_bound = NULL;
         data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
     }
@@ -3059,10 +3080,10 @@ bool AnalysedCallsList::isArgIn(int i, CArrayVarEntryInfo** p)
     delete var;
     */
     VarItem* result = use->belongs(par);
-    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) {
+    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) 
         *p = (CArrayVarEntryInfo*)result->var;
-    }
     SwitchFile(stored);
+
     return result;
 }
 
@@ -3081,10 +3102,10 @@ bool AnalysedCallsList::isArgOut(int i, CArrayVarEntryInfo** p)
     delete var;
     */
     VarItem* result = def->belongs(par);
-    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) {
+    if (result && result->var->GetVarType() == VAR_REF_ARRAY_EXP && p) 
         *p = (CArrayVarEntryInfo*)result->var;
-    }
     SwitchFile(stored);
+
     return result;
 }
 
@@ -3400,16 +3421,18 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
-    disabled = false;
+    // TODO: need to check all alhorithm!!
+    disabled = true;
+
     if (!r)
         subscripts = 0;
     else
         subscripts = r->numberOfSubscripts();
     if (subscripts)
-        data = new ArraySubscriptData[subscripts];
-    else
-        data = NULL;
-    for (int i = 0; i < subscripts; i++) {
+        data.resize(subscripts);    
+
+    for (int i = 0; i < subscripts; i++) 
+    {
         data[i].defined = false;
         data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
         data[i].step = 1;
@@ -3419,45 +3442,50 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
 #ifdef __SPF
         const vector<int*> coefs = getAttributes<SgExpression*, int*>(r->subscript(i), set<int>{ INT_VAL });
         const vector<SgStatement*> fs = getAttributes<SgExpression*, SgStatement*>(r->subscript(i), set<int>{ FOR_NODE });
-        if (fs.size() == 1) {
-            data[i].loop = doLoopList->FindLoop(fs[0]);
-            if (data[i].loop != NULL) {
-                if (coefs.size() == 1) {
+        if (fs.size() == 1) 
+        {
+            if (data[i].loop != NULL) 
+            {
+                if (coefs.size() == 1) 
+                {
                     data[i].defined = true;
                     data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = coefs[0][1];
                     data[i].coefs[0] = coefs[0][0];
                     data[i].coefs[1] = coefs[0][1];
                     data[i].step = coefs[0][0];
                     int tmp;
-                    SgExpression* et;
-                    if (GetExpressionAndCoefficientOfBound(data[i].loop->l, &et, &tmp)) {
+
+                    SgExpression *et;
+                    if (GetExpressionAndCoefficientOfBound(data[i].loop->l, &et, &tmp)) 
+                    {
                         data[i].left_bound = et;
                         data[i].bound_modifiers[0] += tmp;
                     }
-                    else {
+                    else 
                         data[i].left_bound = data[i].loop->l;
-                    }
-                    if (GetExpressionAndCoefficientOfBound(data[i].loop->r, &et, &tmp)) {
+                    
+                    if (GetExpressionAndCoefficientOfBound(data[i].loop->r, &et, &tmp)) 
+                    {
                         data[i].right_bound = et;
                         data[i].bound_modifiers[1] += tmp;
                     }
-                    else {
-                        data[i].right_bound = data[i].loop->r;
-                    }
+                    else 
+                        data[i].right_bound = data[i].loop->r;                    
                 }
             }
         }
 #endif
-        if (!data[i].defined) {
+        if (!data[i].defined) 
+        {
             SgExpression* ex = r->subscript(i);
-            if (ex->variant() == INT_VAL) {
-                //data[i].coefs[0] = 0;
-                //data[i].coefs[1] = 0;
+            if (ex->variant() == INT_VAL) 
+            {
                 data[i].bound_modifiers[0] = ex->valueInteger();
                 data[i].bound_modifiers[1] = ex->valueInteger();
                 data[i].defined = true;
             }
-            else {
+            else 
+            {
                 data[i].bound_modifiers[0] = 0;
                 data[i].bound_modifiers[1] = 0;
                 data[i].left_bound = data[i].right_bound = ex;
@@ -3467,19 +3495,14 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
     }
 }
 
-CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, int sub, int ds, ArraySubscriptData* d) : CVarEntryInfo(s), subscripts(sub), disabled(ds)
+CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol *s, int sub, int ds, const vector<ArraySubscriptData> &d) 
+                                       : CVarEntryInfo(s), subscripts(sub), disabled(ds)
 { 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
     if (sub > 0) 
-    {
-        data = new ArraySubscriptData[sub];
-        for (int i = 0; i < sub; i++)
-            data[i] = d[i];        
-    }
-    else
-        data = NULL;
+        data = d;
 }
 
 VarItem* VarSet::GetArrayRef(CArrayVarEntryInfo* info)
@@ -3496,74 +3519,89 @@ VarItem* VarSet::GetArrayRef(CArrayVarEntryInfo* info)
     return NULL;
 }
 
-void CArrayVarEntryInfo::RegisterUsage(VarSet* def, VarSet* use, SgStatement* st)
+void CArrayVarEntryInfo::RegisterUsage(VarSet *def, VarSet *use, SgStatement *st)
 {
-    VarItem* it = def->GetArrayRef(this);
-    CArrayVarEntryInfo* add = this;
-    if (it != NULL) {
+    VarItem *it = def->GetArrayRef(this);
+    CArrayVarEntryInfo *add = this;
+    if (it != NULL) 
         add = *this - *(CArrayVarEntryInfo*)(it->var);
-    }
-    if (use != NULL && add != NULL && add->HasActiveElements()) {
+    
+    if (use != NULL && add != NULL && add->HasActiveElements()) 
         use->addToSet(add, st);
-    }
+    
     if (add != this)
         delete add;
-
 }
 
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator-=(const CArrayVarEntryInfo& b)
 {
-    if (subscripts == 0){
-        if (b.HasActiveElements()) {
-            disabled = true;
-        }
+    if (subscripts == 0)
+    {
+        if (b.HasActiveElements()) 
+            disabled = true;        
         return *this;
     }
-    if (b.subscripts == 0) {
-        if (HasActiveElements()) {
-            MakeInactive();
-        }
+
+    if (b.subscripts == 0) 
+    {
+        if (HasActiveElements()) 
+            MakeInactive();        
         return *this;
     }
-    if (subscripts != b.subscripts || !data || !b.data || !data->defined || !b.data->defined) {
+
+    if (subscripts != b.subscripts || !data.size() || !b.data.size() || !(data[0].defined) || !(b.data[0].defined)) 
         return *this;
-    }
-    for (int i = 0; i < subscripts; i++) {
-        if (b.data[i].left_bound == NULL) {
-            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
-                if (data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] == b.data[i].bound_modifiers[0]) {
+    
+    for (int i = 0; i < subscripts; i++) 
+    {
+        if (b.data[i].left_bound == NULL) 
+        {
+            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) 
+            {
+                if (data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] == b.data[i].bound_modifiers[0]) 
+                {
                     data[i].bound_modifiers[0]++;
                     continue;
                 }
             }
         }
+
         if (data[i].left_bound == NULL && b.data[i].left_bound == NULL &&
-            data[i].right_bound == NULL && b.data[i].right_bound == NULL) {
-            if (data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) {
+            data[i].right_bound == NULL && b.data[i].right_bound == NULL) 
+        {
+            if (data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) 
+            {
                 data[i].bound_modifiers[1] = b.data[i].bound_modifiers[0] - 1;
                 continue;
             }
-            if (data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) {
+
+            if (data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) 
+            {
                 data[i].bound_modifiers[0] = b.data[i].bound_modifiers[1] + 1;
                 continue;
             }
             data[i].defined = false;
         }
-        if (data[i].left_bound == b.data[i].left_bound && data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) {
+
+        if (data[i].left_bound == b.data[i].left_bound && data[i].bound_modifiers[0] < b.data[i].bound_modifiers[0]) 
+        {
             data[i].bound_modifiers[0] = data[i].bound_modifiers[0];
             data[i].bound_modifiers[1] = b.data[i].bound_modifiers[0] - 1;
             data[i].right_bound = data[i].left_bound;
         }
-        if (data[i].right_bound == b.data[i].right_bound && data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) {
+
+        if (data[i].right_bound == b.data[i].right_bound && data[i].bound_modifiers[1] > b.data[i].bound_modifiers[1]) 
+        {
             data[i].bound_modifiers[0] = b.data[i].bound_modifiers[1] + 1;
             data[i].bound_modifiers[1] = data[i].bound_modifiers[1];
             data[i].left_bound = data[i].right_bound;
         }
+
         if (b.data[i].left_bound == NULL && b.data[i].right_bound == NULL && 
             (data[i].left_bound != NULL || data[i].right_bound != NULL))
-            continue;
-        
-        else {
+            continue;        
+        else 
+        {
             data[i].bound_modifiers[0] = data[i].bound_modifiers[1] = 0;
             data[i].left_bound = NULL;
             data[i].right_bound = NULL;
@@ -3607,18 +3645,25 @@ void CArrayVarEntryInfo::ProcessChangesToUsedEntry(CArrayVarEntryInfo* var)
 {
     if (disabled || var->disabled || subscripts != var->subscripts)
         return;
-    for (int i = 0; i < subscripts; i++) {
+    for (int i = 0; i < subscripts; i++) 
+    {
         if (!data[i].defined)
             continue;
-        if (data[i].loop == var->data[i].loop && data[i].loop != NULL) {
-            if (data[i].coefs[0] == var->data[i].coefs[0]){
-                if (data[i].coefs[1] < var->data[i].coefs[1]) {
-                    if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
+
+        if (data[i].loop == var->data[i].loop && data[i].loop != NULL) 
+        {
+            if (data[i].coefs[0] == var->data[i].coefs[0])
+            {
+                if (data[i].coefs[1] < var->data[i].coefs[1]) 
+                {
+                    if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) 
+                    {
                         data[i].bound_modifiers[0] = data[i].left_bound->valueInteger() + data[i].bound_modifiers[0];
                         data[i].bound_modifiers[1] = data[i].left_bound->valueInteger() + var->data[i].coefs[1] - 1;
                         data[i].left_bound = data[i].right_bound = NULL;
                     }
-                    else {
+                    else 
+                    {
                         //maybe add something, not sure
                     }
                 }
@@ -3629,59 +3674,90 @@ void CArrayVarEntryInfo::ProcessChangesToUsedEntry(CArrayVarEntryInfo* var)
 
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator*=(const CArrayVarEntryInfo& b)
 {
-    //return *this;
-    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data || !b.data || !data->defined || !b.data->defined) {
+    if (subscripts == 0)
+    {
+        if (b.HasActiveElements())
+            disabled = true;
         return *this;
     }
-    for (int i = 0; i < subscripts; i++) {
-        if (b.disabled) {
-            data[i].left_bound = data[i].right_bound = NULL;
-        }
-        if (data[i].left_bound == b.data[i].left_bound) {
-            data[i].bound_modifiers[0] = std::max(data[i].bound_modifiers[0], b.data[i].bound_modifiers[0]);
-        }
 
-        if (data[i].right_bound == b.data[i].right_bound) {
-            data[i].bound_modifiers[1] = std::min(data[i].bound_modifiers[1], b.data[i].bound_modifiers[1]);
-        }
+    if (b.subscripts == 0)
+    {
+        if (HasActiveElements())
+            MakeInactive();
+        return *this;
+    }
+
+    //return *this;
+    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data.size() || !b.data.size() || !(data[0].defined) || !(b.data[0].defined)) 
+        return *this;
+    
+    for (int i = 0; i < subscripts; i++) 
+    {
+        if (b.disabled) 
+            data[i].left_bound = data[i].right_bound = NULL;
+        
+        if (data[i].left_bound == b.data[i].left_bound) 
+            data[i].bound_modifiers[0] = std::max(data[i].bound_modifiers[0], b.data[i].bound_modifiers[0]);
+        
+        if (data[i].right_bound == b.data[i].right_bound) 
+            data[i].bound_modifiers[1] = std::min(data[i].bound_modifiers[1], b.data[i].bound_modifiers[1]);        
     }
     return *this;
 }
 
 CArrayVarEntryInfo& CArrayVarEntryInfo::operator+=(const CArrayVarEntryInfo& b)
 {
+    if (subscripts == 0)
+    {
+        if (b.HasActiveElements())
+            disabled = true;
+        return *this;
+    }
+
+    if (b.subscripts == 0)
+    {
+        if (HasActiveElements())
+            MakeInactive();
+        return *this;
+    }
+
     //return *this;
-    if (disabled && !b.disabled && b.data) {
+    if (disabled && !b.disabled && b.data.size()) 
+    {
         for (int i = 0; i < subscripts; i++)
             data[i] = b.data[i];
         disabled = false;
         return *this;
     }
 
-    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data || !b.data || disabled || b.disabled) {
+    if (subscripts != b.subscripts || subscripts == 0 || b.subscripts == 0 || !data.size() || !b.data.size() || disabled || b.disabled) 
         return *this;
-    }
-    for (int i = 0; i < subscripts; i++) {
+    
+    for (int i = 0; i < subscripts; i++) 
+    {
 
-        if (data[i].left_bound == b.data[i].left_bound) {
+        if (data[i].left_bound == b.data[i].left_bound) 
             data[i].bound_modifiers[0] = std::min(data[i].bound_modifiers[0], b.data[i].bound_modifiers[0]);
-        }
-
-        if (data[i].right_bound == b.data[i].right_bound) {
+        
+        if (data[i].right_bound == b.data[i].right_bound) 
             data[i].bound_modifiers[1] = std::max(data[i].bound_modifiers[1], b.data[i].bound_modifiers[1]);
-        }
-        if (data[i].left_bound == NULL && data[i].right_bound == NULL && (b.data[i].left_bound != NULL || b.data[i].right_bound != NULL)) {
-            ArraySubscriptData tmp = data[i];
+        
+        if (data[i].left_bound == NULL && data[i].right_bound == NULL && (b.data[i].left_bound != NULL || b.data[i].right_bound != NULL)) 
+        {
+            const ArraySubscriptData &tmp = data[i];
             data[i] = b.data[i];
-            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) {
-                if (tmp.bound_modifiers[1] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] - 1) {
+            if (data[i].left_bound && data[i].left_bound->variant() == INT_VAL) 
+            {
+                if (tmp.bound_modifiers[1] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[0] - 1) 
                     data[i].bound_modifiers[0] -= (1 + tmp.bound_modifiers[1] - tmp.bound_modifiers[0]);
-                }
+                
             }
-            if (data[i].right_bound && data[i].right_bound->variant() == INT_VAL) {
-                if (tmp.bound_modifiers[0] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[1] + 1) {
-                    data[i].bound_modifiers[1] += (1 + tmp.bound_modifiers[1] - tmp.bound_modifiers[0]);
-                }
+
+            if (data[i].right_bound && data[i].right_bound->variant() == INT_VAL) 
+            {
+                if (tmp.bound_modifiers[0] == data[i].left_bound->valueInteger() + data[i].bound_modifiers[1] + 1) 
+                    data[i].bound_modifiers[1] += (1 + tmp.bound_modifiers[1] - tmp.bound_modifiers[0]);                
             }
         }
     }

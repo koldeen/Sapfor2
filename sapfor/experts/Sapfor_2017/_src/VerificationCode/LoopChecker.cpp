@@ -79,7 +79,10 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
                 break;
 
             if (isDVM_stat(st) && (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
+            {
                 errors[st->fileName()].push_back(st->lineNumber());
+                checkOK = false;
+            }
         }
     }
 
@@ -177,7 +180,7 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                     if (array->GetNonDistributeFlag())
-                        typeMessage = WARR;                    
+                        typeMessage = WARR;
                     else
                     {
                         checkOK = false;

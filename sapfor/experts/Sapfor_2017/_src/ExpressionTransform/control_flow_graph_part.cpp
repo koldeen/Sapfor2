@@ -14,7 +14,7 @@ using std::set;
 using std::pair;
 
 
-void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs);
+void showDefs(map<SymbolKey, set<ExpressionValue>> *defs);
 void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
@@ -51,8 +51,6 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
 
     for (auto it = gen.begin(); it != gen.end();)
         if (it->first == key)
-            it = gen.erase(it);
-        else if (symbolInExpression(key, it->second) && !it->first.isPointer())
             it = gen.erase(it);
         else
             ++it;
@@ -144,7 +142,7 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     if (found_inDefs != in_defs.end())
     {
         for (auto& value : found_inDefs->second)
-                addVarToKill(value.second->symbol());
+                addVarToKill(value.getExp()->symbol());
     }
 }
 
@@ -182,11 +180,14 @@ void CBasicBlock::adjustGenAndKillP(ControlFlowItem *cfi)
     //checkFuncAndProcCalls(cfi);
 }
 
-void CBasicBlock::processReadStat(SgStatement* readSt)
+void CBasicBlock::processReadStat(SgStatement *readSt)
 {
     SgExpression *input = readSt->expr(0);
     std::stack<SgExpression*> toCheck;
-    toCheck.push(input);
+
+    if (input)
+        toCheck.push(input);
+
     while (!toCheck.empty())
     {
         SgExpression *exp = toCheck.top();
@@ -261,26 +262,23 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
                     founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
 
                 for (auto &exp : it.second)
-                        founded->second.insert(exp.second);
+                        founded->second.insert(exp.getExp());
             }
         }
     }
     return defs;
 }
 
-static bool mergeExpressionMaps(map<string, SgExpression*> &main, map<string, SgExpression*> &term)
+static bool mergeExpressionMaps(set<ExpressionValue> &main, set<ExpressionValue> &term)
 {
-    bool mainChanged = false;
-    for (auto it = term.begin(); it != term.end(); ++it)
-    {
-        auto founded = main.find(it->first);
-        if (founded == main.end())
-            main.insert(founded, *it);
-    }
-    return mainChanged;
+    int mainSize = main.size();
+    main.insert(term.begin(), term.end());
+    if(main.size() != mainSize)
+        return true;
+    return false;
 }
 
-static void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<SymbolKey, map<string, SgExpression*>> *term, set<SymbolKey> *allowedVars)
+static void mergeDefs(map<SymbolKey, set<ExpressionValue>> *main, map<SymbolKey, set<ExpressionValue>> *term, set<SymbolKey> *allowedVars)
 {
     for (auto it = term->begin(); it != term->end(); ++it)
     {
@@ -297,22 +295,22 @@ static void mergeDefs(map<SymbolKey, map<string, SgExpression*>> *main, map<Symb
 
 void CBasicBlock::initializeOutWithGen()
 {
-    for (auto it = gen.begin(); it != gen.end(); ++it)
+    for (auto &elem : gen)
     {
-        auto inserted = out_defs.insert(make_pair(it->first, map<string, SgExpression*>()));
         SgExpression *newExp = NULL;
-        string newUnparsed = "";
-        if (it->second)
+        if (elem.second)
         {
-            newExp = it->second->copyPtr();
-            newUnparsed = newExp->unparse();
+            newExp = elem.second->copyPtr();
+            auto inserted = out_defs.find(elem.first);
+            if (inserted == out_defs.end())
+                inserted = out_defs.insert(inserted, make_pair(elem.first, set<ExpressionValue>()));
+            inserted->second.insert(newExp);
         }
-        inserted.first->second.insert(make_pair(newUnparsed, newExp));        
     }
 }
 
-static bool addDefsFilteredByKill(map<SymbolKey, map<string, SgExpression*>> *main,
-                                  map<SymbolKey, map<string, SgExpression*>> *defs, set<SymbolKey> *kill)
+static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue>> *main,
+                                  map<SymbolKey, set<ExpressionValue>> *defs, set<SymbolKey> *kill)
 {
     bool mainChanged = false;
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -328,14 +326,12 @@ static bool addDefsFilteredByKill(map<SymbolKey, map<string, SgExpression*>> *ma
             mainChanged = true;
         }
         else
-            if (mergeExpressionMaps(founded->second, it->second))
-                mainChanged = true;
-
+            mainChanged |= mergeExpressionMaps(founded->second, it->second);
     }
     return mainChanged;
 }
 
-void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
+void showDefs(map<SymbolKey, set<ExpressionValue>> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -346,8 +342,8 @@ void showDefs(map<SymbolKey, map<string, SgExpression*>> *defs)
             printf("--- %s = ", it->first.getVarName().c_str());
         for (auto iter = it->second.begin(); iter != it->second.end(); ++iter)
         {
-            if(iter->second)
-                printf("%s", iter->second->unparse());
+            if(iter->getExp())
+                printf("%s", iter->getUnparsed().c_str());
             else
                 printf("empty value");
             if (iter != it->second.end())
@@ -512,7 +508,7 @@ void PreparePointers(ControlFlowGraph *CGraph)
     }
 }
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, SgExpression*>> *inDefs, CommonVarsOverseer *overseer_Ptr)
+void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<ExpressionValue>> *inDefs, CommonVarsOverseer *overseer_Ptr)
 {
     overseerPtr = overseer_Ptr;
     CBasicBlock *b = CGraph->getFirst();
@@ -562,6 +558,9 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, map<string, 
 
 bool valueWithRecursion(const SymbolKey &var, SgExpression *exp)
 {
+    if (!exp)
+        return false;
+
     if (exp->variant() == VAR_REF)
         return var == exp->symbol();
 
@@ -576,6 +575,9 @@ bool valueWithRecursion(const SymbolKey &var, SgExpression *exp)
 
 bool valueWithFunctionCall(SgExpression *exp) 
 {
+    if (!exp)
+        return false;
+
     if (exp->variant() == FUNC_CALL)
         return true;
 
@@ -588,12 +590,30 @@ bool valueWithFunctionCall(SgExpression *exp)
     return funcFounded;
 }
 
+bool valueWithArrayReference(SgExpression *exp)
+{
+    if (!exp)
+        return false;
+
+    if (exp->variant() == ARRAY_REF)
+        return true;
+
+    bool arrayFounded = false;
+    if (exp->rhs())
+        arrayFounded = valueWithArrayReference(exp->rhs());
+    if (exp->lhs() && !arrayFounded)
+        arrayFounded = valueWithArrayReference(exp->lhs());
+
+    return arrayFounded;
+}
+
 /*
 * Can't expand var if:
 * 1. it has multiple values
 * 2. it is a NULL value
 * 3. value has function call
 * 4. value has itself within (recursion)
+* 5. value has array reference
 */
 void CBasicBlock::correctInDefsSimple() 
 {
@@ -601,11 +621,13 @@ void CBasicBlock::correctInDefsSimple()
     {
         if (it->second.size() != 1) //1
             it = in_defs.erase(it);
-        else if(it->second.begin()->second == NULL)
+        else if(it->second.begin()->getExp() == NULL)
             it = in_defs.erase(it);
-        else if (valueWithFunctionCall(it->second.begin()->second)) //3
+        else if (valueWithFunctionCall(it->second.begin()->getExp())) //3
             it = in_defs.erase(it);
-        else if (valueWithRecursion(it->first, it->second.begin()->second)) //4
+        else if (valueWithRecursion(it->first, it->second.begin()->getExp())) //4
+            it = in_defs.erase(it);
+        else if(valueWithArrayReference(it->second.begin()->getExp()))
             it = in_defs.erase(it);
         else
             it++;
@@ -647,7 +669,7 @@ bool CBasicBlock::correctInDefsIterative()
                 it++;
 
         //Clean outDefs
-        vector<map<SymbolKey, map<string, SgExpression*>>::const_iterator> toDel;
+        vector<map<SymbolKey, set<ExpressionValue>>::const_iterator> toDel;
         for (auto it = out_defs.begin(); it != out_defs.end(); ++it)
             if (allowedVars->find(it->first) == allowedVars->end()
                 && gen.find(it->first) == gen.end())
@@ -673,9 +695,8 @@ void CorrectInDefs(ControlFlowGraph *CGraph)
         b->correctInDefsSimple();
         b = b->getLexNext();
     }
-
-    bool changes = true;
-/*    while (changes)
+/*    bool changes = true;
+    while (changes)
     {
         changes = false;
         b = CGraph->getFirst();

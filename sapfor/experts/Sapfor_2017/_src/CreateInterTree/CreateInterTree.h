@@ -10,23 +10,26 @@
 
 struct Interval
 {
-	int calls = 0;
-	bool ifInclude = true;
+    int tag = 0;
+    int calls = 0;
+    bool ifInclude = true;
     SgStatement* begin;
+    Interval* parent = NULL;
+
     std::vector<SgStatement*> ends;
+    std::vector<int> exit_levels;
 
     std::vector<Interval*> includes;
 };
 
 struct FileProfile
 {
-	std::map<int, int> profile;
-
+    std::map<int, int> profile;
 };
 
 struct FileIntervals
 {
-	std::vector<Interval*> intervals;
+    std::vector<Interval*> intervals;
 };
 
 void createInterTree(SgFile*);

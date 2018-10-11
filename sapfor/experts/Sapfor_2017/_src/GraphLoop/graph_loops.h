@@ -3,10 +3,22 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 
-#include "../Distribution/DvmhDirective.h"
-#include "../ParallelizationRegions/ParRegions.h"
+#include "../Utils/errors.h"
 #include "../Utils/types.h"
+#include "../Distribution/DvmhDirective.h"
+
+struct DistrVariant;
+struct ParallelDirective;
+struct ParallelRegion;
+class Statement;
+
+namespace Distribution
+{
+    class Array;
+}
+namespace DIST = Distribution;
 
 struct LoopGraph
 {
@@ -211,6 +223,7 @@ public:
     int startVal;
     int endVal;
     int stepVal;
+    std::pair<Expression*, Expression*> startEndExpr;
 
     bool hasGoto;
     std::vector<int> linesOfInternalGoTo;
@@ -269,7 +282,7 @@ void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, co
 bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
 
 void convertToString(const LoopGraph *currLoop, std::string &result);
-int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph);
+int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph, bool withRegs = false);
 void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages);
 
 void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);

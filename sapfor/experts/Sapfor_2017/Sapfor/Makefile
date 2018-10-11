@@ -146,11 +146,13 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
-			 shadow.o
+			 shadow.o CreateInterTree.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 
+CreateInterTree.o: $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 SgUtils.o: $(REPO_SPF_BASE)Utils/SgUtils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
@@ -277,28 +279,28 @@ loopTransform.o: $(REPO_SPF_BASE)SageAnalysisTool/loopTransform.cpp $(REPO_SPF_B
 set.o: $(REPO_SPF_BASE)SageAnalysisTool/set.cpp $(REPO_SPF_BASE)SageAnalysisTool/set.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)SageAnalysisTool/set.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
-add-assert.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-affine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-cover.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega-build.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ddomega-use.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-debug.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-ip.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-kill.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c
-	$(CC) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.c -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+add-assert.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/add-assert.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+affine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/affine.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+cover.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/cover.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega-build.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-build.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ddomega-use.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ddomega-use.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+debug.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/debug.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+ip.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/ip.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+kill.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/kill.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+refine.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/refine.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+sagedriver.o: $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp
+	$(CXX) $(CFLAGS) -c  $(REPO_SPF_BASE)SageAnalysisTool/OmegaForSage/sagedriver.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
 clean:
 	rm -rf *.o

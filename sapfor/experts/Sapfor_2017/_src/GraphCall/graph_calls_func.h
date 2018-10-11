@@ -7,18 +7,24 @@
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 
-int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::set<std::string> &V, std::vector<std::string> &E);
+namespace Distribution
+{
+    class ArrayAccessInfo;
+}
+namespace DIST = Distribution;
+
+int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::map<std::string, CallV> &V, std::vector<std::string> &E);
 std::string removeString(const std::string toRemove, const std::string inStr);
 FuncInfo* isUserFunctionInProject(const std::string &func);
 std::string convertToString(const FuncInfo *currFunc);
-void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages);
+void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages, bool noPrint = false);
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF
-void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
+void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam = false);
 int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &files, const char *fileName,
     std::map<std::string, std::vector<FuncInfo*>> &funcByFile, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
     std::map<std::string, std::vector<Messages>> &allMessages, bool needToAddErrors);

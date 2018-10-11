@@ -24,6 +24,9 @@
 #include "version.h"
 
 #include "../GraphLoop/graph_loops.h"
+#include "../Distribution/Array.h"
+#include "../Distribution/Arrays.h"
+#include "../Sapfor.h"
 
 using std::map;
 using std::pair;
@@ -416,7 +419,7 @@ string splitDirective(const string &in_)
     return out + lastEnd;
 }
 
-extern "C" void ExitFromOmegaTest(const int c) { throw c; }
+extern void ExitFromOmegaTest(const int c) { throw c; }
 
 void sortFilesBySize(const char *proj_name)
 {

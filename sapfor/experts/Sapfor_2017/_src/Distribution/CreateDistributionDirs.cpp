@@ -8,6 +8,7 @@
 #include <string>
 #include <algorithm>
 #include <map>
+#include <climits>
 
 #include "Distribution.h"
 #include "GraphCSR.h"
@@ -309,9 +310,9 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
 
 static string printRule(const vector<tuple<DIST::Array*, int, pair<int, int>>> &rule)
 {
-    string print = "";
+    string print = get<0>(rule[0])->GetShortName() + " : ";
     for (auto &elem : rule)
-        print += "(" + std::to_string(get<2>(elem).first) + "," + std::to_string(get<2>(elem).second) + ")";
+        print +=  "(" + std::to_string(get<2>(elem).first) + "," + std::to_string(get<2>(elem).second) + ")";
     return print;
 }
 
@@ -379,7 +380,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
     {
         for (auto &array : manyDistrRules)
         {
-            __spf_print(1, "diferent align rules for array %s was found\n", array.first->GetName().c_str());
+            __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
             for (auto &rule : array.second)
                 __spf_print(1, "  -> %s\n", printRule(rule).c_str());
         }

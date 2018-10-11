@@ -15,28 +15,35 @@ struct FuncParam
 {
     void init(const int numPar)
     {
-        parameters.resize(numPar);
-        parametersT.resize(numPar);
-        std::fill(parametersT.begin(), parametersT.end(), NONE_T);
+        countOfPars = numPar;
+        if (numPar)
+        {
+            parameters.resize(numPar);
+            parametersT.resize(numPar);
+            inout_types.resize(numPar);
+            std::fill(parametersT.begin(), parametersT.end(), NONE_T);
+            std::fill(inout_types.begin(), inout_types.end(), 0);
+        }
     }
 
     std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;
+    std::vector<int> inout_types;
+    int countOfPars;
 };
 
-struct NestedFuncCall {
+struct NestedFuncCall 
+{
     std::string CalledFuncName;
     std::vector<std::vector<int>> NoOfParamUsedForCall;
 
-    NestedFuncCall(std::string funcName) :
-        CalledFuncName(funcName)
-    {}
+    NestedFuncCall(std::string funcName) : CalledFuncName(funcName) { }
 
     NestedFuncCall(std::string funcName, int ParsNum) :
         CalledFuncName(funcName),
         NoOfParamUsedForCall(std::vector<std::vector<int>>(ParsNum))
-    {}
+    { }
 };
 
 struct FuncInfo
@@ -56,8 +63,8 @@ struct FuncInfo
     FuncParam funcParams;
     std::vector<bool> isParamUsedAsIndex;
     std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func;
-                                                     // if FuncsCalledFromThis[func_call_idx].
-                                                    // NoOfParamUsedForCall.size() == 0 - no params of cur func used
+                                                     // if (FuncsCalledFromThis[func_call_idx].
+                                                    // NoOfParamUsedForCall.size() == 0) - no params of cur func used
 
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
@@ -91,3 +98,26 @@ struct FuncInfo
         return result;
     }
 };
+
+struct CallV
+{
+    std::string fName;
+    std::string fileName;
+    bool isMain;
+
+    CallV() { }
+
+    CallV(const std::string &fName) :
+        fName(fName), fileName(""), isMain(false)
+    { }
+
+    CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
+        fName(fName), fileName(fileName), isMain(isMain) 
+    { }
+
+    std::string to_string()
+    {
+        return fName + "@" + fileName + "@" + (isMain ? "1" : "0");
+    }
+};
+

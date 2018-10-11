@@ -25,6 +25,8 @@
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
 
+#include "CreateInterTree/CreateInterTree.h"
+
 #include "Utils/errors.h"
 #include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
@@ -43,6 +45,8 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+//#include "DEAR/dep_analyzer.h"
+
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
 #endif
@@ -485,10 +489,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                         if (currLines)
                         {
+                            //TODO: to be removed with new algorithm for parallel regions
                             File *fileT = new File(file);
                             const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
                             const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
+                            const vector<Statement*> reAlignRules;
+                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
 
                             insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
                         }
@@ -649,7 +655,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     createNestedLoops(itFound->second[i], depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
-            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages));
+            getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions);
         else if (curr_regime == FILE_LINE_INFO)
         {
             SgStatement *st = file->firstStatement();
@@ -709,22 +715,28 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             restoreConvertedLoopForParallelLoops(file, true);
         else if (curr_regime == SHADOW_GROUPING)
         {
+            // TODO: temporary disabled
+            /*
             //TODO for all parallel regions
             if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
             {
                 for (int z = 0; z < parallelRegions.size(); ++z)
                     GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
-            }
+            }*/
         }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
-                functionAnalyzer(file, subs_allFuncInfo);
+                functionAnalyzer(file, subs_allFuncInfo, true);
 
             fillRegionLines(file, subs_parallelRegions);
         }
-
+        else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
+            fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == CREATE_INTER_TREE)
+            createInterTree(file);
+        
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
     } // end of FOR by files
@@ -787,7 +799,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             {
                                 messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), message, 1036));
 
-                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n", 
+                                __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
                                             fileName.c_str(), line.stats.first->lineNumber());
                             }
                         }
@@ -795,7 +807,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
             }
-            
+
             G.SetMaxAvailMemory(currentAvailMemory);
             G.ChangeQuality(QUALITY, SPEED);
 
@@ -862,45 +874,43 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
 
-        if (idxToDel.size() == parallelRegions.size())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else if (idxToDel.size() > 0)
+        vector<ParallelRegion*> newParReg;
+        for (int z = 0; z < parallelRegions.size(); ++z)
         {
-            vector<ParallelRegion*> newParReg;
-            for (int z = 0; z < parallelRegions.size(); ++z)
+            if (idxToDel.find(z) != idxToDel.end())
             {
-                if (idxToDel.find(z) != idxToDel.end())
+                ParallelRegion *regToDel = parallelRegions[z];
+                const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
+                for (auto it = currLines.begin(); it != currLines.end(); ++it)
                 {
-                    ParallelRegion *regToDel = parallelRegions[z];
-                    const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
-                    for (auto it = currLines.begin(); it != currLines.end(); ++it)
+                    vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
+                    char buf[256];
+                    sprintf(buf, "Can not find arrays / loops for distribution in parallel region '%s', ignored", regToDel->GetName().c_str());
+                    for (int k = 0; k < it->second.size(); ++k)
                     {
-                        vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
-                        char buf[256];
-                        sprintf(buf, "Can not find arrays for distribution for parallel region '%s', ignored", regToDel->GetName().c_str());
-                        for (int k = 0; k < it->second.size(); ++k)
-                        {
-                            currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
-                            __spf_print(1, "  Can not find arrays for distribution for parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
-                        }
+                        currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
+                        __spf_print(1, "  Can not find arrays for distribution in parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
                     }
-#ifdef _WIN32
-                    removeFromCollection(parallelRegions[z]);
-#endif
-                    delete parallelRegions[z];
                 }
-                else
-                    newParReg.push_back(parallelRegions[z]);
+#ifdef _WIN32
+                removeFromCollection(parallelRegions[z]);
+#endif
+                delete parallelRegions[z];
             }
-            parallelRegions.clear();
-            parallelRegions = newParReg;
+            else
+                newParReg.push_back(parallelRegions[z]);
         }
+        parallelRegions.clear();
+        parallelRegions = newParReg;
+
+        if (parallelRegions.size() == 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
     {
         if (keepFiles)
         {
-            set<string> V;
+            map<string, CallV> V;
             vector<string> E;
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
@@ -1076,7 +1086,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         checkCountOfIter(loopGraph, SPF_messages);
         if (keepFiles)
         {
-            printLoopGraph("_loopGraph.txt", loopGraph);
+            printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
@@ -1154,9 +1164,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
-        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages);
+        findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages, true);
         fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
         clearRegionStaticData();
+    }
+    else if (curr_regime == GET_ALL_ARRAY_DECL)
+    {
+        for (auto array : declaratedArrays)
+        {
+            if (array.second.first->GetRgionsName().size() == 0)
+                array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+        }
     }
 
 #if _WIN32
@@ -1341,6 +1359,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runPass(REVERT_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
+            runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
@@ -1366,13 +1385,17 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         }
     }
         break;
-    case CREATE_NESTED_LOOPS: //arbu pass in loop_transform.cpp
+    case CREATE_NESTED_LOOPS:
     case CONVERT_TO_ENDDO:
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
-    case REMOVE_DVM_DIRS_TO_COMMENTS:    
+    case REMOVE_DVM_DIRS_TO_COMMENTS:
+    case CREATE_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
+        break;
+    case INSERT_INTER_TREE:
+        insertIntervals();
         break;
     case INLINE_PROCEDURES:
         runAnalysis(*project, curr_regime, false);
@@ -1567,6 +1590,7 @@ int main(int argc, char **argv)
     }
     catch (...)
     {
+        printStackTrace();
         printf("exception occurred\n");
     }
 

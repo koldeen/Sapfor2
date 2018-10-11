@@ -25,15 +25,4 @@
       <Filter>Файлы исходного кода</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-  </ItemGroup>
 </Project>

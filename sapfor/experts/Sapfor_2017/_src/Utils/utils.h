@@ -4,7 +4,12 @@
 #include <set>
 #include <string>
 
-#include "../Distribution/Distribution.h"
+namespace Distribution
+{
+    class Array;
+    template<typename vType> class Arrays;
+}
+namespace DIST = Distribution;
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);
@@ -58,3 +63,6 @@ extern void sendMessage_2lvl(const std::wstring &toSend);
 #endif
 
 std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int regionId);
+#ifdef _WIN32
+void printStackTrace();
+#endif

@@ -159,7 +159,9 @@ Set *loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymbol **ts
         return NULL;
     last = stmt->lastNodeOfStmt();
     // get induction variables;
+    
     inducvar = getAllInductionVar(func, stmt, 1, &numloop, -1);
+    
     // add the constante to the induction set variable;
     // cstset = computeConstanteInStmt(func,stmt);
     //   if (cstset)

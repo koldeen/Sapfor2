@@ -8,6 +8,9 @@
 #include <algorithm>
 
 #include "DvmhDirective.h"
+#include "../Distribution/Array.h"
+#include "../Distribution/Arrays.h"
+#include "../Distribution/GraphCSR.h"
 #include "../Utils/errors.h"
 #include "../Sapfor.h"
 #include "../Utils/utils.h"
