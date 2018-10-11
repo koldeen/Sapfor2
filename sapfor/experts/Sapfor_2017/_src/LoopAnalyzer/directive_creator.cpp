@@ -1266,8 +1266,6 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
     }
 }
 
-<<<<<<< HEAD
-=======
 
 static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &arrays, const int regId,
     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1310,7 +1308,6 @@ static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, 
     }
 }
 
->>>>>>> master
 static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updateOn,
                                   const map<DIST::Array*, vector<bool>> &dimsNotMatch,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1476,11 +1473,8 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     
     if (resolved)
     {
-<<<<<<< HEAD
-=======
         propagateTemplateInfo(rightValues, regId, arrayLinksByFuncCalls, reducedG, allArrays);
 
->>>>>>> master
         for (auto &elem : rightValues)
         {
             auto &shortName = elem.first->GetShortName();

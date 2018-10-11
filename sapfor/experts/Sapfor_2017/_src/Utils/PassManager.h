@@ -151,11 +151,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
     Pass(CLEAR_SPF_DIRS) <= Pass(REVERT_SPF_DIRS) <= Pass(UNPARSE_FILE);
 
     list({ CORRECT_VAR_DECL, REVERT_SUBST_EXPR }) << list({ INSERT_INCLUDES, UNPARSE_FILE });
-<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Utils/PassManager.h
-=======
 
     Pass(CALL_GRAPH2) <= Pass(PRIVATE_ARRAYS_BREEDING);
->>>>>>> master:sapfor/experts/Sapfor_2017/_src/Utils/PassManager.h
 
     passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, EXTRACT_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF,
                                    EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE, REMOVE_AND_CALC_SHADOW,

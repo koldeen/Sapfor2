@@ -108,17 +108,6 @@ struct CallV
     std::string fName;
     std::string fileName;
     bool isMain;
-<<<<<<< HEAD
-
-    CallV() { }
-
-    CallV(const std::string &fName) :
-        fName(fName), fileName(""), isMain(false)
-    { }
-
-    CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
-        fName(fName), fileName(fileName), isMain(isMain) 
-=======
     int inRegion;
 
     CallV() : inRegion(0) { }
@@ -129,16 +118,11 @@ struct CallV
 
     CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
         fName(fName), fileName(fileName), isMain(isMain), inRegion(0)
->>>>>>> master
     { }
 
     std::string to_string()
     {
-<<<<<<< HEAD
-        return fName + "@" + fileName + "@" + (isMain ? "1" : "0");
-=======
         return fName + "@" + fileName + "@" + (isMain ? "1" : "0") + "@" + std::to_string(inRegion);
->>>>>>> master
     }
 };
 

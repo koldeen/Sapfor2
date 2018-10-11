@@ -93,11 +93,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     // has non nested child loop
     __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
     bool outerTightened = false;
-<<<<<<< HEAD
-    bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
-=======
     bool loopCondition = current->children.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
->>>>>>> master
 
     // TODO: need to rewrite
     /*

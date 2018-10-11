@@ -153,9 +153,6 @@ static void filterUserDirectives(ParallelRegion *currReg, set<string> usedArrayI
     currReg->AddUserDirectives(userDvmShadowDirsF, DVM_SHADOW_DIR);
 }
 
-<<<<<<< HEAD
-void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops)
-=======
 static void setExplicitFlag(const string &name, const map<string, FuncInfo*> &mapFuncs)
 {
     auto it = mapFuncs.find(name);
@@ -164,7 +161,6 @@ static void setExplicitFlag(const string &name, const map<string, FuncInfo*> &ma
 }
 
 void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops, vector<FuncInfo*> *funcs)
->>>>>>> master
 {
     map<string, FuncInfo*> mapFuncs;
     if (funcs)
@@ -224,49 +220,6 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
                 regionStarted = true;
                 regionName = data->symbol()->identifier();
-<<<<<<< HEAD
-
-            }
-            else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
-            {
-                updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
-                SgStatement *data = next;
-
-                lines.second = data->lineNumber();
-                regionStarted = false;
-
-                if (regionName == "")
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                auto it = regionIdByName.find(regionName);
-                ParallelRegion *currReg = NULL;
-                if (it == regionIdByName.end())
-                {
-                    it = regionIdByName.insert(it, make_pair(regionName, regionIdConuter));
-                    currReg = new ParallelRegion(regionIdConuter, regionName);
-                    regions.push_back(currReg);
-                    regionByName[regionName] = currReg;
-                    regionName = "";
-                    regionIdConuter++;
-                }
-                else
-                    currReg = regionByName[regionName];
-
-                if (currReg == NULL)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                extendRegionInfo(st, startEnd, lines_, true);
-                for (auto itRegInfo = startEnd.begin(); itRegInfo != startEnd.end(); ++itRegInfo)
-                    currReg->AddLines(lines_[itRegInfo->first], itRegInfo->first, &itRegInfo->second);
-
-                for (auto &func : funcCallFromReg)
-                    currReg->AddFuncCalls(func);
-
-                filterUserDirectives(currReg, usedArrayInRegion, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs);
-                currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
-                currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
-
-=======
                 if (funcs)
                     setExplicitFlag(file->functions(i)->symbol()->identifier(), mapFuncs);
             }
@@ -309,7 +262,6 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                 currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
                 currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
 
->>>>>>> master
                 startEnd.clear();
                 lines_.clear();
                 funcCallFromReg.clear();
@@ -473,8 +425,6 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         regions.erase(regions.begin());
     }
 
-<<<<<<< HEAD
-=======
     bool changed = true;
     while (changed)
     {
@@ -500,7 +450,6 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         }
     }
 
->>>>>>> master
     if (loopGraph)
     {
         //fill regions for loop 

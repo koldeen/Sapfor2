@@ -86,9 +86,6 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                     {
                         set<string> allS;
                         for (auto exI = ex->lhs(); exI; exI = exI->rhs())
-<<<<<<< HEAD
-                            allS.insert(exI->lhs()->symbol()->identifier());
-=======
                         {
                             if (exI->lhs()->variant() == RENAME_NODE)
                             {
@@ -98,7 +95,6 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                                     allS.insert(exI->lhs()->rhs()->symbol()->identifier());
                             }
                         }
->>>>>>> master
 
                         set<DIST::Array*> needToAdd;
                         for (auto &parReg : regs)
@@ -124,10 +120,7 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                                 ex->setLhs(newEx);
                             }
                         }
-<<<<<<< HEAD
-=======
 
->>>>>>> master
                     }
                 }
             }

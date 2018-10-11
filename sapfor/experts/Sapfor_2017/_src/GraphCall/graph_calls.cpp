@@ -602,11 +602,7 @@ static void fillIn(FuncInfo *currF, SgExpression *ex, const map<string, int> &pa
 {
     if (ex)
     {
-<<<<<<< HEAD
-        if (ex->variant() == VAR_REF && ex->variant() == ARRAY_REF)
-=======
         if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
->>>>>>> master
         {
             const char *name = ex->symbol()->identifier();
             if (name && name != string(""))
@@ -647,12 +643,6 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
             fillIn(currF, left->lhs(), parNames);
             fillIn(currF, left->rhs(), parNames);
             fillIn(currF, st->expr(1), parNames);
-<<<<<<< HEAD
-        }
-        else if (st->variant() == READ_STAT)
-        {
-
-=======
             
             if (left->symbol())
             {
@@ -668,7 +658,6 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
         else if (st->variant() == WRITE_STAT) // TODO
         {
             //printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
->>>>>>> master
         }
         else
         {
@@ -761,13 +750,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 currInfo->isParamUsedAsIndex.push_back(false);
             }
 
-<<<<<<< HEAD
-            /*if (!dontFillFuncParam)
-                fillInOut(currInfo, st, st->lastNodeOfStmt());*/
-=======
             if (!dontFillFuncParam)
                 fillInOut(currInfo, st, st->lastNodeOfStmt());
->>>>>>> master
         }
 
         if (isSPF_NoInline(st->lexNext()))
@@ -935,34 +919,13 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
             const string &callFrom = it->second[k]->funcName;
             const FuncInfo *callFromP = it->second[k];
 
-<<<<<<< HEAD
-            for (auto &i : it->second[k]->callsFrom)
-            {
-                sprintf(buf, formatString, callFrom.c_str(), i.c_str());
-=======
             for (auto &callItem : it->second[k]->callsFrom)
             {
                 sprintf(buf, formatString, callFrom.c_str(), callItem.c_str());
->>>>>>> master
                 graph += buf;
 
                 if (inCluster.find(callFrom) == inCluster.end())
                     unknownCluster.insert(callFrom);
-<<<<<<< HEAD
-                if (inCluster.find(i) == inCluster.end())
-                    unknownCluster.insert(i);
-                
-                if (V.find(callFrom) == V.end())
-                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
-                if (V.find(i) == V.end())
-                {
-                    auto it = allFuncs.find(i);
-                    auto currF = it->second;
-                    if (it == allFuncs.end())
-                        V[i] = CallV(i);
-                    else
-                        V[i] = CallV(i, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
-=======
                 if (inCluster.find(callItem) == inCluster.end())
                     unknownCluster.insert(callItem);
                 
@@ -983,16 +946,11 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
                         V[callItem] = CallV(callItem, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
                         V[callItem].inRegion = currF->inRegion;
                     }
->>>>>>> master
                 }
                 
                 
                 E.push_back(callFrom);
-<<<<<<< HEAD
-                E.push_back(i);                
-=======
                 E.push_back(callItem);
->>>>>>> master
             }
         }
         it++;
@@ -1270,17 +1228,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             needInsert = true;
         }
         else
-<<<<<<< HEAD
-        {
-            while (parList)
-            {
-                needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func);
-                parList = parList->rhs();
-            }
-        }
-=======
             needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop);
->>>>>>> master
     }
     else
         needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop);
@@ -1407,11 +1355,7 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-<<<<<<< HEAD
-        findInsertedFuncLoopGraph(childs[k]->childs, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
-=======
         findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
->>>>>>> master
     }
 }
 
@@ -1752,8 +1696,6 @@ static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag 
     return globalChange;
 }
 
-<<<<<<< HEAD
-=======
 static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
 {
     bool change = true;
@@ -1821,7 +1763,6 @@ static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
 }
 
 
->>>>>>> master
 static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool globalChange = false;
@@ -1949,12 +1890,5 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     propagateWritesToArrays(funcByName);
 }
 
-<<<<<<< HEAD
-void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
-{
-
-}
-=======
->>>>>>> master
 
 #undef DEBUG

@@ -86,20 +86,14 @@ enum passes {
     REVERT_SPF_DIRS,
     CLEAR_SPF_DIRS,
 
-<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.h
     CREATE_INTER_TREE,
     INSERT_INTER_TREE,
 
-=======
->>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.h
     SHADOW_GROUPING,
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
-<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.h
-=======
     PRIVATE_ARRAYS_BREEDING,
->>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.h
     EMPTY_PASS
 };
 
@@ -196,12 +190,9 @@ static void setPassValues()
     passNames[PRINT_PAR_REGIONS_ERRORS] = "PRINT_PAR_REGIONS_ERRORS";
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
-<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.h
+    passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
 
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
-=======
-    passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
->>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.h
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

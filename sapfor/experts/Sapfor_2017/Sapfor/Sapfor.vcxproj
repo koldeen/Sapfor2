@@ -214,10 +214,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
-<<<<<<< HEAD
-=======
       <WholeProgramOptimization>false</WholeProgramOptimization>
->>>>>>> master
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -236,12 +233,9 @@
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
-<<<<<<< HEAD
-=======
       <Optimization>Full</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <WholeProgramOptimization>true</WholeProgramOptimization>
->>>>>>> master
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

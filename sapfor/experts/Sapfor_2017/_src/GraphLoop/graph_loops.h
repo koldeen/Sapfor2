@@ -254,11 +254,7 @@ public:
 
     bool hasDifferentAlignRules;
 
-<<<<<<< HEAD
-    std::vector<LoopGraph*> childs; //fixme typo 'children'
-=======
     std::vector<LoopGraph*> children;
->>>>>>> master
     LoopGraph *parent;
 
     std::vector<std::pair<std::string, int>> calls;

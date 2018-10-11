@@ -323,11 +323,7 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     int retSize = -1;
     try
     {
-<<<<<<< HEAD
-        runPassesForVisualizer(projName, { CALL_GRAPH2 });
-=======
         runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES });
->>>>>>> master
 
         map<string, CallV> V;
         vector<string> E;

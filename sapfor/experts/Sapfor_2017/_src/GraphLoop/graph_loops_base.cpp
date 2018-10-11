@@ -90,15 +90,6 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
                     newToAdd.insert(it->first);
             }
 
-            set<DIST::Array*> newToAdd;
-
-            for (auto it = part1->readOps.begin(); it != part1->readOps.end(); ++it)
-            {
-                auto it2 = part2->readOps.find(it->first);
-                if (it2 == part2->readOps.end())
-                    newToAdd.insert(it->first);
-            }
-
             for (auto it = part2->readOps.begin(); it != part2->readOps.end(); ++it)
             {
                 auto it2 = part1->readOps.find(it->first);
@@ -501,11 +492,7 @@ static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, cons
                 fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
             }
         }
-<<<<<<< HEAD
-        printLoopGraphLvl(file, childs[k]->childs, lvl + 1, withRegs);
-=======
         printLoopGraphLvl(file, childs[k]->children, lvl + 1, withRegs);
->>>>>>> master
     }
 }
 
@@ -566,11 +553,7 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
                 loops[i]->countOfIters = 2;
-<<<<<<< HEAD
-            setToDefaultCountIter(loops[i]->childs, isNotOkey);
-=======
             setToDefaultCountIter(loops[i]->children, isNotOkey);
->>>>>>> master
         }
     }
 }
@@ -600,13 +583,8 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, ve
 
     if (isNotOkey.size() != 0)
     {
-<<<<<<< HEAD
-        for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            setToDefaultCountIter(it->second, isNotOkey);
-=======
         for (auto &loopsV : loopGraph)
             setToDefaultCountIter(loopsV.second, isNotOkey);
->>>>>>> master
     }
 
     for (auto &loopsV : loopGraph)

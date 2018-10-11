@@ -573,11 +573,7 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
 static int calculateNormalChildSize(const LoopGraph *currLoop)
 {
     int count = 0;
-<<<<<<< HEAD
-    for (auto &elem : currLoop->childs)
-=======
     for (auto &elem : currLoop->children)
->>>>>>> master
         count += (elem->lineNum > 0) ? 1 : 0;
     return count;
 }
