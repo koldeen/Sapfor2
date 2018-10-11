@@ -77,9 +77,18 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
         {
             LoopGraph *part1 = currLoop, *part2 = currLoop;
             for (int i = 0; i < depth - 1; ++i)
-                part1 = part1->childs[0];
+                part1 = part1->children[0];
             for (int i = 0; i < depth - 2; ++i)
-                part2 = part2->childs[0];
+                part2 = part2->children[0];
+
+            set<DIST::Array*> newToAdd;
+
+            for (auto it = part1->readOps.begin(); it != part1->readOps.end(); ++it)
+            {
+                auto it2 = part2->readOps.find(it->first);
+                if (it2 == part2->readOps.end())
+                    newToAdd.insert(it->first);
+            }
 
             set<DIST::Array*> newToAdd;
 
@@ -113,21 +122,21 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
     }
     else
     {
-        for (int i = 0; i < currLoop->childs.size(); ++i)
-            uniteChildReadInfo(currLoop->childs[i]);
+        for (int i = 0; i < currLoop->children.size(); ++i)
+            uniteChildReadInfo(currLoop->children[i]);
     }
 }
 
 static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foundConflicts, map<DIST::Array*, vector<ArrayOp>> &unitedWROps)
 {
-    for (int i = 0; i < currLoop->childs.size(); ++i)
+    for (int i = 0; i < currLoop->children.size(); ++i)
     {
         if (i > 0)
         {
             foundConflicts.clear();
             unitedWROps.clear();
         }
-        fillConflictState(currLoop->childs[i], foundConflicts, unitedWROps);
+        fillConflictState(currLoop->children[i], foundConflicts, unitedWROps);
     }
 
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
@@ -492,7 +501,11 @@ static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, cons
                 fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
             }
         }
+<<<<<<< HEAD
         printLoopGraphLvl(file, childs[k]->childs, lvl + 1, withRegs);
+=======
+        printLoopGraphLvl(file, childs[k]->children, lvl + 1, withRegs);
+>>>>>>> master
     }
 }
 
@@ -539,7 +552,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                 }
                 isNotOkey.insert(loops[i]->region);
             }
-            isAllOk(loops[i]->childs, currMessages, isNotOkey, uniqMessages);
+            isAllOk(loops[i]->children, currMessages, isNotOkey, uniqMessages);
         }
     }
 }
@@ -553,18 +566,21 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
                 loops[i]->countOfIters = 2;
+<<<<<<< HEAD
             setToDefaultCountIter(loops[i]->childs, isNotOkey);
+=======
+            setToDefaultCountIter(loops[i]->children, isNotOkey);
+>>>>>>> master
         }
     }
 }
 
-static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, const set<void*> &isNotOkey)
+static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
+        loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested);
     }
 }
 
@@ -584,11 +600,16 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, ve
 
     if (isNotOkey.size() != 0)
     {
+<<<<<<< HEAD
         for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
             setToDefaultCountIter(it->second, isNotOkey);
+=======
+        for (auto &loopsV : loopGraph)
+            setToDefaultCountIter(loopsV.second, isNotOkey);
+>>>>>>> master
     }
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        multiplyCountIter(it->second, 1.0, isNotOkey);
+    for (auto &loopsV : loopGraph)
+        multiplyCountIter(loopsV.second, 1.0);
 
 }

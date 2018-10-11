@@ -21,6 +21,10 @@ void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
+<<<<<<< HEAD
+=======
+void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
+>>>>>>> master
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF

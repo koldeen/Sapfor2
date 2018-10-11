@@ -498,8 +498,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                     loopGraph.push_back(newLoop);
                 else
                 {
-                    currLoop->childs.push_back(newLoop);
-                    currLoop->childs.back()->parent = parentLoops.back();
+                    currLoop->children.push_back(newLoop);
+                    currLoop->children.back()->parent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);
@@ -545,7 +545,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 void LoopGraph::recalculatePerfect()
 {
     perfectLoop = ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest();
-    for (auto &loop : childs)
+    for (auto &loop : children)
         loop->recalculatePerfect();
 }
 
@@ -573,7 +573,11 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
 static int calculateNormalChildSize(const LoopGraph *currLoop)
 {
     int count = 0;
+<<<<<<< HEAD
     for (auto &elem : currLoop->childs)
+=======
+    for (auto &elem : currLoop->children)
+>>>>>>> master
         count += (elem->lineNum > 0) ? 1 : 0;
     return count;
 }
@@ -601,8 +605,8 @@ void convertToString(const LoopGraph *currLoop, string &result)
         for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
             result += " " + std::to_string(currLoop->linesOfIO[i]);
 
-        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
-            convertToString(currLoop->childs[i], result);
+        for (int i = 0; i < (int)currLoop->children.size(); ++i)
+            convertToString(currLoop->children[i], result);
     }
 }
 #undef DEBUG

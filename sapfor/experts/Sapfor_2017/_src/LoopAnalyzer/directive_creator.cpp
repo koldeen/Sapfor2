@@ -13,6 +13,7 @@
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Arrays.h"
 #include "../Distribution/Distribution.h"
+#include "../Distribution/DvmhDirective_func.h"
 
 #include "../Utils/errors.h"
 #include "loop_analyzer.h"
@@ -488,7 +489,7 @@ static void fillArraysWithAcrossStatus(LoopGraph *loopInfo, set<string> &uniqNam
     LoopGraph *curr = loopInfo;
     while (curr->perfectLoop > 1)
     {
-        curr = curr->childs[0];
+        curr = curr->children[0];
         fillArrays(curr, uniqNames);
     }
 
@@ -779,20 +780,20 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     LoopGraph *next = current;
 
     for (int i = 0; i < current->perfectLoop - 1; ++i)
-        next = next->childs[0];
+        next = next->children[0];
 
-    if (next->childs.size() == 0)
+    if (next->children.size() == 0)
         return true;
     else
     //    return false;
     {
-        while (next->childs.size() != 0)
+        while (next->children.size() != 0)
         {
-            if (next->childs.size() > 1)
+            if (next->children.size() > 1)
                 return false;
             else
             {
-                next = next->childs[0];
+                next = next->children[0];
                 bool condition = next->directive != NULL;
                 if (condition)
                     condition = next->directive->arrayRef != NULL;
@@ -911,7 +912,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             vector<vector<int>> AllLinks(realArrayRef.size());
             int currL = 0;
             for (auto &array : realArrayRef)
-                reducedG.FindLinksBetweenArrays(allArrays, array, currDistArray, AllLinks[currL++]);
+                AllLinks[currL++] = findLinksBetweenArrays(array, currDistArray, regionId);
 
             if (isAllRulesEqual(AllLinks))
                 links = AllLinks[0];
@@ -1265,6 +1266,51 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
     }
 }
 
+<<<<<<< HEAD
+=======
+
+static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &arrays, const int regId,
+    const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+    DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+{
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &elem : arrays)
+        {
+            auto array = elem.first;
+            if (array->GetTemplateArray(regId) == NULL)
+            {
+                vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
+                    getAlignRuleWithTemplate(array, arrayLinksByFuncCalls, reducedG, allArrays, regId);
+
+                int idx = 0;
+                for (auto &elem : templRule)
+                {
+                    if (get<0>(elem) == NULL)
+                    {
+                        idx++;
+                        continue;
+                    }
+                    auto templ = get<0>(elem);
+                    auto alignDim = get<1>(elem);
+                    auto intRule = get<2>(elem);
+
+                    int dimNum = -1;
+                    int err = allArrays.GetDimNumber(get<0>(elem), alignDim, dimNum);
+                    if (err == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    array->AddLinkWithTemplate(idx, dimNum, templ, intRule, regId);
+                    ++idx;
+                    changed = true;
+                }
+            }
+        }
+    }
+}
+
+>>>>>>> master
 static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updateOn,
                                   const map<DIST::Array*, vector<bool>> &dimsNotMatch,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1430,6 +1476,11 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     
     if (resolved)
     {
+<<<<<<< HEAD
+=======
+        propagateTemplateInfo(rightValues, regId, arrayLinksByFuncCalls, reducedG, allArrays);
+
+>>>>>>> master
         for (auto &elem : rightValues)
         {
             auto &shortName = elem.first->GetShortName();
@@ -1539,8 +1590,8 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         }
         else //TODO: add checker for indexing in this loop
         {
-            if (loopGraph[i]->childs.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->childs, 
+            if (loopGraph[i]->children.size() != 0)
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, 
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }

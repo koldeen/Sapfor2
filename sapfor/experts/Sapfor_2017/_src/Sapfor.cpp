@@ -25,8 +25,11 @@
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
 
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 #include "CreateInterTree/CreateInterTree.h"
 
+=======
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 #include "Utils/errors.h"
 #include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
@@ -42,6 +45,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
+#include "LoopConverter/private_arrays_breeder.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
@@ -72,9 +76,12 @@ static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 //from insert_directive.cpp
 extern map<string, set<string>> dynamicDirsByFile;
 
+=======
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 void deleteAllAllocatedData(bool enable)
 {
     if (enable)
@@ -213,6 +220,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
     {
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 
         /*if (curr_regime == CORRECT_CODE_STYLE)
             groupDeclarations(file);*/
@@ -267,6 +275,62 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
     }
 }
 
+=======
+
+        /*if (curr_regime == CORRECT_CODE_STYLE)
+            groupDeclarations(file);*/
+
+        if (newVer == NULL)
+        {
+            __spf_print(1, "  ERROR: null file addition name\n");
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+            throw(-1);
+        }
+
+        string fout_name = "";
+        if (folderName == NULL)
+            fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+        else
+        {
+            if (strlen(newVer) == 0)
+                fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
+            else
+                fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+        }
+
+        __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
+        if (curr_regime == INSERT_INCLUDES)
+        {
+            __spf_print(1, "  try to find file <%s>\n", file_name);
+            __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
+        }
+        if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
+        {
+            FILE *fOut = fopen(fout_name.c_str(), "w");
+            if (fOut)
+            {
+                file->unparse(fOut);
+                fclose(fOut);
+            }
+            else
+            {
+                __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+                throw(-1);
+            }
+        }
+        else
+        {
+            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
+
+            // copy includes that have not changed
+            if (folderName != NULL)
+                copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
+        }
+    }
+}
+
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
 pair<SgFile*, SgStatement*> currProcessing;
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
@@ -379,7 +443,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == LOOP_GRAPH)        
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
+=======
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
         else if (curr_regime == VERIFY_ENDDO)
         {
             bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
@@ -438,9 +506,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
             if (i == n - 1)
                 dynamicDirsByFile.clear();
 
+=======
+            
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = NULL;
 
@@ -580,7 +652,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
             arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
             fillRegionLines(file, parallelRegions, &(loopGraph[file_name]));
+=======
+            fillRegionLines(file, parallelRegions, &(loopGraph[file_name]), &(allFuncInfo[file_name]));
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
@@ -684,7 +760,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
             devourShadowByRemote(file);
+=======
+            devourShadowByRemote(file, arrayLinksByFuncCalls);
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
         else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
             transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
@@ -725,6 +805,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }*/
         }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
@@ -736,6 +817,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == CREATE_INTER_TREE)
             createInterTree(file);
+=======
+        {
+            auto it = subs_allFuncInfo.find(file_name);
+            if (it == subs_allFuncInfo.end())
+                functionAnalyzer(file, subs_allFuncInfo, true);
+
+            fillRegionLines(file, subs_parallelRegions);
+        }
+        else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
+            fixUseOnlyStmt(file, parallelRegions);
+        else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if(founded != loopGraph.end())
+                breedArrays(file, loopGraph.find(file->filename())->second);
+        }
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
@@ -1391,12 +1489,18 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
+<<<<<<< HEAD:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
     case CREATE_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INSERT_INTER_TREE:
         insertIntervals();
         break;
+=======
+    case PRIVATE_ARRAYS_BREEDING:
+        runAnalysis(*project, curr_regime, true, "", folderName);
+        break;
+>>>>>>> master:sapfor/experts/Sapfor_2017/_src/Sapfor.cpp
     case INLINE_PROCEDURES:
         runAnalysis(*project, curr_regime, false);
         if (folderName)

@@ -177,6 +177,35 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
     return false;
 }
 
+vector<tuple<DIST::Array*, int, pair<int, int>>> 
+    getAlignRuleWithTemplate(DIST::Array *array, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                             DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
+                             const int regionId)
+{
+    vector<tuple<DIST::Array*, int, pair<int, int>>> retVal;
+
+    set<DIST::Array*> realRefs;
+    getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRuleForShadow(realRefs.size());
+    int idx = 0;
+    for (auto &array : realRefs)
+        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRuleForShadow[idx++], regionId);
+
+    if (realRefs.size() == 1)
+        retVal = allRuleForShadow[0];
+    else
+    {
+        bool eq = isAllRulesEqual(allRuleForShadow);
+        if (eq == false)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        else
+            retVal = allRuleForShadow[0];
+    }
+
+    return retVal;
+}
+
 static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &reducedG,
                                      const DIST::Arrays<int> &allArrays,
                                      DIST::Array *arrayRef, DIST::Array *calcForArray,
@@ -191,6 +220,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
 {
     string out = "";
 
+<<<<<<< HEAD
     vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForOn;
     reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForOn, regionId);
 
@@ -215,6 +245,14 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
             ruleForShadow = allRuleForShadow[0];
     }
 
+=======
+    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForOn =
+        getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);    
+
+    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForShadow = 
+        getAlignRuleWithTemplate(calcForArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+        
+>>>>>>> master
     const pair<vector<ArrayOp>, vector<bool>> *currReadOp = NULL;
     auto readIt = readOps.find(calcForArray);
     if (readIt != readOps.end())
@@ -358,8 +396,13 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     //replace to template align ::on
     if (arrayRef->isTemplate() == false)
     {
+<<<<<<< HEAD
         vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef;
         reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForRef, regionId);
+=======
+        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef = 
+            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);        
+>>>>>>> master
         findAndReplaceDimentions(ruleForRef, allArrays);
 
         on_ext.clear();

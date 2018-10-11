@@ -277,7 +277,7 @@ int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *
     int retSize = -1;    
     try
     {
-        runPassesForVisualizer(projName, { CALL_GRAPH2 } );
+        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES } );
          
         string resVal = "";
         resVal = to_string(allFuncInfo.size());
@@ -323,7 +323,11 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     int retSize = -1;
     try
     {
+<<<<<<< HEAD
         runPassesForVisualizer(projName, { CALL_GRAPH2 });
+=======
+        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES });
+>>>>>>> master
 
         map<string, CallV> V;
         vector<string> E;

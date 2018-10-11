@@ -215,6 +215,7 @@
     </ClCompile>
     <ClCompile Include="..\_src\LoopAnalyzer\remote_access.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+<<<<<<< HEAD
     </ClCompile>
     <ClCompile Include="..\_src\VerificationCode\VerifySageStructures.cpp">
       <Filter>Файлы исходного кода\VerificationCode</Filter>
@@ -323,6 +324,119 @@
     </ClCompile>
     <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp">
       <Filter>Файлы исходного кода\DEAR</Filter>
+=======
+    </ClCompile>
+    <ClCompile Include="..\_src\VerificationCode\VerifySageStructures.cpp">
+      <Filter>Файлы исходного кода\VerificationCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Distribution\DvmhDirectiveBase.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp">
+      <Filter>Файлы исходного кода\GraphLoop</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Predictor\PredictScheme.cpp">
+      <Filter>Файлы исходного кода\Predictor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp">
+      <Filter>Файлы исходного кода\Inliner</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp">
+      <Filter>Файлы исходного кода\ExpressionTransform</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\VisualizerCalls\SendMessage.cpp">
+      <Filter>Файлы исходного кода\VisualizerCalls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Utils\SgUtils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Utils\utils.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Sapfor.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopAnalyzer\shadow.cpp">
+      <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\Utils\BoostStackTrace.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\add-assert.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\affine.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\cover.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-build.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ddomega-use.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\debug.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\ip.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\kill.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\refine.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\SageAnalysisTool\OmegaForSage\sagedriver.cpp">
+      <Filter>Файлы исходного кода\SageExtensions\OmegaTest</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\help.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp">
+      <Filter>Файлы исходного кода\DEAR\Addons\expression</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\ivar_collection.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\memory_unit.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_collection.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_cpp\pu_routine_call.cpp">
+      <Filter>Файлы исходного кода\DEAR\depAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\database.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp">
+      <Filter>Файлы исходного кода\DEAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+>>>>>>> master
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -691,6 +805,12 @@
     </ClInclude>
     <ClInclude Include="..\_src\DEAR\dep_analyzer.h">
       <Filter>Файлы исходного кода\DEAR</Filter>
+<<<<<<< HEAD
+=======
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+>>>>>>> master
     </ClInclude>
   </ItemGroup>
 </Project>

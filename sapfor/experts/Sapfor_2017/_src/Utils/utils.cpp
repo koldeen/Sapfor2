@@ -46,7 +46,7 @@ void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<Loop
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             sortedLoopGraph[(*loopGraph)[i]->lineNum] = (*loopGraph)[i];
-            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->childs));
+            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->children));
         }
     }
 }
