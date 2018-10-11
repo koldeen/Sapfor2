@@ -23,6 +23,8 @@ struct LoopCheckResults {
 	bool hasImpureCalls;
 
 	LoopCheckResults();
+
+    LoopCheckResults(bool , bool );
 };
 
 class DvmhRegion {
@@ -41,9 +43,10 @@ class DvmhRegionInsertor {
     std::vector<FuncInfo*> funcGraph;
     std::vector<DvmhRegion> regions;
 
+    bool isParallel(LoopGraph *);
     void printFuncName(SgStatement *);
     CallData getControlFlowGraph();
-    void findEdgesForRegions();
+    void findEdgesForRegions(std::vector<LoopGraph *>);
     bool hasLimitsToDvmhParallel(LoopGraph *);
     //void setUpReachingDefenitions();
     //void insertActualDirectives();
@@ -52,7 +55,7 @@ class DvmhRegionInsertor {
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *);
 public:
     DvmhRegionInsertor(SgFile *, std::vector<LoopGraph *>, std::vector<FuncInfo *>);
-    std::vector<LoopGraph *> updateGraphCall();
+    LoopCheckResults updateLoopGraph(std::vector<LoopGraph *> &loopGraph);
     void insertDirectives();
     virtual ~DvmhRegionInsertor();
 };

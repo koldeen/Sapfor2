@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cd Sapfor && make all",
+            "command": "cd /home/whcrc/Code/sapfor_2017/sapfor/experts/Sapfor_2017/Sapfor && make all",
             "problemMatcher": []
         }
     ]

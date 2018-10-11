@@ -9,6 +9,11 @@
 
 LoopCheckResults::LoopCheckResults() : usesIO(false), hasImpureCalls(false) {}
 
+LoopCheckResults::LoopCheckResults(bool io, bool calls) : 
+    usesIO(io),
+    hasImpureCalls(calls),
+    {}
+
 void DvmhRegionInsertor::printFuncName(SgStatement* st)
 {
     if (st->variant() == PROG_HEDR)
@@ -48,15 +53,20 @@ CallData DvmhRegionInsertor::getControlFlowGraph()
     return calls;
 }
 
-void DvmhRegionInsertor::findEdgesForRegions()
+// bool DvmhRegionInsertor::isParallel(LoopGraph *) {
+// 	SgSt
+// }
+
+void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops)
 {
     for (auto &loopNode: loopGraph)
     {
-    	if(!hasLimitsToDvmhParallel(loopNode))
+    	if(isParallel(loopNode) && !hasLimitsToDvmhParallel(loopNode))
     	{
 			DvmhRegion dvmhRegion(loopNode->loop);
 			regions.push_back(dvmhRegion);
-    	}
+    	} else 
+			findEdgesForRegions(loopNode->childs);
     }
 }
 
@@ -124,8 +134,8 @@ DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile,
 		{}
 
 
-// TODO: rename it
-std::vector<LoopGraph *> DvmhRegionInsertor::updateGraphCall()
+// Return whether this loop 
+LoopCheckResults DvmhRegionInsertor::updateLoopGraph(std::vector<LoopGraph *> &loopGraph)
 {
 	for (auto &loopNode: loopGraph)
 	{
@@ -134,29 +144,27 @@ std::vector<LoopGraph *> DvmhRegionInsertor::updateGraphCall()
 		bool hasImpureCalls = loopChecks.hasImpureCalls;
 		bool usesIO = loopChecks.usesIO;
 
-		// nested loops
+		// loop childs
 		for (auto &nestedLoop: loopNode->childs) {
-			if (hasImpureCalls && usesIO)
-				break;
-
-			loopChecks = checkLoopForPurenessAndIO(nestedLoop);
+			loopChecks = updateLoopGraph(nestedLoop);
 
 			hasImpureCalls |= loopChecks.hasImpureCalls;
 			usesIO |= loopChecks.usesIO;
 		}
 
 		loopNode->hasImpureCalls = hasImpureCalls;
-		loopNode->hasPrints |= usesIO;	// result of check for loop body is already in this field,
-										// we've checked it's func calls, that's why |=
+		loopNode->hasPrints |= usesIO;
+
+		return LoopCheckResults(loopNode->hasPrints, loopNode->hasImpureCalls);
 	}
 
-	return loopGraph;
+	return;
 }
 
 void DvmhRegionInsertor::insertDirectives()
 {
-	updateGraphCall();
-    findEdgesForRegions();
+	updateLoopGraph(loopGraph);
+    findEdgesForRegions(loopGraph);
     insertRegionDirectives();
 /*
 	getControlFlowGraph();

@@ -695,31 +695,5 @@
     <ClInclude Include="..\_src\DEAR\dep_analyzer.h">
       <Filter>Файлы исходного кода\DEAR</Filter>
     </ClInclude>
-<<<<<<< HEAD
-    <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInsertor.h">
-      <Filter>Файлы исходного кода\DvmhRegions</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageNewSrc.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\SageOldSrc.lib" />
-    <Library Include="..\_lib\boost_Release_64\libboost_chrono-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_date_time-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_system-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\boost_Release_64\libboost_thread-vc141-mt-1_64.lib">
-      <Filter>Файлы ресурсов</Filter>
-    </Library>
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformCommonLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformLib.lib" />
-    <Library Include="..\_lib\$(Platform)\$(Configuration)\TransformUtils.lib" />
-=======
->>>>>>> master
   </ItemGroup>
 </Project>
