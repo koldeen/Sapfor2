@@ -608,7 +608,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             right = new SgArrayRefExp(*newSymb);
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->GetOriginal()->lexNext()->controlParent());
+            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             //__spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
