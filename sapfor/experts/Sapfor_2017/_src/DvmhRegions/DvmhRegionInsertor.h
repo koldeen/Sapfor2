@@ -43,9 +43,8 @@ class DvmhRegionInsertor {
     std::vector<FuncInfo*> funcGraph;
     std::vector<DvmhRegion> regions;
 
-    bool isParallel(LoopGraph *);
     void printFuncName(SgStatement *);
-    CallData getControlFlowGraph();
+    //CallData getControlFlowGraph();
     void findEdgesForRegions(std::vector<LoopGraph *>);
     bool hasLimitsToDvmhParallel(LoopGraph *);
     //void setUpReachingDefenitions();
@@ -53,9 +52,10 @@ class DvmhRegionInsertor {
     void insertRegionDirectives();
     //void insertActualForRedistribute();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *);
+    LoopCheckResults updateLoopNode(LoopGraph *);
 public:
     DvmhRegionInsertor(SgFile *, std::vector<LoopGraph *>, std::vector<FuncInfo *>);
-    LoopCheckResults updateLoopGraph(std::vector<LoopGraph *> &loopGraph);
+    void updateLoopGraph(std::vector<LoopGraph *> &loopGraph);
     void insertDirectives();
     virtual ~DvmhRegionInsertor();
 };

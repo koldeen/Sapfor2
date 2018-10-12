@@ -731,6 +731,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == INSERT_REGIONS) 
+        {
+            auto itLoopGraphFound = loopGraph.find(file_name);
+            auto itFuncGraphFound = allFuncInfo.find(file_name);
+        	if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end()) {
+				DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
+				regionInsertor.insertDirectives();
+        	}
+
+        	for (auto &funcInfo: itFuncGraphFound->second) {
+        		std::cout << funcInfo->funcName << " " << funcInfo->usesIO << std::endl;
+        	}
+
+        	for (int i = 0; i < file->numberOfFunctions(); i++) {
+        		file->functions(i)->unparsestdout();
+        	}
+        }
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
@@ -1347,7 +1364,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(REVERT_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
-
+            runPass(INSERT_REGIONS, proj_name, folderName);
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
             runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);

@@ -11,7 +11,7 @@ LoopCheckResults::LoopCheckResults() : usesIO(false), hasImpureCalls(false) {}
 
 LoopCheckResults::LoopCheckResults(bool io, bool calls) : 
     usesIO(io),
-    hasImpureCalls(calls),
+    hasImpureCalls(calls)
     {}
 
 void DvmhRegionInsertor::printFuncName(SgStatement* st)
@@ -33,6 +33,7 @@ void DvmhRegionInsertor::printFuncName(SgStatement* st)
     }
 }
 
+/*
 CallData DvmhRegionInsertor::getControlFlowGraph()
 {
     int funcNum = file.numberOfFunctions();
@@ -51,22 +52,20 @@ CallData DvmhRegionInsertor::getControlFlowGraph()
     }
 
     return calls;
-}
+} */
 
-// bool DvmhRegionInsertor::isParallel(LoopGraph *) {
-// 	SgSt
-// }
-
-void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops)
+void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // here as link
 {
-    for (auto &loopNode: loopGraph)
+    for (auto &loopNode: loops)
     {
-    	if(isParallel(loopNode) && !hasLimitsToDvmhParallel(loopNode))
-    	{
-			DvmhRegion dvmhRegion(loopNode->loop);
-			regions.push_back(dvmhRegion);
-    	} else 
-			findEdgesForRegions(loopNode->childs);
+			if(!hasLimitsToDvmhParallel(loopNode))
+			{
+				if (loopNode->loop->lexPrev()->variant() == DVM_PARALLEL_ON_DIR) {
+					DvmhRegion dvmhRegion(loopNode->loop);
+					regions.push_back(dvmhRegion);
+				}
+			} else if (loopNode->loop->lexPrev()->variant() != DVM_PARALLEL_ON_DIR && loopNode->childs.size() > 0) 
+				findEdgesForRegions(loopNode->childs); 
     }
 }
 
@@ -95,7 +94,7 @@ void DvmhRegionInsertor::insertRegionDirectives()
 }
 
 // checks loop node itself, doesn't check its children
-LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph * loopNode) {
+LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNode) {
 	LoopCheckResults loopCheckResults;
 
 	for (auto &nameAndLineOfFuncCalled: loopNode->calls)
@@ -133,29 +132,30 @@ DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile,
 		funcGraph(allFuncInfo)
 		{}
 
+LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop) {
+	LoopCheckResults loopChecks = checkLoopForPurenessAndIO(loop);
+	bool hasImpureCalls = loopChecks.hasImpureCalls;
+	bool usesIO = loopChecks.usesIO;
 
-// Return whether this loop 
-LoopCheckResults DvmhRegionInsertor::updateLoopGraph(std::vector<LoopGraph *> &loopGraph)
-{
-	for (auto &loopNode: loopGraph)
-	{
-		// loop itself
-		LoopCheckResults loopChecks = checkLoopForPurenessAndIO(loopNode);
-		bool hasImpureCalls = loopChecks.hasImpureCalls;
-		bool usesIO = loopChecks.usesIO;
-
-		// loop childs
-		for (auto &nestedLoop: loopNode->childs) {
-			loopChecks = updateLoopGraph(nestedLoop);
+	for (auto &nestedLoop: loop->childs) {
+			loopChecks = updateLoopNode(nestedLoop);
 
 			hasImpureCalls |= loopChecks.hasImpureCalls;
 			usesIO |= loopChecks.usesIO;
-		}
+	}
 
-		loopNode->hasImpureCalls = hasImpureCalls;
-		loopNode->hasPrints |= usesIO;
+	loop->hasImpureCalls = hasImpureCalls;
+	loop->hasPrints |= usesIO;
 
-		return LoopCheckResults(loopNode->hasPrints, loopNode->hasImpureCalls);
+	return LoopCheckResults(loop->hasPrints, loop->hasImpureCalls);
+}
+
+// Return whether this loop 
+void DvmhRegionInsertor::updateLoopGraph(std::vector<LoopGraph *> &loopGraph)
+{
+	for (auto &loopNode: loopGraph)
+	{
+		updateLoopNode(loopNode);
 	}
 
 	return;
