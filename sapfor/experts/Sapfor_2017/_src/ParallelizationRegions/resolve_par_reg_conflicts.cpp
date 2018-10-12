@@ -425,11 +425,11 @@ static void recursiveReplace(SgExpression *exp, const string &from, SgSymbol *to
 {
     if (exp)
     {
-        // Alex, TODO: exp->symbol()->identifier()
         if (exp->symbol() && exp->symbol()->identifier() == from)
         {
             exp->setSymbol(to);
-            __spf_print(1, "  replace symbol '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
+
+            //__spf_print(1, "  replace symbol '%s' to '%s'\n", from.c_str(), to->identifier()); // remove
         }
 
         recursiveReplace(exp->lhs(), from, to);
@@ -449,15 +449,21 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &reg
 
             for (; iterator != end; iterator = iterator->lexNext())
             {
+                // skip not executable statements and change symbols only in executable section
+                if (!isSgExecutableStatement(iterator))
+                    continue;
+
                 if (iterator->symbol() && iterator->symbol()->identifier() == origSymbName)
                 {
                     iterator->setSymbol(*newSymb);
 
+                    /*
                     __spf_print(1, "  replace symbol '%s' to '%s' in file %s on line %d\n",
                                 origSymbName.c_str(),
                                 newSymb->identifier(),
                                 fileName.c_str(),
                                 iterator->lineNumber()); // remove
+                    */
                 }
 
                 for (int i = 0; i < 3; ++i)
@@ -594,7 +600,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
                 regionLines.stats.first->insertStmtBefore(*assign, *regionLines.stats.first->controlParent());
             */
 
-            __spf_print(1, "insert '%s = %s'\n", newSymb->identifier(), origSymb->identifier()); // remove
+            //__spf_print(1, "insert '%s = %s'\n", newSymb->identifier(), origSymb->identifier()); // remove
 
             // A = A_reg
             assign = new SgStatement(ASSIGN_STAT);
@@ -604,7 +610,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             assign->setExpression(1, *right);
             regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->GetOriginal()->controlParent());
 
-            __spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
+            //__spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
             // TODO: SPF_ANALYSIS(decl)
         }
@@ -704,10 +710,12 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         newDecl = newArrSymb->makeVarDeclStmt();
         decl->insertStmtAfter(*newDecl, *decl->controlParent());
 
+        /*
         __spf_print(1, "  new array '%s' as copy of array '%s' (line: %d)\n",
                     newArrName.c_str(),
                     arrSymb->identifier(),
                     decl->lineNumber()); // remove
+        */
 
         if (IS_ALLOCATABLE(arrSymb))
         {
@@ -855,8 +863,10 @@ static void copyFunction(ParallelRegion *region,
         //funcPrint(func); // remove
         //statPrint(file->firstStatement()->lexNext(), file->firstStatement()->lexNext()->lastNodeOfStmt()); // remove
 
+        /*
         __spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
                     newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // remove
+        */
 
         // set line numbers
         int i = 0;
@@ -876,14 +886,18 @@ static void copyFunction(ParallelRegion *region,
             it = linesToEdit.insert(it, make_pair(func->fileName, vector<ParallelRegionLines>()));
         it->second.push_back(ParallelRegionLines(newLines, beginEnd));
 
+        /*
         __spf_print(1, "    lines %d-%d added with statement ids %d,%d\n",
                     newLines.first, newLines.second,
                     beginEnd.first->id(), beginEnd.second->id()); // remove
+        */
 
         region->AddFuncSymbols(func->fileName, funcSymb, newFuncSymb);
 
+        /*
         __spf_print(1, "    add replaced symbols (%s, %s) for file %s\n",
                     funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // remove
+        */
 
         // try to find common-block and add new if common-block exists
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
@@ -1127,9 +1141,11 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                             it = newLinesToEdit.insert(it, make_pair(func->fileName, vector<ParallelRegionLines>()));
                         it->second.push_back(ParallelRegionLines(funcLines, beginEnd));
 
+                        /*
                         __spf_print(1, "    lines %d-%d added with statement ids %d,%d\n",
                                     funcLines.first, funcLines.second,
                                     beginEnd.first->GetOriginal()->id(), beginEnd.second->GetOriginal()->id()); // remove
+                        */
                     }
                 }
             }
