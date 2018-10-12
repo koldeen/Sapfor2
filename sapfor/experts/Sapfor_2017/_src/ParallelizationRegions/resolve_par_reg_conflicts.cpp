@@ -566,7 +566,7 @@ static SgStatement* createCommonBlock(SgFile *file,
 
             createdCommonBlocks.insert(make_pair(fileName, commDecl));
 
-            __spf_print(1, "  new common block 'reg' in file %s created\n", fileName.c_str()); // remove
+            //__spf_print(1, "  new common block 'reg' in file %s created\n", fileName.c_str()); // remove
 
             return commDecl;
         }
@@ -608,7 +608,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             right = new SgArrayRefExp(*newSymb);
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->GetOriginal()->controlParent());
+            regionLines.stats.second->GetOriginal()->insertStmtAfter(*assign, *regionLines.stats.second->GetOriginal()->lexNext()->controlParent());
 
             //__spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // remove
 
@@ -911,8 +911,10 @@ static void copyFunction(ParallelRegion *region,
 
                 copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
 
+                /*
                 __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
                             func->fileName.c_str(), newFuncName.c_str(), copyStat->lineNumber()); // remove
+                */
 
                 // making declaration of new common array symbols
                 // make declarations via comment through files
@@ -1063,8 +1065,10 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                 insertPlace->insertStmtAfter(*copyDecl, *insertPlace->controlParent());
                 insertedCommonBlocks.insert(funcArrays.first);
 
+                /*
                 __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
-                    funcArrays.first->fileName.c_str(), funcArrays.first->funcName.c_str(), insertPlace->lineNumber()); // remove
+                            funcArrays.first->fileName.c_str(), funcArrays.first->funcName.c_str(), insertPlace->lineNumber()); // remove
+                */
 
                 // create declarations via comment
                 makeStringDeclarations(insertPlace, allUsedCommonArrays);
