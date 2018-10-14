@@ -55,7 +55,6 @@ std::set<FuncInfo*> allCommonFunctions;
 std::map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
 std::map<std::string, std::map<DIST::Array*, std::pair<SgSymbol*, SgSymbol*>>> createdCommonArrays; // file -> array -> (orig, copy)
 std::map<std::string, SgStatement*> createdCommonBlocks; // file -> new common statement
-std::set<FuncInfo*> insertedCommonArrays;                // funcs where new common array declaration inserted
 std::set<FuncInfo*> insertedCommonBlocks;                // funcs where new common statement inserted
 //
 

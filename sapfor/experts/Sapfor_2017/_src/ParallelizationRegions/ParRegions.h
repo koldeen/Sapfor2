@@ -31,6 +31,7 @@ struct ParallelRegionLines
     ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats) { }
 
     bool operator==(const ParallelRegionLines &regionLines) const { return lines == regionLines.lines && stats == regionLines.stats; }
+    bool operator<(const ParallelRegionLines &otherLines) const { return lines.first < otherLines.lines.first; }
 
     void print(FILE *fileOut)
     {
