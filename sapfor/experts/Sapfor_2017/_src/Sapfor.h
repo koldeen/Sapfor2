@@ -90,6 +90,8 @@ enum passes {
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
+
+    GCOV_PARSER,
     EMPTY_PASS
 };
 
@@ -186,5 +188,7 @@ static void setPassValues()
     passNames[PRINT_PAR_REGIONS_ERRORS] = "PRINT_PAR_REGIONS_ERRORS";
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
+    passNames[GCOV_PARSER] = "GCOV_PARSER";
+
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

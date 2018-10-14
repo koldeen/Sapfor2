@@ -2,7 +2,9 @@
 #include <string>
 #include <map>
 
-using namespace std;
+#include "../Utils/utils.h"
+
+//using namespace std;
 
 enum key_word{
 	UNKNOWN,
@@ -22,16 +24,16 @@ struct Perform{ //make 'class' - need friend for Gcov_info
 	void setNumber(int a);
 	void setPercent(int a);
 	void print();
-	friend ostream &operator<<(ostream &out, const Perform &a);
+	friend std::ostream &operator<<(std::ostream &out, const Perform &a);
 };
 
 class Gcov_info{
 	int numLine;
 	int executedCount;
 	int countCalls;
-	map<int,Perform> calls;
+	std::map<int,Perform> calls;
 	int countBranches;
-	map<int,Perform> branches;
+    std::map<int,Perform> branches;
 public:
 	Gcov_info(); 
 	Gcov_info(int a, int b);
@@ -43,10 +45,10 @@ public:
 	void setExecutedCount(int a);
 	int getCountCalls();
 	int getCountBranches();
-	map<int,Perform> getCalls();
-	map<int,Perform> getBranches();
+	std::map<int,Perform> getCalls();
+	std::map<int,Perform> getBranches();
 	void setCall(Perform a);
 	void setBranch(Perform a);
 	void print();
-	friend ostream &operator<<(ostream &out, const Gcov_info &a);
+	friend std::ostream &operator<<(std::ostream &out, const Gcov_info &a);
 };

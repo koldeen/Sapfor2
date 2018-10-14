@@ -8,9 +8,11 @@
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
 
-typedef enum parF { NONE_T, ARRAY_T, 
-                    SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,
-                    UNKNOWN_T } paramType;
+typedef enum parF {
+    NONE_T, ARRAY_T,
+    SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,
+    UNKNOWN_T
+} paramType;
 struct FuncParam
 {
     void init(const int numPar)
@@ -33,7 +35,7 @@ struct FuncParam
     int countOfPars;
 };
 
-struct NestedFuncCall 
+struct NestedFuncCall
 {
     std::string CalledFuncName;
     std::vector<std::vector<int>> NoOfParamUsedForCall;
@@ -52,7 +54,7 @@ struct FuncInfo
     std::pair<int, int> linesNum;
     std::string fileName;
     Statement *funcPointer;
-    
+
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
     std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL
@@ -64,7 +66,7 @@ struct FuncInfo
     std::vector<bool> isParamUsedAsIndex;
     std::vector<NestedFuncCall> funcsCalledFromThis; // size = amount of calls in this func;
                                                      // if (FuncsCalledFromThis[func_call_idx].
-                                                    // NoOfParamUsedForCall.size() == 0) - no params of cur func used
+                                                     // NoOfParamUsedForCall.size() == 0) - no params of cur func used
 
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
@@ -85,7 +87,9 @@ struct FuncInfo
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
-        doNotAnalyze(false), needToInline(false), deadFunction(false) { fileName = pointer->fileName(); }
+        doNotAnalyze(false), needToInline(false), deadFunction(false) {
+        fileName = pointer->fileName();
+    }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {
@@ -111,8 +115,8 @@ struct CallV
         fName(fName), fileName(""), isMain(false)
     { }
 
-    CallV(const std::string &fName, const std::string &fileName, bool isMain) : 
-        fName(fName), fileName(fileName), isMain(isMain) 
+    CallV(const std::string &fName, const std::string &fileName, bool isMain) :
+        fName(fName), fileName(fileName), isMain(isMain)
     { }
 
     std::string to_string()
@@ -120,4 +124,3 @@ struct CallV
         return fName + "@" + fileName + "@" + (isMain ? "1" : "0");
     }
 };
-

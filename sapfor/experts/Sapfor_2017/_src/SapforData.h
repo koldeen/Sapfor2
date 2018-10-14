@@ -11,6 +11,7 @@
 #include "GraphCall/graph_calls.h"
 #include "GraphLoop/graph_loops.h"
 #include "Utils/AstWrapper.h"
+#include "DynamicAnalysis/gcov_info.h"
 #include "Sapfor.h"
 #include "Utils/errors.h"
 
@@ -89,6 +90,10 @@ map<string, vector<DefUseList>> defUseByFunctions;
 //for EXPR SUBSTITUTION
 std::map<std::string, std::vector<FuncInfo*>> subs_allFuncInfo; // file -> Info  
 std::vector<ParallelRegion*> subs_parallelRegions;
+//
+
+//for GCOV_PARSER
+std::map<char*, std::map<int, Gcov_info>> all_info;
 //
 
 const char *passNames[EMPTY_PASS + 1];
