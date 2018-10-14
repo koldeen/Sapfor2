@@ -727,7 +727,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 if (location.second == name)
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
-                    string templDecl = genTemplateDelc(array, false);
+                    string templDecl = genTemplateDelc(array, NULL);
                     string templDist = genTemplateDistr(array, distrRules, regionId, templIdx);
                     string templDyn = "";
 

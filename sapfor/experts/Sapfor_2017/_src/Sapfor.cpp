@@ -1081,7 +1081,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 throw(-1);
             }
         }
-        checkCountOfIter(loopGraph, SPF_messages);
+
+        checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
         if (keepFiles)
         {
             printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
@@ -1246,7 +1247,7 @@ static string selectAddNameOfVariant(const int i, int maxDimsIdx, int maxDimsIdx
             parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
     }
     else
-        sprintf(buf, "par");
+        sprintf(buf, "");  //sprintf(buf, "par");
     return buf;
 }
 

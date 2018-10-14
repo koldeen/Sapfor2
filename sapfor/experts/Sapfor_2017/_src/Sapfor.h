@@ -5,6 +5,7 @@ extern int staticPrivateAnalysis;
 extern int keepDvmDirectives;
 extern int keepSpfDirs;
 extern int consoleMode;
+extern int parallizeFreeLoops;
 
 extern "C" int out_free_form;
 
@@ -106,6 +107,7 @@ enum optionNames {
     FREE_FORM,
     KEEP_DVM_DIRECTIVES,
     KEEP_SPF_DIRECTIVES,
+    PARALLIZE_FREE_LOOPS,
     EMPTY_OPTION
 };
 

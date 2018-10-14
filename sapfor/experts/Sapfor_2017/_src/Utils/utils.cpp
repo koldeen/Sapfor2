@@ -541,11 +541,20 @@ void deletePointerAllocatedData()
 {
     int leaks = 0;
     int failed = 0;
+    /*vector<pair<void*, int>> pointers;
     for (auto &pointer : pointerCollection)
+        pointers.push_back(std::make_pair(pointer.first, std::get<0>(pointer.second)));*/
+
+//TODO:
+//#pragma omp parallel for reduction (+: failed, leaks)
+//    for (int z = 0; z < pointers.size(); ++z)
+    for (auto &elem : pointerCollection)
     {
-        //printf("%d %s\n", std::get<1>(it->second), std::get<2>(it->second));
+        //const pair<void*, int> &pointer = pointers[z];
+        const pair<void*, int> pointer = std::make_pair(elem.first, std::get<0>(elem.second));
+        //printf("%d %s\n", std::get<1>(elem.second), std::get<2>(elem.second));
         //fflush(NULL);
-        if (std::get<0>(pointer.second) == 0)
+        if (pointer.second == 0)
         {
             if (pointer.first)
             {
@@ -555,7 +564,7 @@ void deletePointerAllocatedData()
             else
                 failed++;
         }
-        else if (std::get<0>(pointer.second) == 1)
+        else if (pointer.second == 1)
         {
             if (pointer.first)
             {
@@ -565,7 +574,7 @@ void deletePointerAllocatedData()
             else
                 failed++;
         }
-        else if (std::get<0>(pointer.second) == 2)
+        else if (pointer.second == 2)
         {
             if (pointer.first)
             {
