@@ -1052,7 +1052,7 @@ static inline void fillPrivatesFromDecl(SgExpression *ex, set<SgSymbol*> &delcsS
 
 extern void createMapLoopGraph(std::map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
 void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
-                  vector<Messages> &messagesForFile, REGIME regime, const vector<FuncInfo*> &funcInfo, 
+                  vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
                   const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -1081,6 +1081,11 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
     map<string, set<string>> privatesByModule;
     for (int i = 0; i < modules.size(); ++i)
         privatesByModule[modules[i]->symbol()->identifier()] = getPrivatesFromModule(modules[i], declaratedArrays, declaratedArraysSt, modulesByName);
+
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(AllfuncInfo, funcByName);
+
+    const vector<FuncInfo*> &funcInfo = AllfuncInfo.find(file->filename())->second;
 
     for (int i = 0; i < funcNum; ++i)
     {
@@ -1413,7 +1418,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 string fName = file->functions(i)->symbol()->identifier();
                 sendMessage_2lvl(wstring(L"обработка цикла ") + std::to_wstring(idx) + L"/" + std::to_wstring(convertedLoopInfo.size()));
 #endif
-                tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection);
+                tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
             }
 
             vector<LoopGraph*> tmpLoops;
@@ -1454,7 +1459,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 
             for (auto &loop : loopWithOutArrays)
             {
-                tryToFindDependencies(sortedLoopGraph[loop], allLoops, funcWasInit, file, regions, currMessages, collection);
+                tryToFindDependencies(sortedLoopGraph[loop], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
                 sortedLoopGraph[loop]->withoutDistributedArrays = true;
             }
 

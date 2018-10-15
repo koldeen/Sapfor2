@@ -64,7 +64,6 @@ extern void generalIterativeFlowAnalysis(SgFile *file,
 ///////////////////////////////////////////////////////////////////////////////////////
 
 #include "definitionSet.h"
-extern void initDefUseTable(SgStatement *func);
 extern Set *makeGenSet(SgStatement *func,SgStatement *stmt);
 extern Set *makeKillSet(SgStatement *func,SgStatement *stmt);
 extern int symbRefEqual(void *e1, void *e2);
@@ -122,7 +121,6 @@ extern "C" void SetOmegaDebug();
 ///////////////////////////////////////////////////////////////////////////////////////
 
 #include "depGraph.h"
-extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f);
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // from intrinsic.C

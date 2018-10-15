@@ -64,8 +64,9 @@ static void correctNameIfContains(SgStatement *call, SgExpression *exCall, strin
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 
-static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
+static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
 {
+    SgSymbol *par = OriginalSymbol(parIn);
     SgType *type = par->type();
     if (type)
     {
@@ -989,6 +990,34 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
     return 0;
 }
 
+//TODO:
+int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
+{
+    string funcOut = "";
+    for (auto &byFile: funcByFile)
+    {
+        funcOut += "FILE " + byFile.first + ":\n";
+        for (auto &func : byFile.second)
+        {
+
+        }
+    }
+
+    if (fileName)
+    {
+        FILE *out = fopen(fileName, "w");
+        if (out == NULL)
+        {
+            __spf_print(1, "can not open file %s\n", fileName);
+            return -1;
+        }
+
+        fprintf(out, funcOut.c_str());
+        fclose(out);
+    }
+    return 0;
+}
+
 static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
 {
     bool retVal = false;
@@ -1128,25 +1157,40 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                     {
                         if (!isPassFullArray(ex))
                         {
-                            if ((func->funcParams.inout_types[parNum] & OUT_BIT) != 0 || func->funcParams.parametersT[parNum] == ARRAY_T)
+                            bool type1 = (func->funcParams.inout_types[parNum] & OUT_BIT) != 0;
+                            bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
+                            if (type1 || type2)
                             {
+                                string add = "";
+                                if (type1)
+                                    add += "(as out argument";
+                                if (type2)
+                                {
+                                    if (type1)
+                                        add += ", as array in function)";
+                                    else
+                                        add += "(as array in function)";
+                                }
+                                else
+                                    add += ")";
+                                
                                 if (needToAddErrors)
                                 {
                                     if (loop)
                                     {
                                         char buf[256];
-                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d", func->funcName.c_str(), symb->identifier(), loop->lineNumber());
+                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
 
                                         messages.push_back(Messages(ERROR, statLine, buf, 1013));
-                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber());
+                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
                                     else
                                     {
                                         char buf[256];
-                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s'", func->funcName.c_str(), symb->identifier());
+                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' %s", func->funcName.c_str(), symb->identifier(), add.c_str());
 
                                         messages.push_back(Messages(ERROR, statLine, buf, 1013));
-                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s'\n", func->funcName.c_str(), symb->identifier());
+                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
                                 }
                                 ret = true;

@@ -348,7 +348,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                              &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -360,7 +360,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(itFound->second));
 
             currProcessing.second = NULL;
@@ -559,7 +559,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -905,7 +905,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
-    {
+    {    
         if (keepFiles)
         {
             map<string, CallV> V;
@@ -915,6 +915,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
+
+        //TODO
+        if (keepFiles)
+        {
+
+        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
