@@ -1042,7 +1042,7 @@ static void LinkTree(SgExpression *mainExp, SgExpression *exp)
         mainExp = a;
     }
     mainExp->setRhs(copyExp);
-}		
+}       
 
 static void OptimizeTree(SgExpression *exp) 
 {
@@ -1052,7 +1052,6 @@ static void OptimizeTree(SgExpression *exp)
         SgExpression *currExp = exp->rhs();
 
         SgExpression *prevExp = exp;
-
         int var = checkExp->variant();
 
         while (currExp) 
@@ -1075,11 +1074,22 @@ static void OptimizeTree(SgExpression *exp)
     }
 }
 
-SgStatement *GetOneAttribute(vector<SgStatement*> sameAtt) 
+SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
 {
+    set<string> uniqAttrs;
     SgStatement *toAddExp = NULL;
     for (auto &elem : sameAtt) 
     {
+        if (elem->expr(0) == NULL)
+            continue;
+
+        const string currAtr(elem->unparse());
+        auto it = uniqAttrs.find(currAtr);
+        if (it == uniqAttrs.end())
+            uniqAttrs.insert(it, currAtr);
+        else
+            continue;
+
         if (toAddExp) 
         {
             SgExpression *exp = elem->expr(0);
@@ -1088,12 +1098,58 @@ SgStatement *GetOneAttribute(vector<SgStatement*> sameAtt)
         else
             toAddExp = &(elem->copy());
     }
-    OptimizeTree(toAddExp->expr(0));
+    
+    if (toAddExp)
+        OptimizeTree(toAddExp->expr(0));
     return toAddExp;
 }
 
-void revertion_spf_dirs(SgFile *file) 
+void revertion_spf_dirs(SgFile *file,
+    map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+    map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
+    const string fileName(file->filename());
+
+    for (auto &allStats : declaratedArraysSt)
+    {
+        if (allStats.first->fileName() == fileName)
+        {
+            SgStatement *toAttr = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, NULL, NULL, NULL);            
+
+            SgExpression *tmp = new SgExpression(ACC_PRIVATE_OP);
+            SgExpression *exprList = new SgExpression(EXPR_LIST, tmp, NULL, NULL);
+            toAttr->setExpression(0, *exprList);
+            exprList = exprList->lhs();
+
+            exprList->setLhs(new SgExpression(EXPR_LIST));
+            exprList = exprList->lhs();
+
+            int added = 0;
+
+            for (auto &elem : allStats.second)
+            {
+                auto it = declaratedArrays.find(elem);
+                if (it == declaratedArrays.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (it->second.first->GetNonDistributeFlag())
+                {
+                    if (added != 0)
+                    {
+                        exprList->setRhs(new SgExpression(EXPR_LIST));
+                        exprList = exprList->rhs();
+                    }
+
+                    ++added;
+                    exprList->setLhs(*new SgVarRefExp(it->second.first->GetDeclSymbol()));
+                }
+            }
+
+            if (added)
+                allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
+        }
+    }
+
     int funcNum = file->numberOfFunctions();
 
     for (int i = 0; i < funcNum; i++) 
@@ -1110,32 +1166,50 @@ void revertion_spf_dirs(SgFile *file)
                 __spf_print(1, "internal error in analysis, spf directives will not be returned for this file!\n");
                 break;
             }
-            //analise attributes
-            SgAttribute *atrib = st->getAttribute(0);
 
-            if (atrib) 
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            //analyze attributes
+            SgAttribute *atrib = st->getAttribute(0);
+            SgStatement *toAdd = NULL;
+
+            if (atrib && st->fileName() == fileName)
             {
                 //check previosly directives SPF_ANALYSIS
                 vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
 
-                SgStatement *toAddExp = GetOneAttribute(sameAtt);
-                st->insertStmtBefore(*toAddExp);
+                if (sameAtt.size())
+                {
+                    toAdd = GetOneAttribute(sameAtt);
+                    if (toAdd)
+                        st->insertStmtBefore(*toAdd);
+                }
 
                 //check previosly directives SPF_PARALLEL
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
-                for (auto &elem : sameAtt) 
+                if (sameAtt.size())
                 {
-                    SgStatement *toAddExp = GetOneAttribute(sameAtt);
-                    st->insertStmtBefore(*toAddExp);
+                    sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+                    for (auto &elem : sameAtt)
+                    {
+                        if (toAdd)
+                            toAdd = GetOneAttribute(sameAtt);
+                        st->insertStmtBefore(*toAdd);
+                    }
                 }
-                //remaining directives            
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
-                for (auto &elem : sameAtt) 
-                {
-                    SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
-                    SgStatement *toAdd = &(data->copy());
 
-                    st->insertStmtBefore(*toAdd);
+                //remaining directives
+                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                if (sameAtt.size())
+                {
+                    for (auto &elem : sameAtt)
+                    {
+                        SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                        SgStatement *toAdd = &(data->copy());
+
+                        if (toAdd)
+                            st->insertStmtBefore(*toAdd);
+                    }
                 }
             }
             st = st->lexNext();

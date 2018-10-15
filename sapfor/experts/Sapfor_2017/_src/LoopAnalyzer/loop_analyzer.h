@@ -117,7 +117,9 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
-void revertion_spf_dirs(SgFile *file);
+void revertion_spf_dirs(SgFile *file, 
+                        std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt);
 void addAcrossToLoops(LoopGraph *topLoop, const std::map<SgSymbol*, std::tuple<int, int, int>> &acrossToAdd, 
                       const std::map<int, SgForStmt*> &allLoops, 
                       std::vector<Messages> &currMessages);

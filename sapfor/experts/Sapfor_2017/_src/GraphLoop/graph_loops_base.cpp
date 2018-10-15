@@ -24,7 +24,6 @@ using std::get;
 #include "graph_loops.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../Utils/errors.h"
-#include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
