@@ -27,13 +27,8 @@ struct FileProfile
     std::map<int, int> profile;
 };
 
-struct FileIntervals
-{
-    std::vector<Interval*> intervals;
-};
-
-void createInterTree(SgFile*);
-void printTree(Interval* inter, int depth);
+void createInterTree(SgFile*, std::vector<Interval*>&);
+void printTree(Interval* inter);
 void assignCallsToAllFiles(std::vector<std::string> filenames);
-void removeNodes(int threshold);
-void insertIntervals();
+void removeNodes(int threshold, std::map<std::string, std::vector<Interval*>> &allIntervals);
+void insertIntervals(SgFile*, const std::vector<Interval*>&);

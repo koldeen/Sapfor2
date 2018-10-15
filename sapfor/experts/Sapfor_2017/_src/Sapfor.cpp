@@ -737,8 +737,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 breedArrays(file, loopGraph.find(file->filename())->second);
         }
         else if (curr_regime == CREATE_INTER_TREE)
-            createInterTree(file);
-        
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals));
+        else if (curr_regime == INSERT_INTER_TREE)
+            insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
     } // end of FOR by files
@@ -1393,13 +1395,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
-    case PRIVATE_ARRAYS_BREEDING:
-    case CREATE_INTER_TREE:
-        runAnalysis(*project, curr_regime, true, "", folderName);
-        break;
+    case PRIVATE_ARRAYS_BREEDING:    
     case INSERT_INTER_TREE:
-        insertIntervals();
-        break;
+        runAnalysis(*project, curr_regime, true, "", folderName);
+        break;    
     case INLINE_PROCEDURES:
         runAnalysis(*project, curr_regime, false);
         if (folderName)

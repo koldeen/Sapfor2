@@ -1,6 +1,11 @@
 #include "CreateInterTree.h"
 
-std::vector<FileIntervals> fileIntervals;
+using std::string;
+using std::vector;
+using std::map;
+using std::cout;
+using std::endl;
+using std::ifstream;
 
 //Debug funcs
 void printTree(Interval* inter)
@@ -8,16 +13,16 @@ void printTree(Interval* inter)
     if(!(inter->ifInclude))
         return;
 
-    std::cout << inter->tag << " ";
-    std::cout << "Begin " << tag[inter->begin->variant()] << " " << inter->begin->lineNumber() << " " << std::endl;
+    cout << inter->tag << " ";
+    cout << "Begin " << tag[inter->begin->variant()] << " " << inter->begin->lineNumber() << " " << endl;
 
     for(int i = 0; i < inter->includes.size(); i++)
         printTree(inter->includes[i]);
 
     for(int i = 0; i < inter->ends.size(); i++)
     {
-        std::cout << inter->tag << " ";
-        std::cout << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << std::endl;
+        cout << inter->tag << " ";
+        cout << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
     }
 }
 
@@ -89,10 +94,8 @@ static void findIntervals(Interval* interval, SgStatement* &currentSt, int level
     }
 }
 
-void createInterTree(SgFile *file)
+void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
 {
-    FileIntervals fi;
-
     int funcNum = file->numberOfFunctions();
 
     for (int i = 0; i < funcNum; i++)
@@ -110,13 +113,11 @@ void createInterTree(SgFile *file)
         SgStatement* currentSt = func_inters->begin;
         findIntervals(func_inters, currentSt, 1);
 
-        fi.intervals.push_back(func_inters);
+        fileIntervals.push_back(func_inters);
     }
 
-    fileIntervals.push_back(fi);
-
-    for(int i = 0; i < fi.intervals.size(); i++)
-        printTree(fi.intervals[i]);
+    for(int i = 0; i < fileIntervals.size(); i++)
+        printTree(fileIntervals[i]);
 }
 
 //Interval insertion funcs
@@ -163,49 +164,42 @@ static void insertTree(Interval* interval)
         insertTree(interval->includes[i]);
 }
 
-void insertIntervals()
+void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
 {
-    for(int i = 0; i < fileIntervals.size(); i++)
-        for(int j = 0; j < fileIntervals[i].intervals.size(); j++)
-            insertTree(fileIntervals[i].intervals[j]);
+    for (auto &interval : fileIntervals)
+        insertTree(interval);    
 }
 
 //Profiling funcs
-static std::vector<FileProfile> parseProfiles(std::vector<std::string> &filenames)
+static FileProfile parseProfiles(const string &filename)
 {
-    std::vector<FileProfile> fileProfiles;
-    std::ifstream file;
-    std::string line;
+    FileProfile fileProfile;
+    ifstream file;
+    string line;
 
-    for(int i = 0; i < filenames.size(); i++)
+    file.open(filename);
+
+    while (!file.eof())
     {
-        FileProfile f;
-        file.open(filenames[i]);
+        getline(file, line);
 
-        while(!file.eof())
+        int pos_type = line.find(":");
+        string type = line.substr(0, pos_type);
+
+        if (type == "lcount")
         {
-            std::getline(file, line);
+            string nums = line.substr(pos_type + 1);
+            int pos_com = nums.find(",");
 
-            int pos_type = line.find(":");
-            std::string type = line.substr(0, pos_type);
+            int line_num = stoi(nums.substr(0, pos_com));
+            int calls_num = stoi(nums.substr(pos_com + 1));
 
-            if(type == "lcount")
-            {
-                std::string nums = line.substr(pos_type + 1);
-                int pos_com = nums.find(",");
-
-                int line_num = std::stoi(nums.substr(0, pos_com));
-                int calls_num = std::stoi(nums.substr(pos_com + 1));
-
-                f.profile[line_num] = calls_num;
-            }
+            fileProfile.profile[line_num] = calls_num;
         }
-
-        file.close();
-        fileProfiles.push_back(f);
     }
+    file.close();
 
-    return fileProfiles;
+    return fileProfile;
 }
 
 static void assignRec(Interval* inter, FileProfile &fp)
@@ -219,18 +213,18 @@ static void assignRec(Interval* inter, FileProfile &fp)
         inter->calls = fp.profile[inter->begin->controlParent()->lineNumber()];
 }
 
-static void assignCallsToFile(FileIntervals &fi, FileProfile &fp)
+static void assignCallsToFile(vector<Interval*> &intervals, FileProfile &fp)
 {
-    for(int i = 0; i < fi.intervals.size(); i++)
-        assignRec(fi.intervals[i], fp);
+    for(auto &interval : intervals)
+        assignRec(interval, fp);
 }
 
-void assignCallsToAllFiles(std::vector<std::string> filenames)
-{
-    std::vector<FileProfile> fileProfiles = parseProfiles(filenames);
 
-    for(int i = 0; i < fileIntervals.size(); i++)
-        assignCallsToFile(fileIntervals[i], fileProfiles[i]);
+//TODO: построить имя на основе базового, и добавить в проходы, ведь это не работает сейчас
+void assignCallsToAllFiles(const string &baseFilename, vector<Interval*> &intervals)
+{
+    FileProfile fileProfile = parseProfiles(baseFilename);
+    assignCallsToFile(intervals, fileProfile);
 }
 
 //Deleting intervals funcs
@@ -243,14 +237,9 @@ static void removeNode(Interval* inter, int threshold)
         removeNode(inter->includes[i], threshold);
 }
 
-static void removeFromFile(FileIntervals &fi, int threshold)
+void removeNodes(int threshold, map<string, vector<Interval*>> &allIntervals)
 {
-    for(int i = 0; i < fi.intervals.size(); i++)
-        removeNode(fi.intervals[i], threshold);
-}
-
-void removeNodes(int threshold)
-{
-    for(int i = 0; i < fileIntervals.size(); i++)
-        removeFromFile(fileIntervals[i], threshold);
+    for (auto &byFile : allIntervals)
+        for (auto &interval : byFile.second)
+            removeNode(interval, threshold);    
 }
