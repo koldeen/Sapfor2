@@ -1,7 +1,8 @@
 #include <iostream>
 
 #include "gcov_info.h"
-//#include "tab.cpp"
+
+using namespace std;
 
 Gcov_info::Gcov_info(){
 	numLine=-1;

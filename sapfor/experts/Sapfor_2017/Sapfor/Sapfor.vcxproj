@@ -281,6 +281,8 @@
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp" />
+    <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
@@ -436,6 +438,8 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
+    <ClInclude Include="..\_src\DynamicAnalysis\gcov_info.h" />
+    <ClInclude Include="..\_src\DynamicAnalysis\gCov_parser_func.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />

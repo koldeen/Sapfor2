@@ -43,6 +43,8 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
+
 //#include "DEAR/dep_analyzer.h"
 
 #if RELEASE_CANDIDATE
@@ -730,6 +732,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == GCOV_PARSER)
+            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 

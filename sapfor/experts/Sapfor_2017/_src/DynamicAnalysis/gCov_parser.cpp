@@ -4,9 +4,20 @@
 #include <string>
 #include <map>
 
-#include "gcov_info.h"
+#include "gCov_parser_func.h"
 
 using namespace std;
+
+//TODO: 
+// надо сделать все функции static,которые локализованы внутри файла
+// реализовать заполнение функции, которая в самом низу, формировать нужное имя файла на основе базового
+
+enum key_word
+{
+    UNKNOWN,
+    BRANCH,
+    CALL,
+};
 
 const char *key_words[] = {
     "",
@@ -184,5 +195,10 @@ void parse_gcovfile(int nfl, char* args[]) {
         }
         printInfoFiles(all_info);
     }
+}
+
+//TODO
+void parse_gcovfile(const string basefileName, map<int, Gcov_info> &gCovInfo)
+{
 
 }

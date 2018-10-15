@@ -93,7 +93,7 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 //
 
 //for GCOV_PARSER
-std::map<char*, std::map<int, Gcov_info>> all_info;
+std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
 //
 
 const char *passNames[EMPTY_PASS + 1];
