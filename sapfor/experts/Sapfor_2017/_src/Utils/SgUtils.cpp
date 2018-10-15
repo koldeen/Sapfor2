@@ -213,10 +213,8 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 {
                     if(ifIntevalExists(it.second.second, found->second))
                     {
-                        st->unparsestdout();
                         if (st->comments())
                         {
-                            printf("%s\n", st->comments());
                             if (string(st->comments()).find(it.second.first) == string::npos)
                                 st->addComment(it.second.first.c_str());
                         }

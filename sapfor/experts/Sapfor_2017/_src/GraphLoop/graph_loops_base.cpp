@@ -22,8 +22,11 @@ using std::make_pair;
 using std::get;
 
 #include "graph_loops.h"
+#include "../GraphCall/graph_calls_func.h"
 #include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
+#include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
 #include "../VisualizerCalls/get_information.h"
 #endif
@@ -76,9 +79,9 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
         {
             LoopGraph *part1 = currLoop, *part2 = currLoop;
             for (int i = 0; i < depth - 1; ++i)
-                part1 = part1->childs[0];
+                part1 = part1->children[0];
             for (int i = 0; i < depth - 2; ++i)
-                part2 = part2->childs[0];
+                part2 = part2->children[0];
 
             set<DIST::Array*> newToAdd;
 
@@ -112,21 +115,21 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
     }
     else
     {
-        for (int i = 0; i < currLoop->childs.size(); ++i)
-            uniteChildReadInfo(currLoop->childs[i]);
+        for (int i = 0; i < currLoop->children.size(); ++i)
+            uniteChildReadInfo(currLoop->children[i]);
     }
 }
 
 static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foundConflicts, map<DIST::Array*, vector<ArrayOp>> &unitedWROps)
 {
-    for (int i = 0; i < currLoop->childs.size(); ++i)
+    for (int i = 0; i < currLoop->children.size(); ++i)
     {
         if (i > 0)
         {
             foundConflicts.clear();
             unitedWROps.clear();
         }
-        fillConflictState(currLoop->childs[i], foundConflicts, unitedWROps);
+        fillConflictState(currLoop->children[i], foundConflicts, unitedWROps);
     }
 
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
@@ -458,36 +461,44 @@ static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlan
             fprintf(file, " ");
 }
 
-static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl)
+static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl, bool withRegs = false)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        printBlanks(file, 2, lvl);
-        fprintf(file, "FOR on line %d", childs[k]->lineNum);
-        if (childs[k]->perfectLoop > 1)
-            fprintf(file, " [PERFECT]");
-        if (childs[k]->hasGoto)
-            fprintf(file, " [HAS GOTO]");
-        if (childs[k]->hasPrints)
-            fprintf(file, " [HAS I/O OPS]");
-        if (childs[k]->region)
-            fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
-        if (childs[k]->userDvmDirective)
-            fprintf(file, " [USER DVM]");
+        bool needToPrint = true;
+        if (withRegs)
+            if (childs[k]->region == NULL)
+                needToPrint = false;
 
-        fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
-        fprintf(file, "\n");
-
-        for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+        if (needToPrint)
         {
             printBlanks(file, 2, lvl);
-            fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            fprintf(file, "FOR on line %d", childs[k]->lineNum);
+            if (childs[k]->perfectLoop > 1)
+                fprintf(file, " [PERFECT]");
+            if (childs[k]->hasGoto)
+                fprintf(file, " [HAS GOTO]");
+            if (childs[k]->hasPrints)
+                fprintf(file, " [HAS I/O OPS]");
+            if (childs[k]->region)
+                fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
+            if (childs[k]->userDvmDirective)
+                fprintf(file, " [USER DVM]");
+
+            fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
+            fprintf(file, "\n");
+
+            for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
+            {
+                printBlanks(file, 2, lvl);
+                fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
+            }
         }
-        printLoopGraphLvl(file, childs[k]->childs, lvl + 1);
+        printLoopGraphLvl(file, childs[k]->children, lvl + 1, withRegs);
     }
 }
 
-int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph)
+int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph, bool withRegs)
 {
     FILE *file = fopen(fileName, "w");
     if (file == NULL)
@@ -500,7 +511,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
     for (it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
         fprintf(file, "*** FILE %s\n", it->first.c_str());
-        printLoopGraphLvl(file, it->second, 1);
+        printLoopGraphLvl(file, it->second, 1, withRegs);
         fprintf(file, "\n");
     }
 
@@ -530,7 +541,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                 }
                 isNotOkey.insert(loops[i]->region);
             }
-            isAllOk(loops[i]->childs, currMessages, isNotOkey, uniqMessages);
+            isAllOk(loops[i]->children, currMessages, isNotOkey, uniqMessages);
         }
     }
 }
@@ -544,42 +555,148 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
                 loops[i]->countOfIters = 2;
-            setToDefaultCountIter(loops[i]->childs, isNotOkey);
+            setToDefaultCountIter(loops[i]->children, isNotOkey);
         }
     }
 }
 
-static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, const set<void*> &isNotOkey)
+static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
+        loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested);
     }
 }
 
-void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &SPF_messages)
+static void recAddToChildren(vector<LoopGraph*> &loops, const double coef, map<LoopGraph*, double> &interprocCoefs)
+{
+    for (auto &loop : loops)
+    {
+        auto it = interprocCoefs.find(loop);
+        if (it == interprocCoefs.end())
+            it = interprocCoefs.insert(it, make_pair(loop, 0.0));
+        it->second += coef;
+        
+        recAddToChildren(loop->children, coef, interprocCoefs);
+    }
+}
+
+static void multiplyCountIterIP(vector<LoopGraph*> &loops, const double allCount, map<LoopGraph*, double> &interprocCoefs)
+{
+    for (auto &loop : loops)
+    {
+        const double coef = loop->countOfIters * allCount;
+        recAddToChildren(loop->funcChildren, coef, interprocCoefs);
+        multiplyCountIterIP(loop->funcChildren, coef, interprocCoefs);
+    }
+}
+
+static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<LoopGraph*> &loops, const map<string, vector<LoopGraph*>> &allLoops)
+{
+    for (auto &loop : loops)
+    {
+        set<string> funNames;
+        for (auto &call : loop->calls)
+            funNames.insert(call.first);
+
+        if (funNames.size())
+        {
+            for (auto &call : funNames)
+            {
+                auto it = mapFunc.find(call);
+                if (it != mapFunc.end())
+                {
+                    FuncInfo *currF = it->second;
+                    const pair<int, int> &linesBound = currF->linesNum;
+                    //XXX
+                    const vector<LoopGraph*> &loopsFromFile = allLoops.find(currF->fileName)->second;
+                    for (auto &loopInFile : loopsFromFile)
+                        if (linesBound.first < loopInFile->lineNum && loopInFile->lineNum < linesBound.second)
+                            loop->funcChildren.push_back(loopInFile);
+                }
+            }
+        }
+                
+        fillInterprocLinks(mapFunc, loop->children, allLoops);
+    }
+}
+
+void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     set<void*> isNotOkey;
+    map<string, FuncInfo*> mapFunc;
+    
+    createMapOfFunc(allFuncInfo, mapFunc);
+    for (auto &loopsInFile : loopGraph)
+        fillInterprocLinks(mapFunc, loopsInFile.second, loopGraph);
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
+    for (auto &loopsInFile : loopGraph)
     {
         set<string> uniqMessages;
 
-        auto itM = SPF_messages.find(it->first);
+        auto itM = SPF_messages.find(loopsInFile.first);
         if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(it->first, vector<Messages>()));
-        isAllOk(it->second, itM->second, isNotOkey, uniqMessages);
+            itM = SPF_messages.insert(itM, make_pair(loopsInFile.first, vector<Messages>()));
+        isAllOk(loopsInFile.second, itM->second, isNotOkey, uniqMessages);
     }
 
     if (isNotOkey.size() != 0)
     {
-        for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            setToDefaultCountIter(it->second, isNotOkey);
+        for (auto &loopsInFile : loopGraph)
+            setToDefaultCountIter(loopsInFile.second, isNotOkey);
     }
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        multiplyCountIter(it->second, 1.0, isNotOkey);
+    for (auto &loopsInFile : loopGraph)
+        multiplyCountIter(loopsInFile.second, 1.0);
+        
+    set<LoopGraph*> linkTo;
+    for (auto &loopsInFile : loopGraph)
+    {
+        for (auto &loop : loopsInFile.second)
+        {
+            for (auto &ch : loop->children)
+                linkTo.insert(ch);
+            for (auto &ch : loop->funcChildren)
+                linkTo.insert(ch);
+        }
+    }
 
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &loop : linkTo)
+        {
+            for (auto &ch : loop->children)
+            {
+                if (linkTo.find(ch) == linkTo.end())
+                {
+                    linkTo.insert(ch);
+                    changed = true;
+                }
+            }
+            for (auto &ch : loop->funcChildren)
+            {
+                if (linkTo.find(ch) == linkTo.end())
+                {
+                    linkTo.insert(ch);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    set<LoopGraph*> dontLink;
+    for (auto &loopsInFile : loopGraph)
+        for (auto &loop : loopsInFile.second)
+            if (linkTo.find(loop) == linkTo.end())
+                dontLink.insert(loop);
+
+    map<LoopGraph*, double> interprocCoefs;
+    auto tmpParam = vector<LoopGraph*>(dontLink.begin(), dontLink.end());
+    multiplyCountIterIP(tmpParam, 1.0, interprocCoefs);
+    
+    for (auto &loop : interprocCoefs)
+        loop.first->countOfIterNested *= loop.second;
 }

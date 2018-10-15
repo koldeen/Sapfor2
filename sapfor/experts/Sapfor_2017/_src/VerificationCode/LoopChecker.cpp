@@ -180,7 +180,7 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                     if (array->GetNonDistributeFlag())
-                        typeMessage = WARR;                    
+                        typeMessage = WARR;
                     else
                     {
                         checkOK = false;

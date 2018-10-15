@@ -44,8 +44,9 @@ static void setOptions(const int *options)
     //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
     out_free_form = options[FREE_FORM];
-    keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
+    keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
+    parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
 }
 
 static int strLen(const short *shString)
@@ -277,7 +278,7 @@ int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *
     int retSize = -1;    
     try
     {
-        runPassesForVisualizer(projName, { CALL_GRAPH2 } );
+        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES } );
          
         string resVal = "";
         resVal = to_string(allFuncInfo.size());
@@ -323,7 +324,7 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     int retSize = -1;
     try
     {
-        runPassesForVisualizer(projName, { CALL_GRAPH2 });
+        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES });
 
         map<string, CallV> V;
         vector<string> E;
@@ -379,15 +380,20 @@ extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array
 static void printDeclArraysState()
 {
     printf("SAPFOR: decl state: \n");
+    int dist = 0, priv = 0, err = 0;
     for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
     {
         if (it->second.first->GetNonDistributeFlag() == false)
-            printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
+            dist++;
         else if (it->second.first->GetNonDistributeFlag() == true)
-            printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
+            priv++;
         else
-            printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
+            err++;        
     }
+    printf("   PRIV %d, DIST %d, ERR %d, ALL %d\n", priv, dist, err, dist + priv + err);
 }
 
 extern vector<ParallelRegion*> parallelRegions;

@@ -153,7 +153,8 @@ static void convertShadowToDDOTRemote(SgExpression *spec)
     }
 }
 
-static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat)
+static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     if (spec)
     {
@@ -184,28 +185,38 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat)
                 {
                     DIST::Array *currArray = getArrayFromAttribute(elem);
                     vector<pair<int, int>> spec = fillShadowSpec(elem);
-                    auto arraySizes = currArray->GetSizes();
-
-                    //check sizes
-                    for (auto &dim : arraySizes)
-                        if (dim.first > dim.second)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     
-                    if (spec.size() != arraySizes.size())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    set<DIST::Array*> realRefs;
+                    getRealArrayRefs(currArray, currArray, realRefs, arrayLinksByFuncCalls);
 
                     bool replaceByRemote = false;
-                    for (int z = 0; z < spec.size(); ++z)
+                    for (auto &realArray : realRefs)
                     {
-                        float maxSpec = std::max(spec[z].first, spec[z].second);
-                        float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
+                        auto arraySizes = realArray->GetSizes();
+                        //check sizes
+                        for (auto &dim : arraySizes)
+                            if (dim.first > dim.second || dim.first == -1 || dim.second == -1)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                        // 50 %
-                        if (dimSize * 0.5 < maxSpec)
+                        if (spec.size() != arraySizes.size())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                                
+                        for (int z = 0; z < spec.size(); ++z)
                         {
-                            replaceByRemote = true;
-                            break;
+                            float maxSpec = std::max(spec[z].first, spec[z].second);
+                            float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
+
+                            // 50 %
+                            if (dimSize * 0.5 < maxSpec)
+                            {
+                                replaceByRemote = true;
+                                break;
+                            }
                         }
+
+                        if (replaceByRemote)
+                            break;
                     }
 
                     if (replaceByRemote)
@@ -251,14 +262,14 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat)
     }
 }
 
-void devourShadowByRemote(SgFile *file)
+void devourShadowByRemote(SgFile *file, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     for (SgStatement *stat = file->firstStatement(); stat; stat = stat->lexNext())
     {
         if (stat->variant() == DVM_PARALLEL_ON_DIR)
         {
             devourShadow(stat->expr(1), stat);
-            replaceShadowByRemote(stat->expr(1), stat);
+            replaceShadowByRemote(stat->expr(1), stat, arrayLinksByFuncCalls);
         }
     }
 }
