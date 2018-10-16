@@ -411,6 +411,14 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         if (callsFromCode && callsFromRegion)
             allCommonFunctions.insert(funcPair.second);
     }
+
+    set<FuncInfo*> callSet;
+    for (auto &commFunc : allCommonFunctions)
+        createSetOfCalledFunc(commFunc->funcName, funcMap, callSet);
+
+    for (auto &region : regions)
+        for (auto &func : callSet)
+            region->AddCrossedFunc(func);
 }
 
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
