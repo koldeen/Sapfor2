@@ -922,11 +922,6 @@ static void copyFunction(ParallelRegion *region,
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
         string newFuncName = string(funcSymb->identifier()) + suffix;
 
-        // get current lines count in file
-        int linesCount = 0;
-        for (auto st = file->firstStatement(); st; st = st->lexNext())
-            linesCount = std::max(linesCount, st->lineNumber());
-
         // create copy function symbol and copy function for original function
         newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
         newFuncSymb = &newFuncSymb->copy();
@@ -963,11 +958,10 @@ static void copyFunction(ParallelRegion *region,
         */
 
         // set line numbers
-        int i = 0;
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
              origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
-            copyStat->setlineNumber(++i + linesCount);
+            copyStat->setlineNumber(origStat->lineNumber());
 
         // add copy function lines to explicit lines for next changes
         Statement *begin = new Statement(file->firstStatement()->lexNext());
@@ -1003,6 +997,10 @@ static void copyFunction(ParallelRegion *region,
                 SgStatement *commDecl = createCommonBlock(file, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
                 SgStatement *copyDecl = commDecl->copyPtr();
 
+                while (!isSgExecutableStatement(copyStat) || isSPF_stat(copyStat))
+                    copyStat = copyStat->lexNext();
+
+                copyStat = copyStat->lexPrev();
                 copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
 
                 /*
@@ -1012,7 +1010,7 @@ static void copyFunction(ParallelRegion *region,
 
                 // making declaration of new common array symbols
                 // make declarations via comment through files
-                makeStringDeclarations(copyStat, allUsedCommonArrays);
+                makeStringDeclarations(copyStat->lexNext(), allUsedCommonArrays);
 
                 auto it = createdCommonArrays.find(file->filename());
                 if (it == createdCommonArrays.end())
