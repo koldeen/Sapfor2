@@ -808,6 +808,10 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
         SgStatement *newDecl = NULL;
 
+        while (!isSgExecutableStatement(decl) || isSPF_stat(decl))
+            decl = decl->lexNext();
+        decl = decl->lexPrev();
+
         newArrSymb = &arrSymb->copy();
         newArrSymb->changeName(newArrName.c_str());
         newDecl = newArrSymb->makeVarDeclStmt();
