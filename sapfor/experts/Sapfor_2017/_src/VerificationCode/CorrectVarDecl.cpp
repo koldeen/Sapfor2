@@ -120,7 +120,6 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                                 ex->setLhs(newEx);
                             }
                         }
-
                     }
                 }
             }

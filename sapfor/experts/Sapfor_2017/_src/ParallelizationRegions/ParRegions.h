@@ -119,10 +119,7 @@ public:
         return 0;
     }
 
-    void AddFuncCalls(const std::string &func)
-    {
-        functionsCall.insert(func);
-    }
+    void AddFuncCalls(const std::string &func) { functionsCall.insert(func); }
 
 #if __SPF
     void AddAllFuncCalls(FuncInfo *func) { allFunctionsCall.insert(func); }

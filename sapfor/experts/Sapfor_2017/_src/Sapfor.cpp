@@ -920,7 +920,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (keepFiles)
             CreateFuncInfo("_funcInfo.txt", allFuncInfo);
-        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1258,7 +1257,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #endif
 
     if (internalExit != 0)
-        throw - 1;
+        throw -1;
 
     return true;
 }
@@ -1491,8 +1490,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CHECK_FUNC_TO_INCLUDE:
         findFunctionsToInclude(true);
         break;
-    case RESOLVE_PAR_REGIONS:
-        runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
