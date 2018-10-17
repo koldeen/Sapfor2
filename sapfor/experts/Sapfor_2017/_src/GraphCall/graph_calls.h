@@ -8,6 +8,9 @@
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
 
+static const char* paramNames[] = 
+{ "NONE_T", "ARRAY_T", "SCALAR_INT_T", "SCALAR_FLOAT_T", "SCALAR_DOUBLE_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "UNKNOWN_T" };
+
 typedef enum parF { NONE_T, ARRAY_T, 
                     SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,
                     UNKNOWN_T } paramType;

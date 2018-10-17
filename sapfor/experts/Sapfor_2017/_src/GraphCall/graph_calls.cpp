@@ -990,7 +990,6 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
     return 0;
 }
 
-//TODO:
 int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
 {
     string funcOut = "";
@@ -999,7 +998,29 @@ int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &f
         funcOut += "FILE " + byFile.first + ":\n";
         for (auto &func : byFile.second)
         {
+            funcOut += "  FUNCTION '" + func->funcName + "'\n";
+            char buf[256];
+            sprintf(buf, "    LINES [%d, %d] \n", func->linesNum.first, func->linesNum.second);
+            funcOut += buf;
+            sprintf(buf, "    PARAMETERS %d:\n", func->funcParams.countOfPars);
+            funcOut += buf;
+            for (int z = 0; z < func->funcParams.countOfPars; ++z)
+            {
+                bool in = func->funcParams.isArgIn(z);
+                bool out = func->funcParams.isArgOut(z);
+                const char *inout = "";
+                if (in && out)
+                    inout = "IN/OUT";
+                else if (in)
+                    inout = "IN";
+                else if (out)
+                    inout = "OUT";
 
+                sprintf(buf, "      %s: type '%s', %s\n", func->funcParams.identificators[z].c_str(), 
+                                                 paramNames[func->funcParams.parametersT[z]], 
+                                                 inout);
+                funcOut += buf;
+            }
         }
     }
 
@@ -1934,5 +1955,50 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     propagateWritesToArrays(funcByName);
 }
 
+
+map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
+{
+    int var = stIn->variant();
+    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
+    {
+        stIn = stIn->controlParent();
+        var = stIn->variant();
+    }
+
+    map<string, set<SgSymbol*>> byUse;
+    for (SgStatement *stat = stIn->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+    {
+        if (stat->variant() == USE_STMT)
+        {
+            SgExpression *ex = stat->expr(0);
+            if (ex && ex->variant() == ONLY_NODE)
+            {
+                for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                {
+                    if (exI->lhs()->variant() == RENAME_NODE)
+                    {
+                        SgExpression *ren = exI->lhs();
+                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                    }
+                }
+            }
+            else if (ex && ex->lhs())
+            {
+                for (auto exI = ex; exI; exI = exI->rhs())
+                {
+                    if (exI->lhs()->variant() == RENAME_NODE)
+                    {
+                        SgExpression *ren = exI->lhs();
+                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                    }
+                }
+            }
+        }
+    }
+
+    return byUse;
+}
 
 #undef DEBUG

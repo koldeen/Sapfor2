@@ -33,5 +33,6 @@ int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &fi
 void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messagesForFile);
 bool isPassFullArray(SgExpression *ex);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
+std::map<std::string, std::set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn);
 #endif
 

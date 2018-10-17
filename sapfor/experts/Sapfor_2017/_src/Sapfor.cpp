@@ -207,6 +207,8 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
     {
+        restoreCorrectedModuleProcNames(file);
+
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
 
@@ -916,10 +918,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
 
-        //TODO
         if (keepFiles)
-        {
-
+            CreateFuncInfo("_funcInfo.txt", allFuncInfo);
         }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
@@ -1289,6 +1289,9 @@ static SgProject* createProject(const char *proj_name)
 
     parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        correctModuleProcNames(&(project->file(z)));
     return project;
 }
 

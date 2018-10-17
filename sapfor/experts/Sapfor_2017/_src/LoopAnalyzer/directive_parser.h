@@ -26,7 +26,7 @@ template<typename fillType>
 void fillShadowAcrossFromParallel(const int type, SgStatement *st, std::vector<std::pair<std::pair<fillType, std::string>, std::vector<std::pair<int, int>>>> &data, std::set<fillType> &corner);
 
 template<typename fillType>
-void fillRemoteFromComment(SgStatement *st, std::map<std::pair<fillType, std::string>, Expression*> &remote, bool isFull = false);
+void fillRemoteFromComment(SgStatement *st, std::map<std::pair<fillType, std::string>, Expression*> &remote, bool isFull = false, int type = SPF_PARALLEL_DIR);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &acrossInfo);
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive);
