@@ -22,7 +22,9 @@ using std::make_pair;
 using std::get;
 
 #include "graph_loops.h"
+#include "../GraphCall/graph_calls_func.h"
 #include "../Utils/errors.h"
+#include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
@@ -558,37 +560,143 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
     }
 }
 
-static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, const set<void*> &isNotOkey)
+static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
-            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested, isNotOkey);
+        loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested);
     }
 }
 
-void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &SPF_messages)
+static void recAddToChildren(vector<LoopGraph*> &loops, const double coef, map<LoopGraph*, double> &interprocCoefs)
+{
+    for (auto &loop : loops)
+    {
+        auto it = interprocCoefs.find(loop);
+        if (it == interprocCoefs.end())
+            it = interprocCoefs.insert(it, make_pair(loop, 0.0));
+        it->second += coef;
+        
+        recAddToChildren(loop->children, coef, interprocCoefs);
+    }
+}
+
+static void multiplyCountIterIP(vector<LoopGraph*> &loops, const double allCount, map<LoopGraph*, double> &interprocCoefs)
+{
+    for (auto &loop : loops)
+    {
+        const double coef = loop->countOfIters * allCount;
+        recAddToChildren(loop->funcChildren, coef, interprocCoefs);
+        multiplyCountIterIP(loop->funcChildren, coef, interprocCoefs);
+    }
+}
+
+static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<LoopGraph*> &loops, const map<string, vector<LoopGraph*>> &allLoops)
+{
+    for (auto &loop : loops)
+    {
+        set<string> funNames;
+        for (auto &call : loop->calls)
+            funNames.insert(call.first);
+
+        if (funNames.size())
+        {
+            for (auto &call : funNames)
+            {
+                auto it = mapFunc.find(call);
+                if (it != mapFunc.end())
+                {
+                    FuncInfo *currF = it->second;
+                    const pair<int, int> &linesBound = currF->linesNum;
+                    //XXX
+                    const vector<LoopGraph*> &loopsFromFile = allLoops.find(currF->fileName)->second;
+                    for (auto &loopInFile : loopsFromFile)
+                        if (linesBound.first < loopInFile->lineNum && loopInFile->lineNum < linesBound.second)
+                            loop->funcChildren.push_back(loopInFile);
+                }
+            }
+        }
+                
+        fillInterprocLinks(mapFunc, loop->children, allLoops);
+    }
+}
+
+void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     set<void*> isNotOkey;
+    map<string, FuncInfo*> mapFunc;
+    
+    createMapOfFunc(allFuncInfo, mapFunc);
+    for (auto &loopsInFile : loopGraph)
+        fillInterprocLinks(mapFunc, loopsInFile.second, loopGraph);
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
+    for (auto &loopsInFile : loopGraph)
     {
         set<string> uniqMessages;
 
-        auto itM = SPF_messages.find(it->first);
+        auto itM = SPF_messages.find(loopsInFile.first);
         if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(it->first, vector<Messages>()));
-        isAllOk(it->second, itM->second, isNotOkey, uniqMessages);
+            itM = SPF_messages.insert(itM, make_pair(loopsInFile.first, vector<Messages>()));
+        isAllOk(loopsInFile.second, itM->second, isNotOkey, uniqMessages);
     }
 
     if (isNotOkey.size() != 0)
     {
-        for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-            setToDefaultCountIter(it->second, isNotOkey);
+        for (auto &loopsInFile : loopGraph)
+            setToDefaultCountIter(loopsInFile.second, isNotOkey);
     }
 
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
-        multiplyCountIter(it->second, 1.0, isNotOkey);
+    for (auto &loopsInFile : loopGraph)
+        multiplyCountIter(loopsInFile.second, 1.0);
+        
+    set<LoopGraph*> linkTo;
+    for (auto &loopsInFile : loopGraph)
+    {
+        for (auto &loop : loopsInFile.second)
+        {
+            for (auto &ch : loop->children)
+                linkTo.insert(ch);
+            for (auto &ch : loop->funcChildren)
+                linkTo.insert(ch);
+        }
+    }
 
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &loop : linkTo)
+        {
+            for (auto &ch : loop->children)
+            {
+                if (linkTo.find(ch) == linkTo.end())
+                {
+                    linkTo.insert(ch);
+                    changed = true;
+                }
+            }
+            for (auto &ch : loop->funcChildren)
+            {
+                if (linkTo.find(ch) == linkTo.end())
+                {
+                    linkTo.insert(ch);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    set<LoopGraph*> dontLink;
+    for (auto &loopsInFile : loopGraph)
+        for (auto &loop : loopsInFile.second)
+            if (linkTo.find(loop) == linkTo.end())
+                dontLink.insert(loop);
+
+    map<LoopGraph*, double> interprocCoefs;
+    auto tmpParam = vector<LoopGraph*>(dontLink.begin(), dontLink.end());
+    multiplyCountIterIP(tmpParam, 1.0, interprocCoefs);
+    
+    for (auto &loop : interprocCoefs)
+        loop.first->countOfIterNested *= loop.second;
 }

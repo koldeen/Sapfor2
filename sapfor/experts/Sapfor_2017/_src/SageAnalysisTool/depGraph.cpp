@@ -16,6 +16,7 @@ extern "C" void removeFromCollection(void *pointer);
 extern int passDone;
 #endif
 
+#include "../GraphCall/graph_calls.h"
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -27,6 +28,7 @@ extern int passDone;
 
 using std::vector;
 using std::set;
+using std::map;
 using std::string;
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -63,8 +65,7 @@ extern Set* loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymb
 ///////////////////////////////////////////////////////////////////////////////////////
 // declaration for defuse and reaching definition (defUse.C)
 ///////////////////////////////////////////////////////////////////////////////////////
-
-extern void initDefUseTable(SgStatement *func);
+extern void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs);
 extern Set *makeGenSet(SgStatement *func, SgStatement *stmt);
 extern Set *makeKillSet(SgStatement *func, SgStatement *stmt);
 extern int symbRefEqual(void *e1, void *e2);
@@ -1254,9 +1255,8 @@ extern int toBeCalledByOmegaTest(int tdep, int kdep, int *dist, int *kdist, int 
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // f is a function statement; file the file;
-void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f)
+void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<string, FuncInfo*> &allFuncs)
 {
-
     if (!f || !file)
     {
         Message("Cannot run initializeDepAnalysisForFunction; no function provided", 0);
@@ -1264,7 +1264,7 @@ void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f)
     }
     // convert the loops to be enddo loops; should help later????
     convertContLoopToEnddo(f);
-    initDefUseTable(f);
+    initDefUseTable(f, allFuncs);
     //  Not Needed Yet;
     //iterativeForwardFlowAnalysis(file,f,makeGenSet,makeKillSet,symbRefEqual,NULL,myPrint);
 

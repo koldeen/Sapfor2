@@ -241,7 +241,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             for (int idx = allToInsert.size() - 1; idx >= 0; --idx)
             {
                 const int var = allToInsert[idx]->variant();
-                if (var == IF_NODE || var == ELSEIF_NODE)
+                if (var == ELSEIF_NODE)
                 {
                     if (idx != 0)
                         toInsert = allToInsert[idx - 1];

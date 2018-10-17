@@ -2611,8 +2611,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
 // generating assign statement
 // dvm000(1) = BegBl()
 // ( function BegBl defines the begin of object localisation block) 
-    if(distr || task_symb || TestDVMDirectivesInProcedure(pstmt)) {
-       LINE_NUMBER_BEFORE(first_exec,first_exec);   
+    if(distr || task_symb || TestDVMDirectivesInProcedure(pstmt)) { 
        BeginBlock_H();
        begin_block = 1;
        begbl = cur_st;
@@ -2752,7 +2751,11 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
       fmask[GETAM] = 0; fmask[GETVM] = 0; 
     }  
   }
-  
+
+  if(begin_block && !IN_MAIN_PROGRAM) {    
+      LINE_NUMBER_BEFORE(first_exec,begbl);
+  }
+ 
   if(lab_exec)
       first_exec-> setLabel(*lab_exec);  //restore label of first executable statement
 

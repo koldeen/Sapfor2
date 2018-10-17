@@ -14,6 +14,7 @@ namespace Distribution
 namespace DIST = Distribution;
 
 int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::map<std::string, CallV> &V, std::vector<std::string> &E);
+int CreateFuncInfo(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile);
 std::string removeString(const std::string toRemove, const std::string inStr);
 FuncInfo* isUserFunctionInProject(const std::string &func);
 std::string convertToString(const FuncInfo *currFunc);
@@ -32,5 +33,6 @@ int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &fi
 void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messagesForFile);
 bool isPassFullArray(SgExpression *ex);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
+std::map<std::string, std::set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn);
 #endif
 

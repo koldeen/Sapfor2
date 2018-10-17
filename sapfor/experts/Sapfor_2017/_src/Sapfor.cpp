@@ -40,6 +40,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
+#include "LoopConverter/private_arrays_breeder.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
@@ -69,9 +70,6 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
-
-//from insert_directive.cpp
-extern map<string, set<string>> dynamicDirsByFile;
 
 void deleteAllAllocatedData(bool enable)
 {
@@ -209,6 +207,8 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
     {
+        restoreCorrectedModuleProcNames(file);
+
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
 
@@ -350,7 +350,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                              &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -362,7 +362,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(itFound->second));
 
             currProcessing.second = NULL;
@@ -377,7 +377,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == LOOP_GRAPH)        
-            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));
         else if (curr_regime == VERIFY_ENDDO)
         {
             bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
@@ -436,9 +436,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-            if (i == n - 1)
-                dynamicDirsByFile.clear();
-
+            
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = NULL;
 
@@ -563,7 +561,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -682,7 +680,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)
-            devourShadowByRemote(file);
+            devourShadowByRemote(file, arrayLinksByFuncCalls);
         else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
             transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
@@ -732,6 +730,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if(founded != loopGraph.end())
+                breedArrays(file, loopGraph.find(file->filename())->second);
+        }
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
@@ -903,7 +907,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
-    {
+    {    
         if (keepFiles)
         {
             map<string, CallV> V;
@@ -913,6 +917,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
+
+        if (keepFiles)
+            CreateFuncInfo("_funcInfo.txt", allFuncInfo);
+        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1079,7 +1087,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 throw(-1);
             }
         }
-        checkCountOfIter(loopGraph, SPF_messages);
+
+        checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
         if (keepFiles)
         {
             printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
@@ -1317,7 +1326,7 @@ static string selectAddNameOfVariant(const int i, int maxDimsIdx, int maxDimsIdx
             parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
     }
     else
-        sprintf(buf, "par");
+        sprintf(buf, "");  //sprintf(buf, "par");
     return buf;
 }
 
@@ -1353,6 +1362,9 @@ static SgProject* createProject(const char *proj_name)
 
     parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        correctModuleProcNames(&(project->file(z)));
     return project;
 }
 
@@ -1459,7 +1471,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
-    case REMOVE_DVM_DIRS_TO_COMMENTS:    
+    case REMOVE_DVM_DIRS_TO_COMMENTS:
+    case PRIVATE_ARRAYS_BREEDING:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
