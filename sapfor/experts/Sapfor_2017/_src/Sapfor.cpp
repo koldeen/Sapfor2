@@ -1115,7 +1115,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveParRegions(parallelRegions, allFuncInfo, commonBlocks, allCommonFunctions, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks, insertedCommonBlocks);
+        resolveParRegions(parallelRegions, allFuncInfo, commonBlocks, allCommonFunctions, allUsedCommonArrays, 
+                          createdCommonArrays, createdCommonBlocks, insertedCommonBlocks);    
     }
     else if (curr_regime == LOOP_GRAPH)
     {
