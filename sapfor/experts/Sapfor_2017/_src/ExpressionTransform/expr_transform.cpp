@@ -1,5 +1,10 @@
 #include "../Utils/leak_detector.h"
 
+#if _WIN32 && NDEBUG && __SPF
+#include <boost/thread.hpp>
+extern int passDone;
+#endif
+
 #include "dvm.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -47,6 +52,13 @@ static map<SgStatement*, vector<SgExpression*>>* curFileReplacements;
 static set<SgStatement*> visitedStatements;
 static CommonVarsOverseer overseer;
 static GraphsKeeper *graphsKeeper = NULL;
+
+static unsigned int substitutionsCounter = 0;
+static void incrementSubstitutionsCounter(int print_prof_info) {
+    if(print_prof_info)
+        substitutionsCounter++;
+}
+
 
 GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 {
@@ -110,10 +122,25 @@ void revertReplacements(const string &filename, bool back)
     }    
 }
 
+static SgExpression* getFromConstructor(SgExpression *e, int num)
+{
+    int i = 1;
+    while (e)
+    {
+        if (i == num)
+            return e->lhs();
+        ++i;
+        e = e->rhs();
+    }
+
+    return NULL;
+}
+
 SgExpression* ReplaceParameter(SgExpression *e)
 {
     if (!e)
         return e;
+    
     if (e->variant() == CONST_REF)
     {
         SgConstantSymb *sc = isSgConstantSymb(e->symbol());
@@ -121,6 +148,27 @@ SgExpression* ReplaceParameter(SgExpression *e)
             return e;
         return (ReplaceParameter(&(sc->constantValue()->copy())));
     }
+    else if (e->variant() == ARRAY_REF)
+    {
+        SgConstantSymb *sc = isSgConstantSymb(e->symbol());
+        if (sc)
+        {            
+            SgExpression *constructor = sc->constantValue();
+            SgArrayRefExp *ref = isSgArrayRefExp(e);
+            if (ref->numberOfSubscripts() == 1)
+            {
+                auto sub = ref->subscript(0);
+                if (sub->isInteger())
+                {
+                    int num = sub->valueInteger();
+                    SgExpression *value = getFromConstructor(constructor->lhs(), num);
+                    if (value && value->lhs() == NULL && value->rhs() == NULL)
+                        return (ReplaceParameter(&(value->copy())));
+                }
+            }
+        }
+    }
+
     e->setLhs(ReplaceParameter(e->lhs()));
     e->setRhs(ReplaceParameter(e->rhs()));
     return e;
@@ -464,6 +512,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     if (founded != b->getGen()->end())
         if (!valueWithFunctionCall(founded->second))
             if (!valueWithRecursion(founded->first, founded->second))
+                if(!valueWithArrayReference(founded->second))
                     exp = founded->second;
 
 
@@ -550,6 +599,7 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
 
     __spf_print(PRINT_PROF_INFO, "%d: %s -> ",lineNumber, oldExp->unparse());
     __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+    incrementSubstitutionsCounter(PRINT_PROF_INFO);
 
     SgExpression* expToCopy = newExp->copyPtr();
     calculate(expToCopy);
@@ -575,6 +625,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
             createBackup(parent, expNumber);
             __spf_print(PRINT_PROF_INFO, "%d: %s -> ",parent->lineNumber(), exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
+            incrementSubstitutionsCounter(PRINT_PROF_INFO);
             SgExpression* expToCopy = newExp->copyPtr();
             calculate(expToCopy);
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
@@ -796,6 +847,10 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
     bool wereReplacements = true;
     while (wereReplacements)
     {
+#if _WIN32 && NDEBUG && __SPF 
+        if (passDone == 2)
+            throw boost::thread_interrupted();
+#endif
         __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
         wereReplacements = false;
         visitedStatements.clear();
@@ -815,6 +870,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
 void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
+
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
@@ -991,8 +1047,8 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
 
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph, inDefs);
+        __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
         BuildUnfilteredReachingDefinitions(CGraph, inDefs);
-
     }
 
     for (auto &stmt : *curFileReplacements)

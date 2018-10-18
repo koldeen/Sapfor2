@@ -24,6 +24,9 @@
 #include "version.h"
 
 #include "../GraphLoop/graph_loops.h"
+#include "../Distribution/Array.h"
+#include "../Distribution/Arrays.h"
+#include "../Sapfor.h"
 
 using std::map;
 using std::pair;
@@ -43,7 +46,7 @@ void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<Loop
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             sortedLoopGraph[(*loopGraph)[i]->lineNum] = (*loopGraph)[i];
-            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->childs));
+            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->children));
         }
     }
 }

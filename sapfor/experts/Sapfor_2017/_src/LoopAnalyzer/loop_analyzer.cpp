@@ -1655,7 +1655,8 @@ static void findArrayRefs(SgExpression *ex,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                           const set<string> &privates, const set<string> &deprecatedByIO, 
                           bool isExecutable, SgStatement *declSt, const string &currFunctionName, bool isWrite,
-                          const ParallelRegion *inRegion)
+                          const ParallelRegion *inRegion,
+                          const set<string> &funcParNames)
 {
     if (ex == NULL)
         return;
@@ -1682,6 +1683,8 @@ static void findArrayRefs(SgExpression *ex,
                 }
                 else if (get<1>(uniqKey).find("common_") != string::npos)
                     arrayLocation = make_pair(1, get<1>(uniqKey).substr(strlen("common_")));
+                else if (funcParNames.find(symb->identifier()) != funcParNames.end())
+                    arrayLocation = make_pair(3, currFunctionName);
                 else
                     arrayLocation = make_pair(0, currFunctionName);
 
@@ -1711,6 +1714,8 @@ static void findArrayRefs(SgExpression *ex,
                         itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
                     else if (deprecatedByIO.find(symb->identifier()) != deprecatedByIO.end())
                         itNew->second.first->SetNonDistributeFlag(DIST::IO_PRIV);
+                    else if (isSgConstantSymb(symb))
+                        itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
                     else
                         itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
                 }
@@ -1737,8 +1742,8 @@ static void findArrayRefs(SgExpression *ex,
         }
     }
 
-    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion);
-    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion);
+    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
+    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
 }
 
 static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
@@ -1813,7 +1818,15 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         set<string> deprecatedByIO;
         map<string, set<string>> reductions;
         map<string, set<tuple<string, string, int>>> reductionsLoc;
-        
+        set<string> funcParNames;
+
+        if (st->variant() != PROG_HEDR)
+        {
+            SgProcHedrStmt *func = (SgProcHedrStmt*)st;
+            for (int z = 0; z < func->numberOfParameters(); ++z)
+                funcParNames.insert(func->parameter(z)->identifier());
+        }
+
         for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
         {
             if (iter->variant() == CONTAINS_STMT)
@@ -1899,7 +1912,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             for (int i = 0; i < 3; ++i)
                 findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                               isSgExecutableStatement(st) ? true : false, st, currFunctionName,
-                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, currReg);
+                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, currReg, funcParNames);
             st = st->lexNext();
         }
     }
@@ -1919,7 +1932,7 @@ void insertSpfAnalysisBeforeParalleLoops(const vector<LoopGraph*> &loops)
             //uncomment it to debug private analysis
             //loop->loop->insertStmtBefore(*spfStat);
         }
-        insertSpfAnalysisBeforeParalleLoops(loop->childs);
+        insertSpfAnalysisBeforeParalleLoops(loop->children);
     }
 }
 #undef PRINT_ARRAY_ARCS

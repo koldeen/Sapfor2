@@ -81,13 +81,21 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                     string modName = st->symbol()->identifier();
 
                     auto it = mod.find(modName);
-
-                    set<string> allS;
-                    for (auto exI = ex->lhs(); exI; exI = exI->rhs())
-                        allS.insert(exI->lhs()->symbol()->identifier());
-                    
+                                        
                     if (ex && ex->variant() == ONLY_NODE && it != mod.end())
                     {
+                        set<string> allS;
+                        for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                        {
+                            if (exI->lhs()->variant() == RENAME_NODE)
+                            {
+                                if (exI->lhs()->lhs()->symbol())
+                                    allS.insert(exI->lhs()->lhs()->symbol()->identifier());
+                                if (exI->lhs()->rhs() && exI->lhs()->rhs()->symbol())
+                                    allS.insert(exI->lhs()->rhs()->symbol()->identifier());
+                            }
+                        }
+
                         set<DIST::Array*> needToAdd;
                         for (auto &parReg : regs)
                         {
@@ -112,6 +120,7 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                                 ex->setLhs(newEx);
                             }
                         }
+
                     }
                 }
             }

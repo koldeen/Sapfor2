@@ -317,6 +317,6 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         currLoop->addConflictMessages(currMessages);
     }
     
-    for (int k = 0; k < currLoop->childs.size(); ++k)
-        tryToFindDependencies(currLoop->childs[k], allLoops, funcWasInit, file, regions, currMessages, collection);
+    for (int k = 0; k < currLoop->children.size(); ++k)
+        tryToFindDependencies(currLoop->children[k], allLoops, funcWasInit, file, regions, currMessages, collection);
 }

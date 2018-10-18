@@ -86,10 +86,14 @@ enum passes {
     REVERT_SPF_DIRS,
     CLEAR_SPF_DIRS,
 
+    CREATE_INTER_TREE,
+    INSERT_INTER_TREE,
+
     SHADOW_GROUPING,
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
+    PRIVATE_ARRAYS_BREEDING,
     EMPTY_PASS
 };
 
@@ -186,5 +190,9 @@ static void setPassValues()
     passNames[PRINT_PAR_REGIONS_ERRORS] = "PRINT_PAR_REGIONS_ERRORS";
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
+    passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
+
+    passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
+    passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

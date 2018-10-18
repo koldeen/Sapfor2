@@ -415,8 +415,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
             recExpressionPrint(*use);
             printf("old def:\n");
             recExpressionPrint(*def);*/
-
-            callStat->unparsestdout();
+                        
             std::vector<SgExpression*> defL;
             std::vector<SgExpression*> useL;
             for (int z = 0; z < callStat->numberOfArgs(); ++z)

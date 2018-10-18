@@ -7,6 +7,12 @@
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 
+namespace Distribution
+{
+    class ArrayAccessInfo;
+}
+namespace DIST = Distribution;
+
 int CreateCallGraphViz(const char *fileName, const std::map<std::string, std::vector<FuncInfo*>> &funcByFile, std::map<std::string, CallV> &V, std::vector<std::string> &E);
 std::string removeString(const std::string toRemove, const std::string inStr);
 FuncInfo* isUserFunctionInProject(const std::string &func);
@@ -15,6 +21,7 @@ void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
+void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF
