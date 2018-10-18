@@ -146,7 +146,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
-			 shadow.o private_arrays_breeder.o
+			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
@@ -182,6 +182,8 @@ calls.o: $(REPO_FDVM_BASE)fdvm/calls.cpp
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_FDVM_BASE)fdvm/calls.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 ParRegions.o: $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/ParRegions.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+resolve_par_reg_conflicts.o: $(REPO_SPF_BASE)ParallelizationRegions/resolve_par_reg_conflicts.cpp $(REPO_SPF_BASE)ParallelizationRegions/resolve_par_reg_conflicts.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/resolve_par_reg_conflicts.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 enddo_loop_converter.o: $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.h $(REPO_SPF_BASE)Utils/errors.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 array_assign_to_loop.o: $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.h

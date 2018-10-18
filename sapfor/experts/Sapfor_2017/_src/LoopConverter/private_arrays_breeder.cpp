@@ -1,24 +1,27 @@
 #include "private_arrays_breeder.h"
+#include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
 
 #include <set>
 #include <queue>
 #include <vector>
-#include <stack>
 
 using std::string;
 using std::set;
 using std::queue;
 using std::vector;
-using std::stack;
 
 static char* constructNewArrayName(const char* oldName)
 {
-    int offset = strlen(oldName);
-    char* newName = (char*)malloc(offset + 8 + 1);
-    strcpy(newName, oldName);
-    strcpy(newName + offset, "_breeded");
-    return newName;
+    string name(oldName), newName;
+    name += "_br";
+    newName = name + std::to_string(1);
+    for(int n = 2; ifSymbolExists(current_file, newName); ++n)
+        newName = name + std::to_string(n);
+
+    char* newNameChar = (char*)malloc((newName.size() + 1) * sizeof(char));
+    strcpy(newNameChar, newName.c_str());
+    return newNameChar;
 }
 
 static SgSymbol* createNewArrayNameSymbol(SgExpression* declaration)
@@ -30,26 +33,32 @@ static SgSymbol* createNewArrayNameSymbol(SgExpression* declaration)
 
 static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *expressionToExtend)
 {
-    SgExpression *curList = expressionToExtend->lhs();
-     for(int i = dimensions.size()-1; i >= 0; --i)
-     {
-         SgExpression *breededIndex = new SgValueExp(dimensions[i]);
-         curList = new SgExpression(EXPR_LIST, breededIndex, curList, (SgSymbol*)NULL);
-     }
+    SgExpression *newTail = NULL;
+    for (int i = dimensions.size() - 1; i >= 0; --i)
+    {
+        SgExpression *breededIndex = new SgExpression(DDOT);//new SgValueExp(dimensions[i]);
+        newTail = new SgExpression(EXPR_LIST, breededIndex, newTail, (SgSymbol*) NULL);
+    }
 
-     expressionToExtend->setLhs(curList);
+    SgExpression *oldTail = expressionToExtend->lhs();
+    while(oldTail->rhs() != NULL)
+        oldTail = oldTail->rhs();
+    oldTail->setRhs(newTail);
 }
 
 static void extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend)
 {
-    SgExpression *curList = expressionToExtend->lhs();
+    SgExpression *newTail = NULL;
     for(int i = indexes.size()-1; i >= 0; --i)
     {
         SgExpression *breededIndex = new SgVarRefExp(indexes[i]);
-        curList = new SgExpression(EXPR_LIST, breededIndex, curList, (SgSymbol*)NULL);
+        newTail = new SgExpression(EXPR_LIST, breededIndex, newTail, (SgSymbol*)NULL);
     }
 
-    expressionToExtend->setLhs(curList);
+    SgExpression *oldTail = expressionToExtend->lhs();
+    while(oldTail->rhs() != NULL)
+        oldTail = oldTail->rhs();
+    oldTail->setRhs(newTail);
 }
 
 static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymbol *arraySymbol, vector<int> &dimensions) {
@@ -121,13 +130,16 @@ static SgStatement* createNewDeclarationStatemnet(SgSymbol* arraySymbol)
     return originalDeclaration;
 }
 
-static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol)
+static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBreed)
 {
-    vector<int> dimensions(forLoop->perfectLoop);
-    vector<SgSymbol*> indexes(forLoop->perfectLoop);
+    if(depthOfBreed < 0 || depthOfBreed > forLoop->perfectLoop)
+        depthOfBreed = forLoop->perfectLoop;
+
+    vector<int> dimensions(depthOfBreed);
+    vector<SgSymbol*> indexes(depthOfBreed);
 
     LoopGraph *curLoop = forLoop;
-    for(int i = 0; i < forLoop->perfectLoop; ++i)
+    for(int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
         if(curLoop->calculatedCountOfIters == 0)
@@ -138,7 +150,7 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol)
 
         if(curLoop->children.size() == 1)
             curLoop = curLoop->children[0];
-        else if(i != forLoop->perfectLoop-1)
+        else if(i != depthOfBreed-1)
             return;
     }
 
@@ -188,8 +200,15 @@ static SgSymbol *findArray(LoopGraph*  forLoop, const char* arrayName)
 /*
  * 1. Добавить индексных новых переменных в существующие обращения - ОК
  * 2. Вычислить размеры новых измерений по циклу - ok
- * 3. Вставить новый массив - в текущий файл
+ * 3. Вставить новый массив - в текущий файл - ok
  * 4. Переименовывать массивы, когда расширяем их - ok
+ *
+ * 1. breeded -> br1, br2, ... - ok
+ * 2. Добавлять измерения в хвост, а не в начало - ok
+ * 3. Кол-во измерений зависит от depthOfBreed - ok
+ * 4. Вычислять размер массива с учётом шага цикла - В топку
+ * 5. Выделять массив как allocateable
+ * 6. добавить alllocate/deallocate перед/после цикла
  */
 void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
     if(string(file->filename()) == "z_solve_inlined.f")
@@ -197,7 +216,7 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
         {
             SgSymbol *array = findArray(loopGraph, "njac");
             if(array)
-                breedArray(loopGraph, array);
+                breedArray(loopGraph, array, -1);
 
 
 /*            array = findArray(loopGraph, "fjac");

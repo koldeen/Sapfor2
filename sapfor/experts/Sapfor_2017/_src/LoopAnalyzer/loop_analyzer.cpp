@@ -661,9 +661,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
     }
 
     if (currExp->lhs())
-        findArrayRef(parentLoops, currExp->lhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+        findArrayRef(parentLoops, currExp->lhs(), lineNum, (side == LEFT) ? RIGHT : side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
     if (currExp->rhs())
-        findArrayRef(parentLoops, currExp->rhs(), lineNum, side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+        findArrayRef(parentLoops, currExp->rhs(), lineNum, (side == LEFT) ? RIGHT : side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
 }
 
 #define FIRST(x)  get<0>(x)
@@ -950,7 +950,7 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
     {
         SgSymbol *currentArray = it1->first;
         const ArrayInfo *currentInfo = &(it1->second);
-
+        
         DIST::Array *arrayToAdd;
 
         SgStatement *decl = declaratedInStmt(currentArray);
@@ -991,6 +991,10 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
             }
 
             toAdd[arrayToAdd] = currentInfo;
+
+            for (int z = 0; z < currentInfo->dimSize; ++z)
+                if (currentInfo->readOps[z].coefficients.size() || currentInfo->writeOps[z].coefficients.size())
+                    arrayToAdd->SetMappedDim(z);            
         }
     }
     outInfo[currLoop] = toAdd;

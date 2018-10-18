@@ -91,6 +91,8 @@ namespace Distribution
 
         SET<STRING> containsInRegions;
 
+        VECTOR<bool> mappedDims;
+
         TemplateLink* getTemlateInfo(const int regionId)
         {
             auto it = templateInfo.find(regionId);
@@ -131,12 +133,14 @@ namespace Distribution
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
             sizesExpr.resize(dimSize);
+            mappedDims.resize(dimSize);
 
             for (int z = 0; z < dimSize; ++z)
             {
                 sizes[z] = std::make_pair((int)INT_MAX, (int)INT_MIN);
                 PAIR<int, int> initVal = std::make_pair(0, 0);
                 sizesExpr[z] = std::make_pair(std::make_pair((Expression*)NULL, initVal), std::make_pair((Expression*)NULL, initVal));
+                mappedDims[z] = false;
             }
                         
             GenUniqKey();
@@ -168,6 +172,42 @@ namespace Distribution
             declSymbol = copy.declSymbol;
             uniqKey = copy.uniqKey;
             containsInRegions = copy.containsInRegions;
+            mappedDims = copy.mappedDims;
+        }
+
+        //TODO:
+        void RemoveUnpammedDims()
+        {
+            bool needToRemove = false;
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (!mappedDims[z])
+                {
+                    needToRemove = true;
+                    break;
+                }
+            }
+
+            if (needToRemove == false)
+                return;
+
+            VECTOR<PAIR<int, int>> newSizes;
+            VECTOR<VECTOR<PAIR<int, int>>> newAllShadowSpecs;
+            VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> newSizesExpr;
+
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (mappedDims[z])
+                {
+                    newSizes.push_back(sizes[z]);
+                    newSizesExpr.push_back(sizesExpr[z]);
+                }
+            }
+
+            sizes = newSizes;
+            allShadowSpecs = newAllShadowSpecs;
+            sizesExpr = newSizesExpr;
+            dimSize = sizes.size();
         }
 
         int GetDimSize() const { return dimSize; }
@@ -377,6 +417,21 @@ namespace Distribution
 
         const SET<STRING>& GetRgionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
+
+        void SetMappedDim(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            mappedDims[dim] = true;
+        }
+
+        bool IsDimMapped(const int dim)
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return mappedDims[dim];
+        }
 
         ~Array() 
         {

@@ -357,13 +357,14 @@ static inline string genTemplateDelc(DIST::Array *templ, SgStatement *module = N
     templDecl += templ->GetShortName() + "(";
     for (int z = 0; z < sizes.size(); ++z)
     {
-        if (module == NULL && !isMain)
+        //TODO:!!!
+        /*if (module == NULL && !isMain)
         {
             templDecl += ":";
             if (z != sizes.size() - 1)
                 templDecl += ",";
         }
-        else
+        else*/
         {
             templDecl += genBoundsOfDim(sizes[z], make_pair(sizesExpr[z].first.first, sizesExpr[z].second.first));
             if (z != sizes.size() - 1)
@@ -399,7 +400,19 @@ static inline string genTemplateDistr(const DIST::Array *templ, const vector<str
             templDist += "!DVM$ DISTRIBUTE " + distrRules[templIdx] + "\n";
     }
     else
-        templDist += "!DVM$ DISTRIBUTE " + templ->GetShortName() + "\n";
+    {
+        //TODO:!!!
+        //templDist += "!DVM$ DISTRIBUTE :: " + templ->GetShortName() + "\n";
+        templDist += "!DVM$ DISTRIBUTE ";
+        templDist += templ->GetShortName() + "(";
+        for (int z = 0; z < sizes.size(); ++z)
+        {
+            templDist += "*";
+            if (z != sizes.size() - 1)
+                templDist += ",";
+        }
+        templDist += ")\n";
+    }
 
     return templDist;
 }
@@ -742,8 +755,8 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     //XXX
-                    string templDecl = genTemplateDelc(array, (SgStatement*)-1);
-                    string templDist = genTemplateDistr(array, distrRules, regionId, templIdx, false);
+                    string templDecl = genTemplateDelc(array, (SgStatement*)-1, true);
+                    string templDist = genTemplateDistr(array, distrRules, regionId, templIdx, true);
                     string templDyn = "";
 
                     string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));

@@ -50,6 +50,7 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        funcParent = NULL;
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
@@ -258,6 +259,7 @@ public:
     std::vector<LoopGraph*> children;
     std::vector<LoopGraph*> funcChildren;
     LoopGraph *parent;
+    LoopGraph *funcParent;
 
     std::vector<std::pair<std::string, int>> calls;
     

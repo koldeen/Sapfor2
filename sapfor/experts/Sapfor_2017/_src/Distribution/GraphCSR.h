@@ -167,6 +167,8 @@ namespace Distribution
         void ChangeQuality(const int newMaxLoopDim, const int newMaxChainLen) { SetMaxLoopDim(newMaxLoopDim); SetMaxChainLen(newMaxChainLen); }
         int getCountOfReq() const { return countRequestsToAdd; }
         int getCountOfMiss() const { return countMissToAdd; }
+
+        std::vector<attrType> GetAllAttributes(const int vert) const;
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);
