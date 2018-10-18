@@ -193,22 +193,24 @@ static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, Sg
     }
 }
 
-static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
+    vector<SgStatement> result;
+
     if (assign->variant() != ASSIGN_STAT)
-        return NULL;
+        return result;
 
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
-        return NULL;
+        return result;
 
     if (assign->expr(0)->variant() != ARRAY_REF || assign->expr(1)->variant() != ARRAY_REF)
-        return NULL;
+        return result;
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(0);
     SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1);
 
     if (!hasSections(leftPart) || !hasSections(rightPart))
-        return NULL;
+        return result;
 
     const int leftSubs = leftPart->numberOfSubscripts();
     const int rightSubs = rightPart->numberOfSubscripts();
@@ -220,7 +222,7 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
     bool resR = fillBounds(OriginalSymbol(rightPart->symbol()), rightBound);
 
     if (!resL || !resR)
-        return NULL;
+        return result;
 
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
@@ -460,21 +462,247 @@ static SgStatement* convertFromAssignToLoop(SgStatement *assign, SgFile *file, v
                     ++freeIdx;
                 }
             }
-        }
-                
+        }       
         __spf_print(1, "%s", string(retVal->unparse()).c_str());
     }
 
-    return retVal;
+    result.push_back(*retVal);
+
+    return result;
 }
 
-static SgStatement* convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-   
+    vector <SgStatement> result;
+
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
-        return NULL;
-    if (assign->expr(1)->lhs()->lhs()->variant() != ARRAY_REF)
-        return NULL;
+        return result;
+    if (!assign->expr(1)->lhs() || !assign->expr(1)->rhs() || !assign->expr(0) || assign->expr(0)->variant() != ARRAY_REF
+        || assign->expr(1)->rhs()->variant() != ARRAY_REF || assign->expr(1)->lhs()->variant() != ARRAY_REF)
+        return result;
+
+    SgArrayRefExp *leftPart = (SgArrayRefExp*) assign->expr(1)->rhs();
+    SgArrayRefExp *rightPart = (SgArrayRefExp*) assign->expr(1)->lhs();
+    SgArrayRefExp *assignPart = (SgArrayRefExp*)assign->expr(0);
+
+    SgForStmt *retVal = NULL;
+    SgStatement *copy = assign->copyPtr();
+
+    vector<SgStatement> result;
+
+    if (!hasSections(leftPart) || !hasSections(rightPart) || !hasSections(assignPart))
+        return result;
+
+    const int leftSubs = leftPart->numberOfSubscripts();
+    const int rightSubs = rightPart->numberOfSubscripts();
+    const int assignSubs = assignPart->numberOfSubscripts();
+
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftBound;
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> rightBound;
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> assignBound;
+
+    bool resL = fillBounds(OriginalSymbol(leftPart->symbol()), leftBound);
+    bool resR = fillBounds(OriginalSymbol(rightPart->symbol()), rightBound);
+    bool resA = fillBounds(OriginalSymbol(rightPart->symbol()), assignBound);
+
+    if (!resL || !resR || !resA)
+        return result;
+
+    SgForStmt *retVal = NULL;
+    SgStatement *copy = assign->copyPtr();
+
+    SgArrayRefExp *leftArrayRef = (SgArrayRefExp*)copy->expr(1)->lhs();
+    SgArrayRefExp *rightArrayRef = (SgArrayRefExp*)copy->expr(1)->rhs();
+    SgArrayRefExp *assignArrayRef = (SgArrayRefExp*)copy->expr(0);
+
+
+    SgExpression *subsL = leftArrayRef->lhs();
+    SgExpression *subsR = rightArrayRef->lhs();
+    SgExpression *subsA = assignArrayRef->lhs();
+
+    int lIdx = 0;
+    int rIdx = 0;
+    bool bodyInserted = false;
+
+    SgStatement *scope = assign;
+
+    while (true)
+    {
+        if (scope->variant() == PROG_HEDR || scope->variant() == FUNC_HEDR || scope->variant() == PROC_HEDR)
+            break;
+        scope = scope->controlParent();
+    }
+
+    vector<bool> fixedLeft(leftBound.size()), fixedRight(rightBound.size()), fixedAssign(assignBound.size());
+    for (int i = 0; i < leftBound.size(); ++i)
+        fixedLeft[i] = false;
+    for (int i = 0; i < fixedRight.size(); ++i)
+        fixedRight[i] = false;
+    for (int i = 0; i < fixedAssign.size(); ++i)
+        fixedAssign[i] = false;
+
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftSections, rightSections, assignSections;
+
+    SgExpression *ex = subsL;
+    for (int i = 0; i < leftSubs; ++i)
+    {
+        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = leftBound[lIdx];
+        if (!fillSectionInfo(ex, bounds))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (get<0>(bounds) && get<1>(bounds))
+            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+                fixedLeft[i] = true;
+
+        if (!fixedLeft[i])
+            leftSections.push_back(bounds);
+        ex = ex->rhs();
+    }
+
+    //fill default
+    if (leftSubs == 0)
+        leftSections = leftBound;
+
+    ex = subsR;
+    for (int i = 0; i < rightSubs; ++i)
+    {
+        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = rightBound[rIdx];
+        if (!fillSectionInfo(ex, bounds))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (get<0>(bounds) && get<1>(bounds))
+            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+                fixedRight[i] = true;
+
+        if (!fixedRight[i])
+            rightSections.push_back(bounds);
+        ex = ex->rhs();
+    }
+
+    //fill default
+    if (rightSubs == 0)
+        rightSections = rightBound;
+
+    ex = subsA;
+    for (int i = 0; i < rightSubs; ++i)
+    {
+        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = assignBound[rIdx];
+        if (!fillSectionInfo(ex, bounds))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (get<0>(bounds) && get<1>(bounds))
+            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+                fixedAssign[i] = true;
+
+        if (!fixedAssign[i])
+            assignSections.push_back(bounds);
+        ex = ex->rhs();
+    }
+
+    //fill default
+    if (assignSubs == 0)
+        assignSections = assignBound;
+
+    if (leftSections.size() != rightSections.size() || leftSections.size() != assignSections.size())
+    {
+        __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
+
+        string message;
+        __spf_printToBuf(message, "can not convert array assign to loop");
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message, 2001));
+    }
+    else
+    {
+        __spf_print(1, "was on line %d file %s\n", assign->lineNumber(), assign->fileName());
+        __spf_print(1, "%s", string(assign->unparse()).c_str());
+
+        vector<tuple<SgExpression*, SgExpression*, SgExpression*>> forBounds;
+        // create DO bounds
+        if (!leftSections.size())
+            leftSections = leftBound;
+
+        if (!rightSections.size())
+            rightSections = rightBound;
+
+        for (int i = 0; i < leftSections.size(); ++i)
+        {
+            SgExpression *maxBound = NULL;
+            if (get<2>(leftSections[i]))
+                maxBound = &((*(get<1>(leftSections[i])) - *get<0>(leftSections[i])) / *get<2>(leftSections[i]));
+            else
+                maxBound = &(*(get<1>(leftSections[i])) - *get<0>(leftSections[i]));
+            //TODO: dont calculate in parallel loops
+            maxBound = CalculateInteger(maxBound);
+
+            forBounds.push_back(std::make_tuple(new SgValueExp(0), maxBound, (SgExpression*)NULL));
+        }
+
+        SgStatement *body = NULL;
+        // construct DO bounds
+        for (int i = 0; i < forBounds.size(); ++i)
+        {
+            if (body == NULL)
+                body = copy;
+            else
+                body = retVal;
+
+            if (get<2>(forBounds[i])) // has step
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), get<2>(forBounds[i])->copy(), *body);
+            else
+                retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
+        }
+
+        if (leftSubs == 0 && rightSubs == 0)
+        {
+            // A = B
+            for (int i = 0; i < assignSections.size(); ++i)
+            {
+                SgExpression *shiftA = get<0>(assignBound[i]);
+                shiftA = CalculateInteger(shiftA);
+                assignArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shiftA);
+            }
+
+            for (int i = 0; i < leftSections.size(); ++i)
+            {
+                SgExpression *shiftA = get<0>(leftBound[i]);
+                shiftA = CalculateInteger(shiftA);
+                leftArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shiftA);
+            }
+
+            for (int i = 0; i < rightSections.size(); ++i)
+            {
+                SgExpression *shiftB = get<0>(rightBound[i]);
+                shiftB = CalculateInteger(shiftB);
+                rightArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shiftB);
+            }
+        }
+    }
+
+
+    SgExpression* newRightPart = new SgExpression(assign->variant());
+ 
+    retVal->setExpression(0, *assignArrayRef);                               //     c(i_) =
+    newRightPart->setLhs(leftArrayRef);                                      //            a(i_) op
+    newRightPart->setRhs(rightArrayRef);                                     //                     b(i_)
+    retVal->lexNext()->setExpression(1, *newRightPart);
+
+    result.push_back(*retVal);
+
+    __spf_print(1, "%s\n", " _______ ");
+    __spf_print(1, "%s", string(retVal->unparse()).c_str());
+
+    return result;
+}
+
+
+static vector<SgStatement> convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+{
+    vector <SgStatement> result;
+
+    if (assign->expr(0) == NULL || assign->expr(1) == NULL)
+        return result;
+    if (!assign->expr(1)->lhs() || !assign->expr(1)->lhs()->lhs() || assign->expr(1)->lhs()->lhs()->variant() != ARRAY_REF)
+        return result;
 
     SgExpression *leftPart = assign->expr(0);
     SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1)->lhs()->lhs();
@@ -488,7 +716,7 @@ static SgStatement* convertFromSumToLoop(SgStatement *assign, SgFile *file, vect
     bool resL = fillBounds(OriginalSymbol(rightPart->symbol()), Bound);
 
     if (!resL)
-        return NULL;
+        return result;
 
     SgArrayRefExp *ArrayRef = (SgArrayRefExp*)copy->expr(1);
     SgExpression *subs = ArrayRef->lhs();
@@ -573,17 +801,136 @@ static SgStatement* convertFromSumToLoop(SgStatement *assign, SgFile *file, vect
     SgExpression* newRightPart = new SgExpression(ADD_OP);
     SgAssignStmt* init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0    
 
-    newRightPart->setLhs(assign->expr(1)->lhs());                                                    //      sum = 
-    newRightPart->setRhs(retVal->childList1(0)->expr(0));                                     //            sum + b(i_)
+    result.push_back(*init);
+
+    newRightPart->setLhs(assign->expr(1)->lhs());                                      //      sum = 
+    newRightPart->setRhs(retVal->childList1(0)->expr(0));                              //            sum + b(i_)
     retVal->lexNext()->setExpression(1, *newRightPart);
 
-    init->setLexNext(*retVal);
+   result.push_back(*retVal);
 
     __spf_print(1, "%s\n"," _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
-    return init;
+    return result;
+}
+
+static vector<SgStatement> convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+{
+    vector <SgStatement> result;
+
+    if (assign->expr(0) == NULL || assign->expr(1) == NULL)
+        return result;
+    if (!assign->expr(0)->lhs() || !assign->expr(1)->lhs() || assign->expr(1)->lhs()->variant() != ARRAY_REF 
+        || assign->expr(0)->lhs()->variant() != ARRAY_REF)
+        return result;
+
+    SgExpression *leftPart = assign->expr(0);
+    SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1)->lhs();
+    SgForStmt *retVal = NULL;
+    SgStatement *copy = assign->copyPtr();
+
+    const int Subs = rightPart->numberOfSubscripts();
+
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> Bound;
+    bool resL = fillBounds(OriginalSymbol(rightPart->symbol()), Bound);
+
+    if (!resL)
+        return result;
+
+    SgArrayRefExp *ArrayRef = (SgArrayRefExp*)copy->expr(1);
+    SgExpression *subs = ArrayRef->lhs();
+
+    int lIdx = 0;
+    bool bodyInserted = false;
+
+    vector<bool> fixed(Bound.size());
+    for (int i = 0; i < Bound.size(); ++i)
+        fixed[i] = false;
+
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> Sections;
+    SgStatement *scope = copy;
+
+    SgExpression *ex = subs;
+    for (int i = 0; i < Subs; ++i)
+    {
+        tuple<SgExpression*, SgExpression*, SgExpression*> bounds = Bound[lIdx];
+
+        if (!fillSectionInfo(ex, bounds))
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (get<0>(bounds) && get<1>(bounds))
+            if (string(get<0>(bounds)->unparse()) == string(get<1>(bounds)->unparse())) // fixed dimension value
+                fixed[i] = true;
+
+        if (!fixed[i])
+            Sections.push_back(bounds);
+        ex = ex->rhs();
+    }
+
+    //fill default
+    if (Subs == 0)
+        Sections = Bound;
+
+    __spf_print(1, "was on line %d file %s\n", assign->lineNumber(), assign->fileName());
+    __spf_print(1, "%s", string(assign->unparse()).c_str());
+
+    vector<tuple<SgExpression*, SgExpression*, SgExpression*>> forBounds;
+
+    // create DO bounds
+    if (!Sections.size())
+        Sections = Bound;
+
+    for (int i = 0; i < Sections.size(); ++i)
+    {
+        SgExpression *maxBound = NULL;
+        if (get<2>(Sections[i]))
+            maxBound = &((*(get<1>(Sections[i])) - *get<0>(Sections[i])) / *get<2>(Sections[i]));
+        else
+            maxBound = &(*(get<1>(Sections[i])) - *get<0>(Sections[i]));
+
+        maxBound = CalculateInteger(maxBound);
+        forBounds.push_back(std::make_tuple(new SgValueExp(0), maxBound, (SgExpression*)NULL));
+    }
+
+    SgStatement *body = NULL;
+    // construct DO bounds
+    for (int i = 0; i < forBounds.size(); ++i)
+    {
+        if (body == NULL)
+            body = copy;
+        else
+            body = retVal;
+
+        if (get<2>(forBounds[i])) // has step
+            retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), get<2>(forBounds[i])->copy(), *body);
+        else
+            retVal = new SgForStmt(*findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope), get<0>(forBounds[i])->copy(), get<1>(forBounds[i])->copy(), *body);
+    }
+
+    if (Subs == 0)
+    {
+        for (int i = 0; i < Sections.size(); ++i)
+        {
+            SgExpression *shiftA = get<0>(Bound[i]);
+            shiftA = CalculateInteger(shiftA);
+            ArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shiftA);
+        }
+    }
+
+    SgExpression* newRightPart = new SgExpression(EXPR_IF);
+ 
+    assign->expr(0)->setLhs(ArrayRef);
+    assign->setVariant(EXPR_IF);
+    assign->expr(1)->setLhs(ArrayRef);
+
+    result.push_back(*assign);
+
+    __spf_print(1, "%s\n", " _______ ");
+    __spf_print(1, "%s", string(retVal->unparse()).c_str());
+
+    return result;
 }
 
 // functionality: convert A[(...)] = B[(...)] to loop 
@@ -633,25 +980,38 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             }
 
             currProcessing.second = st;
+
             if (st->variant() == ASSIGN_STAT)
             {
-				SgStatement *conv;
-				if ((st->expr(1)->variant() == FUNC_CALL) &&(!strcmp(st->expr(1)->symbol()->identifier(), "sum")))
-                    conv = convertFromSumToLoop(st, file, messagesForFile);
-				else conv = convertFromAssignToLoop(st, file, messagesForFile);
-                if (conv)
-                {
-                    st->insertStmtBefore(*conv, *st->controlParent());
-                    toMove.push_back(make_pair(st, conv));
+            	vector<SgStatement> conv;
+                
 
-                    SgStatement *end = conv->lastNodeOfStmt();
-                    for (SgStatement *st1 = conv; st1 != end; st1 = st1->lexNext())
+                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                    conv = convertFromSumToLoop(st, file, messagesForFile);
+                else 
+                    if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
+                        conv = convertFromStmtToLoop(st, file, messagesForFile);
+                    else
+                        if (st->expr(1)->variant() == WHERE_NODE)
+                            conv = convertFromWhereToLoop(st, file, messagesForFile);
+                        else conv = convertFromAssignToLoop(st, file, messagesForFile);
+                if (conv.size() != 0)
+                {
+                    st->insertStmtBefore(conv[0], *st->controlParent());
+                    for (int i = 1; i < conv.size(); ++i)
+                        st->insertStmtBefore(conv[i],conv[i-1]);
+                        toMove.push_back(make_pair(st, &(conv[0])));     
+                    for (int i = 0; i < conv.size(); ++i) 
                     {
-                        st1->setlineNumber(getNextNegativeLineNumber());
-                        st1->setLocalLineNumber(st->lineNumber());
+                        SgStatement *end = conv[i].lastNodeOfStmt();
+                        for (SgStatement *st1 = &(conv[i]); st1 != end; st1 = st1->lexNext())
+                        {
+                            st1->setlineNumber(getNextNegativeLineNumber());
+                            st1->setLocalLineNumber(st->lineNumber());
+                        }
+                        end->setlineNumber(getNextNegativeLineNumber());
+                        end->setLocalLineNumber(st->lineNumber());
                     }
-                    end->setlineNumber(getNextNegativeLineNumber());
-                    end->setLocalLineNumber(st->lineNumber());
                 }
             } 
         } 
