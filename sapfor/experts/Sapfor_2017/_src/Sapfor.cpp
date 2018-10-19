@@ -32,6 +32,7 @@
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -44,6 +45,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 //#include "DEAR/dep_analyzer.h"
+
 
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
@@ -522,7 +524,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REVERT_SPF_DIRS)
         {
             if (keepSpfDirs)
-                revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
+                revertion_spf_dirs(file);
             else
                 __spf_print(1, "   ignore SPF REVERT\n");
         }
@@ -1404,6 +1406,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PRIVATE_ANALYSIS_SPF:
         if (staticPrivateAnalysis)
             runAnalysis(*project, curr_regime, false);
+        break;
+    case GCOV_PARSER:
+        __spf_print(1, "Hello!!!\n");
+        parse_gcovfile(folderName);
         break;
     default:
         runAnalysis(*project, curr_regime, false);

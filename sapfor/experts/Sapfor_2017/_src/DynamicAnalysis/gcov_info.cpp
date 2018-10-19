@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "gcov_info.h"
-//#include "tab.cpp"
 
 Gcov_info::Gcov_info(){
 	numLine=-1;
@@ -51,19 +50,19 @@ void Gcov_info::setExecutedCount(int a){
 
 void Gcov_info::setCall(Perform a){
 	countCalls++;
-	calls.insert(make_pair(a.getNumber(),a));
+	calls.insert(std::make_pair(a.getNumber(),a));
 }
 
 void Gcov_info::setBranch(Perform a){
 	countBranches++;
-	branches.insert(make_pair(a.getNumber(),a));
+	branches.insert(std::make_pair(a.getNumber(),a));
 }
 
-map<int,Perform> Gcov_info::getCalls(){
+std::map<int,Perform> Gcov_info::getCalls(){
 	return calls;
 }
 
-map<int,Perform> Gcov_info::getBranches(){
+std::map<int,Perform> Gcov_info::getBranches(){
 	return branches;
 }
 
@@ -75,13 +74,15 @@ int Gcov_info::getCountBranches(){
 	return countBranches;
 }
 
-void Gcov_info::print(){
-	cout<<numLine<<" - "<<executedCount<<endl;
+void Gcov_info::gcov_print(){
+//    std::cout<<numLine<<" - "<<executedCount<<std::endl;
+    __spf_print(1, "numLine= %d\nexecutedCount= %d\n", numLine, executedCount);
+    __spf_print(1, "countCalls= %d\ncountBranches= %d\n", countCalls, countBranches);
 }
 
-ostream &operator<<(ostream &out, const Gcov_info &a){
+std::ostream &operator<<(std::ostream &out, const Gcov_info &a){
 	out<<"numLine= "<<a.numLine<<"\nexecutedCount= "<<a.executedCount<<
-	"\ncountCalls= "<<a.countCalls<<"\ncountBranches= "<<a.countBranches<<endl;
+	"\ncountCalls= "<<a.countCalls<<"\ncountBranches= "<<a.countBranches<< std::endl;
 	return out;
 }
 
@@ -118,11 +119,12 @@ void Perform::setPercent(int a){
 	percent=a;
 }
 
-void Perform::print(){
-	cout<<number<<" - "<<percent<<endl;
+void Perform::gcov_print(){
+    __spf_print(1, "number= %d\npercent= %d\n", number, percent);
+//    std::cout<<number<<" - "<<percent<< std::endl;
 }
 
-ostream &operator<<(ostream &out, const Perform &a){
-	out<<"number= "<<a.number<<"\npercent= "<<a.percent<<endl;
+std::ostream &operator<<(std::ostream &out, const Perform &a){
+	out<<"number= "<<a.number<<"\npercent= "<<a.percent<< std::endl;
 	return out;
 }

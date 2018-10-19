@@ -23,7 +23,7 @@ struct Perform{ //make 'class' - need friend for Gcov_info
 	int getPercent();
 	void setNumber(int a);
 	void setPercent(int a);
-	void print();
+	void gcov_print();
 	friend std::ostream &operator<<(std::ostream &out, const Perform &a);
 };
 
@@ -49,6 +49,6 @@ public:
 	std::map<int,Perform> getBranches();
 	void setCall(Perform a);
 	void setBranch(Perform a);
-	void print();
+	void gcov_print();
 	friend std::ostream &operator<<(std::ostream &out, const Gcov_info &a);
 };
