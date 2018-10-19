@@ -3,7 +3,7 @@
 #include <vector>
 #include <map>
 
-#include "AstWrapper.h"
+class ArrayRefExp;
 
 typedef std::pair<std::pair<int, int>, std::pair<int, int>> attrType;
 

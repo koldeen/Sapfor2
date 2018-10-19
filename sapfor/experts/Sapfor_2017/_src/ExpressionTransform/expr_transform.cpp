@@ -1,5 +1,10 @@
 #include "../Utils/leak_detector.h"
 
+#if _WIN32 && NDEBUG && __SPF
+#include <boost/thread.hpp>
+extern int passDone;
+#endif
+
 #include "dvm.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,6 +14,7 @@
 #include <vector>
 #include <queue>
 #include <iterator>
+#include <omp.h>
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
@@ -117,10 +123,25 @@ void revertReplacements(const string &filename, bool back)
     }    
 }
 
+static SgExpression* getFromConstructor(SgExpression *e, int num)
+{
+    int i = 1;
+    while (e)
+    {
+        if (i == num)
+            return e->lhs();
+        ++i;
+        e = e->rhs();
+    }
+
+    return NULL;
+}
+
 SgExpression* ReplaceParameter(SgExpression *e)
 {
     if (!e)
         return e;
+    
     if (e->variant() == CONST_REF)
     {
         SgConstantSymb *sc = isSgConstantSymb(e->symbol());
@@ -128,6 +149,27 @@ SgExpression* ReplaceParameter(SgExpression *e)
             return e;
         return (ReplaceParameter(&(sc->constantValue()->copy())));
     }
+    else if (e->variant() == ARRAY_REF)
+    {
+        SgConstantSymb *sc = isSgConstantSymb(e->symbol());
+        if (sc)
+        {            
+            SgExpression *constructor = sc->constantValue();
+            SgArrayRefExp *ref = isSgArrayRefExp(e);
+            if (ref->numberOfSubscripts() == 1)
+            {
+                auto sub = ref->subscript(0);
+                if (sub->isInteger())
+                {
+                    int num = sub->valueInteger();
+                    SgExpression *value = getFromConstructor(constructor->lhs(), num);
+                    if (value && value->lhs() == NULL && value->rhs() == NULL)
+                        return (ReplaceParameter(&(value->copy())));
+                }
+            }
+        }
+    }
+
     e->setLhs(ReplaceParameter(e->lhs()));
     e->setRhs(ReplaceParameter(e->rhs()));
     return e;
@@ -482,7 +524,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         if (founded_inDefs != b->getInDefs()->end())
             //if smth is founded_inDefs, it has single value
             //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = founded_inDefs->second.begin()->getExp();
+            exp = (*(founded_inDefs->second.begin()))->getExp();
 
         //we have to check if this value was killed inside block
         if (exp != NULL)
@@ -801,17 +843,35 @@ bool replaceVarsInBlock(CBasicBlock* b)
     return wereReplacements;
 }
 
-void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
+void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
 {
     bool wereReplacements = true;
     while (wereReplacements)
     {
+#if _WIN32 && NDEBUG && __SPF 
+        if (passDone == 2)
+            throw boost::thread_interrupted();
+#endif
         __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
+        double time = omp_get_wtime();
+
         wereReplacements = false;
         visitedStatements.clear();
+
+        __spf_print(PRINT_PROF_INFO, " clear vis %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         ClearCFGInsAndOutsDefs(CGraph);
+        __spf_print(PRINT_PROF_INFO, " clear CFG %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
+        __spf_print(PRINT_PROF_INFO, " fill %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         CorrectInDefs(CGraph);
+        __spf_print(PRINT_PROF_INFO, " correct %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         {
@@ -819,10 +879,11 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
+        __spf_print(PRINT_PROF_INFO, " replace %f\n", omp_get_wtime() - time);
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
 
@@ -988,12 +1049,12 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        map<SymbolKey, set<ExpressionValue>> inDefs;
+        map<SymbolKey, set<ExpressionValue*>> inDefs;
 
         if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
-                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue>()))
-                .first->second.insert(ExpressionValue());
+                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue*>()))
+                .first->second.insert(new ExpressionValue());
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();

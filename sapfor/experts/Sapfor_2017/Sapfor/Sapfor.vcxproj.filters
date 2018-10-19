@@ -324,10 +324,10 @@
     <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp">
       <Filter>Файлы исходного кода\DEAR</Filter>
     </ClCompile>
-    <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp">
+    <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
     </ClCompile>
-    <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp">
+    <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
     </ClCompile>
   </ItemGroup>

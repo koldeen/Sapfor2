@@ -5,10 +5,6 @@
 #include <set>
 #include <tuple>
 
-#include "Cycle.h"
-#include "Arrays.h"
-#include "../Utils/errors.h"
-
 typedef enum links { RR_link, WR_link, WW_link } LinkType;
 
 #define MAX_LOOP_DIM  8
@@ -16,6 +12,10 @@ typedef enum links { RR_link, WR_link, WW_link } LinkType;
 
 namespace Distribution
 {
+    class Array;
+    template<typename vType> class Arrays;
+    template<typename vType, typename wType, typename attrType> class Cycle;
+    
     template<typename vType, typename wType, typename attrType>
     class GraphCSR
     {

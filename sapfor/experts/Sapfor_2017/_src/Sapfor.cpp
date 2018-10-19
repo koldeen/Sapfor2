@@ -41,9 +41,12 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
+#include "LoopConverter/private_arrays_breeder.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
+
 //#include "DEAR/dep_analyzer.h"
 
 
@@ -71,9 +74,6 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
-
-//from insert_directive.cpp
-extern map<string, set<string>> dynamicDirsByFile;
 
 void deleteAllAllocatedData(bool enable)
 {
@@ -352,7 +352,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                              &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -364,7 +364,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(itFound->second));
 
             currProcessing.second = NULL;
@@ -379,7 +379,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == LOOP_GRAPH)        
-            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));
         else if (curr_regime == VERIFY_ENDDO)
         {
             bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
@@ -438,9 +438,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-            if (i == n - 1)
-                dynamicDirsByFile.clear();
-
+            
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = NULL;
 
@@ -489,10 +487,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                         if (currLines)
                         {
+                            //TODO: to be removed with new algorithm for parallel regions
                             File *fileT = new File(file);
                             const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
                             const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
+                            const vector<Statement*> reAlignRules;
+                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
 
                             insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
                         }
@@ -563,7 +563,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -578,7 +578,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE4)
             arrayAccessAnalyzer(file, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays, PRIVATE_STEP4);
         else if (curr_regime == FILL_PAR_REGIONS_LINES)
-            fillRegionLines(file, parallelRegions, &(loopGraph[file_name]));
+            fillRegionLines(file, parallelRegions, &(loopGraph[file_name]), &(allFuncInfo[file_name]));
         else if (curr_regime == FILL_COMMON_BLOCKS)
         {
             // fillCommonBlocks(file, commonBlocks);
@@ -682,7 +682,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if (curr_regime == REMOVE_AND_CALC_SHADOW)
-            devourShadowByRemote(file);
+            devourShadowByRemote(file, arrayLinksByFuncCalls);
         else if (curr_regime == TRANSFORM_SHADOW_IF_FULL)
             transformShadowIfFull(file, arrayLinksByFuncCalls);
         else if (curr_regime == MACRO_EXPANSION)
@@ -732,6 +732,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == GCOV_PARSER)
+            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
+        else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if(founded != loopGraph.end())
+                breedArrays(file, loopGraph.find(file->filename())->second);
+        }
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
@@ -899,11 +907,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         parallelRegions.clear();
         parallelRegions = newParReg;
 
-        if (idxToDel.size() == parallelRegions.size())
+        if (parallelRegions.size() == 0)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
-    {
+    {    
         if (keepFiles)
         {
             map<string, CallV> V;
@@ -913,6 +921,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
+
+        //TODO
+        if (keepFiles)
+        {
+
+        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1079,10 +1093,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 throw(-1);
             }
         }
-        checkCountOfIter(loopGraph, SPF_messages);
+
+        checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
         if (keepFiles)
         {
-            printLoopGraph("_loopGraph.txt", loopGraph);
+            printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
@@ -1164,6 +1179,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         fillRegionLinesStep2(subs_parallelRegions, subs_allFuncInfo);
         clearRegionStaticData();
     }
+    else if (curr_regime == GET_ALL_ARRAY_DECL)
+    {
+        for (auto array : declaratedArrays)
+        {
+            if (array.second.first->GetRgionsName().size() == 0)
+                array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+        }
+    }
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
@@ -1236,7 +1259,7 @@ static string selectAddNameOfVariant(const int i, int maxDimsIdx, int maxDimsIdx
             parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
     }
     else
-        sprintf(buf, "par");
+        sprintf(buf, "");  //sprintf(buf, "par");
     return buf;
 }
 
@@ -1378,7 +1401,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CORRECT_CODE_STYLE:
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
-    case REMOVE_DVM_DIRS_TO_COMMENTS:    
+    case REMOVE_DVM_DIRS_TO_COMMENTS:
+    case PRIVATE_ARRAYS_BREEDING:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:

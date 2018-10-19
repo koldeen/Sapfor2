@@ -213,6 +213,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -231,6 +232,9 @@
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -300,6 +304,7 @@
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
+    <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp" />
     <ClCompile Include="..\_src\Predictor\PredictScheme.cpp" />
@@ -451,6 +456,7 @@
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
+    <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />

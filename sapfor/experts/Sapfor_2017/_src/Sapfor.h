@@ -5,6 +5,7 @@ extern int staticPrivateAnalysis;
 extern int keepDvmDirectives;
 extern int keepSpfDirs;
 extern int consoleMode;
+extern int parallizeFreeLoops;
 
 extern "C" int out_free_form;
 
@@ -90,8 +91,8 @@ enum passes {
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
-
     GCOV_PARSER,
+    PRIVATE_ARRAYS_BREEDING,
     EMPTY_PASS
 };
 
@@ -107,6 +108,7 @@ enum optionNames {
     FREE_FORM,
     KEEP_DVM_DIRECTIVES,
     KEEP_SPF_DIRECTIVES,
+    PARALLIZE_FREE_LOOPS,
     EMPTY_OPTION
 };
 
@@ -189,6 +191,6 @@ static void setPassValues()
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
     passNames[GCOV_PARSER] = "GCOV_PARSER";
-
+    passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
