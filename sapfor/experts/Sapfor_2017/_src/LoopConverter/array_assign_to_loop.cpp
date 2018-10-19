@@ -193,9 +193,9 @@ static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, Sg
     }
 }
 
-static vector<SgStatement> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector<SgStatement> result;
+    vector<SgStatement*> result;
 
     if (assign->variant() != ASSIGN_STAT)
         return result;
@@ -466,14 +466,14 @@ static vector<SgStatement> convertFromAssignToLoop(SgStatement *assign, SgFile *
         __spf_print(1, "%s", string(retVal->unparse()).c_str());
     }
 
-    result.push_back(*retVal);
-
+    result.push_back(retVal);
+    
     return result;
 }
 
-static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector <SgStatement> result;
+    vector <SgStatement*> result;
 
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -487,8 +487,6 @@ static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *fi
 
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
-
-    vector<SgStatement> result;
 
     if (!hasSections(leftPart) || !hasSections(rightPart) || !hasSections(assignPart))
         return result;
@@ -508,13 +506,9 @@ static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *fi
     if (!resL || !resR || !resA)
         return result;
 
-    SgForStmt *retVal = NULL;
-    SgStatement *copy = assign->copyPtr();
-
     SgArrayRefExp *leftArrayRef = (SgArrayRefExp*)copy->expr(1)->lhs();
     SgArrayRefExp *rightArrayRef = (SgArrayRefExp*)copy->expr(1)->rhs();
     SgArrayRefExp *assignArrayRef = (SgArrayRefExp*)copy->expr(0);
-
 
     SgExpression *subsL = leftArrayRef->lhs();
     SgExpression *subsR = rightArrayRef->lhs();
@@ -682,11 +676,11 @@ static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *fi
     SgExpression* newRightPart = new SgExpression(assign->variant());
  
     retVal->setExpression(0, *assignArrayRef);                               //     c(i_) =
-    newRightPart->setLhs(leftArrayRef);                                      //            a(i_) op
-    newRightPart->setRhs(rightArrayRef);                                     //                     b(i_)
+    newRightPart->setLhs(*leftArrayRef);                                     //            a(i_) op
+    newRightPart->setRhs(*rightArrayRef);                                    //                     b(i_)
     retVal->lexNext()->setExpression(1, *newRightPart);
 
-    result.push_back(*retVal);
+    result.push_back(retVal);
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
@@ -695,9 +689,9 @@ static vector<SgStatement> convertFromStmtToLoop(SgStatement *assign, SgFile *fi
 }
 
 
-static vector<SgStatement> convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector <SgStatement> result;
+    vector <SgStatement*> result;
 
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -801,13 +795,13 @@ static vector<SgStatement> convertFromSumToLoop(SgStatement *assign, SgFile *fil
     SgExpression* newRightPart = new SgExpression(ADD_OP);
     SgAssignStmt* init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0    
 
-    result.push_back(*init);
+    result.push_back(init);
 
     newRightPart->setLhs(assign->expr(1)->lhs());                                      //      sum = 
     newRightPart->setRhs(retVal->childList1(0)->expr(0));                              //            sum + b(i_)
     retVal->lexNext()->setExpression(1, *newRightPart);
 
-   result.push_back(*retVal);
+   result.push_back(retVal);
 
     __spf_print(1, "%s\n"," _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
@@ -816,9 +810,9 @@ static vector<SgStatement> convertFromSumToLoop(SgStatement *assign, SgFile *fil
     return result;
 }
 
-static vector<SgStatement> convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
+static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
-    vector <SgStatement> result;
+    vector <SgStatement*> result;
 
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
@@ -919,13 +913,11 @@ static vector<SgStatement> convertFromWhereToLoop(SgStatement *assign, SgFile *f
         }
     }
 
-    SgExpression* newRightPart = new SgExpression(EXPR_IF);
- 
-    assign->expr(0)->setLhs(ArrayRef);
+    assign->expr(0)->setLhs(*ArrayRef);
     assign->setVariant(EXPR_IF);
-    assign->expr(1)->setLhs(ArrayRef);
+    assign->expr(1)->setLhs(*ArrayRef);
 
-    result.push_back(*assign);
+    result.push_back(assign);
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
@@ -983,10 +975,10 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
             if (st->variant() == ASSIGN_STAT)
             {
-            	vector<SgStatement> conv;
+            	vector<SgStatement*> conv;
                 
 
-                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum")) 
                     conv = convertFromSumToLoop(st, file, messagesForFile);
                 else 
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
@@ -997,14 +989,14 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         else conv = convertFromAssignToLoop(st, file, messagesForFile);
                 if (conv.size() != 0)
                 {
-                    st->insertStmtBefore(conv[0], *st->controlParent());
+                    st->insertStmtBefore(*(conv[0]), *st->controlParent());
                     for (int i = 1; i < conv.size(); ++i)
-                        st->insertStmtBefore(conv[i],conv[i-1]);
-                        toMove.push_back(make_pair(st, &(conv[0])));     
+                        st->insertStmtBefore(*(conv[i]),*(conv[i-1]));
+                        toMove.push_back(make_pair(st, conv[0]));     
                     for (int i = 0; i < conv.size(); ++i) 
                     {
-                        SgStatement *end = conv[i].lastNodeOfStmt();
-                        for (SgStatement *st1 = &(conv[i]); st1 != end; st1 = st1->lexNext())
+                        SgStatement *end = conv[i]->lastNodeOfStmt();
+                        for (SgStatement *st1 = conv[i]; st1 != end; st1 = st1->lexNext())
                         {
                             st1->setlineNumber(getNextNegativeLineNumber());
                             st1->setLocalLineNumber(st->lineNumber());
