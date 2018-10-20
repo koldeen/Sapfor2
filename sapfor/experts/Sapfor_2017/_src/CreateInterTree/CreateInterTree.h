@@ -8,10 +8,12 @@
 
 #include "dvm.h"
 
+#include "../GraphLoop/graph_loops_func.h"
+
 struct Interval
 {
     int tag = 0;
-    int calls = 0;
+    long int calls = 0;
     bool ifInclude = true;
     SgStatement* begin;
     Interval* parent = NULL;
@@ -29,6 +31,6 @@ struct FileProfile
 
 void createInterTree(SgFile*, std::vector<Interval*>&);
 void printTree(Interval* inter);
-void assignCallsToAllFiles(std::vector<std::string> filenames);
+void assignCallsToFile(const std::string&, std::vector<Interval*>&);
 void removeNodes(int threshold, std::map<std::string, std::vector<Interval*>> &allIntervals);
 void insertIntervals(SgFile*, const std::vector<Interval*>&);
