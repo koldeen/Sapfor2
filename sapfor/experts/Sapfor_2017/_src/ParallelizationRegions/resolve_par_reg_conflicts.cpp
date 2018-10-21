@@ -53,6 +53,35 @@ static void symbPrint(SgFile *file)
         __spf_print(1, "  SYMB ID: %d, NAME : %s\n", s->id(), s->identifier());
 }
 
+static bool checkSymbName(const string &symbName)
+{
+    bool found = false;
+    set<string> vars;
+    SgFile *oldFile = current_file;
+    
+    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(CurrentProject->file(i));
+
+        if (SgFile::switchToFile(file->filename()) != -1)
+        {
+            for (auto symb = file->firstSymbol(); symb; symb = symb->next())
+                if (symb->identifier())
+                    vars.insert(symb->identifier());
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    if (SgFile::switchToFile(oldFile->filename()) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (vars.find(symbName) != vars.end())
+        found = true;
+    
+    return found;
+}
+
 static bool isSPF_reg(SgStatement *st)
 {
     return st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR;
@@ -536,8 +565,6 @@ static SgStatement* createCommonBlock(SgFile *file,
             SgStatement *commDecl = new SgStatement(COMM_STAT);
 
             // TODO: check new common-block name
-            //if (ifSymbolExists(file, commBlockName))
-            //    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             
             SgSymbol *commSymb = new SgSymbol(VARIABLE_NAME, commBlockName.c_str());
             SgExprListExp *commList = new SgExprListExp(COMM_LIST);
@@ -573,8 +600,6 @@ static SgStatement* createCommonBlock(SgFile *file,
                         string newArrName = arrayBlock.first->GetShortName() + "_" + commBlockName;
 
                         // TODO: check new array name
-                        //if (ifSymbolExists(file, newArrName))
-                        //    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         newArrSymb = new SgSymbol(VARIABLE_NAME, newArrName.c_str(), file->firstStatement());
                         itt = it->second.insert(itt, make_pair(arrayBlock.first, make_pair((SgSymbol*)NULL, newArrSymb)));
@@ -795,6 +820,8 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
         SgStatement *newDecl = NULL;
 
+        // TODO: check new array name
+        
         while (!isSgExecutableStatement(decl) || isSPF_stat(decl))
             decl = decl->lexNext();
         decl = decl->lexPrev();
