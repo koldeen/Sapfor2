@@ -59,26 +59,15 @@ static bool checkSymbName(const string &symbName)
     set<string> vars;
     SgFile *oldFile = current_file;
     
-    for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+    for (int i = 0; !found && (i < CurrentProject->numberOfFiles()); ++i)
     {
         SgFile *file = &(CurrentProject->file(i));
-
-        if (SgFile::switchToFile(file->filename()) != -1)
-        {
-            for (auto symb = file->firstSymbol(); symb; symb = symb->next())
-                if (symb->identifier())
-                    vars.insert(symb->identifier());
-        }
-        else
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        found = ifSymbolExists(file, symbName);
     }
 
     if (SgFile::switchToFile(oldFile->filename()) == -1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    if (vars.find(symbName) != vars.end())
-        found = true;
-    
     return found;
 }
 
