@@ -430,6 +430,9 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
 
         if (callFromCode && callFromRegion)
             allCommonFunctions.insert(funcPair.second);
+
+        if (callFromCode)
+            funcPair.second->callRegions.insert(0);
     }
 
     set<FuncInfo*> callSet;
