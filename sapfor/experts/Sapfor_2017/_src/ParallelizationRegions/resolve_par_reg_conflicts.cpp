@@ -56,7 +56,6 @@ static void symbPrint(SgFile *file)
 static bool checkSymbName(const string &symbName)
 {
     bool found = false;
-    set<string> vars;
     SgFile *oldFile = current_file;
     
     for (int i = 0; !found && (i < CurrentProject->numberOfFiles()); ++i)
@@ -145,7 +144,7 @@ static bool recursiveFindCall(SgExpression *exp, const string &funcName)
     return false;
 }
 
-static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callsFromRegion, bool &callsFromCode)
+static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callFromRegion, bool &callFromCode)
 {
     if (SgFile::switchToFile(callFunc->fileName) != -1)
     {
@@ -176,9 +175,9 @@ static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &calls
             if (retVal)
             {
                 if (isRegion)
-                    callsFromRegion = true;
+                    callFromRegion = true;
                 else
-                    callsFromCode = true;
+                    callFromCode = true;
             }
         }
     }
@@ -291,6 +290,9 @@ static const CommonBlock* isInCommon(const map<string, CommonBlock> &commonBlock
     return NULL;
 }
 
+// array -> common-block
+static map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
+
 static void recursiveFill(SgStatement *st,
                           SgExpression *exp,
                           ParallelRegion *region,
@@ -298,8 +300,7 @@ static void recursiveFill(SgStatement *st,
                           const string &funcName,
                           const ParallelRegionLines &lines,
                           const map<string, FuncInfo*> &funcMap,
-                          const map<string, CommonBlock> &commonBlocks,
-                          map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays)
+                          const map<string, CommonBlock> &commonBlocks)
 {
     if (exp)
     {
@@ -323,15 +324,14 @@ static void recursiveFill(SgStatement *st,
                 region->AddUsedLocalArray(func, array, lines);
         }
 
-        recursiveFill(st, exp->rhs(), region, fileName, funcName, lines, funcMap, commonBlocks, allUsedCommonArrays);
-        recursiveFill(st, exp->lhs(), region, fileName, funcName, lines, funcMap, commonBlocks, allUsedCommonArrays);
+        recursiveFill(st, exp->rhs(), region, fileName, funcName, lines, funcMap, commonBlocks);
+        recursiveFill(st, exp->lhs(), region, fileName, funcName, lines, funcMap, commonBlocks);
     }
 }
 
 void fillRegionArrays(vector<ParallelRegion*> &regions,
                       const map<string, vector<FuncInfo*>> &allFuncInfo,
-                      const map<string, CommonBlock> &commonBlocks,
-                      map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays)
+                      const map<string, CommonBlock> &commonBlocks)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
@@ -384,7 +384,7 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                             continue;
 
                         for (int i = 0; i < 3; ++i)
-                            recursiveFill(iterator, iterator->expr(i), region, fileLines.first, funcName, regionLines, funcMap, commonBlocks, allUsedCommonArrays);
+                            recursiveFill(iterator, iterator->expr(i), region, fileLines.first, funcName, regionLines, funcMap, commonBlocks);
                     }
                 }
             }
@@ -394,7 +394,9 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
     }
 }
 
-void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, set<FuncInfo*> &allCommonFunctions)
+static set<FuncInfo*> allCommonFunctions;
+
+void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
@@ -415,8 +417,8 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
 
     for (auto &funcPair : funcMap)
     {
-        bool callsFromRegion = false;
-        bool callsFromCode = false;
+        bool callFromRegion = false;
+        bool callFromCode = false;
 
         fillRegionCover(funcPair.second, funcMap);
 
@@ -424,9 +426,9 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // DEBUG
 
         for (auto &call : funcPair.second->callsTo)
-            findCall(funcPair.second, call, callsFromRegion, callsFromCode);
+            findCall(funcPair.second, call, callFromRegion, callFromCode);
 
-        if (callsFromCode && callsFromRegion)
+        if (callFromCode && callFromRegion)
             allCommonFunctions.insert(funcPair.second);
     }
 
@@ -535,11 +537,10 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &reg
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static SgStatement* createCommonBlock(SgFile *file,
-                                      const map<string, CommonBlock> &commonBlocks,
-                                      const map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays,
-                                      map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> &createdCommonArrays,
-                                      map<string, SgStatement*> &createdCommonBlocks)
+static map<string, SgStatement*> createdCommonBlocks; // file -> new common statement
+static map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> createdCommonArrays; // file -> array -> (orig, copy)
+
+static SgStatement* createCommonBlock(SgFile *file, const map<string, CommonBlock> &commonBlocks)
 {
     string fileName = file->filename();
 
@@ -636,15 +637,13 @@ static SgStatement* createCommonBlock(SgFile *file,
     return NULL;
 }
 
-static void insertCommonBlock(FuncInfo *func,
-                              const map<string, CommonBlock> &commonBlocks,
-                              const map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays,
-                              map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> &createdCommonArrays,
-                              map<string, SgStatement*> &createdCommonBlocks,
-                              set<FuncInfo*> &insertedCommonBlocks)
+// funcs where new common statement inserted
+static set<FuncInfo*> insertedCommonBlocks;
+
+static void insertCommonBlock(FuncInfo *func, const map<string, CommonBlock> &commonBlocks)
 {
     SgFile *file = func->funcPointer->GetOriginal()->getFile();
-    SgStatement *commDecl = createCommonBlock(file, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
+    SgStatement *commDecl = createCommonBlock(file, commonBlocks);
     SgStatement *copyDecl = commDecl->copyPtr();
     SgStatement *insertPlace = NULL;
 
@@ -1004,7 +1003,7 @@ static void copyFunction(ParallelRegion *region,
         {
             if (origStat->variant() == COMM_STAT)
             {
-                SgStatement *commDecl = createCommonBlock(file, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks);
+                SgStatement *commDecl = createCommonBlock(file, commonBlocks);
                 SgStatement *copyDecl = commDecl->copyPtr();
 
                 while (!isSgExecutableStatement(copyStat) || isSPF_stat(copyStat))
@@ -1096,12 +1095,7 @@ static void copyFunction(ParallelRegion *region,
 
 void resolveParRegions(vector<ParallelRegion*> &regions,
                        const map<string, vector<FuncInfo*>> &allFuncInfo,
-                       const map<string, CommonBlock> &commonBlocks,
-                       const set<FuncInfo*> &allCommonFunctions,
-                       const map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays,
-                       map<string, map<DIST::Array*, pair<SgSymbol*, SgSymbol*>>> &createdCommonArrays,
-                       map<string, SgStatement*> &createdCommonBlocks,
-                       set<FuncInfo*> &insertedCommonBlocks)
+                       const map<string, CommonBlock> &commonBlocks)
 {
     for (auto &region : regions)
     {
@@ -1146,7 +1140,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
                         auto it = insertedCommonBlocks.find(func);
                         if (it == insertedCommonBlocks.end())
                             // need to insert common-block
-                            insertCommonBlock(func, commonBlocks, allUsedCommonArrays, createdCommonArrays, createdCommonBlocks, insertedCommonBlocks);
+                            insertCommonBlock(func, commonBlocks);
                     }
                 }
             }
@@ -1284,9 +1278,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions,
     }
 }
 
-int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions,
-                      const map<DIST::Array*, const CommonBlock*> &allUsedCommonArrays,
-                      const set<FuncInfo*> &allCommonFunctions)
+int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions)
 {
     string outText = "";    
     for (auto &region : regions)

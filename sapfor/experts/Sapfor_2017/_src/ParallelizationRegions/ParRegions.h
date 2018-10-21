@@ -122,7 +122,7 @@ public:
     void AddFuncCalls(const std::string &func) { functionsCall.insert(func); }
 
 #if __SPF
-    void AddAllFuncCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
+    void AddFuncCallsToAllCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
     void AddCrossedFunc(FuncInfo *func) { crossedFunctions.insert(func); }
 #endif
 
