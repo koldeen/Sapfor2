@@ -1492,7 +1492,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
-        // do not set break in this case
+        runPass(UNPARSE_FILE, proj_name, folderName);
+        break;
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
