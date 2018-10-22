@@ -943,7 +943,8 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
                            const map<string, vector<SgExpression*>> &commonBlocks,
                            const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                           map<tuple<int, string, string>, DIST::Array*> &createdArrays)
+                           map<tuple<int, string, string>, DIST::Array*> &createdArrays,
+                           bool freeArrays = false)
 {
     map<DIST::Array*, const ArrayInfo*> toAdd;
     for (auto it1 = toConvert.begin(); it1 != toConvert.end(); ++it1)
@@ -979,22 +980,35 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
             set<DIST::Array*> links;
             getRealArrayRefs(arrayToAdd, arrayToAdd, links, arrayLinksByFuncCalls);
 
-            for (auto linkedArray = links.begin(); linkedArray != links.end(); ++linkedArray)
+            int countOflinks = 0;
+            for (auto &linkedArray : links)
             {
-                if (arrayToAdd == *linkedArray)
+                if (arrayToAdd == linkedArray)
                     continue;
 
-                auto key = tableOfUniqNamesByArray[*linkedArray];
+                ++countOflinks;
+                auto key = tableOfUniqNamesByArray[linkedArray];
                 auto value = declaratedArrays.find(key)->second;
                 if (value.second == 0 && createdArrays.find(key) == createdArrays.end())
-                    createdArrays.insert(make_pair(key, *linkedArray));
+                    createdArrays.insert(make_pair(key, linkedArray));
             }
+
+            if (freeArrays)
+                if (countOflinks == 0)
+                    continue;
 
             toAdd[arrayToAdd] = currentInfo;
 
             for (int z = 0; z < currentInfo->dimSize; ++z)
+            {
                 if (currentInfo->readOps[z].coefficients.size() || currentInfo->writeOps[z].coefficients.size())
-                    arrayToAdd->SetMappedDim(z);            
+                {
+                    arrayToAdd->SetMappedDim(z);
+
+                    for (auto &realRef : links)
+                        realRef->SetMappedDim(z);
+                }
+            }
         }
     }
     outInfo[currLoop] = toAdd;
@@ -1450,7 +1464,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                                 toAdd.readOps.push_back(ArrayOp(make_pair(1, 0)));
                             
                             toConvert[arrayS] = toAdd;
-                            convertOneLoop(tmpLoop, convertedLoopInfo, toConvert, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays);
+                            convertOneLoop(tmpLoop, convertedLoopInfo, toConvert, privatesVars, commonBlocks, declaratedArrays, arrayLinksByFuncCalls, createdArrays, true);
                         }
                     }
                 }

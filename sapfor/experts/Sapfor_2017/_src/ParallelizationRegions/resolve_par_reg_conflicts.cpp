@@ -654,12 +654,15 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     SgStatement *insertPlace = NULL;
 
     for (auto iterator = func->funcPointer->GetOriginal()->lexNext();
-         !isSgExecutableStatement(iterator) || isSPF_stat(iterator);
-         iterator = iterator->lexNext())
+        !isSgExecutableStatement(iterator) || isSPF_stat(iterator);
+        iterator = iterator->lexNext())
+    {
         insertPlace = iterator;
+    }
 
+    //NULL - no decl stats in function!
     if (!insertPlace)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        insertPlace = func->funcPointer->GetOriginal();
 
     SgStatement *commDecl = createCommonBlock(file, array);
     SgStatement *copyDecl = commDecl->copyPtr();

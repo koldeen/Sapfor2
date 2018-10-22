@@ -41,6 +41,7 @@
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
 #include "LoopConverter/private_arrays_breeder.h"
+#include "LoopConverter/loops_splitter.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
@@ -467,37 +468,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
-            if (curr_regime == INSERT_PARALLEL_DIRS)
-            {
-                // insert redistribution for regions
-                if (parallelRegions.size() > 1 || (parallelRegions.size() == 1 && parallelRegions[0]->GetId() > 0))
-                {
-                    for (int z = 0; z < parallelRegions.size(); ++z)
-                    {
-                        ParallelRegion *currReg = parallelRegions[z];
-
-                        const DataDirective &dataDirectives = currReg->GetDataDir();
-                        const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                        vector<int> variantZero(currentVariant.size());
-                        std::fill(variantZero.begin(), variantZero.end(), 0);
-
-                        const std::vector<ParallelRegionLines> *currLines = currReg->GetLines(file_name);
-
-                        if (currLines)
-                        {
-                            //TODO: to be removed with new algorithm for parallel regions
-                            File *fileT = new File(file);
-                            const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> reAlignRules;
-                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
-
-                            insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
-                        }
-                    }
-                }
-            }
-            else
+            if (curr_regime == EXTRACT_PARALLEL_DIRS)
                 createdDirectives[file_name].clear();
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
@@ -696,11 +667,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
         else if (curr_regime == PREDICT_SCHEME)
-        {
-            auto itFound = loopGraph.find(file_name);
-            if (itFound != loopGraph.end())
-                processFileToPredict(file, itFound->second);
-        }
+            processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
             constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
         else if (curr_regime == DEF_USE_STAGE2)
@@ -735,6 +702,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto founded = loopGraph.find(file->filename());
             if(founded != loopGraph.end())
                 breedArrays(file, loopGraph.find(file->filename())->second);
+        }
+        else if(curr_regime == LOOPS_SPLITTER)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+                splitLoops(file, loopGraph.find(file->filename())->second);
         }
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
@@ -1441,9 +1414,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
+            runAnalysis(*project, PREDICT_SCHEME, false);
+            
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
-            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
@@ -1651,8 +1624,12 @@ int main(int argc, char **argv)
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")
                     InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
-                if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
+                else if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
                     exit(0);
+                else if (string(curr_arg) == "-freeLoops")
+                    parallizeFreeLoops = 1;
+                else if (string(curr_arg) == "-autoArray")
+                    parallizeFreeLoops = 1;
                 break;
             default:
                 break;

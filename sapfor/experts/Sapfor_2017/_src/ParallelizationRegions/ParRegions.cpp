@@ -228,7 +228,8 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                         itFunc->second->callRegions.insert(regionIdConuter);
                 }
             }
-            else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
+
+            if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
             {
                 updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
                 SgStatement *data = next;

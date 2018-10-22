@@ -41,47 +41,66 @@ static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *
     }
 
     SgExpression *oldTail = expressionToExtend->lhs();
-    while(oldTail->rhs() != NULL)
+    while(oldTail->rhs() != NULL) {
+        oldTail->setLhs(new SgExpression(DDOT));
         oldTail = oldTail->rhs();
+    }
+    oldTail->setLhs(new SgExpression(DDOT));
     oldTail->setRhs(newTail);
 }
 
 static void extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend)
 {
     SgExpression *newTail = NULL;
-    for(int i = indexes.size()-1; i >= 0; --i)
+    for (int i = indexes.size() - 1; i >= 0; --i)
     {
         SgExpression *breededIndex = new SgVarRefExp(indexes[i]);
-        newTail = new SgExpression(EXPR_LIST, breededIndex, newTail, (SgSymbol*)NULL);
+        newTail = new SgExpression(EXPR_LIST, breededIndex, newTail, (SgSymbol*) NULL);
     }
 
     SgExpression *oldTail = expressionToExtend->lhs();
-    while(oldTail->rhs() != NULL)
+    while (oldTail->rhs() != NULL)
         oldTail = oldTail->rhs();
     oldTail->setRhs(newTail);
 }
 
+static void setAllocatable(SgStatement *newDecl)
+{
+    SgExpression *params = newDecl->expr(2);
+    if(params != NULL) { //ALLOCATABLE может уже быть
+        while(params != NULL) {
+            if(params->lhs()->variant() == ALLOCATABLE_OP)
+                return;
+            params = params->rhs();
+        }
+    }
+
+    params = newDecl->expr(2);
+    SgExpression newParams (EXPR_LIST, new SgExpression(ALLOCATABLE_OP), params, (SgSymbol*)NULL);
+    newDecl->setExpression(2, newParams);
+}
+
 static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymbol *arraySymbol, vector<int> &dimensions) {
+    setAllocatable(declarationStatement);
 
     for(SgExpression *exprList = declarationStatement->expr(0); exprList != NULL; exprList = exprList->rhs())
     {
         SgExpression *array = exprList->lhs();
         if(array && array->variant() == ARRAY_REF && !strcmp(array->symbol()->identifier(), arraySymbol->identifier()))
         {//нашли объявление исходного массива
-            extendArrayDeclaration(dimensions, array);
-            createNewArrayNameSymbol(array);
+            SgExpression *newArray = array->copyPtr();
+            extendArrayDeclaration(dimensions, newArray);
 
-            SgExpression *newRhs = new SgExpression(EXPR_LIST, array, exprList->rhs(), (SgSymbol*)NULL);
-            exprList->setRhs(newRhs);
-
-            return array->symbol();
+            SgExpression newExprList(EXPR_LIST, newArray, (SgExpression*)NULL, (SgSymbol*)NULL);
+            declarationStatement->setExpression(0,newExprList);
+            return createNewArrayNameSymbol(newArray);
         }
     }
+    //На самом деле, это недостижимый код
     return NULL;
 }
 
 static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, SgSymbol *arraySymbol, SgSymbol *newArraySymbol) {
-
     queue<SgExpression*> toCheck = queue<SgExpression*>();
 
     for(int i=0;i<3;++i)
@@ -108,10 +127,8 @@ static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, S
     }
 }
 
-static SgStatement* createNewDeclarationStatemnet(SgSymbol* arraySymbol)
+static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclaration, SgSymbol* arraySymbol)
 {
-    SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
-
     SgStatement *firstStmtOfFile = NULL;
     for (firstStmtOfFile = originalDeclaration; strcmp(firstStmtOfFile->fileName(), current_file->filename()); firstStmtOfFile = firstStmtOfFile->lexNext())
     {}// Yes, it's an empty for loop
@@ -124,10 +141,82 @@ static SgStatement* createNewDeclarationStatemnet(SgSymbol* arraySymbol)
     SgStatement newDeclaration = originalDeclaration->copy();
 
     newDeclaration.setExpression(0, newExprList);
-    firstStmtOfFile->insertStmtBefore(newDeclaration);
+    firstStmtOfFile->insertStmtAfter(newDeclaration);
 
-    SgStatement* inserted = firstStmtOfFile->lexPrev();
-    return originalDeclaration;
+    return firstStmtOfFile->lexNext();
+}
+
+static SgExpression* constructBoundCall(bool upBound, SgSymbol *array, int dim) {
+
+    char* boundName = (char*)malloc(7 * sizeof(char));
+    upBound ? strcpy(boundName, "ubound") : strcpy(boundName, "lbound");
+
+    SgSymbol boundS = SgSymbol(FUNCTION_NAME, boundName);
+
+    SgExpression *dimParam = new SgExpression(EXPR_LIST, new SgValueExp(dim), NULL, NULL);
+    SgExpression params(EXPR_LIST, new SgExpression(ARRAY_REF, NULL, NULL, array), dimParam, NULL);
+
+    return new SgFunctionCallExp(boundS, params);
+}
+
+static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpression *origArray, SgSymbol *arraySymbol, int depthOfBreed) {
+
+    SgExpression *arrayRef = origArray->copyPtr();
+    arrayRef->setSymbol(arraySymbol);
+    vector<SgExpression*> dimensions(depthOfBreed);
+    LoopGraph *curLoop = forLoop;
+    for(int i = 0; i < depthOfBreed; ++i)
+    {
+        SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
+        dimensions[i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
+        curLoop = curLoop->children[0];
+    }
+
+    SgExpression *newTail = NULL;
+    for(int i=dimensions.size()-1; i>=0 ;--i)
+        newTail = new SgExpression(EXPR_LIST, dimensions[i], newTail, (SgSymbol*)NULL);
+
+    SgExpression *oldTail = arrayRef->lhs();
+    SgSymbol *origArraySymbol = origArray->symbol();
+    int curDim = 0;
+    SgExpression *attachTo = oldTail;
+    while (oldTail != NULL)
+    {
+        curDim++;
+        if (oldTail->lhs()->variant() == DDOT)
+        {
+            SgExpression *ddot = oldTail->lhs();
+            if (!ddot->lhs())
+                ddot->setLhs(constructBoundCall(false, origArraySymbol, curDim));
+            if (!ddot->rhs())
+                ddot->setRhs(constructBoundCall(true, origArraySymbol, curDim));
+        }
+        oldTail = oldTail->rhs();
+        if(oldTail)
+            attachTo = oldTail;
+    }
+     attachTo->setRhs(newTail);
+
+    return new SgExpression(EXPR_LIST, arrayRef, (SgExpression*)NULL, (SgSymbol*)NULL);
+}
+
+static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclaration, SgSymbol *origArraySymbol, SgSymbol *arraySymbol, int depthOfBreed) {
+
+    SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
+
+    SgExpression *origArray = NULL;
+    for (origArray = originalDeclaration->expr(0); strcmp(origArray->lhs()->symbol()->identifier(), origArraySymbol->identifier()); origArray = origArray->rhs())
+    {}// Yes-yes-yes, YEEEEEEESSSSS!!!
+    origArray = origArray->lhs();
+
+    SgExpression *arrayAllocation = constructArrayAllocationExp(forLoop, origArray, arraySymbol, depthOfBreed);
+    SgExpression *arrayDeallocation = new SgExpression(EXPR_LIST, new SgExpression(ARRAY_REF, (SgExpression*)NULL, (SgExpression*)NULL, arraySymbol), (SgExpression*)NULL, (SgSymbol*)NULL);
+
+    SgStatement allocate  (ALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayAllocation, (SgExpression*)NULL, (SgExpression*)NULL);
+    SgStatement deallocate(DEALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayDeallocation, (SgExpression*)NULL, (SgExpression*)NULL);
+
+    loopStmt->insertStmtBefore(allocate);
+    loopStmt->lastNodeOfStmt()->insertStmtAfter(deallocate);
 }
 
 static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBreed)
@@ -142,9 +231,6 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
     for(int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        if(curLoop->calculatedCountOfIters == 0)
-            return; //TODO
-
         dimensions[i] = curLoop->calculatedCountOfIters;
         indexes[i] = loopStmt->doName();
 
@@ -154,13 +240,16 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
             return;
     }
 
-    SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(arraySymbol);
+    SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
+    SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
     SgSymbol *newArraySymbol = alterArrayDeclaration(copiedOriginalArrayDeclaration, arraySymbol, dimensions);
 
     SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
     if(newArraySymbol)
+        insertAllocDealloc(forLoop, originalDeclaration, arraySymbol, newArraySymbol, indexes.size());
         for (SgStatement *st = loopStmt->lexNext(); st != loopStmt->lastNodeOfStmt()->lexNext(); st = st->lexNext())
-            extendArrayRefs(indexes, st, arraySymbol, newArraySymbol);
+            if(st->variant() != ALLOCATE_STMT && st->variant() != DEALLOCATE_STMT)
+                extendArrayRefs(indexes, st, arraySymbol, newArraySymbol);
 }
 
 //for testing
@@ -194,22 +283,11 @@ static SgSymbol *findArray(LoopGraph*  forLoop, const char* arrayName)
             }
         }
     }
+    return NULL;
 }
 
-//TODO list
-/*
- * 1. Добавить индексных новых переменных в существующие обращения - ОК
- * 2. Вычислить размеры новых измерений по циклу - ok
- * 3. Вставить новый массив - в текущий файл - ok
- * 4. Переименовывать массивы, когда расширяем их - ok
- *
- * 1. breeded -> br1, br2, ... - ok
- * 2. Добавлять измерения в хвост, а не в начало - ok
- * 3. Кол-во измерений зависит от depthOfBreed - ok
- * 4. Вычислять размер массива с учётом шага цикла - В топку
- * 5. Выделять массив как allocateable
- * 6. добавить alllocate/deallocate перед/после цикла
- */
+
+//Вычислять размер массива с учётом шага цикла - //TODO
 void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
     if(string(file->filename()) == "z_solve_inlined.f")
         for(auto& loopGraph : loopGraphs)
@@ -218,18 +296,13 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
             if(array)
                 breedArray(loopGraph, array, -1);
 
+            array = findArray(loopGraph, "fjac");
+            if (array)
+                breedArray(loopGraph, array, -1);
 
-/*            array = findArray(loopGraph, "fjac");
-            if(array)
-                breedArray(loopGraph, array);
-*/
-/*
-            SgSymbol* array = new SgSymbol("njac");
-            breedArray(loopGraph,array);
-            delete array;
+            array = findArray(loopGraph, "lhs");
+            if (array)
+                breedArray(loopGraph, array, -1);
 
-            SgSymbol* array = new SgSymbol("lhs");
-            breedArray(loopGraph,array);
-            delete array;*/
         }
 }

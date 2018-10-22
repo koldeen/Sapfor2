@@ -6,6 +6,7 @@ extern int keepDvmDirectives;
 extern int keepSpfDirs;
 extern int consoleMode;
 extern int parallizeFreeLoops;
+extern int automaticDeprecateArrays;
 
 extern "C" int out_free_form;
 
@@ -92,6 +93,7 @@ enum passes {
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
     PRIVATE_ARRAYS_BREEDING,
+    LOOPS_SPLITTER,
     EMPTY_PASS
 };
 
@@ -190,5 +192,6 @@ static void setPassValues()
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
     passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
+    passNames[LOOPS_SPLITTER] = "LOOPS_SPLITTER";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

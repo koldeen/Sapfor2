@@ -169,6 +169,7 @@ namespace Distribution
         int getCountOfMiss() const { return countMissToAdd; }
 
         std::vector<attrType> GetAllAttributes(const int vert) const;
+        int CountOfConnected(const int startV) const;
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);

@@ -4,4 +4,4 @@
 #include <vector>
 
 
-void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphsm);
+void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs);
