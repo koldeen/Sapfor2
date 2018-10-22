@@ -231,9 +231,6 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
     for(int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        if(curLoop->calculatedCountOfIters == 0)
-            return; //TODO
-
         dimensions[i] = curLoop->calculatedCountOfIters;
         indexes[i] = loopStmt->doName();
 
@@ -289,21 +286,8 @@ static SgSymbol *findArray(LoopGraph*  forLoop, const char* arrayName)
     return NULL;
 }
 
-//TODO list
-/*
- * 1. Добавить индексных новых переменных в существующие обращения - ОК
- * 2. Вычислить размеры новых измерений по циклу - ok
- * 3. Вставить новый массив - в текущий файл - ok
- * 4. Переименовывать массивы, когда расширяем их - ok
- * 5. breeded -> br1, br2, ... - ok
- * 6. Добавлять измерения в хвост, а не в начало - ok
- * 7. Кол-во измерений зависит от depthOfBreed - ok
- * 8. Вычислять размер массива с учётом шага цикла - В топку //TODO
- * 9. Выделять массив как allocateable - ok
- * 10. добавить alllocate/deallocate перед/после цикла
- * 11. что делать с существующими allocate/deallocate? не трогать -ok
- * 12. lbound, rbound для allocatabel массивов - ok
- */
+
+//Вычислять размер массива с учётом шага цикла - //TODO
 void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
     if(string(file->filename()) == "z_solve_inlined.f")
         for(auto& loopGraph : loopGraphs)
@@ -311,5 +295,14 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
             SgSymbol *array = findArray(loopGraph, "njac");
             if(array)
                 breedArray(loopGraph, array, -1);
+
+            array = findArray(loopGraph, "fjac");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findArray(loopGraph, "lhs");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
         }
 }

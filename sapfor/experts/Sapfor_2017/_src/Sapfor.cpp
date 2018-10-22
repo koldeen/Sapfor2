@@ -41,6 +41,7 @@
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
 #include "LoopConverter/private_arrays_breeder.h"
+#include "LoopConverter/loops_splitter.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
@@ -467,38 +468,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
-            if (curr_regime == INSERT_PARALLEL_DIRS)
-            {
-                // insert redistribution for regions
-                if (parallelRegions.size() > 1 || (parallelRegions.size() == 1 && parallelRegions[0]->GetId() > 0))
-                {
-                    //TODO: to be remove!!
-                    /*for (int z = 0; z < parallelRegions.size(); ++z)
-                    {
-                        ParallelRegion *currReg = parallelRegions[z];
-
-                        const DataDirective &dataDirectives = currReg->GetDataDir();
-                        const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                        vector<int> variantZero(currentVariant.size());
-                        std::fill(variantZero.begin(), variantZero.end(), 0);
-
-                        const std::vector<ParallelRegionLines> *currLines = currReg->GetLines(file_name);
-
-                        if (currLines)
-                        {
-                            //TODO: to be removed with new algorithm for parallel regions
-                            File *fileT = new File(file);
-                            const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> reAlignRules;
-                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
-
-                            insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
-                        }
-                    }*/
-                }
-            }
-            else
+            if (curr_regime == EXTRACT_PARALLEL_DIRS)
                 createdDirectives[file_name].clear();
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
@@ -732,6 +702,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto founded = loopGraph.find(file->filename());
             if(founded != loopGraph.end())
                 breedArrays(file, loopGraph.find(file->filename())->second);
+        }
+        else if(curr_regime == LOOPS_SPLITTER)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+                splitLoops(file, loopGraph.find(file->filename())->second);
         }
         
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);

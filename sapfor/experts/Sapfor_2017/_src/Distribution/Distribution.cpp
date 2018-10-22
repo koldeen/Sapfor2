@@ -176,7 +176,7 @@ namespace Distribution
 
             //char buf[256];
             //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
-            //printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
+            printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
 #if _WIN32 && NDEBUG
             if (passDone == 2)
@@ -224,6 +224,36 @@ namespace Distribution
                         break;
                     }
                 }
+            }
+        }
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    static void CountConflictVarints(int64_t &countVars, 
+                                     vector<unsigned> &localDelArcsShort, unsigned *fastCache,
+                                     const vector<Cycle<vType, wType, attrType>> &cycles, const vector<pair<int, int>> &indexOfConflict,
+                                     const int lastIndexOfConflict)
+    {
+        int nextConflict = GetIdxOfNextCycle(fastCache, localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
+        if (nextConflict == -1)
+        {
+            countVars++;
+            return;
+        }
+        else
+        {
+            const Cycle<vType, wType, attrType> &conflicCycle = cycles[indexOfConflict[nextConflict].first];
+            const vector<unsigned> &shortInfo = conflicCycle.GetShortInfo();
+            
+            for (int i = 0; i < (int)shortInfo.size(); ++i)
+            {
+                localDelArcsShort.push_back(shortInfo[i]);
+                fastCache[shortInfo[i]] = 1;
+
+                CountConflictVarints(countVars, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict);
+
+                fastCache[shortInfo[i]] = 0;
+                localDelArcsShort.pop_back();                
             }
         }
     }
@@ -353,6 +383,10 @@ namespace Distribution
 
                 if (needPrint)
                     printf("SAPFOR: before del %d\n", countInTree);
+
+                /*int64_t countVars = 0;
+                CountConflictVarints(countVars, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
+                printf("SAPFOR: count of vars %lld\n", countVars);*/
 
                 /*if (onlySecondConflictType)
                     FindBestSequenceForDelArcs
@@ -507,40 +541,37 @@ namespace Distribution
 
             vector<Array*> arraysV;
             arraysV.assign(arrays.begin(), arrays.end());
-
-            if (onlySecondType == false)
+            
+            for (int z = 0; z < arraysV.size(); ++z)
             {
-                for (int z = 0; z < arraysV.size(); ++z)
-                {
-                    const DIST::Array *array = arraysV[z];
+                const DIST::Array *array = arraysV[z];
 
 #ifdef _WIN32
-                    wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
-                    sendMessage_2lvl(treeM);
+                wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
+                sendMessage_2lvl(treeM);
 #endif
-                    vector<vType> verts;
+                vector<vType> verts;
 
-                    if (array->GetDimSize() == 1)
-                        continue;
+                if (array->GetDimSize() == 1)
+                    continue;
 
-                    int err = allArrays.GetAllVertNumber(array, verts);
-                    if (err != 0)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                int err = allArrays.GetAllVertNumber(array, verts);
+                if (err != 0)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                    attrType tmpPair = make_pair(make_pair(1, 0), make_pair(1, 0));
+                attrType tmpPair = make_pair(make_pair(1, 0), make_pair(1, 0));
 
-                    for (int i = 0; i < verts.size(); ++i)
+                for (int i = 0; i < verts.size(); ++i)
+                {
+                    for (int j = i + 1; j < verts.size(); ++j)
                     {
-                        for (int j = i + 1; j < verts.size(); ++j)
-                        {
-                            GraphCSR<vType, wType, attrType> findConflict(reducedG);
-                            findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
+                        GraphCSR<vType, wType, attrType> findConflict(reducedG);
+                        findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
 
-                            vector<tuple<int, int, attrType>> toDelArcsLocal;
-                            globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true).second;
-                            if (toDelArcsLocal.size() != 0)
-                                reducedG.RemovedEdges(toDelArcsLocal, allArrays);
-                        }
+                        vector<tuple<int, int, attrType>> toDelArcsLocal;
+                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true).second;
+                        if (toDelArcsLocal.size() != 0)
+                            reducedG.RemovedEdges(toDelArcsLocal, allArrays);
                     }
                 }
             }

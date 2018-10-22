@@ -61,12 +61,12 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
 
 bool argIsReplaceable(int i, AnalysedCallsList *callData)
 {
-    // AnalysedCallsList == -1 or -2 if no user procedure /subroutine found
+    // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
     if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
         return false;
     SgProcHedrStmt *header = isSgProcHedrStmt(callData->header);
     if (header == NULL)
-        return NULL;
+        return false;
     if (header->parameter(i) == NULL)
         return false;
     int attr = header->parameter(i)->attributes();
