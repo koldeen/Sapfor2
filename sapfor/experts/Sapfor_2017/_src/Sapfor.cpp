@@ -472,7 +472,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 // insert redistribution for regions
                 if (parallelRegions.size() > 1 || (parallelRegions.size() == 1 && parallelRegions[0]->GetId() > 0))
                 {
-                    for (int z = 0; z < parallelRegions.size(); ++z)
+                    //TODO: to be remove!!
+                    /*for (int z = 0; z < parallelRegions.size(); ++z)
                     {
                         ParallelRegion *currReg = parallelRegions[z];
 
@@ -494,7 +495,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                             insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
                         }
-                    }
+                    }*/
                 }
             }
             else
@@ -696,11 +697,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
         else if (curr_regime == PREDICT_SCHEME)
-        {
-            auto itFound = loopGraph.find(file_name);
-            if (itFound != loopGraph.end())
-                processFileToPredict(file, itFound->second);
-        }
+            processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
             constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
         else if (curr_regime == DEF_USE_STAGE2)
@@ -1442,9 +1439,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
+            runAnalysis(*project, PREDICT_SCHEME, false);
+            
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
-            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
@@ -1493,7 +1490,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
-        // do not set break in this case
+        runPass(UNPARSE_FILE, proj_name, folderName);
+        break;
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
@@ -1653,8 +1651,12 @@ int main(int argc, char **argv)
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")
                     InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
-                if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
+                else if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
                     exit(0);
+                else if (string(curr_arg) == "-freeLoops")
+                    parallizeFreeLoops = 1;
+                else if (string(curr_arg) == "-autoArray")
+                    parallizeFreeLoops = 1;
                 break;
             default:
                 break;

@@ -27,6 +27,8 @@ int genAllVars = 0; //generate ALL distribution variants
 int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 int parallizeFreeLoops = 0; // parallize free loops without arrays with DIST status
+int automaticDeprecateArrays = 0; // automatic change DIST status to NON_DIST of Array
+
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
 int SPEED;   // speed of conflicts search in graph
@@ -92,12 +94,16 @@ std::map<std::string, std::vector<int>> dvmDirErrors; // file->lines
 //
 
 //for DEF USE
-map<string, vector<DefUseList>> defUseByFunctions;
+std::map<std::string, vector<DefUseList>> defUseByFunctions;
 //
 
 //for EXPR SUBSTITUTION
 std::map<std::string, std::vector<FuncInfo*>> subs_allFuncInfo; // file -> Info  
 std::vector<ParallelRegion*> subs_parallelRegions;
+//
+
+//for predictior statistic 
+std::map<std::string, PredictorStats> allPredictorStats;
 //
 
 const char *passNames[EMPTY_PASS + 1];

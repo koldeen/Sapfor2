@@ -6,6 +6,7 @@ extern int keepDvmDirectives;
 extern int keepSpfDirs;
 extern int consoleMode;
 extern int parallizeFreeLoops;
+extern int automaticDeprecateArrays;
 
 extern "C" int out_free_form;
 

@@ -404,6 +404,8 @@ void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr,
                 getAllArrayRefs(addTo, link, allArrayRefs, arrayLinksByFuncCalls);
 }
 
+#define UNIQ_ACCESS 1
+
 void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                             const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
@@ -438,16 +440,16 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 
         for (auto &accessFrom : currAccesses)
         {
-#if 1 
+#if UNIQ_ACCESS
             const ArrayInfo *from = accessFrom.second;
-            ArrayInfo *fromUniq = new ArrayInfo();
-            fromUniq->dimSize = from->dimSize;
-            fromUniq->writeOps = from->writeOps;
-            fromUniq->readOps = from->readOps;
+            ArrayInfo fromUniq;
+            fromUniq.dimSize = from->dimSize;
+            fromUniq.writeOps = from->writeOps;
+            fromUniq.readOps = from->readOps;
 
-            fromUniq->createUniqCoefs();
+            fromUniq.createUniqCoefs();
 #else
-            const ArrayInfo *fromUniq = accessFrom.second;
+            const ArrayInfo &fromUniq = *accessFrom.second;
 #endif
             allArrays.AddArrayToGraph(accessFrom.first);
 
@@ -457,29 +459,22 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
                 {
                     if (&accessTo == &accessFrom)
                         continue;
-#if 1                    
+#if UNIQ_ACCESS                  
                     const ArrayInfo *to = accessTo.second;
-                    ArrayInfo *toUniq = new ArrayInfo();
-                    toUniq->dimSize = to->dimSize;
-                    toUniq->writeOps = to->writeOps;
-                    toUniq->readOps = to->readOps;
+                    ArrayInfo toUniq;
+                    toUniq.dimSize = to->dimSize;
+                    toUniq.writeOps = to->writeOps;
+                    toUniq.readOps = to->readOps;
  
-                    toUniq->createUniqCoefs();
+                    toUniq.createUniqCoefs();
 #else
-                    const ArrayInfo *toUniq = accessTo.second;
+                    const ArrayInfo &toUniq = *accessTo.second;
 #endif
                     allArrays.AddArrayToGraph(accessTo.first);
                     for (auto &toSymb : realArrayRefs[accessTo.first])
-                        addToGraph(G, allArrays, currWeight, fromUniq, fromSymb, toUniq, toSymb);
-
-#if 1
-                    delete toUniq;
-#endif
+                        addToGraph(G, allArrays, currWeight, &fromUniq, fromSymb, &toUniq, toSymb);
                 }
             }
-#if 1
-            delete fromUniq;
-#endif
         }
     }
 }

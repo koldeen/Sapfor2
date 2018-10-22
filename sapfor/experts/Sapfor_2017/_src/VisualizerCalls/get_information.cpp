@@ -29,6 +29,7 @@
 #include "../Sapfor.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
+#include "../Predictor/PredictScheme.h"
 
 using std::string;
 using std::wstring;
@@ -458,8 +459,9 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     return retSize;
 }
 
+extern map<string, PredictorStats> allPredictorStats;
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
-                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize) // , short *&predictorStats)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -525,6 +527,24 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 
         printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
+        
+        string predictRes = "";
+        PredictorStats summed;
+        for (auto &predFile : allPredictorStats)
+        {
+            summed.IntervalCount += predFile.second.IntervalCount;
+            summed.ParallelCount += predFile.second.ParallelCount;
+            summed.RedistributeCount += predFile.second.RedistributeCount;
+            summed.RemoteCount += predFile.second.RemoteCount;
+            summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
+            summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
+            summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
+            summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
+        }
+        predictRes += summed.to_string();        
+
+        //copyStringToShort(predictorStats, predictRes);
+        //retSize = (int)predictRes.size() + 1;
     }
     catch (int ex)
     {

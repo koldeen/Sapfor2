@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <omp.h>
 #include <vector>
+#include <queue>
 #include <map>
 #include <set>
 #include <tuple>
@@ -24,6 +25,7 @@ extern int passDone;
 #include "GraphCSR.h"
 
 using std::vector;
+using std::queue;
 using std::map;
 using std::set;
 using std::pair;
@@ -1905,7 +1907,7 @@ namespace Distribution
         GetAllAttributes(const int vert) const
     {
         vector<attrType> retVal;
-        if (localIdx.size() == 0)
+        if (localIdx.size() == 0 || vert >= localIdx.size())
             return retVal;
 
         int locV = localIdx[vert];
@@ -1916,6 +1918,35 @@ namespace Distribution
             retVal.push_back(attributes[z]);
 
         return retVal;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    int GraphCSR<vType, wType, attrType>::
+        CountOfConnected(const int startV) const
+    {
+        set<vType> done;
+        queue<vType> next;
+
+        next.push(startV);
+        done.insert(startV);
+
+        while (next.size())
+        {
+            vType V = next.front();
+            next.pop();
+
+            for (vType k = neighbors[V]; k < neighbors[V + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                auto it = done.find(toV);
+                if (it == done.end())
+                {
+                    done.insert(it, toV);
+                    next.push(toV);
+                }
+            }
+        }
+        return done.size();
     }
 
     template class GraphCSR<int, double, attrType>;

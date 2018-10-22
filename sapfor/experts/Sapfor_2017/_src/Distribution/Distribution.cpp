@@ -116,9 +116,10 @@ namespace Distribution
                                  const int idxStart = 0)
     {
         int idx = -1;
+        const pair<int, int> *data = indexOfConflict.data();
         for (int i = idxStart; i < (int)indexOfConflict.size(); ++i)
         {
-            const Cycle<vType, wType, attrType> &currCycle = cycles[indexOfConflict[i].first];
+            const Cycle<vType, wType, attrType> &currCycle = cycles[data[i].first];
             if (localDelArcsShort.size() == 0)
             {
                 idx = i;
@@ -128,22 +129,13 @@ namespace Distribution
             {
                 const vector<unsigned> &shortInfo = currCycle.GetShortInfo();
                 bool same = false;
-
                 for (int k = 0; k < (int)shortInfo.size(); ++k)
-                {
-                    same = false;
-                    /*if (fastCache[shortInfo[k]] == 1)
-                        same = true;*/
-                    for (int m = 0; m < (int)localDelArcsShort.size(); ++m)
+                {                    
+                    if (fastCache[shortInfo[k]] == 1)
                     {
-                        if (shortInfo[k] == localDelArcsShort[m])
-                        {
-                            same = true;
-                            break;
-                        }
-                    }
-                    if (same)
+                        same = true;
                         break;
+                    }
                 }
                 if (same)
                     continue;
@@ -157,13 +149,24 @@ namespace Distribution
         return idx;
     }
 
-    template<typename vType, typename wType, typename attrType>
+    static inline bool checkGraphTrue(const int startV, const int realV, const GraphCSR<int, double, attrType> &G)
+    {
+        return true;
+    }
+
+    static inline bool checkGraph(const int startV, const int realV, const GraphCSR<int, double, attrType> &G)
+    {
+        return realV == G.CountOfConnected(startV);
+    }
+
+    template<typename vType, typename wType, typename attrType, bool check(const int startV, const int realV, const GraphCSR<vType, wType, attrType> &G)>
     static void FindBestSequenceForDelArcs(double &globalSum, vector<tuple<vType, vType, attrType>> &globalDelArcs,
                                            const double localSum, vector<tuple<vType, vType, attrType>> &localDelArcs,
                                            vector<unsigned> &localDelArcsShort,
                                            unsigned *fastCache,
                                            const vector<Cycle<vType, wType, attrType>> &cycles, const vector<pair<int, int>> &indexOfConflict,
-                                           const int lastIndexOfConflict)
+                                           const int lastIndexOfConflict, const int countInTree,
+                                           const GraphCSR<vType, wType, attrType> &graph)
     {
         int nextConflict = GetIdxOfNextCycle(fastCache, localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
         if (nextConflict == -1)
@@ -171,11 +174,10 @@ namespace Distribution
             globalSum = localSum;
             globalDelArcs = localDelArcs;
 
-            char buf[256];
-            sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
-            printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
-            addToGlobalBufferAndPrint(buf);
+            //char buf[256];
+            //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
+            //addToGlobalBufferAndPrint(buf);
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -195,23 +197,32 @@ namespace Distribution
                 const wType currW = weights[i];
                 const attrType &currAttr = attributes[i];
 
-                if (localSum + currW < globalSum)
-                {
-                    localDelArcs.push_back(make_tuple(currArc.first, currArc.second, currAttr));
-                    localDelArcsShort.push_back(shortInfo[i]);
-                    //fastCache[shortInfo[i]] = 1;
-                    FindBestSequenceForDelArcs(globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict);
-                    //fastCache[shortInfo[i]] = 0;
-                    localDelArcs.pop_back();
-                    localDelArcsShort.pop_back();
-                }
+                if (!check(currArc.first, countInTree, graph))
+                    continue;
                 else
                 {
+                    if (localSum + currW < globalSum)
+                    {
+                        localDelArcs.push_back(make_tuple(currArc.first, currArc.second, currAttr));
+                        localDelArcsShort.push_back(shortInfo[i]);
+                        fastCache[shortInfo[i]] = 1;
+
+                        FindBestSequenceForDelArcs
+                            <vType, wType, attrType, check>
+                                (globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict, countInTree, graph);
+
+                        fastCache[shortInfo[i]] = 0;
+                        localDelArcs.pop_back();
+                        localDelArcsShort.pop_back();
+                    }
+                    else
+                    {
 #if _WIN32 && NDEBUG
-                    if (passDone == 2)
-                        throw boost::thread_interrupted();
+                        if (passDone == 2)
+                            throw boost::thread_interrupted();
 #endif
-                    break;
+                        break;
+                    }
                 }
             }
         }
@@ -253,20 +264,32 @@ namespace Distribution
 
 
     template<typename vType, typename wType, typename attrType>
-    static double CreateOptimalAlignementTree(GraphCSR<vType, wType, attrType> &G, const Arrays<vType> &allArrays,
+    static pair<bool, double> CreateOptimalAlignementTree(GraphCSR<vType, wType, attrType> &G, const Arrays<vType> &allArrays,
                                               vector<tuple<vType, vType, attrType>> &toDelArcs, bool needPrint = true, bool useSavedQ = false)
     {        
         double globalSum = 0;
+        bool allOnlySecondType = true;
+
         vector<vector<Cycle<vType, wType, attrType>>> AllCycles;
 
         G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
         toDelArcs.clear();
-
-        unsigned *fastCache = new unsigned[G.GetNumberOfE()];
-        memset(fastCache, 0, sizeof(unsigned) * G.GetNumberOfE());
-
+        
         for (int k = 0; k < AllCycles.size(); ++k)
         {
+            unsigned maxElem = 0;
+            bool onlySecondConflictType = true;
+
+            for (auto &elem : AllCycles[k])
+                for (auto &cycleShortInfo : elem.GetShortInfo())
+                    maxElem = std::max(maxElem, cycleShortInfo);
+
+            if (maxElem != 0 && needPrint)
+                printf("SAPFOR: max elem for cache %lld, in MB: %f\n", maxElem, maxElem / 1024. / 1024. * sizeof(unsigned));
+
+            unsigned *fastCache = new unsigned[maxElem];
+            memset(fastCache, 0, sizeof(unsigned) * maxElem);
+
             char buf[256];
             if (needPrint)
             {
@@ -292,6 +315,7 @@ namespace Distribution
             if (needPrint)
             {
                 sprintf(buf, " num of conflict cycles %d\n", countConflicts);
+                printf("SAPFOR: num of conflict cycles %d\n", countConflicts);
                 addToGlobalBufferAndPrint(buf);
             }
 
@@ -303,7 +327,14 @@ namespace Distribution
                 if (needPrint)
                 {
                     sprintf(buf, " num of type1 = %d, type2 = %d\n", typeConflict[0], typeConflict[1]);
+                    printf("SAPFOR: num of type1 = %d, type2 = %d\n", typeConflict[0], typeConflict[1]);
                     addToGlobalBufferAndPrint(buf);
+                }
+
+                if (typeConflict[0])
+                {
+                    onlySecondConflictType = false;
+                    allOnlySecondType = false;
                 }
             }
 
@@ -317,31 +348,54 @@ namespace Distribution
             double timeR = omp_get_wtime();
             if (countConflicts != 0)
             {
+                const int countInTree = G.CountOfConnected(cycles[indexOfConflict[0].first].GetArcs()[0].first);
                 const int lastIndexOfConflict = -1;
-                FindBestSequenceForDelArcs(globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
+
+                if (needPrint)
+                    printf("SAPFOR: before del %d\n", countInTree);
+
+                /*if (onlySecondConflictType)
+                    FindBestSequenceForDelArcs
+                        <vType, wType, attrType, checkGraph>
+                            (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
+                else*/
+                    FindBestSequenceForDelArcs
+                        <vType, wType, attrType, checkGraphTrue>
+                            (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
+
+                if (needPrint)
+                {
+                    auto tmpReducedG = G;
+                    tmpReducedG.RemovedEdges(toDelArcs, allArrays);
+                    if (needPrint)
+                        printf("SAPFOR: after del %d\n", tmpReducedG.CountOfConnected(cycles[indexOfConflict[0].first].GetArcs()[0].first));
+                }
                 globalSum += globalSumLocal;
             }
 
             if (needPrint)
             {
                 sprintf(buf, "PROF: FindBestSequenceForDelArcs: %f sec\n", omp_get_wtime() - timeR);
+                printf("SAPFOR: time of FindBestSequenceForDelArcs %f sec\n", omp_get_wtime() - timeR);
                 addToGlobalBufferAndPrint(buf);
             }
+
             timeR = omp_get_wtime();
             FindNonConflictDelArcs(toDelArcs, cycles);
             if (needPrint)
-            {
+            {                
                 sprintf(buf, "PROF: FindNonConflictDelArcs %f\n", omp_get_wtime() - timeR);
                 addToGlobalBufferAndPrint(buf);
             }
+
+            delete []fastCache;
         }
-        delete []fastCache;
 
 #ifdef _WIN32
         if (needPrint)
             sendMessage_2lvl(L"");
 #endif
-        return globalSum;
+        return make_pair(allOnlySecondType, globalSum);
     }
 
 #define TEST 0
@@ -441,7 +495,9 @@ namespace Distribution
             }
 #endif
 
-            globalSum = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
+            pair<bool, double> retVal = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
+            globalSum = retVal.second;
+            bool onlySecondType = retVal.first;
 
             reducedG = G;
             reducedG.RemovedEdges(toDelArcs, allArrays);
@@ -452,40 +508,42 @@ namespace Distribution
             vector<Array*> arraysV;
             arraysV.assign(arrays.begin(), arrays.end());
 
-            for (int z = 0; z < arraysV.size(); ++z)
+            if (onlySecondType == false)
             {
-                const DIST::Array *array = arraysV[z];
+                for (int z = 0; z < arraysV.size(); ++z)
+                {
+                    const DIST::Array *array = arraysV[z];
 
 #ifdef _WIN32
-                wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
-                sendMessage_2lvl(treeM);
+                    wstring treeM = L"разрешение конфликтов, обработка массива " + std::to_wstring(z + 1) + L"/" + std::to_wstring(arrays.size());
+                    sendMessage_2lvl(treeM);
 #endif
-                vector<vType> verts;
+                    vector<vType> verts;
 
-                if (array->GetDimSize() == 1)
-                    continue;
+                    if (array->GetDimSize() == 1)
+                        continue;
 
-                int err = allArrays.GetAllVertNumber(array, verts);
-                if (err != 0)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    int err = allArrays.GetAllVertNumber(array, verts);
+                    if (err != 0)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                attrType tmpPair = make_pair(make_pair(1, 0), make_pair(1, 0));
+                    attrType tmpPair = make_pair(make_pair(1, 0), make_pair(1, 0));
 
-                for (int i = 0; i < verts.size(); ++i)
-                {
-                    for (int j = i + 1; j < verts.size(); ++j)
+                    for (int i = 0; i < verts.size(); ++i)
                     {
-                        GraphCSR<vType, wType, attrType> findConflict(reducedG);
-                        findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
+                        for (int j = i + 1; j < verts.size(); ++j)
+                        {
+                            GraphCSR<vType, wType, attrType> findConflict(reducedG);
+                            findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
 
-                        vector<tuple<int, int, attrType>> toDelArcsLocal;
-                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true);
-                        if (toDelArcsLocal.size() != 0)
-                            reducedG.RemovedEdges(toDelArcsLocal, allArrays);
+                            vector<tuple<int, int, attrType>> toDelArcsLocal;
+                            globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true).second;
+                            if (toDelArcsLocal.size() != 0)
+                                reducedG.RemovedEdges(toDelArcsLocal, allArrays);
+                        }
                     }
                 }
             }
-
 #ifdef _WIN32
             sendMessage_2lvl(L"");
 #endif
