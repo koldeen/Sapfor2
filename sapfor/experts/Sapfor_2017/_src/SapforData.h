@@ -53,14 +53,6 @@ std::map<std::string, std::vector<LoopGraph*>> loopGraph; // file -> Info
 std::map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 //
 
-//for RESOLVE_PAR_REGIONS
-std::set<FuncInfo*> allCommonFunctions;
-std::map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
-std::map<std::string, std::map<DIST::Array*, std::pair<SgSymbol*, SgSymbol*>>> createdCommonArrays; // file -> array -> (orig, copy)
-std::map<std::string, SgStatement*> createdCommonBlocks; // file -> new common statement
-std::set<FuncInfo*> insertedCommonBlocks;                // funcs where new common statement inserted
-//
-
 //for directive creator
 std::map<std::string, std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>>> createdDirectives; //file -> directive to insert
 //

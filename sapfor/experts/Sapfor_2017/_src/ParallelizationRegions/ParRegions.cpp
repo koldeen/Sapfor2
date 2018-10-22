@@ -221,7 +221,12 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                 regionStarted = true;
                 regionName = data->symbol()->identifier();
                 if (funcs)
+                {
                     setExplicitFlag(file->functions(i)->symbol()->identifier(), mapFuncs);
+                    auto itFunc = mapFuncs.find(file->functions(i)->symbol()->identifier());
+                    if (itFunc != mapFuncs.end())
+                        itFunc->second->callRegions.insert(regionIdConuter);
+                }
             }
             else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
             {
@@ -420,10 +425,12 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                 if (it != funcMap.end())
                 {
                     regions[i]->AddLines(it->second->linesNum, it->second->fileName);
-                    regions[i]->AddAllFuncCalls(it->second);
+                    regions[i]->AddFuncCallsToAllCalls(it->second);
 
                     if (it->second->inRegion == 0)
                         it->second->inRegion = 2;
+
+                    it->second->callRegions.insert(i);
 
                     toPrint += elem + " ";
                 }
@@ -461,6 +468,8 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                     if (it->second->inRegion > 0)
                     {
                         func.second->inRegion = 3;
+                        for (auto regionId : it->second->callRegions)
+                            func.second->callRegions.insert(regionId);
                         changed = true;
                         break;
                     }
