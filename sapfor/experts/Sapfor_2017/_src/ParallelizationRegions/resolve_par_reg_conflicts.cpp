@@ -630,7 +630,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
 
             it->second.insert(make_pair(arrayBlock->first, commDecl));
 
-            __spf_print(1, "  new common block '%s' in file %s created\n", commBlockName.c_str(), fileName.c_str()); // DEBUG
+            //__spf_print(1, "  new common block '%s' in file %s created\n", commBlockName.c_str(), fileName.c_str()); // DEBUG
 
             return commDecl;
         }
@@ -1024,70 +1024,70 @@ static void copyFunction(ParallelRegion *region,
                                 func->fileName.c_str(), newFuncName.c_str(), copyStat->lineNumber()); // DEBUG
                     */
 
-                    // making declaration of new common array symbols
+                    // making declaration of new common array symbol
                     // make declarations via comment through files
                     makeStringDeclarations(copyStat->lexNext(), arrayLines.first);
+                }
 
-                    auto it = createdCommonArrays.find(file->filename());
-                    if (it == createdCommonArrays.end())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                auto it = createdCommonArrays.find(file->filename());
+                if (it == createdCommonArrays.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                    // replace common array to new common array in executable code section
-                    SgStatement *iterator = begin->GetOriginal();
+                // replace common arrays to new common arrays in executable code section
+                SgStatement *iterator = begin->GetOriginal();
 
-                    for (; iterator != end->GetOriginal() && (!isSgExecutableStatement(iterator) || isSPF_stat(iterator)); iterator = iterator->lexNext())
-                        ;
+                for (; iterator != end->GetOriginal() && (!isSgExecutableStatement(iterator) || isSPF_stat(iterator)); iterator = iterator->lexNext())
+                    ;
 
-                    Statement *start = new Statement(iterator);
-                    ParallelRegionLines lines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end));
+                Statement *start = new Statement(iterator);
+                ParallelRegionLines lines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end));
 
-                    // get common-blocks ref
-                    map<string, vector<SgExpression*>> commonBlocksRef;
-                    getCommonBlocksRef(commonBlocksRef, func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
+                // get common-blocks ref
+                map<string, vector<SgExpression*>> commonBlocksRef;
+                getCommonBlocksRef(commonBlocksRef, func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
 
-                    for (auto &commonBlockRef : commonBlocksRef)
+                for (auto &commonBlockRef : commonBlocksRef)
+                {
+                    for (auto &commExp : commonBlockRef.second)
                     {
-                        for (auto &commExp : commonBlockRef.second)
+                        for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
                         {
-                            for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
+                            SgSymbol *varSymb = exp->lhs()->symbol();
+                            string varName = varSymb->identifier();
+                            DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
+
+                            if (array)
                             {
-                                SgSymbol *varSymb = exp->lhs()->symbol();
-                                string varName = varSymb->identifier();
-                                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
-
-                                if (array)
+                                auto arrayBlock = allUsedCommonArrays.find(array);
+                                int pos = -1;
+                                for (auto &var : arrayBlock->second->getVariables())
                                 {
-                                    auto arrayBlock = allUsedCommonArrays.find(array);
-                                    int pos = -1;
-                                    for (auto &var : arrayBlock->second->getVariables())
-                                    {
-                                        if (var.getName() == varName && var.getType() == ARRAY)
-                                            pos = var.getPosition();
-                                    }
-
-                                    auto varsOnPos = arrayBlock->second->getVariables(pos);
-
-                                    if (pos == -1 || !varsOnPos.size())
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                    auto var = varsOnPos[0];
-
-                                    if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
-                                    {
-                                        DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
-
-                                        if (!commArr)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        auto itt = it->second.find(commArr);
-                                        if (itt == it->second.end())
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                        replaceSymbol(func->fileName, lines, varName, itt->second.second);
-                                    }
-                                    else
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    if (var.getName() == varName && var.getType() == ARRAY)
+                                        pos = var.getPosition();
                                 }
+
+                                auto varsOnPos = arrayBlock->second->getVariables(pos);
+
+                                if (pos == -1 || !varsOnPos.size())
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                auto var = varsOnPos[0];
+
+                                if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
+                                {
+                                    DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
+
+                                    if (!commArr)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                    auto itt = it->second.find(commArr);
+                                    if (itt == it->second.end())
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                    replaceSymbol(func->fileName, lines, varName, itt->second.second);
+                                }
+                                else
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             }
                         }
                     }
