@@ -654,8 +654,8 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     SgStatement *insertPlace = NULL;
 
     for (auto iterator = func->funcPointer->GetOriginal()->lexNext();
-        !isSgExecutableStatement(iterator) || isSPF_stat(iterator);
-        iterator = iterator->lexNext())
+         !isSgExecutableStatement(iterator) || isSPF_stat(iterator) && !isSPF_reg(iterator);
+         iterator = iterator->lexNext())
     {
         insertPlace = iterator;
     }
@@ -667,7 +667,11 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     SgStatement *commDecl = createCommonBlock(file, array);
     SgStatement *copyDecl = commDecl->copyPtr();
 
-    insertPlace->insertStmtAfter(*copyDecl, *insertPlace->controlParent());
+    auto st = insertPlace->controlParent();
+    if (st->variant() == GLOBAL)
+        st = insertPlace;
+
+    insertPlace->insertStmtAfter(*copyDecl, *st);
 
     /*
     __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
@@ -1169,7 +1173,6 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
 
-        auto TMP = region->GetUsedCommonArrays();
         // replace common arrays and insert array copying
         for (auto &funcArrays : region->GetUsedCommonArrays())
         {
