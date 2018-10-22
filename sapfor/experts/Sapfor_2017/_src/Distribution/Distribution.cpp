@@ -110,7 +110,7 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    static int GetIdxOfNextCycle(const vector<unsigned> &localDelArcsShort,
+    static int GetIdxOfNextCycle(const unsigned *fastCache, const vector<unsigned> &localDelArcsShort,
                                  const vector<Cycle<vType, wType, attrType>> &cycles,
                                  const vector<pair<int, int>> &indexOfConflict,
                                  const int idxStart = 0)
@@ -132,6 +132,8 @@ namespace Distribution
                 for (int k = 0; k < (int)shortInfo.size(); ++k)
                 {
                     same = false;
+                    /*if (fastCache[shortInfo[k]] == 1)
+                        same = true;*/
                     for (int m = 0; m < (int)localDelArcsShort.size(); ++m)
                     {
                         if (shortInfo[k] == localDelArcsShort[m])
@@ -159,10 +161,11 @@ namespace Distribution
     static void FindBestSequenceForDelArcs(double &globalSum, vector<tuple<vType, vType, attrType>> &globalDelArcs,
                                            const double localSum, vector<tuple<vType, vType, attrType>> &localDelArcs,
                                            vector<unsigned> &localDelArcsShort,
+                                           unsigned *fastCache,
                                            const vector<Cycle<vType, wType, attrType>> &cycles, const vector<pair<int, int>> &indexOfConflict,
                                            const int lastIndexOfConflict)
     {
-        int nextConflict = GetIdxOfNextCycle(localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
+        int nextConflict = GetIdxOfNextCycle(fastCache, localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
         if (nextConflict == -1)
         {
             globalSum = localSum;
@@ -170,6 +173,7 @@ namespace Distribution
 
             char buf[256];
             sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
+            printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             addToGlobalBufferAndPrint(buf);
             //printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
 #if _WIN32 && NDEBUG
@@ -195,7 +199,9 @@ namespace Distribution
                 {
                     localDelArcs.push_back(make_tuple(currArc.first, currArc.second, currAttr));
                     localDelArcsShort.push_back(shortInfo[i]);
-                    FindBestSequenceForDelArcs(globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, cycles, indexOfConflict, nextConflict);
+                    //fastCache[shortInfo[i]] = 1;
+                    FindBestSequenceForDelArcs(globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict);
+                    //fastCache[shortInfo[i]] = 0;
                     localDelArcs.pop_back();
                     localDelArcsShort.pop_back();
                 }
@@ -256,6 +262,9 @@ namespace Distribution
         G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
         toDelArcs.clear();
 
+        unsigned *fastCache = new unsigned[G.GetNumberOfE()];
+        memset(fastCache, 0, sizeof(unsigned) * G.GetNumberOfE());
+
         for (int k = 0; k < AllCycles.size(); ++k)
         {
             char buf[256];
@@ -309,7 +318,7 @@ namespace Distribution
             if (countConflicts != 0)
             {
                 const int lastIndexOfConflict = -1;
-                FindBestSequenceForDelArcs(globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, cycles, indexOfConflict, lastIndexOfConflict);
+                FindBestSequenceForDelArcs(globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
                 globalSum += globalSumLocal;
             }
 
@@ -326,6 +335,8 @@ namespace Distribution
                 addToGlobalBufferAndPrint(buf);
             }
         }
+        delete []fastCache;
+
 #ifdef _WIN32
         if (needPrint)
             sendMessage_2lvl(L"");

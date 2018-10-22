@@ -500,6 +500,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 {
                     currLoop->children.push_back(newLoop);
                     currLoop->children.back()->parent = parentLoops.back();
+                    currLoop->children.back()->funcParent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);

@@ -702,8 +702,8 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
 {
     bool wereReplacements = false;
     SgExpression *lhs = exp->lhs(), *rhs = exp->rhs();
-    //We don't want expand arguments of other functions.
-    if(lhs && lhs->variant() != FUNC_CALL)
+
+    if(lhs && lhs->variant() != FUNC_CALL)     //We don't want expand arguments of other functions.
     {
         if(lhs->variant() == VAR_REF)
         {
@@ -715,10 +715,10 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
             }
         }
         else
-            replaceVarsInCallArgument(lhs, lineNumber, b);
+            wereReplacements |= replaceVarsInCallArgument(lhs, lineNumber, b);
     }
-    //We don't want expand arguments of other functions and other arguments
-    if(rhs && rhs->variant() != FUNC_CALL && rhs->variant() != EXPR_LIST)
+
+    if(rhs && rhs->variant() != FUNC_CALL)    //We don't want expand arguments of other functions
     {
         if(rhs->variant() == VAR_REF)
         {
@@ -730,7 +730,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
             }
         }
         else
-            replaceVarsInCallArgument(rhs, lineNumber, b);
+            wereReplacements |= replaceVarsInCallArgument(rhs, lineNumber, b);
     }
 
     return wereReplacements;
@@ -772,8 +772,17 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         for (int i = 0; i < numberOfArgs; ++i)
         {
             arg = args->lhs();
-            if ((arg->variant() != VAR_REF) || argIsReplaceable(i, callData))
-                wereReplacements |= replaceVarsInCallArgument(args, lineNumber, b);
+            if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
+            {
+                SgExpression* newExp = valueOfVar(arg, b);
+                if (newExp != NULL)
+                {
+                    setNewSubexpression(args, false, newExp, lineNumber);
+                    wereReplacements = true;
+                }
+            }
+            else if (arg->variant() != VAR_REF)
+                wereReplacements |= replaceVarsInCallArgument(arg, lineNumber, b);
             args = args->rhs();
         }
     }

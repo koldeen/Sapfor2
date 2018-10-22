@@ -1900,6 +1900,24 @@ namespace Distribution
         return true;
     }
 
+    template<typename vType, typename wType, typename attrType>
+    vector<attrType> GraphCSR<vType, wType, attrType>::
+        GetAllAttributes(const int vert) const
+    {
+        vector<attrType> retVal;
+        if (localIdx.size() == 0)
+            return retVal;
+
+        int locV = localIdx[vert];
+        if (locV < 0)
+            return retVal;
+
+        for (int z = neighbors[locV]; z < neighbors[locV + 1]; ++z)
+            retVal.push_back(attributes[z]);
+
+        return retVal;
+    }
+
     template class GraphCSR<int, double, attrType>;
 }
 

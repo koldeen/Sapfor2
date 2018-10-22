@@ -255,6 +255,32 @@ static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
     }
 }
 
+#define ALT_MODEL 0
+
+static double calculateSizes(const vector<pair<int, int>> &in, vector<int> &out)
+{
+    double all = 1.0;
+    for (auto &elem : in)
+    {
+#if ALT_MODEL
+        if (elem.first >= elem.second)
+        {
+            out.push_back(2);
+            all *= 2;
+        }
+        else
+        {
+            out.push_back(elem.second - elem.first + 1);
+            all *= (elem.second - elem.first + 1);
+        }
+#else
+        out.push_back(1);
+#endif
+    }
+
+    return all;
+}
+
 static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        DIST::Arrays<int> &allArrays,
                        const double currWeight,
@@ -268,6 +294,15 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
     map<pair<DIST::Array*, DIST::Array*>, GroupItem> rr_links;
 #endif
 
+    auto sizesFromPair = fromSymb->GetSizes();
+    auto sizesToPair = toSymb->GetSizes();
+    
+    vector<int> sizesFrom;
+    vector<int> sizesTo;
+
+    double allFrom = calculateSizes(sizesFromPair, sizesFrom);
+    double allTo = calculateSizes(sizesToPair, sizesTo);
+    
     // add W-R and W-W
     for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
     {
@@ -288,10 +323,10 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                         if (it == ww_links.end())
                             it = ww_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
 
-                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), currWeight);
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), currWeight * sizesFrom[dimFrom] * sizesTo[dimTo]);
                     }
 #else
-                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight * sizesFrom[dimFrom] * sizesTo[dimTo], make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
 #endif
 
                     for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
@@ -302,10 +337,10 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                         if (it == wr_links.end())
                             it = wr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
 
-                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight * sizesTo[dimTo]);
                     }
 #else
-                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
+                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight * sizesTo[dimTo], make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
 #endif
                 }
             }
@@ -327,10 +362,10 @@ static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                             if (it == rr_links.end())
                                 it = rr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
 
-                            it->second.AddToGroup(dimFrom, dimTo, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
+                            it->second.AddToGroup(dimFrom, dimTo, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight * sizesTo[dimTo] * sizesTo[dimFrom]);
                         }
 #else
-                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);
+                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight * sizesTo[dimTo] * sizesTo[dimFrom], make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);
 #endif
     }
 
@@ -384,8 +419,14 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
             continue;
         }
 
-        const double currWeight = it->first->countOfIterNested;
-
+        //the number of entries!
+#if ALT_MODEL 
+        double currWeight = 1.0;
+        if (it->first->funcParent != NULL)
+            currWeight = it->first->funcParent->countOfIterNested;
+#else
+        double currWeight = it->first->countOfIterNested;
+#endif
         DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
         DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
 
@@ -397,7 +438,17 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
 
         for (auto &accessFrom : currAccesses)
         {
+#if 1 
             const ArrayInfo *from = accessFrom.second;
+            ArrayInfo *fromUniq = new ArrayInfo();
+            fromUniq->dimSize = from->dimSize;
+            fromUniq->writeOps = from->writeOps;
+            fromUniq->readOps = from->readOps;
+
+            fromUniq->createUniqCoefs();
+#else
+            const ArrayInfo *fromUniq = accessFrom.second;
+#endif
             allArrays.AddArrayToGraph(accessFrom.first);
 
             for (auto &fromSymb : realArrayRefs[accessFrom.first])
@@ -406,16 +457,34 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
                 {
                     if (&accessTo == &accessFrom)
                         continue;
-                                        
+#if 1                    
                     const ArrayInfo *to = accessTo.second;
+                    ArrayInfo *toUniq = new ArrayInfo();
+                    toUniq->dimSize = to->dimSize;
+                    toUniq->writeOps = to->writeOps;
+                    toUniq->readOps = to->readOps;
+ 
+                    toUniq->createUniqCoefs();
+#else
+                    const ArrayInfo *toUniq = accessTo.second;
+#endif
                     allArrays.AddArrayToGraph(accessTo.first);
                     for (auto &toSymb : realArrayRefs[accessTo.first])
-                        addToGraph(G, allArrays, currWeight, from, fromSymb, to, toSymb);
+                        addToGraph(G, allArrays, currWeight, fromUniq, fromSymb, toUniq, toSymb);
+
+#if 1
+                    delete toUniq;
+#endif
                 }
             }
+#if 1
+            delete fromUniq;
+#endif
         }
     }
 }
+
+#undef ALT_MODEL 
 
 bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
 {
@@ -524,7 +593,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
     for (int i = 0; i < loops.size(); ++i)
     {
         if (loops[i]->region)
-        {
+        {            
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
                 char buf[256];
@@ -611,8 +680,14 @@ static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<Loo
                     //XXX
                     const vector<LoopGraph*> &loopsFromFile = allLoops.find(currF->fileName)->second;
                     for (auto &loopInFile : loopsFromFile)
+                    {
                         if (linesBound.first < loopInFile->lineNum && loopInFile->lineNum < linesBound.second)
+                        {
                             loop->funcChildren.push_back(loopInFile);
+                            if (loopInFile->funcParent == NULL)
+                                loopInFile->funcParent = loop;
+                        }
+                    }
                 }
             }
         }
