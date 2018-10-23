@@ -949,9 +949,8 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         for (; st != lastNode; st = st->lexNext())
         {
-
-        if (st->variant() == CONTAINS_STMT)
-            break;
+            if (st->variant() == CONTAINS_STMT)
+                break;
 
             if (firstExec && isSgDeclarationStatement(st))
             {
@@ -972,28 +971,33 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             }
 
             currProcessing.second = st;
-
             if (st->variant() == ASSIGN_STAT)
             {
-            	vector<SgStatement*> conv;
-                
+                vector<SgStatement*> conv;
 
-                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum")) 
+                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
                     conv = convertFromSumToLoop(st, file, messagesForFile);
-                else 
+                else
+                {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
                         conv = convertFromStmtToLoop(st, file, messagesForFile);
                     else
+                    {
                         if (st->expr(1)->variant() == WHERE_NODE)
                             conv = convertFromWhereToLoop(st, file, messagesForFile);
-                        else conv = convertFromAssignToLoop(st, file, messagesForFile);
+                        else
+                            conv = convertFromAssignToLoop(st, file, messagesForFile);
+                    }
+                }
+
                 if (conv.size() != 0)
                 {
                     st->insertStmtBefore(*(conv[0]), *st->controlParent());
                     for (int i = 1; i < conv.size(); ++i)
-                        st->insertStmtBefore(*(conv[i]),*(conv[i-1]));
-                        toMove.push_back(make_pair(st, conv[0]));     
-                    for (int i = 0; i < conv.size(); ++i) 
+                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1]));
+
+                    toMove.push_back(make_pair(st, conv[0]));
+                    for (int i = 0; i < conv.size(); ++i)
                     {
                         SgStatement *end = conv[i]->lastNodeOfStmt();
                         for (SgStatement *st1 = conv[i]; st1 != end; st1 = st1->lexNext())
@@ -1005,8 +1009,8 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         end->setLocalLineNumber(st->lineNumber());
                     }
                 }
-            } 
-        } 
+            }
+        }
 
         for (auto &move : toMove)
             move.first->addAttribute(ASSIGN_STAT, move.second, sizeof(SgStatement*));
