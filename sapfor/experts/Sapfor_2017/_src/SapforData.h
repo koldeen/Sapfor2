@@ -96,6 +96,9 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 
 //for predictior statistic 
 std::map<std::string, PredictorStats> allPredictorStats;
+
+//for DVM INTERVALS
+std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
 //
 
 const char *passNames[EMPTY_PASS + 1];

@@ -88,6 +88,9 @@ enum passes {
     REVERT_SPF_DIRS,
     CLEAR_SPF_DIRS,
 
+    CREATE_INTER_TREE,
+    INSERT_INTER_TREE,
+
     SHADOW_GROUPING,
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
@@ -196,5 +199,7 @@ static void setPassValues()
     passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
     passNames[LOOPS_SPLITTER] = "LOOPS_SPLITTER";
     passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
+    passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
+    passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
