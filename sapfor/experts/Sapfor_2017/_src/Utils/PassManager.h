@@ -98,8 +98,6 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     passDeps = &passDepsIn;
 
-    Pass(CREATE_INTER_TREE) <= Pass(INSERT_PARALLEL_DIRS);
-
     list({ FILE_LINE_INFO, BUILD_INCLUDE_DEPENDENCIES }) <= Pass(CORRECT_VAR_DECL);
 
     Pass(DEF_USE_STAGE1) <= Pass(DEF_USE_STAGE2);
