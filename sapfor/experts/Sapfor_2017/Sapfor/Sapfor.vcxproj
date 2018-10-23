@@ -249,6 +249,7 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
+    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp" />
     <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp" />
@@ -354,6 +355,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
+    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\coll_list_element.h" />

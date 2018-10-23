@@ -91,6 +91,9 @@
     <Filter Include="Файлы исходного кода\DEAR\includes">
       <UniqueIdentifier>{cadd49f1-1b0b-4078-a9e7-5f1bfb163c9f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы исходного кода\CreateInterTree">
+      <UniqueIdentifier>{72383499-db83-41ab-8b27-00e47ec455d8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
@@ -329,6 +332,9 @@
     </ClCompile>
     <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp">
+      <Filter>Файлы исходного кода\CreateInterTree</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -703,6 +709,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\loops_splitter.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h">
+      <Filter>Файлы исходного кода\CreateInterTree</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
