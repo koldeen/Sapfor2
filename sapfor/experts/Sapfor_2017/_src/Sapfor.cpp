@@ -524,7 +524,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == REVERT_SPF_DIRS)
         {
             if (keepSpfDirs)
-                revertion_spf_dirs(file);
+                revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
             else
                 __spf_print(1, "   ignore SPF REVERT\n");
         }
@@ -1433,7 +1433,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case GCOV_PARSER:
         __spf_print(1, "Hello!!!\n");
-        parse_gcovfile(folderName);
+     //   map<std::string, std::map<int, Gcov_info>>::iterator it;
+        for(map<std::string, std::map<int, Gcov_info>>::iterator it = gCovInfo.begin(); it != gCovInfo.end(); it++)
+            parse_gcovfile(it->first, it->second);
         break;
     default:
         runAnalysis(*project, curr_regime, false);

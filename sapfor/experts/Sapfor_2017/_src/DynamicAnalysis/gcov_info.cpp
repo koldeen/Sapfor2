@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include "../Utils/errors.h"
+
 #include "gcov_info.h"
 
 using namespace std;
@@ -76,8 +78,8 @@ int Gcov_info::getCountBranches(){
 	return countBranches;
 }
 
-void Gcov_info::print(){
-	cout<<numLine<<" - "<<executedCount<<endl;
+void Gcov_info::gcov_print(){
+    __spf_print(1, "%d - %d\n", numLine, executedCount);
 }
 
 ostream &operator<<(ostream &out, const Gcov_info &a){
@@ -119,8 +121,8 @@ void Perform::setPercent(int a){
 	percent=a;
 }
 
-void Perform::print(){
-	cout<<number<<" - "<<percent<<endl;
+void Perform::gcov_print(){
+    __spf_print(1, "%d - %d\n", number, percent);
 }
 
 ostream &operator<<(ostream &out, const Perform &a){

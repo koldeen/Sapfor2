@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <fstream>
 #include <iostream>
-#include <string>
-#include <map>
+//#include <string>
+//#include <map>
 
 #include "gCov_parser_func.h"
 
@@ -37,7 +37,7 @@ const char *symbols_neverExecuted[] = {
     NULL
 };
 
-void isKeyWord(const string &lex, key_word &lineType) {
+static void isKeyWord(const string &lex, key_word &lineType) {
     int i = 1;
     bool find = false;
     while ((!find) && key_words[i]) {
@@ -59,7 +59,7 @@ void isKeyWord(const string &lex, key_word &lineType) {
     }
 }
 
-bool isNeverExecuted(const string &lex) {
+static bool isNeverExecuted(const string &lex) {
     int i = 1;
     bool find = false;
     while ((!find) && symbols_neverExecuted[i]) {
@@ -71,7 +71,7 @@ bool isNeverExecuted(const string &lex) {
     return find;
 }
 
-void getInfo(map<int, Gcov_info> &info, const string &str) {
+static void getInfo(map<int, Gcov_info> &info, const string &str) {
     Gcov_info infoLine;
     Perform infoPerform;
     string num, lex;
@@ -141,37 +141,54 @@ void getInfo(map<int, Gcov_info> &info, const string &str) {
     }
 }
 
-void printPerform(map<int, Perform> info) {
+static void printPerform(map<int, Perform> info, ostream &myfile) {
     map<int, Perform>::iterator cur;
     for (cur = info.begin(); cur != info.end(); cur++)
-        cout << (*cur).first << ")" << (*cur).second;
+        myfile << (*cur).first << ")" << (*cur).second;
 }
 
-void printInfo(map<int, Gcov_info> &info) {
+static void printInfo2file(map<int, Gcov_info> &info, ostream &myfile) {
     map<int, Gcov_info>::iterator cur;
     for (cur = info.begin(); cur != info.end(); cur++) {
         Gcov_info cur_gcov = (*cur).second;
-        cout << "_________________\n";
-        cout << "№" << (*cur).first << endl << cur_gcov;
+        myfile << "_________________\n";
+        myfile << "№" << (*cur).first << endl << cur_gcov;
         if (cur_gcov.getCountCalls() != 0) {
-            cout << "-----Calls----\n";
-            printPerform(cur_gcov.getCalls());
+            myfile << "-----Calls----\n";
+            printPerform(cur_gcov.getCalls(), myfile);
         }
         if (cur_gcov.getCountBranches() != 0) {
-            cout << "----Branches----\n";
-            printPerform(cur_gcov.getBranches());
+            myfile << "----Branches----\n";
+            printPerform(cur_gcov.getBranches(), myfile);
         }
     }
 }
 
-void printInfoFiles(map<char*, map<int, Gcov_info>> info) {
+static std::string modify_name(std::string name) {
+    std::string::iterator rit = name.end();
+    while ((*rit != '.') && (rit != name.begin()))
+        rit--;
+    std::string::iterator it;
+    std::string new_name;
+    for (it = name.begin(); it != rit; it++) {
+        new_name += *it;
+    }
+    return new_name + "_pgcov.txt";
+}
+
+static void printInfoFiles(map<char*, map<int, Gcov_info>> info, string name_f) {
     map<char*, map<int, Gcov_info>>::iterator it;
-    for (it = info.begin(); it != info.end(); it++) {
-        cout << "\nNameFile: " << it->first << endl;
-        printInfo(it->second);
+    name_f = modify_name(name_f);
+    ofstream myfile(name_f);
+    if (myfile.is_open()) {
+        for (it = info.begin(); it != info.end(); it++) {
+            myfile << "\nNameFile: " << it->first << endl;
+            printInfo2file(it->second, myfile);
+        }
     }
 }
 
+/*
 void parse_gcovfile(int nfl, char* args[]) {
     map<char*, map<int, Gcov_info>> all_info;
     if (nfl == 0)
@@ -189,16 +206,46 @@ void parse_gcovfile(int nfl, char* args[]) {
                 }
                 file.close();
                 all_info.insert(make_pair(args[i], info));
+                printInfoFiles(all_info, (std::string) args[i]);
             }
             else
                 cout << "Error: unable to open file " << args[i] << endl;
         }
-        printInfoFiles(all_info);
     }
+
 }
+*/
 
 //TODO
 void parse_gcovfile(const string basefileName, map<int, Gcov_info> &gCovInfo)
 {
-
+   // map<char*, map<int, Gcov_info>> all_info;
+    if (basefileName.empty())
+        printf("Error: incorrectly use function parse_gcovfile\n");
+    else {
+      //  for (int i = 0; i<nfl; i++) {
+      //      map<int, Gcov_info> info;
+        ifstream file;
+        file.open(basefileName, ios::in);
+        if (file.is_open()) {
+            string str;
+            while (!file.eof()) {
+                getline(file, str);
+                getInfo(gCovInfo, str);
+            }
+            file.close();
+            //          all_info.insert(make_pair(args[i], info));
+            string name_f = modify_name(basefileName);
+            ofstream myfile(name_f);
+            if (myfile.is_open()) {
+                printInfo2file(gCovInfo, myfile);
+            }
+            else
+                __spf_print(1, "Error: unable to create file %s\n", name_f);
+        }
+        else
+            __spf_print(1, "Error: unable to open file %s\n", basefileName);
+   //         cout << "Error: unable to open file " << args[i] << endl;
+   //     }
+    }
 }
