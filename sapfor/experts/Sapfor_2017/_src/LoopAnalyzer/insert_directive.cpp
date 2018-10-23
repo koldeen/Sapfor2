@@ -379,27 +379,9 @@ static inline string genTemplateDelc(DIST::Array *templ, SgStatement *module = N
 static inline string genTemplateDistr(const DIST::Array *templ, const vector<string> &distrRules,
                                       const int regionId, const int templIdx, bool isMain)
 {
-    string templDist = "";
-    const vector<pair<int, int>> &sizes = templ->GetSizes();
-
-    if (isMain)
-        templDist += "!DVM$ DISTRIBUTE " + distrRules[templIdx] + "\n";
-    else
-    {
-        //TODO:!!!
-        //templDist += "!DVM$ DISTRIBUTE :: " + templ->GetShortName() + "\n";
-        templDist += "!DVM$ DISTRIBUTE ";
-        templDist += templ->GetShortName() + "(";
-        for (int z = 0; z < sizes.size(); ++z)
-        {
-            templDist += "*";
-            if (z != sizes.size() - 1)
-                templDist += ",";
-        }
-        templDist += ")\n";
-    }
-
-    return templDist;
+    //TODO:!!!
+    //"!DVM$ DISTRIBUTE :: " + templ->GetShortName() + "\n";
+    return "!DVM$ DISTRIBUTE " + distrRules[templIdx] + "\n";
 }
 
 static inline int findTeplatePosition(const DIST::Array *templ, const DataDirective &dataDir)

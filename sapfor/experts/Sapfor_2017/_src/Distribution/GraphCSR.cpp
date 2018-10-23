@@ -1924,29 +1924,33 @@ namespace Distribution
     int GraphCSR<vType, wType, attrType>::
         CountOfConnected(const int startV) const
     {
-        set<vType> done;
-        queue<vType> next;
+        std::vector<unsigned char> inSet(numVerts);
+        std::fill(inSet.begin(), inSet.end(), 0);
 
-        next.push(startV);
-        done.insert(startV);
+        vector<vType> next;
+        next.reserve(numVerts);
+
+        next.push_back(startV);
+        inSet[startV] = 1;
+        int count = 1;
 
         while (next.size())
         {
-            vType V = next.front();
-            next.pop();
+            const vType V = next.back();
+            next.pop_back();
 
             for (vType k = neighbors[V]; k < neighbors[V + 1]; ++k)
             {
                 const vType toV = edges[k];
-                auto it = done.find(toV);
-                if (it == done.end())
+                if (inSet[toV] == 0)
                 {
-                    done.insert(it, toV);
-                    next.push(toV);
+                    inSet[toV] = 1;
+                    count++;
+                    next.push_back(toV);
                 }
             }
         }
-        return done.size();
+        return count;
     }
 
     template class GraphCSR<int, double, attrType>;

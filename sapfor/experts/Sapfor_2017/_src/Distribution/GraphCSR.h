@@ -39,7 +39,7 @@ namespace Distribution
         std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
         std::vector<std::pair<int, int>> treesQuality;
-
+        
         int activeCounter;
         vType findFrom;
         bool hardLinksWasUp;

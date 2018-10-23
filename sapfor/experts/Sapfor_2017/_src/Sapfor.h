@@ -94,6 +94,8 @@ enum passes {
     ADD_TEMPL_TO_USE_ONLY,
     PRIVATE_ARRAYS_BREEDING,
     LOOPS_SPLITTER,
+    CHECK_PAR_REG_DIR,
+
     EMPTY_PASS
 };
 
@@ -193,5 +195,6 @@ static void setPassValues()
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
     passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
     passNames[LOOPS_SPLITTER] = "LOOPS_SPLITTER";
+    passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

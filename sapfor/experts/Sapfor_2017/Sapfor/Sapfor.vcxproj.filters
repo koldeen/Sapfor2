@@ -327,6 +327,9 @@
     <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -696,6 +699,9 @@
       <Filter>Файлы исходного кода\DEAR</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\loops_splitter.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>

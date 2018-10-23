@@ -526,6 +526,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (!noError)
                 internalExit = 1;
         }
+        else if (curr_regime == CHECK_PAR_REG_DIR)
+        {
+            bool noError = check_par_reg_dirs(file, getObjectForFileFromMap(file_name, SPF_messages));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)

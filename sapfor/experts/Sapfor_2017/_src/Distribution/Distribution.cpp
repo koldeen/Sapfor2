@@ -388,11 +388,11 @@ namespace Distribution
                 CountConflictVarints(countVars, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
                 printf("SAPFOR: count of vars %lld\n", countVars);*/
 
-                /*if (onlySecondConflictType)
+                if (onlySecondConflictType)
                     FindBestSequenceForDelArcs
                         <vType, wType, attrType, checkGraph>
                             (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
-                else*/
+                else
                     FindBestSequenceForDelArcs
                         <vType, wType, attrType, checkGraphTrue>
                             (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
