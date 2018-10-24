@@ -739,6 +739,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 static void replaceCommonArray(const string &fileName,
                                const string &arrayName,
                                const ParallelRegionLines &lines,
+                               map<string, vector<Messages>> &SPF_messages,
                                const bool needInsertCopying = false)
 {
     auto it = createdCommonArrays.find(fileName);
@@ -749,6 +750,7 @@ static void replaceCommonArray(const string &fileName,
     SgStatement *end = iterator->lastNodeOfStmt();
 
     // get common-blocks ref
+    DIST::Array *array = NULL;
     map<string, vector<SgExpression*>> commonBlocksRef;
     getCommonBlocksRef(commonBlocksRef, iterator, end);
 
@@ -763,7 +765,7 @@ static void replaceCommonArray(const string &fileName,
 
                 if (varName == arrayName)
                 {
-                    DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
+                    array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
 
                     if (array)
                     {
@@ -805,6 +807,24 @@ static void replaceCommonArray(const string &fileName,
                 }
             }
         }
+    }
+
+    if (!array)
+    {
+        __spf_print(1, "wrong parallel region position, there is no common-block with array '%s' in file '%s' on line %d\n",
+                    arrayName.c_str(),
+                    fileName.c_str(),
+                    lines.lines.first);
+        string message;
+        __spf_printToBuf(message, "wrong parallel region position, there is no common-block with array '%s' in file '%s'\n", 
+                         arrayName.c_str(),
+                         fileName.c_str());
+
+        auto itM = SPF_messages.find(fileName);
+        if (itM == SPF_messages.end())
+            itM = SPF_messages.insert(itM, make_pair(fileName, vector<Messages>()));
+
+        itM->second.push_back(Messages(ERROR, lines.lines.first, message, 1034));
     }
 }
 
@@ -1110,7 +1130,7 @@ static void copyFunction(ParallelRegion *region,
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
+void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     for (auto &region : regions)
     {
@@ -1203,7 +1223,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
 
                                         auto it = callSet.find(funcArrays.first);
                                         if (it != callSet.end())
-                                            replaceCommonArray(fileLines.first, arrayLines.first->GetShortName(), lines2, true);
+                                            replaceCommonArray(fileLines.first, arrayLines.first->GetShortName(), lines2, SPF_messages, true);
                                     }
                                 }
                             }
@@ -1214,7 +1234,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                     else
                     {
                         if (SgFile::switchToFile(funcArrays.first->fileName) != -1)
-                            replaceCommonArray(funcArrays.first->fileName, arrayLines.first->GetShortName(), lines, true);
+                            replaceCommonArray(funcArrays.first->fileName, arrayLines.first->GetShortName(), lines, SPF_messages, true);
                         else
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
