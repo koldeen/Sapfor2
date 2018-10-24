@@ -18,8 +18,7 @@
         {
             "label": "run",
             "type": "shell",
-            "command": "cd sapfor/experts/Sapfor_2017/_bin/ && ./Parser -spf -f90 prog.for &&\
-            ./Sapfor -t 13 -var 2",
+            "command": "cd sapfor/experts/Sapfor_2017/_bin/ && ./Parser -spf -f90 prog.for && ./Sapfor -t 13 -var 2",
             "problemMatcher": []
         },
         {

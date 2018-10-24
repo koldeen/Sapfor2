@@ -375,8 +375,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (it == allFuncInfo.end())
                 functionAnalyzer(file, allFuncInfo);
         }
-        else if (curr_regime == CALL_GRAPH2)
+        else if (curr_regime == CALL_GRAPH2) {
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
+
+            // Set additional info in loopgraph, which requires function graph analysis
+            auto itLoopGraphFound = loopGraph.find(file_name);
+            auto itFuncGraphFound = allFuncInfo.find(file_name);
+        	if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end()) {
+				DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
+				regionInsertor.updateLoopGraph();
+        	}
+        }
         else if (curr_regime == LOOP_GRAPH)        
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));        
         else if (curr_regime == VERIFY_ENDDO)
@@ -738,14 +747,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         	if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end()) {
 				DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
 				regionInsertor.insertDirectives();
-        	}
-
-        	for (auto &funcInfo: itFuncGraphFound->second) {
-        		std::cout << funcInfo->funcName << " " << funcInfo->usesIO << std::endl;
-        	}
-
-        	for (int i = 0; i < file->numberOfFunctions(); i++) {
-        		file->functions(i)->unparsestdout();
         	}
         }
         

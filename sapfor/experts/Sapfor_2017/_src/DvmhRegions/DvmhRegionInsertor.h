@@ -55,7 +55,7 @@ class DvmhRegionInsertor {
     LoopCheckResults updateLoopNode(LoopGraph *);
 public:
     DvmhRegionInsertor(SgFile *, std::vector<LoopGraph *>, std::vector<FuncInfo *>);
-    void updateLoopGraph(std::vector<LoopGraph *> &loopGraph);
+    std::vector<LoopGraph *>  updateLoopGraph();
     void insertDirectives();
     virtual ~DvmhRegionInsertor();
 };

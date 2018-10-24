@@ -72,10 +72,6 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 bool DvmhRegionInsertor::hasLimitsToDvmhParallel(LoopGraph *loop)
 {
 	bool hasUnpureCalls = true;
-	// TODO: check unpure, improve prints
-	std::cout << "loop->hasGoto: " << loop->hasGoto << std::endl;
-	std::cout << "loop->hasPrints: " << loop->hasPrints << std::endl;
-	std::cout << "loop->hasImpureCalls: " << loop->hasImpureCalls << std::endl;
 
 	return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls;
 }
@@ -151,19 +147,18 @@ LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop) {
 }
 
 // Return whether this loop 
-void DvmhRegionInsertor::updateLoopGraph(std::vector<LoopGraph *> &loopGraph)
+std::vector<LoopGraph *>  DvmhRegionInsertor::updateLoopGraph()
 {
 	for (auto &loopNode: loopGraph)
 	{
 		updateLoopNode(loopNode);
 	}
 
-	return;
+	return loopGraph;
 }
 
 void DvmhRegionInsertor::insertDirectives()
 {
-	updateLoopGraph(loopGraph);
     findEdgesForRegions(loopGraph);
     insertRegionDirectives();
 /*
