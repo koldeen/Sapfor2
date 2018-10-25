@@ -34,6 +34,7 @@
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -47,7 +48,10 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
+
 //#include "DEAR/dep_analyzer.h"
+
 
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
@@ -705,6 +709,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == GCOV_PARSER)
+            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
