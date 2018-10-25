@@ -48,10 +48,8 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
-#include "DynamicAnalysis/gCov_parser_func.h"
 
 //#include "DEAR/dep_analyzer.h"
-
 
 #if RELEASE_CANDIDATE
 #include "Inliner/inliner.h"
@@ -1483,10 +1481,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
-    case PRIVATE_ARRAYS_BREEDING:    
+    case PRIVATE_ARRAYS_BREEDING:
     case INSERT_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
-        break;    
+        break;
     case INLINE_PROCEDURES:
         runAnalysis(*project, curr_regime, false);
         if (folderName)
