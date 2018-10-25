@@ -974,7 +974,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
-            	vector<SgStatement*> conv;
+                vector<SgStatement*> conv;
                 
                 if (st->variant() == WHERE_NODE)
                     conv = convertFromWhereToLoop(st, file, messagesForFile);
@@ -985,7 +985,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
                             conv = convertFromStmtToLoop(st, file, messagesForFile);
                         else
-                        conv = convertFromAssignToLoop(st, file, messagesForFile);
+                            conv = convertFromAssignToLoop(st, file, messagesForFile);
 
                 if (conv.size() != 0)
                 {
