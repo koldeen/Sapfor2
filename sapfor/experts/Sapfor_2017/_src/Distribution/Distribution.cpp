@@ -300,6 +300,10 @@ namespace Distribution
         double globalSum = 0;
         bool allOnlySecondType = true;
 
+        toDelArcs = G.CreateMaximumSpanningTree();
+        return make_pair(allOnlySecondType, globalSum);
+
+        // OLD ALGORITHM, THIS IS unreachable code !!
         vector<vector<Cycle<vType, wType, attrType>>> AllCycles;
 
         G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
@@ -541,7 +545,7 @@ namespace Distribution
 
             vector<Array*> arraysV;
             arraysV.assign(arrays.begin(), arrays.end());
-            
+
             for (int z = 0; z < arraysV.size(); ++z)
             {
                 const DIST::Array *array = arraysV[z];

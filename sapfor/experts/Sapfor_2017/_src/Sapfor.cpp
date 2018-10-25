@@ -858,6 +858,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
+
+                if (parallelRegions[z]->GetId() == 0) // DEFAULT
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this project");
+
+                    for (auto &funcByFile : allFuncInfo)
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
+                        for (auto &func : funcByFile.second)
+                        {
+                            auto stat = func->funcPointer->GetOriginal();
+                            if (stat->variant() == PROG_HEDR)
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), buf, 3010));
+                        }
+                    }
+                }
+                else
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this region");
+
+                    for (auto &linesByFile : parallelRegions[z]->GetAllLines())
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
+                        for (auto &lines : linesByFile.second)
+                            if (!lines.isImplicit())
+                                fileM.push_back(Messages(ERROR, lines.lines.first, buf, 3010));
+                    }
+                }
                 idxToDel.insert(z);
             }
         }
@@ -867,19 +897,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (idxToDel.find(z) != idxToDel.end())
             {
-                ParallelRegion *regToDel = parallelRegions[z];
-                const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
-                for (auto it = currLines.begin(); it != currLines.end(); ++it)
-                {
-                    vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
-                    char buf[256];
-                    sprintf(buf, "Can not find arrays / loops for distribution in parallel region '%s', ignored", regToDel->GetName().c_str());
-                    for (int k = 0; k < it->second.size(); ++k)
-                    {
-                        currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
-                        __spf_print(1, "  Can not find arrays for distribution in parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
-                    }
-                }
+                ParallelRegion *regToDel = parallelRegions[z];                
 #ifdef _WIN32
                 removeFromCollection(parallelRegions[z]);
 #endif
@@ -1333,9 +1351,9 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
     int failed = 0;
     if (keepFiles)
-        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
     else
-        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
 
     if (failed > 0 && needToAddErrors)
         throw -5;

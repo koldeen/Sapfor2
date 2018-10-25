@@ -92,6 +92,7 @@ namespace Distribution
         SET<STRING> containsInRegions;
 
         VECTOR<bool> mappedDims;
+        VECTOR<bool> depracateToDistribute;
 
         TemplateLink* getTemlateInfo(const int regionId)
         {
@@ -134,6 +135,7 @@ namespace Distribution
             sizes.resize(dimSize);
             sizesExpr.resize(dimSize);
             mappedDims.resize(dimSize);
+            depracateToDistribute.resize(dimSize);
 
             for (int z = 0; z < dimSize; ++z)
             {
@@ -141,6 +143,7 @@ namespace Distribution
                 PAIR<int, int> initVal = std::make_pair(0, 0);
                 sizesExpr[z] = std::make_pair(std::make_pair((Expression*)NULL, initVal), std::make_pair((Expression*)NULL, initVal));
                 mappedDims[z] = false;
+                depracateToDistribute[z] = false;
             }
                         
             GenUniqKey();
@@ -173,9 +176,10 @@ namespace Distribution
             uniqKey = copy.uniqKey;
             containsInRegions = copy.containsInRegions;
             mappedDims = copy.mappedDims;
+            depracateToDistribute = copy.depracateToDistribute;
         }
 
-        //TODO:
+        //TODO: not worked!
         void RemoveUnpammedDims()
         {
             bool needToRemove = false;
@@ -425,7 +429,7 @@ namespace Distribution
             mappedDims[dim] = true;
         }
 
-        bool IsDimMapped(const int dim)
+        bool IsDimMapped(const int dim) const
         {
             if (dim >= dimSize)
                 return false;
@@ -433,6 +437,27 @@ namespace Distribution
                 return mappedDims[dim];
         }
 
+        void DeprecateDimension(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            depracateToDistribute[dim] = true;
+        }
+
+        void DeprecateAllDims()
+        {
+            for (int dim = 0; dim < dimSize; ++dim)
+                depracateToDistribute[dim] = true;
+        }
+
+        bool IsDimDepracated(const int dim) const
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return depracateToDistribute[dim];
+        }
+                
         ~Array() 
         {
             for (auto &templ : templateInfo)

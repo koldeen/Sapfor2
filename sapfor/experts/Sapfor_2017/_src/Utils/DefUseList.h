@@ -53,6 +53,5 @@ public:
                 fprintf(fileOut, " under call of '%s' function on %d position of args (alt pos %d)", paramOfFunction.second.c_str(), parameterPosition, parameterPositionInFunction);
             fprintf(fileOut, "\n");
         }
-
     }
 };

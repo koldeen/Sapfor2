@@ -369,16 +369,27 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     //replace to template align ::on
     if (arrayRef->isTemplate() == false)
     {
-        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef = 
-            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);        
+        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
+            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
         findAndReplaceDimentions(ruleForRef, allArrays);
 
         on_ext.clear();
-        on_ext.resize(get<0>(ruleForRef[0])->GetDimSize());
+        for (int i = 0; i < ruleForRef.size(); ++i)
+        {
+            if (get<0>(ruleForRef[i]))
+            {
+                on_ext.resize(get<0>(ruleForRef[i])->GetDimSize());
+                break;
+            }
+        }
+        if (on_ext.size() == 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         std::fill(on_ext.begin(), on_ext.end(), make_pair("*", make_pair(0, 0)));
 
         for (int i = 0; i < ruleForRef.size(); ++i)
-            on_ext[get<1>(ruleForRef[i])] = on[i];        
+            if (get<0>(ruleForRef[i]))
+                on_ext[get<1>(ruleForRef[i])] = on[i];        
     }
 
     string ret = "";
@@ -426,6 +437,14 @@ void DataDirective::createDirstributionVariants(const vector<DIST::Array*> &arra
         std::vector<DistrVariant> currdist;
         vector<dist> currDist;
         genVariants(arraysToDist[i]->GetDimSize(), currDist, currdist);
+
+        //deprecate by dims
+        for (auto &variant : currdist)
+        {
+            for (int z = 0; z < arraysToDist[i]->GetDimSize(); ++z)
+                if (arraysToDist[i]->IsDimDepracated(z))
+                    variant.distRule[z] = dist::NONE;
+        }
         distrRules.push_back(make_pair(arraysToDist[i], currdist));
     }
 }

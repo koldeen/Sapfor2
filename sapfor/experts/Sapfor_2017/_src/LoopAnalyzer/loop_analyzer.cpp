@@ -533,7 +533,6 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     return wasMapped;
 }
 
-static inline void findArrayRefInParameters(SgExpression *parList, const set<string> &privatesVars, const char *procName, const int line);
 static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int lineNum, const int side, 
                          map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, const int currLine, const set<string> &privatesVars,
                          map<int, LoopGraph*> &sortedLoopGraph, const map<string, vector<SgExpression*>> &commonBlocks,
@@ -653,12 +652,12 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
             }
         }
     }
-    else if (currExp->variant() == FUNC_CALL)
+    /*else if (currExp->variant() == FUNC_CALL)
     {
         SgFunctionCallExp *funcExp = (SgFunctionCallExp*)currExp;
         if (isUserFunctionInProject(funcExp->funName()->identifier()))
             findArrayRefInParameters(funcExp->args(), privatesVars, funcExp->funName()->identifier(), lineNum);
-    }
+    }*/
 
     if (currExp->lhs())
         findArrayRef(parentLoops, currExp->lhs(), lineNum, (side == LEFT) ? RIGHT : side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
@@ -877,6 +876,7 @@ bool isIntrinsic(const char *funName)
         return true;
 }
 
+//TODO: to be remove, depracated
 static inline void findArrayRefInParameters(SgExpression *parList, const set<string> &privatesVars, const char *procName, const int line)
 {
     while (parList)
@@ -1348,23 +1348,34 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     }
                 }
             }
-            // TODO: need to think about it
-            /*else if (currV == PROC_STAT)
+            else if (currV == PROC_STAT)
             {
-                if (isUserFunctionInProject(st->symbol()->identifier()) != NULL)
+                auto func = isUserFunctionInProject(st->symbol()->identifier());
+                if (func != NULL)
                 {
                     SgExpression *parList = st->expr(0);
-                    findArrayRefInParameters(parList, privatesVars, st->symbol()->identifier(), st->lineNumber());
-
-                    if (regime == REMOTE_ACC)
+                    if (parList)
                     {
-                        const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
+                        SgExprListExp *list = isSgExprListExp(parList);
+                        for (int z = 0; z < list->length(); ++z)
+                        {
+                            if ((func->funcParams.inout_types[z] & OUT_BIT) != 0)
+                                findArrayRef(parentLoops, list->elem(z), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+                            else
+                                findArrayRef(parentLoops, list->elem(z), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+                        }
+                        
+                        //TODO:
+                        /*if (regime == REMOTE_ACC)
+                        {
+                            const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
 
-                        if (under_dvm_dir == NULL)
-                            createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages);
+                            if (under_dvm_dir == NULL)
+                                createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
+                        }*/
                     }
                 }
-            }*/
+            }
             else if (currV == USE_STMT)
             {
                 auto itF = privatesByModule.find(st->symbol()->identifier());
@@ -1696,6 +1707,16 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             {
                 if (st->expr(0))
                     findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+            }
+            else if (currV == PROC_STAT)
+            {
+                if (st->expr(0))
+                {
+                    if (isIntrinsicFunctionName(st->symbol()->identifier()))
+                        findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+                    else
+                        findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, mappedDistrbutedArrays, st);
+                }
             }
             st = st->lexNext();
         }

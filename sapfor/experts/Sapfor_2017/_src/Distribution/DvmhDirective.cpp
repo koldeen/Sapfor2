@@ -38,6 +38,10 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
         {
             if (ex->symbol() && OriginalSymbol(ex->symbol())->identifier() == arrayName)
             {
+                SgSymbol *symb = OriginalSymbol(ex->symbol());
+                SgStatement *decl = declaratedInStmt(symb);
+                const DIST::Array *currArray = getArrayFromDeclarated(decl, arrayName);
+
                 SgArrayRefExp *ref = (SgArrayRefExp*)ex;
 
                 int countOfShadows = 0;
@@ -54,10 +58,12 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
                     }
                     else if (coefs.size() == 0)
                     {
-                        __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d\n", arrayName.c_str(), line);
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        if (!currArray->IsDimDepracated(i))
+                        {
+                            __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d at %d subscript\n", arrayName.c_str(), line, i);
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
                     }
-
                 }
 
                 if (countOfShadows > 1)

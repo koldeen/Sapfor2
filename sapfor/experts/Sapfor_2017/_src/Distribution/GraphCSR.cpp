@@ -1922,7 +1922,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     int GraphCSR<vType, wType, attrType>::
-        CountOfConnected(const int startV) const
+        CountOfConnected(const vType startV) const
     {
         std::vector<unsigned char> inSet(numVerts);
         std::fill(inSet.begin(), inSet.end(), 0);
@@ -1951,6 +1951,134 @@ namespace Distribution
             }
         }
         return count;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    vector<unsigned char> GraphCSR<vType, wType, attrType>::
+        MakeConnected(const vType startV, int &count) const
+    {
+        std::vector<unsigned char> inSet(numVerts);
+        std::fill(inSet.begin(), inSet.end(), 0);
+
+        vector<vType> next;
+        next.reserve(numVerts);
+
+        next.push_back(startV);
+        inSet[startV] = 1;
+        count = 1;
+
+        while (next.size())
+        {
+            const vType V = next.back();
+            next.pop_back();
+
+            for (vType k = neighbors[V]; k < neighbors[V + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                if (inSet[toV] == 0)
+                {
+                    inSet[toV] = 1;
+                    count++;
+                    next.push_back(toV);
+                }
+            }
+        }
+        return inSet;
+    }
+
+    template<typename vType, typename attrType>
+    static tuple<vType, vType, attrType> makeReverse(const tuple<vType, vType, attrType> &in)
+    {
+        vType from = std::get<0>(in);
+        vType to = std::get<1>(in);
+        attrType attr = std::get<2>(in);
+        attrType attrRev = make_pair(attr.second, attr.first);
+        
+        return std::make_tuple(to, from, attrRev);
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    vector<tuple<vType, vType, attrType>> GraphCSR<vType, wType, attrType>::
+        CreateMaximumSpanningTree()
+    {
+        set<tuple<vType, vType, attrType>> selected;
+                
+        set<vType> tmp;
+        for (int z = 0; z < numEdges; ++z)
+            tmp.insert(edges[z]);
+        int countOfRealV = tmp.size();
+        tmp.clear();
+
+        tuple<vType, vType, attrType> maxEdge;
+        wType startW = -1;
+        set<vType> vInserted;
+
+        while (vInserted.size() != countOfRealV)
+        {
+            startW = -1;
+            for (auto &z : vInserted)
+            {
+                for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+                {
+                    if (vInserted.find(edges[k]) != vInserted.end())
+                        continue;
+
+                    if (startW < weights[k])
+                    {
+                        startW = weights[k];
+                        maxEdge = std::make_tuple(z, edges[k], attributes[k]);
+                    }
+                }
+            }
+
+            if (startW != -1)
+            {
+                selected.insert(maxEdge);
+                selected.insert(makeReverse(maxEdge));
+
+                vInserted.insert(std::get<0>(maxEdge));
+                vInserted.insert(std::get<1>(maxEdge));
+            } // next tree
+            else
+            {
+                for (vType z = 0; z < numVerts; ++z)
+                {
+                    for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+                    {
+                        if (vInserted.find(edges[k]) != vInserted.end())
+                            continue;
+
+                        if (startW < weights[k])
+                        {
+                            startW = weights[k];
+                            maxEdge = std::make_tuple(z, edges[k], attributes[k]);
+                        }
+                    }
+                }
+
+                if (startW == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                else
+                {
+                    selected.insert(maxEdge);
+                    selected.insert(makeReverse(maxEdge));
+
+                    vInserted.insert(std::get<0>(maxEdge));
+                    vInserted.insert(std::get<1>(maxEdge));
+                }
+            }
+        }
+
+        vector<tuple<vType, vType, attrType>> toDel;
+        for (vType z = 0; z < numVerts; ++z)
+        {
+            for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+            {
+                if (selected.find(std::make_tuple(z, edges[k], attributes[k])) == selected.end())
+                    toDel.push_back(std::make_tuple(z, edges[k], attributes[k]));                    
+            }
+        }
+        return toDel;
     }
 
     template class GraphCSR<int, double, attrType>;
