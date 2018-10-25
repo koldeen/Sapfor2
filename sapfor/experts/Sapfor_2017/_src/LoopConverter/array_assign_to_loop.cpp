@@ -481,8 +481,8 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         || assign->expr(1)->rhs()->variant() != ARRAY_REF || assign->expr(1)->lhs()->variant() != ARRAY_REF)
         return result;
 
-    SgArrayRefExp *leftPart = (SgArrayRefExp*) assign->expr(1)->rhs();
-    SgArrayRefExp *rightPart = (SgArrayRefExp*) assign->expr(1)->lhs();
+    SgArrayRefExp *leftPart = (SgArrayRefExp*) assign->expr(1)->lhs();
+    SgArrayRefExp *rightPart = (SgArrayRefExp*) assign->expr(1)->rhs();
     SgArrayRefExp *assignPart = (SgArrayRefExp*)assign->expr(0);
 
     SgForStmt *retVal = NULL;
@@ -673,9 +673,8 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
     }
 
 
-    SgExpression* newRightPart = new SgExpression(assign->variant());
- 
-    retVal->setExpression(0, *assignArrayRef);                               //     c(i_) =
+    SgExpression* newRightPart = new SgExpression(assign->expr(1)->variant());
+                             
     newRightPart->setLhs(*leftArrayRef);                                     //            a(i_) op
     newRightPart->setRhs(*rightArrayRef);                                    //                     b(i_)
     retVal->lexNext()->setExpression(1, *newRightPart);
@@ -973,20 +972,20 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
             currProcessing.second = st;
 
-            if (st->variant() == ASSIGN_STAT)
+            if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
             	vector<SgStatement*> conv;
                 
-
-                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum")) 
-                    conv = convertFromSumToLoop(st, file, messagesForFile);
+                if (st->variant() == WHERE_NODE)
+                    conv = convertFromWhereToLoop(st, file, messagesForFile);
                 else 
-                    if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
-                        conv = convertFromStmtToLoop(st, file, messagesForFile);
-                    else
-                        if (st->expr(1)->variant() == WHERE_NODE)
-                            conv = convertFromWhereToLoop(st, file, messagesForFile);
-                        else conv = convertFromAssignToLoop(st, file, messagesForFile);
+                    if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum")) 
+                        conv = convertFromSumToLoop(st, file, messagesForFile);
+                    else 
+                        if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
+                            conv = convertFromStmtToLoop(st, file, messagesForFile);
+                        else
+                        conv = convertFromAssignToLoop(st, file, messagesForFile);
                 if (conv.size() != 0)
                 {
                     st->insertStmtBefore(*(conv[0]), *st->controlParent());
