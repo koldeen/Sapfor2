@@ -737,7 +737,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 breedArrays(file, loopGraph.find(file->filename())->second);
         }
         else if (curr_regime == CREATE_INTER_TREE)
+        {
             createInterTree(file, getObjectForFileFromMap(file_name, intervals));
+            assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
+        }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
 
