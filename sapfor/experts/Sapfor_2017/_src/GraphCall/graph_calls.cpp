@@ -793,6 +793,19 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         st = file->functions(i);
         while (st != lastNode)
         {
+            /*
+            std::cout << "cmd: [" << std::endl;
+            st->unparsestdout();
+            std::cout << "]" << std::endl;
+
+            set<SgSymbol *> symbols = getUsedSymbols(st);
+
+            std::cout << "Symbols: ";
+            for (auto& symbol : symbols) {
+                std::cout << symbol->identifier() << " ";
+            }
+            std::cout << std::endl; */
+            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");

@@ -7,6 +7,8 @@
 
 #include "DvmhRegionInsertor.h"
 
+using namespace std;
+
 LoopCheckResults::LoopCheckResults() : usesIO(false), hasImpureCalls(false) {}
 
 LoopCheckResults::LoopCheckResults(bool io, bool calls) : 
@@ -157,10 +159,93 @@ std::vector<LoopGraph *>  DvmhRegionInsertor::updateLoopGraph()
 	return loopGraph;
 }
 
+static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) {
+    set<SgSymbol *> result;
+
+    if (exp)
+    {
+        if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) // TODO: what else?
+            result.insert(exp->symbol());
+
+        set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
+        set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
+
+        result.insert(lhsSymbols.begin(), lhsSymbols.end());
+        result.insert(rhsSymbols.begin(), rhsSymbols.end());
+    }
+
+    return result;
+}
+
+static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
+    set<SgSymbol *> result;
+
+    // ignore not executable statements
+    if (!isSgExecutableStatement(st)) {
+        return result;
+    }
+
+/* TODO: in what cases may it be required?
+    if (st->variant() != PROC_CALL && st->variant() != FUNC_CALL) {
+        if (st->symbol())
+                result.insert(st->symbol());
+    }
+*/
+    
+    for (int i = 0; i < 3; ++i) {
+        if (st->variant() == ASSIGN_STAT &&  i == 0) { 
+			// TODO: array index
+			/*
+            if (st->expr(0)->variant() == ARRAY_REF) {
+                set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(0)->rhs());
+                result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+            }*/
+
+            continue;
+        }
+
+        if (st->expr(i)) {
+            set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
+            result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+        }
+    }
+        
+    return result;
+}
+
+void DvmhRegionInsertor::insertActualDirectives() {
+	int funcNum = file.numberOfFunctions();
+
+	for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file.functions(i);
+		SgStatement *lastNode = st->lastNodeOfStmt();
+
+		while (st != lastNode)
+        {
+            std::cout << "cmd: [" << std::endl;
+            st->unparsestdout();
+            std::cout << "]" << std::endl;
+
+            std::set<SgSymbol *> symbols = getUsedSymbols(st);
+			/* TODO: check declaration of the symbol, insert derective if needed */
+
+            std::cout << "Symbols: ";
+            for (auto& symbol : symbols) {
+                std::cout << symbol->identifier() << " ";
+            }
+            std::cout << std::endl;
+
+			st = st->lexNext();
+		}
+	}
+}
+
 void DvmhRegionInsertor::insertDirectives()
 {
     findEdgesForRegions(loopGraph);
     insertRegionDirectives();
+	insertActualDirectives();
 /*
 	getControlFlowGraph();
     setUpReachingDefenitions();

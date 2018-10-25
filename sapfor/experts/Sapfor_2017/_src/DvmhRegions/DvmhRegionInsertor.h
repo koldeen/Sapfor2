@@ -10,6 +10,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include <iostream>
+#include <set>
 
 #ifndef NULL
 #define NULL   ((void *) 0)
@@ -32,8 +33,7 @@ class DvmhRegion {
 public:
 	DvmhRegion();
 	DvmhRegion(SgStatement *st);
-	//bool isInRegion(SgStatement); // checks if line belongs to this region
-    // compare SgStatement's line number with firstLine and lastLine of the region.
+	bool isInRegion(SgStatement);
 	SgStatement *getLoop();
 };
 
@@ -44,11 +44,9 @@ class DvmhRegionInsertor {
     std::vector<DvmhRegion> regions;
 
     void printFuncName(SgStatement *);
-    //CallData getControlFlowGraph();
     void findEdgesForRegions(std::vector<LoopGraph *>);
     bool hasLimitsToDvmhParallel(LoopGraph *);
-    //void setUpReachingDefenitions();
-    //void insertActualDirectives();
+    void insertActualDirectives();
     void insertRegionDirectives();
     //void insertActualForRedistribute();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *);
