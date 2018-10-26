@@ -679,7 +679,7 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     */
 
     // create declarations via comment
-    makeStringDeclarations(insertPlace->lexNext()->lexNext(), array);
+    makeStringDeclarations(insertPlace->lexNext(), array);
 }
 
 // file -> lines -> arrays; lines where arrays copying is inserted
