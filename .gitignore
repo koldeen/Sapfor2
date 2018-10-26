@@ -57,5 +57,3 @@ sapfor/experts/Sapfor_2017/Inliner/Inliner.vcxproj.user
 sapfor/experts/Sapfor_2017/TransformUtils/TransformUtils.vcxproj.user
 sapfor/experts/Sapfor_2017/Parser/Parser.vcxproj.user
 sapfor/experts/Sapfor_2017/.vscode/*
-*.json
-*.sqlite
