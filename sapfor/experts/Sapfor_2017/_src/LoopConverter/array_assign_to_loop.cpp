@@ -800,7 +800,7 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
     newRightPart->setRhs(retVal->childList1(0)->expr(0));                              //            sum + b(i_)
     retVal->lexNext()->setExpression(1, *newRightPart);
 
-   result.push_back(retVal);
+    result.push_back(retVal);
 
     __spf_print(1, "%s\n"," _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
@@ -813,14 +813,13 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
 {
     vector <SgStatement*> result;
 
-    if (assign->expr(0) == NULL || assign->expr(1) == NULL)
+   if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
-    if (!assign->expr(0)->lhs() || !assign->expr(1)->lhs() || assign->expr(1)->lhs()->variant() != ARRAY_REF 
+    if (!assign->expr(0)->lhs() || !assign->expr(1) || assign->expr(1)->variant() != ARRAY_REF 
         || assign->expr(0)->lhs()->variant() != ARRAY_REF)
         return result;
 
-    SgExpression *leftPart = assign->expr(0);
-    SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1)->lhs();
+    SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1);
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
 
@@ -911,15 +910,24 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
             ArrayRef->addSubscript(*new SgVarRefExp(findSymbolOrCreate(file, "i_" + to_string(i), SgTypeInt(), scope)) + *shiftA);
         }
     }
+    
+    SgStatement* tmp = new SgStatement(ASSGN_OP);
+    tmp->setExpression(0, retVal->childList1(0)->expr(1)->copy());
+    tmp->setExpression(1, retVal->childList1(0)->expr(2)->copy());
 
-    assign->expr(0)->setLhs(*ArrayRef);
-    assign->setVariant(EXPR_IF);
-    assign->expr(1)->setLhs(*ArrayRef);
+    // recExpressionPrint(retVal->childList1(1)->expr(0));
 
-    result.push_back(assign);
+    retVal->childList1(0)->setVariant(IF_NODE);
+    retVal->childList1(0)->expr(0)->setLhs(retVal->childList1(0)->expr(1)->copy());
+    //retVal->childList1(0)->setExpression(2, () NULL);
+
+        
+    // setExpression(2, retVal->childList1(0)->expr(1)->copy());
+    
+    result.push_back(retVal);
 
     __spf_print(1, "%s\n", " _______ ");
-    __spf_print(1, "%s", string(retVal->unparse()).c_str());
+    __spf_print(1, "%s", string(retVal->unparse()).c_str()); 
 
     return result;
 }
@@ -970,7 +978,6 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             }
 
             currProcessing.second = st;
-<<<<<<< HEAD
 
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
