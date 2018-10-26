@@ -64,8 +64,9 @@ static void correctNameIfContains(SgStatement *call, SgExpression *exCall, strin
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
 
-static void fillParam(const int i, SgSymbol *par, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
+static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
 {
+    SgSymbol *par = OriginalSymbol(parIn);
     SgType *type = par->type();
     if (type)
     {
@@ -989,6 +990,55 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
     return 0;
 }
 
+int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &funcByFile)
+{
+    string funcOut = "";
+    for (auto &byFile: funcByFile)
+    {
+        funcOut += "FILE " + byFile.first + ":\n";
+        for (auto &func : byFile.second)
+        {
+            funcOut += "  FUNCTION '" + func->funcName + "'\n";
+            char buf[256];
+            sprintf(buf, "    LINES [%d, %d] \n", func->linesNum.first, func->linesNum.second);
+            funcOut += buf;
+            sprintf(buf, "    PARAMETERS %d:\n", func->funcParams.countOfPars);
+            funcOut += buf;
+            for (int z = 0; z < func->funcParams.countOfPars; ++z)
+            {
+                bool in = func->funcParams.isArgIn(z);
+                bool out = func->funcParams.isArgOut(z);
+                const char *inout = "";
+                if (in && out)
+                    inout = "IN/OUT";
+                else if (in)
+                    inout = "IN";
+                else if (out)
+                    inout = "OUT";
+
+                sprintf(buf, "      %s: type '%s', %s\n", func->funcParams.identificators[z].c_str(), 
+                                                 paramNames[func->funcParams.parametersT[z]], 
+                                                 inout);
+                funcOut += buf;
+            }
+        }
+    }
+
+    if (fileName)
+    {
+        FILE *out = fopen(fileName, "w");
+        if (out == NULL)
+        {
+            __spf_print(1, "can not open file %s\n", fileName);
+            return -1;
+        }
+
+        fprintf(out, funcOut.c_str());
+        fclose(out);
+    }
+    return 0;
+}
+
 static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
 {
     bool retVal = false;
@@ -1106,7 +1156,28 @@ bool isPassFullArray(SgExpression *ex)
         return false;
 }
 
-static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const int statLine, SgForStmt *loop, bool needToAddErrors, const FuncInfo *func, int parNum)
+static bool hasCuttingDims(SgExpression *ex)
+{
+    if (ex->lhs())
+    {
+        if (ex->lhs()->variant() == EXPR_LIST)
+        {
+            SgExpression *list = ex->lhs();
+
+            for  (auto list = ex->lhs(); list; list = list->rhs())
+            {
+                if (list->lhs() && list->lhs()->variant() == DDOT)
+                    return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const int statLine, 
+                           SgForStmt *loop, bool needToAddErrors, const FuncInfo *func, int parNum,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool ret = false;
     if (ex)
@@ -1126,30 +1197,109 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {
+                        bool type1 = (func->funcParams.inout_types[parNum] & OUT_BIT) != 0;
+                        bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
+
+                        string add = "";
+                        if (type1)
+                            add += "(as out argument";
+                        if (type2)
+                        {
+                            if (type1)
+                                add += ", as array in function)";
+                            else
+                                add += "(as array in function)";
+                        }
+                        else
+                            add += ")";
+
                         if (!isPassFullArray(ex))
                         {
-                            if ((func->funcParams.inout_types[parNum] & OUT_BIT) != 0 || func->funcParams.parametersT[parNum] == ARRAY_T)
+                            bool _hasCuttingDims = hasCuttingDims(ex);
+                            
+                            if (_hasCuttingDims)
                             {
                                 if (needToAddErrors)
                                 {
                                     if (loop)
                                     {
                                         char buf[256];
-                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d", func->funcName.c_str(), symb->identifier(), loop->lineNumber());
+                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
 
                                         messages.push_back(Messages(ERROR, statLine, buf, 1013));
-                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber());
+                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
                                     else
                                     {
                                         char buf[256];
-                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s'", func->funcName.c_str(), symb->identifier());
+                                        sprintf(buf, "Function '%s' needs to be inlined due to non private array reference '%s' %s", func->funcName.c_str(), symb->identifier(), add.c_str());
 
                                         messages.push_back(Messages(ERROR, statLine, buf, 1013));
-                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s'\n", func->funcName.c_str(), symb->identifier());
+                                        __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
                                 }
                                 ret = true;
+                            }
+                            else
+                            {
+                                //deprecate N first dims to distribute
+                                if (type2)
+                                {
+                                    DIST::Array *inFunction = (DIST::Array*)func->funcParams.parameters[parNum];
+                                    DIST::Array *mainArray = getArrayFromDeclarated(decl, symb->identifier());
+
+                                    if (mainArray == NULL)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                    set<DIST::Array*> realArrayRefs;
+                                    getRealArrayRefs(mainArray, mainArray, realArrayRefs, arrayLinksByFuncCalls);
+                                    
+                                    const int toDepDims = inFunction->GetDimSize();
+                                    for (auto &array : realArrayRefs)
+                                        for (int z = 0; z < toDepDims; ++z)
+
+                                            array->DeprecateDimension(z);
+                                    for (int z = 0; z < toDepDims; ++z)
+                                        mainArray->DeprecateDimension(z);
+
+                                    inFunction->DeprecateAllDims();
+                                    inFunction->SetNonDistributeFlag(DIST::NO_DISTR);
+
+                                    char buf[256];
+                                    if (inFunction->GetDimSize() == 1)
+                                        sprintf(buf, "First dimension of array '%s' were deprecated to distributon due to function call '%s'", symb->identifier(), func->funcName.c_str());
+                                    else
+                                        sprintf(buf, "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", inFunction->GetDimSize(), symb->identifier(), func->funcName.c_str());
+
+                                    messages.push_back(Messages(NOTE, statLine, buf, 1040));
+                                }
+                            }
+                        }
+                        else // check dim sizes between formal and actual parameters
+                        {
+                            if (type2)
+                            {
+                                DIST::Array *inFunction = (DIST::Array*)func->funcParams.parameters[parNum];
+                                DIST::Array *mainArray = getArrayFromDeclarated(decl, symb->identifier());
+
+                                if (mainArray == NULL)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (mainArray->GetDimSize() != inFunction->GetDimSize())
+                                {
+                                    char buf[256];
+                                    sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'", 
+                                                  func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
+
+                                    messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                    __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'\n", 
+                                                    func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
+                                }
+                            }
+                            else
+                            {
+                                //TODO:
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             }
                         }
                     }
@@ -1158,21 +1308,23 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
         }
 
         if (ex->lhs())
-            ret = ret || checkParameter(ex->lhs(), messages, statLine, loop, needToAddErrors, func, parNum);
+            ret = ret || checkParameter(ex->lhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
         if (ex->rhs())
-            ret = ret || checkParameter(ex->rhs(), messages, statLine, loop, needToAddErrors, func, parNum);
+            ret = ret || checkParameter(ex->rhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
     }
 
     return ret;
 }
 
-static bool checkParameter(SgExpression *parList, vector<Messages> &messages, bool needToAddErrors, const FuncInfo *func, const int funcOnLine, SgForStmt *loop)
+static bool checkParameter(SgExpression *parList, vector<Messages> &messages, bool needToAddErrors, 
+                           const FuncInfo *func, const int funcOnLine, SgForStmt *loop,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     int parNum = 0;
     bool needInsert = false;
     while (parList)
     {
-        needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func, parNum);
+        needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
         ++parNum;
         parList = parList->rhs();
     }
@@ -1194,7 +1346,7 @@ static vector<int> findNoOfParWithLoopVar(SgExpression *pars, const string &loop
 }
 
 static bool processParameterList(SgExpression *parList, SgForStmt *loop, const FuncInfo *func, const int funcOnLine, bool needToAddErrors,
-                                 vector<Messages> &messages)
+                                 vector<Messages> &messages, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool needInsert = false;
 
@@ -1228,16 +1380,17 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             needInsert = true;
         }
         else
-            needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop);
+            needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop, arrayLinksByFuncCalls);
     }
     else
-        needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop);
+        needInsert = checkParameter(parList, messages, needToAddErrors, func, funcOnLine, loop, arrayLinksByFuncCalls);
 
     return needInsert;
 }
 
 static bool recFuncChecked(const FuncInfo *call, set<void*> &recFuncCheckedSet, const map<string, FuncInfo*> &funcByName, vector<Messages> &messages,
-    bool needToAddErrors, const int funcOnLine, const string &firstFileName)
+                           bool needToAddErrors, const int funcOnLine, const string &firstFileName,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool needInsert = false;
     for (int i = 0; i < call->pointerDetailCallsFrom.size(); ++i)
@@ -1251,7 +1404,7 @@ static bool recFuncChecked(const FuncInfo *call, set<void*> &recFuncCheckedSet, 
             {
                 SgStatement *funcCall = (SgStatement*)call->pointerDetailCallsFrom[i].first;
                 if (funcCall->switchToFile())
-                    needInsert = needInsert || checkParameter(funcCall->expr(0), messages, needToAddErrors, call, funcOnLine, NULL);
+                    needInsert = needInsert || checkParameter(funcCall->expr(0), messages, needToAddErrors, call, funcOnLine, NULL, arrayLinksByFuncCalls);
                 else
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -1260,7 +1413,7 @@ static bool recFuncChecked(const FuncInfo *call, set<void*> &recFuncCheckedSet, 
 
                 auto fIt = funcByName.find(call->detailCallsFrom[i].first);
                 if (fIt != funcByName.end())
-                    needInsert = needInsert || recFuncChecked(fIt->second, recFuncCheckedSet, funcByName, messages, needToAddErrors, funcOnLine, firstFileName);
+                    needInsert = needInsert || recFuncChecked(fIt->second, recFuncCheckedSet, funcByName, messages, needToAddErrors, funcOnLine, firstFileName, arrayLinksByFuncCalls);
             }
         }
         else
@@ -1270,7 +1423,8 @@ static bool recFuncChecked(const FuncInfo *call, set<void*> &recFuncCheckedSet, 
 }
 
 static bool findFuncCall(SgExpression *ex, const FuncInfo *func, vector<Messages> &messages, const int statLine, SgForStmt *loop, bool needToAddErrors,
-                         const map<string, FuncInfo*> &funcByName, set<void*> recFuncCheckedSet)
+                         const map<string, FuncInfo*> &funcByName, set<void*> recFuncCheckedSet,
+                         const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool ret = false;
     if (ex)
@@ -1278,12 +1432,12 @@ static bool findFuncCall(SgExpression *ex, const FuncInfo *func, vector<Messages
         if (ex->variant() == FUNC_CALL)
             if (ex->symbol()->identifier() == func->funcName)
             {
-                ret = ret || processParameterList(ex->lhs(), loop, func, statLine, needToAddErrors, messages);                
+                ret = ret || processParameterList(ex->lhs(), loop, func, statLine, needToAddErrors, messages, arrayLinksByFuncCalls);                
                 //ret = ret || recFuncChecked(func, recFuncCheckedSet, funcByName, messages, needToAddErrors, statLine, loop->fileName());
             }
 
-        ret = ret || findFuncCall(ex->lhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet);
-        ret = ret || findFuncCall(ex->rhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet);
+        ret = ret || findFuncCall(ex->lhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
+        ret = ret || findFuncCall(ex->rhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
     }
 
     return ret;
@@ -1304,7 +1458,8 @@ static SgStatement* getStatByLine(string file, const int line, const map<string,
 
 static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<string> &needToInsert, SgFile *currF, 
                                       vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
-                                      const map<string, map<int, SgStatement*>> &statByLine)
+                                      const map<string, map<int, SgStatement*>> &statByLine, 
+                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     set<void*> recFuncCheckedSet;
 
@@ -1344,25 +1499,26 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
 
                 if (var == PROC_STAT || var == FUNC_STAT)
                 {
-                    needInsert = needInsert || processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages);
+                    needInsert = needInsert || processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages, arrayLinksByFuncCalls);
                     //needInsert = needInsert || recFuncChecked(it->second, recFuncCheckedSet, funcByName, messages, needToAddErrors, funcOnLine, loop->fileName());
                 }
                 else
                     for (int z = 0; z < 3; ++z)
-                        needInsert = needInsert || findFuncCall(func->expr(z), it->second, messages, funcOnLine, loop, needToAddErrors, funcByName, recFuncCheckedSet);
+                        needInsert = needInsert || findFuncCall(func->expr(z), it->second, messages, funcOnLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
 
                 if (needInsert)
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-        findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine);
+        findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
     }
 }
 
 static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loopGraph, set<string> &needToInsert,
                                       SgProject *proj, const map<string, int> &files, map<string, vector<Messages>> &allMessages,
                                       bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
-                                      const map<string, map<int, SgStatement*>> &statByLine)
+                                      const map<string, map<int, SgStatement*>> &statByLine,
+                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     for (auto it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
@@ -1372,12 +1528,13 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
         auto itM = allMessages.find(it->first);
         if (itM == allMessages.end())
             itM = allMessages.insert(itM, make_pair(it->first, vector<Messages>()));
-        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine);
+        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
     }
 }
 
 int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const char *fileName, map<string, vector<FuncInfo*>> &funcByFile, 
-                            const map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &allMessages, bool needToAddErrors)
+                           const map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &allMessages, bool needToAddErrors,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     map<string, map<int, SgStatement*>> statByLine; //file -> map    
     //build info
@@ -1415,7 +1572,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     }
 
     set<string> needToInsert;
-    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine);
+    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
 
     if (needToInsert.size() > 0)
     {
@@ -1890,5 +2047,50 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     propagateWritesToArrays(funcByName);
 }
 
+
+map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
+{
+    int var = stIn->variant();
+    while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
+    {
+        stIn = stIn->controlParent();
+        var = stIn->variant();
+    }
+
+    map<string, set<SgSymbol*>> byUse;
+    for (SgStatement *stat = stIn->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+    {
+        if (stat->variant() == USE_STMT)
+        {
+            SgExpression *ex = stat->expr(0);
+            if (ex && ex->variant() == ONLY_NODE)
+            {
+                for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                {
+                    if (exI->lhs()->variant() == RENAME_NODE)
+                    {
+                        SgExpression *ren = exI->lhs();
+                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                    }
+                }
+            }
+            else if (ex && ex->lhs())
+            {
+                for (auto exI = ex; exI; exI = exI->rhs())
+                {
+                    if (exI->lhs()->variant() == RENAME_NODE)
+                    {
+                        SgExpression *ren = exI->lhs();
+                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                    }
+                }
+            }
+        }
+    }
+
+    return byUse;
+}
 
 #undef DEBUG

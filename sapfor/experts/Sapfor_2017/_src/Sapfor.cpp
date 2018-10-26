@@ -34,6 +34,7 @@
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -43,9 +44,11 @@
 #include "LoopConverter/loop_transform.h"
 #include "LoopConverter/array_assign_to_loop.h"
 #include "LoopConverter/private_arrays_breeder.h"
+#include "LoopConverter/loops_splitter.h"
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+
 //#include "DEAR/dep_analyzer.h"
 
 #if RELEASE_CANDIDATE
@@ -209,6 +212,8 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
     {
+        restoreCorrectedModuleProcNames(file);
+
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
 
@@ -256,7 +261,8 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         }
         else
         {
-            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
+            //TODO: add freeForm for each file
+            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1);
 
             // copy includes that have not changed
             if (folderName != NULL)
@@ -350,7 +356,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                              &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -362,7 +368,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                          &(itFound->second));
 
             currProcessing.second = NULL;
@@ -414,7 +420,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
 
                 auto &tmp = dataDirectives.distrRules;
-                std::vector<std::pair<DIST::Array*, const DistrVariant*>> currentVar;
+                vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
                 for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
@@ -467,37 +473,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
-            if (curr_regime == INSERT_PARALLEL_DIRS)
-            {
-                // insert redistribution for regions
-                if (parallelRegions.size() > 1 || (parallelRegions.size() == 1 && parallelRegions[0]->GetId() > 0))
-                {
-                    for (int z = 0; z < parallelRegions.size(); ++z)
-                    {
-                        ParallelRegion *currReg = parallelRegions[z];
-
-                        const DataDirective &dataDirectives = currReg->GetDataDir();
-                        const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                        vector<int> variantZero(currentVariant.size());
-                        std::fill(variantZero.begin(), variantZero.end(), 0);
-
-                        const std::vector<ParallelRegionLines> *currLines = currReg->GetLines(file_name);
-
-                        if (currLines)
-                        {
-                            //TODO: to be removed with new algorithm for parallel regions
-                            File *fileT = new File(file);
-                            const vector<Statement*> &reDistrRulesBefore = dataDirectives.GenRule(fileT, currentVariant, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> &reDistrRulesAfter = dataDirectives.GenRule(fileT, variantZero, (int)DVM_REDISTRIBUTE_DIR);
-                            const vector<Statement*> reAlignRules;
-                            //const vector<Statement*> &reAlignRules = dataDirectives.GenAlignsRules(fileT, (int)DVM_REALIGN_DIR);
-
-                            insertDistributeDirsToParallelRegions(currLines, reDistrRulesBefore, reDistrRulesAfter, reAlignRules);
-                        }
-                    }
-                }
-            }
-            else
+            if (curr_regime == EXTRACT_PARALLEL_DIRS)
                 createdDirectives[file_name].clear();
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
@@ -555,13 +531,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (!noError)
                 internalExit = 1;
         }
+        else if (curr_regime == CHECK_PAR_REG_DIR)
+        {
+            bool noError = check_par_reg_dirs(file, getObjectForFileFromMap(file_name, SPF_messages));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo.find(file_name)->second, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
                          &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -615,10 +597,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     }
 
                     int position = 0;
-                    for (auto &commonBlock : commonBlockRef.second)
+                    for (auto &commonExp : commonBlockRef.second)
                     {
                         vector<pair<SgSymbol*, int>> newVariables;
-                        for (SgExpression *currCommon = commonBlock->lhs(); currCommon; currCommon = currCommon->rhs())
+                        for (SgExpression *currCommon = commonExp->lhs(); currCommon; currCommon = currCommon->rhs())
                             newVariables.push_back(make_pair(currCommon->lhs()->symbol(), position++));
 
                         it->second.addVariables(file, startEnd.first, newVariables);
@@ -696,11 +678,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
         else if (curr_regime == PREDICT_SCHEME)
-        {
-            auto itFound = loopGraph.find(file_name);
-            if (itFound != loopGraph.end())
-                processFileToPredict(file, itFound->second);
-        }
+            processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
             constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
         else if (curr_regime == DEF_USE_STAGE2)
@@ -730,11 +708,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == GCOV_PARSER)
+            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
             if(founded != loopGraph.end())
                 breedArrays(file, loopGraph.find(file->filename())->second);
+        }
+        else if(curr_regime == LOOPS_SPLITTER)
+        {
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+                splitLoops(file, loopGraph.find(file->filename())->second);
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
@@ -877,6 +863,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
+
+                if (parallelRegions[z]->GetId() == 0) // DEFAULT
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this project");
+
+                    for (auto &funcByFile : allFuncInfo)
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
+                        for (auto &func : funcByFile.second)
+                        {
+                            auto stat = func->funcPointer->GetOriginal();
+                            if (stat->variant() == PROG_HEDR)
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), buf, 3010));
+                        }
+                    }
+                }
+                else
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this region");
+
+                    for (auto &linesByFile : parallelRegions[z]->GetAllLines())
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
+                        for (auto &lines : linesByFile.second)
+                            if (!lines.isImplicit())
+                                fileM.push_back(Messages(ERROR, lines.lines.first, buf, 3010));
+                    }
+                }
                 idxToDel.insert(z);
             }
         }
@@ -886,19 +902,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (idxToDel.find(z) != idxToDel.end())
             {
-                ParallelRegion *regToDel = parallelRegions[z];
-                const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
-                for (auto it = currLines.begin(); it != currLines.end(); ++it)
-                {
-                    vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
-                    char buf[256];
-                    sprintf(buf, "Can not find arrays / loops for distribution in parallel region '%s', ignored", regToDel->GetName().c_str());
-                    for (int k = 0; k < it->second.size(); ++k)
-                    {
-                        currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
-                        __spf_print(1, "  Can not find arrays for distribution in parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
-                    }
-                }
+                ParallelRegion *regToDel = parallelRegions[z];                
 #ifdef _WIN32
                 removeFromCollection(parallelRegions[z]);
 #endif
@@ -914,7 +918,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else if (curr_regime == CALL_GRAPH)
-    {
+    {    
         if (keepFiles)
         {
             map<string, CallV> V;
@@ -924,6 +928,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
+
+        if (keepFiles)
+            CreateFuncInfo("_funcInfo.txt", allFuncInfo);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1090,12 +1097,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 throw(-1);
             }
         }
-        checkCountOfIter(loopGraph, SPF_messages);
+
+        checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
         if (keepFiles)
         {
             printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
+    }
+    else if (curr_regime == CHECK_PAR_REGIONS)
+    {
+        fillRegionFunctions(parallelRegions, allFuncInfo);
+        fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
+
+        bool noError = checkRegions(parallelRegions, SPF_messages);
+        if (!noError)
+            internalExit = 1;
+
+        if (keepFiles)
+        {
+            int err = printCheckRegions("_checkRegions.txt", parallelRegions);
+            if (err == -1)
+                internalExit = 1;
+            err = printCheckRegions(NULL, parallelRegions);
+            if (err == -1)
+                internalExit = 1;
+        }
+    }
+    else if (curr_regime == RESOLVE_PAR_REGIONS)
+    {
+        resolveParRegions(parallelRegions, allFuncInfo);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
@@ -1169,6 +1200,53 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
     }
+    else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
+    {
+        if (parallelRegions.size() > 1)
+        {
+            map<string, vector<ParallelRegion*>> crossedByFunction;
+            for (auto &reg : parallelRegions)
+            {
+                auto crossed = reg->GetCrossedFuncs();
+                for (auto &crossedF : crossed)
+                    crossedByFunction[crossedF->funcName].push_back(reg);
+            }
+
+            for (auto &crByF : crossedByFunction)
+            {
+                if (crByF.second.size() > 1)
+                {
+                    string regions = "";
+                    for (auto &reg : crByF.second)
+                        regions += "'" + reg->GetName() + "' ";
+                    __spf_print(1, "parallel regions %swere crossed by function '%s'\n", regions.c_str(), crByF.first.c_str());
+
+                    string message;
+                    __spf_printToBuf(message, "parallel regions %swere crossed by function '%s'", regions.c_str(), crByF.first.c_str());
+
+                    auto lines = crByF.second[0]->GetAllLines();
+                    bool ok = false;
+                    for (auto &linePair : lines)
+                    {
+                        for (auto &line : linePair.second)
+                        {
+                            if (line.stats.first && line.stats.second)
+                            {
+                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3012));
+                                internalExit = 1;
+                                ok = true;
+                                break;
+                            }
+                        }
+                        if (ok)
+                            break;
+                    }
+                    if (ok == false)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
+        }
+    }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
         findDeadFunctionsAndFillCallTo(subs_allFuncInfo, SPF_messages, true);
@@ -1188,6 +1266,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     timeForPass = omp_get_wtime() - timeForPass;
     __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
 #endif
+
+    if (internalExit != 0)
+        throw -1;
 
     return true;
 }
@@ -1255,7 +1336,7 @@ static string selectAddNameOfVariant(const int i, int maxDimsIdx, int maxDimsIdx
             parallelRegions[z]->SetCurrentVariant(currentVariants[z]);
     }
     else
-        sprintf(buf, "par");
+        sprintf(buf, "");  //sprintf(buf, "par");
     return buf;
 }
 
@@ -1275,9 +1356,9 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
     int failed = 0;
     if (keepFiles)
-        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
     else
-        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
 
     if (failed > 0 && needToAddErrors)
         throw -5;
@@ -1291,6 +1372,9 @@ static SgProject* createProject(const char *proj_name)
 
     parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        correctModuleProcNames(&(project->file(z)));
     return project;
 }
 
@@ -1368,9 +1452,9 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
+            runAnalysis(*project, PREDICT_SCHEME, false);
+            
             runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
-            runAnalysis(*project, PREDICT_SCHEME, false, consoleMode ? additionalName.c_str() : NULL, folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
@@ -1398,10 +1482,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case INSERT_INCLUDES:
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
-    case PRIVATE_ARRAYS_BREEDING:    
+    case PRIVATE_ARRAYS_BREEDING:
     case INSERT_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
-        break;    
+        break;
     case INLINE_PROCEDURES:
         runAnalysis(*project, curr_regime, false);
         if (folderName)
@@ -1417,6 +1501,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case CHECK_FUNC_TO_INCLUDE:
         findFunctionsToInclude(true);
+        break;
+    case RESOLVE_PAR_REGIONS:
+        runAnalysis(*project, curr_regime, false);
+        runPass(UNPARSE_FILE, proj_name, folderName);
         break;
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
@@ -1577,8 +1665,12 @@ int main(int argc, char **argv)
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")
                     InitPassesDependencies(passesDependencies, passesIgnoreStateDone, true);
-                if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
+                else if (string(curr_arg) == "-ver" || string(curr_arg) == "-Ver")
                     exit(0);
+                else if (string(curr_arg) == "-freeLoops")
+                    parallizeFreeLoops = 1;
+                else if (string(curr_arg) == "-autoArray")
+                    parallizeFreeLoops = 1;
                 break;
             default:
                 break;

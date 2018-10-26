@@ -77,6 +77,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
+#define WITH_REMOVE 0
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
@@ -89,8 +90,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
     templ->SetSizes(initTemplSize, true);
-
-    for (int i = 0; i < templ->GetDimSize(); ++i)
+#if WITH_REMOVE
+    templ->RemoveUnpammedDims();
+#endif
+    for (int i = 0, templIdx = 0; i < distArray->GetDimSize(); ++i)
     {
         int vert = -1;
         const int err = allArrays.GetVertNumber(distArray, i, vert);
@@ -100,19 +103,29 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         pair<DIST::Array*, int> result = make_pair(distArray, i);
         set<int> wasDone;
         reducedG.FindLinkWithMaxDim(vert, allArrays, result, wasDone);
-        if (result.first != distArray)
-            templ->ExtendDimSize(i, result.first->GetSizes()[result.second]);
 
-        AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(i, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+
+        if ((distArray->IsDimMapped(i) || distArray->isLoopArray()) && !distArray->IsDimDepracated(i))
+        {
+            AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+            if (result.first != distArray)
+                templ->ExtendDimSize(templIdx, result.first->GetSizes()[result.second]);
+            templIdx++;
+        }
+#if !WITH_REMOVE
+        else
+            templ->ExtendDimSize(templIdx++, make_pair(1, 1));
+#endif
     }
 
     return templ;
 }
+#undef WITH_REMOVE
 
-static DIST::Array* GetArrayWithMaximumDim(const vector<DIST::Array*> &arrays)
+static vector<DIST::Array*> GetArrayWithMaximumDim(const vector<DIST::Array*> &arrays)
 {
     int maxDimSize = -1;
-    DIST::Array *retVal = NULL;
+    vector<DIST::Array*> retVal;
 
     for (int i = 0; i < arrays.size(); ++i)
     {
@@ -120,19 +133,29 @@ static DIST::Array* GetArrayWithMaximumDim(const vector<DIST::Array*> &arrays)
         if (maxDimSize < tmp->GetDimSize())
         {
             maxDimSize = tmp->GetDimSize();
-            retVal = tmp;
+            retVal.clear();
+            retVal.push_back(tmp);
         }
         else if (maxDimSize == tmp->GetDimSize())
         {
-            const vector<pair<int, int>> &size1 = retVal->GetSizes();
+            const vector<pair<int, int>> &size1 = retVal.back()->GetSizes();
             const vector<pair<int, int>> &size2 = tmp->GetSizes();
-            bool ifGT = true;
-            for (int k = 0; k < size1.size(); ++k)
-                if ((size1[k].second - size1[k].first) + 1 >(size2[k].second - size2[k].first) + 1)
-                    ifGT = false;
 
-            if (ifGT)
-                retVal = tmp;
+            if (size1 == size2)
+                retVal.push_back(tmp);
+            else
+            {
+                bool ifGT = true;
+                for (int k = 0; k < size1.size(); ++k)
+                    if ((size1[k].second - size1[k].first) + 1 > (size2[k].second - size2[k].first) + 1)
+                        ifGT = false;
+
+                if (ifGT)
+                {
+                    retVal.clear();
+                    retVal.push_back(tmp);
+                }
+            }
         }
     }
     return retVal;
@@ -152,6 +175,45 @@ static void convertTrees(const map<DIST::Array*, int> &treesIn, map<int, vector<
         for (auto &array : realRefs)
             foundIt->second.push_back(array);
     }
+}
+
+static DIST::Array* findBestInEqual(vector<DIST::Array*> &arrays, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
+{
+    DIST::Array *retVal = NULL;
+    vector<vector<attrType>> coefsByDims;
+    for (auto &array : arrays)
+    {
+        vector<int> verts;
+        int err = allArrays.GetAllVertNumber(array, verts);
+        if (err != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        if (retVal == NULL)
+        {
+            retVal = array;
+            for (auto &V : verts)
+                coefsByDims.push_back(reducedG.GetAllAttributes(V));
+        }
+        else
+        {
+            vector<vector<attrType>> toCmp;
+            for (auto &V : verts)
+                toCmp.push_back(reducedG.GetAllAttributes(V));
+            for (int z = 0; z < toCmp.size(); ++z)
+            {
+                if (toCmp[z].size() && coefsByDims[z].size())
+                {
+                    if (toCmp[z].back().first.first > coefsByDims[z].back().first.first)
+                    {
+                        coefsByDims = toCmp;
+                        retVal = array;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return retVal;
 }
 
 static bool ArraySortFunc(DIST::Array *i, DIST::Array *j) { return (i->GetName() < j->GetName()); }
@@ -188,8 +250,10 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
         for (auto i = convTrees.begin(); i != convTrees.end(); ++i)
         {
             std::sort(i->second.begin(), i->second.end(), ArraySortFunc);
-            DIST::Array *distrArray = GetArrayWithMaximumDim(i->second);
-            checkNull(distrArray, convertFileName(__FILE__).c_str(), __LINE__);
+            vector<DIST::Array*> distrArrayV = GetArrayWithMaximumDim(i->second);
+            if (distrArrayV.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            DIST::Array *distrArray = findBestInEqual(distrArrayV, reducedG, allArrays);
 
             DIST::Array *templ = createTemplate(distrArray, reducedG, allArrays);
             checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
@@ -260,14 +324,12 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
             }
         }
 
-        if (allInAlign.size() < countOfFree)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else
+        if (allInAlign.size() >= countOfFree)
         {
             int k = 0;
             for (int i = 0; i < rules.size(); ++i)
             {
-                if (get<0>(rules[i]) == NULL)
+                if (get<0>(rules[i]) == NULL || alignArray->IsDimDepracated(i))
                 {
                     rules[i] = make_tuple(alignWith, allInAlign[k], make_pair(0, 0));
                     k++;
@@ -286,9 +348,7 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
 
         int alignToDim = -1;
         int err = allArrays.GetDimNumber(alignWith, get<1>(rules[z]), alignToDim);
-        if (err != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        
+                
         newRule.alignRuleWith.push_back(make_pair(alignToDim, get<2>(rules[z])));
         if (get<2>(rules[z]).first == 0 && get<2>(rules[z]).second == 0)
             continue;

@@ -8,9 +8,20 @@
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
 
+static const char* paramNames[] = 
+{ "NONE_T", "ARRAY_T", "SCALAR_INT_T", "SCALAR_FLOAT_T", "SCALAR_DOUBLE_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "UNKNOWN_T" };
+
 typedef enum parF { NONE_T, ARRAY_T, 
                     SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T,
                     UNKNOWN_T } paramType;
+
+#ifndef IN_BIT
+    #define IN_BIT 16
+#endif
+#ifndef OUT_BIT
+    #define OUT_BIT 256
+#endif
+
 struct FuncParam
 {
     FuncParam() { countOfPars = 0; }
@@ -28,12 +39,35 @@ struct FuncParam
         }
     }
 
+    bool isArgIn(const int num) const
+    {
+        if (num >= countOfPars)
+            return false;
+        else
+            return (inout_types[num] & IN_BIT) != 0;
+    }
+
+    bool isArgOut(const int num) const
+    {
+        if (num >= countOfPars)
+            return false;
+        else
+            return (inout_types[num] & OUT_BIT) != 0;
+    }
+
     std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;
     std::vector<int> inout_types;
-    int countOfPars;
+    int countOfPars;       
 };
+
+#ifndef IN_BIT
+    #undef IN_BIT
+#endif
+#ifndef OUT_BIT
+    #undef OUT_BIT
+#endif
 
 struct NestedFuncCall 
 {
@@ -78,7 +112,10 @@ struct FuncInfo
     bool needToInline;
     bool deadFunction;
 
+    // for RESOLVE_PAR_REGIONS
     int inRegion; // 0 - none, 1 - explicit, 2 - implicit, 3 - indirect
+    std::set<int> callRegions; // 0 - default; forall i > 0, i - user region
+    //
 
     FuncInfo() :
         doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0) { }
@@ -101,6 +138,8 @@ struct FuncInfo
         }
         return result;
     }
+
+    void setIsCoveredByRegion(int val) { }
 };
 
 struct CallV

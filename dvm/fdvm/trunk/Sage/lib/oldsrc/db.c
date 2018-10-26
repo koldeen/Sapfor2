@@ -123,7 +123,8 @@ char db_err_msg[100];
 static PTR_HASH hash_table[hashMax];
 static PTR_BLOB1 obj, tail;
 static int skip_rest = 0;	/* set to 1 if one proc/func ref found in llnd */
-
+
+
 /*
  * last_char returns the last character of the given NON-EMPTY string
  */
@@ -767,7 +768,8 @@ ext_proc_call(fi, bl)
     }
     return (obj);
 }
-
+
+
 /****************************************************************
  *								*
  *  open_file -- open the dep file "filename"			*
@@ -1758,7 +1760,8 @@ GetTypeDef(type_name, proc_name)
 	return bl1;
     }
 }
-
+
+
 /****************************************************************
  *								*
  *  rec_num_search -- recursively search for the bif node that	*

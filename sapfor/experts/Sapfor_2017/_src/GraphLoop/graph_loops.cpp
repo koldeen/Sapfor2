@@ -438,7 +438,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
-                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT } );
+                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
 
@@ -500,6 +500,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 {
                     currLoop->children.push_back(newLoop);
                     currLoop->children.back()->parent = parentLoops.back();
+                    currLoop->children.back()->funcParent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);

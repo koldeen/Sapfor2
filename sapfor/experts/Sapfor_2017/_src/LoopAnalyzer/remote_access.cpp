@@ -159,21 +159,71 @@ static bool inline hasParallelDirs(SgStatement *st)
     return false;
 }
 
-static bool inline hasAssignsToArray(SgStatement *st, const vector<SgExpression*> &remotes)
+static bool isDistributed(SgSymbol *in)
 {
-    set<string> arrayAccess;
-    
-    for (auto &elem : remotes)
-        if (elem->variant() == ARRAY_REF)
-            arrayAccess.insert(elem->symbol()->identifier());
+    SgSymbol *s = OriginalSymbol(in);
+    DIST::Array *decl = getArrayFromDeclarated(declaratedInStmt(s), s->identifier());
+    if (!decl)
+        return false;
+    else
+        return !(decl->GetNonDistributeFlag());
+}
 
-    SgStatement *last = st->lastNodeOfStmt();
-    for (; st != last; st = st->lexNext())
+//TODO: need to add IPA (functions)
+static void fillRead(SgExpression *ex, map<string, set<string>> &readArrays)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+            if (isDistributed(ex->symbol()))
+                readArrays[ex->symbol()->identifier()].insert(string(ex->unparse()));
+
+        fillRead(ex->lhs(), readArrays);
+        fillRead(ex->rhs(), readArrays);
+    }
+}
+
+static bool inline hasAssignsToArray(SgStatement *stIn)
+{
+    map<string, set<string>> arrayAccessWrite;
+    map<string, set<string>> arrayAccessRead;
+    
+    SgStatement *last = stIn->lastNodeOfStmt();
+    for (auto st = stIn; st != last; st = st->lexNext())
         if (st->variant() == ASSIGN_STAT)
             if (st->expr(0)->variant() == ARRAY_REF)
-                if (arrayAccess.find(st->expr(0)->symbol()->identifier()) != arrayAccess.end())
-                    return true;
+                if (isDistributed(st->expr(0)->symbol()))
+                    arrayAccessWrite[st->expr(0)->symbol()->identifier()].insert(string(st->expr(0)->unparse()));
 
+    for (auto st = stIn; st != last; st = st->lexNext())
+    {
+        if (st->variant() != ASSIGN_STAT)
+        {
+            for (int z = 0; z < 3; ++z)
+                fillRead(st->expr(z), arrayAccessRead);
+        }
+        else
+        {
+            for (int z = 1; z < 3; ++z)
+                fillRead(st->expr(z), arrayAccessRead);
+            SgExpression *left = st->expr(0);
+            fillRead(left->lhs(), arrayAccessRead);
+            fillRead(left->rhs(), arrayAccessRead);
+        }
+    }
+
+    for (auto &readPair : arrayAccessRead)
+    {
+        string arrayName = readPair.first;
+        auto it = arrayAccessWrite.find(arrayName);
+
+        if (arrayAccessWrite.end() != it)
+        {
+            for (auto &read : readPair.second)
+                if (it->second.find(read) == it->second.end())
+                    return true;
+        }
+    }
     return false;
 }
 
@@ -231,7 +281,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 SgStatement *parent = toInsert->controlParent();
                 const int var = parent->variant();
                 if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR ||
-                    hasParallelDirs(parent) || hasAssignsToArray(parent, remotes))
+                    hasParallelDirs(parent) || hasAssignsToArray(parent))
                     break;
                 toInsert = parent;
                 allToInsert.push_back(toInsert);
@@ -241,7 +291,7 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             for (int idx = allToInsert.size() - 1; idx >= 0; --idx)
             {
                 const int var = allToInsert[idx]->variant();
-                if (var == IF_NODE || var == ELSEIF_NODE)
+                if (var == ELSEIF_NODE)
                 {
                     if (idx != 0)
                         toInsert = allToInsert[idx - 1];
@@ -269,12 +319,14 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                     ;
                 else
                 {
-                    for (auto &elem : allSubs)
-                        converToDDOT(elem);
+                    if (toInsert->variant() == FOR_NODE)
+                    {
+                        for (auto &elem : allSubs)
+                            converToDDOT(elem);
+                    }
                 }
             }
 
-            
             //create remote dir with uniq expressions
             set<string> exist;
             int add = 0;
@@ -324,37 +376,6 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                     }
                     prev->setExpression(0, *list);
                 }
-
-                //TODO:
-                //remove like this: b(1), b(:) -> b(:). 
-                /*set<string> withDDOT;
-                prev->expr(0)->unparsestdout();
-                printf("\n");
-                for (SgExpression *list = prev->expr(0); list; list = list->rhs())
-                    if (list->lhs()->lhs()->lhs()->variant() == DDOT)
-                        withDDOT.insert(list->lhs()->symbol()->identifier());
-
-                if (withDDOT.size() > 0)
-                {
-                    SgExpression *list = prev->expr(0);
-
-                    for (SgExpression *tmp = list, *prev = list; tmp; tmp = tmp->rhs())
-                    {
-                        if (tmp->lhs()->lhs()->lhs()->variant() != DDOT)
-                        {
-                            if (withDDOT.find(tmp->lhs()->symbol()->identifier()) != withDDOT.end())
-                            {
-                                if (list == tmp)
-                                    list = tmp->rhs();
-                                else
-                                    prev->setRhs(tmp->rhs());
-                            }
-                        }
-                        if (prev != tmp)
-                            prev = prev->rhs();
-                    }
-                    prev->setExpression(0, *list);
-                }*/
             }
             else
                 toInsert->insertStmtBefore(*remoteDir, *toInsert->controlParent());
@@ -668,14 +689,14 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                         const vector<pair<int, int>> &writeRulesWithTempl = writesInLoop[k].first->GetAlignRulesWithTemplate(regionId);
                                         const pair<int, int> &alignRuleWrite = writeRulesWithTempl[writeDim];
 
-                                        for (int z = 0; z < writesInLoop[k].second.writeOps[writeDim].coefficients.size(); ++z)
+                                        for (auto &writes : writesInLoop[k].second.writeOps[writeDim].coefficients)
                                         {
-                                            const pair<int, int> currWriteAcc = writesInLoop[k].second.writeOps[writeDim].coefficients[z];
+                                            const pair<int, int> &currWriteAcc = writes.first;
 
                                             // ... all reads 
-                                            for (int z1 = 0; z1 < regAccess.second.second[i].coefficients.size(); ++z1)
+                                            for (auto &reads : regAccess.second.second[i].coefficients)
                                             {
-                                                const pair<int, int> currReadAcc = regAccess.second.second[i].coefficients[z1];
+                                                const pair<int, int> &currReadAcc = reads.first;
                                                 // main check for regular read
                                                 //printf("%d %d -- %d %d\n", currWriteAcc.first, alignRuleWrite.first, currReadAcc.first, alignRuleRead.first);
                                                 if (currWriteAcc.first * alignRuleWrite.first != currReadAcc.first * alignRuleRead.first)

@@ -268,9 +268,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             int minShift = 9999999;
                             int maxShift = -9999999;
 
-                            for (int z = 0; z < currReadOp->first[k].coefficients.size(); ++z)
+                            for (auto &coefs : currReadOp->first[k].coefficients)
                             {
-                                auto currAccess = currReadOp->first[k].coefficients[z];
+                                auto currAccess = coefs.first;
                                 auto result = DIST::Fx(currAccess, currRuleShadow);
 
                                 if (result.first == loopRule.first)
@@ -369,16 +369,27 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     //replace to template align ::on
     if (arrayRef->isTemplate() == false)
     {
-        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef = 
-            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);        
+        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
+            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
         findAndReplaceDimentions(ruleForRef, allArrays);
 
         on_ext.clear();
-        on_ext.resize(get<0>(ruleForRef[0])->GetDimSize());
+        for (int i = 0; i < ruleForRef.size(); ++i)
+        {
+            if (get<0>(ruleForRef[i]))
+            {
+                on_ext.resize(get<0>(ruleForRef[i])->GetDimSize());
+                break;
+            }
+        }
+        if (on_ext.size() == 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         std::fill(on_ext.begin(), on_ext.end(), make_pair("*", make_pair(0, 0)));
 
         for (int i = 0; i < ruleForRef.size(); ++i)
-            on_ext[get<1>(ruleForRef[i])] = on[i];        
+            if (get<0>(ruleForRef[i]))
+                on_ext[get<1>(ruleForRef[i])] = on[i];        
     }
 
     string ret = "";
@@ -426,6 +437,14 @@ void DataDirective::createDirstributionVariants(const vector<DIST::Array*> &arra
         std::vector<DistrVariant> currdist;
         vector<dist> currDist;
         genVariants(arraysToDist[i]->GetDimSize(), currDist, currdist);
+
+        //deprecate by dims
+        for (auto &variant : currdist)
+        {
+            for (int z = 0; z < arraysToDist[i]->GetDimSize(); ++z)
+                if (arraysToDist[i]->IsDimDepracated(z) || !arraysToDist[i]->IsDimMapped(z))
+                    variant.distRule[z] = dist::NONE;
+        }
         distrRules.push_back(make_pair(arraysToDist[i], currdist));
     }
 }
@@ -494,7 +513,10 @@ string AlignRuleBase::GenRuleBase() const
         alignEachDim[i] = "*";
 
     for (int i = 0; i < alignRuleWith.size(); ++i)
-        alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    {
+        if (alignRuleWith[i].first != -1)
+            alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    }
 
     for (int i = 0; i < alignWith->GetDimSize(); ++i)
     {

@@ -8,6 +8,7 @@
 #include "../Utils/errors.h"
 #include "../Utils/types.h"
 #include "../Distribution/DvmhDirective.h"
+#include "../GraphCall/graph_calls.h"
 
 struct DistrVariant;
 struct ParallelDirective;
@@ -49,6 +50,7 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        funcParent = NULL;
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
@@ -255,7 +257,9 @@ public:
     bool hasDifferentAlignRules;
 
     std::vector<LoopGraph*> children;
+    std::vector<LoopGraph*> funcChildren;
     LoopGraph *parent;
+    LoopGraph *funcParent;
 
     std::vector<std::pair<std::string, int>> calls;
     
@@ -283,7 +287,7 @@ bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunc
 
 void convertToString(const LoopGraph *currLoop, std::string &result);
 int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph, bool withRegs = false);
-void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages);
+void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
 
 void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);

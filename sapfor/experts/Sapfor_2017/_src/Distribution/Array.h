@@ -91,6 +91,9 @@ namespace Distribution
 
         SET<STRING> containsInRegions;
 
+        VECTOR<bool> mappedDims;
+        VECTOR<bool> depracateToDistribute;
+
         TemplateLink* getTemlateInfo(const int regionId)
         {
             auto it = templateInfo.find(regionId);
@@ -131,12 +134,16 @@ namespace Distribution
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
             sizesExpr.resize(dimSize);
+            mappedDims.resize(dimSize);
+            depracateToDistribute.resize(dimSize);
 
             for (int z = 0; z < dimSize; ++z)
             {
                 sizes[z] = std::make_pair((int)INT_MAX, (int)INT_MIN);
                 PAIR<int, int> initVal = std::make_pair(0, 0);
                 sizesExpr[z] = std::make_pair(std::make_pair((Expression*)NULL, initVal), std::make_pair((Expression*)NULL, initVal));
+                mappedDims[z] = false;
+                depracateToDistribute[z] = false;
             }
                         
             GenUniqKey();
@@ -168,6 +175,46 @@ namespace Distribution
             declSymbol = copy.declSymbol;
             uniqKey = copy.uniqKey;
             containsInRegions = copy.containsInRegions;
+            mappedDims = copy.mappedDims;
+            depracateToDistribute = copy.depracateToDistribute;
+        }
+
+        void RemoveUnpammedDims()
+        {
+            bool needToRemove = false;
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (!mappedDims[z] || depracateToDistribute[z])
+                {
+                    needToRemove = true;
+                    break;
+                }
+            }
+
+            if (needToRemove == false)
+                return;
+
+            VECTOR<PAIR<int, int>> newSizes;
+            VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> newSizesExpr;
+            VECTOR<bool> newMappedDims;
+            VECTOR<bool> newDepr;
+
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (mappedDims[z] && !depracateToDistribute[z])
+                {
+                    newSizes.push_back(sizes[z]);
+                    newSizesExpr.push_back(sizesExpr[z]);
+                    newMappedDims.push_back(mappedDims[z]);
+                    newDepr.push_back(depracateToDistribute[z]);
+                }
+            }
+
+            sizes = newSizes;
+            sizesExpr = newSizesExpr;
+            mappedDims = newMappedDims;
+            depracateToDistribute = newDepr;
+            dimSize = sizes.size();
         }
 
         int GetDimSize() const { return dimSize; }
@@ -378,6 +425,42 @@ namespace Distribution
         const SET<STRING>& GetRgionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
 
+        void SetMappedDim(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            mappedDims[dim] = true;
+        }
+
+        bool IsDimMapped(const int dim) const
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return mappedDims[dim];
+        }
+
+        void DeprecateDimension(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            depracateToDistribute[dim] = true;
+        }
+
+        void DeprecateAllDims()
+        {
+            for (int dim = 0; dim < dimSize; ++dim)
+                depracateToDistribute[dim] = true;
+        }
+
+        bool IsDimDepracated(const int dim) const
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return depracateToDistribute[dim];
+        }
+                
         ~Array() 
         {
             for (auto &templ : templateInfo)

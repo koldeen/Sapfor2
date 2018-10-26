@@ -45,13 +45,14 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   30 lowlevel notes from private analyzer
 //   31 "variable '%s' was declarated on line %d"
 //   32 "variable '%s' was declarated in common - block '%s'"
-//   33 "parallel region '%s' is included"
+//   33 "parallel region '%s' is included in file '%s'"
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"
 //   36 "Can not build align graph from user's DVM directives in this region"
 //   37 "Array can not be distributed because of DVM's I/O constraints"
 //   38 "An equivalence operator at line %d is not supported yet"
 //   39 "Variabled '%s' and '%s' in one storage association (common block '%s') have different types" 
+//   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

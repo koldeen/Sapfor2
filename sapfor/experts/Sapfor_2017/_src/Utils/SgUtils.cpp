@@ -56,6 +56,17 @@ static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<
     return retVal;
 }
 
+static bool ifDir(const string &line)
+{
+    if (line.size() >= 10 && (line[0] == '!' || line[0] == 'c'))
+    {
+        string dir(line.begin() + 1, line.begin() + 1 + 4);
+        if (dir == "$spf" || dir == "dvm$")
+            return true;
+    }
+    return false;
+}
+
 static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
@@ -121,7 +132,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
                 }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
-            else if (line[0] != 'c' && line[0] != '!' && line != "" && line[0] != '\n')
+            else if ((line[0] != 'c' && line[0] != '!' && line != "" && line[0] != '\n') || ifDir(line))
             {
                 if (notClosed)
                 {
@@ -140,7 +151,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 }
 
 //TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles, bool outFree)
 {
     fflush(NULL);
     int funcNum = file->numberOfFunctions();
@@ -155,7 +166,25 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
     // name -> unparse comment
     map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
-    
+    //add spaces if needed
+    if (!outFree)
+    {
+        for (auto &elem : includeFiles)
+        {
+            int countSpaces = 0;
+            for (int z = 0; z < elem.second.first.size() && elem.second.first[z] == ' '; ++z, ++countSpaces) { }
+
+            if (countSpaces < 6)
+            {
+                while (countSpaces != 6)
+                {
+                    elem.second.first.insert(elem.second.first.begin(), ' ');
+                    countSpaces++;
+                }
+            }
+        }
+    }
+
     const string fileN = file->filename();
     //insert comment
     int lineBefore = -1;
@@ -553,7 +582,7 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 }
 
 extern map<string, vector<Messages>> SPF_messages;
-SgStatement* declaratedInStmt(SgSymbol *toFind)
+SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
 {
     //need to call this function for MODULE symbols!
     toFind = OriginalSymbol(toFind);
@@ -608,6 +637,9 @@ SgStatement* declaratedInStmt(SgSymbol *toFind)
 
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
+
+    if (allDecls)
+        *allDecls = inDecl;
 
     //return statement by priority: VAR_DECL, VAR_DECL_90, ALLOCATABLE_STMT, DIM_STAT, other
     if (inDecl.size() > 1)
@@ -692,7 +724,7 @@ static string getCommonName(SgExpression *common)
         return string("spf_unnamed");
 }
 
-void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end)
+void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end, const string *nameToSkip)
 {
     while (start != end)
     {
@@ -705,6 +737,10 @@ void getCommonBlocksRef(map<string, vector<SgExpression*>> &commonBlocks, SgStat
             for (SgExpression *exp = start->expr(0); exp; exp = exp->rhs())
             {
                 const string commonName = getCommonName(exp);
+
+                if (nameToSkip && *nameToSkip == commonName)
+                    continue;
+
                 auto it = commonBlocks.find(commonName);
                 if (it == commonBlocks.end())
                     it = commonBlocks.insert(it, make_pair(commonName, vector<SgExpression*>()));
@@ -845,6 +881,7 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
     return outData;
 }
 
+template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
@@ -1320,6 +1357,18 @@ const vector<const Variable*> CommonBlock::getVariables(const string &file, cons
     return retVariables;
 }
 
+const vector<const Variable*> CommonBlock::getVariables(int position) const
+{
+    vector <const Variable*> retVariables;
+
+    auto it = groupedVars.find(position);
+    if (it != groupedVars.end())
+        for (auto &variable : it->second)
+            retVariables.push_back(&variable);
+
+    return retVariables;
+}
+
 static void findDeclType(SgExpression *ex, varType &type, const string &toFind)
 {
     if (ex && type == ANOTHER)
@@ -1359,19 +1408,28 @@ void CommonBlock::addVariables(SgFile *file, SgStatement *function, const vector
     for (auto &varPair : newVariables)
     {        
         SgStatement *declStatement = declaratedInStmt(varPair.first);
-
         varType type = ANOTHER;
+
         for (int i = 0; i < 3; ++i)
         {
             findDeclType(declStatement->expr(i), type, varPair.first->identifier());
             if (type != ANOTHER)
                 break;
         }
+
         Variable *exist = hasVariable(varPair.first, type, varPair.second);
         if (exist)
             exist->addUse(file, function, varPair.first);
         else
-            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));        
+        {
+            variables.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));
+
+            auto it = groupedVars.find(varPair.second);
+            if (it == groupedVars.end())
+                it = groupedVars.insert(it, make_pair(varPair.second, vector<Variable>()));
+
+            it->second.push_back(Variable(file, function, varPair.first, string(varPair.first->identifier()), type, varPair.second));
+        }
     }
 }
 
@@ -1494,4 +1552,22 @@ void groupDeclarations(SgFile *file)
     }
 }
 
+bool ifSymbolExists(SgFile *file, const string &symbName)
+{
+    if (SgFile::switchToFile(file->filename()) != -1)
+    {
+        SgSymbol *symb = file->firstSymbol();
 
+        while (symb)
+        {
+            if (symb->identifier() == symbName)
+                return true;
+
+            symb = symb->next();
+        }
+    }
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return false;
+}

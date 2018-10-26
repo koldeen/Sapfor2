@@ -702,7 +702,7 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
 
-    copy->setExpression(1, *(assign->expr(1)->lhs()->lhs()));
+    copy->setExpression(1, assign->expr(1)->lhs()->lhs()->copy());
     const int Subs = rightPart->numberOfSubscripts();
 
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> Bound;
@@ -1000,17 +1000,28 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     for (int i = 1; i < conv.size(); ++i)
                         st->insertStmtBefore(*(conv[i]), *(conv[i - 1]));
 
-                    toMove.push_back(make_pair(st, conv[0]));
+                    //TODO: need to check
+                    if (conv.size() == 1)
+                        toMove.push_back(make_pair(st, conv[0]));
+
                     for (int i = 0; i < conv.size(); ++i)
                     {
-                        SgStatement *end = conv[i]->lastNodeOfStmt();
-                        for (SgStatement *st1 = conv[i]; st1 != end; st1 = st1->lexNext())
+                        if (conv[i]->variant() != ASSIGN_STAT)
                         {
-                            st1->setlineNumber(getNextNegativeLineNumber());
-                            st1->setLocalLineNumber(st->lineNumber());
+                            SgStatement *end = conv[i]->lastNodeOfStmt();
+                            for (SgStatement *st1 = conv[i]; st1 != end; st1 = st1->lexNext())
+                            {
+                                st1->setlineNumber(getNextNegativeLineNumber());
+                                st1->setLocalLineNumber(st->lineNumber());
+                            }
+                            end->setlineNumber(getNextNegativeLineNumber());
+                            end->setLocalLineNumber(st->lineNumber());
                         }
-                        end->setlineNumber(getNextNegativeLineNumber());
-                        end->setLocalLineNumber(st->lineNumber());
+                        else
+                        {
+                            conv[i]->setlineNumber(getNextNegativeLineNumber());
+                            conv[i]->setLocalLineNumber(st->lineNumber());
+                        }
                     }
                 }
             }

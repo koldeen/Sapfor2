@@ -162,13 +162,21 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
         findShadowAndRemote(spec, shadow, remote, beforeSh);
 
         if (shadow)
-        {
+        {            
+            set<string> remotesNames;
+
             SgExpression *newRemote = NULL;
             SgExpression *pRem = NULL;
             if (!remote)
                 pRem = newRemote = new SgExpression(REMOTE_ACCESS_OP);
             else
+            {
+                map<pair<string, string>, Expression*> remotes;
+                fillRemoteFromComment(stat, remotes, false, DVM_PARALLEL_ON_DIR);
+                for (auto &elem : remotes)
+                    remotesNames.insert(elem.first.first);
                 pRem = remote;
+            }
             
             bool remoteWasAdded = false;
             auto currShadowP = shadow;
@@ -226,9 +234,15 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                         SgExpression *toAdd = new SgExpression(EXPR_LIST);
                         toAdd->setLhs(elem);
                         toAdd->setRhs(pRem->lhs());
-                        pRem->setLhs(toAdd);
-                        remoteWasAdded = true;
 
+                        auto it = remotesNames.find(OriginalSymbol(elem->symbol())->identifier());
+                        if (it == remotesNames.end())
+                        {
+                            remotesNames.insert(it, OriginalSymbol(elem->symbol())->identifier());
+                            pRem->setLhs(toAdd);
+                        }                     
+
+                        remoteWasAdded = true;
                         convertShadowToDDOTRemote(elem->lhs());
                         
                         if (currShadowP == shadow)
