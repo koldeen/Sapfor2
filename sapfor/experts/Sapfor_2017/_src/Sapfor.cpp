@@ -25,6 +25,8 @@
 #include "Distribution/Arrays.h"
 #include "Distribution/DvmhDirective.h"
 
+#include "CreateInterTree/CreateInterTree.h"
+
 #include "Utils/errors.h"
 #include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
@@ -32,6 +34,7 @@
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
+#include "DynamicAnalysis/gCov_parser_func.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -45,6 +48,7 @@
 #include "Predictor/PredictScheme.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+
 //#include "DEAR/dep_analyzer.h"
 
 #if RELEASE_CANDIDATE
@@ -526,6 +530,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (!noError)
                 internalExit = 1;
         }
+        else if (curr_regime == CHECK_PAR_REG_DIR)
+        {
+            bool noError = check_par_reg_dirs(file, getObjectForFileFromMap(file_name, SPF_messages));
+            if (!noError)
+                internalExit = 1;
+        }
         else if (curr_regime == PREPROC_ALLOCATES)
             preprocess_allocates(file);
         else if (curr_regime == CORRECT_VAR_DECL)
@@ -697,6 +707,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
+        else if (curr_regime == GCOV_PARSER)
+            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
@@ -709,7 +721,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (founded != loopGraph.end())
                 splitLoops(file, loopGraph.find(file->filename())->second);
         }
-        
+        else if (curr_regime == CREATE_INTER_TREE)
+        {
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals));
+            assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
+        }
+        else if (curr_regime == INSERT_INTER_TREE)
+            insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
 
     } // end of FOR by files
@@ -843,6 +862,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (parallelRegions[z]->GetAllArrays().GetArrays().size() == 0)
             {
                 __spf_print(1, "  CAN NOT FIND ARRAYS FOR DISTRIBUTION for parallel region '%s'\n", parallelRegions[z]->GetName().c_str());
+
+                if (parallelRegions[z]->GetId() == 0) // DEFAULT
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this project");
+
+                    for (auto &funcByFile : allFuncInfo)
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
+                        for (auto &func : funcByFile.second)
+                        {
+                            auto stat = func->funcPointer->GetOriginal();
+                            if (stat->variant() == PROG_HEDR)
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), buf, 3010));
+                        }
+                    }
+                }
+                else
+                {
+                    char buf[256];
+                    sprintf(buf, "  Can not find arrays or free loops for distribution in this region");
+
+                    for (auto &linesByFile : parallelRegions[z]->GetAllLines())
+                    {
+                        vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
+                        for (auto &lines : linesByFile.second)
+                            if (!lines.isImplicit())
+                                fileM.push_back(Messages(ERROR, lines.lines.first, buf, 3010));
+                    }
+                }
                 idxToDel.insert(z);
             }
         }
@@ -852,19 +901,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             if (idxToDel.find(z) != idxToDel.end())
             {
-                ParallelRegion *regToDel = parallelRegions[z];
-                const map<string, vector<ParallelRegionLines>> &currLines = regToDel->GetAllLines();
-                for (auto it = currLines.begin(); it != currLines.end(); ++it)
-                {
-                    vector<Messages> &currMessages = getObjectForFileFromMap(it->first.c_str(), SPF_messages);
-                    char buf[256];
-                    sprintf(buf, "Can not find arrays / loops for distribution in parallel region '%s', ignored", regToDel->GetName().c_str());
-                    for (int k = 0; k < it->second.size(); ++k)
-                    {
-                        currMessages.push_back(Messages(ERROR, it->second[k].lines.first, buf, 3010));
-                        __spf_print(1, "  Can not find arrays for distribution in parallel region '%s' on line %d, ignored\n", regToDel->GetName().c_str(), it->second[k].lines.first);
-                    }
-                }
+                ParallelRegion *regToDel = parallelRegions[z];                
 #ifdef _WIN32
                 removeFromCollection(parallelRegions[z]);
 #endif
@@ -1318,9 +1355,9 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
     int failed = 0;
     if (keepFiles)
-        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
     else
-        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors);
+        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
 
     if (failed > 0 && needToAddErrors)
         throw -5;
@@ -1445,6 +1482,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
     case PRIVATE_ARRAYS_BREEDING:
+    case INSERT_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:

@@ -11,6 +11,7 @@
 #include "GraphCall/graph_calls.h"
 #include "GraphLoop/graph_loops.h"
 #include "Utils/AstWrapper.h"
+#include "DynamicAnalysis/gcov_info.h"
 #include "Sapfor.h"
 #include "Utils/errors.h"
 
@@ -96,6 +97,13 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 
 //for predictior statistic 
 std::map<std::string, PredictorStats> allPredictorStats;
+
+//for DVM INTERVALS
+std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
+//
+
+//for GCOV_PARSER
+std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
 //
 
 const char *passNames[EMPTY_PASS + 1];

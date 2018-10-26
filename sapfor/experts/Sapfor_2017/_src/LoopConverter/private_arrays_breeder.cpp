@@ -26,13 +26,14 @@ static char* constructNewArrayName(const char* oldName)
 
 static SgSymbol* createNewArrayNameSymbol(SgExpression* declaration)
 {
-    SgSymbol* newName = new SgSymbol(VARIABLE_NAME, constructNewArrayName(declaration->symbol()->identifier()));
-    declaration->setSymbol(newName);
+    SgType *type = new SgType(T_ARRAY);
+    SgSymbol* newName = new SgSymbol(VARIABLE_NAME, constructNewArrayName(declaration->symbol()->identifier()), type, NULL);
     return newName;
 }
 
-static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *expressionToExtend)
+static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *&expressionToExtend, SgSymbol* newArraySymbol)
 {
+    expressionToExtend->setSymbol(newArraySymbol);
     SgExpression *newTail = NULL;
     for (int i = dimensions.size() - 1; i >= 0; --i)
     {
@@ -41,15 +42,24 @@ static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *
     }
 
     SgExpression *oldTail = expressionToExtend->lhs();
-    while(oldTail->rhs() != NULL) {
-        oldTail->setLhs(new SgExpression(DDOT));
-        oldTail = oldTail->rhs();
+    if (oldTail == NULL) // create array from scalar
+    {
+        expressionToExtend = new SgArrayRefExp(*newArraySymbol);
+        expressionToExtend->setLhs(newTail);
     }
-    oldTail->setLhs(new SgExpression(DDOT));
-    oldTail->setRhs(newTail);
+    else
+    {
+        while (oldTail->rhs() != NULL)
+        {
+            oldTail->setLhs(new SgExpression(DDOT));
+            oldTail = oldTail->rhs();
+        }
+        oldTail->setLhs(new SgExpression(DDOT));
+        oldTail->setRhs(newTail);
+    }
 }
 
-static void extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend)
+static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend, SgSymbol* newSymbol)
 {
     SgExpression *newTail = NULL;
     for (int i = indexes.size() - 1; i >= 0; --i)
@@ -59,9 +69,20 @@ static void extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expre
     }
 
     SgExpression *oldTail = expressionToExtend->lhs();
-    while (oldTail->rhs() != NULL)
-        oldTail = oldTail->rhs();
-    oldTail->setRhs(newTail);
+    if(oldTail == NULL) // create array from scalar
+    {
+        expressionToExtend = new SgArrayRefExp(*newSymbol); //TODO delete old SgExpression maybe?
+        expressionToExtend->setLhs(newTail);
+    }
+    else
+    {
+        while (oldTail->rhs() != NULL)
+            oldTail = oldTail->rhs();
+        oldTail->setRhs(newTail);
+        expressionToExtend->setSymbol(newSymbol);
+    }
+
+    return expressionToExtend;
 }
 
 static void setAllocatable(SgStatement *newDecl)
@@ -86,14 +107,15 @@ static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymb
     for(SgExpression *exprList = declarationStatement->expr(0); exprList != NULL; exprList = exprList->rhs())
     {
         SgExpression *array = exprList->lhs();
-        if(array && array->variant() == ARRAY_REF && !strcmp(array->symbol()->identifier(), arraySymbol->identifier()))
+        if(!strcmp(array->symbol()->identifier(), arraySymbol->identifier()))
         {//нашли объявление исходного массива
             SgExpression *newArray = array->copyPtr();
-            extendArrayDeclaration(dimensions, newArray);
+            SgSymbol *newArraySymbol = createNewArrayNameSymbol(newArray);
+            extendArrayDeclaration(dimensions, newArray, newArraySymbol);
 
             SgExpression newExprList(EXPR_LIST, newArray, (SgExpression*)NULL, (SgSymbol*)NULL);
             declarationStatement->setExpression(0,newExprList);
-            return createNewArrayNameSymbol(newArray);
+            return newArraySymbol;
         }
     }
     //На самом деле, это недостижимый код
@@ -105,24 +127,49 @@ static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, S
 
     for(int i=0;i<3;++i)
         if(st->expr(i))
-            toCheck.push(st->expr(i));
+        {
+            if(st->expr(i)->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
+                extendArrayRef(indexes, st->expr(i), newArraySymbol);
+            else if(st->expr(i)->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
+            {
+                SgExpression *extended = extendArrayRef(indexes, st->expr(i), newArraySymbol);
+                st->setExpression(i, *extended);
+            }
+            else
+                toCheck.push(st->expr(i));
+        }
 
     while(!toCheck.empty())
     {
-        SgExpression *curExp = toCheck.front();
+        SgExpression *parent = toCheck.front();
         toCheck.pop();
 
-        if(curExp->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), curExp->symbol()->identifier()))
+        SgExpression *lhs = parent->lhs(), *rhs = parent->rhs();
+        if(lhs)
         {
-            extendArrayRef(indexes, curExp);
-            curExp->setSymbol(newArraySymbol);
+            if(lhs->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), lhs->symbol()->identifier()))
+                extendArrayRef(indexes, lhs, newArraySymbol);
+            else if(lhs->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), lhs->symbol()->identifier()))
+            {
+                SgExpression *extended = extendArrayRef(indexes, lhs, newArraySymbol);
+                parent->setLhs(extended);
+            }
+            else
+                toCheck.push(lhs);
+
         }
-        else
+
+        if(rhs)
         {
-            if(curExp->lhs())
-                toCheck.push(curExp->lhs());
-            if(curExp->rhs())
-                toCheck.push(curExp->rhs());
+            if (rhs->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), rhs->symbol()->identifier()))
+                extendArrayRef(indexes, rhs, newArraySymbol);
+            else if (rhs->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), rhs->symbol()->identifier()))
+            {
+                SgExpression *extended = extendArrayRef(indexes, rhs, newArraySymbol);
+                parent->setRhs(extended);
+            }
+            else
+                toCheck.push(rhs);
         }
     }
 }
@@ -195,7 +242,13 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
         if(oldTail)
             attachTo = oldTail;
     }
-     attachTo->setRhs(newTail);
+    if(arrayRef->variant() == VAR_REF)// create array from scalar
+    {
+        arrayRef = new SgArrayRefExp(*arrayRef->symbol());
+        arrayRef->setLhs(newTail);
+    }
+    else
+        attachTo->setRhs(newTail);
 
     return new SgExpression(EXPR_LIST, arrayRef, (SgExpression*)NULL, (SgSymbol*)NULL);
 }
@@ -253,7 +306,7 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
 }
 
 //for testing
-static SgSymbol *findArray(LoopGraph*  forLoop, const char* arrayName)
+static SgSymbol *findSymbol(LoopGraph*  forLoop, const char* arrayName)
 {
     SgForStmt *loopStmt = (SgForStmt*)forLoop->loop->GetOriginal();
     if(loopStmt)
@@ -271,7 +324,7 @@ static SgSymbol *findArray(LoopGraph*  forLoop, const char* arrayName)
                 SgExpression *curExp = toCheck.front();
                 toCheck.pop();
 
-                if(curExp->variant() == ARRAY_REF && !strcmp(arrayName, curExp->symbol()->identifier()))
+                if((curExp->variant() == ARRAY_REF || curExp->variant() == VAR_REF) && !strcmp(arrayName, curExp->symbol()->identifier()))
                     return curExp->symbol();
                 else
                 {
@@ -292,17 +345,22 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
     if(string(file->filename()) == "z_solve_inlined.f")
         for(auto& loopGraph : loopGraphs)
         {
-            SgSymbol *array = findArray(loopGraph, "njac");
+            SgSymbol* array = findSymbol(loopGraph, "njac");
             if(array)
                 breedArray(loopGraph, array, -1);
 
-            array = findArray(loopGraph, "fjac");
+            array = findSymbol(loopGraph, "fjac");
             if (array)
                 breedArray(loopGraph, array, -1);
 
-            array = findArray(loopGraph, "lhs");
+            array = findSymbol(loopGraph, "lhs");
             if (array)
                 breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "coeff");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
 
         }
 }

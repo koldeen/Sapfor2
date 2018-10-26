@@ -149,8 +149,6 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
@@ -249,6 +247,7 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
+    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp" />
     <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp" />
@@ -285,6 +284,8 @@
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp" />
+    <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
@@ -302,6 +303,7 @@
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
+    <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
@@ -353,6 +355,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
+    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\coll_list_element.h" />
@@ -441,6 +444,8 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
+    <ClInclude Include="..\_src\DynamicAnalysis\gcov_info.h" />
+    <ClInclude Include="..\_src\DynamicAnalysis\gCov_parser_func.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />
@@ -452,6 +457,7 @@
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
+    <ClInclude Include="..\_src\LoopConverter\loops_splitter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />

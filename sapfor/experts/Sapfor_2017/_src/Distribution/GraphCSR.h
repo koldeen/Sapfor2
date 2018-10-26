@@ -39,7 +39,7 @@ namespace Distribution
         std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
         std::vector<std::pair<int, int>> treesQuality;
-
+        
         int activeCounter;
         vType findFrom;
         bool hardLinksWasUp;
@@ -169,7 +169,9 @@ namespace Distribution
         int getCountOfMiss() const { return countMissToAdd; }
 
         std::vector<attrType> GetAllAttributes(const int vert) const;
-        int CountOfConnected(const int startV) const;
+        int CountOfConnected(const vType startV) const;
+        std::vector<std::tuple<vType, vType, attrType>> CreateMaximumSpanningTree();
+        std::vector<unsigned char> MakeConnected(const vType startV, int &count) const;
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);

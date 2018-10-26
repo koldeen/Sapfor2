@@ -300,6 +300,10 @@ namespace Distribution
         double globalSum = 0;
         bool allOnlySecondType = true;
 
+        toDelArcs = G.CreateMaximumSpanningTree();
+        return make_pair(allOnlySecondType, globalSum);
+
+        // OLD ALGORITHM, THIS IS unreachable code !!
         vector<vector<Cycle<vType, wType, attrType>>> AllCycles;
 
         G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
@@ -388,11 +392,11 @@ namespace Distribution
                 CountConflictVarints(countVars, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
                 printf("SAPFOR: count of vars %lld\n", countVars);*/
 
-                /*if (onlySecondConflictType)
+                if (onlySecondConflictType)
                     FindBestSequenceForDelArcs
                         <vType, wType, attrType, checkGraph>
                             (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
-                else*/
+                else
                     FindBestSequenceForDelArcs
                         <vType, wType, attrType, checkGraphTrue>
                             (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
@@ -541,7 +545,7 @@ namespace Distribution
 
             vector<Array*> arraysV;
             arraysV.assign(arrays.begin(), arrays.end());
-            
+
             for (int z = 0; z < arraysV.size(); ++z)
             {
                 const DIST::Array *array = arraysV[z];

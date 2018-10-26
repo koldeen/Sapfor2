@@ -103,13 +103,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         if (result.first != distArray)
             templ->ExtendDimSize(i, result.first->GetSizes()[result.second]);
 
-        if (templ->IsDimMapped(i) || templ->isLoopArray())
-            AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(i, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);        
+        if ((templ->IsDimMapped(i) || templ->isLoopArray()) && !templ->IsDimDepracated(i))
+            AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(i, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
         else
-        {
-            pair<int, int> tmpSize(1, 1);
-            templ->ExtendDimSize(i, tmpSize);
-        }
+            templ->ExtendDimSize(i, make_pair(1, 1));
     }
 
     return templ;
@@ -324,7 +321,7 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
             int k = 0;
             for (int i = 0; i < rules.size(); ++i)
             {
-                if (get<0>(rules[i]) == NULL)
+                if (get<0>(rules[i]) == NULL || alignArray->IsDimDepracated(i))
                 {
                     rules[i] = make_tuple(alignWith, allInAlign[k], make_pair(0, 0));
                     k++;
