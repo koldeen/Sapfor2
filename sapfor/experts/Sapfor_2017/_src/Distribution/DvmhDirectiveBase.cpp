@@ -442,7 +442,7 @@ void DataDirective::createDirstributionVariants(const vector<DIST::Array*> &arra
         for (auto &variant : currdist)
         {
             for (int z = 0; z < arraysToDist[i]->GetDimSize(); ++z)
-                if (arraysToDist[i]->IsDimDepracated(z))
+                if (arraysToDist[i]->IsDimDepracated(z) || !arraysToDist[i]->IsDimMapped(z))
                     variant.distRule[z] = dist::NONE;
         }
         distrRules.push_back(make_pair(arraysToDist[i], currdist));
@@ -513,7 +513,10 @@ string AlignRuleBase::GenRuleBase() const
         alignEachDim[i] = "*";
 
     for (int i = 0; i < alignRuleWith.size(); ++i)
-        alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    {
+        if (alignRuleWith[i].first != -1)
+            alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    }
 
     for (int i = 0; i < alignWith->GetDimSize(); ++i)
     {

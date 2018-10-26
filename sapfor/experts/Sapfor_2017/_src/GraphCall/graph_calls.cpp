@@ -1272,7 +1272,6 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         sprintf(buf, "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", inFunction->GetDimSize(), symb->identifier(), func->funcName.c_str());
 
                                     messages.push_back(Messages(NOTE, statLine, buf, 1040));
-                                    __spf_print(1, "%s\n", buf);
                                 }
                             }
                         }

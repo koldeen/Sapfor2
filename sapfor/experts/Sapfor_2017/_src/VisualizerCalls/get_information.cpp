@@ -338,8 +338,8 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
         graph += to_string(E.size()) + "|";
         for (auto &e : E)
             graph += e + "|";
-        if (E.size() != 0)
-            graph.erase(graph.end() - 1);
+        //erase last "|"
+        graph.erase(graph.end() - 1);
 
         copyStringToShort(result, graph, false);
         retSize = (int)graph.size();

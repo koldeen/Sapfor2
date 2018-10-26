@@ -491,12 +491,24 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     else if (side == RIGHT)
     {
         SgSymbol *currOrigArrayS = OriginalSymbol(arrayRef->symbol());
-        
-        if (ifUnknownFound && (currRegime == REMOTE_ACC)) // TODO: check array's alignment
+
+        if (currRegime == REMOTE_ACC)
+        {
+            // TODO: check array's alignment
+            if (sumMatched != parentLoops.size() && sumMatched == numOfSubs)
+            {
+                DIST::Array *currArray = getArrayFromDeclarated(declaratedInStmt(currOrigArrayS), currOrigArrayS->identifier());
+                if (currArray)                    
+                    for (int z = 0; z < wasFound.size(); ++z)
+                        wasFound[z] = 1;                
+            }
+        }
+
+        if (ifUnknownFound && (currRegime == REMOTE_ACC))
         {
             if (sumMatched != numOfSubs || 
                 maxMatched != 1 || 
-                sumMatched != parentLoops.size() // && sumMatched != numOfSubs)
+                sumMatched != parentLoops.size() // && sumMatched != numOfSubs
                 )
             {
                 int local = 0;
@@ -515,10 +527,6 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                 }
                 for (int i = 0; i < wasFound.size(); ++i)
                 {
-                    local += wasFound[i];
-                    if (local == sumMatched)
-                        break;
-
                     if (wasFound[i] != 1)
                     {
                         for (int k = 0; k < numOfSubs; ++k)
@@ -540,6 +548,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                          bool wasDistributedArrayRef, map<string, pair<SgSymbol*, SgStatement*>> &notMappedDistributedArrays,
                          set<string> &mappedDistrbutedArrays, SgStatement *currentSt)
 {
+    int nextSide = side;
     if (currExp->variant() == ARRAY_REF)
     {
         //... and current array is not in private list
@@ -651,18 +660,35 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                 }
             }
         }
+        nextSide = (side == LEFT) ? RIGHT : side;
     }
-    /*else if (currExp->variant() == FUNC_CALL)
+
+    bool needToContinue = true;
+    if (currExp->variant() == FUNC_CALL)
     {
         SgFunctionCallExp *funcExp = (SgFunctionCallExp*)currExp;
-        if (isUserFunctionInProject(funcExp->funName()->identifier()))
-            findArrayRefInParameters(funcExp->args(), privatesVars, funcExp->funName()->identifier(), lineNum);
-    }*/
-
-    if (currExp->lhs())
-        findArrayRef(parentLoops, currExp->lhs(), lineNum, (side == LEFT) ? RIGHT : side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
-    if (currExp->rhs())
-        findArrayRef(parentLoops, currExp->rhs(), lineNum, (side == LEFT) ? RIGHT : side, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+        auto currFunc = isUserFunctionInProject(funcExp->funName()->identifier());
+        if (currFunc)
+        {
+            for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+            {
+                if ((currFunc->funcParams.inout_types[z] & OUT_BIT) != 0)
+                    nextSide = LEFT;
+                else
+                    nextSide = RIGHT;
+                findArrayRef(parentLoops, funcExp->arg(z), lineNum, nextSide, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+            }
+            needToContinue = false;
+        }
+    }
+    
+    if (needToContinue)
+    {
+        if (currExp->lhs())
+            findArrayRef(parentLoops, currExp->lhs(), lineNum, nextSide, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+        if (currExp->rhs())
+            findArrayRef(parentLoops, currExp->rhs(), lineNum, nextSide, loopInfo, currLine, privatesVars, sortedLoopGraph, commonBlocks, declaratedArrays, wasDistributedArrayRef, notMappedDistributedArrays, mappedDistrbutedArrays, currentSt);
+    }
 }
 
 #define FIRST(x)  get<0>(x)

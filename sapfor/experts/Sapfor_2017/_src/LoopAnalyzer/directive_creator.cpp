@@ -1395,7 +1395,8 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
 //TODO: calculate not only consts
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
-                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
 {
     bool resolved = false;
 
@@ -1464,6 +1465,48 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         for (int idx = 0; idx < elem.second.size(); ++idx)
             if (elem.second[idx] && (!values[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
                 return false;
+    }
+
+    //check multiplied Arrays to BLOCK distr of template
+    for (auto &elem : dimsNotMatch)
+    {
+        const DIST::Array *templ = elem.first->GetTemplateArray(regId);
+        if (!templ)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (elem.first->GetDimSize() != templ->GetDimSize())
+        {
+            const DistrVariant *var = NULL;
+            for (auto &distRule : distribution)
+            {
+                if (distRule.first == templ)
+                {
+                    var = distRule.second;
+                    break;
+                }
+            }
+
+            if (!var)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            auto &alignLinks = elem.first->GetLinksWithTemplate(regId);
+            const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
+            for (int z = 0; z < templ->GetDimSize(); ++z)
+            {
+                if (alingLinksSet.find(z) == alingLinksSet.end())
+                {
+                    if (var->distRule[z] == BLOCK)
+                    {
+                        //check all accesses to write
+                        for (auto &left : values)
+                            for (auto &toCheck : left.second)
+                                if (toCheck.first)
+                                    return false;
+                        return true;
+                    }
+                }
+            }
+        }
     }
 
     vector<pair<bool, int>> updateOn(parDirective->on.size());
@@ -1583,7 +1626,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls))
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
                             needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                     }
                 }
