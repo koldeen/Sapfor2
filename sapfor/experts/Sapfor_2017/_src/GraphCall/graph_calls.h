@@ -140,6 +140,12 @@ struct FuncInfo
     }
 
     void setIsCoveredByRegion(int val) { }
+    std::string getRegionFuncName(int regionId)
+    {
+        if (regionId && callRegions.find(regionId) != callRegions.end())
+            return funcName + "_r" + std::to_string(regionId);
+        return funcName;
+    }
 };
 
 struct CallV

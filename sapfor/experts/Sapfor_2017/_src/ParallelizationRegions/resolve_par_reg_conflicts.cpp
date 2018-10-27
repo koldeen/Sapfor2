@@ -48,6 +48,21 @@ static void funcPrint(const FuncInfo *func)
     statPrint(func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
 }
 
+static void allFuncPrint(const map<string, FuncInfo*> &funcMap)
+{
+    for (auto &nameFunc : funcMap)
+    {
+        auto func = nameFunc.second;
+        if (func->inRegion)
+        {
+            __spf_print(1, "  func '%s' in regions:", nameFunc.first.c_str());
+            for (auto &i : func->callRegions)
+                __spf_print(1, " %d", i);
+            __spf_print(1, "\n");
+        }
+    }
+}
+
 static void symbPrint(SgFile *file)
 {
     __spf_print(1, "symbols in file %s:\n", file->filename());
@@ -1193,7 +1208,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
 
-        // replace common arrays and insert array copying
+        // insert array copying in explicit lines (and replace common arrays in this lines)
         for (auto &funcArrays : region->GetUsedCommonArrays())
         {
             for (auto &arrayLines : funcArrays.second)
@@ -1360,7 +1375,7 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
     }
 
     outText += "*** SUMMARY\n";
-    outText += "  ALL GLOBAL ARRAYS:";
+    outText += "  ALL COMMON ARRAYS:";
 
     for (auto &commonArrayCommonBlock : allUsedCommonArrays)
         outText += " " + commonArrayCommonBlock.first->GetShortName();
