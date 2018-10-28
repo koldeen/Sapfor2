@@ -202,6 +202,15 @@ static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callF
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
+static ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, int regionId)
+{
+    for (auto &region : regions)
+        if (region->GetId() == regionId)
+            return region;
+
+    return NULL;
+}
+
 static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
 {
     auto it = funcMap.find(funcName);
@@ -355,17 +364,11 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
     
     for (auto &region : regions)
     {
-        auto funcSymbols = region->GetFuncSymbols();
-
         for (auto &fileLines : region->GetAllLines())
         {
             // switch to current file
             if (SgFile::switchToFile(fileLines.first) != -1)
             {
-                auto it = funcSymbols.find(fileLines.first);
-                if (it == funcSymbols.end())
-                    region->AddFileForFuncSymbols(fileLines.first);
-
                 for (auto &regionLines : fileLines.second)
                 {
                     SgStatement *iterator = NULL;
@@ -517,15 +520,15 @@ static void recursiveReplace(SgStatement *st, SgExpression *exp, const string &f
     }
 }
 
-static void replaceSymbol(const string &fileName, const ParallelRegionLines &regionLines, const string &origSymbName, SgSymbol *newSymb)
+static void replaceSymbol(const string &fileName, const ParallelRegionLines &lines, const string &origSymbName, SgSymbol *newSymb)
 {
     if (SgFile::switchToFile(fileName) != -1)
     {
         // explicit lines
-        if (!regionLines.isImplicit())
+        if (!lines.isImplicit())
         {
-            SgStatement *iterator = regionLines.stats.first->GetOriginal();
-            SgStatement *end = regionLines.stats.second->GetOriginal()->lexNext();
+            SgStatement *iterator = lines.stats.first->GetOriginal();
+            SgStatement *end = lines.stats.second->GetOriginal()->lexNext();
 
             for (; iterator != end; iterator = iterator->lexNext())
             {
@@ -554,6 +557,52 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &reg
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+}
+
+static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const map<string, FuncInfo*> &funcMap, int regionId)
+{
+    if (exp)
+    {
+        if (exp->variant() == FUNC_CALL)
+        {
+            string funcName = exp->symbol()->identifier();
+            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string newFuncName = func->getFuncNameByRegion(regionId);
+            SgSymbol *newSymb = new SgSymbol(*exp->symbol());
+            newSymb->changeName(newFuncName.c_str());
+            exp->setSymbol(*newSymb);
+
+            //__spf_print(1, "replace func call '%s' to '%s' in file '%s' on line %d\n",
+            //                funcName.c_str(), newFuncName.c_str(), st->fileName(), st->lineNumber()); // DEBUG
+        }
+
+        recReplaceFuncCalls(st, exp->rhs(), funcMap, regionId);
+        recReplaceFuncCalls(st, exp->lhs(), funcMap, regionId);
+    }
+}
+
+static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, int regionId = 0)
+{
+    for (auto st = lines.stats.first->GetOriginal();
+         st != lines.stats.second->GetOriginal()->lexNext();
+         st = st->lexNext())
+    {
+        if (st->variant() == PROC_STAT)
+        {
+            string funcName = st->symbol()->identifier();
+            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string newFuncName = func->getFuncNameByRegion(regionId);
+            SgSymbol *newSymb = new SgSymbol(st->symbol()->variant());
+            newSymb->changeName(newFuncName.c_str());
+            st->setSymbol(*newSymb);
+
+            //__spf_print(1, "replace func call '%s' to '%s' in file '%s' on line %d\n",
+            //            funcName.c_str(), newFuncName.c_str(), st->fileName(), st->lineNumber()); // DEBUG
+        }
+
+        for (int i = 0; i < 3; ++i)
+            recReplaceFuncCalls(st, st->expr(i), funcMap, regionId);
+    }
 }
 
 static map<string, map<DIST::Array*, SgStatement*>> createdCommonBlocks; // file -> array -> new common statement
@@ -963,7 +1012,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
 static void copyFunction(ParallelRegion *region,
                          FuncInfo *func,
-                         map<string, vector<ParallelRegionLines>> &linesToEdit,
+                         const map<string, FuncInfo*> &funcMap,
                          const string &suffix = "")
 {
     if (SgFile::switchToFile(func->fileName) != -1)
@@ -979,34 +1028,11 @@ static void copyFunction(ParallelRegion *region,
         newFuncSymb->changeName(newFuncName.c_str());
         file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
 
-        // create copy function symbol in other region files
-        for (auto &fileSymbs : region->GetFuncSymbols())
-        {
-            if (fileSymbs.first != file->filename())
-            {
-                if (SgFile::switchToFile(fileSymbs.first) != -1)
-                {
-                    for (auto symb = current_file->firstSymbol(); symb; symb = symb->next())
-                    {
-                        if ((symb->variant() == PROCEDURE_NAME || symb->variant() == FUNCTION_NAME) && symb->identifier() == func->funcName)
-                        {
-                            newFuncSymb = new SgSymbol(symb->variant(), newFuncName.c_str());
-                            region->AddFuncSymbols(fileSymbs.first, symb, newFuncSymb);
-                        }
-                    }
-                }
-                else
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            }
-        }
-
         if (SgFile::switchToFile(func->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        /*
-        __spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
-                    newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // DEBUG
-        */
+        //__spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
+        //            newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // DEBUG
 
         // set line numbers
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
@@ -1017,29 +1043,13 @@ static void copyFunction(ParallelRegion *region,
             //copyStat->setFileName(origStat->fileName());
         }
 
-        // add copy function lines to explicit lines for next changes
+        // replace all func calls in copy function
         Statement *begin = new Statement(file->firstStatement()->lexNext());
         Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
         pair<Statement*, Statement*> beginEnd = make_pair(begin, end);
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
-
-        auto it = linesToEdit.find(func->fileName);
-        if (it == linesToEdit.end())
-            it = linesToEdit.insert(it, make_pair(func->fileName, vector<ParallelRegionLines>()));
-        it->second.push_back(ParallelRegionLines(newLines, beginEnd));
-
-        /*
-        __spf_print(1, "    lines %d-%d added with statement ids %d,%d\n",
-                    newLines.first, newLines.second,
-                    beginEnd.first->id(), beginEnd.second->id()); // DEBUG
-        */
-
-        region->AddFuncSymbols(func->fileName, funcSymb, newFuncSymb);
-
-        /*
-        __spf_print(1, "    add replaced symbols (%s, %s) for file %s\n",
-                    funcSymb->identifier(), newFuncSymb->identifier(), func->fileName.c_str()); // DEBUG
-        */
+        ParallelRegionLines newFuncLines(newLines, beginEnd);
+        replaceFuncCalls(newFuncLines, funcMap, region->GetId());
 
         // try to find common-block and add new if common-block exists
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
@@ -1147,6 +1157,9 @@ static void copyFunction(ParallelRegion *region,
 
 void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
     for (auto &region : regions)
     {
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // DEBUG
@@ -1171,9 +1184,6 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
         __spf_print(1, "[%s]: create common arrays\n", region->GetName().c_str()); // DEBUG
 
         // creating new common arrays
-        map<string, FuncInfo*> funcMap;
-        createMapOfFunc(allFuncInfo, funcMap);
-
         // creating new common-blocks for files with explicit lines
         for (auto &fileLines : region->GetAllLines())
         {
@@ -1256,82 +1266,110 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 }
             }
         }
+    }
 
-        __spf_print(1, "[%s]: create functions\n", region->GetName().c_str()); // DEBUG
+    __spf_print(1, "create functions\n"); // DEBUG
+    allFuncPrint(funcMap); // DEBUG
 
-        // creating new functions
-        auto crossedFuncs = region->GetCrossedFuncs();
-        auto allFuncs = region->GetAllFuncCalls();
-
-        map<string, vector<ParallelRegionLines>> newLinesToEdit; // file -> lines
-
-        for (auto &crossedFunc : crossedFuncs)
-            copyFunction(region, crossedFunc, newLinesToEdit, string("_") + region->GetName());
-
-        for (auto &commonFunc : allCommonFunctions)
+    // creating new functions
+    for (auto &fileFuncs : allFuncInfo)
+    {
+        if (SgFile::switchToFile(fileFuncs.first) != -1)
         {
-            auto it = crossedFuncs.find(commonFunc);
-            auto itt = region->GetAllFuncCalls().find(commonFunc);
-            // check that commonFunc is called in this region and not copied before as crossed function
-            if (it == crossedFuncs.end() && itt != region->GetAllFuncCalls().end())
-                copyFunction(region, commonFunc, newLinesToEdit, string("_") + region->GetName());
-        }
-
-        // forall funcs B, C: B is not crossed & C is crossed & B calls C ==> need to change B
-        //                    B is not common
-        for (auto &func : allFuncs)
-        {
-            auto it = crossedFuncs.find(func);
-            auto itt = allCommonFunctions.find(func);
-            if (it == crossedFuncs.end() && itt == allCommonFunctions.end())
+            for (auto &func : fileFuncs.second)
             {
-                for (auto &crossedFunc : crossedFuncs)
+                // callRegions = {i}, i = 1, 2, ...
+                if (func->callRegions.size() == 1 && *(func->callRegions.begin()) != 0)
                 {
-                    auto it = func->callsFrom.find(crossedFunc->funcName);
-                    if (it != func->callsFrom.end())
+                    // need just create new common-blocks and replace arrays
+                    SgFile *file = func->funcPointer->GetOriginal()->getFile();
+                    ParallelRegion *region = getRegionById(regions, *(func->callRegions.begin()));
+
+                    auto usedCommonArrays = region->GetUsedCommonArrays().find(func);
+                    if (usedCommonArrays != region->GetUsedCommonArrays().end())
                     {
-                        Statement *end = new Statement(func->funcPointer->GetOriginal()->lastNodeOfStmt());
-                        pair<Statement*, Statement*> beginEnd = make_pair(func->funcPointer, end);
-                        pair<int, int> funcLines = make_pair(beginEnd.first->GetOriginal()->lineNumber(), beginEnd.second->GetOriginal()->lineNumber());
+                        for (auto &arrayBlock : allUsedCommonArrays)
+                            createCommonBlock(file, arrayBlock.first);
 
-                        auto it = newLinesToEdit.find(func->fileName);
-                        if (it == newLinesToEdit.end())
-                            it = newLinesToEdit.insert(it, make_pair(func->fileName, vector<ParallelRegionLines>()));
-                        it->second.push_back(ParallelRegionLines(funcLines, beginEnd));
+                        auto it = insertedCommonBlocks.find(func);
+                        if (it == insertedCommonBlocks.end())
+                            it = insertedCommonBlocks.insert(it, make_pair(func, set<DIST::Array*>()));
 
-                        /*
-                        __spf_print(1, "    lines %d-%d added with statement ids %d,%d\n",
-                                    funcLines.first, funcLines.second,
-                                    beginEnd.first->GetOriginal()->id(), beginEnd.second->GetOriginal()->id()); // DEBUG
-                        */
+                        for (auto &arrayLines : usedCommonArrays->second)
+                        {
+                            auto itt = it->second.find(arrayLines.first);
+                            if (itt == it->second.end())
+                            {
+                                // need to insert common-block
+                                insertCommonBlock(func, arrayLines.first);
+                                it->second.insert(arrayLines.first);
+
+                                // replace common arrays to new common arrays in executable code section
+                                SgStatement *iterator = func->funcPointer->GetOriginal();
+
+                                for (; iterator != func->funcPointer->GetOriginal()->lastNodeOfStmt() &&
+                                    (!isSgExecutableStatement(iterator) || isSPF_stat(iterator)); iterator = iterator->lexNext())
+                                    ;
+
+                                Statement *start = new Statement(iterator);
+                                Statement *end = new Statement(func->funcPointer->GetOriginal()->lastNodeOfStmt());
+                                pair<Statement*, Statement*> beginEnd = make_pair(start, end);
+                                pair<int, int> funcLines = make_pair(beginEnd.first->GetOriginal()->lineNumber(), beginEnd.second->GetOriginal()->lineNumber());
+                                ParallelRegionLines lines(funcLines, beginEnd);
+                                replaceCommonArray(fileFuncs.first, arrayLines.first->GetShortName(), lines, SPF_messages);
+                            }
+                        }
                     }
+                }
+                // callRegions = {i1, i2, ...}
+                else if (func->callRegions.size() > 1)
+                {
+                    // need copy function for every region, the exeption is defalut region
+                    for (auto &i : func->callRegions)
+                        if (i)
+                            copyFunction(getRegionById(regions, i), func, funcMap, string("_r") + to_string(i));
                 }
             }
         }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
 
-        // replace created functions calls
-        auto funcSymbols = region->GetFuncSymbols();
-
-        for (auto &fileLines : region->GetAllLines())
+    // replace function calls in funcs with callRegions = {i}, i = 1, 2, ...
+    for (auto &fileFuncs : allFuncInfo)
+    {
+        if (SgFile::switchToFile(fileFuncs.first) != -1)
         {
-            auto it = funcSymbols.find(fileLines.first);
-            if (it != funcSymbols.end())
+            for (auto &func : fileFuncs.second)
             {
-                for (auto &origCopy : it->second)
-                    for (auto &lines : fileLines.second)
-                        replaceSymbol(fileLines.first, lines, origCopy.first->identifier(), origCopy.second);
+                if (func->callRegions.size() == 1 && *(func->callRegions.begin()))
+                {
+                    Statement *begin = func->funcPointer;
+                    Statement *end = new Statement(begin->GetOriginal()->lastNodeOfStmt());
+                    ParallelRegionLines funcLines(make_pair(begin->GetOriginal()->lineNumber(), end->GetOriginal()->lineNumber()), make_pair(func->funcPointer, end));
+                    replaceFuncCalls(funcLines, funcMap, *(func->callRegions.begin()));
+                }
             }
         }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
 
-        for (auto &fileLines : newLinesToEdit)
+    // replace function falls in explicit lines
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
         {
-            auto it = funcSymbols.find(fileLines.first);
-            if (it != funcSymbols.end())
+            if (SgFile::switchToFile(fileLines.first) != -1)
             {
-                for (auto &origCopy : it->second)
-                    for (auto &lines : fileLines.second)
-                        replaceSymbol(fileLines.first, lines, origCopy.first->identifier(), origCopy.second);
+                for (auto &lines : fileLines.second)
+                {
+                    if (!lines.isImplicit())
+                        replaceFuncCalls(lines, funcMap, region->GetId());
+                }
             }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
 }
