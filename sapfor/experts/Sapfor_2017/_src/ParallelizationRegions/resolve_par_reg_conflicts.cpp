@@ -520,7 +520,7 @@ static void recursiveReplace(SgStatement *st, SgExpression *exp, const string &f
     }
 }
 
-static void replaceSymbol(const string &fileName, const ParallelRegionLines &lines, const string &origSymbName, SgSymbol *newSymb)
+static void replaceSymbol(const string &fileName, const ParallelRegionLines &lines, const string &origSymbName, SgSymbol *newSymb, bool replaceFunc = false)
 {
     if (SgFile::switchToFile(fileName) != -1)
     {
@@ -552,6 +552,9 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &lin
 
                 for (int i = 0; i < 3; ++i)
                     recursiveReplace(iterator, iterator->expr(i), origSymbName, newSymb);
+
+                if (replaceFunc && isSgExecutableStatement(iterator))
+                    break;
             }
         }
     }
@@ -559,7 +562,7 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &lin
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const map<string, FuncInfo*> &funcMap, int regionId)
+static void recReplaceFuncCalls(const ParallelRegionLines &lines, SgExpression *exp, const map<string, FuncInfo*> &funcMap, int regionId)
 {
     if (exp)
     {
@@ -567,17 +570,20 @@ static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const map<st
         {
             string funcName = exp->symbol()->identifier();
             FuncInfo *func = getFuncInfo(funcMap, funcName);
-            string newFuncName = func->getFuncNameByRegion(regionId);
-            SgSymbol *newSymb = new SgSymbol(*exp->symbol());
-            newSymb->changeName(newFuncName.c_str());
-            exp->setSymbol(*newSymb);
 
-            //__spf_print(1, "replace func call '%s' to '%s' in file '%s' on line %d\n",
-            //                funcName.c_str(), newFuncName.c_str(), st->fileName(), st->lineNumber()); // DEBUG
+            if (func)
+            {
+                string newFuncName = func->getFuncNameByRegion(regionId);
+                SgSymbol *newSymb = new SgSymbol(exp->symbol()->variant());
+                newSymb->changeName(newFuncName.c_str());
+                exp->setSymbol(*newSymb);
+
+                replaceSymbol(current_file->filename(), lines, funcName, newSymb, true);
+            }
         }
 
-        recReplaceFuncCalls(st, exp->rhs(), funcMap, regionId);
-        recReplaceFuncCalls(st, exp->lhs(), funcMap, regionId);
+        recReplaceFuncCalls(lines, exp->rhs(), funcMap, regionId);
+        recReplaceFuncCalls(lines, exp->lhs(), funcMap, regionId);
     }
 }
 
@@ -591,17 +597,18 @@ static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string,
         {
             string funcName = st->symbol()->identifier();
             FuncInfo *func = getFuncInfo(funcMap, funcName);
-            string newFuncName = func->getFuncNameByRegion(regionId);
-            SgSymbol *newSymb = new SgSymbol(st->symbol()->variant());
-            newSymb->changeName(newFuncName.c_str());
-            st->setSymbol(*newSymb);
-
-            //__spf_print(1, "replace func call '%s' to '%s' in file '%s' on line %d\n",
-            //            funcName.c_str(), newFuncName.c_str(), st->fileName(), st->lineNumber()); // DEBUG
+            
+            if (func)
+            {
+                string newFuncName = func->getFuncNameByRegion(regionId);
+                SgSymbol *newSymb = new SgSymbol(st->symbol()->variant());
+                newSymb->changeName(newFuncName.c_str());
+                st->setSymbol(*newSymb);
+            }
         }
 
         for (int i = 0; i < 3; ++i)
-            recReplaceFuncCalls(st, st->expr(i), funcMap, regionId);
+            recReplaceFuncCalls(lines, st->expr(i), funcMap, regionId);
     }
 }
 
@@ -860,7 +867,7 @@ static void replaceCommonArray(const string &fileName,
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                             replaceSymbol(fileName, lines, varName, itt->second.second);
-                            if (needInsertCopying) // if (!array->GetNonDistributeFlag())
+                            if (needInsertCopying && !array->GetNonDistributeFlag())
                                 insertArrayCopying(fileName, lines, varSymb, itt->second.second);
 
                             return;
@@ -1050,6 +1057,9 @@ static void copyFunction(ParallelRegion *region,
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
         ParallelRegionLines newFuncLines(newLines, beginEnd);
         replaceFuncCalls(newFuncLines, funcMap, region->GetId());
+        
+        if (func->funcPointer->GetOriginal()->variant() == FUNC_HEDR)
+            replaceSymbol(current_file->filename(), newFuncLines, func->funcName, newFuncSymb);
 
         // try to find common-block and add new if common-block exists
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
@@ -1325,9 +1335,9 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 else if (func->callRegions.size() > 1)
                 {
                     // need copy function for every region, the exeption is defalut region
-                    for (auto &i : func->callRegions)
-                        if (i)
-                            copyFunction(getRegionById(regions, i), func, funcMap, string("_r") + to_string(i));
+                    for (auto &regionId : func->callRegions)
+                        if (regionId)
+                            copyFunction(getRegionById(regions, regionId), func, funcMap, string("_r") + to_string(regionId));
                 }
             }
         }
@@ -1344,10 +1354,11 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
             {
                 if (func->callRegions.size() == 1 && *(func->callRegions.begin()))
                 {
+                    int regionId = *(func->callRegions.begin());
                     Statement *begin = func->funcPointer;
                     Statement *end = new Statement(begin->GetOriginal()->lastNodeOfStmt());
                     ParallelRegionLines funcLines(make_pair(begin->GetOriginal()->lineNumber(), end->GetOriginal()->lineNumber()), make_pair(func->funcPointer, end));
-                    replaceFuncCalls(funcLines, funcMap, *(func->callRegions.begin()));
+                    replaceFuncCalls(funcLines, funcMap, regionId);
                 }
             }
         }
@@ -1355,7 +1366,7 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    // replace function falls in explicit lines
+    // replace function calls in explicit lines
     for (auto &region : regions)
     {
         for (auto &fileLines : region->GetAllLines())
