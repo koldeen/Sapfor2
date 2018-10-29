@@ -10,7 +10,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDe
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles);
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);

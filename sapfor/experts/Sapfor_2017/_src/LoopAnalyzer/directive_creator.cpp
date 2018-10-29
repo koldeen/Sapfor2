@@ -112,15 +112,16 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<DIST::Array*
         bool needBreak = false;
         for (int idx = 0; idx < dimSize; ++idx)
         {
-            for (int k = 0; k < currInfo.readOps[idx].coefficients.size(); ++k)
+            for (auto &reads : currInfo.readOps[idx].coefficients)
             {
-                if (currInfo.readOps[idx].coefficients[k].second != 0)
+                auto &readPair = reads.first;
+                if (readPair.second != 0)
                 {
                     int left = 0, right = 0;
-                    if (currInfo.readOps[idx].coefficients[k].second < 0)
-                        left = -currInfo.readOps[idx].coefficients[k].second;
+                    if (readPair.second < 0)
+                        left = -readPair.second;
                     else
-                        right = currInfo.readOps[idx].coefficients[k].second;
+                        right = readPair.second;
 
                     if (toAdd == NULL)
                     {
@@ -317,8 +318,8 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
         {
             set<pair<int, int>> uniqAccess;
             const ArrayOp &acceses = currInfo.writeOps[lastPosWrite];
-            for (int k = 0; k < (int)acceses.coefficients.size(); ++k)
-                uniqAccess.insert(make_pair(acceses.coefficients[k].first, acceses.coefficients[k].second));
+            for (auto &elem : acceses.coefficients)
+                uniqAccess.insert(elem.first);
 
             bool underAcross = isUnderAcrossDir(arrayName.c_str(), acrossInfo);
             if (uniqAccess.size() > 1)
@@ -403,11 +404,11 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
 static void findRegularReads(const ArrayInfo &currInfo, DIST::Array *arrayUniqKey, const int i, int &maxDim, MapToArray &mainArray)
 {
     map<pair<int, int>, int> countAcc;
-    for (int k = 0; k < (int)currInfo.readOps[i].coefficients.size(); ++k)
+    for (auto &reads : currInfo.readOps[i].coefficients)
     {
-        auto it = countAcc.find(currInfo.readOps[i].coefficients[k]);
+        auto it = countAcc.find(reads.first);
         if (it == countAcc.end())
-            countAcc.insert(it, make_pair(currInfo.readOps[i].coefficients[k], 1));
+            countAcc.insert(it, make_pair(reads.first, 1));
         else
             it->second++;
     }

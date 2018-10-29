@@ -268,9 +268,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             int minShift = 9999999;
                             int maxShift = -9999999;
 
-                            for (int z = 0; z < currReadOp->first[k].coefficients.size(); ++z)
+                            for (auto &coefs : currReadOp->first[k].coefficients)
                             {
-                                auto currAccess = currReadOp->first[k].coefficients[z];
+                                auto currAccess = coefs.first;
                                 auto result = DIST::Fx(currAccess, currRuleShadow);
 
                                 if (result.first == loopRule.first)

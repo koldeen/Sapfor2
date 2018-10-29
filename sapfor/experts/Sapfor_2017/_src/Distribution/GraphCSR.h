@@ -65,7 +65,7 @@ namespace Distribution
         vType GetLocalVNum(const vType &V, bool &ifNew);
         void AddEdgeToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew, const uint8_t linkType);
         void IncreaseWeight(const int &idx, const int &idxRev, const wType &W);
-        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew);        
+        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew, const uint8_t &linkType);
         std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
 
         //old algorithm without sort in the fly

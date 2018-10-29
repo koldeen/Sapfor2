@@ -119,7 +119,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     int GraphCSR<vType, wType, attrType>::
-         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew)
+         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew, const uint8_t &linkTypeIn)
     {
         int ifExist = -1;
         if (!ifNew)
@@ -127,11 +127,12 @@ namespace Distribution
             auto currNeigh = neighbors.data();
             auto currEdges = edges.data();
             auto currAttr = attributes.data();
+            auto currLinks = linkType.data();
 
             for (vType i = currNeigh[V1]; i < currNeigh[V1 + 1]; ++i)
             {
                 const vType k = currEdges[i];
-                if (k == V2 && attr == currAttr[i])
+                if (k == V2 && attr == currAttr[i] && linkTypeIn == currLinks[i])
                 {
                     ifExist = (int)i;
                     break;
@@ -606,8 +607,8 @@ namespace Distribution
 
         int idxExist = -1, idxExistRev = -1;
 
-        idxExist = CheckExist(localV1, localV2, attr, ifNew1);
-        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2);
+        idxExist = CheckExist(localV1, localV2, attr, ifNew1, linkType);
+        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2, linkType);
 
         bool ifExist = (idxExist != -1) && (idxExistRev != -1);
 
@@ -1760,8 +1761,8 @@ namespace Distribution
     {
         if (hardLinksWasUp)
             return;
-
-        wType sum = 1.0;
+        wType sum;
+        /*sum = 1.0;
         // count all RR_link weight
         for (int i = 0; i < weights.size(); ++i)
         {
@@ -1774,7 +1775,7 @@ namespace Distribution
         {
             if (linkType[i] == WR_link)
                 weights[i] += sum;
-        }
+        } */
 
         sum = 1.0;
         // count all RR_link and WR_link weight
