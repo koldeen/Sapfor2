@@ -179,13 +179,12 @@ namespace Distribution
             depracateToDistribute = copy.depracateToDistribute;
         }
 
-        //TODO: not worked!
         void RemoveUnpammedDims()
         {
             bool needToRemove = false;
             for (int z = 0; z < dimSize; ++z)
             {
-                if (!mappedDims[z])
+                if (!mappedDims[z] || depracateToDistribute[z])
                 {
                     needToRemove = true;
                     break;
@@ -196,21 +195,25 @@ namespace Distribution
                 return;
 
             VECTOR<PAIR<int, int>> newSizes;
-            VECTOR<VECTOR<PAIR<int, int>>> newAllShadowSpecs;
             VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> newSizesExpr;
+            VECTOR<bool> newMappedDims;
+            VECTOR<bool> newDepr;
 
             for (int z = 0; z < dimSize; ++z)
             {
-                if (mappedDims[z])
+                if (mappedDims[z] && !depracateToDistribute[z])
                 {
                     newSizes.push_back(sizes[z]);
                     newSizesExpr.push_back(sizesExpr[z]);
+                    newMappedDims.push_back(mappedDims[z]);
+                    newDepr.push_back(depracateToDistribute[z]);
                 }
             }
 
             sizes = newSizes;
-            allShadowSpecs = newAllShadowSpecs;
             sizesExpr = newSizesExpr;
+            mappedDims = newMappedDims;
+            depracateToDistribute = newDepr;
             dimSize = sizes.size();
         }
 

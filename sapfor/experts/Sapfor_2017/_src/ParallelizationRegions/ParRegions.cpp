@@ -222,7 +222,6 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                 regionName = data->symbol()->identifier();
                 if (funcs)
                 {
-                    setExplicitFlag(file->functions(i)->symbol()->identifier(), mapFuncs);
                     auto itFunc = mapFuncs.find(file->functions(i)->symbol()->identifier());
                     if (itFunc != mapFuncs.end())
                     {

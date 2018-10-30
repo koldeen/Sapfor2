@@ -56,6 +56,17 @@ static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<
     return retVal;
 }
 
+static bool ifDir(const string &line)
+{
+    if (line.size() >= 10 && (line[0] == '!' || line[0] == 'c'))
+    {
+        string dir(line.begin() + 1, line.begin() + 1 + 4);
+        if (dir == "$spf" || dir == "dvm$")
+            return true;
+    }
+    return false;
+}
+
 static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
@@ -121,7 +132,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
                 }
                 //printf("insert %s -> %s\n", inclName.c_str(), line.c_str());
             }
-            else if (line[0] != 'c' && line[0] != '!' && line != "" && line[0] != '\n')
+            else if ((line[0] != 'c' && line[0] != '!' && line != "" && line[0] != '\n') || ifDir(line))
             {
                 if (notClosed)
                 {
@@ -140,7 +151,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 }
 
 //TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles)
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles, bool outFree)
 {
     fflush(NULL);
     int funcNum = file->numberOfFunctions();
@@ -155,7 +166,25 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
     // name -> unparse comment
     map<string, pair<string, vector<pair<int, int>> > > includeFiles = findIncludes(currFile);
-    
+    //add spaces if needed
+    if (!outFree)
+    {
+        for (auto &elem : includeFiles)
+        {
+            int countSpaces = 0;
+            for (int z = 0; z < elem.second.first.size() && elem.second.first[z] == ' '; ++z, ++countSpaces) { }
+
+            if (countSpaces < 6)
+            {
+                while (countSpaces != 6)
+                {
+                    elem.second.first.insert(elem.second.first.begin(), ' ');
+                    countSpaces++;
+                }
+            }
+        }
+    }
+
     const string fileN = file->filename();
     //insert comment
     int lineBefore = -1;

@@ -261,7 +261,8 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         }
         else
         {
-            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles);
+            //TODO: add freeForm for each file
+            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1);
 
             // copy includes that have not changed
             if (folderName != NULL)
@@ -355,7 +356,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                              &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -367,7 +368,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                          &(itFound->second));
 
             currProcessing.second = NULL;
@@ -419,7 +420,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
 
                 auto &tmp = dataDirectives.distrRules;
-                std::vector<std::pair<DIST::Array*, const DistrVariant*>> currentVar;
+                vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
                 for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 

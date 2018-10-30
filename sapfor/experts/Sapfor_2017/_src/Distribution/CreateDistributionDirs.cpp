@@ -77,6 +77,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
+#define WITH_REMOVE 0
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
@@ -89,8 +90,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
     templ->SetSizes(initTemplSize, true);
-        
-    for (int i = 0; i < templ->GetDimSize(); ++i)
+#if WITH_REMOVE
+    templ->RemoveUnpammedDims();
+#endif
+    for (int i = 0, templIdx = 0; i < distArray->GetDimSize(); ++i)
     {
         int vert = -1;
         const int err = allArrays.GetVertNumber(distArray, i, vert);
@@ -100,17 +103,24 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         pair<DIST::Array*, int> result = make_pair(distArray, i);
         set<int> wasDone;
         reducedG.FindLinkWithMaxDim(vert, allArrays, result, wasDone);
-        if (result.first != distArray)
-            templ->ExtendDimSize(i, result.first->GetSizes()[result.second]);
 
-        if ((templ->IsDimMapped(i) || templ->isLoopArray()) && !templ->IsDimDepracated(i))
-            AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(i, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+
+        if ((distArray->IsDimMapped(i) || distArray->isLoopArray()) && !distArray->IsDimDepracated(i))
+        {
+            AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+            if (result.first != distArray)
+                templ->ExtendDimSize(templIdx, result.first->GetSizes()[result.second]);
+            templIdx++;
+        }
+#if !WITH_REMOVE
         else
-            templ->ExtendDimSize(i, make_pair(1, 1));
+            templ->ExtendDimSize(templIdx++, make_pair(1, 1));
+#endif
     }
 
     return templ;
 }
+#undef WITH_REMOVE
 
 static vector<DIST::Array*> GetArrayWithMaximumDim(const vector<DIST::Array*> &arrays)
 {
@@ -314,9 +324,7 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
             }
         }
 
-        if (allInAlign.size() < countOfFree)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else
+        if (allInAlign.size() >= countOfFree)
         {
             int k = 0;
             for (int i = 0; i < rules.size(); ++i)
@@ -340,9 +348,7 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
 
         int alignToDim = -1;
         int err = allArrays.GetDimNumber(alignWith, get<1>(rules[z]), alignToDim);
-        if (err != 0)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        
+                
         newRule.alignRuleWith.push_back(make_pair(alignToDim, get<2>(rules[z])));
         if (get<2>(rules[z]).first == 0 && get<2>(rules[z]).second == 0)
             continue;

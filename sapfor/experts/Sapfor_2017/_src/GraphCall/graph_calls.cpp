@@ -1197,28 +1197,28 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
 
                     if (privatesVars.find(symb->identifier()) == privatesVars.end())
                     {
+                        bool type1 = (func->funcParams.inout_types[parNum] & OUT_BIT) != 0;
+                        bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
+
+                        string add = "";
+                        if (type1)
+                            add += "(as out argument";
+                        if (type2)
+                        {
+                            if (type1)
+                                add += ", as array in function)";
+                            else
+                                add += "(as array in function)";
+                        }
+                        else
+                            add += ")";
+
                         if (!isPassFullArray(ex))
                         {
                             bool _hasCuttingDims = hasCuttingDims(ex);
-
-                            bool type1 = (func->funcParams.inout_types[parNum] & OUT_BIT) != 0;
-                            bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
-
+                            
                             if (_hasCuttingDims)
                             {
-                                string add = "";
-                                if (type1)
-                                    add += "(as out argument";
-                                if (type2)
-                                {
-                                    if (type1)
-                                        add += ", as array in function)";
-                                    else
-                                        add += "(as array in function)";
-                                }
-                                else
-                                    add += ")";
-                                
                                 if (needToAddErrors)
                                 {
                                     if (loop)
@@ -1272,8 +1272,34 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         sprintf(buf, "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", inFunction->GetDimSize(), symb->identifier(), func->funcName.c_str());
 
                                     messages.push_back(Messages(NOTE, statLine, buf, 1040));
-                                    __spf_print(1, "%s\n", buf);
                                 }
+                            }
+                        }
+                        else // check dim sizes between formal and actual parameters
+                        {
+                            if (type2)
+                            {
+                                DIST::Array *inFunction = (DIST::Array*)func->funcParams.parameters[parNum];
+                                DIST::Array *mainArray = getArrayFromDeclarated(decl, symb->identifier());
+
+                                if (mainArray == NULL)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (mainArray->GetDimSize() != inFunction->GetDimSize())
+                                {
+                                    char buf[256];
+                                    sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'", 
+                                                  func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
+
+                                    messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                    __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'\n", 
+                                                    func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
+                                }
+                            }
+                            else
+                            {
+                                //TODO:
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             }
                         }
                     }

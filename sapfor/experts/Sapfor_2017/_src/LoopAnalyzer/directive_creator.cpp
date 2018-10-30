@@ -112,15 +112,16 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<DIST::Array*
         bool needBreak = false;
         for (int idx = 0; idx < dimSize; ++idx)
         {
-            for (int k = 0; k < currInfo.readOps[idx].coefficients.size(); ++k)
+            for (auto &reads : currInfo.readOps[idx].coefficients)
             {
-                if (currInfo.readOps[idx].coefficients[k].second != 0)
+                auto &readPair = reads.first;
+                if (readPair.second != 0)
                 {
                     int left = 0, right = 0;
-                    if (currInfo.readOps[idx].coefficients[k].second < 0)
-                        left = -currInfo.readOps[idx].coefficients[k].second;
+                    if (readPair.second < 0)
+                        left = -readPair.second;
                     else
-                        right = currInfo.readOps[idx].coefficients[k].second;
+                        right = readPair.second;
 
                     if (toAdd == NULL)
                     {
@@ -317,8 +318,8 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
         {
             set<pair<int, int>> uniqAccess;
             const ArrayOp &acceses = currInfo.writeOps[lastPosWrite];
-            for (int k = 0; k < (int)acceses.coefficients.size(); ++k)
-                uniqAccess.insert(make_pair(acceses.coefficients[k].first, acceses.coefficients[k].second));
+            for (auto &elem : acceses.coefficients)
+                uniqAccess.insert(elem.first);
 
             bool underAcross = isUnderAcrossDir(arrayName.c_str(), acrossInfo);
             if (uniqAccess.size() > 1)
@@ -403,11 +404,11 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
 static void findRegularReads(const ArrayInfo &currInfo, DIST::Array *arrayUniqKey, const int i, int &maxDim, MapToArray &mainArray)
 {
     map<pair<int, int>, int> countAcc;
-    for (int k = 0; k < (int)currInfo.readOps[i].coefficients.size(); ++k)
+    for (auto &reads : currInfo.readOps[i].coefficients)
     {
-        auto it = countAcc.find(currInfo.readOps[i].coefficients[k]);
+        auto it = countAcc.find(reads.first);
         if (it == countAcc.end())
-            countAcc.insert(it, make_pair(currInfo.readOps[i].coefficients[k], 1));
+            countAcc.insert(it, make_pair(reads.first, 1));
         else
             it->second++;
     }
@@ -1395,7 +1396,8 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
 //TODO: calculate not only consts
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
-                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
 {
     bool resolved = false;
 
@@ -1464,6 +1466,48 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         for (int idx = 0; idx < elem.second.size(); ++idx)
             if (elem.second[idx] && (!values[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
                 return false;
+    }
+
+    //check multiplied Arrays to BLOCK distr of template
+    for (auto &elem : dimsNotMatch)
+    {
+        const DIST::Array *templ = elem.first->GetTemplateArray(regId);
+        if (!templ)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (elem.first->GetDimSize() != templ->GetDimSize())
+        {
+            const DistrVariant *var = NULL;
+            for (auto &distRule : distribution)
+            {
+                if (distRule.first == templ)
+                {
+                    var = distRule.second;
+                    break;
+                }
+            }
+
+            if (!var)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            auto &alignLinks = elem.first->GetLinksWithTemplate(regId);
+            const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
+            for (int z = 0; z < templ->GetDimSize(); ++z)
+            {
+                if (alingLinksSet.find(z) == alingLinksSet.end())
+                {
+                    if (var->distRule[z] == BLOCK)
+                    {
+                        //check all accesses to write
+                        for (auto &left : values)
+                            for (auto &toCheck : left.second)
+                                if (toCheck.first)
+                                    return false;
+                        return true;
+                    }
+                }
+            }
+        }
     }
 
     vector<pair<bool, int>> updateOn(parDirective->on.size());
@@ -1583,7 +1627,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls))
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
                             needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                     }
                 }
