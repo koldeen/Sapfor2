@@ -121,9 +121,7 @@ static const vector<const Variable*> getArraySynonyms(DIST::Array *array)
     }
 
     // get all variables with this position
-    auto varsOnPos = arrayBlock->second->getVariables(pos);
-    
-    return varsOnPos;
+    return arrayBlock->second->getVariables(pos);
 }
 
 static string getStringDeclaration(SgSymbol *symb)
@@ -837,17 +835,9 @@ static void replaceCommonArray(const string &fileName,
 
                     if (array)
                     {
-                        auto arrayBlock = allUsedCommonArrays.find(array);
-                        int pos = -1;
-                        for (auto &var : arrayBlock->second->getVariables())
-                        {
-                            if (var.getName() == varName && var.getType() == ARRAY)
-                                pos = var.getPosition();
-                        }
+                        auto varsOnPos = getArraySynonyms(array);
 
-                        auto varsOnPos = arrayBlock->second->getVariables(pos);
-
-                        if (pos == -1 || !varsOnPos.size())
+                        if (!varsOnPos.size())
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         auto var = varsOnPos[0];
@@ -1118,17 +1108,9 @@ static void copyFunction(ParallelRegion *region,
 
                             if (array)
                             {
-                                auto arrayBlock = allUsedCommonArrays.find(array);
-                                int pos = -1;
-                                for (auto &var : arrayBlock->second->getVariables())
-                                {
-                                    if (var.getName() == varName && var.getType() == ARRAY)
-                                        pos = var.getPosition();
-                                }
+                                auto varsOnPos = getArraySynonyms(array);
 
-                                auto varsOnPos = arrayBlock->second->getVariables(pos);
-
-                                if (pos == -1 || !varsOnPos.size())
+                                if (!varsOnPos.size())
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                                 auto var = varsOnPos[0];
