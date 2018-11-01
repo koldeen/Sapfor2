@@ -737,7 +737,9 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     if (st->variant() == GLOBAL)
         st = insertPlace;
 
+    const int nextLine = insertPlace->lexNext()->lineNumber();
     insertPlace->insertStmtAfter(*copyDecl, *st);
+    insertPlace->lexNext()->setlineNumber(nextLine);
 
     /*
     __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
