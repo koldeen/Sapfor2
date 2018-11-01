@@ -742,10 +742,11 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     }
 }
 
-static map<string, set<string>> dynamicDirsByFile;
-static map<string, set<string>> dynamicArraysByFile;
-static map<string, set<string>> alignArraysByFile;
-static map<string, map<string, pair<SgExpression*, SgExpression*>>> insertedShadowByFile;
+// by file and function
+static map<string, map<string, set<string>>> dynamicDirsByFile;
+static map<string, map<string, set<string>>> dynamicArraysByFile;
+static map<string, map<string, set<string>>> alignArraysByFile;
+static map<string, map<string, map<string, pair<SgExpression*, SgExpression*>>>> insertedShadowByFile;
 
 static inline void addStringToComments(const vector<string> &toInsert, map<string, map<int, set<string>>> &commentsToInclude,
                                        const string fileName, const int line)
@@ -794,11 +795,6 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 {
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);
-        
-    map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name];
-    set<string> &dynamicDirs = dynamicDirsByFile[fin_name];
-    set<string> &dynamicArraysAdded = dynamicArraysByFile[fin_name];
-    set<string> &alignArrays = alignArraysByFile[fin_name];
 
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
@@ -807,6 +803,12 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         set<string> templateDelc;
         SgStatement *isModule = (st->variant() == MODULE_STMT) ? st : NULL;
         bool isMain = (st->variant() == PROG_HEDR);
+
+        const string modName = st->symbol()->identifier();
+        map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name][modName];
+        set<string> &dynamicDirs = dynamicDirsByFile[fin_name][modName];
+        set<string> &dynamicArraysAdded = dynamicArraysByFile[fin_name][modName];
+        set<string> &alignArrays = alignArraysByFile[fin_name][modName];
 
         pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>
         while (st != lastNode)
@@ -825,21 +827,47 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 break;
 
             const int currV = st->variant();
-            if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)
+            if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT || currV == COMM_STAT)
             {
-                SgVarDeclStmt *varDecl = (SgVarDeclStmt*)st;
-                SgExpression *varList = varDecl->varList();
+                vector<SgExpression*> varList;
+                if (currV == COMM_STAT)
+                {
+                    map<string, vector<SgExpression*>> commonBlocks;
+                    getCommonBlocksRef(commonBlocks, st, st->lexNext());
+                    for (auto &elem : commonBlocks)
+                    {
+                        for (auto &commList : elem.second)
+                        {
+                            SgExpression *list = commList->lhs();                            
+                            while (list)
+                            {
+                                varList.push_back(list->lhs());
+                                list = list->rhs();
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    SgVarDeclStmt *varDecl = (SgVarDeclStmt*)st;
+                    SgExpression *varL = varDecl->varList();
+                    while (varL)
+                    {
+                        varList.push_back(varL->lhs());
+                        varL = varL->rhs();
+                    }
+                }
 
                 set<DIST::Array*> dynamicArrays;
                 set<DIST::Array*> dynamicArraysLocal;
                 map<string, DIST::Array*> dynamicArraysStr;
-                while (varList)
+                for (auto &varExp : varList)
                 {
-                    if (varList->lhs()->variant() == ARRAY_REF)
+                    if (varExp->variant() == ARRAY_REF)
                     {
-                        if (distrArrays.find(OriginalSymbol(varList->lhs()->symbol())->identifier()) != distrArrays.end())
+                        if (distrArrays.find(OriginalSymbol(varExp->symbol())->identifier()) != distrArrays.end())
                         {
-                            SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
+                            SgSymbol *currSymb = OriginalSymbol(varExp->symbol());
                             const string currArray(currSymb->identifier());
 
                             auto uniqKey = getFromUniqTable(currSymb);
@@ -922,7 +950,6 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                             }
                         }
                     }
-                    varList = varList->rhs();
                 }
 
                 string toInsert = "!DVM$ DYNAMIC ";
@@ -1037,14 +1064,15 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
 {
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);
-
-    map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name];
-
+    
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
-                
+
+        const string modName = st->symbol()->identifier();
+        map<string, pair<SgExpression*, SgExpression*>> &insertedShadow = insertedShadowByFile[fin_name][modName];
+
         while (st != lastNode)
         {
             if (st == NULL)

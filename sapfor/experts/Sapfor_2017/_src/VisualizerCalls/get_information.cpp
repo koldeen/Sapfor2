@@ -461,7 +461,7 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
 
 extern map<string, PredictorStats> allPredictorStats;
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
-                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize) // , short *&predictorStats)
+                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);

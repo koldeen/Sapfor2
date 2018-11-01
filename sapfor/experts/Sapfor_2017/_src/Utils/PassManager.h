@@ -98,7 +98,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     passDeps = &passDepsIn;
 
-    list({ FILE_LINE_INFO, BUILD_INCLUDE_DEPENDENCIES }) <= Pass(CORRECT_VAR_DECL);
+    list({ GCOV_PARSER, FILE_LINE_INFO, BUILD_INCLUDE_DEPENDENCIES }) <= Pass(CORRECT_VAR_DECL);
 
     Pass(DEF_USE_STAGE1) <= Pass(DEF_USE_STAGE2);
 

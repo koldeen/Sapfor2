@@ -66,7 +66,19 @@ static bool ifDir(const string &line)
     }
     return false;
 }
-
+ 
+static string replaceTabsToSpaces(const string &in)
+{
+    string ret = ""; 
+    for (auto &elem : in)
+    {
+        if (elem == '\t')
+            ret += "    ";
+        else
+            ret += elem;
+    }
+    return ret;
+}
 static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
@@ -82,6 +94,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
             const string orig(read);
             string line(read);
             convertToLower(line);
+            line = replaceTabsToSpaces(line);
 
             size_t posF = line.find("include");
             if (posF != string::npos)
