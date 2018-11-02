@@ -713,7 +713,7 @@ bool valueWithArrayReference(SgExpression *exp)
 * 4. value has itself within (recursion)
 * 5. value has array reference
 */
-void CBasicBlock::correctInDefsSimple() 
+void CBasicBlock::correctInDefsSimple()
 {
     for(auto it = in_defs.begin(); it != in_defs.end();)
     {

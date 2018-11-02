@@ -64,6 +64,7 @@ public:
 
     GraphItem* buildGraph(SgStatement* st);
     GraphItem* getGraph(const std::string &funcName);
+    CBasicBlock* findBlock(SgStatement* stmt);
 };
 
 struct FuncCallSE
@@ -101,6 +102,7 @@ public:
     }
 };
 
+const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
 void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);

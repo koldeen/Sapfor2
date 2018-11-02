@@ -6,6 +6,7 @@
 
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../ParallelizationRegions/ParRegions.h"
 
 namespace Distribution
 {
@@ -30,7 +31,7 @@ void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>
 int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &files, const char *fileName,
     std::map<std::string, std::vector<FuncInfo*>> &funcByFile, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
     std::map<std::string, std::vector<Messages>> &allMessages, bool needToAddErrors,
-    const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+    const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::vector<ParallelRegion*> &regions);
 void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messagesForFile);
 bool isPassFullArray(SgExpression *ex);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);

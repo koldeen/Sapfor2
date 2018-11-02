@@ -1955,10 +1955,13 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    vector<unsigned char> GraphCSR<vType, wType, attrType>::
-        MakeConnected(const vType startV, int &count) const
+    pair<int, int> GraphCSR<vType, wType, attrType>::
+        MakeConnected(const vType startV, vector<unsigned char> &inSet) const
     {
-        std::vector<unsigned char> inSet(numVerts);
+        int count = 0;
+        int countE = 0;
+
+        inSet.resize(numVerts);
         std::fill(inSet.begin(), inSet.end(), 0);
 
         vector<vType> next;
@@ -1984,7 +1987,18 @@ namespace Distribution
                 }
             }
         }
-        return inSet;
+
+        for (int v = 0; v < numVerts; ++v)
+        {
+            for (vType k = neighbors[v]; k < neighbors[v + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                if (inSet[toV])
+                    countE++;
+            }
+        }
+
+        return make_pair(count, countE / 2);
     }
 
     template<typename vType, typename attrType>
