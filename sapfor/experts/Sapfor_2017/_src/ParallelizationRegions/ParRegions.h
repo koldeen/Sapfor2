@@ -160,7 +160,6 @@ public:
     const std::set<FuncInfo*>& GetCrossedFuncs() const { return crossedFunctions; }
     const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedLocalArrays() const { return usedLocalArrays; }
     const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedCommonArrays() const { return usedCommonArrays; }
-    const std::map<std::string, std::map<SgSymbol*, SgSymbol*>>& GetFuncSymbols() const { return funcSymbols; }
 
     void AddUsedLocalArray(FuncInfo *func, DIST::Array *array, const ParallelRegionLines &lines)
     {
@@ -194,24 +193,6 @@ public:
                 return;
 
         itt->second.push_back(lines);
-    }
-
-    void AddFuncSymbols(const std::string &fileName, SgSymbol *origin, SgSymbol *copy)
-    {
-        auto it = funcSymbols.find(fileName);
-        if (it == funcSymbols.end())
-            it = funcSymbols.insert(it, std::make_pair(fileName, std::map<SgSymbol*, SgSymbol*>()));
-
-        auto itt = it->second.find(origin);
-        if (itt == it->second.end())
-            it->second.insert(std::make_pair(origin, copy));
-    }
-
-    void AddFileForFuncSymbols(const std::string &fileName)
-    {
-        auto it = funcSymbols.find(fileName);
-        if (it == funcSymbols.end())
-            it = funcSymbols.insert(it, std::make_pair(fileName, std::map<SgSymbol*, SgSymbol*>()));
     }
 #endif
 
@@ -362,7 +343,6 @@ private:
     std::set<FuncInfo*> crossedFunctions;
     std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedLocalArrays;  // func -> array -> lines
     std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedCommonArrays; // func -> array -> lines
-    std::map<std::string, std::map<SgSymbol*, SgSymbol*>> funcSymbols;                              // file name -> (origin symbol, new symbol)
     //
 #endif
 

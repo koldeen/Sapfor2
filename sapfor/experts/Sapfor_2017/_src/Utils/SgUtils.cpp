@@ -40,7 +40,7 @@ using std::make_tuple;
 
 const char *tag[];
 
-static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
+static bool ifIntervalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
 {
     bool retVal = false;
 
@@ -253,12 +253,16 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 auto found = placesForInsert.find(st->id());
                 if(found != placesForInsert.end())
                 {
-                    if(ifIntevalExists(it.second.second, found->second))
+                    if(ifIntervalExists(it.second.second, found->second))
                     {
                         if (st->comments())
-                        {//TODO: save order of two includes
-                            if (string(st->comments()).find(it.second.first) == string::npos)
-                                st->setComments((it.second.first + string(st->comments())).c_str());
+                        {
+                            string comments = st->comments();
+                            size_t pos = comments.rfind("include");
+                            if (pos == string::npos)
+                                st->setComments((it.second.first + comments).c_str());
+                            else
+                                st->setComments((comments.insert(comments.find('\n') + 1, it.second.first)).c_str());
                         }
                         else
                             st->addComment(it.second.first.c_str());

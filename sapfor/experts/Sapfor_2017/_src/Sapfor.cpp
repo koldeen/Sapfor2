@@ -1126,7 +1126,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveParRegions(parallelRegions, allFuncInfo);
+        resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
     }
     else if (curr_regime == LOOP_GRAPH)
     {
@@ -1504,8 +1504,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
-        runPass(UNPARSE_FILE, proj_name, folderName);
-        break;
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);

@@ -226,7 +226,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                     if (itFunc != mapFuncs.end())
                     {
                         itFunc->second->inRegion = 3;
-                        itFunc->second->callRegions.insert(regionIdConuter);
+                        itFunc->second->callRegions.insert(0);
                     }
                 }
             }
@@ -471,11 +471,12 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                     if (it->second->inRegion > 0)
                     {
                         func.second->inRegion = 3;
-                        for (auto regionId : it->second->callRegions)
-                            func.second->callRegions.insert(regionId);
+                        func.second->callRegions.insert(0);
                         changed = true;
                         break;
                     }
+                    else
+                        func.second->callRegions.insert(0);
                 }
             }
         }
