@@ -1,3 +1,5 @@
+#include "../Utils/leak_detector.h"
+
 #include <iostream>
 #include <map>
 #include <algorithm>

@@ -149,11 +149,11 @@ static inline bool isSimpleRef(SgExpression *subs)
     return retVal;
 }
 
-static bool inline hasParallelDirs(SgStatement *st)
+static bool inline hasDirs(SgStatement *st, const int var)
 {
     SgStatement *last = st->lastNodeOfStmt();
     for ( ;st != last; st = st->lexNext())
-        if (st->variant() == DVM_PARALLEL_ON_DIR)
+        if (st->variant() == var)
             return true;
 
     return false;
@@ -170,45 +170,46 @@ static bool isDistributed(SgSymbol *in)
 }
 
 //TODO: need to add IPA (functions)
-static void fillRead(SgExpression *ex, map<string, set<string>> &readArrays)
+static void fillRead(SgExpression *ex, map<string, map<string, set<SgStatement*>>> &readArrays, SgStatement *cp)
 {
     if (ex)
     {
         if (ex->variant() == ARRAY_REF)
             if (isDistributed(ex->symbol()))
-                readArrays[ex->symbol()->identifier()].insert(string(ex->unparse()));
+                readArrays[ex->symbol()->identifier()][string(ex->unparse())].insert(cp);
 
-        fillRead(ex->lhs(), readArrays);
-        fillRead(ex->rhs(), readArrays);
+        fillRead(ex->lhs(), readArrays, cp);
+        fillRead(ex->rhs(), readArrays, cp);
     }
 }
 
 static bool inline hasAssignsToArray(SgStatement *stIn)
 {
-    map<string, set<string>> arrayAccessWrite;
-    map<string, set<string>> arrayAccessRead;
+    map<string, map<string, set<SgStatement*>>> arrayAccessWrite;
+    map<string, map<string, set<SgStatement*>>> arrayAccessRead;
     
     SgStatement *last = stIn->lastNodeOfStmt();
     for (auto st = stIn; st != last; st = st->lexNext())
         if (st->variant() == ASSIGN_STAT)
             if (st->expr(0)->variant() == ARRAY_REF)
                 if (isDistributed(st->expr(0)->symbol()))
-                    arrayAccessWrite[st->expr(0)->symbol()->identifier()].insert(string(st->expr(0)->unparse()));
+                    arrayAccessWrite[st->expr(0)->symbol()->identifier()][string(st->expr(0)->unparse())].insert(st->controlParent());
 
     for (auto st = stIn; st != last; st = st->lexNext())
     {
+        SgStatement *cp = st->controlParent();
         if (st->variant() != ASSIGN_STAT)
         {
             for (int z = 0; z < 3; ++z)
-                fillRead(st->expr(z), arrayAccessRead);
+                fillRead(st->expr(z), arrayAccessRead, cp);
         }
         else
         {
             for (int z = 1; z < 3; ++z)
-                fillRead(st->expr(z), arrayAccessRead);
+                fillRead(st->expr(z), arrayAccessRead, cp);
             SgExpression *left = st->expr(0);
-            fillRead(left->lhs(), arrayAccessRead);
-            fillRead(left->rhs(), arrayAccessRead);
+            fillRead(left->lhs(), arrayAccessRead, cp);
+            fillRead(left->rhs(), arrayAccessRead, cp);
         }
     }
 
@@ -217,11 +218,23 @@ static bool inline hasAssignsToArray(SgStatement *stIn)
         string arrayName = readPair.first;
         auto it = arrayAccessWrite.find(arrayName);
 
-        if (arrayAccessWrite.end() != it)
+        if (it != arrayAccessWrite.end())
         {
             for (auto &read : readPair.second)
-                if (it->second.find(read) == it->second.end())
+            {
+                auto mapW = it->second.find(read.first);
+                if (mapW == it->second.end())
                     return true;
+                else
+                {
+                    for (auto &cpW : mapW->second)
+                    {
+                        for (auto &cpR : read.second)
+                            if (cpW != cpR && cpW->variant() == FOR_NODE)
+                                return true;
+                    }
+                }
+            }
         }
     }
     return false;
@@ -233,6 +246,17 @@ static void converToDDOT(SgExpression *spec)
     {
         spec->setLhs(new SgExpression(DDOT));
         spec = spec->rhs();
+    }
+}
+
+static void getAllSymbols(SgExpression *ex, set<string> &symbs)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF)
+            symbs.insert(ex->symbol()->identifier());
+        getAllSymbols(ex->lhs(), symbs);
+        getAllSymbols(ex->rhs(), symbs);
     }
 }
 
@@ -272,6 +296,11 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
 
         if (remotes.size() > 0)
         {
+            //TODO: use CFG and RD analysis
+            set<string> usedSymbols;
+            for (auto &access : remotes)
+                getAllSymbols(access, usedSymbols);
+
             SgStatement *toInsert = st;
             vector<SgStatement*> allToInsert = { toInsert };
             int lvlUp = 0;
@@ -281,7 +310,8 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 SgStatement *parent = toInsert->controlParent();
                 const int var = parent->variant();
                 if (var == FUNC_HEDR || var == PROC_HEDR || var == PROG_HEDR ||
-                    hasParallelDirs(parent) || hasAssignsToArray(parent))
+                    hasDirs(parent, DVM_PARALLEL_ON_DIR) || hasDirs(parent, DVM_REMOTE_ACCESS_DIR) || 
+                    hasAssignsToArray(parent))
                     break;
                 toInsert = parent;
                 allToInsert.push_back(toInsert);
@@ -319,11 +349,8 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                     ;
                 else
                 {
-                    if (toInsert->variant() == FOR_NODE)
-                    {
-                        for (auto &elem : allSubs)
-                            converToDDOT(elem);
-                    }
+                    for (auto &elem : allSubs)
+                        converToDDOT(elem);
                 }
             }
 

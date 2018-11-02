@@ -1,9 +1,12 @@
+#include "../Utils/leak_detector.h"
+
 #include <stdio.h>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <map>
 
+#include "dvm.h"
 #include "gCov_parser_func.h"
 
 using namespace std;
@@ -178,99 +181,89 @@ static void printInfo2file(map<int, Gcov_info> &info, ostream &myfile)
     }
 }
 
-static std::string modify_name(std::string name) 
-{
-    std::string::iterator rit = name.end();
-    while ((*rit != '.') && (rit != name.begin()))
-        rit--;
-    std::string::iterator it;
-    std::string new_name;
-    for (it = name.begin(); it != rit; it++)
-        new_name += *it;
-    
-    return new_name + "_pgcov.txt";
-}
-
-static void printInfoFiles(map<char*, map<int, Gcov_info>> info, string name_f) 
-{
-    map<char*, map<int, Gcov_info>>::iterator it;
-    name_f = modify_name(name_f);
-    ofstream myfile(name_f);
-
-    if (myfile.is_open()) 
-    {
-        for (it = info.begin(); it != info.end(); it++)
-        {
-            myfile << "\nNameFile: " << it->first << endl;
-            printInfo2file(it->second, myfile);
-        }
-    }
+static inline string modify_name(const string &name) 
+{    
+    return name + "_pgcov.txt";
 }
 
 /*
-void parse_gcovfile(int nfl, char* args[]) {
-    map<char*, map<int, Gcov_info>> all_info;
-    if (nfl == 0)
-        printf("Error: incorrectly use function parse_gcovfile\n");
-    else {
-        for (int i = 0; i<nfl; i++) {
-            map<int, Gcov_info> info;
-            ifstream file;
-            file.open(args[i], ios::in);
-            if (file.is_open()) {
-                string str;
-                while (!file.eof()) {
-                    getline(file, str);
-                    getInfo(info, str);
-                }
-                file.close();
-                all_info.insert(make_pair(args[i], info));
-                printInfoFiles(all_info, (std::string) args[i]);
-            }
-            else
-                cout << "Error: unable to open file " << args[i] << endl;
-        }
-    }
-
-}
-*/
-
-/*
--добавить флаги при компиляции : -fprofile-arcs -ftest-coverage
+-добавить флаги при компиляции : gfortran -O2 -g -fprofile-arcs -ftest-coverage
 - запустить программу
-- отдать исходник профилировщику с флагом : gcov -b [file.F]
+- отдать исходник профилировщику с флагом : LANG=en_US.utf8 gcov -b file.f
 */
 
-//TODO
-void parse_gcovfile(const string basefileName, map<int, Gcov_info> &gCovInfo)
+static void fixGcovInfo(SgFile *fileSg, map<int, Gcov_info> &gCovInfo)
 {
-    // map<char*, map<int, Gcov_info>> all_info;
-    if (basefileName.empty())
-        printf("Error: incorrectly use function parse_gcovfile\n");
-    else {
-        //  for (int i = 0; i<nfl; i++) {
-        //      map<int, Gcov_info> info;
+    for (SgStatement *st = fileSg->firstStatement(); st; st = st->lexNext())
+    {
+        if (isSgExecutableStatement(st))
+        {
+            auto next = st->lexNext();
+            const int currLine = st->lineNumber();
+            const int nextLine = next ? next->lineNumber() : -1;
+            if (next)
+            {
+                auto it = gCovInfo.find(currLine);
+                if (it == gCovInfo.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (it->second.getExecutedCount() == 0)
+                {
+                    int nextL = currLine + 1;
+                    while (nextL != nextLine)
+                    {
+                        auto itNext = gCovInfo.find(nextL);
+                        if (itNext != gCovInfo.end())
+                        {
+                            if (itNext->second.getExecutedCount() != 0)
+                            {
+                                it->second.setExecutedCount(itNext->second.getExecutedCount());
+                                for (auto &call : itNext->second.getCalls())
+                                    it->second.setCall(call.second);
+                                for (auto &branch : itNext->second.getBranches())
+                                    it->second.setBranch(branch.second);
+                                break;
+                            }
+                        }
+                        nextL++;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_info> &gCovInfo)
+{
+    if (basefileNameIn == "")
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else 
+    {
+        const string basefileName = basefileNameIn + ".gcov";
         ifstream file;
         file.open(basefileName, ios::in);
-        if (file.is_open()) {
+        if (file.is_open()) 
+        {
             string str;
-            while (!file.eof()) {
+            while (!file.eof()) 
+            {
                 getline(file, str);
                 getInfo(gCovInfo, str);
             }
             file.close();
-            //          all_info.insert(make_pair(args[i], info));
+            fixGcovInfo(fileSg, gCovInfo);
+
+#if _WIN32 && _DEBUG
+            // FOR DEBUG ONLY
             string name_f = modify_name(basefileName);
             ofstream myfile(name_f);
-            if (myfile.is_open()) {
-                printInfo2file(gCovInfo, myfile);
-            }
+            if (myfile.is_open()) 
+                printInfo2file(gCovInfo, myfile);            
             else
-                __spf_print(1, "Error: unable to create file %s\n", name_f);
+                __spf_print(1, "   Error: unable to create file %s\n", name_f.c_str());
+#endif
         }
         else
-            __spf_print(1, "Error: unable to open file %s\n", basefileName);
-        //         cout << "Error: unable to open file " << args[i] << endl;
-        //     }
+            __spf_print(1, "   Error: unable to open file %s\n", basefileName.c_str());
     }
 }
