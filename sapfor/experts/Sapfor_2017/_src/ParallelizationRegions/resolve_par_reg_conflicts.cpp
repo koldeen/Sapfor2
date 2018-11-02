@@ -671,6 +671,8 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
                 // TODO: check new array name
 
                 newArrSymb = new SgSymbol(VARIABLE_NAME, newArrName.c_str(), file->firstStatement());
+                SgType *type = new SgType(T_ARRAY);
+                newArrSymb->setType(type);
                 itt = it->second.insert(itt, make_pair(array, make_pair((SgSymbol*)NULL, newArrSymb)));
             }
             else
@@ -1370,6 +1372,74 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 {
                     if (!lines.isImplicit())
                         replaceFuncCalls(lines, funcMap, region->GetId());
+                }
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+    }
+
+    __spf_print(1, "insert DVM intervals\n"); // DEBUG
+
+    // inserting dvm intervals
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            if (SgFile::switchToFile(fileLines.first) != -1)
+            {
+                for (auto &lines : fileLines.second)
+                {
+                    if (!lines.isImplicit())
+                    {
+                        SgStatement *start = NULL;
+                        SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
+
+                        for (SgStatement *st = end; st && !st->lineNumber(); st = st->lexPrev())
+                            start = st;
+
+                        if (start)
+                        {
+                            // DVM INTERVAL N
+                            SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
+                            SgExprListExp *newNode = new SgExprListExp();
+                            int val = - (lines.stats.first->GetOriginal()->lexPrev()->lineNumber() + current_file_id);
+                            SgValueExp *valNode = new SgValueExp(val);
+                            newNode->setLhs(valNode);
+                            interval->setExpression(0, *newNode);
+                            start->insertStmtBefore(*interval, *start->controlParent());
+
+                            recExpressionPrint(interval->expr(0)); // DEBUG
+
+                            // DVM END INTERVAL
+                            interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            end->insertStmtAfter(*interval, *end->controlParent());
+                        }
+
+                        start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
+                        end = NULL;
+
+                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
+                            end = st;
+
+                        if (end)
+                        {
+                            // DVM INTERVAL N
+                            SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
+                            SgExprListExp *newNode = new SgExprListExp();
+                            int val = -(lines.stats.second->GetOriginal()->lexNext()->lineNumber() + current_file_id);
+                            SgValueExp *valNode = new SgValueExp(val);
+                            newNode->setLhs(valNode);
+                            interval->setExpression(0, *newNode);
+                            start->insertStmtBefore(*interval, *start->controlParent());
+
+                            recExpressionPrint(interval->expr(0)); // DEBUG
+
+                            // DVM END INTERVAL
+                            interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            end->insertStmtAfter(*interval, *end->controlParent());
+                        }
+                    }
                 }
             }
             else
