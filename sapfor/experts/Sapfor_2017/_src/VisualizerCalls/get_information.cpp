@@ -74,6 +74,9 @@ static bool tryOpenProjectFile(const char *project)
 
 static void ConvertShortToChar(const short *projName, int &strL, char *&prName)
 {
+    if (projName == NULL)
+        return;
+
     strL = strLen(projName);
     prName = new char[strL + 1];
 
@@ -128,21 +131,14 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
 
 static void runPassesForVisualizer(const short *projName, const vector<passes> &passesToRun, const short *folderName = NULL)
 {
-    int strL, strF;
+    int strL = 0, strF = 0;
     char *prName = NULL;
     char *folderNameChar = NULL;
     ConvertShortToChar(projName, strL, prName);
     ConvertShortToChar(folderName, strF, folderNameChar);
-        
-    fflush(NULL);
+
     try
     {
-        if (strF == 0)
-        {
-            delete []folderNameChar;
-            folderNameChar = NULL;
-        }
-
         if (strL == 0)
         {
             prName = new char[16];
@@ -369,6 +365,7 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
 
 extern int PASSES_DONE[EMPTY_PASS];
 extern int *ALGORITHMS_DONE[EMPTY_ALGO];
+extern const char *passNames[EMPTY_PASS + 1];
 
 int SPF_GetPassesState(int *&passInfo)
 {
@@ -376,6 +373,28 @@ int SPF_GetPassesState(int *&passInfo)
     passInfo = PASSES_DONE;
     return EMPTY_PASS;
 }
+
+int SPF_GetPassesStateStr(short *&passInfo)
+{
+    MessageManager::clearCache();
+    string donePasses = "";
+    for (int i = 0; i < EMPTY_PASS; ++i)
+    {
+        printf("SAPFOR: pass %d is %d with name %s\n", 1, PASSES_DONE[i], passNames[i]);
+        if (PASSES_DONE[i] == 1)
+        {
+            donePasses += passNames[i] + string("|");
+        }
+    }
+
+    //erase last "|"
+    if (donePasses != "" && donePasses[donePasses.size() - 1] == '|')
+        donePasses.erase(donePasses.end() - 1);
+
+    copyStringToShort(passInfo, donePasses);
+    return (int)donePasses.size();
+}
+
 
 extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 static void printDeclArraysState()
@@ -461,10 +480,16 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
 
 extern map<string, PredictorStats> allPredictorStats;
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
-                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize) // , short *&predictorStats)
+                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
 {
     MessageManager::clearCache();
-    MessageManager::setWinHandler(winHandler);
+    if (folderName == NULL)
+    {
+        MessageManager::setWinHandler(-1);
+        allPredictorStats.clear();
+    }
+    else
+        MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -528,23 +553,26 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
         
-        string predictRes = "";
-        PredictorStats summed;
-        for (auto &predFile : allPredictorStats)
+        if (folderName == NULL)
         {
-            summed.IntervalCount += predFile.second.IntervalCount;
-            summed.ParallelCount += predFile.second.ParallelCount;
-            summed.RedistributeCount += predFile.second.RedistributeCount;
-            summed.RemoteCount += predFile.second.RemoteCount;
-            summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
-            summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
-            summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
-            summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
-        }
-        predictRes += summed.to_string();        
+            string predictRes = "";
+            PredictorStats summed;
+            for (auto &predFile : allPredictorStats)
+            {
+                summed.IntervalCount += predFile.second.IntervalCount;
+                summed.ParallelCount += predFile.second.ParallelCount;
+                summed.RedistributeCount += predFile.second.RedistributeCount;
+                summed.RemoteCount += predFile.second.RemoteCount;
+                summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
+                summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
+                summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
+                summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
+            }
+            predictRes += summed.to_string();
 
-        //copyStringToShort(predictorStats, predictRes);
-        //retSize = (int)predictRes.size() + 1;
+            copyStringToShort(predictorStats, predictRes);
+            retSize = (int)predictRes.size() + 1;
+        }
     }
     catch (int ex)
     {

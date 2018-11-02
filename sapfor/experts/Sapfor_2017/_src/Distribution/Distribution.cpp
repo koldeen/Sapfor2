@@ -8,8 +8,9 @@
 #include <tuple>
 #include <string>
 #include <algorithm>
-#include <omp.h>
+#include <chrono>
 #include <climits>
+#include <cstring>
 
 #if _WIN32 && NDEBUG
 #include <boost/thread.hpp>
@@ -23,6 +24,7 @@ using std::string;
 using std::wstring;
 using std::tuple;
 using std::vector;
+using namespace std::chrono;
 
 #include "GraphCSR.h"
 #include "Arrays.h"
@@ -300,6 +302,19 @@ namespace Distribution
         double globalSum = 0;
         bool allOnlySecondType = true;
 
+        vector<vType> trees;
+        vector<vector<vType>> vertByTrees;
+        set<vType> unqieTrees = G.FindTrees(trees, vertByTrees);
+
+        __spf_print(needPrint, "GRAPH size: |V| = %d, |E| = %d\n", G.GetNumberOfV(), G.GetNumberOfE() / 2);
+        __spf_print(needPrint, "TREES count %d\n", (int)unqieTrees.size());
+        vector<unsigned char> tmp;
+        for (int z = 0; z < vertByTrees.size(); ++z)
+            if (vertByTrees[z].size())
+                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, (int)vertByTrees[z].size(), G.MakeConnected(vertByTrees[z][0], tmp).second);
+            else
+                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, 0, 0);
+
         toDelArcs = G.CreateMaximumSpanningTree();
         return make_pair(allOnlySecondType, globalSum);
 
@@ -379,7 +394,7 @@ namespace Distribution
                 sendMessage_2lvl(treeM);
             }
 #endif
-            double timeR = omp_get_wtime();
+            auto timeR = steady_clock::now();
             if (countConflicts != 0)
             {
                 const int countInTree = G.CountOfConnected(cycles[indexOfConflict[0].first].GetArcs()[0].first);
@@ -413,16 +428,16 @@ namespace Distribution
 
             if (needPrint)
             {
-                sprintf(buf, "PROF: FindBestSequenceForDelArcs: %f sec\n", omp_get_wtime() - timeR);
-                printf("SAPFOR: time of FindBestSequenceForDelArcs %f sec\n", omp_get_wtime() - timeR);
+                sprintf(buf, "PROF: FindBestSequenceForDelArcs: %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
+                printf("SAPFOR: time of FindBestSequenceForDelArcs %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
                 addToGlobalBufferAndPrint(buf);
             }
 
-            timeR = omp_get_wtime();
+            timeR = steady_clock::now();
             FindNonConflictDelArcs(toDelArcs, cycles);
             if (needPrint)
             {                
-                sprintf(buf, "PROF: FindNonConflictDelArcs %f\n", omp_get_wtime() - timeR);
+                sprintf(buf, "PROF: FindNonConflictDelArcs %f\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
                 addToGlobalBufferAndPrint(buf);
             }
 

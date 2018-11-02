@@ -85,6 +85,42 @@ GraphItem* GraphsKeeper::getGraph(const string &funcName)
     return res;
 }
 
+CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
+{
+    for(auto &graph : graphs) {
+        if(graph.second->file_id != stmt->getFileId())
+            continue;
+        CBasicBlock *b = graph.second->CGraph->getFirst();
+        while(b != NULL)
+        {
+            ControlFlowItem *cfi = b->getStart();
+            while(cfi != NULL)
+            {
+                SgStatement *st = cfi->getStatement();
+                if(st && st->id() == stmt->id())
+                    return b;
+                st = cfi->getOriginalStatement();
+                if(st && st->id() == stmt->id())
+                    return b;
+            }
+            b = b->getLexNext();
+        }
+    }
+    return NULL;
+}
+
+
+const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
+{
+    CBasicBlock* b = graphsKeeper->findBlock(stmt);
+    if(!b) {
+        __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
+        return map<SymbolKey, set<SgExpression*>>();
+    }
+
+    return b->getReachedDefinitions(stmt);
+}
+
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
 {
     for (auto &toReplace : toRev)

@@ -727,6 +727,7 @@ public:
 #endif
     }
     inline const std::string& getVarName() const { return varName; }
+    inline const SgSymbol* getSymbol() const { return var; }
     inline bool isPointer() const { return pointer; }
     inline bool operator<(const SymbolKey &rhs) const   { return varName < rhs.varName; }
     inline bool operator==(const SymbolKey &rhs) const  { return varName == rhs.varName; }

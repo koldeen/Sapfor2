@@ -266,7 +266,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 
             // copy includes that have not changed
             if (folderName != NULL)
-                copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
+                copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
         }
     }
 }
@@ -709,7 +709,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file_name, getObjectForFileFromMap(file_name, gCovInfo));
+            parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo));
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
@@ -934,31 +934,31 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
-        for (auto it = commentsToInclude.begin(); it != commentsToInclude.end(); ++it)
+        for (auto &comment : commentsToInclude)
         {
             if (consoleMode)
             {
-                __spf_print(1, "  write to <%s_%s> file\n", it->first.c_str(), newVer);
-                insertDistributionToFile(it->first.c_str(), (string(it->first) + "_" + string(newVer)).c_str(), it->second);
+                __spf_print(1, "  write to <%s_%s> file\n", comment.first.c_str(), newVer);
+                insertDistributionToFile(comment.first.c_str(), (comment.first + "_" + string(newVer)).c_str(), comment.second);
             }
             else
             {
                 if (folderName)
                 {
-                    __spf_print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(it->first)).c_str());
-                    insertDistributionToFile(it->first.c_str(), (string(folderName) + "/" + string(it->first)).c_str(), it->second);
+                    __spf_print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(comment.first)).c_str());
+                    insertDistributionToFile(comment.first.c_str(), (string(folderName) + "/" + string(comment.first)).c_str(), comment.second);
                 }
-                else
+                /*else
                 {
-                    __spf_print(1, "  write to <%s> file\n", (string(it->first)).c_str());
-                    insertDistributionToFile(it->first.c_str(), (string(it->first)).c_str(), it->second);
-                }
+                    __spf_print(1, "  write to <%s> file\n", (string(comment.first)).c_str());
+                    insertDistributionToFile(it->first.c_str(), (string(comment.first)).c_str(), comment.second);
+                }*/
             }
         }
 
         // copy includes that have not changed
         if (folderName != NULL)
-            copyIncludes(allIncludeFiles, commentsToInclude, folderName);
+            copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs);
     }
     else if (curr_regime == EXTRACT_SHADOW_DIRS)
         commentsToInclude.clear();
@@ -1105,7 +1105,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
-    else if (curr_regime == CHECK_PAR_REGIONS)
+    else if (curr_regime == FILL_PAR_REGIONS)
     {
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
@@ -1126,7 +1126,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveParRegions(parallelRegions, allFuncInfo);
+        bool error = resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
+        if (error)
+            internalExit = 1;
     }
     else if (curr_regime == LOOP_GRAPH)
     {
@@ -1142,46 +1144,50 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
     {
-        //insert template declaration to main program
-        const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-        for (int i = n - 1; i >= 0; --i)
+        bool cond = (folderName != NULL) || (consoleMode) || (!consoleMode && curr_regime == EXTRACT_PARALLEL_DIRS);
+        if (cond)
         {
-#if _WIN32 && NDEBUG
-            createNeededException();
-#endif
-            SgFile *file = &(project.file(i));
-            current_file_id = i;
-            current_file = file;
-
-            if (file->mainProgram())
+            //insert template declaration to main program
+            const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
+            for (int i = n - 1; i >= 0; --i)
             {
-                string fileName = file->filename();
-                auto itDep = includeDependencies.find(fileName);
+#if _WIN32 && NDEBUG
+                createNeededException();
+#endif
+                SgFile *file = &(project.file(i));
+                current_file_id = i;
+                current_file = file;
 
-                //TODO: split by functions
-                set<string> includedToThisFile;
-                if (itDep != includeDependencies.end())
+                if (file->mainProgram())
                 {
-                    for (auto &inclDep : itDep->second)
+                    string fileName = file->filename();
+                    auto itDep = includeDependencies.find(fileName);
+
+                    //TODO: split by functions
+                    set<string> includedToThisFile;
+                    if (itDep != includeDependencies.end())
                     {
-                        auto comm = commentsToInclude.find(inclDep);
-                        if (comm != commentsToInclude.end())
-                            for (auto &allComm : comm->second)
-                                includedToThisFile.insert(allComm.second.begin(), allComm.second.end());
+                        for (auto &inclDep : itDep->second)
+                        {
+                            auto comm = commentsToInclude.find(inclDep);
+                            if (comm != commentsToInclude.end())
+                                for (auto &allComm : comm->second)
+                                    includedToThisFile.insert(allComm.second.begin(), allComm.second.end());
+                        }
                     }
-                }
 
-                for (int z = 0; z < parallelRegions.size(); ++z)
-                {
-                    ParallelRegion *currReg = parallelRegions[z];
-                    const DataDirective &dataDirectives = currReg->GetDataDir();
-                    const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                    const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-                    const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
+                    for (int z = 0; z < parallelRegions.size(); ++z)
+                    {
+                        ParallelRegion *currReg = parallelRegions[z];
+                        const DataDirective &dataDirectives = currReg->GetDataDir();
+                        const vector<int> &currentVariant = currReg->GetCurrentVariant();
+                        const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
+                        const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
 
-                    insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, allArrays, extract, currReg->GetId(), includedToThisFile);
+                        insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, allArrays, extract, currReg->GetId(), includedToThisFile);
+                    }
+                    break;
                 }
-                break;
             }
         }
     }
@@ -1202,6 +1208,48 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
+        if (parallelRegions.size())
+        {
+            __spf_print(1, "Regions by id:\n");
+            for (auto &reg : parallelRegions)
+                __spf_print(1, "  %d: %s\n", reg->GetId(), reg->GetName().c_str());
+
+            map<string, FuncInfo*> funcMap;
+            createMapOfFunc(allFuncInfo, funcMap);
+
+            string message;
+            string conflicts;
+            for (auto &nameFunc : funcMap)
+            {
+                auto func = nameFunc.second;
+                if (func->inRegion)
+                {
+                    message += "  func '";
+                    message += nameFunc.first;
+                    message += "':";
+                    for (auto &regionId : func->callRegions)
+                    {
+                        message += ' ';
+                        message += to_string(regionId);
+                    }
+                    message += '\n';
+
+                    if (func->callRegions.size() > 1)
+                    {
+                        conflicts += "  '";
+                        conflicts += nameFunc.first;
+                        conflicts += "'\n";
+                    }
+                }
+            }
+
+            if (message.size())
+                __spf_print(1, "Functions called by regions with ids:\n%s", message.c_str());
+
+            if (conflicts.size())
+                __spf_print(1, "Croseed functions (conflicts):\n%s", conflicts.c_str());
+        }
+        /*
         if (parallelRegions.size() > 1)
         {
             map<string, vector<ParallelRegion*>> crossedByFunction;
@@ -1246,6 +1294,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+        */
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
@@ -1356,9 +1405,9 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
     int failed = 0;
     if (keepFiles)
-        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
+        failed += CheckFunctionsToInline(project, files, "_callGraph_withInc.txt", allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls, parallelRegions);
     else
-        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls);
+        failed += CheckFunctionsToInline(project, files, NULL, allFuncInfo, loopGraph, SPF_messages, needToAddErrors, arrayLinksByFuncCalls, parallelRegions);
 
     if (failed > 0 && needToAddErrors)
         throw -5;
@@ -1454,7 +1503,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runAnalysis(*project, PREDICT_SCHEME, false);
             
-            runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+            if (folderName || consoleMode)
+                runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
@@ -1504,8 +1554,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
-        runPass(UNPARSE_FILE, proj_name, folderName);
-        break;
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
             runAnalysis(*project, UNPARSE_FILE, true, "", folderName);
@@ -1628,7 +1676,7 @@ int main(int argc, char **argv)
                         curr_regime = CREATE_NESTED_LOOPS;
                 }
                 else if (curr_arg[1] == 'h')
-                    printHelp();
+                    printHelp(passNames, EMPTY_PASS);
                 else if (string(curr_arg) == "-leak")
                     leakMemDump = 1;
                 else if (string(curr_arg) == "-f90")
@@ -1678,7 +1726,7 @@ int main(int argc, char **argv)
         }
 
         if (curr_regime == EMPTY_PASS)
-            printHelp();
+            printHelp(passNames, EMPTY_PASS);
 
         runPass(curr_regime, proj_name, folderName);
         if (printText)

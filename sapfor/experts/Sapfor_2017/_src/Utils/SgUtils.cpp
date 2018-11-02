@@ -40,7 +40,7 @@ using std::make_tuple;
 
 const char *tag[];
 
-static bool ifIntevalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
+static bool ifIntervalExists(const vector<pair<int, int>> &intervals, const pair<int, int> &toFind)
 {
     bool retVal = false;
 
@@ -66,7 +66,19 @@ static bool ifDir(const string &line)
     }
     return false;
 }
-
+ 
+static string replaceTabsToSpaces(const string &in)
+{
+    string ret = ""; 
+    for (auto &elem : in)
+    {
+        if (elem == '\t')
+            ret += "    ";
+        else
+            ret += elem;
+    }
+    return ret;
+}
 static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *currFile)
 {
     map<string, pair<string, vector<pair<int, int>> > > includeFiles;
@@ -82,6 +94,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
             const string orig(read);
             string line(read);
             convertToLower(line);
+            line = replaceTabsToSpaces(line);
 
             size_t posF = line.find("include");
             if (posF != string::npos)
@@ -228,33 +241,56 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 {
                     lines.second = locSt->lineNumber();
                     st = locSt;
-                    auto prev = locSt->lexPrev();
-                    if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
-                        locSt = prev;
+
+                    bool change = true;
+                    while (change)
+                    {
+                        change = false;
+                        SgStatement *prev = locSt->lexPrev();
+                        if (prev && 
+                            (prev->variant() == DVM_PARALLEL_ON_DIR || 
+                             prev->variant() == SPF_ANALYSIS_DIR || 
+                             prev->variant() == SPF_TRANSFORM_DIR))
+                        {
+                            locSt = prev;
+                            change = true;
+                        }
+                    }
                     placesForInsert.insert(make_pair(locSt->id(), lines));
                 }
-            }
-
-            for(auto &it : includeFiles)
-            {
-                auto found = placesForInsert.find(st->id());
-                if(found != placesForInsert.end())
-                {
-                    if(ifIntevalExists(it.second.second, found->second))
-                    {
-                        if (st->comments())
-                        {
-                            if (string(st->comments()).find(it.second.first) == string::npos)
-                                st->addComment(it.second.first.c_str());
-                        }
-                        else
-                            st->addComment(it.second.first.c_str());
-                    }
-                }
-            }
+            }           
         }
         else
             lineBefore = st->lineNumber();
+    }
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        for (auto &it : includeFiles)
+        {
+            auto found = placesForInsert.find(st->id());
+            if (found != placesForInsert.end())
+            {
+                if (ifIntervalExists(it.second.second, found->second))
+                {
+                    allIncludeFiles.insert(it.first);
+                    if (st->comments())
+                    {
+                        string comments = st->comments();
+                        if (comments.find(it.second.first) == string::npos)
+                        {
+                            const size_t pos = comments.rfind("include");
+                            if (pos == string::npos)
+                                st->setComments((it.second.first + comments).c_str());
+                            else
+                                st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                        }
+                    }
+                    else
+                        st->addComment(it.second.first.c_str());
+                }
+            }
+        }
     }
 
     for (auto &inserted : insertedIncludeFiles)
