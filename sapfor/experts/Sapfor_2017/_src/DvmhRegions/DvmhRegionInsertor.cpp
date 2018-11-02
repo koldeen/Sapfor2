@@ -159,12 +159,19 @@ std::vector<LoopGraph *>  DvmhRegionInsertor::updateLoopGraph()
 	return loopGraph;
 }
 
+/*
+    TODO:
+    1. Искать только распределенные массивы: getArrayFromDeclarated
+    2. Брать оригинальный символ originalSymb.. 
+    3. Получить место определения
+*/
+
 static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) {
     set<SgSymbol *> result;
 
     if (exp)
     {
-        if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF) // TODO: what else?
+        if (exp->variant() == ARRAY_REF) // TODO: check of destributed ref through getArrayFromDeclarated
             result.insert(exp->symbol());
 
         set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
@@ -185,22 +192,8 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
         return result;
     }
 
-/* TODO: in what cases may it be required?
-    if (st->variant() != PROC_CALL && st->variant() != FUNC_CALL) {
-        if (st->symbol())
-                result.insert(st->symbol());
-    }
-*/
-    
     for (int i = 0; i < 3; ++i) {
         if (st->variant() == ASSIGN_STAT &&  i == 0) { 
-			// TODO: array index
-			/*
-            if (st->expr(0)->variant() == ARRAY_REF) {
-                set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(0)->rhs());
-                result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-            }*/
-
             continue;
         }
 
@@ -213,6 +206,15 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
     return result;
 }
 
+/*
+    1. Объединять идущие строго подряд регионы
+    2. Должны находиться в одной области видимости
+    3. Если между регионами что-то есть:
+        а) нет переходов вверх-вниз
+        б) если объявляются переменные -- перенести наверх
+        в) если вызов функции -- используются ли данные из предыдущегрегиона в этой функции*
+*/
+
 void DvmhRegionInsertor::insertActualDirectives() {
 	int funcNum = file.numberOfFunctions();
 
@@ -220,17 +222,40 @@ void DvmhRegionInsertor::insertActualDirectives() {
     {
         SgStatement *st = file.functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
-
 		while (st != lastNode)
         {
+            if (st == NULL || st->variant() == CONTAINS_STMT)
+                break;
+
+            std::set<SgSymbol *> symbols = getUsedSymbols(st);
+            for (auto& symbol : symbols) {
+                DvmhRegion* region = getContainingRegion(st);
+
+                if (region) {
+                    // Searching for defenition not in region
+                    bool symbolDeclaredInSequentPart = false;
+                    set<SgStatement*> defenitions = getDefenitions(symbol);
+                    for (auto& defenition : defenitions) {
+                        DvmhRegion* containingRegion = getContainingRegion(defenition);
+                        if (containingRegion) {
+                            symbolDeclaredInSequentPart = true;
+                            break;
+                        }
+                    }
+
+                    if (symbolDeclaredInSequentPart) {
+                        region->needActualisation.insert(symbol);
+                    }
+                } else {
+                    // Seatching for defenition in region
+                }
+            }
+
             std::cout << "cmd: [" << std::endl;
             st->unparsestdout();
             std::cout << "]" << std::endl;
 
-            std::set<SgSymbol *> symbols = getUsedSymbols(st);
-			/* TODO: check declaration of the symbol, insert derective if needed */
-
-            std::cout << "Symbols: ";
+            std::cout << "Symbols:" << std::endl;
             for (auto& symbol : symbols) {
                 std::cout << symbol->identifier() << " ";
             }
@@ -269,13 +294,26 @@ SgStatement *DvmhRegion::getLoop()
 	return loop;
 }
 
+// TODO:
+bool DvmhRegion::isInRegion(SgStatement *st) {
+    int line = st->lineNum;
+    if (line > loop->lineNum && line < loop->lineNumAfterLoop)
+        return true;
+    else
+        return false;
+}
 
+DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
+    for (auto& region : regions) {
+        if region->isInRegion(st) {
+            return region;
+        }
+    }
+    
+    return NULL;
+}
 
-
-
-
-
-
-
-
-
+set<SgStatement*> DvmhRegionInsertor::getDefenitions(SgStatement *, SgSymbol *) {
+    set<SgStatement*> result;
+    return result;
+}

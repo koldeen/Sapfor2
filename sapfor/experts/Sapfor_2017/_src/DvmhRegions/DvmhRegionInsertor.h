@@ -30,10 +30,11 @@ struct LoopCheckResults {
 
 class DvmhRegion {
 	SgStatement *loop;
+    std::set<Symbol *> needActualisation;
 public:
 	DvmhRegion();
 	DvmhRegion(SgStatement *st);
-	bool isInRegion(SgStatement);
+	bool isInRegion(SgStatement *);
 	SgStatement *getLoop();
 };
 
@@ -43,6 +44,8 @@ class DvmhRegionInsertor {
     std::vector<FuncInfo*> funcGraph;
     std::vector<DvmhRegion> regions;
 
+    set<SgStatement* > getDefenitions(SgStatement *, SgSymbol *);
+    DvmhRegion* getContainingRegion(SgStatement *);
     void printFuncName(SgStatement *);
     void findEdgesForRegions(std::vector<LoopGraph *>);
     bool hasLimitsToDvmhParallel(LoopGraph *);
