@@ -246,32 +246,38 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                         locSt = prev;
                     placesForInsert.insert(make_pair(locSt->id(), lines));
                 }
-            }
-
-            for(auto &it : includeFiles)
-            {
-                auto found = placesForInsert.find(st->id());
-                if(found != placesForInsert.end())
-                {
-                    if(ifIntervalExists(it.second.second, found->second))
-                    {
-                        if (st->comments())
-                        {
-                            string comments = st->comments();
-                            size_t pos = comments.rfind("include");
-                            if (pos == string::npos)
-                                st->setComments((it.second.first + comments).c_str());
-                            else if (comments.find(it.second.first) == string::npos)
-                                st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
-                        }
-                        else
-                            st->addComment(it.second.first.c_str());
-                    }
-                }
-            }
+            }           
         }
         else
             lineBefore = st->lineNumber();
+    }
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        for (auto &it : includeFiles)
+        {
+            auto found = placesForInsert.find(st->id());
+            if (found != placesForInsert.end())
+            {
+                if (ifIntervalExists(it.second.second, found->second))
+                {
+                    if (st->comments())
+                    {
+                        string comments = st->comments();
+                        if (comments.find(it.second.first) == string::npos)
+                        {
+                            const size_t pos = comments.rfind("include");
+                            if (pos == string::npos)
+                                st->setComments((it.second.first + comments).c_str());
+                            else
+                                st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                        }
+                    }
+                    else
+                        st->addComment(it.second.first.c_str());
+                }
+            }
+        }
     }
 
     for (auto &inserted : insertedIncludeFiles)

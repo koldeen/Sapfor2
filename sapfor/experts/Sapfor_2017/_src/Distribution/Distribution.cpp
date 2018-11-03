@@ -300,6 +300,19 @@ namespace Distribution
         double globalSum = 0;
         bool allOnlySecondType = true;
 
+        vector<vType> trees;
+        vector<vector<vType>> vertByTrees;
+        set<vType> unqieTrees = G.FindTrees(trees, vertByTrees);
+
+        __spf_print(needPrint, "GRAPH size: |V| = %d, |E| = %d\n", G.GetNumberOfV(), G.GetNumberOfE() / 2);
+        __spf_print(needPrint, "TREES count %d\n", (int)unqieTrees.size());
+        vector<unsigned char> tmp;
+        for (int z = 0; z < vertByTrees.size(); ++z)
+            if (vertByTrees[z].size())
+                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, (int)vertByTrees[z].size(), G.MakeConnected(vertByTrees[z][0], tmp).second);
+            else
+                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, 0, 0);
+
         toDelArcs = G.CreateMaximumSpanningTree();
         return make_pair(allOnlySecondType, globalSum);
 

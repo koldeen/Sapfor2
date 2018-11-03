@@ -16,6 +16,7 @@
 #include "graph_calls.h"
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../Utils/SgUtils.h"
+#include "../ParallelizationRegions/ParRegions_func.h"
 
 using std::vector;
 using std::map;
@@ -1185,7 +1186,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
         if (ex->variant() == ARRAY_REF)
         {
             SgArrayRefExp *arrayRef = isSgArrayRefExp(ex);
-            if (arrayRef)
+            SgType *type = ex->symbol()->type();
+            if (arrayRef && type && type->variant() != T_STRING)
             {
                 SgSymbol *symb = OriginalSymbol(arrayRef->symbol());
                 if (symb)
@@ -1288,18 +1290,23 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray->GetDimSize() != inFunction->GetDimSize())
                                 {
                                     char buf[256];
-                                    sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'", 
+                                    sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
                                                   func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
 
                                     messages.push_back(Messages(ERROR, statLine, buf, 1013));
-                                    __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actaul(size = %d) paraleters for array reference '%s'\n", 
+                                    __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'\n", 
                                                     func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
-                                }
+                                    ret = true;
+                                }                                
                             }
                             else
                             {
-                                //TODO:
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                char buf[256];
+                                sprintf(buf, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
+
+                                messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                __spf_print(1, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
+                                ret = true;
                             }
                         }
                     }
@@ -1308,9 +1315,15 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
         }
 
         if (ex->lhs())
-            ret = ret || checkParameter(ex->lhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+        {
+            bool res = checkParameter(ex->lhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+            ret |= res;
+        }
         if (ex->rhs())
-            ret = ret || checkParameter(ex->rhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+        {
+            bool res = checkParameter(ex->rhs(), messages, statLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+            ret |= res;
+        }
     }
 
     return ret;
@@ -1324,7 +1337,8 @@ static bool checkParameter(SgExpression *parList, vector<Messages> &messages, bo
     bool needInsert = false;
     while (parList)
     {
-        needInsert = needInsert || checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+        bool res = checkParameter(parList->lhs(), messages, funcOnLine, loop, needToAddErrors, func, parNum, arrayLinksByFuncCalls);
+        needInsert |= res;
         ++parNum;
         parList = parList->rhs();
     }
@@ -1349,8 +1363,11 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
                                  vector<Messages> &messages, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool needInsert = false;
+    bool hasLoopVar = false;
 
-    bool hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier());
+    if (loop)
+        hasLoopVar = findLoopVarInParameter(parList, loop->symbol()->identifier());
+
     if (hasLoopVar)
     {
         const vector<int> parsWithLoopSymb = findNoOfParWithLoopVar(parList, loop->symbol()->identifier());
@@ -1388,56 +1405,49 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
     return needInsert;
 }
 
-static bool recFuncChecked(const FuncInfo *call, set<void*> &recFuncCheckedSet, const map<string, FuncInfo*> &funcByName, vector<Messages> &messages,
-                           bool needToAddErrors, const int funcOnLine, const string &firstFileName,
-                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    bool needInsert = false;
-    for (int i = 0; i < call->pointerDetailCallsFrom.size(); ++i)
-    {
-        auto it = recFuncCheckedSet.find(call->pointerDetailCallsFrom[i].first);
-        if (it == recFuncCheckedSet.end())
-        {
-            recFuncCheckedSet.insert(it, call->pointerDetailCallsFrom[i].first);
-
-            if (call->pointerDetailCallsFrom[i].second == PROC_STAT)
-            {
-                SgStatement *funcCall = (SgStatement*)call->pointerDetailCallsFrom[i].first;
-                if (funcCall->switchToFile())
-                    needInsert = needInsert || checkParameter(funcCall->expr(0), messages, needToAddErrors, call, funcOnLine, NULL, arrayLinksByFuncCalls);
-                else
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (SgFile::switchToFile(firstFileName) == -1)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                auto fIt = funcByName.find(call->detailCallsFrom[i].first);
-                if (fIt != funcByName.end())
-                    needInsert = needInsert || recFuncChecked(fIt->second, recFuncCheckedSet, funcByName, messages, needToAddErrors, funcOnLine, firstFileName, arrayLinksByFuncCalls);
-            }
-        }
-        else
-            continue;
-    }
-    return needInsert;
-}
-
 static bool findFuncCall(SgExpression *ex, const FuncInfo *func, vector<Messages> &messages, const int statLine, SgForStmt *loop, bool needToAddErrors,
-                         const map<string, FuncInfo*> &funcByName, set<void*> recFuncCheckedSet,
-                         const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                         const map<string, FuncInfo*> &funcByName,
+                         const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, 
+                         bool processAll = false, set<string> *funcChecked = NULL, set<string> *needToInsert = NULL)
 {
     bool ret = false;
     if (ex)
     {
         if (ex->variant() == FUNC_CALL)
-            if (ex->symbol()->identifier() == func->funcName)
+        {
+            if (processAll)
             {
-                ret = ret || processParameterList(ex->lhs(), loop, func, statLine, needToAddErrors, messages, arrayLinksByFuncCalls);                
-                //ret = ret || recFuncChecked(func, recFuncCheckedSet, funcByName, messages, needToAddErrors, statLine, loop->fileName());
+                if (funcChecked && needToInsert)
+                {
+                    const string fName = ex->symbol()->identifier();
+                    if (funcChecked->find(fName) == funcChecked->end())
+                    {
+                        funcChecked->insert(fName);
+                        auto itF = funcByName.find(fName);
+                        if (itF != funcByName.end())
+                        {
+                            ret = processParameterList(ex->lhs(), loop, itF->second, statLine, needToAddErrors, messages, arrayLinksByFuncCalls);
+                            if (ret)
+                                needToInsert->insert(fName);
+                        }
+                    }
+                }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
+            else
+            {
+                if (ex->symbol()->identifier() == func->funcName)
+                {
+                    bool res = processParameterList(ex->lhs(), loop, func, statLine, needToAddErrors, messages, arrayLinksByFuncCalls);
+                    ret |= res;
+                }
+            }
+        }
 
-        ret = ret || findFuncCall(ex->lhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
-        ret = ret || findFuncCall(ex->rhs(), func, messages, statLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
+        bool resL = findFuncCall(ex->lhs(), func, messages, statLine, loop, needToAddErrors, funcByName, arrayLinksByFuncCalls, processAll, funcChecked, needToInsert);
+        bool resR = findFuncCall(ex->rhs(), func, messages, statLine, loop, needToAddErrors, funcByName, arrayLinksByFuncCalls, processAll, funcChecked, needToInsert);
+        ret |= resL || resR;
     }
 
     return ret;
@@ -1459,10 +1469,8 @@ static SgStatement* getStatByLine(string file, const int line, const map<string,
 static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<string> &needToInsert, SgFile *currF, 
                                       vector<Messages> &messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
                                       const map<string, map<int, SgStatement*>> &statByLine, 
-                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, set<string> &funcChecked)
 {
-    set<void*> recFuncCheckedSet;
-
     for (int k = 0; k < (int)childs.size(); ++k)
     {
         SgForStmt *loop = isSgForStmt(getStatByLine(currF->filename(), childs[k]->lineNum, statByLine));
@@ -1482,6 +1490,8 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                 //dont check call with !$SPF NOINLINE
                 bool needToCheck = true;
                 const string &funcName = childs[k]->calls[i].first;
+                funcChecked.insert(funcName);
+
                 auto it = funcByName.find(funcName);
                 if (it != funcByName.end())
                     needToCheck = !(it->second->doNotInline == true);
@@ -1497,44 +1507,101 @@ static void findInsertedFuncLoopGraph(const vector<LoopGraph*> &childs, set<stri
                 bool needInsert = false;
                 const int var = func->variant();
 
-                if (var == PROC_STAT || var == FUNC_STAT)
+                if (var == PROC_STAT)
                 {
-                    needInsert = needInsert || processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages, arrayLinksByFuncCalls);
-                    //needInsert = needInsert || recFuncChecked(it->second, recFuncCheckedSet, funcByName, messages, needToAddErrors, funcOnLine, loop->fileName());
+                    bool res = processParameterList(func->expr(0), loop, it->second, funcOnLine, needToAddErrors, messages, arrayLinksByFuncCalls);
+                    needInsert |= res;
                 }
                 else
                     for (int z = 0; z < 3; ++z)
-                        needInsert = needInsert || findFuncCall(func->expr(z), it->second, messages, funcOnLine, loop, needToAddErrors, funcByName, recFuncCheckedSet, arrayLinksByFuncCalls);
+                    {
+                        bool res = findFuncCall(func->expr(z), it->second, messages, funcOnLine, loop, needToAddErrors, funcByName, arrayLinksByFuncCalls);
+                        needInsert |= res;
+                    }
 
                 if (needInsert)
                     needToInsert.insert(childs[k]->calls[i].first);
             }
         }
-        findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
+        findInsertedFuncLoopGraph(childs[k]->children, needToInsert, currF, messages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls, funcChecked);
     }
+}
+
+static bool runCheckOutOfLoop(SgExpression *parList, const FuncInfo *func, const int lineFromCall, bool needToAddErrors,
+                              vector<Messages> &messages, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    bool needInsert = processParameterList(parList, NULL, func, lineFromCall, needToAddErrors, messages, arrayLinksByFuncCalls);
+    return needInsert;
 }
 
 static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loopGraph, set<string> &needToInsert,
                                       SgProject *proj, const map<string, int> &files, map<string, vector<Messages>> &allMessages,
                                       bool needToAddErrors, const map<string, FuncInfo*> &funcByName,
                                       const map<string, map<int, SgStatement*>> &statByLine,
-                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, const vector<ParallelRegion*> &regions)
 {
-    for (auto it = loopGraph.begin(); it != loopGraph.end(); it++)
+    set<string> funcChecked;
+    
+    for (auto &loop : loopGraph)
     {
-        const int fileN = files.find(it->first)->second;
+        const int fileN = files.find(loop.first)->second;
         SgFile *currF = &(proj->file(fileN));
 
-        auto itM = allMessages.find(it->first);
+        auto itM = allMessages.find(loop.first);
         if (itM == allMessages.end())
-            itM = allMessages.insert(itM, make_pair(it->first, vector<Messages>()));
-        findInsertedFuncLoopGraph(it->second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
+            itM = allMessages.insert(itM, make_pair(loop.first, vector<Messages>()));
+        findInsertedFuncLoopGraph(loop.second, needToInsert, currF, itM->second, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls, funcChecked);
+    }
+
+    //not checked, out of loops
+    for (int f = 0; f < proj->numberOfFiles(); ++f)
+    {
+        SgFile *currF = &(proj->file(f));
+        auto itM = allMessages.find(currF->filename());
+        if (itM == allMessages.end())
+            itM = allMessages.insert(itM, make_pair(currF->filename(), vector<Messages>()));
+
+        for (int z = 0; z < currF->numberOfFunctions(); ++z)
+        {
+            SgStatement *funcInFile = currF->functions(z);
+            for (SgStatement *st = funcInFile->lexNext(); st != funcInFile->lastNodeOfStmt(); st = st->lexNext())
+            {
+                if (st->variant() == CONTAINS_STMT)
+                    break;
+
+                if (st->lineNumber() == -1)
+                    continue;
+
+                ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+                if (currReg == NULL)
+                    continue;                
+
+                if (isSgExecutableStatement(st))
+                {
+                    if (st->variant() == PROC_STAT)
+                    {
+                        const string fName = st->symbol()->identifier();
+                        auto it = funcChecked.find(fName);
+                        auto itF = funcByName.find(fName);
+                        if (it == funcChecked.end() && itF != funcByName.end())
+                        {
+                            bool needInsert = runCheckOutOfLoop(st->expr(0), itF->second, st->lineNumber(), needToAddErrors, itM->second, arrayLinksByFuncCalls);
+                            if (needInsert)
+                                needToInsert.insert(fName);
+                        }
+                    }
+                    else
+                        for (int z = 0; z < 3; ++z)
+                            findFuncCall(st->expr(z), NULL, itM->second, st->lineNumber(), NULL, needToAddErrors, funcByName, arrayLinksByFuncCalls, true, &funcChecked, &needToInsert);
+                }
+            }
+        }
     }
 }
 
 int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const char *fileName, map<string, vector<FuncInfo*>> &funcByFile, 
                            const map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &allMessages, bool needToAddErrors,
-                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, const vector<ParallelRegion*> &regions)
 {
     map<string, map<int, SgStatement*>> statByLine; //file -> map    
     //build info
@@ -1572,7 +1639,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     }
 
     set<string> needToInsert;
-    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls);
+    findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls, regions);
 
     if (needToInsert.size() > 0)
     {
