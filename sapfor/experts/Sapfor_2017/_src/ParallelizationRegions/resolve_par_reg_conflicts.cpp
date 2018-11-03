@@ -806,7 +806,8 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void replaceCommonArray(const string &fileName,
+// return true if error exists
+static bool replaceCommonArray(const string &fileName,
                                const set<string> &arraySynonymNames,
                                const ParallelRegionLines &lines,
                                map<string, vector<Messages>> &SPF_messages,
@@ -861,7 +862,8 @@ static void replaceCommonArray(const string &fileName,
                             if (needInsertCopying && !array->GetNonDistributeFlag())
                                 insertArrayCopying(fileName, lines, varSymb, itt->second.second);
 
-                            return;
+                            // no error
+                            return false;
                         }
                         else
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -886,7 +888,13 @@ static void replaceCommonArray(const string &fileName,
             itM = SPF_messages.insert(itM, make_pair(fileName, vector<Messages>()));
 
         itM->second.push_back(Messages(ERROR, lines.lines.first, message, 1034));
+
+        // error
+        return true;
     }
+
+    // no error
+    return false;
 }
 
 static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
@@ -1147,8 +1155,10 @@ static void copyFunction(ParallelRegion *region,
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
+bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
+    bool error = false;
+
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
@@ -1247,7 +1257,10 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
 
                                         auto it = callSet.find(funcArrays.first);
                                         if (it != callSet.end())
-                                            replaceCommonArray(fileLines.first, arraySynonyms, lines2, SPF_messages, true);
+                                        {
+                                            bool tempErr = replaceCommonArray(fileLines.first, arraySynonyms, lines2, SPF_messages, true);
+                                            error = error || tempErr;
+                                        }
                                     }
                                 }
                             }
@@ -1258,7 +1271,10 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                     else
                     {
                         if (SgFile::switchToFile(funcArrays.first->fileName) != -1)
-                            replaceCommonArray(funcArrays.first->fileName, arraySynonyms, lines, SPF_messages, true);
+                        {
+                            bool tempErr = replaceCommonArray(funcArrays.first->fileName, arraySynonyms, lines, SPF_messages, true);
+                            error = error || tempErr;
+                        }
                         else
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
@@ -1321,7 +1337,8 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                                 pair<Statement*, Statement*> beginEnd = make_pair(start, end);
                                 pair<int, int> funcLines = make_pair(beginEnd.first->GetOriginal()->lineNumber(), beginEnd.second->GetOriginal()->lineNumber());
                                 ParallelRegionLines lines(funcLines, beginEnd);
-                                replaceCommonArray(fileFuncs.first, arraySynonyms, lines, SPF_messages);
+                                bool tempErr = replaceCommonArray(fileFuncs.first, arraySynonyms, lines, SPF_messages);
+                                error = error || tempErr;
                             }
                         }
                     }
@@ -1409,8 +1426,6 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             interval->setExpression(0, *newNode);
                             start->insertStmtBefore(*interval, *start->controlParent());
 
-                            recExpressionPrint(interval->expr(0)); // DEBUG
-
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
                             end->insertStmtAfter(*interval, *end->controlParent());
@@ -1433,8 +1448,6 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             interval->setExpression(0, *newNode);
                             start->insertStmtBefore(*interval, *start->controlParent());
 
-                            recExpressionPrint(interval->expr(0)); // DEBUG
-
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
                             end->insertStmtAfter(*interval, *end->controlParent());
@@ -1446,6 +1459,8 @@ void resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
+
+    return error;
 }
 
 int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions)

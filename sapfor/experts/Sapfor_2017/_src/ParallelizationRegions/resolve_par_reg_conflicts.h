@@ -10,6 +10,6 @@ void fillRegionFunctions(std::vector<ParallelRegion*> &regions, const std::map<s
 
 bool checkRegions(const std::vector<ParallelRegion*> &regions, std::map<std::string, std::vector<Messages>> &SPF_messages);
 
-void resolveParRegions(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
+bool resolveParRegions(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
 
 int printCheckRegions(const char *fileName, const std::vector<ParallelRegion*> &regions);
