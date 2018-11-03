@@ -1186,7 +1186,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
         if (ex->variant() == ARRAY_REF)
         {
             SgArrayRefExp *arrayRef = isSgArrayRefExp(ex);
-            if (arrayRef)
+            SgType *type = ex->symbol()->type();
+            if (arrayRef && type && type->variant() != T_STRING)
             {
                 SgSymbol *symb = OriginalSymbol(arrayRef->symbol());
                 if (symb)
