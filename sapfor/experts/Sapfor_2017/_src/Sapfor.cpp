@@ -1214,6 +1214,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             createMapOfFunc(allFuncInfo, funcMap);
 
             string message;
+            string conflicts;
             for (auto &nameFunc : funcMap)
             {
                 auto func = nameFunc.second;
@@ -1228,11 +1229,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         message += to_string(regionId);
                     }
                     message += '\n';
+
+                    if (func->callRegions.size() > 1)
+                    {
+                        conflicts += "  '";
+                        conflicts += nameFunc.first;
+                        conflicts += "'\n";
+                    }
                 }
             }
 
             if (message.size())
                 __spf_print(1, "Functions called by regions with ids:\n%s", message.c_str());
+
+            if (conflicts.size())
+                __spf_print(1, "Croseed functions (conflicts):\n%s", conflicts.c_str());
         }
         /*
         if (parallelRegions.size() > 1)
