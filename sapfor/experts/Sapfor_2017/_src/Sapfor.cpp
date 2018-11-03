@@ -1204,7 +1204,37 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
-        // TODO: rewrite with new fields
+        if (parallelRegions.size())
+        {
+            __spf_print(1, "Regions by id:\n");
+            for (auto &reg : parallelRegions)
+                __spf_print(1, "  %d: %s\n", reg->GetId(), reg->GetName().c_str());
+
+            map<string, FuncInfo*> funcMap;
+            createMapOfFunc(allFuncInfo, funcMap);
+
+            string message;
+            for (auto &nameFunc : funcMap)
+            {
+                auto func = nameFunc.second;
+                if (func->inRegion)
+                {
+                    message += "  func '";
+                    message += nameFunc.first;
+                    message += "':";
+                    for (auto &regionId : func->callRegions)
+                    {
+                        message += ' ';
+                        message += to_string(regionId);
+                    }
+                    message += '\n';
+                }
+            }
+
+            if (message.size())
+                __spf_print(1, "Functions called by regions with ids:\n%s", message.c_str());
+        }
+        /*
         if (parallelRegions.size() > 1)
         {
             map<string, vector<ParallelRegion*>> crossedByFunction;
@@ -1249,6 +1279,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
         }
+        */
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
