@@ -262,7 +262,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                             if (pos == string::npos)
                                 st->setComments((it.second.first + comments).c_str());
                             else if (comments.find(it.second.first) == string::npos)
-                                st->setComments((comments.insert(comments.find('\n') + 1, it.second.first)).c_str());
+                                st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
                         }
                         else
                             st->addComment(it.second.first.c_str());
