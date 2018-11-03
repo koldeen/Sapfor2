@@ -1105,7 +1105,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printParalleRegions("_parallelRegions.txt", parallelRegions);
         }
     }
-    else if (curr_regime == CHECK_PAR_REGIONS)
+    else if (curr_regime == FILL_PAR_REGIONS)
     {
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
@@ -1126,7 +1126,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
+        bool error = resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
+        if (error)
+            internalExit = 1;
     }
     else if (curr_regime == LOOP_GRAPH)
     {
@@ -1202,6 +1204,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
+        // TODO: rewrite with new fields
         if (parallelRegions.size() > 1)
         {
             map<string, vector<ParallelRegion*>> crossedByFunction;
