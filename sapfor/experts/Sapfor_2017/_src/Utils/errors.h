@@ -75,7 +75,9 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
 //   11 "Arrays have different align rules in this loop according to their write accesses"
-//   12 "parallel regions %swere crossed by function '%s'"
+//   12 "parallel regions %shave common function '%s'"
+//   13 "parallel regions %shave common array '%s'"
+//   14 "parallel regions %shave local array '%s'"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 

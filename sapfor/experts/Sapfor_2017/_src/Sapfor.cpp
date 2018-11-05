@@ -1206,69 +1206,43 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         if (parallelRegions.size())
         {
-            __spf_print(1, "Regions by id:\n");
-            for (auto &reg : parallelRegions)
-                __spf_print(1, "  %d: %s\n", reg->GetId(), reg->GetName().c_str());
-
             map<string, FuncInfo*> funcMap;
             createMapOfFunc(allFuncInfo, funcMap);
 
-            string message;
-            string conflicts;
             for (auto &nameFunc : funcMap)
             {
                 auto func = nameFunc.second;
-                if (func->inRegion)
-                {
-                    message += "  func '";
-                    message += nameFunc.first;
-                    message += "':";
-                    for (auto &regionId : func->callRegions)
-                    {
-                        message += ' ';
-                        message += to_string(regionId);
-                    }
-                    message += '\n';
-
-                    if (func->callRegions.size() > 1)
-                    {
-                        conflicts += "  '";
-                        conflicts += nameFunc.first;
-                        conflicts += "'\n";
-                    }
-                }
-            }
-
-            if (message.size())
-                __spf_print(1, "Functions called by regions with ids:\n%s", message.c_str());
-
-            if (conflicts.size())
-                __spf_print(1, "Croseed functions (conflicts):\n%s", conflicts.c_str());
-        }
-        /*
-        if (parallelRegions.size() > 1)
-        {
-            map<string, vector<ParallelRegion*>> crossedByFunction;
-            for (auto &reg : parallelRegions)
-            {
-                auto crossed = reg->GetCrossedFuncs();
-                for (auto &crossedF : crossed)
-                    crossedByFunction[crossedF->funcName].push_back(reg);
-            }
-
-            for (auto &crByF : crossedByFunction)
-            {
-                if (crByF.second.size() > 1)
+                if (func->callRegions.size() > 1)
                 {
                     string regions = "";
-                    for (auto &reg : crByF.second)
-                        regions += "'" + reg->GetName() + "' ";
-                    __spf_print(1, "parallel regions %swere crossed by function '%s'\n", regions.c_str(), crByF.first.c_str());
+                    for (auto &regId : func->callRegions)
+                    {
+                        auto reg = getRegionById(parallelRegions, regId);
+                        if (!reg && regId)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        if (regId)
+                            regions += "'" + reg->GetName() + "' ";
+                        else
+                            regions += "'DEFAULT' ";
+                    }
+                    __spf_print(1, "parallel regions %shave common function '%s'\n", regions.c_str(), nameFunc.first.c_str());
 
                     string message;
-                    __spf_printToBuf(message, "parallel regions %swere crossed by function '%s'", regions.c_str(), crByF.first.c_str());
+                    __spf_printToBuf(message, "parallel regions %shave common function '%s'", regions.c_str(), nameFunc.first.c_str());
 
-                    auto lines = crByF.second[0]->GetAllLines();
+                    ParallelRegion *reg = NULL;
+                    for (auto &regId : func->callRegions)
+                    {
+                        if (regId)
+                        {
+                            reg = getRegionById(parallelRegions, regId);
+                            break;
+                        }
+                    }
+
+                    if (!reg)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    auto lines = reg->GetAllLines();
                     bool ok = false;
                     for (auto &linePair : lines)
                     {
@@ -1289,8 +1263,87 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
             }
+
+            map<string, vector<ParallelRegion*>> regionsByArray;
+            for (auto &reg : parallelRegions)
+            {
+                auto commonArrays = reg->GetUsedCommonArrays();
+                for (auto &funcArrays : commonArrays)
+                    for (auto &arrLines : funcArrays.second)
+                        regionsByArray[arrLines.first->GetShortName()].push_back(reg);
+            }
+
+            for (auto &regsByArr : regionsByArray)
+            {
+                string regions = "";
+                for (auto &reg : regsByArr.second)
+                    regions += "'" + reg->GetName() + "' ";
+                __spf_print(1, "parallel regions %shave common array '%s'\n", regions.c_str(), regsByArr.first.c_str());
+
+                string message;
+                __spf_printToBuf(message, "parallel regions %shave common array '%s'", regions.c_str(), regsByArr.first.c_str());
+
+                auto lines = regsByArr.second[0]->GetAllLines();
+                bool ok = false;
+                for (auto &linePair : lines)
+                {
+                    for (auto &line : linePair.second)
+                    {
+                        if (line.stats.first && line.stats.second)
+                        {
+                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
+                            internalExit = 1;
+                            ok = true;
+                            break;
+                        }
+                    }
+                    if (ok)
+                        break;
+                }
+                if (ok == false)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            regionsByArray.clear();
+            for (auto &reg : parallelRegions)
+            {
+                auto commonArrays = reg->GetUsedLocalArrays();
+                for (auto &funcArrays : commonArrays)
+                    for (auto &arrLines : funcArrays.second)
+                        regionsByArray[arrLines.first->GetShortName()].push_back(reg);
+            }
+
+            for (auto &regsByArr : regionsByArray)
+            {
+                string regions = "";
+                for (auto &reg : regsByArr.second)
+                    regions += "'" + reg->GetName() + "' ";
+                __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first.c_str());
+
+                string message;
+                __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first.c_str());
+
+                auto lines = regsByArr.second[0]->GetAllLines();
+                bool ok = false;
+                for (auto &linePair : lines)
+                {
+                    for (auto &line : linePair.second)
+                    {
+                        if (line.stats.first && line.stats.second)
+                        {
+                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3014));
+                            internalExit = 1;
+                            ok = true;
+                            break;
+                        }
+                    }
+                    if (ok)
+                        break;
+                }
+                if (ok == false)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
         }
-        */
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {

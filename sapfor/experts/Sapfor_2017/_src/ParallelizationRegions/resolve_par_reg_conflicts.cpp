@@ -210,15 +210,6 @@ static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callF
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, int regionId)
-{
-    for (auto &region : regions)
-        if (region->GetId() == regionId)
-            return region;
-
-    return NULL;
-}
-
 static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
 {
     auto it = funcMap.find(funcName);
