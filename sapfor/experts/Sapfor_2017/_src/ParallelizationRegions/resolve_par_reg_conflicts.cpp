@@ -19,6 +19,25 @@ using std::string;
 using std::to_string;
 using std::make_pair;
 
+static int getIntervalNumber(const int fileId, const int lineNumber, const int regionId)
+{
+    int fileMask = 0b11111111;
+    int lineMask = 0b1111111111111111111;
+    int regionMask = 0b1111;
+
+    int filePart = fileMask & fileId;
+    int linePart = lineMask & lineNumber;
+    int regionPart = regionMask & regionId;
+
+    filePart = filePart << 4;
+    linePart = linePart << 12;
+    int number = 1 << 31;
+
+    number = number | filePart | linePart | regionPart;
+
+    return number;
+}
+
 // array -> common-block
 static map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
 
@@ -1411,7 +1430,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             // DVM INTERVAL N
                             SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
                             SgExprListExp *newNode = new SgExprListExp();
-                            int val = - (lines.stats.first->GetOriginal()->lexPrev()->lineNumber() + current_file_id);
+                            int val = getIntervalNumber(current_file_id, lines.stats.first->GetOriginal()->lexPrev()->lineNumber(), region->GetId());
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
@@ -1433,7 +1452,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             // DVM INTERVAL N
                             SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
                             SgExprListExp *newNode = new SgExprListExp();
-                            int val = -(lines.stats.second->GetOriginal()->lexNext()->lineNumber() + current_file_id);
+                            int val = getIntervalNumber(current_file_id, lines.stats.second->GetOriginal()->lexNext()->lineNumber(), region->GetId());
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
