@@ -1264,13 +1264,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 }
             }
 
-            map<string, vector<ParallelRegion*>> regionsByArray;
+            map<string, set<ParallelRegion*>> regionsByArray;
             for (auto &reg : parallelRegions)
             {
                 auto commonArrays = reg->GetUsedCommonArrays();
                 for (auto &funcArrays : commonArrays)
                     for (auto &arrLines : funcArrays.second)
-                        regionsByArray[arrLines.first->GetShortName()].push_back(reg);
+                        regionsByArray[arrLines.first->GetShortName()].insert(reg);
             }
 
             for (auto &regsByArr : regionsByArray)
@@ -1283,7 +1283,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 string message;
                 __spf_printToBuf(message, "parallel regions %shave common array '%s'", regions.c_str(), regsByArr.first.c_str());
 
-                auto lines = regsByArr.second[0]->GetAllLines();
+                auto lines = (*regsByArr.second.begin())->GetAllLines();
                 bool ok = false;
                 for (auto &linePair : lines)
                 {
@@ -1310,7 +1310,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 auto commonArrays = reg->GetUsedLocalArrays();
                 for (auto &funcArrays : commonArrays)
                     for (auto &arrLines : funcArrays.second)
-                        regionsByArray[arrLines.first->GetShortName()].push_back(reg);
+                        regionsByArray[arrLines.first->GetShortName()].insert(reg);
             }
 
             for (auto &regsByArr : regionsByArray)
@@ -1323,7 +1323,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 string message;
                 __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first.c_str());
 
-                auto lines = regsByArr.second[0]->GetAllLines();
+                auto lines = (*regsByArr.second.begin())->GetAllLines();
                 bool ok = false;
                 for (auto &linePair : lines)
                 {
