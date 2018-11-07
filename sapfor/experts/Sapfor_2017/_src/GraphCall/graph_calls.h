@@ -3,7 +3,6 @@
 #include <string>
 #include <set>
 
-#include "../Sapfor.h"
 #include "../Utils/AstWrapper.h"
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"

@@ -26,7 +26,6 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
-#include "../Sapfor.h"
 
 using std::map;
 using std::pair;
@@ -103,7 +102,7 @@ string OnlyExt(const char *filename)
     return retVal;
 }
 
-void printHelp()
+void printHelp(const char **passNames, const int lastPass)
 {
     printf("Help info for passes.\n\n");
     printf(" -f90      free form\n");
@@ -121,7 +120,7 @@ void printHelp()
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
-    for (int i = 0; i < EMPTY_PASS; ++i)
+    for (int i = 0; i < lastPass; ++i)
         printf("    pass_num = %d:  %s\n", i, passNames[i]);
     printf("\n");
     printf(" -t    <analysis_num>\n");
@@ -218,6 +217,7 @@ void printBlanks(const int sizeOfBlank, const int countOfBlanks)
 }
 
 string globalOutputBuffer = "";
+int consoleMode = 0;
 void addToGlobalBufferAndPrint(const string &toPrint)
 {
     globalOutputBuffer += toPrint;
@@ -296,7 +296,7 @@ bool isSPF_comment(const string &bufStr)
 }
 
 void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
-                  const char *folderName, int removeDvmDirs)
+                  const char *folderName, bool keepSpfDirs, int removeDvmDirs)
 {
     for (auto &include : allIncludeFiles)
     {

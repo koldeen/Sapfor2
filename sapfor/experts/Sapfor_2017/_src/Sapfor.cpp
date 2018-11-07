@@ -266,7 +266,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 
             // copy includes that have not changed
             if (folderName != NULL)
-                copyIncludes(allIncludeFiles, commentsToInclude, folderName, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
+                copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
         }
     }
 }
@@ -958,7 +958,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         // copy includes that have not changed
         if (folderName != NULL)
-            copyIncludes(allIncludeFiles, commentsToInclude, folderName);
+            copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs);
     }
     else if (curr_regime == EXTRACT_SHADOW_DIRS)
         commentsToInclude.clear();
@@ -1675,7 +1675,7 @@ int main(int argc, char **argv)
                         curr_regime = CREATE_NESTED_LOOPS;
                 }
                 else if (curr_arg[1] == 'h')
-                    printHelp();
+                    printHelp(passNames, EMPTY_PASS);
                 else if (string(curr_arg) == "-leak")
                     leakMemDump = 1;
                 else if (string(curr_arg) == "-f90")
@@ -1725,7 +1725,7 @@ int main(int argc, char **argv)
         }
 
         if (curr_regime == EMPTY_PASS)
-            printHelp();
+            printHelp(passNames, EMPTY_PASS);
 
         runPass(curr_regime, proj_name, folderName);
         if (printText)

@@ -11,6 +11,7 @@
 #include <string>
 
 #include "dvm.h"
+#include "../Sapfor.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../ExpressionTransform/expr_transform.h"

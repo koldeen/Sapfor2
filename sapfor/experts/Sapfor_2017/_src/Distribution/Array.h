@@ -383,6 +383,14 @@ namespace Distribution
             for (int i = 0; i < sizes.size(); ++i)
                 retVal += " " + TO_STR(sizes[i].first) + " " + TO_STR(sizes[i].second);
 
+            retVal += " " + TO_STR(depracateToDistribute.size());
+            for (int i = 0; i < depracateToDistribute.size(); ++i)
+                retVal += " " + TO_STR((int)depracateToDistribute[i]);
+
+            retVal += " " + TO_STR(mappedDims.size());
+            for (int i = 0; i < mappedDims.size(); ++i)
+                retVal += " " + TO_STR((int)mappedDims[i]);
+
             retVal += " " + TO_STR(templateInfo.size());
             for (auto it = templateInfo.begin(); it != templateInfo.end(); ++it)
                 retVal += " " + TO_STR(it->first) + it->second->toString();
