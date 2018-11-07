@@ -565,18 +565,29 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                             if (!currentVar.first)
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                            //TODO: find templ array if ACROSS
                             if (!(loop->directiveForLoop))
                                 continue;
                             DIST::Array *loopT = loop->directiveForLoop->arrayRef;
-                            if (loopT != templ)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                             int dimToMap = -1;
-                            for (int z = 0; z < templ->GetDimSize(); ++z)
+                            for (int z = 0; z < loopT->GetDimSize(); ++z)
                                 if (loop->directiveForLoop->on[z].first != "*")
                                     dimToMap = z;
                             if (dimToMap == -1)
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            if (loopT != templ)
+                            {
+                                DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                if (templ != loopTempl)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+                                if (loopAlignCoefs[dimToMap] == -1)
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                else
+                                    dimToMap = loopAlignCoefs[dimToMap];
+                            }
 
                             if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
                             {
@@ -1932,6 +1943,31 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     }
 }
 
+static int getSizeOfType(SgType *type)
+{
+    int ret = 4; // default integer
+    switch (type->variant())
+    {
+    case T_FLOAT:
+    case T_INT:
+        ret = 4;
+        break;
+    case T_COMPLEX:
+    case T_DOUBLE:
+        ret = 8;
+        break;
+    case T_CHAR:
+        ret = 1;
+        break;
+    case T_DCOMPLEX:
+        ret = 16;
+        break;
+    default:
+        break;
+    }
+    return ret;
+}
+
 static void findArrayRefs(SgExpression *ex,
                           const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
@@ -1953,6 +1989,8 @@ static void findArrayRefs(SgExpression *ex,
         {
             if (symb->type()->variant() == T_ARRAY)
             {
+                const int typeSize = getSizeOfType(symb->type()->baseType());
+
                 SgStatement *decl = declaratedInStmt(symb);
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
@@ -1978,7 +2016,7 @@ static void findArrayRefs(SgExpression *ex,
                     DIST::Array *arrayToAdd = 
                         new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
                                         getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb),
-                                        (inRegion != NULL) ? inRegion->GetName() : "");
+                                        (inRegion != NULL) ? inRegion->GetName() : "", typeSize);
 
                     itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 

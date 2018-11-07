@@ -536,7 +536,7 @@ bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
     string loopName = fullLoopName;
 
     DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, 
-                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName());
+                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName(), 0);
     
     if (loopInfo->calculatedCountOfIters == 0)
     {

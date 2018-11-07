@@ -170,30 +170,46 @@ static bool isDistributed(SgSymbol *in)
 }
 
 //TODO: need to add IPA (functions)
-static void fillRead(SgExpression *ex, map<string, map<string, set<SgStatement*>>> &readArrays, SgStatement *cp)
+static void fillRead(SgExpression *ex, SgStatement *cp, SgStatement *st,
+                     map<string, map<string, pair<set<SgStatement*>, set<SgStatement*>>>> &readArrays)
 {
     if (ex)
     {
         if (ex->variant() == ARRAY_REF)
             if (isDistributed(ex->symbol()))
-                readArrays[ex->symbol()->identifier()][string(ex->unparse())].insert(cp);
+            {
+                readArrays[ex->symbol()->identifier()][string(ex->unparse())].first.insert(cp);
+                readArrays[ex->symbol()->identifier()][string(ex->unparse())].second.insert(st);
+            }
 
-        fillRead(ex->lhs(), readArrays, cp);
-        fillRead(ex->rhs(), readArrays, cp);
+        fillRead(ex->lhs(), cp, st, readArrays);
+        fillRead(ex->rhs(), cp, st, readArrays);
     }
 }
 
 static bool inline hasAssignsToArray(SgStatement *stIn)
 {
-    map<string, map<string, set<SgStatement*>>> arrayAccessWrite;
-    map<string, map<string, set<SgStatement*>>> arrayAccessRead;
+    // array -> unparse access -> pair [ control par, original stat]
+    map<string, map<string, pair<set<SgStatement*>, set<SgStatement*>>>> arrayAccessWrite;
+    map<string, map<string, pair<set<SgStatement*>, set<SgStatement*>>>> arrayAccessRead;
     
     SgStatement *last = stIn->lastNodeOfStmt();
     for (auto st = stIn; st != last; st = st->lexNext())
+    {
         if (st->variant() == ASSIGN_STAT)
-            if (st->expr(0)->variant() == ARRAY_REF)
-                if (isDistributed(st->expr(0)->symbol()))
-                    arrayAccessWrite[st->expr(0)->symbol()->identifier()][string(st->expr(0)->unparse())].insert(st->controlParent());
+        {
+            SgExpression *ex = st->expr(0);
+            if (ex->variant() == ARRAY_REF)
+            {
+                SgSymbol *s = ex->symbol();
+                if (isDistributed(s))
+                {
+                    arrayAccessWrite[s->identifier()][string(ex->unparse())].first.insert(st->controlParent());
+                    arrayAccessWrite[s->identifier()][string(ex->unparse())].second.insert(st);
+                }
+            }
+        }
+    }
 
     for (auto st = stIn; st != last; st = st->lexNext())
     {
@@ -201,15 +217,15 @@ static bool inline hasAssignsToArray(SgStatement *stIn)
         if (st->variant() != ASSIGN_STAT)
         {
             for (int z = 0; z < 3; ++z)
-                fillRead(st->expr(z), arrayAccessRead, cp);
+                fillRead(st->expr(z), cp, st, arrayAccessRead);
         }
         else
         {
             for (int z = 1; z < 3; ++z)
-                fillRead(st->expr(z), arrayAccessRead, cp);
+                fillRead(st->expr(z), cp, st, arrayAccessRead);
             SgExpression *left = st->expr(0);
-            fillRead(left->lhs(), arrayAccessRead, cp);
-            fillRead(left->rhs(), arrayAccessRead, cp);
+            fillRead(left->lhs(), cp, st, arrayAccessRead);
+            fillRead(left->rhs(), cp, st, arrayAccessRead);
         }
     }
 
@@ -227,12 +243,16 @@ static bool inline hasAssignsToArray(SgStatement *stIn)
                     return true;
                 else
                 {
-                    for (auto &cpW : mapW->second)
+                    for (auto &cpW : mapW->second.first)
                     {
-                        for (auto &cpR : read.second)
+                        for (auto &cpR : read.second.first)
                             if (cpW != cpR && cpW->variant() == FOR_NODE)
                                 return true;
                     }
+
+                    for (auto &cpW : mapW->second.second)
+                        if (read.second.second.find(cpW) == read.second.second.end())
+                            return true;
                 }
             }
         }

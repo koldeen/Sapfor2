@@ -68,6 +68,7 @@ namespace Distribution
         STRING name;
         STRING shortName;
         int dimSize;
+        int typeSize; // size of one element of array
         // calculated sizes
         VECTOR<PAIR<int, int>> sizes;
         // original sizes + shifts
@@ -120,16 +121,17 @@ namespace Distribution
             isTemplFlag = false;
             isLoopArrayFlag = false;
             isNonDistribute = NO_DISTR;
+            typeSize = 0;
             uniqKey = "";
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol, const STRING &regName) :
+              Symbol *declSymbol, const STRING &regName, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
-            locationPos(locationPos), declSymbol(declSymbol)
+            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
@@ -157,6 +159,8 @@ namespace Distribution
             name = copy.name;
             shortName = copy.shortName;
             dimSize = copy.dimSize;
+            typeSize = copy.typeSize;
+
             sizes = copy.sizes;
             sizesExpr = copy.sizesExpr;
 
@@ -460,7 +464,9 @@ namespace Distribution
             else
                 return depracateToDistribute[dim];
         }
-                
+        
+        int GetTypeSize() const { return typeSize; }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)

@@ -4,17 +4,14 @@
 #include <vector>
 #include <list>
 
-#define MAX(a, b) ((a > b) ? a : b)
-#define MIN(a, b) ((a < b) ? a : b)
-
 typedef std::vector<int> vect_int;
 typedef std::vector<long> vect_long;
 
 struct var;
 struct loop;
 
-enum ReductionOp {SUM, PRODUCT, MAX, MIN, AND, OR, EQV, NEQV, MAXLOC, MINLOC, EMPTY, REGULAR, OUTPUT};
-enum DepType 
+//enum ReductionOp {SUM, PRODUCT, MAX, MIN, AND, OR, EQV, NEQV, MAXLOC, MINLOC, EMPTY, REGULAR, OUTPUT};
+/*enum DepType 
 {
 	REDUCTION,  // редукционная переменная (и операция)
 	PRIVATE,    // приватная переменная для цикла (присваивание до чтения внутри цикла, за пределами цикла не читается перед присваиванием)
@@ -33,7 +30,7 @@ enum DepType
 	L_PRIVATE, // last private for OpenMP
 //	FAIL,       // а с чем-то анализатор не справился
 	OTHER_CAUSE
-};
+};*/
 
 //================ Internal form of DB ===============
 struct mach
@@ -181,6 +178,7 @@ struct glob_shadow
 	vector<sector_usage *> write_use;
 };
 
+/*
 struct depend
 {
 	int id; 
@@ -192,7 +190,7 @@ struct depend
 	struct var *loc_arr;
 	int loc_cnt;
 	vector<long> dep_usage_id;
-};
+};*/
 
 struct loop
 {
@@ -217,7 +215,7 @@ struct loop
 	vector<long> oper;
 	vector<long> oper_lines;
 	vector<usage> var_access;
-	vector<depend> depends;
+	//vector<depend> depends;
 	vector<var *> remote_vars; //remote operation in this node, not inner, not outer
 	bool is_io;
 	bool is_par;
@@ -261,7 +259,8 @@ struct seq_loop  // getting unusefull
 };
 
 struct my_red
-{	ReductionOp type;
+{	
+    //ReductionOp type;
 	vector<var*> red_var;
 	var *red_loc_arr;
 	int red_loc_cnt;

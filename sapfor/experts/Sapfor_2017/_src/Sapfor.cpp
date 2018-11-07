@@ -934,25 +934,25 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
-        for (auto it = commentsToInclude.begin(); it != commentsToInclude.end(); ++it)
+        for (auto &comment : commentsToInclude)
         {
             if (consoleMode)
             {
-                __spf_print(1, "  write to <%s_%s> file\n", it->first.c_str(), newVer);
-                insertDistributionToFile(it->first.c_str(), (string(it->first) + "_" + string(newVer)).c_str(), it->second);
+                __spf_print(1, "  write to <%s_%s> file\n", comment.first.c_str(), newVer);
+                insertDistributionToFile(comment.first.c_str(), (comment.first + "_" + string(newVer)).c_str(), comment.second);
             }
             else
             {
                 if (folderName)
                 {
-                    __spf_print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(it->first)).c_str());
-                    insertDistributionToFile(it->first.c_str(), (string(folderName) + "/" + string(it->first)).c_str(), it->second);
+                    __spf_print(1, "  write to <%s> file\n", (string(folderName) + "/" + string(comment.first)).c_str());
+                    insertDistributionToFile(comment.first.c_str(), (string(folderName) + "/" + string(comment.first)).c_str(), comment.second);
                 }
-                else
+                /*else
                 {
-                    __spf_print(1, "  write to <%s> file\n", (string(it->first)).c_str());
-                    insertDistributionToFile(it->first.c_str(), (string(it->first)).c_str(), it->second);
-                }
+                    __spf_print(1, "  write to <%s> file\n", (string(comment.first)).c_str());
+                    insertDistributionToFile(it->first.c_str(), (string(comment.first)).c_str(), comment.second);
+                }*/
             }
         }
 
@@ -1144,46 +1144,49 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
     {
-        //insert template declaration to main program
-        const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-        for (int i = n - 1; i >= 0; --i)
+        if (folderName != NULL)
         {
-#if _WIN32 && NDEBUG
-            createNeededException();
-#endif
-            SgFile *file = &(project.file(i));
-            current_file_id = i;
-            current_file = file;
-
-            if (file->mainProgram())
+            //insert template declaration to main program
+            const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
+            for (int i = n - 1; i >= 0; --i)
             {
-                string fileName = file->filename();
-                auto itDep = includeDependencies.find(fileName);
+#if _WIN32 && NDEBUG
+                createNeededException();
+#endif
+                SgFile *file = &(project.file(i));
+                current_file_id = i;
+                current_file = file;
 
-                //TODO: split by functions
-                set<string> includedToThisFile;
-                if (itDep != includeDependencies.end())
+                if (file->mainProgram())
                 {
-                    for (auto &inclDep : itDep->second)
+                    string fileName = file->filename();
+                    auto itDep = includeDependencies.find(fileName);
+
+                    //TODO: split by functions
+                    set<string> includedToThisFile;
+                    if (itDep != includeDependencies.end())
                     {
-                        auto comm = commentsToInclude.find(inclDep);
-                        if (comm != commentsToInclude.end())
-                            for (auto &allComm : comm->second)
-                                includedToThisFile.insert(allComm.second.begin(), allComm.second.end());
+                        for (auto &inclDep : itDep->second)
+                        {
+                            auto comm = commentsToInclude.find(inclDep);
+                            if (comm != commentsToInclude.end())
+                                for (auto &allComm : comm->second)
+                                    includedToThisFile.insert(allComm.second.begin(), allComm.second.end());
+                        }
                     }
-                }
 
-                for (int z = 0; z < parallelRegions.size(); ++z)
-                {
-                    ParallelRegion *currReg = parallelRegions[z];
-                    const DataDirective &dataDirectives = currReg->GetDataDir();
-                    const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                    const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-                    const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
+                    for (int z = 0; z < parallelRegions.size(); ++z)
+                    {
+                        ParallelRegion *currReg = parallelRegions[z];
+                        const DataDirective &dataDirectives = currReg->GetDataDir();
+                        const vector<int> &currentVariant = currReg->GetCurrentVariant();
+                        const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
+                        const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
 
-                    insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, allArrays, extract, currReg->GetId(), includedToThisFile);
+                        insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, allArrays, extract, currReg->GetId(), includedToThisFile);
+                    }
+                    break;
                 }
-                break;
             }
         }
     }
@@ -1499,7 +1502,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runAnalysis(*project, PREDICT_SCHEME, false);
             
-            runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
+            if (folderName || consoleMode)
+                runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
