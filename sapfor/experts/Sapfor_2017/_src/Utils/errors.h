@@ -81,6 +81,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
+
 struct Messages
 {
 public:

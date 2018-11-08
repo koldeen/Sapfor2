@@ -8,12 +8,12 @@
 #include "../Utils/errors.h"
 #include "../Utils/types.h"
 #include "../Distribution/DvmhDirective.h"
-#include "../GraphCall/graph_calls.h"
 
 struct DistrVariant;
 struct ParallelDirective;
 struct ParallelRegion;
 class Statement;
+struct FuncInfo;
 
 namespace Distribution
 {
@@ -282,7 +282,7 @@ public:
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
-void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
 
 void convertToString(const LoopGraph *currLoop, std::string &result);

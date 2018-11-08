@@ -286,6 +286,7 @@
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
+    <ClCompile Include="..\_src\GraphCall\graph_calls_base.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp" />
     <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp" />

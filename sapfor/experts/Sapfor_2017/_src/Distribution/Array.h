@@ -68,6 +68,7 @@ namespace Distribution
         STRING name;
         STRING shortName;
         int dimSize;
+        int typeSize; // size of one element of array
         // calculated sizes
         VECTOR<PAIR<int, int>> sizes;
         // original sizes + shifts
@@ -120,16 +121,17 @@ namespace Distribution
             isTemplFlag = false;
             isLoopArrayFlag = false;
             isNonDistribute = NO_DISTR;
+            typeSize = 0;
             uniqKey = "";
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol, const STRING &regName) :
+              Symbol *declSymbol, const STRING &regName, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
-            locationPos(locationPos), declSymbol(declSymbol)
+            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
@@ -157,6 +159,8 @@ namespace Distribution
             name = copy.name;
             shortName = copy.shortName;
             dimSize = copy.dimSize;
+            typeSize = copy.typeSize;
+
             sizes = copy.sizes;
             sizesExpr = copy.sizesExpr;
 
@@ -379,6 +383,14 @@ namespace Distribution
             for (int i = 0; i < sizes.size(); ++i)
                 retVal += " " + TO_STR(sizes[i].first) + " " + TO_STR(sizes[i].second);
 
+            retVal += " " + TO_STR(depracateToDistribute.size());
+            for (int i = 0; i < depracateToDistribute.size(); ++i)
+                retVal += " " + TO_STR((int)depracateToDistribute[i]);
+
+            retVal += " " + TO_STR(mappedDims.size());
+            for (int i = 0; i < mappedDims.size(); ++i)
+                retVal += " " + TO_STR((int)mappedDims[i]);
+
             retVal += " " + TO_STR(templateInfo.size());
             for (auto it = templateInfo.begin(); it != templateInfo.end(); ++it)
                 retVal += " " + TO_STR(it->first) + it->second->toString();
@@ -460,7 +472,9 @@ namespace Distribution
             else
                 return depracateToDistribute[dim];
         }
-                
+        
+        int GetTypeSize() const { return typeSize; }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)

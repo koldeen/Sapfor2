@@ -3,6 +3,7 @@
 
 #include <iomanip>
 #include <vector>
+#include <map>
 
 #ifdef _MSC_VER
 /*Windows*/
@@ -13,9 +14,17 @@
 #include <dirent.h>
 #endif
 
+#include "../Distribution/Distribution.h"
+#include "../Distribution/DvmhDirective.h"
+#include "../GraphLoop/graph_loops.h"
+
 #include "PredictorInterface.h"
 #include "PredictorModel.h"
+
+
 using std::vector;
+using std::map;
+using std::to_string;
 
 //from xp.cpp
 vector<struct routine> routines;
@@ -48,17 +57,6 @@ int curr_mach;
 const char* CONFIG_ProcSet = "*.cps";
 const char* CONFIG_MachSet = "*.cms";
 const char* CONFIG_TaskSet = "*.cts";
-
-/*
-struct var_data
-{	std::string name; //имя
-    long addr; //пока использую для задания параметров, но можно будет заменить на struct var &
-    int type; // тип в байтах
-    int rank;	//ранг массива
-    long dim[4]; // его размерности, но можно использовать вектор
-    //здесь еще должны быть размеры теневых граней, но в примерах sor и jac они задаются по умолчанию = 1
-};
-*/
 
 // xp-settings max_dim=10
 const char max_dim = 10;
@@ -425,39 +423,57 @@ int	printInterval(Interval *inter)
 
 //====================================== model ====================================================================
 //============== 
-int Model_distr(var *v, dis_pat *d, shadow *s)
-{
-    int i;
+static long arrayAddr = 1;
+static long arrayAddrPtr = 10000;
+static long ids = 1;
+static long loopIds = 1;
 
-    addr = 0;
+static map<DIST::Array*, long> mapArrayAddrs;
+static map<DIST::Array*, long> mapArrayAddrsPtr;
+static map<DIST::Array*, long> mapIds;
+static map<LoopGraph*, long> mapLoopIds;
+
+template<typename T>
+static long getId(T array, map<T, long> dict, long &counter)
+{
+    auto it = dict.find(array);
+    if (it == dict.end())
+        dict[array] = counter++;
+    return dict[array];
+}
+
+static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *printOut)
+{
+    string debug = "";
     {
         FuncCall f;
         f.func_id = crtamv_;
-        crtamv_Info* tmp_params = new crtamv_Info;
+        crtamv_Info *tmp_params = new crtamv_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
         tmp_params->AM_ID = cur_amv; //possible not
-        tmp_params->ID = 0xa00000 + v->addr; //для различия
-        tmp_params->SizeArray.resize(v->rank);
+        tmp_params->ID = getId(array, mapArrayAddrs, ids); //для различия
 
-        for (i = 0; i < v->rank; i++)
-            v->dim[i] = v->hi[i]->Calculate() - v->low[i]->Calculate() + 1;
-
-        for (i = v->rank - 1; i >= 0; i--)
-            tmp_params->SizeArray[v->rank - 1 - i] = v->dim[i];
+        auto sizes = array->GetSizes();
+        tmp_params->SizeArray.resize(sizes.size());
+        for (int i = (int)sizes.size() - 1; i >= 0; --i)
+            tmp_params->SizeArray[(int)sizes.size() - 1 - i] = sizes[i].second - sizes[i].first + 1;
         tmp_params->StaticSign = 0; //possible not
 
-        addr++;
         cur_amv = tmp_params->ID;
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        printf("crtamv SizeArray=");
-        for (i = 0; i < tmp_params->SizeArray.size(); i++)
-            printf(" %d", tmp_params->SizeArray[i]);
-        printf("\n");
+        if (printOut)
+        {
+            debug += "crtamv SizeArray=";
+            printf("crtamv SizeArray=");
+            for (int i = 0; i < tmp_params->SizeArray.size(); ++i)
+                debug += " " + to_string(tmp_params->SizeArray[i]);
+            debug += "\n";
+        }
 
         f.crtamv();
     }
@@ -465,7 +481,7 @@ int Model_distr(var *v, dis_pat *d, shadow *s)
     {
         FuncCall f;
         f.func_id = distr_;
-        distr_Info* tmp_params = new distr_Info;
+        distr_Info *tmp_params = new distr_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
         tmp_params->ID = cur_amv;
@@ -473,20 +489,22 @@ int Model_distr(var *v, dis_pat *d, shadow *s)
         tmp_params->AxisArray.resize(0);
         tmp_params->DistrParamArray.resize(0);
 
-        for (i = 0; i < d->rank; i++)
+        for (int i = 0; i < array->GetDimSize(); ++i)
         {
-            if (d->dim[i] == 1)
+            if (distrVar->distRule[i] == dist::BLOCK)
             {
-                tmp_params->AxisArray.push_back(d->rank - i);
+                tmp_params->AxisArray.push_back(array->GetDimSize() - i);
                 tmp_params->DistrParamArray.push_back(0); //possible not
             }
         }
 
-        printf("distr AxisArray=");
-        for (i = 0; i < tmp_params->AxisArray.size(); i++)
-            printf(" %d", tmp_params->AxisArray[i]);
-        printf("\n");
-
+        if (printOut)
+        {
+            debug += "distr AxisArray=";
+            for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
+                debug += " " + to_string(tmp_params->AxisArray[i]);
+            debug += "\n";
+        }
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -501,46 +519,49 @@ int Model_distr(var *v, dis_pat *d, shadow *s)
         crtda_Info* tmp_params = new crtda_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = 0x100000 + v->addr;//для различия
-        tmp_params->ArrayHandlePtr = 0x200000 + v->addr;//для различия
-        //v->addr=addr;
+        const int rank = array->GetDimSize();
+
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
         tmp_params->ReDistrSign = 0; //poss not 3
         tmp_params->StaticSign = 0; //poss not
-        tmp_params->TypeSize = v->type_size; //ch!!! -3
-        tmp_params->SizeArray.resize(v->rank);
-        tmp_params->LowShdWidthArray.resize(v->rank);
-        tmp_params->HiShdWidthArray.resize(v->rank);
-
-        for (i = v->rank - 1; i >= 0; i--)
+        tmp_params->TypeSize = array->GetTypeSize();
+        tmp_params->SizeArray.resize(rank);
+        tmp_params->LowShdWidthArray.resize(rank);
+        tmp_params->HiShdWidthArray.resize(rank);
+                
+        auto sizes = array->GetSizes();
+        auto shadow = array->GetShadowSpec();
+        for (int i = rank - 1; i >= 0; --i)
         {
-            tmp_params->SizeArray[v->rank - 1 - i] = v->dim[i];
-            tmp_params->LowShdWidthArray[v->rank - 1 - i] = s->low_wid[i];
-            tmp_params->HiShdWidthArray[v->rank - 1 - i] = s->hi_wid[i];
+            tmp_params->SizeArray[rank - 1 - i] = sizes[i].second - sizes[i].first + 1;
+            tmp_params->LowShdWidthArray[rank - 1 - i] = shadow[i].first;
+            tmp_params->HiShdWidthArray[rank - 1 - i] = shadow[i].second;
         }
-
-        addr++;
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
+        if (printOut)
+        {
+            debug += "d crtda " + array->GetName() + "addr=" + to_string(tmp_params->ArrayHeader) + "\n";
+            debug += "d crtda SizeArray=";
 
-        printf("d crtda %s  addr=%d\n", v->name, tmp_params->ArrayHeader);
+            for (int i = 0; i < tmp_params->SizeArray.size(); ++i)
+                debug += " " + to_string(tmp_params->SizeArray[i]);
+            debug += "\n";
 
-        printf("d crtda SizeArray=");
-        for (i = 0; i < tmp_params->SizeArray.size(); i++)
-            printf(" %d", tmp_params->SizeArray[i]);
-        printf("\n");
+            debug += "d crtda LowShdWidthArray=";            
+            for (int i = 0; i < tmp_params->LowShdWidthArray.size(); ++i)
+                debug += " " + to_string(tmp_params->LowShdWidthArray[i]);
+            debug += "\n";
 
-        printf("d crtda LowShdWidthArray=");
-        for (i = 0; i < tmp_params->LowShdWidthArray.size(); i++)
-            printf(" %d", tmp_params->LowShdWidthArray[i]);
-        printf("\n");
-
-        printf("d crtda HiShdWidthArray=");
-        for (i = 0; i < tmp_params->HiShdWidthArray.size(); i++)
-            printf(" %d", tmp_params->HiShdWidthArray[i]);
-        printf("\n");
+            debug += "d crtda HiShdWidthArray=";
+            for (int i = 0; i < tmp_params->HiShdWidthArray.size(); ++i)
+                debug += " " + to_string(tmp_params->HiShdWidthArray[i]);
+            debug += "\n";
+        }
 
         f.crtda();
     }
@@ -551,109 +572,99 @@ int Model_distr(var *v, dis_pat *d, shadow *s)
         align_Info* tmp_params = new align_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = 0x100000 + v->addr;//для различия
-        tmp_params->ArrayHandlePtr = 0x200000 + v->addr;//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
         tmp_params->PatternRef = cur_amv;
         tmp_params->PatternRefPtr = cur_amv;
         tmp_params->PatternType = 1; //AMView
 
-        tmp_params->AxisArray.resize(v->rank);
-        tmp_params->CoeffArray.resize(v->rank);
-        tmp_params->ConstArray.resize(v->rank);
-        for (i = 0; i < v->rank; i++)
+        tmp_params->AxisArray.resize(array->GetDimSize());
+        tmp_params->CoeffArray.resize(array->GetDimSize());
+        tmp_params->ConstArray.resize(array->GetDimSize());
+        for (int i = 0; i < array->GetDimSize(); ++i)
         {
             tmp_params->AxisArray[i] = i + 1;
             tmp_params->CoeffArray[i] = 1;
             tmp_params->ConstArray[i] = 0;
         }
 
-        printf("d align AxisArray=");
-        for (i = 0; i < tmp_params->AxisArray.size(); i++)
-            printf(" %d", tmp_params->AxisArray[i]);
-        printf("\n");
-
+        if (printOut)
+        {
+            debug += "d align AxisArray=";
+            for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
+                debug += " " + to_string(tmp_params->AxisArray[i]);
+            debug += "\n";
+        }
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
         f.align();
     }
+
+    if (printOut)
+        fprintf(printOut, "%s", debug.c_str());
     return 0;
 }
 
-//============== 
-int Model_align(var *v1, var *v2, ali_pat *d, shadow *s)
+int Model_align(DIST::Array *array, const int regId, FILE *printOut)
 {
-    int i;
+    DIST::Array *templ = array->GetTemplateArray(regId);
+    auto rule = array->GetAlignRulesWithTemplate(regId);
+    auto links = array->GetLinksWithTemplate(regId);
 
-    static int ccc = 0;
-    ccc++;
-    printf("ccc=%d\n", ccc);
-    //if(ccc>=6) exit(0);
-
+    const int rank = array->GetDimSize();
+    string debug = "";
     {
         FuncCall f;
         f.func_id = crtda_;
         crtda_Info* tmp_params = new crtda_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = 0x100000 + v1->addr;//для различия
-        tmp_params->ArrayHandlePtr = 0x200000 + v1->addr;//для различия
-    //		v1->addr=addr;
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
         tmp_params->ReDistrSign = 0;
         tmp_params->StaticSign = 0; //poss not
-        tmp_params->TypeSize = v1->type_size; //ch!!!
-        tmp_params->SizeArray.resize(v1->rank);
-        tmp_params->LowShdWidthArray.resize(v1->rank);
-        tmp_params->HiShdWidthArray.resize(v1->rank);
+        tmp_params->TypeSize = array->GetTypeSize(); //ch!!!
+        tmp_params->SizeArray.resize(rank);
+        tmp_params->LowShdWidthArray.resize(rank);
+        tmp_params->HiShdWidthArray.resize(rank);
 
-        printf("v1->rank=%d   s->rank=%d\n", v1->rank, s->rank);
+        auto shadow = array->GetShadowSpec();
+        debug += "v1->rank=" + to_string(rank) + "  s->rank=" + to_string(shadow.size()) + "\n";
+        debug += "Sh_low ";
+        for (int i = 0; i < shadow.size(); ++i)
+            debug += " " + to_string(shadow[i].first);
+        debug += "\n";
+        debug += "Sh_high ";        
+        for (int i = 0; i < shadow.size(); ++i)
+            debug += " " + to_string(shadow[i].second);
+        debug += "\n";
 
-        printf("Sh_low ");
-        for (i = 0; i < s->rank; i++)
-            printf("%d ", s->low_wid[i]);
-        printf("\n");
-        printf("Sh_high ");
-        for (i = 0; i < s->rank; i++)
-            printf("%d ", s->hi_wid[i]);
-        printf("\n");
-
-        for (i = v1->rank - 1; i >= 0; i--)
+        auto sizes = array->GetSizes();
+        for (int i = rank - 1; i >= 0; --i)
         {
-            tmp_params->SizeArray[v1->rank - 1 - i] = v1->dim[i];
-
-            tmp_params->LowShdWidthArray[v1->rank - 1 - i] = s->low_wid[i];
-            tmp_params->HiShdWidthArray[v1->rank - 1 - i] = s->hi_wid[i];
+            tmp_params->SizeArray[rank - 1 - i] = sizes[i].second - sizes[i].first + 1;
+            tmp_params->LowShdWidthArray[rank - 1 - i] = shadow[i].first;
+            tmp_params->HiShdWidthArray[rank - 1 - i] = shadow[i].second;
         }
-        //		for(i=0; i<v1->rank; i++)
-        //		{
-        //			tmp_params->SizeArray[i]=v1->dim[i];
-        //			printf("dim=%d\n",v1->dim[i]);
-        //			tmp_params->LowShdWidthArray[i]=1; //not but default
-        //			tmp_params->HiShdWidthArray[i]=1; //not but default
-        //		}
-
-        addr++;
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        printf("a crtda SizeArray=");
-        for (i = 0; i < tmp_params->SizeArray.size(); i++)
-            printf(" %d", tmp_params->SizeArray[i]);
-        printf("\n");
-
-        printf("a crtda LowShdWidthArray=");
-        for (i = 0; i < tmp_params->LowShdWidthArray.size(); i++)
-            printf(" %d", tmp_params->LowShdWidthArray[i]);
-        printf("\n");
-
-        printf("a crtda HiShdWidthArray=");
-        for (i = 0; i < tmp_params->HiShdWidthArray.size(); i++)
-            printf(" %d", tmp_params->HiShdWidthArray[i]);
-        printf("\n");
-
+        debug += "a crtda SizeArray=";
+        for (int i = 0; i < tmp_params->SizeArray.size(); ++i)
+            debug += " " + to_string(tmp_params->SizeArray[i]);
+        debug += "\n";
+        debug += "a crtda LowShdWidthArray=";        
+        for (int i = 0; i < tmp_params->LowShdWidthArray.size(); ++i)
+            debug += " " + to_string(tmp_params->LowShdWidthArray[i]);
+        debug += "\n";
+        debug += "a crtda HiShdWidthArray=";
+        for (int i = 0; i < tmp_params->HiShdWidthArray.size(); ++i)
+            debug += " " + to_string(tmp_params->HiShdWidthArray[i]);
+        debug += "\n";
         f.crtda();
     }
 
@@ -663,39 +674,45 @@ int Model_align(var *v1, var *v2, ali_pat *d, shadow *s)
         align_Info* tmp_params = new align_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = 0x100000 + v1->addr;//для различия
-        tmp_params->ArrayHandlePtr = 0x200000 + v1->addr;//для различия
-        tmp_params->PatternRef = 0x200000 + v2->addr;//для различия
-        tmp_params->PatternRefPtr = 0x100000 + v2->addr;//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->PatternRef = getId(templ, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrsPtr, arrayAddrPtr);//для различия
         tmp_params->PatternType = 2; //Distr
 
-        tmp_params->AxisArray.resize(d->rank);
-        tmp_params->CoeffArray.resize(d->rank);
-        tmp_params->ConstArray.resize(d->rank);
-        for (i = 0; i < d->rank; i++)
+        tmp_params->AxisArray.resize(rank);
+        tmp_params->CoeffArray.resize(rank);
+        tmp_params->ConstArray.resize(rank);
+        for (int i = 0; i < rank; ++i)
         {
-            tmp_params->AxisArray[i] = d->axis[i];
-            tmp_params->CoeffArray[i] = d->coef[i];
-            tmp_params->ConstArray[i] = d->cons[i];
-
-            printf("%d %d %d \n", d->axis[i], d->coef[i], d->cons[i]);
+            if (links[rank - 1 - i] == -1)
+            {
+                tmp_params->AxisArray[i] = -1;
+                tmp_params->CoeffArray[i] = 0;
+                tmp_params->ConstArray[i] = 0;
+            }
+            else
+            {
+                tmp_params->AxisArray[i] = i + 1;
+                tmp_params->CoeffArray[i] = rule[rank - 1 - i].first;
+                tmp_params->ConstArray[i] = rule[rank - 1 - i].second;
+            }
         }
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        printf("a align AxisArray=");
-        for (i = 0; i < tmp_params->AxisArray.size(); i++)
-            printf(" %d", tmp_params->AxisArray[i]);
-        printf("\n");
+        debug += "a align AxisArray=";
+        for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
+            debug += " " + to_string(tmp_params->AxisArray[i]);
+        debug += "\n";
 
         f.align();
     }
 
     return 0;
 }
-
 
 int Model_rem(remote *rem)
 {
@@ -793,6 +810,440 @@ int Model_rem(remote *rem)
         f.waitrb();
     }
 
+    return 0;
+}
+
+//==============
+//var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a
+int Model_par(LoopGraph *loop, ParallelDirective *directive)
+{
+    int i, j;
+    long LR, RID, SHG, SHG1, SHG2;
+
+    if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
+    {
+        {
+            FuncCall f;
+            f.func_id = crtrg_;
+            crtrg_Info* tmp_params = new crtrg_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = 0xed0000 + addr;//для различия
+            RID = addr;
+
+            addr++;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.crtrg();
+        }
+
+        for (j = 0; j < r_few.size(); j++)
+        {
+            FuncCall f;
+            f.func_id = crtred_;
+            crtred_Info* tmp_params = new crtred_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = 0xe10000 + RID;//для различия
+            tmp_params->LocElmLength = r_few[j].loc_type;
+            tmp_params->RedArrayLength = r_few[j].red_arr_len;
+            tmp_params->RedArrayType = r_few[j].red_arr_type;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.crtred();
+        }
+    }
+
+    //PARLOOP
+    {
+        FuncCall f;
+        f.func_id = crtpl_;
+        crtpl_Info* tmp_params = new crtpl_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->ID = getId(loop, mapLoopIds, loopIds);
+        tmp_params->Rank = directive->parallel.size();
+
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.crtpl();
+
+        //TODO!!!
+        /*for (i = 0; i < rem_few.size(); i++)
+            rem_few[i].loop_addr_ref = LR;*/
+    }
+
+    if (directive->shadowRenew.size()) //SHADOW RENEW
+    {
+        // не знаю куда задать CORNER
+        {
+            FuncCall f;
+            f.func_id = crtshg_;
+            crtshg_Info* tmp_params = new crtshg_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            SHG = tmp_params->ShadowGroupRef;
+            tmp_params->StaticSign = 0; //poss not
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.crtshg();
+        }
+
+        for (j = 0; j < s_few.size(); j++)
+        {
+            FuncCall f;
+            f.func_id = inssh_;
+            inssh_Info* tmp_params = new inssh_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = SHG;
+            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //было 0xd00000
+            tmp_params->ArrayHeader = 0x100000 + s_few[j].v->addr;
+            tmp_params->FullShdSign = 0;//poss not
+            tmp_params->HiShdWidthArray.resize(0);
+            tmp_params->LowShdWidthArray.resize(0);
+            if (!(s_few[j].is_wid))
+            {
+                for (i = 0; i < s_few[j].v->rank; i++)
+                {
+                    tmp_params->HiShdWidthArray.push_back(-1);
+                    tmp_params->LowShdWidthArray.push_back(-1);
+                }
+            }
+            else
+            {
+                for (i = 0; i < s_few[j].v->rank; i++)
+                {
+                    tmp_params->HiShdWidthArray.push_back(s_few[j].hi_wid[i]);
+                    tmp_params->LowShdWidthArray.push_back(s_few[j].low_wid[i]);
+                }
+            }
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            printf("ins_sh  %s  ArrayPtr=%d\n", s_few[j].v->name, tmp_params->ArrayHeader);
+            f.inssh();
+        }
+
+        {
+            FuncCall f;
+            f.func_id = strtsh_;
+            strtsh_Info* tmp_params = new strtsh_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = SHG;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.strtsh();
+        }
+
+        {
+            FuncCall f;
+            f.func_id = waitsh_;
+            waitsh_Info* tmp_params = new waitsh_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = SHG;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.waitsh();
+        }
+    }
+
+    if (directive->across.size()) // ACROSS
+    {
+        {
+            FuncCall f;
+            f.func_id = crtshg_;
+            crtshg_Info* tmp_params = new crtshg_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            SHG1 = tmp_params->ShadowGroupRef;
+            tmp_params->StaticSign = 0; //poss not
+
+            addr++;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.crtshg();
+        }
+
+        for (j = 0; j < a_few.size(); j++)
+        {
+            FuncCall f;
+            f.func_id = insshd_;
+            inssh_Info* tmp_params = new inssh_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = SHG1;
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
+            tmp_params->MaxShdCount = 1; //poss not
+            tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
+            tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
+            tmp_params->ShdSignArray.resize(a_few[j].v->rank);
+            for (i = 0; i < a_few[j].v->rank; i++)
+            {
+                tmp_params->HiShdWidthArray[i] = 0; //poss inverse
+                tmp_params->LowShdWidthArray[i] = a_few[j].low_wid[i];
+                tmp_params->ShdSignArray[i] = 3; //poss not
+            }
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.insshd();
+        }
+
+        {
+            FuncCall f;
+            f.func_id = crtshg_;
+            crtshg_Info* tmp_params = new crtshg_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            SHG2 = tmp_params->ShadowGroupRef;
+            tmp_params->StaticSign = 0; //poss not
+
+            addr++;
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.crtshg();
+        }
+
+        for (j = 0; j < a_few.size(); j++)
+        {
+            FuncCall f;
+            f.func_id = insshd_;
+            inssh_Info* tmp_params = new inssh_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ShadowGroupRef = SHG2;
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
+            tmp_params->MaxShdCount = 1; //poss not
+            tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
+            tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
+            tmp_params->ShdSignArray.resize(a_few[j].v->rank);
+            for (i = 0; i < a_few[j].v->rank; i++)
+            {
+                tmp_params->HiShdWidthArray[i] = a_few[j].hi_wid[i];
+                tmp_params->LowShdWidthArray[i] = 0; //poss inverse
+                tmp_params->ShdSignArray[i] = 5; //poss not
+            }
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.insshd();
+        }
+    }
+
+
+    //PARLOOP
+    {        
+        FuncCall f;
+        f.func_id = mappl_;
+        mappl_Info* tmp_params = new mappl_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+        /*
+        tmp_params->LoopRef = LR;//тот что и в crtpl
+        tmp_params->PatternRef = 0x200000 + v1->addr;
+        tmp_params->PatternRefPtr = 0x100000 + v1->addr;
+        tmp_params->PatternType = 2; //DisArray
+
+        tmp_params->AxisArray.resize(d->rank);
+        tmp_params->CoeffArray.resize(d->rank);
+        tmp_params->ConstArray.resize(d->rank);
+        for (i = 0; i < d->rank; i++)
+        {
+            tmp_params->AxisArray[i] = d->axis[i];
+            tmp_params->CoeffArray[i] = d->coef[i];
+            tmp_params->ConstArray[i] = d->cons[i];
+        }
+
+        tmp_params->InInitIndexArray.resize(c->rank);
+        tmp_params->InLastIndexArray.resize(c->rank);
+        tmp_params->InStepArray.resize(c->rank);
+        for (i = 0; i < c->rank; i++)
+        {
+            tmp_params->InInitIndexArray[i] = c->init[i];
+            tmp_params->InLastIndexArray[i] = c->last[i];
+            tmp_params->InStepArray[i] = c->step[i];
+        }
+        
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        printf("mappl AxisArray=");
+        for (i = 0; i < tmp_params->AxisArray.size(); i++)
+            printf(" %d", tmp_params->AxisArray[i]);
+        printf("\n");
+        */
+        f.mappl();
+    }
+
+    if (directive->reduction.size() | directive->reductionLoc.size()) //REDUCTION
+    {
+        FuncCall f;
+        f.func_id = insred_;
+        insred_Info* tmp_params = new insred_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->RG_ID = 0xed0000 + RID;//для различия
+        tmp_params->RV_ID = 0xe10000 + RID;//для различия
+
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.insred();
+    }
+
+
+    if (directive->across.size()) //ACROSS
+    {
+        FuncCall f;
+        f.func_id = across_;
+        across_Info* tmp_params = new across_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->AcrossType = 0; //poss not
+        tmp_params->NewShadowGroupRef = SHG1;
+        tmp_params->OldShadowGroupRef = SHG2;
+        tmp_params->PipeLinePar = 0; //poss not
+        tmp_params->CondPipeLine = 0; //poss not
+        tmp_params->ErrPipeLine = 9; //poss not
+
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.across();
+    }
+
+    if (directive->remoteAccess.size())
+    {
+        //TODO:
+        /*for (i = 0; i < rem_few.size(); i++)
+            Model_rem(&rem_few[i]);
+        rem_few.resize(0);*/
+    }
+
+
+    //PARLOOP
+    {
+        FuncCall f;
+        f.func_id = dopl_;
+        dopl_full_Info* tmp_params = new dopl_full_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ReturnVar = 1;
+
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.dopl();
+    }
+
+    {
+        FuncCall f;
+        f.func_id = dopl_;
+        dopl_full_Info* tmp_params = new dopl_full_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ReturnVar = 0;
+
+        //TODO: loop time!
+        f.call_time = 0.00000100;		// call time, c->time - это время цикла!
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.dopl();
+    }
+
+    {
+        FuncCall f;
+        f.func_id = endpl_;
+        endpl_Info* tmp_params = new endpl_Info;
+        f.call_params = (void *)tmp_params; // point to parameters
+
+        tmp_params->ID = LR;//тот что и в crtpl
+
+        f.call_time = 0.00000100;		// call time
+        f.ret_time = 0.00000100;		// return time
+        setVectorCallRet(&f);
+
+        f.endpl();
+    }
+
+
+    if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
+    {
+        {
+            FuncCall f;
+            f.func_id = strtrd_;
+            strtrd_Info* tmp_params = new strtrd_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = 0xed0000 + RID;//для различия
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.strtrd();
+        }
+
+        {
+            FuncCall f;
+            f.func_id = waitrd_;
+            waitrd_Info* tmp_params = new waitrd_Info;
+            f.call_params = (void *)tmp_params; // point to parameters
+
+            tmp_params->ID = 0xed0000 + RID;//для различия
+
+            f.call_time = 0.00000100;		// call time
+            f.ret_time = 0.00000100;		// return time
+            setVectorCallRet(&f);
+
+            f.waitrd();
+        }
+    }
+
+    lastLR = LR;
     return 0;
 }
 
@@ -1519,7 +1970,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     s.hi_wid[j] = dir_bin[i].data[2 * j + q + 1];
                 }
 
-                Model_distr(&vars[dir_bin[i].data[1]], &d, &s);
+                // !!!!!!!!!!!! Model_distr(&vars[dir_bin[i].data[1]], &d, &s);
                 break;
             }
 
@@ -1576,7 +2027,8 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             for (j = 0; j < d.rank; j++)
                 printf("Axis %d Koeff %d %d  \n", d.axis[j], d.coef[j], d.cons[j]);
 
-            Model_align(&vars[dir_bin[i].data[1]], &vars[dir_bin[i].data[2]], &d, &s);
+            //!!!!!!!!!!
+            //Model_align(&vars[dir_bin[i].data[1]], &vars[dir_bin[i].data[2]], &d, &s);
 
             break;
             }

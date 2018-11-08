@@ -241,9 +241,21 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                 {
                     lines.second = locSt->lineNumber();
                     st = locSt;
-                    auto prev = locSt->lexPrev();
-                    if (prev && prev->variant() == DVM_PARALLEL_ON_DIR)
-                        locSt = prev;
+
+                    bool change = true;
+                    while (change)
+                    {
+                        change = false;
+                        SgStatement *prev = locSt->lexPrev();
+                        if (prev && 
+                            (prev->variant() == DVM_PARALLEL_ON_DIR || 
+                             prev->variant() == SPF_ANALYSIS_DIR || 
+                             prev->variant() == SPF_TRANSFORM_DIR))
+                        {
+                            locSt = prev;
+                            change = true;
+                        }
+                    }
                     placesForInsert.insert(make_pair(locSt->id(), lines));
                 }
             }           
@@ -261,6 +273,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
             {
                 if (ifIntervalExists(it.second.second, found->second))
                 {
+                    allIncludeFiles.insert(it.first);
                     if (st->comments())
                     {
                         string comments = st->comments();

@@ -11,6 +11,7 @@ extern "C" { __declspec(dllexport) int SPF_GetFileLineInfo(int winHandler, int *
 extern "C" { __declspec(dllexport) int SPF_GetIncludeDependencies(int winHandler, int *options, short *projName, short *&result); }
 
 extern "C" { __declspec(dllexport) int SPF_GetPassesState(int *&passInfo); }
+extern "C" { __declspec(dllexport) int SPF_GetPassesStateStr(short *&passInfo); }
 extern "C" { __declspec(dllexport) int SPF_GetVersionAndBuildDate(short *&result); }
 extern "C" { __declspec(dllexport) int SPF_GetIntrinsics(short *&result); }
 

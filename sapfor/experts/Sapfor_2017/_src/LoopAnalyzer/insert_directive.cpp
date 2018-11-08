@@ -582,7 +582,7 @@ static inline void extractComments(SgStatement *where, const string &what)
     }
 }
 
-//NOTE: this function inserts also local templates for parallel loop with out distributed arrays!
+//NOTE: this function inserts also local templates for parallel loop without distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                         map<string, string> templateDeclInIncludes,
                                         const vector<string> &distrRules, const DIST::Arrays<int> &allArrays, 

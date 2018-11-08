@@ -501,6 +501,9 @@
     <ClCompile Include="..\_src\Predictor\PredictorModel.cpp">
       <Filter>Файлы исходного кода\Predictor</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\GraphCall\graph_calls_base.cpp">
+      <Filter>Файлы исходного кода\GraphCall</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">

@@ -12,7 +12,6 @@
 #include "../Distribution/Arrays.h"
 #include "../Distribution/GraphCSR.h"
 #include "../Utils/errors.h"
-#include "../Sapfor.h"
 #include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
 
