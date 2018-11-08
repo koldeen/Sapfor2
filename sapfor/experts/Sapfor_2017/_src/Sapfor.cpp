@@ -1144,7 +1144,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         PASSES_DONE[SUBST_EXPR] = 0;
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
     {
-        if (folderName != NULL)
+        bool cond = (folderName != NULL) || (consoleMode) || (!consoleMode && curr_regime == EXTRACT_PARALLEL_DIRS);
+        if (cond)
         {
             //insert template declaration to main program
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);

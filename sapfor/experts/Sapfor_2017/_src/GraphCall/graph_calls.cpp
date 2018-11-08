@@ -648,6 +648,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         findContainsFunctions(st, containsFunctions);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+        currInfo->isMain = (st->variant() == PROG_HEDR);
 
         for(auto &item : commonBlocks)
         {

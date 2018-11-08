@@ -157,7 +157,7 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
 
                 if (V.find(callFrom) == V.end())
                 {
-                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                    V[callFrom] = CallV(callFromP->funcName, callFromP->fileName, callFromP->isMain);
                     V[callFrom].inRegion = callFromP->inRegion;
                 }
 
@@ -169,7 +169,7 @@ int CreateCallGraphViz(const char *fileName, const map<string, vector<FuncInfo*>
                     else
                     {
                         auto currF = it->second;
-                        V[callItem] = CallV(callItem, currF->fileName, currF->funcPointer->GetOriginal()->variant() == PROG_HEDR);
+                        V[callItem] = CallV(callItem, currF->fileName, currF->isMain);
                         V[callItem].inRegion = currF->inRegion;
                     }
                 }
@@ -317,7 +317,7 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
     {
         FuncInfo *currInfo = it.second;
         if (allChildCalls.find(it.first) == allChildCalls.end())
-            if (currInfo->funcPointer->variant() != PROG_HEDR)
+            if (!currInfo->isMain)
                 currInfo->deadFunction = currInfo->doNotAnalyze = true;
     }
 
