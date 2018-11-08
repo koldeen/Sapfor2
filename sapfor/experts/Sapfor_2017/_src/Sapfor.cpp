@@ -1116,10 +1116,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         if (keepFiles)
         {
-            int err = printCheckRegions("_checkRegions.txt", parallelRegions);
+            int err = printCheckRegions("_checkRegions.txt", parallelRegions, allFuncInfo);
             if (err == -1)
                 internalExit = 1;
-            err = printCheckRegions(NULL, parallelRegions);
+            err = printCheckRegions(NULL, parallelRegions, allFuncInfo);
             if (err == -1)
                 internalExit = 1;
         }

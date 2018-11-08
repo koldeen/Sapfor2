@@ -123,7 +123,6 @@ public:
 
 #if __SPF
     void AddFuncCallsToAllCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
-    void AddCrossedFunc(FuncInfo *func) { crossedFunctions.insert(func); }
 #endif
 
     int GetId() const { return regionId; }
@@ -157,7 +156,6 @@ public:
 
 #if __SPF
     const std::set<FuncInfo*>& GetAllFuncCalls() const { return allFunctionsCall; }
-    const std::set<FuncInfo*>& GetCrossedFuncs() const { return crossedFunctions; }
     const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedLocalArrays() const { return usedLocalArrays; }
     const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedCommonArrays() const { return usedCommonArrays; }
 
@@ -340,7 +338,6 @@ private:
 #if __SPF
     // for RESOLVE_PAR_REGIONS
     std::set<FuncInfo*> allFunctionsCall;
-    std::set<FuncInfo*> crossedFunctions;
     std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedLocalArrays;  // func -> array -> lines
     std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedCommonArrays; // func -> array -> lines
     //

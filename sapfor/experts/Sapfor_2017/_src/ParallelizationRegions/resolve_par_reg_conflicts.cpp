@@ -314,11 +314,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
 
             // ALEX, TODO: а проверка на entry?
             // SERG, TODO: а нужно? флаг isEntryCovered выставляется в true, только если встретился entry
-            //if (isEntryCovered)
-            //    entry->setIsCoveredByRegion(1);
-
-            //if (isFuncCovered)
-            //    func->setIsCoveredByRegion(1);
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -356,7 +351,6 @@ static void recursiveFill(SgStatement *st,
             auto commonBlock = isInCommon(commonBlocks, arrayName);
             if (commonBlock)
             {
-                auto it = region->GetCrossedFuncs().find(func);
                 if (isSgExecutableStatement(st))
                     region->AddUsedCommonArray(func, array, lines);
 
@@ -430,54 +424,34 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
     }
 }
 
-static set<FuncInfo*> allCommonFunctions;
-
 void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
 
-    for (auto &region : regions)
-    {
-        for (auto &func : region->GetAllFuncCalls())
-        {
-            auto callingRegions = getAllRegionsByLine(regions, func->fileName, func->linesNum.first);
-            if (callingRegions.size() > 1)
-                region->AddCrossedFunc(func);
-        }
-    }
-
     // funcName -> funcInfo
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
-    for (auto &funcPair : funcMap)
+    __spf_print(1, "before\n"); // DEBUG
+    allFuncPrint(funcMap); // DEBUG
+
+    for (auto &nameFunc : funcMap)
     {
         bool callFromRegion = false;
         bool callFromCode = false;
 
-        fillRegionCover(funcPair.second, funcMap);
+        fillRegionCover(nameFunc.second, funcMap);
 
         //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
         //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // DEBUG
 
-        for (auto &call : funcPair.second->callsTo)
-            findCall(funcPair.second, call, callFromRegion, callFromCode);
-
-        if (callFromCode && callFromRegion)
-            allCommonFunctions.insert(funcPair.second);
+        for (auto &call : nameFunc.second->callsTo)
+            findCall(nameFunc.second, call, callFromRegion, callFromCode);
 
         if (callFromCode)
-            funcPair.second->callRegions.insert(0);
+            nameFunc.second->callRegions.insert(0);
     }
-
-    set<FuncInfo*> callSet;
-    for (auto &commFunc : allCommonFunctions)
-        createSetOfCalledFunc(commFunc->funcName, funcMap, callSet);
-
-    for (auto &region : regions)
-        for (auto &func : callSet)
-            region->AddCrossedFunc(func);
 }
 
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
@@ -1474,21 +1448,51 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
     return error;
 }
 
-int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions)
+int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-    string outText = "";    
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    allFuncPrint(funcMap); // DEBUG
+
+    string outText = "";
+    string elems = "";
+    
     for (auto &region : regions)
     {
         outText += "*** REGION '" + region->GetName() + "'\n";
-        outText += "  COMMON ARRAYS:";
+        for (auto &nameFunc : funcMap)
+        {
+            if (nameFunc.second->callRegions.size() > 1)
+            {
+                for (auto &regId : nameFunc.second->callRegions)
+                    if (region->GetId() == regId)
+                        elems += " " + nameFunc.first;
+            }
+        }
 
+        if (elems.size())
+        {
+            outText += "  COMMON FUNCTIONS:" + elems;
+            outText += "\n";
+        }
+
+        set<string> arrays;
         for (auto &funcArrays : region->GetUsedCommonArrays())
             for (auto &arrayLines : funcArrays.second)
-                outText += " " + arrayLines.first->GetShortName();
+                arrays.insert(arrayLines.first->GetShortName());
 
-        outText += "\n";
-        outText += "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n";
-        
+        elems.clear();
+        for (auto &arrayName : arrays)
+            elems += " " + arrayName;
+
+        if (elems.size())
+        {
+            outText += "  COMMON ARRAYS:" + elems;
+            outText += "\n";
+        }
+
+        elems.clear();
         for (auto &funcArrays : region->GetUsedLocalArrays())
         {
             for (auto &arrayLines : funcArrays.second)
@@ -1501,30 +1505,36 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
                     toPrint += "]";
                 }
 
-                outText += "    [" + funcArrays.first->funcName + ", " + arrayLines.first->GetShortName() + ", " + toPrint + "]\n";
+                elems += "    [" + funcArrays.first->funcName + ", " + arrayLines.first->GetShortName() + ", " + toPrint + "]\n";
             }
         }
-        outText += "  CROSSED FUNCTIONS:";
 
-        for (auto &func : region->GetCrossedFuncs())
-            outText += " " + func->funcName;
-
-        outText += "\n\n";
+        if (elems.size())
+            outText += "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n" + elems;
     }
 
     outText += "*** SUMMARY\n";
-    outText += "  ALL COMMON ARRAYS:";
+    
+    elems.clear();
+    for (auto &nameFunc : funcMap)
+        if (nameFunc.second->callRegions.size() > 1)
+            elems += " " + nameFunc.first;
 
+    if (elems.size())
+    {
+        outText += "  ALL COMMON FUNCTIONS : " + elems;
+        outText += "\n";
+    }
+
+    elems.clear();
     for (auto &commonArrayCommonBlock : allUsedCommonArrays)
-        outText += " " + commonArrayCommonBlock.first->GetShortName();
+        elems += " " + commonArrayCommonBlock.first->GetShortName();
 
-    outText += "\n";
-    outText += "  ALL COMMON FUNCTIONS:";
-
-    for (auto &func : allCommonFunctions)
-        outText += " " + func->funcName;
-
-    outText += "\n";
+    if (elems.size())
+    {
+        outText += "  ALL COMMON ARRAYS:" + elems;
+        outText += "\n";
+    }
            
     if (fileName == NULL)
         __spf_print(1, "%s", outText.c_str());    
