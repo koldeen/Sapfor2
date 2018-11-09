@@ -5,6 +5,8 @@ extern int staticPrivateAnalysis;
 extern int keepDvmDirectives;
 extern int keepSpfDirs;
 extern int consoleMode;
+extern int parallizeFreeLoops;
+extern int automaticDeprecateArrays;
 
 extern "C" int out_free_form;
 
@@ -54,7 +56,7 @@ enum passes {
     PRIVATE_CALL_GRAPH_STAGE4,
 
     FILL_PAR_REGIONS_LINES,
-    CHECK_PAR_REGIONS,
+    FILL_PAR_REGIONS,
     PRINT_PAR_REGIONS_ERRORS,
     RESOLVE_PAR_REGIONS,
     LOOP_DATA_DEPENDENCIES,
@@ -87,10 +89,18 @@ enum passes {
     CLEAR_SPF_DIRS,
     INSERT_REGIONS,
 
+    CREATE_INTER_TREE,
+    INSERT_INTER_TREE,
+
     SHADOW_GROUPING,
     INLINE_PROCEDURES,
     FILL_PARALLEL_REG_FOR_SUBS,
     ADD_TEMPL_TO_USE_ONLY,
+    GCOV_PARSER,
+    PRIVATE_ARRAYS_BREEDING,
+    LOOPS_SPLITTER,
+    CHECK_PAR_REG_DIR,
+
     EMPTY_PASS
 };
 
@@ -106,6 +116,7 @@ enum optionNames {
     FREE_FORM,
     KEEP_DVM_DIRECTIVES,
     KEEP_SPF_DIRECTIVES,
+    PARALLIZE_FREE_LOOPS,
     EMPTY_OPTION
 };
 
@@ -144,7 +155,7 @@ static void setPassValues()
     passNames[PRIVATE_CALL_GRAPH_STAGE2] = "PRIVATE_CALL_GRAPH_STAGE2";
     passNames[PRIVATE_CALL_GRAPH_STAGE3] = "PRIVATE_CALL_GRAPH_STAGE3";
     passNames[FILL_PAR_REGIONS_LINES] = "FILL_PAR_REGIONS_LINES";
-    passNames[CHECK_PAR_REGIONS] = "CHECK_PAR_REGIONS";
+    passNames[FILL_PAR_REGIONS] = "FILL_PAR_REGIONS";
     passNames[RESOLVE_PAR_REGIONS] = "RESOLVE_PAR_REGIONS";
     passNames[LOOP_DATA_DEPENDENCIES] = "LOOP_DATA_DEPENDENCIES";
     passNames[INSERT_INCLUDES] = "INSERT_INCLUDES";
@@ -188,5 +199,11 @@ static void setPassValues()
     passNames[PRINT_PAR_REGIONS_ERRORS] = "PRINT_PAR_REGIONS_ERRORS";
     passNames[FILL_PARALLEL_REG_FOR_SUBS] = "FILL_PARALLEL_REG_FOR_SUBS";
     passNames[ADD_TEMPL_TO_USE_ONLY] = "ADD_TEMPL_IN_USE";
+    passNames[GCOV_PARSER] = "GCOV_PARSER";
+    passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
+    passNames[LOOPS_SPLITTER] = "LOOPS_SPLITTER";
+    passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
+    passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
+    passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

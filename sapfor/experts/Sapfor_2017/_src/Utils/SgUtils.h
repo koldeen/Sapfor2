@@ -5,10 +5,12 @@
 #include "../Distribution/Distribution.h"
 #include "../GraphCall/graph_calls.h"
 
+SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
+
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles);
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);
@@ -23,13 +25,12 @@ void fillNonDistrArraysAsPrivate(SgStatement *st,
 
 DIST::Array* getArrayFromDeclarated(SgStatement *st, const std::string &arrayName);
 
-SgStatement* declaratedInStmt(SgSymbol *toFind);
 bool isSPF_comment(const int variant);
 void initTags();
 bool isDVM_stat(SgStatement *st);
 bool isSPF_stat(SgStatement *st);
 bool isEqExpressions(SgExpression *left, SgExpression *right, std::map<SgExpression*, std::string> &collection);
-void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end);
+void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *start, SgStatement *end, const std::string *nameToSkip = NULL);
 
 std::tuple<int, std::string, std::string> getFromUniqTable(SgSymbol *symb);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb);
@@ -47,3 +48,5 @@ const std::vector<DefUseList> getAllDefUseVarsList(const std::string &funcName, 
 int printDefUseSets(const char *fileName, const std::map<std::string, std::vector<DefUseList>> &defUseLists);
 int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBlock> &commonBlocks);
 void groupDeclarations(SgFile *file);
+
+bool ifSymbolExists(SgFile *file, const std::string &symbName);

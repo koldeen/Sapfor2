@@ -3,10 +3,23 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 
-#include "../Distribution/DvmhDirective.h"
-#include "../ParallelizationRegions/ParRegions.h"
+#include "../Utils/errors.h"
 #include "../Utils/types.h"
+#include "../Distribution/DvmhDirective.h"
+
+struct DistrVariant;
+struct ParallelDirective;
+struct ParallelRegion;
+class Statement;
+struct FuncInfo;
+
+namespace Distribution
+{
+    class Array;
+}
+namespace DIST = Distribution;
 
 struct LoopGraph
 {
@@ -37,6 +50,7 @@ public:
         countOfIterNested = 1;
         loop = NULL;
         parent = NULL;
+        funcParent = NULL;
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
@@ -50,8 +64,8 @@ public:
         if (directiveForLoop != NULL)
             delete directiveForLoop;
 
-        for (int i = 0; i < childs.size(); ++i)
-            delete childs[i];
+        for (int i = 0; i < children.size(); ++i)
+            delete children[i];
 
         calls.clear();
         readOpsArray.clear();
@@ -97,8 +111,8 @@ public:
     {
         // set to top and for all childs
         redistributeRules = newRedistributeRules;
-        for (int i = 0; i < childs.size(); ++i)
-            childs[i]->setNewRedistributeRules(newRedistributeRules);
+        for (int i = 0; i < children.size(); ++i)
+            children[i]->setNewRedistributeRules(newRedistributeRules);
     }
 
     DistrVariant* getRedistributeRule(const DIST::Array *arrayT) const
@@ -125,7 +139,7 @@ public:
         {
             baseDirs[z] = next->directiveForLoop;
             if (z != perfectLoop - 1)
-                next = next->childs[0];
+                next = next->children[0];
         }
 
         ParallelDirective *parDirective = baseDirs[0];
@@ -151,13 +165,13 @@ public:
             directive = oldDirective;
         }
 
-        for (int i = 0; i < childs.size(); ++i)
-            childs[i]->restoreDirective();
+        for (int i = 0; i < children.size(); ++i)
+            children[i]->restoreDirective();
     }
 
     void setRegionToChilds()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             loop->region = region;
             loop->setRegionToChilds();
@@ -168,7 +182,7 @@ public:
 
     void setWithOutDistrFlagToFalse()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             loop->withoutDistributedArrays = false;
             loop->setWithOutDistrFlagToFalse();
@@ -177,7 +191,7 @@ public:
 
     void propagateUserDvmDir()
     {
-        for (auto &loop : childs)
+        for (auto &loop : children)
         {
             if (loop->userDvmDirective == NULL)
                 loop->userDvmDirective = userDvmDirective;
@@ -244,8 +258,10 @@ public:
 
     bool hasDifferentAlignRules;
 
-    std::vector<LoopGraph*> childs; //fixme typo 'children'
+    std::vector<LoopGraph*> children;
+    std::vector<LoopGraph*> funcChildren;
     LoopGraph *parent;
+    LoopGraph *funcParent;
 
     std::vector<std::pair<std::string, int>> calls;
     
@@ -268,12 +284,12 @@ public:
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
-void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 bool addToDistributionGraph(const LoopGraph* loopInfo, const std::string &inFunction);
 
 void convertToString(const LoopGraph *currLoop, std::string &result);
-int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph);
-void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages);
+int printLoopGraph(const char *fileName, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph, bool withRegs = false);
+void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
 
 void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);

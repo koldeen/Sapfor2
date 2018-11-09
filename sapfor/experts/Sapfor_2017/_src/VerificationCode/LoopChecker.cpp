@@ -180,7 +180,7 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                     if (array->GetNonDistributeFlag())
-                        typeMessage = WARR;                    
+                        typeMessage = WARR;
                     else
                     {
                         checkOK = false;
@@ -197,8 +197,10 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                 if (needToReport)
                 {
                     string message;
-                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association (common block '%s') have different types",
-                        vars[i].getName().c_str(), vars[j].getName().c_str(), block.first.c_str());
+                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association (common block '%s') have different types (files - %s:%d and %s:%d)",
+                        vars[i].getName().c_str(), vars[j].getName().c_str(), block.first.c_str(), 
+                        vars[i].getDeclarated()->fileName(), vars[i].getDeclarated()->lineNumber(), 
+                        vars[j].getDeclarated()->fileName(), vars[j].getDeclarated()->lineNumber());
                     __spf_print(1, "%s\n", message.c_str());
 
                     const int line = currUse->getDeclaratedPlace()->lineNumber();

@@ -4,7 +4,10 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "../Utils/AstWrapper.h"
+#include <climits>
+
+class Symbol;
+class Expression;
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -65,6 +68,7 @@ namespace Distribution
         STRING name;
         STRING shortName;
         int dimSize;
+        int typeSize; // size of one element of array
         // calculated sizes
         VECTOR<PAIR<int, int>> sizes;
         // original sizes + shifts
@@ -81,12 +85,15 @@ namespace Distribution
         // PAIR<FILE, LINE>
         SET<PAIR<STRING, int>> declPlaces;
 
-        //TYPE: 0 - local, 1 - common, 2 - module
+        //TYPE: 0 - local, 1 - common, 2 - module, 3 - function parameter
         // PAIR<NAME, TYPE>
         PAIR<int, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
 
         SET<STRING> containsInRegions;
+
+        VECTOR<bool> mappedDims;
+        VECTOR<bool> depracateToDistribute;
 
         TemplateLink* getTemlateInfo(const int regionId)
         {
@@ -114,26 +121,31 @@ namespace Distribution
             isTemplFlag = false;
             isLoopArrayFlag = false;
             isNonDistribute = NO_DISTR;
+            typeSize = 0;
             uniqKey = "";
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol, const STRING &regName) :
+              Symbol *declSymbol, const STRING &regName, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
-            locationPos(locationPos), declSymbol(declSymbol)
+            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
             sizesExpr.resize(dimSize);
+            mappedDims.resize(dimSize);
+            depracateToDistribute.resize(dimSize);
 
             for (int z = 0; z < dimSize; ++z)
             {
                 sizes[z] = std::make_pair((int)INT_MAX, (int)INT_MIN);
                 PAIR<int, int> initVal = std::make_pair(0, 0);
                 sizesExpr[z] = std::make_pair(std::make_pair((Expression*)NULL, initVal), std::make_pair((Expression*)NULL, initVal));
+                mappedDims[z] = false;
+                depracateToDistribute[z] = false;
             }
                         
             GenUniqKey();
@@ -147,6 +159,8 @@ namespace Distribution
             name = copy.name;
             shortName = copy.shortName;
             dimSize = copy.dimSize;
+            typeSize = copy.typeSize;
+
             sizes = copy.sizes;
             sizesExpr = copy.sizesExpr;
 
@@ -165,6 +179,46 @@ namespace Distribution
             declSymbol = copy.declSymbol;
             uniqKey = copy.uniqKey;
             containsInRegions = copy.containsInRegions;
+            mappedDims = copy.mappedDims;
+            depracateToDistribute = copy.depracateToDistribute;
+        }
+
+        void RemoveUnpammedDims()
+        {
+            bool needToRemove = false;
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (!mappedDims[z] || depracateToDistribute[z])
+                {
+                    needToRemove = true;
+                    break;
+                }
+            }
+
+            if (needToRemove == false)
+                return;
+
+            VECTOR<PAIR<int, int>> newSizes;
+            VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> newSizesExpr;
+            VECTOR<bool> newMappedDims;
+            VECTOR<bool> newDepr;
+
+            for (int z = 0; z < dimSize; ++z)
+            {
+                if (mappedDims[z] && !depracateToDistribute[z])
+                {
+                    newSizes.push_back(sizes[z]);
+                    newSizesExpr.push_back(sizesExpr[z]);
+                    newMappedDims.push_back(mappedDims[z]);
+                    newDepr.push_back(depracateToDistribute[z]);
+                }
+            }
+
+            sizes = newSizes;
+            sizesExpr = newSizesExpr;
+            mappedDims = newMappedDims;
+            depracateToDistribute = newDepr;
+            dimSize = sizes.size();
         }
 
         int GetDimSize() const { return dimSize; }
@@ -329,6 +383,14 @@ namespace Distribution
             for (int i = 0; i < sizes.size(); ++i)
                 retVal += " " + TO_STR(sizes[i].first) + " " + TO_STR(sizes[i].second);
 
+            retVal += " " + TO_STR(depracateToDistribute.size());
+            for (int i = 0; i < depracateToDistribute.size(); ++i)
+                retVal += " " + TO_STR((int)depracateToDistribute[i]);
+
+            retVal += " " + TO_STR(mappedDims.size());
+            for (int i = 0; i < mappedDims.size(); ++i)
+                retVal += " " + TO_STR((int)mappedDims[i]);
+
             retVal += " " + TO_STR(templateInfo.size());
             for (auto it = templateInfo.begin(); it != templateInfo.end(); ++it)
                 retVal += " " + TO_STR(it->first) + it->second->toString();
@@ -339,6 +401,10 @@ namespace Distribution
 
             for (auto &place : declPlaces)
                 retVal += "|" + place.first + "|" + TO_STR(place.second);
+
+            retVal += "|" + TO_STR(containsInRegions.size());
+            for (auto &reg : containsInRegions)
+                retVal += "|" + reg;
             return retVal;
         }
 
@@ -352,9 +418,14 @@ namespace Distribution
         bool GetNonDistributeFlag() const { return (isNonDistribute == DISTR) ? false : true; }
         distFlag GetNonDistributeFlagVal() const { return isNonDistribute; }
 
+        void ChangeLocation(int loc, const STRING &name)
+        {
+            locationPos = std::make_pair(loc, name);
+        }
+
         void SetLocation(int loc, const STRING &name) 
         {
-            locationPos = std::make_pair(loc, name); 
+            ChangeLocation(loc, name);
             GenUniqKey();
         }
         PAIR<int, STRING> GetLocation() const { return locationPos; }
@@ -365,6 +436,44 @@ namespace Distribution
 
         const SET<STRING>& GetRgionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
+
+        void SetMappedDim(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            mappedDims[dim] = true;
+        }
+
+        bool IsDimMapped(const int dim) const
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return mappedDims[dim];
+        }
+
+        void DeprecateDimension(const int dim)
+        {
+            if (dim >= dimSize)
+                return;
+            depracateToDistribute[dim] = true;
+        }
+
+        void DeprecateAllDims()
+        {
+            for (int dim = 0; dim < dimSize; ++dim)
+                depracateToDistribute[dim] = true;
+        }
+
+        bool IsDimDepracated(const int dim) const
+        {
+            if (dim >= dimSize)
+                return false;
+            else
+                return depracateToDistribute[dim];
+        }
+        
+        int GetTypeSize() const { return typeSize; }
 
         ~Array() 
         {

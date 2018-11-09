@@ -2397,6 +2397,7 @@ void ACC_RenewParLoopHeaderVars(SgStatement *first_do, int nloop)
     SgSymbol *s;
 
     uses_list = NULL;
+    acc_array_list = NULL;
     // looking through the loop nest 
     for (st = first_do, i = 0; i < nloop; st = st->lexNext(), i++)
     {
@@ -2420,7 +2421,7 @@ void ACC_RenewParLoopHeaderVars(SgStatement *first_do, int nloop)
         }
         if (isSgArrayRefExp(e))
         {
-            if (HEADER(s) || HEADER_OF_REPLICATED(s)) //is distributed array reference
+            if (HEADER(s) || HEADER_OF_REPLICATED(s) && *HEADER_OF_REPLICATED(s) != 0) //is distributed array reference
 
             {
                doCallAfter(GetActualArray(HEADER(s) ? HeaderRef(s) : DVM000(*HEADER_OF_REPLICATED(s))));   //inserting after current statement

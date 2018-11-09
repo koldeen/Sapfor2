@@ -11,6 +11,7 @@
 #include "GraphCall/graph_calls.h"
 #include "GraphLoop/graph_loops.h"
 #include "Utils/AstWrapper.h"
+#include "DynamicAnalysis/gcov_info.h"
 #include "Sapfor.h"
 #include "Utils/errors.h"
 
@@ -22,10 +23,13 @@ int staticPrivateAnalysis = 0;
 int keepDvmDirectives = 0;
 int keepFiles = 0;
 int keepSpfDirs = 0;
-int consoleMode = 0;
+//int consoleMode = 0; moved to utils.cpp
 int genAllVars = 0; //generate ALL distribution variants
 int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
+int parallizeFreeLoops = 0; // parallize free loops without arrays with DIST status
+int automaticDeprecateArrays = 0; // automatic change DIST status to NON_DIST of Array
+
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
 int SPEED;   // speed of conflicts search in graph
@@ -83,12 +87,23 @@ std::map<std::string, std::vector<int>> dvmDirErrors; // file->lines
 //
 
 //for DEF USE
-map<string, vector<DefUseList>> defUseByFunctions;
+std::map<std::string, vector<DefUseList>> defUseByFunctions;
 //
 
 //for EXPR SUBSTITUTION
 std::map<std::string, std::vector<FuncInfo*>> subs_allFuncInfo; // file -> Info  
 std::vector<ParallelRegion*> subs_parallelRegions;
+//
+
+//for predictior statistic 
+std::map<std::string, PredictorStats> allPredictorStats;
+
+//for DVM INTERVALS
+std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
+//
+
+//for GCOV_PARSER
+std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
 //
 
 const char *passNames[EMPTY_PASS + 1];

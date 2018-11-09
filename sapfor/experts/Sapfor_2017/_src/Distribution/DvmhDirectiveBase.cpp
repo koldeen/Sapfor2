@@ -8,8 +8,10 @@
 #include <algorithm>
 
 #include "DvmhDirective.h"
+#include "../Distribution/Array.h"
+#include "../Distribution/Arrays.h"
+#include "../Distribution/GraphCSR.h"
 #include "../Utils/errors.h"
-#include "../Sapfor.h"
 #include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
 
@@ -174,6 +176,35 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
     return false;
 }
 
+vector<tuple<DIST::Array*, int, pair<int, int>>> 
+    getAlignRuleWithTemplate(DIST::Array *array, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                             DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
+                             const int regionId)
+{
+    vector<tuple<DIST::Array*, int, pair<int, int>>> retVal;
+
+    set<DIST::Array*> realRefs;
+    getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRuleForShadow(realRefs.size());
+    int idx = 0;
+    for (auto &array : realRefs)
+        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRuleForShadow[idx++], regionId);
+
+    if (realRefs.size() == 1)
+        retVal = allRuleForShadow[0];
+    else
+    {
+        bool eq = isAllRulesEqual(allRuleForShadow);
+        if (eq == false)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        else
+            retVal = allRuleForShadow[0];
+    }
+
+    return retVal;
+}
+
 static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &reducedG,
                                      const DIST::Arrays<int> &allArrays,
                                      DIST::Array *arrayRef, DIST::Array *calcForArray,
@@ -188,30 +219,12 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
 {
     string out = "";
 
-    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForOn;
-    reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForOn, regionId);
+    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForOn =
+        getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);    
 
-    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForShadow;
-
-    set<DIST::Array*> realRefs;
-    getRealArrayRefs(calcForArray, calcForArray, realRefs, arrayLinksByFuncCalls);
-
-    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRuleForShadow(realRefs.size());
-    int idx = 0;
-    for (auto &array : realRefs)
-        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRuleForShadow[idx++], regionId);
-    
-    if (realRefs.size() == 1)
-        ruleForShadow = allRuleForShadow[0];
-    else
-    {
-        bool eq = isAllRulesEqual(allRuleForShadow);
-        if (eq == false)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        else
-            ruleForShadow = allRuleForShadow[0];
-    }
-
+    vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForShadow = 
+        getAlignRuleWithTemplate(calcForArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+        
     const pair<vector<ArrayOp>, vector<bool>> *currReadOp = NULL;
     auto readIt = readOps.find(calcForArray);
     if (readIt != readOps.end())
@@ -254,9 +267,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             int minShift = 9999999;
                             int maxShift = -9999999;
 
-                            for (int z = 0; z < currReadOp->first[k].coefficients.size(); ++z)
+                            for (auto &coefs : currReadOp->first[k].coefficients)
                             {
-                                auto currAccess = currReadOp->first[k].coefficients[z];
+                                auto currAccess = coefs.first;
                                 auto result = DIST::Fx(currAccess, currRuleShadow);
 
                                 if (result.first == loopRule.first)
@@ -355,16 +368,27 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     //replace to template align ::on
     if (arrayRef->isTemplate() == false)
     {
-        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef;
-        reducedG.GetAlignRuleWithTemplate(arrayRef, allArrays, ruleForRef, regionId);
+        vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
+            getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
         findAndReplaceDimentions(ruleForRef, allArrays);
 
         on_ext.clear();
-        on_ext.resize(get<0>(ruleForRef[0])->GetDimSize());
+        for (int i = 0; i < ruleForRef.size(); ++i)
+        {
+            if (get<0>(ruleForRef[i]))
+            {
+                on_ext.resize(get<0>(ruleForRef[i])->GetDimSize());
+                break;
+            }
+        }
+        if (on_ext.size() == 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         std::fill(on_ext.begin(), on_ext.end(), make_pair("*", make_pair(0, 0)));
 
         for (int i = 0; i < ruleForRef.size(); ++i)
-            on_ext[get<1>(ruleForRef[i])] = on[i];        
+            if (get<0>(ruleForRef[i]))
+                on_ext[get<1>(ruleForRef[i])] = on[i];        
     }
 
     string ret = "";
@@ -412,6 +436,14 @@ void DataDirective::createDirstributionVariants(const vector<DIST::Array*> &arra
         std::vector<DistrVariant> currdist;
         vector<dist> currDist;
         genVariants(arraysToDist[i]->GetDimSize(), currDist, currdist);
+
+        //deprecate by dims
+        for (auto &variant : currdist)
+        {
+            for (int z = 0; z < arraysToDist[i]->GetDimSize(); ++z)
+                if (arraysToDist[i]->IsDimDepracated(z) || !arraysToDist[i]->IsDimMapped(z))
+                    variant.distRule[z] = dist::NONE;
+        }
         distrRules.push_back(make_pair(arraysToDist[i], currdist));
     }
 }
@@ -480,7 +512,10 @@ string AlignRuleBase::GenRuleBase() const
         alignEachDim[i] = "*";
 
     for (int i = 0; i < alignRuleWith.size(); ++i)
-        alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    {
+        if (alignRuleWith[i].first != -1)
+            alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+    }
 
     for (int i = 0; i < alignWith->GetDimSize(); ++i)
     {

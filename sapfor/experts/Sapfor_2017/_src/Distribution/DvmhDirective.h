@@ -5,13 +5,18 @@
 #include <set>
 #include <map>
 
-#include "../Utils/types.h"
+#include "Array.h"
 #include "DvmhDirectiveBase.h"
-#include "../Sapfor.h"
-#include "Distribution.h"
-#include "../Utils/types.h"
 #include "../Utils/AstWrapper.h"
+#include "../Utils/types.h"
 #include "../Utils/utils.h"
+
+namespace Distribution
+{
+    template<typename vType, typename wType, typename attrType> class GraphCSR;
+    template<typename vType> class Arrays;
+}
+namespace DIST = Distribution;
 
 struct AlignRule : public AlignRuleBase
 {

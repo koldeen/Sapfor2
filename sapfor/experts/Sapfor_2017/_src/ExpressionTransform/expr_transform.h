@@ -64,6 +64,7 @@ public:
 
     GraphItem* buildGraph(SgStatement* st);
     GraphItem* getGraph(const std::string &funcName);
+    CBasicBlock* findBlock(SgStatement* stmt);
 };
 
 struct FuncCallSE
@@ -101,12 +102,15 @@ public:
     }
 };
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue>> *inDefs, CommonVarsOverseer *overseer_Ptr);
+const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
+void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
+bool valueWithArrayReference(SgExpression *exp);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);
+void clearAllocatedExprValues();

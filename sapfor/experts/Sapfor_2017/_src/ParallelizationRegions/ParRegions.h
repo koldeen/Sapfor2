@@ -11,6 +11,10 @@
 #include "../Distribution/Distribution.h"
 #include "../Utils/AstWrapper.h"
 
+#if __SPF
+#include "../Utils/SgUtils.h"
+#endif
+
 struct ParallelRegionLines
 {
     ParallelRegionLines() 
@@ -26,6 +30,9 @@ struct ParallelRegionLines
 
     ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats) { }
 
+    bool operator==(const ParallelRegionLines &regionLines) const { return lines == regionLines.lines && stats == regionLines.stats; }
+    bool operator<(const ParallelRegionLines &otherLines) const { return lines.first < otherLines.lines.first; }
+
     void print(FILE *fileOut)
     {
         fprintf(fileOut, " [%d -- %d]", lines.first, lines.second);
@@ -35,11 +42,51 @@ struct ParallelRegionLines
             fprintf(fileOut, "\n");
     }
 
+    bool isImplicit() const { return stats.first == NULL || stats.second == NULL; }
+
     // <start, end> lines
     std::pair<int, int> lines;
     // <start, end> stats
     std::pair<Statement*, Statement*> stats;
 };
+
+#if __SPF
+struct ParallelRegionArray
+{
+private:
+    std::string name;
+    std::string fileName;
+    SgSymbol *origSymbol;
+    SgSymbol *copySymbol;
+    std::vector<SgStatement*> declStatements;
+    std::vector<ParallelRegionLines> allLines;
+public:
+    explicit ParallelRegionArray(const std::string &name, const std::string &fileName, SgSymbol *origSymbol, SgSymbol *copySymbol,
+                                 const ParallelRegionLines &lines, std::vector<SgStatement*> &declStatements) :
+                                 name(name), fileName(fileName), origSymbol(origSymbol), copySymbol(copySymbol), declStatements(declStatements)
+    {
+        allLines.push_back(lines);
+    }
+
+    const std::string& getName() const { return name; }
+    const std::string& getFileName() const { return fileName; }
+    SgSymbol* getOrigSymbol() const { return origSymbol; }
+    SgSymbol* getCopySymbol() const { return copySymbol; }
+    const std::vector<SgStatement*>& getDeclStatements() const { return declStatements; }
+    const std::vector<ParallelRegionLines>& getAllLines() const { return allLines; }
+
+    void addLines(const ParallelRegionLines &newLines)
+    {
+        for (auto &lines : allLines)
+            if (lines == newLines)
+                return;
+
+        allLines.push_back(newLines);
+    }
+
+    void setCopySymbol(SgSymbol *copySymbol) { this->copySymbol = copySymbol; }
+};
+#endif
 
 struct ParallelRegion
 {
@@ -74,6 +121,11 @@ public:
 
     void AddFuncCalls(const std::string &func) { functionsCall.insert(func); }
 
+#if __SPF
+    void AddFuncCallsToAllCalls(FuncInfo *func) { allFunctionsCall.insert(func); }
+    void AddCrossedFunc(FuncInfo *func) { crossedFunctions.insert(func); }
+#endif
+
     int GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
     const std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLines() const { return lines; }
@@ -102,6 +154,47 @@ public:
     DataDirective& GetDataDirToModify() { return dataDirectives; }
 
     const std::set<std::string>& GetFuncCalls() const { return functionsCall; }
+
+#if __SPF
+    const std::set<FuncInfo*>& GetAllFuncCalls() const { return allFunctionsCall; }
+    const std::set<FuncInfo*>& GetCrossedFuncs() const { return crossedFunctions; }
+    const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedLocalArrays() const { return usedLocalArrays; }
+    const std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>>& GetUsedCommonArrays() const { return usedCommonArrays; }
+
+    void AddUsedLocalArray(FuncInfo *func, DIST::Array *array, const ParallelRegionLines &lines)
+    {
+        auto it = usedLocalArrays.find(func);
+        if (it == usedLocalArrays.end())
+            it = usedLocalArrays.insert(it, std::make_pair(func, std::map<DIST::Array*, std::vector<ParallelRegionLines>>()));
+
+        auto itt = it->second.find(array);
+        if (itt == it->second.end())
+            itt = it->second.insert(itt, std::make_pair(array, std::vector<ParallelRegionLines>()));
+
+        for (auto &curLines : itt->second)
+            if (curLines == lines)
+                return;
+
+        itt->second.push_back(lines);
+    }
+
+    void AddUsedCommonArray(FuncInfo *func, DIST::Array *array, const ParallelRegionLines &lines)
+    {
+        auto it = usedCommonArrays.find(func);
+        if (it == usedCommonArrays.end())
+            it = usedCommonArrays.insert(it, std::make_pair(func, std::map<DIST::Array*, std::vector<ParallelRegionLines>>()));
+
+        auto itt = it->second.find(array);
+        if (itt == it->second.end())
+            itt = it->second.insert(itt, std::make_pair(array, std::vector<ParallelRegionLines>()));
+
+        for (auto &curLines : itt->second)
+            if (curLines == lines)
+                return;
+
+        itt->second.push_back(lines);
+    }
+#endif
 
     bool HasThisLine(const int line, const std::string &file) const
     {
@@ -243,6 +336,15 @@ private:
     // file -> lines info
     std::map<std::string, std::vector<ParallelRegionLines>> lines;
     std::set<std::string> functionsCall;
+
+#if __SPF
+    // for RESOLVE_PAR_REGIONS
+    std::set<FuncInfo*> allFunctionsCall;
+    std::set<FuncInfo*> crossedFunctions;
+    std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedLocalArrays;  // func -> array -> lines
+    std::map<FuncInfo*, std::map<DIST::Array*, std::vector<ParallelRegionLines>>> usedCommonArrays; // func -> array -> lines
+    //
+#endif
 
     // for LOOP_ANALYZER_DATA_DIST
     DIST::GraphCSR<int, double, attrType> G;
