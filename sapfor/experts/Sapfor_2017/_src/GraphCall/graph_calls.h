@@ -115,6 +115,8 @@ struct FuncInfo
     // for RESOLVE_PAR_REGIONS
     int inRegion; // 0 - none, 1 - explicit, 2 - implicit, 3 - indirect
     std::set<int> callRegions; // 0 - default; forall i > 0, i - user region
+    bool isInRegion() { return inRegion == 1 || inRegion == 2; }
+    bool isIndirect() { return inRegion == 3; }
     //
 
     FuncInfo() :

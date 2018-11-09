@@ -435,23 +435,56 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
 
     __spf_print(1, "before\n"); // DEBUG
     allFuncPrint(funcMap); // DEBUG
+    __spf_print(1, "-------------------\n"); // DEBUG
 
     for (auto &nameFunc : funcMap)
     {
-        bool callFromRegion = false;
-        bool callFromCode = false;
+        auto func = nameFunc.second;
 
-        fillRegionCover(nameFunc.second, funcMap);
+        fillRegionCover(func, funcMap);
 
         //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
         //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // DEBUG
 
-        for (auto &call : nameFunc.second->callsTo)
-            findCall(nameFunc.second, call, callFromRegion, callFromCode);
-
-        if (callFromCode)
-            nameFunc.second->callRegions.insert(0);
+        // try to find call that is not in region
+        
+        if (func->isIndirect())
+        {
+            for (auto &call : func->callsFrom)
+            {
+                auto callF = getFuncInfo(funcMap, call);
+                if (callF)
+                    callF->callRegions.insert(0);
+            }
+        }
     }
+
+    allFuncPrint(funcMap); // DEBUG
+    __spf_print(1, "-------------------\n"); // DEBUG
+
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+        for (auto &nameFunc : funcMap)
+        {
+            auto func = nameFunc.second;
+            if (func->callRegions.size() > 1 && func->callRegions.find(0) != func->callRegions.end())
+            {
+                for (auto &call : func->callsFrom)
+                {
+                    auto callF = getFuncInfo(funcMap, call);
+                    if (callF && callF->callRegions.find(0) == callF->callRegions.end())
+                    {
+                        changes = true;
+                        callF->callRegions.insert(0);
+                    }
+                }
+            }
+        }
+    }
+
+    allFuncPrint(funcMap); // DEBUG
 }
 
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
@@ -1453,8 +1486,6 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
-    allFuncPrint(funcMap); // DEBUG
-
     string outText = "";
     string elems = "";
     
@@ -1467,15 +1498,12 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
             {
                 for (auto &regId : nameFunc.second->callRegions)
                     if (region->GetId() == regId)
-                        elems += " " + nameFunc.first;
+                        elems += " '" + nameFunc.first + '\'';
             }
         }
 
         if (elems.size())
-        {
-            outText += "  COMMON FUNCTIONS:" + elems;
-            outText += "\n";
-        }
+            outText += "  COMMON FUNCTIONS:" + elems + '\n';
 
         set<string> arrays;
         for (auto &funcArrays : region->GetUsedCommonArrays())
@@ -1484,13 +1512,10 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
 
         elems.clear();
         for (auto &arrayName : arrays)
-            elems += " " + arrayName;
+            elems += " '" + arrayName + '\'';
 
         if (elems.size())
-        {
-            outText += "  COMMON ARRAYS:" + elems;
-            outText += "\n";
-        }
+            outText += "  COMMON ARRAYS:" + elems + '\n';
 
         elems.clear();
         for (auto &funcArrays : region->GetUsedLocalArrays())
@@ -1518,23 +1543,17 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
     elems.clear();
     for (auto &nameFunc : funcMap)
         if (nameFunc.second->callRegions.size() > 1)
-            elems += " " + nameFunc.first;
+            elems += " '" + nameFunc.first + '\'';
 
     if (elems.size())
-    {
-        outText += "  ALL COMMON FUNCTIONS : " + elems;
-        outText += "\n";
-    }
+        outText += "  ALL COMMON FUNCTIONS : " + elems + '\n';
 
     elems.clear();
     for (auto &commonArrayCommonBlock : allUsedCommonArrays)
-        elems += " " + commonArrayCommonBlock.first->GetShortName();
+        elems += " '" + commonArrayCommonBlock.first->GetShortName() + '\'';
 
     if (elems.size())
-    {
-        outText += "  ALL COMMON ARRAYS:" + elems;
-        outText += "\n";
-    }
+        outText += "  ALL COMMON ARRAYS:" + elems + '\n';
            
     if (fileName == NULL)
         __spf_print(1, "%s", outText.c_str());    
