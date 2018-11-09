@@ -63,7 +63,7 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 			if(!hasLimitsToDvmhParallel(loopNode))
 			{
 				if (loopNode->loop->lexPrev()->variant() == DVM_PARALLEL_ON_DIR) {
-					DvmhRegion dvmhRegion(loopNode);
+					DvmhRegion dvmhRegion(loopNode->loop);
 					regions.push_back(dvmhRegion);
 				}
 			} else if (loopNode->loop->lexPrev()->variant() != DVM_PARALLEL_ON_DIR && loopNode->childs.size() > 0) 
@@ -83,10 +83,10 @@ void DvmhRegionInsertor::insertRegionDirectives()
 	for(auto &region: regions)
 	{
 		SgStatement *regionStartSt = new SgStatement(ACC_REGION_DIR);
-		region.loop->loop->insertStmtBefore(*regionStartSt);
+		region.getLoop()->insertStmtBefore(*regionStartSt);
 
 		SgStatement *regionEndSt = new SgStatement(ACC_END_REGION_DIR);
-		SgStatement *lastStOfTheLoop = region.loop->loop->lastNodeOfStmt();
+		SgStatement *lastStOfTheLoop = region.getLoop()->lastNodeOfStmt();
 		lastStOfTheLoop->insertStmtAfter(*regionEndSt);
 	}
 }
@@ -225,57 +225,32 @@ void DvmhRegionInsertor::insertActualDirectives() {
 		while (st != lastNode)
         {
             if (st == NULL || st->variant() == CONTAINS_STMT)
-                continue;
-
-            DvmhRegion* region1 = getContainingRegion(st);
-            if (region1)
-                cout << "[Region] ";
-            else
-                cout << "[Sequent] ";
-                
-            st->unparsestdout();
-            
-            
-            std::set<SgSymbol *> symbols = getUsedSymbols(st);
-            // debug 
-            if (symbols.size() > 0) {
-                insertActualDirectiveBefore(st, *symbols.begin());
                 break;
-            }
 
-            DvmhRegion* region = getContainingRegion(st);
+            std::set<SgSymbol *> symbols = getUsedSymbols(st);
             for (auto& symbol : symbols) {
-                set<SgStatement*> defenitions = getDefenitions(st, symbol);
+                DvmhRegion* region = getContainingRegion(st);
 
                 if (region) {
                     // Searching for defenition not in region
                     bool symbolDeclaredInSequentPart = false;
+                    set<SgStatement*> defenitions = getDefenitions(symbol);
                     for (auto& defenition : defenitions) {
                         DvmhRegion* containingRegion = getContainingRegion(defenition);
-                        if (!containingRegion) {
+                        if (containingRegion) {
                             symbolDeclaredInSequentPart = true;
                             break;
                         }
                     }
 
-                    if (symbolDeclaredInSequentPart) {}
-                        region->needActualisation.push_back(*symbol);
+                    if (symbolDeclaredInSequentPart) {
+                        region->needActualisation.insert(symbol);
+                    }
                 } else {
                     // Seatching for defenition in region
-                    bool symbolDeclaredInRegion = false;
-                    for (auto& defenition : defenitions) {
-                        DvmhRegion* containingRegion = getContainingRegion(defenition);
-                        if (containingRegion) {
-                            symbolDeclaredInRegion = true;
-                            break;
-                        }
-                    }
-
-                    if (symbolDeclaredInRegion)
-                        insertActualDirectiveBefore(st, symbol);
                 }
             }
-/*
+
             std::cout << "cmd: [" << std::endl;
             st->unparsestdout();
             std::cout << "]" << std::endl;
@@ -285,7 +260,7 @@ void DvmhRegionInsertor::insertActualDirectives() {
                 std::cout << symbol->identifier() << " ";
             }
             std::cout << std::endl;
-*/
+
 			st = st->lexNext();
 		}
 	}
@@ -312,10 +287,16 @@ DvmhRegionInsertor::~DvmhRegionInsertor()
 /*********** DvmhRegion *************/
 DvmhRegion::DvmhRegion() {}
 
-DvmhRegion::DvmhRegion(LoopGraph *loopNode) : loop(loopNode) {}
+DvmhRegion::DvmhRegion(SgStatement *st) : loop(st) {}
 
+SgStatement *DvmhRegion::getLoop()
+{
+	return loop;
+}
+
+// TODO:
 bool DvmhRegion::isInRegion(SgStatement *st) {
-    int line = st->lineNumber();
+    int line = st->lineNum;
     if (line > loop->lineNum && line < loop->lineNumAfterLoop)
         return true;
     else
@@ -324,20 +305,15 @@ bool DvmhRegion::isInRegion(SgStatement *st) {
 
 DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
     for (auto& region : regions) {
-        if (region.isInRegion(st)) {
-            return &region;
+        if region->isInRegion(st) {
+            return region;
         }
     }
+    
     return NULL;
 }
 
-// TODO: implement me
-set<SgStatement*> DvmhRegionInsertor::getDefenitions(SgStatement *st, SgSymbol *symbol) {
+set<SgStatement*> DvmhRegionInsertor::getDefenitions(SgStatement *, SgSymbol *) {
     set<SgStatement*> result;
     return result;
-}
-
-void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, SgSymbol *symbol) {
-    SgStatement *getActualSt = new SgStatement(ACC_GET_ACTUAL_DIR);
-	st->insertStmtBefore(*getActualSt);
 }

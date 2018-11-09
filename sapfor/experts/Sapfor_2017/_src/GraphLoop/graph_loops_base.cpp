@@ -22,10 +22,8 @@ using std::make_pair;
 using std::get;
 
 #include "graph_loops.h"
-#include "../GraphCall/graph_calls_func.h"
 #include "../Utils/errors.h"
 #include "../Distribution/Distribution.h"
-#include "../ParallelizationRegions/ParRegions.h"
 #ifdef _WIN32
 #include "../VisualizerCalls/get_information.h"
 #endif
@@ -56,14 +54,17 @@ static void fillWriteReadOps(LoopGraph *&currLoop, DIST::Array *symbol, const Ar
 
 static void uniteVectors(const ArrayOp &from, ArrayOp &to)
 {
-    for (auto &elemFrom : from.coefficients)
-    {
-        auto it = to.coefficients.find(elemFrom.first);
-        if (it == to.coefficients.end())
-            it = to.coefficients.insert(it, elemFrom);
-        else
-            it->second += elemFrom.second;
-    }
+    set <pair<int, int>> fromSet, toSet;
+    for (int i = 0; i < from.coefficients.size(); ++i)
+        fromSet.insert(from.coefficients[i]);
+    for (int i = 0; i < to.coefficients.size(); ++i)
+        toSet.insert(to.coefficients[i]);
+
+    vector<pair<int, int>> unitedVector(fromSet.size() + toSet.size());
+    auto it = set_union(fromSet.begin(), fromSet.end(), toSet.begin(), toSet.end(), unitedVector.begin());
+    unitedVector.resize(it - unitedVector.begin());
+
+    to.coefficients = unitedVector;
 }
 
 static void uniteChildReadInfo(LoopGraph *currLoop)
@@ -75,9 +76,9 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
         {
             LoopGraph *part1 = currLoop, *part2 = currLoop;
             for (int i = 0; i < depth - 1; ++i)
-                part1 = part1->children[0];
+                part1 = part1->childs[0];
             for (int i = 0; i < depth - 2; ++i)
-                part2 = part2->children[0];
+                part2 = part2->childs[0];
 
             set<DIST::Array*> newToAdd;
 
@@ -111,21 +112,21 @@ static void uniteChildReadInfo(LoopGraph *currLoop)
     }
     else
     {
-        for (int i = 0; i < currLoop->children.size(); ++i)
-            uniteChildReadInfo(currLoop->children[i]);
+        for (int i = 0; i < currLoop->childs.size(); ++i)
+            uniteChildReadInfo(currLoop->childs[i]);
     }
 }
 
 static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foundConflicts, map<DIST::Array*, vector<ArrayOp>> &unitedWROps)
 {
-    for (int i = 0; i < currLoop->children.size(); ++i)
+    for (int i = 0; i < currLoop->childs.size(); ++i)
     {
         if (i > 0)
         {
             foundConflicts.clear();
             unitedWROps.clear();
         }
-        fillConflictState(currLoop->children[i], foundConflicts, unitedWROps);
+        fillConflictState(currLoop->childs[i], foundConflicts, unitedWROps);
     }
 
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
@@ -154,15 +155,8 @@ static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foun
                 else if (unitedW[i].coefficients.size() == 0)
                     unitedW[i] = currWrites[i];
                 else
-                {
-                    for (auto &oldWrites : currWrites[i].coefficients)
-                    {
-                        auto it = unitedW[i].coefficients.find(oldWrites.first);
-                        if (it == unitedW[i].coefficients.end())
-                            it = unitedW[i].coefficients.insert(it, make_pair(oldWrites.first, 0));
-                        it->second += oldWrites.second;
-                    }
-                }
+                    for (int k = 0; k < currWrites[i].coefficients.size(); ++k)
+                        unitedW[i].coefficients.push_back(currWrites[i].coefficients[k]);
             }
         }
         else
@@ -238,7 +232,7 @@ public:
 
     const vector<pair<pair<int, int>, map<attrType, double>>>& GetCoeffs() const { return coeffs; }
 };
-
+#endif
 
 static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
                             DIST::Arrays<int> &allArrays,
@@ -258,32 +252,12 @@ static void inline addGroup(DIST::GraphCSR<int, double, attrType> &G,
         }
     }
 }
-#endif
 
-static double calculateSizes(const vector<pair<int, int>> &in, vector<int> &out)
-{
-    double all = 1.0;
-    for (auto &elem : in)
-    {
-        if (elem.first >= elem.second)
-        {
-            out.push_back(2);
-            all *= 2;
-        }
-        else
-        {
-            out.push_back(elem.second - elem.first + 1);
-            all *= (elem.second - elem.first + 1);
-        }
-    }
-
-    return all;
-}
-
-static bool addToGraph(DIST::GraphCSR<int, double, attrType> &G,
+static void addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                        DIST::Arrays<int> &allArrays,
+                       const double currWeight,
                        const ArrayInfo *from, DIST::Array *fromSymb,
-                       const ArrayInfo *to, DIST::Array *toSymb, const links linkType)
+                       const ArrayInfo *to, DIST::Array *toSymb)
 {
     bool loopHasWrite = false;
 #if GROUP_BY_REQUEST
@@ -292,90 +266,58 @@ static bool addToGraph(DIST::GraphCSR<int, double, attrType> &G,
     map<pair<DIST::Array*, DIST::Array*>, GroupItem> rr_links;
 #endif
 
-    auto sizesFromPair = fromSymb->GetSizes();
-    auto sizesToPair = toSymb->GetSizes();
-    
-    vector<int> sizesFrom;
-    vector<int> sizesTo;
-    
-    double allFrom = calculateSizes(sizesFromPair, sizesFrom);
-    double allTo = calculateSizes(sizesToPair, sizesTo);
-
-    if (linkType == WW_link)
+    // add W-R and W-W
+    for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
     {
-        // add W-R and W-W
-        for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
+        for (int dimTo = 0; dimTo < to->dimSize; ++dimTo)
         {
-            for (int dimTo = 0; dimTo < to->dimSize; ++dimTo)
+            if ((from->writeOps[dimFrom].coefficients.size() != 0) || (to->writeOps[dimTo].coefficients.size() != 0))
+                loopHasWrite = true;
+
+            if (from->writeOps[dimFrom].coefficients.size() != 0 && (to->writeOps[dimTo].coefficients.size() != 0 || to->readOps[dimTo].coefficients.size() != 0))
             {
-                if ((from->writeOps[dimFrom].coefficients.size() != 0) || (to->writeOps[dimTo].coefficients.size() != 0))
-                    loopHasWrite = true;
-
-                if ((from->writeOps[dimFrom].coefficients.size() != 0 || from->readOps[dimFrom].coefficients.size() != 0) &&
-                    (to->writeOps[dimTo].coefficients.size() != 0 || to->readOps[dimTo].coefficients.size() != 0))
+                for (int z = 0; z < (int)from->writeOps[dimFrom].coefficients.size(); ++z)
                 {
-                    for (auto &writeFrom : from->writeOps[dimFrom].coefficients)
-                    {
-                        for (auto &writeTo : to->writeOps[dimTo].coefficients)
+                    for (int z1 = 0; z1 < (int)to->writeOps[dimTo].coefficients.size(); ++z1)
 #if GROUP_BY_REQUEST
-                        {
-                            const auto key = make_pair(fromSymb, toSymb);
-                            auto it = ww_links.find(key);
-                            if (it == ww_links.end())
-                                it = ww_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
-
-                            it->second.AddToGroup(dimFrom, dimTo, make_pair(writeFrom.first, writeTo.first), writeTo.second * allTo + writeFrom.second * allFrom);
-                        }
-#else
-                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), writeTo.second * allTo + writeFrom.second * allFrom, make_pair(writeFrom.first, writeTo.first), WW_link);
-#endif
-                    }
-                }
-            }
-        }
-    }
-
-    if (linkType == WR_link)
-    {
-        for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
-        {
-            for (int dimTo = 0; dimTo < to->dimSize; ++dimTo)
-            {
-                if ((from->writeOps[dimFrom].coefficients.size() != 0) || (to->writeOps[dimTo].coefficients.size() != 0))
-                    loopHasWrite = true;
-
-                if ((from->writeOps[dimFrom].coefficients.size() != 0 || from->readOps[dimFrom].coefficients.size() != 0) &&
-                    (to->writeOps[dimTo].coefficients.size() != 0 || to->readOps[dimTo].coefficients.size() != 0))
-                {
-                    for (auto &writeFrom : from->writeOps[dimFrom].coefficients)
                     {
-                        for (auto &readTo : to->readOps[dimTo].coefficients)
-#if GROUP_BY_REQUEST
-                        {
-                            const auto key = make_pair(fromSymb, toSymb);
-                            auto it = wr_links.find(key);
-                            if (it == wr_links.end())
-                                it = wr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+                        const auto key = make_pair(fromSymb, toSymb);
+                        auto it = ww_links.find(key);
+                        if (it == ww_links.end())
+                            it = ww_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
 
-                            it->second.AddToGroup(dimFrom, dimTo, make_pair(writeFrom.first, readTo.first), readTo.second * allTo);
-                        }
-#else
-                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), readTo.second * allTo, make_pair(writeFrom.first, readTo.first), WR_link);
-#endif
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), currWeight);
                     }
+#else
+                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+#endif
+
+                    for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
+#if GROUP_BY_REQUEST
+                    {
+                        const auto key = make_pair(fromSymb, toSymb);
+                        auto it = wr_links.find(key);
+                        if (it == wr_links.end())
+                            it = wr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
+
+                        it->second.AddToGroup(dimFrom, dimTo, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
+                    }
+#else
+                        AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), WR_link);
+#endif
                 }
             }
         }
     }
 
     //add R-R, if no W
-    if (linkType == RR_link)    
+    if (loopHasWrite == false)
     {
         for (int dimFrom = 0; dimFrom < from->dimSize; ++dimFrom)
             for (int dimTo = 0; dimTo < to->dimSize; ++dimTo)
                 if (from->readOps[dimFrom].coefficients.size() != 0 && to->readOps[dimTo].coefficients.size() != 0)
-                    for (auto &readFrom : from->readOps[dimFrom].coefficients)
-                        for (auto &readTo : to->readOps[dimTo].coefficients)
+                    for (int z = 0; z < (int)from->readOps[dimFrom].coefficients.size(); ++z)
+                        for (int z1 = 0; z1 < (int)to->readOps[dimTo].coefficients.size(); ++z1)
 #if GROUP_BY_REQUEST
                         {
                             const auto key = make_pair(fromSymb, toSymb);
@@ -383,10 +325,10 @@ static bool addToGraph(DIST::GraphCSR<int, double, attrType> &G,
                             if (it == rr_links.end())
                                 it = rr_links.insert(it, make_pair(key, GroupItem(fromSymb->GetDimSize(), toSymb->GetDimSize())));
 
-                            it->second.AddToGroup(dimFrom, dimTo, make_pair(readFrom.first, readTo.first), readTo.second  * std::max(allTo, allFrom));
+                            it->second.AddToGroup(dimFrom, dimTo, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), currWeight);
                         }
 #else
-                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), readTo.second * std::max(allTo, allFrom), make_pair(readFrom.first, readTo.first), RR_link);
+                            AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->readOps[dimFrom].coefficients[z], to->readOps[dimTo].coefficients[z1]), RR_link);
 #endif
     }
 
@@ -395,8 +337,6 @@ static bool addToGraph(DIST::GraphCSR<int, double, attrType> &G,
     addGroup(G, allArrays, wr_links, WR_link);
     addGroup(G, allArrays, rr_links, RR_link);
 #endif
-
-    return loopHasWrite;
 }
 
 //TODO: check for recursion!!
@@ -427,37 +367,6 @@ void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr,
                 getAllArrayRefs(addTo, link, allArrayRefs, arrayLinksByFuncCalls);
 }
 
-static bool processLinks(const vector<pair<DIST::Array*, const ArrayInfo*>> &currAccessesV,
-                         DIST::Arrays<int> &allArrays, map<DIST::Array*, set<DIST::Array*>> &realArrayRefs,
-                         DIST::GraphCSR<int, double, attrType> &G, const links linkType)
-{
-    bool has_Wr_Ww_edges = false;
-    for (int z = 0; z < currAccessesV.size(); ++z)
-    {
-        const ArrayInfo &fromUniq = *currAccessesV[z].second;
-        allArrays.AddArrayToGraph(currAccessesV[z].first);
-
-        for (auto &fromSymb : realArrayRefs[currAccessesV[z].first])
-        {
-            for (int z1 = (linkType == WR_link) ? 0 : z + 1; z1 < currAccessesV.size(); ++z1)
-            {
-                if (z1 == z)
-                    continue;
-
-                const ArrayInfo &toUniq = *(currAccessesV[z1].second);
-                allArrays.AddArrayToGraph(currAccessesV[z1].first);
-                for (auto &toSymb : realArrayRefs[currAccessesV[z1].first])
-                {
-                    bool res = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, linkType);
-                    has_Wr_Ww_edges |= res;
-                }
-            }
-        }
-    }
-
-    return has_Wr_Ww_edges;
-}
-
 void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> &loopInfo,
                             const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
@@ -473,6 +382,8 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
             continue;
         }
 
+        const double currWeight = it->first->countOfIterNested;
+
         DIST::GraphCSR<int, double, attrType> &G = currReg->GetGraphToModify();
         DIST::Arrays<int> &allArrays = currReg->GetAllArraysToModify();
 
@@ -482,16 +393,9 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
         for (auto &access : currAccesses)
             getRealArrayRefs(access.first, access.first, realArrayRefs[access.first], arrayLinksByFuncCalls);
 
-        const vector<pair<DIST::Array*, const ArrayInfo*>> currAccessesV(currAccesses.begin(), currAccesses.end());
-        bool has_Wr_edges = false, has_Ww_edges = false;
-        has_Wr_edges = processLinks(currAccessesV, allArrays, realArrayRefs, G, WW_link);
-        has_Ww_edges |= processLinks(currAccessesV, allArrays, realArrayRefs, G, WR_link);
-        if (!has_Wr_edges && !has_Ww_edges)
-            processLinks(currAccessesV, allArrays, realArrayRefs, G, RR_link);
-        
-        /*for (auto &accessFrom : currAccesses)
+        for (auto &accessFrom : currAccesses)
         {
-            const ArrayInfo &fromUniq = *accessFrom.second;
+            const ArrayInfo *from = accessFrom.second;
             allArrays.AddArrayToGraph(accessFrom.first);
 
             for (auto &fromSymb : realArrayRefs[accessFrom.first])
@@ -500,20 +404,14 @@ void addToDistributionGraph(const map<LoopGraph*, map<DIST::Array*, const ArrayI
                 {
                     if (&accessTo == &accessFrom)
                         continue;
-
-                    const ArrayInfo &toUniq = *accessTo.second;
+                                        
+                    const ArrayInfo *to = accessTo.second;
                     allArrays.AddArrayToGraph(accessTo.first);
                     for (auto &toSymb : realArrayRefs[accessTo.first])
-                    {
-                        bool t, t1;
-                        t = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, WW_link);
-                        t1 = addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, WR_link);
-                        if (!t && !t1)
-                            addToGraph(G, allArrays, &fromUniq, fromSymb, &toUniq, toSymb, RR_link);
-                    }
+                        addToGraph(G, allArrays, currWeight, from, fromSymb, to, toSymb);
                 }
             }
-        }*/
+        }
     }
 }
 
@@ -536,7 +434,7 @@ bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
     string loopName = fullLoopName;
 
     DIST::Array *loopArray = new DIST::Array(fullLoopName, loopName, 1, getUniqArrayId(), loopInfo->fileName, 
-                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName(), 0);
+                                             loopInfo->lineNum, make_pair(0, inFunction), NULL, currReg->GetName());
     
     if (loopInfo->calculatedCountOfIters == 0)
     {
@@ -560,44 +458,36 @@ static void printBlanks(FILE *file, const int sizeOfBlank, const int countOfBlan
             fprintf(file, " ");
 }
 
-static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl, bool withRegs = false)
+static void printLoopGraphLvl(FILE *file, const vector<LoopGraph*> &childs, const int lvl)
 {
     for (int k = 0; k < (int)childs.size(); ++k)
     {
-        bool needToPrint = true;
-        if (withRegs)
-            if (childs[k]->region == NULL)
-                needToPrint = false;
+        printBlanks(file, 2, lvl);
+        fprintf(file, "FOR on line %d", childs[k]->lineNum);
+        if (childs[k]->perfectLoop > 1)
+            fprintf(file, " [PERFECT]");
+        if (childs[k]->hasGoto)
+            fprintf(file, " [HAS GOTO]");
+        if (childs[k]->hasPrints)
+            fprintf(file, " [HAS I/O OPS]");
+        if (childs[k]->region)
+            fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
+        if (childs[k]->userDvmDirective)
+            fprintf(file, " [USER DVM]");
 
-        if (needToPrint)
+        fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
+        fprintf(file, "\n");
+
+        for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
         {
             printBlanks(file, 2, lvl);
-            fprintf(file, "FOR on line %d", childs[k]->lineNum);
-            if (childs[k]->perfectLoop > 1)
-                fprintf(file, " [PERFECT]");
-            if (childs[k]->hasGoto)
-                fprintf(file, " [HAS GOTO]");
-            if (childs[k]->hasPrints)
-                fprintf(file, " [HAS I/O OPS]");
-            if (childs[k]->region)
-                fprintf(file, " [REGION %s]", childs[k]->region->GetName().c_str());
-            if (childs[k]->userDvmDirective)
-                fprintf(file, " [USER DVM]");
-
-            fprintf(file, " [IT = %d / MULT = %f]", childs[k]->countOfIters, childs[k]->countOfIterNested);
-            fprintf(file, "\n");
-
-            for (int i = 0; i < (int)childs[k]->calls.size(); ++i)
-            {
-                printBlanks(file, 2, lvl);
-                fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
-            }
+            fprintf(file, "CALL %s [%d]\n", childs[k]->calls[i].first.c_str(), childs[k]->calls[i].second);
         }
-        printLoopGraphLvl(file, childs[k]->children, lvl + 1, withRegs);
+        printLoopGraphLvl(file, childs[k]->childs, lvl + 1);
     }
 }
 
-int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph, bool withRegs)
+int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &loopGraph)
 {
     FILE *file = fopen(fileName, "w");
     if (file == NULL)
@@ -610,7 +500,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
     for (it = loopGraph.begin(); it != loopGraph.end(); it++)
     {
         fprintf(file, "*** FILE %s\n", it->first.c_str());
-        printLoopGraphLvl(file, it->second, 1, withRegs);
+        printLoopGraphLvl(file, it->second, 1);
         fprintf(file, "\n");
     }
 
@@ -624,7 +514,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
     for (int i = 0; i < loops.size(); ++i)
     {
         if (loops[i]->region)
-        {            
+        {
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
                 char buf[256];
@@ -640,7 +530,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                 }
                 isNotOkey.insert(loops[i]->region);
             }
-            isAllOk(loops[i]->children, currMessages, isNotOkey, uniqMessages);
+            isAllOk(loops[i]->childs, currMessages, isNotOkey, uniqMessages);
         }
     }
 }
@@ -654,154 +544,42 @@ static void setToDefaultCountIter(vector<LoopGraph*> &loops, const set<void*> &i
         {
             if (isNotOkey.find(loops[i]->region) != isNotOkey.end())
                 loops[i]->countOfIters = 2;
-            setToDefaultCountIter(loops[i]->children, isNotOkey);
+            setToDefaultCountIter(loops[i]->childs, isNotOkey);
         }
     }
 }
 
-static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount)
+static void multiplyCountIter(vector<LoopGraph*> &loops, const double allCount, const set<void*> &isNotOkey)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
-        loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
-        multiplyCountIter(loops[i]->children, loops[i]->countOfIterNested);
+        if (isNotOkey.find(loops[i]->region) == isNotOkey.end())
+            loops[i]->countOfIterNested = loops[i]->countOfIters * allCount;
+        multiplyCountIter(loops[i]->childs, loops[i]->countOfIterNested, isNotOkey);
     }
 }
 
-static void recAddToChildren(vector<LoopGraph*> &loops, const double coef, map<LoopGraph*, double> &interprocCoefs)
-{
-    for (auto &loop : loops)
-    {
-        auto it = interprocCoefs.find(loop);
-        if (it == interprocCoefs.end())
-            it = interprocCoefs.insert(it, make_pair(loop, 0.0));
-        it->second += coef;
-        
-        recAddToChildren(loop->children, coef, interprocCoefs);
-    }
-}
-
-static void multiplyCountIterIP(vector<LoopGraph*> &loops, const double allCount, map<LoopGraph*, double> &interprocCoefs)
-{
-    for (auto &loop : loops)
-    {
-        const double coef = loop->countOfIters * allCount;
-        recAddToChildren(loop->funcChildren, coef, interprocCoefs);
-        multiplyCountIterIP(loop->funcChildren, coef, interprocCoefs);
-    }
-}
-
-static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<LoopGraph*> &loops, const map<string, vector<LoopGraph*>> &allLoops)
-{
-    for (auto &loop : loops)
-    {
-        set<string> funNames;
-        for (auto &call : loop->calls)
-            funNames.insert(call.first);
-
-        if (funNames.size())
-        {
-            for (auto &call : funNames)
-            {
-                auto it = mapFunc.find(call);
-                if (it != mapFunc.end())
-                {
-                    FuncInfo *currF = it->second;
-                    const pair<int, int> &linesBound = currF->linesNum;
-                    //XXX
-                    const vector<LoopGraph*> &loopsFromFile = allLoops.find(currF->fileName)->second;
-                    for (auto &loopInFile : loopsFromFile)
-                    {
-                        if (linesBound.first < loopInFile->lineNum && loopInFile->lineNum < linesBound.second)
-                        {
-                            loop->funcChildren.push_back(loopInFile);
-                            if (loopInFile->funcParent == NULL)
-                                loopInFile->funcParent = loop;
-                        }
-                    }
-                }
-            }
-        }
-                
-        fillInterprocLinks(mapFunc, loop->children, allLoops);
-    }
-}
-
-void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
+void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &SPF_messages)
 {
     set<void*> isNotOkey;
-    map<string, FuncInfo*> mapFunc;
-    
-    createMapOfFunc(allFuncInfo, mapFunc);
-    for (auto &loopsInFile : loopGraph)
-        fillInterprocLinks(mapFunc, loopsInFile.second, loopGraph);
 
-    for (auto &loopsInFile : loopGraph)
+    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
     {
         set<string> uniqMessages;
 
-        auto itM = SPF_messages.find(loopsInFile.first);
+        auto itM = SPF_messages.find(it->first);
         if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(loopsInFile.first, vector<Messages>()));
-        isAllOk(loopsInFile.second, itM->second, isNotOkey, uniqMessages);
+            itM = SPF_messages.insert(itM, make_pair(it->first, vector<Messages>()));
+        isAllOk(it->second, itM->second, isNotOkey, uniqMessages);
     }
 
     if (isNotOkey.size() != 0)
     {
-        for (auto &loopsInFile : loopGraph)
-            setToDefaultCountIter(loopsInFile.second, isNotOkey);
+        for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
+            setToDefaultCountIter(it->second, isNotOkey);
     }
 
-    for (auto &loopsInFile : loopGraph)
-        multiplyCountIter(loopsInFile.second, 1.0);
-        
-    set<LoopGraph*> linkTo;
-    for (auto &loopsInFile : loopGraph)
-    {
-        for (auto &loop : loopsInFile.second)
-        {
-            for (auto &ch : loop->children)
-                linkTo.insert(ch);
-            for (auto &ch : loop->funcChildren)
-                linkTo.insert(ch);
-        }
-    }
+    for (auto it = loopGraph.begin(); it != loopGraph.end(); ++it)
+        multiplyCountIter(it->second, 1.0, isNotOkey);
 
-    bool changed = true;
-    while (changed)
-    {
-        changed = false;
-        for (auto &loop : linkTo)
-        {
-            for (auto &ch : loop->children)
-            {
-                if (linkTo.find(ch) == linkTo.end())
-                {
-                    linkTo.insert(ch);
-                    changed = true;
-                }
-            }
-            for (auto &ch : loop->funcChildren)
-            {
-                if (linkTo.find(ch) == linkTo.end())
-                {
-                    linkTo.insert(ch);
-                    changed = true;
-                }
-            }
-        }
-    }
-
-    set<LoopGraph*> dontLink;
-    for (auto &loopsInFile : loopGraph)
-        for (auto &loop : loopsInFile.second)
-            if (linkTo.find(loop) == linkTo.end())
-                dontLink.insert(loop);
-
-    map<LoopGraph*, double> interprocCoefs;
-    auto tmpParam = vector<LoopGraph*>(dontLink.begin(), dontLink.end());
-    multiplyCountIterIP(tmpParam, 1.0, interprocCoefs);
-    
-    for (auto &loop : interprocCoefs)
-        loop.first->countOfIterNested *= loop.second;
 }

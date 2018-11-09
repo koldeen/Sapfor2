@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../GraphLoop/graph_loops.h"
+#include "../LoopAnalyzer/loop_analyzer.h"
 #include "../Utils/errors.h"
 
 void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, 

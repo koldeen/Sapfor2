@@ -153,8 +153,7 @@ static void convertShadowToDDOTRemote(SgExpression *spec)
     }
 }
 
-static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
-                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat)
 {
     if (spec)
     {
@@ -162,21 +161,13 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
         findShadowAndRemote(spec, shadow, remote, beforeSh);
 
         if (shadow)
-        {            
-            set<string> remotesNames;
-
+        {
             SgExpression *newRemote = NULL;
             SgExpression *pRem = NULL;
             if (!remote)
                 pRem = newRemote = new SgExpression(REMOTE_ACCESS_OP);
             else
-            {
-                map<pair<string, string>, Expression*> remotes;
-                fillRemoteFromComment(stat, remotes, false, DVM_PARALLEL_ON_DIR);
-                for (auto &elem : remotes)
-                    remotesNames.insert(elem.first.first);
                 pRem = remote;
-            }
             
             bool remoteWasAdded = false;
             auto currShadowP = shadow;
@@ -193,38 +184,28 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                 {
                     DIST::Array *currArray = getArrayFromAttribute(elem);
                     vector<pair<int, int>> spec = fillShadowSpec(elem);
-                    
+                    auto arraySizes = currArray->GetSizes();
 
-                    set<DIST::Array*> realRefs;
-                    getRealArrayRefs(currArray, currArray, realRefs, arrayLinksByFuncCalls);
+                    //check sizes
+                    for (auto &dim : arraySizes)
+                        if (dim.first > dim.second)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    
+                    if (spec.size() != arraySizes.size())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                     bool replaceByRemote = false;
-                    for (auto &realArray : realRefs)
+                    for (int z = 0; z < spec.size(); ++z)
                     {
-                        auto arraySizes = realArray->GetSizes();
-                        //check sizes
-                        for (auto &dim : arraySizes)
-                            if (dim.first > dim.second || dim.first == -1 || dim.second == -1)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        float maxSpec = std::max(spec[z].first, spec[z].second);
+                        float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
 
-                        if (spec.size() != arraySizes.size())
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                                
-                        for (int z = 0; z < spec.size(); ++z)
+                        // 50 %
+                        if (dimSize * 0.5 < maxSpec)
                         {
-                            float maxSpec = std::max(spec[z].first, spec[z].second);
-                            float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
-
-                            // 50 %
-                            if (dimSize * 0.5 < maxSpec)
-                            {
-                                replaceByRemote = true;
-                                break;
-                            }
-                        }
-
-                        if (replaceByRemote)
+                            replaceByRemote = true;
                             break;
+                        }
                     }
 
                     if (replaceByRemote)
@@ -234,15 +215,9 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                         SgExpression *toAdd = new SgExpression(EXPR_LIST);
                         toAdd->setLhs(elem);
                         toAdd->setRhs(pRem->lhs());
-
-                        auto it = remotesNames.find(OriginalSymbol(elem->symbol())->identifier());
-                        if (it == remotesNames.end())
-                        {
-                            remotesNames.insert(it, OriginalSymbol(elem->symbol())->identifier());
-                            pRem->setLhs(toAdd);
-                        }                     
-
+                        pRem->setLhs(toAdd);
                         remoteWasAdded = true;
+
                         convertShadowToDDOTRemote(elem->lhs());
                         
                         if (currShadowP == shadow)
@@ -276,14 +251,14 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
     }
 }
 
-void devourShadowByRemote(SgFile *file, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+void devourShadowByRemote(SgFile *file)
 {
     for (SgStatement *stat = file->firstStatement(); stat; stat = stat->lexNext())
     {
         if (stat->variant() == DVM_PARALLEL_ON_DIR)
         {
             devourShadow(stat->expr(1), stat);
-            replaceShadowByRemote(stat->expr(1), stat, arrayLinksByFuncCalls);
+            replaceShadowByRemote(stat->expr(1), stat);
         }
     }
 }

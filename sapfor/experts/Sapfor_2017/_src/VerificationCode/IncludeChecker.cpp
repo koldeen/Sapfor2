@@ -10,7 +10,6 @@
 #include "verifications.h"
 #include "../Utils/utils.h"
 #include "../Utils/SgUtils.h"
-#include "../Utils/errors.h"
 #include "../Distribution/DvmhDirective.h"
 
 using std::vector;

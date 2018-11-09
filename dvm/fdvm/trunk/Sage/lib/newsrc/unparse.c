@@ -24,8 +24,7 @@
 #include "ext_low.h"
 /*static FILE *finput;*/
 /*static FILE *outfile;*/
-static int TabNumber = 0;
-static int TabNumberCopy = 0;
+static int TabNumber =0;
 static int Number_Of_Flag = 0;
 #define MAXFLAG 64
 #define  MAXLFLAG 256
@@ -2552,7 +2551,7 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
               BufPutString ("%",0);
               i++;
             } else
-          if (strncmp(&(str[i]),"CMNT", strlen("CMNT"))== 0)
+              if (strncmp(&(str[i]),"CMNT", strlen("CMNT"))== 0)
             {               
               i = i + strlen("CMNT");
               if (!CommentOut)
@@ -2571,7 +2570,7 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
                   }
               }
             } else
-          if (strncmp(&(str[i]),"DECLSPEC", strlen("DECLSPEC"))== 0)             /* %DECLSPEC : for extern, static, inline, friend */
+              if (strncmp(&(str[i]),"DECLSPEC", strlen("DECLSPEC"))== 0)             /* %DECLSPEC : for extern, static, inline, friend */
             {
               int index = BIF_DECL_SPECS(bif);
               i = i + strlen("DECLSPEC");
@@ -2602,23 +2601,23 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
               if( index & BIT_CUDA_DEVICE) {
 		 BufPutString(ridpointers[(int)RID_CUDA_DEVICE],0);
 		 BufPutString(" ", 0);
-                 }
+         }
               if (index & BIT_CONST) {
                  BufPutString(ridpointers[(int)RID_CONST], 0);
                  BufPutString(" ", 0);
-                 }
+         }
             } else
-          if (strncmp(&(str[i]),"SETFLAG", strlen("SETFLAG"))== 0)
+              if (strncmp(&(str[i]),"SETFLAG", strlen("SETFLAG"))== 0)
             {               
               i = i + strlen("SETFLAG");
               Treat_Flag(str, &i,1);
             } else
-          if (strncmp(&(str[i]),"UNSETFLAG", strlen("UNSETFLAG"))== 0) 
+              if (strncmp(&(str[i]),"UNSETFLAG", strlen("UNSETFLAG"))== 0) 
             {               
               i = i + strlen("UNSETFLAG");
               Treat_Flag(str, &i,-1);
             } else
-          if (strncmp(&(str[i]),"PUSHFLAG", strlen("PUSHFLAG"))== 0)
+              if (strncmp(&(str[i]),"PUSHFLAG", strlen("PUSHFLAG"))== 0)
                         {               
                           i = i + strlen("PUSHFLAG");
                           PushPop_Flag(str, &i,1);
@@ -2634,7 +2633,7 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
               i += strlen("ERROR");
               BufPutString (" *** UNPARSING ERROR OCCURRED HERE ***\n",0);
             } else
-          if (strncmp(&(str[i]),"NL", strlen("NL"))== 0)                 /* %NL : NewLine */
+              if (strncmp(&(str[i]),"NL", strlen("NL"))== 0)                 /* %NL : NewLine */
             { /*int j; */ /* podd 15.03.99*/             
               BufPutChar ('\n');
 /*              for (j = 0; j < TabNumber; j++)
@@ -2644,29 +2643,18 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
                   BufPutString ("       ",0);*/
               i += strlen("NL");
             } else
-          if (strncmp(&(str[i]),"NOTABNL", strlen("NOTABNL"))== 0)                 /* %NL : NewLine */
+              if (strncmp(&(str[i]),"NOTABNL", strlen("NOTABNL"))== 0)                 /* %NL : NewLine */
             {
               BufPutChar ('\n');
               i += strlen("NOTABNL");
             } else
-          if (strncmp(&(str[i]),"TABOFF", strlen("TABOFF"))== 0)               /* turn off tabulation */
-            {
-              TabNumberCopy = TabNumber;
-              TabNumber = 0;              
-              i += strlen("TABOFF");
-            }  else
-          if (strncmp(&(str[i]),"TABON", strlen("TABON"))== 0)                 /* turn on tabulation */
-            {
-              TabNumber  = TabNumberCopy;              
-              i += strlen("TABON");
-            }  else
-          if (strncmp(&(str[i]),"TAB", strlen("TAB"))== 0)               /* %TAB : Tab */
+              if (strncmp(&(str[i]),"TAB", strlen("TAB"))== 0)               /* %TAB : Tab */
                 {
               BufPutString ("      ",0); /* cychen */
               i += strlen("TAB");
             } else
-          if (strncmp(&(str[i]),"PUTTABCOMT", strlen("PUTTABCOMT"))== 0)               /* %TAB : Tab */
-            {
+              if (strncmp(&(str[i]),"PUTTABCOMT", strlen("PUTTABCOMT"))== 0)               /* %TAB : Tab */
+   {
                   int j, k;
                   if (Check_Lang_Fortran_For_File(cur_proj)) /*16.12.11 podd*/
                     for (j = 0; j < TabNumber; j++)
@@ -2688,9 +2676,9 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
                         BufPutString ("      ",0); /* cychen */
 
                   i += strlen("PUTTABCOMT");
-            } else
-          if (strncmp(&(str[i]),"PUTTAB", strlen("PUTTAB"))== 0)               /* %TAB : Tab */
-            {
+                } else
+              if (strncmp(&(str[i]),"PUTTAB", strlen("PUTTAB"))== 0)               /* %TAB : Tab */
+   {
                   int j, k;
  
                   if (Check_Lang_Fortran_For_File(cur_proj)) /*16.12.11 podd*/
@@ -2713,13 +2701,13 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
 
                   i += strlen("PUTTAB");
 
-            } else
-          if (strncmp(&(str[i]),"INCTAB", strlen("INCTAB"))== 0)               /* increment tab */
+                } else
+              if (strncmp(&(str[i]),"INCTAB", strlen("INCTAB"))== 0)               /* increment tab */
             {
               TabNumber++;              
               i += strlen("INCTAB");
             }  else
-          if (strncmp(&(str[i]),"DECTAB", strlen("DECTAB"))== 0)               /*deccrement tab */
+              if (strncmp(&(str[i]),"DECTAB", strlen("DECTAB"))== 0)               /*deccrement tab */
             {
 	      if (Check_Lang_Fortran_For_File(cur_proj)) /*16.12.11 podd*/
 		{
@@ -2834,7 +2822,7 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
                 }
               i += strlen("STATENO");
             } else
-          if (strncmp(&(str[i]),"LABELENDIF", strlen("LABELENDIF"))== 0)       /* %STATENO : Statement number */
+              if (strncmp(&(str[i]),"LABELENDIF", strlen("LABELENDIF"))== 0)       /* %STATENO : Statement number */
                 {
                   PTR_BFND temp;
                   PTR_BLOB blob;
@@ -2861,16 +2849,16 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
               i += strlen("LABELENDIF");
             } else
           if (strncmp(&(str[i]),"LABNAME", strlen("LABNAME")) == 0)  /* %LABNAME for C labels: added by dbg */
-            {  
+           {  
               if(BIF_LABEL_USE(bif)){
                 if(LABEL_SYMB(BIF_LABEL_USE(bif)))
 			BufPutString (SYMB_IDENT(LABEL_SYMB(BIF_LABEL_USE(bif))), 0);
                 else printf("label-symbol error\n");
               } else printf("label error\n");
              i += strlen("LABNAME");
-            } else
+           } else
           if (strncmp(&(str[i]),"LABEL", strlen("LABEL"))== 0)       /* %STATENO : Statement number */
-            {
+                {
               if (BIF_LABEL(bif))
                 {
                   HasLabel = LABEL_STMTNO (BIF_LABEL(bif));
@@ -2897,7 +2885,7 @@ char *Tool_Unparse_Bif(PTR_BFND bif)
               i += strlen("SYMBTYPE");
             } else
           if (strncmp(&(str[i]),"CNSTF", strlen("CNSTF"))== 0)    /* for const functions */
-            {
+           {
               PTR_SYMB symb;
               if (BIF_SYMB (bif)){
                 symb = BIF_SYMB (bif);

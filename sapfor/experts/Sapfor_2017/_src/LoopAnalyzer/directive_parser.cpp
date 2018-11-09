@@ -289,18 +289,13 @@ template void fillShadowAcrossFromParallel(const int type, SgStatement *st, vect
 
 
 template<typename fillType>
-void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expression*> &remote, bool isFull, int type)
+void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expression*> &remote, bool isFull)
 {
     if (st)
     {
-        if (st->variant() ==  type)
+        if (st->variant() == SPF_PARALLEL_DIR)
         {
-            SgExpression *exprList = NULL;
-            if (type == SPF_PARALLEL_DIR)
-                exprList = st->expr(0);
-            else if (type == DVM_PARALLEL_ON_DIR)
-                exprList = st->expr(1);
-
+            SgExpression *exprList = st->expr(0);
             while (exprList)
             {
                 if (exprList->lhs()->variant() == REMOTE_ACCESS_OP)
@@ -326,8 +321,8 @@ void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expressi
     }
 }
 
-template void fillRemoteFromComment(SgStatement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
-template void fillRemoteFromComment(SgStatement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(SgStatement *st, map<pair<string, string>, Expression*> &remote, bool isFull);
+template void fillRemoteFromComment(SgStatement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {

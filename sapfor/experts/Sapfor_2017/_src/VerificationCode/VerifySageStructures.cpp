@@ -9,7 +9,6 @@
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/utils.h"
-#include "../Utils/errors.h"
 
 int VerifyFile(SgFile *file)
 {

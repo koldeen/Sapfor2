@@ -37,7 +37,6 @@ using std::string;
 
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
-extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs);
 
 static const set<string> *currentNonDistrArrays = NULL;
 static map<SgSymbol*, string> varInOut;
@@ -105,8 +104,7 @@ bool isRemovableDependence(const depNode *currNode, const set<string> &privVars)
 void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
                            set<SgStatement*> &funcWasInit, SgFile *file, vector<ParallelRegion*> regions,
                            vector<Messages> *currMessages,
-                           map<SgExpression*, string> &collection,
-                           const map<string, FuncInfo*> &allFuncs)
+                           map<SgExpression*, string> &collection)
 {
     auto it = allLoops.find(currLoop->lineNum);
     if (it == allLoops.end())
@@ -137,7 +135,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         if (funcWasInit.find(func) == funcWasInit.end())
         {
             funcWasInit.insert(func);
-            initializeDepAnalysisForFunction(file, func, allFuncs);
+            initializeDepAnalysisForFunction(file, func);
         }
 
         double t = omp_get_wtime();
@@ -319,6 +317,6 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         currLoop->addConflictMessages(currMessages);
     }
     
-    for (int k = 0; k < currLoop->children.size(); ++k)
-        tryToFindDependencies(currLoop->children[k], allLoops, funcWasInit, file, regions, currMessages, collection, allFuncs);
+    for (int k = 0; k < currLoop->childs.size(); ++k)
+        tryToFindDependencies(currLoop->childs[k], allLoops, funcWasInit, file, regions, currMessages, collection);
 }

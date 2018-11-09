@@ -127,7 +127,6 @@
     <ClCompile Include="..\..\_src\Distribution\Distribution.cpp" />
     <ClCompile Include="..\..\_src\Distribution\DvmhDirectiveBase.cpp" />
     <ClCompile Include="..\..\_src\Distribution\GraphCSR.cpp" />
-    <ClCompile Include="..\..\_src\GraphCall\graph_calls_base.cpp" />
     <ClCompile Include="..\..\_src\GraphLoop\graph_loops_base.cpp" />
     <ClCompile Include="..\..\_src\Utils\utils.cpp" />
   </ItemGroup>

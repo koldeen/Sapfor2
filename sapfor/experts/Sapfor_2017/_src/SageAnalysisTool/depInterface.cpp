@@ -14,6 +14,7 @@
 
 //////////////////////////////////// A set of routines for interfacing the dep analysis //////////////////////////////////
 
+
 static int initializeTheAnnotationSystem = 1;
 
 void initAnnotationsSysExt(const int printannotation)
@@ -111,14 +112,7 @@ void doDependenceAnalysisForAFunction(SgFile *file, SgStatement *func, int print
 
     if (verbose)
         printf(" -init dependence for function %s\n", func->symbol()->identifier());
-
-    //!!!!!!
-    //TODO: add allFuncs if needed, now it does not work!
-    throw(-991);
-    //initializeDepAnalysisForFunction(file, func);
-
-    //!!!!!!
-
+    initializeDepAnalysisForFunction(file, func);
     // now compute the dependence graph for each loop;
     last = func->lastNodeOfStmt();
     for (temp = func; temp && (temp != last); temp = temp->lexNext())

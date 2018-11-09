@@ -30,7 +30,7 @@ extern std::string convertFileName(const char *file);
 #include <boost/stacktrace.hpp>
 void printStackTrace()
 {
-    /*__spf_print(1, "printStack\n");
+    __spf_print(1, "printStack\n");
     auto stack = boost::stacktrace::stacktrace().as_vector();
     for (auto &elem : stack)
     {
@@ -40,7 +40,7 @@ void printStackTrace()
         
         if (line)
             __spf_print(1, "%s %s : %d\n", fname.c_str(), convertFileName(file.c_str()).c_str(), line);
-    }*/
+    }
 }
 #undef BOOST_STACKTRACE_USE_WINDBG
 #else

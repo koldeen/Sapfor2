@@ -3,11 +3,8 @@
 #include <vector>
 #include <string>
 
-namespace Distribution
-{
-    class Array;
-}
-namespace DIST = Distribution;
+#include "Array.h"
+#include "Distribution.h"
 
 typedef enum lang : int { LANG_C, LANG_F } language;
 typedef enum dist : int { BLOCK, NONE } distType;

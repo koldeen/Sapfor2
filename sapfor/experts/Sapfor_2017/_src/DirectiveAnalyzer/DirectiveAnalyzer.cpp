@@ -27,9 +27,9 @@ static void recUniteAcrossOut(LoopGraph *currLoop)
 {
     if (currLoop->perfectLoop > 1)
     {
-        recUniteAcrossOut(currLoop->children[0]);
+        recUniteAcrossOut(currLoop->childs[0]);
         if (currLoop->directive)
-            currLoop->acrossOutAttribute.insert(currLoop->children[0]->acrossOutAttribute.begin(), currLoop->children[0]->acrossOutAttribute.end());
+            currLoop->acrossOutAttribute.insert(currLoop->childs[0]->acrossOutAttribute.begin(), currLoop->childs[0]->acrossOutAttribute.end());
     }
 }
 
@@ -48,7 +48,7 @@ static void recUnite(vector<LoopGraph*> &loopGraph)
             {
                 elems.push_back(elem->directive);
                 if (k != currLoop.perfectLoop - 1)
-                    elem = elem->children[0];
+                    elem = elem->childs[0];
             }
 
             united.push_back(elems.back());
@@ -72,12 +72,12 @@ static void recUnite(vector<LoopGraph*> &loopGraph)
                     delete elem->directive;
 
                 elem->directive = united[currLoop.perfectLoop - k - 1];
-                elem = elem->children[0];
+                elem = elem->childs[0];
             }
             recUniteAcrossOut(loopGraph[i]);
         }
         else
-            recUnite(currLoop.children);
+            recUnite(currLoop.childs);
     }
 }
 

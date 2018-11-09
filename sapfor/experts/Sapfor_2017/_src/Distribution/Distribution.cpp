@@ -8,9 +8,8 @@
 #include <tuple>
 #include <string>
 #include <algorithm>
-#include <chrono>
-#include <climits>
-#include <cstring>
+#include <omp.h>
+#include <limits.h>
 
 #if _WIN32 && NDEBUG
 #include <boost/thread.hpp>
@@ -24,16 +23,12 @@ using std::string;
 using std::wstring;
 using std::tuple;
 using std::vector;
-using namespace std::chrono;
 
 #include "GraphCSR.h"
 #include "Arrays.h"
 #include "Array.h"
 #include "Distribution.h"
 #include "../Utils/utils.h"
-#include "../Utils/errors.h"
-#include "../Utils/types.h"
-#include "../Distribution/Cycle.h"
 
 extern int keepFiles;
 
@@ -112,16 +107,15 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    static int GetIdxOfNextCycle(const unsigned *fastCache, const vector<unsigned> &localDelArcsShort,
+    static int GetIdxOfNextCycle(const vector<unsigned> &localDelArcsShort,
                                  const vector<Cycle<vType, wType, attrType>> &cycles,
                                  const vector<pair<int, int>> &indexOfConflict,
                                  const int idxStart = 0)
     {
         int idx = -1;
-        const pair<int, int> *data = indexOfConflict.data();
         for (int i = idxStart; i < (int)indexOfConflict.size(); ++i)
         {
-            const Cycle<vType, wType, attrType> &currCycle = cycles[data[i].first];
+            const Cycle<vType, wType, attrType> &currCycle = cycles[indexOfConflict[i].first];
             if (localDelArcsShort.size() == 0)
             {
                 idx = i;
@@ -131,13 +125,20 @@ namespace Distribution
             {
                 const vector<unsigned> &shortInfo = currCycle.GetShortInfo();
                 bool same = false;
+
                 for (int k = 0; k < (int)shortInfo.size(); ++k)
-                {                    
-                    if (fastCache[shortInfo[k]] == 1)
+                {
+                    same = false;
+                    for (int m = 0; m < (int)localDelArcsShort.size(); ++m)
                     {
-                        same = true;
-                        break;
+                        if (shortInfo[k] == localDelArcsShort[m])
+                        {
+                            same = true;
+                            break;
+                        }
                     }
+                    if (same)
+                        break;
                 }
                 if (same)
                     continue;
@@ -151,35 +152,23 @@ namespace Distribution
         return idx;
     }
 
-    static inline bool checkGraphTrue(const int startV, const int realV, const GraphCSR<int, double, attrType> &G)
-    {
-        return true;
-    }
-
-    static inline bool checkGraph(const int startV, const int realV, const GraphCSR<int, double, attrType> &G)
-    {
-        return realV == G.CountOfConnected(startV);
-    }
-
-    template<typename vType, typename wType, typename attrType, bool check(const int startV, const int realV, const GraphCSR<vType, wType, attrType> &G)>
+    template<typename vType, typename wType, typename attrType>
     static void FindBestSequenceForDelArcs(double &globalSum, vector<tuple<vType, vType, attrType>> &globalDelArcs,
                                            const double localSum, vector<tuple<vType, vType, attrType>> &localDelArcs,
                                            vector<unsigned> &localDelArcsShort,
-                                           unsigned *fastCache,
                                            const vector<Cycle<vType, wType, attrType>> &cycles, const vector<pair<int, int>> &indexOfConflict,
-                                           const int lastIndexOfConflict, const int countInTree,
-                                           const GraphCSR<vType, wType, attrType> &graph)
+                                           const int lastIndexOfConflict)
     {
-        int nextConflict = GetIdxOfNextCycle(fastCache, localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
+        int nextConflict = GetIdxOfNextCycle(localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
         if (nextConflict == -1)
         {
             globalSum = localSum;
             globalDelArcs = localDelArcs;
 
-            //char buf[256];
-            //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
-            printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
-            //addToGlobalBufferAndPrint(buf);
+            char buf[256];
+            sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
+            addToGlobalBufferAndPrint(buf);
+            //printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -199,63 +188,22 @@ namespace Distribution
                 const wType currW = weights[i];
                 const attrType &currAttr = attributes[i];
 
-                if (!check(currArc.first, countInTree, graph))
-                    continue;
+                if (localSum + currW < globalSum)
+                {
+                    localDelArcs.push_back(make_tuple(currArc.first, currArc.second, currAttr));
+                    localDelArcsShort.push_back(shortInfo[i]);
+                    FindBestSequenceForDelArcs(globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, cycles, indexOfConflict, nextConflict);
+                    localDelArcs.pop_back();
+                    localDelArcsShort.pop_back();
+                }
                 else
                 {
-                    if (localSum + currW < globalSum)
-                    {
-                        localDelArcs.push_back(make_tuple(currArc.first, currArc.second, currAttr));
-                        localDelArcsShort.push_back(shortInfo[i]);
-                        fastCache[shortInfo[i]] = 1;
-
-                        FindBestSequenceForDelArcs
-                            <vType, wType, attrType, check>
-                                (globalSum, globalDelArcs, localSum + currW, localDelArcs, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict, countInTree, graph);
-
-                        fastCache[shortInfo[i]] = 0;
-                        localDelArcs.pop_back();
-                        localDelArcsShort.pop_back();
-                    }
-                    else
-                    {
 #if _WIN32 && NDEBUG
-                        if (passDone == 2)
-                            throw boost::thread_interrupted();
+                    if (passDone == 2)
+                        throw boost::thread_interrupted();
 #endif
-                        break;
-                    }
+                    break;
                 }
-            }
-        }
-    }
-
-    template<typename vType, typename wType, typename attrType>
-    static void CountConflictVarints(int64_t &countVars, 
-                                     vector<unsigned> &localDelArcsShort, unsigned *fastCache,
-                                     const vector<Cycle<vType, wType, attrType>> &cycles, const vector<pair<int, int>> &indexOfConflict,
-                                     const int lastIndexOfConflict)
-    {
-        int nextConflict = GetIdxOfNextCycle(fastCache, localDelArcsShort, cycles, indexOfConflict, lastIndexOfConflict + 1);
-        if (nextConflict == -1)
-        {
-            countVars++;
-            return;
-        }
-        else
-        {
-            const Cycle<vType, wType, attrType> &conflicCycle = cycles[indexOfConflict[nextConflict].first];
-            const vector<unsigned> &shortInfo = conflicCycle.GetShortInfo();
-            
-            for (int i = 0; i < (int)shortInfo.size(); ++i)
-            {
-                localDelArcsShort.push_back(shortInfo[i]);
-                fastCache[shortInfo[i]] = 1;
-
-                CountConflictVarints(countVars, localDelArcsShort, fastCache, cycles, indexOfConflict, nextConflict);
-
-                fastCache[shortInfo[i]] = 0;
-                localDelArcsShort.pop_back();                
             }
         }
     }
@@ -296,49 +244,17 @@ namespace Distribution
 
 
     template<typename vType, typename wType, typename attrType>
-    static pair<bool, double> CreateOptimalAlignementTree(GraphCSR<vType, wType, attrType> &G, const Arrays<vType> &allArrays,
+    static double CreateOptimalAlignementTree(GraphCSR<vType, wType, attrType> &G, const Arrays<vType> &allArrays,
                                               vector<tuple<vType, vType, attrType>> &toDelArcs, bool needPrint = true, bool useSavedQ = false)
     {        
         double globalSum = 0;
-        bool allOnlySecondType = true;
-
-        vector<vType> trees;
-        vector<vector<vType>> vertByTrees;
-        set<vType> unqieTrees = G.FindTrees(trees, vertByTrees);
-
-        __spf_print(needPrint, "GRAPH size: |V| = %d, |E| = %d\n", G.GetNumberOfV(), G.GetNumberOfE() / 2);
-        __spf_print(needPrint, "TREES count %d\n", (int)unqieTrees.size());
-        vector<unsigned char> tmp;
-        for (int z = 0; z < vertByTrees.size(); ++z)
-            if (vertByTrees[z].size())
-                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, (int)vertByTrees[z].size(), G.MakeConnected(vertByTrees[z][0], tmp).second);
-            else
-                __spf_print(needPrint, "TREES %d: V = %d, E = %d\n", z, 0, 0);
-
-        toDelArcs = G.CreateMaximumSpanningTree();
-        return make_pair(allOnlySecondType, globalSum);
-
-        // OLD ALGORITHM, THIS IS unreachable code !!
         vector<vector<Cycle<vType, wType, attrType>>> AllCycles;
 
         G.GetAllSimpleLoops(AllCycles, needPrint, useSavedQ);
         toDelArcs.clear();
-        
+
         for (int k = 0; k < AllCycles.size(); ++k)
         {
-            unsigned maxElem = 0;
-            bool onlySecondConflictType = true;
-
-            for (auto &elem : AllCycles[k])
-                for (auto &cycleShortInfo : elem.GetShortInfo())
-                    maxElem = std::max(maxElem, cycleShortInfo);
-
-            if (maxElem != 0 && needPrint)
-                printf("SAPFOR: max elem for cache %lld, in MB: %f\n", maxElem, maxElem / 1024. / 1024. * sizeof(unsigned));
-
-            unsigned *fastCache = new unsigned[maxElem];
-            memset(fastCache, 0, sizeof(unsigned) * maxElem);
-
             char buf[256];
             if (needPrint)
             {
@@ -364,7 +280,6 @@ namespace Distribution
             if (needPrint)
             {
                 sprintf(buf, " num of conflict cycles %d\n", countConflicts);
-                printf("SAPFOR: num of conflict cycles %d\n", countConflicts);
                 addToGlobalBufferAndPrint(buf);
             }
 
@@ -376,14 +291,7 @@ namespace Distribution
                 if (needPrint)
                 {
                     sprintf(buf, " num of type1 = %d, type2 = %d\n", typeConflict[0], typeConflict[1]);
-                    printf("SAPFOR: num of type1 = %d, type2 = %d\n", typeConflict[0], typeConflict[1]);
                     addToGlobalBufferAndPrint(buf);
-                }
-
-                if (typeConflict[0])
-                {
-                    onlySecondConflictType = false;
-                    allOnlySecondType = false;
                 }
             }
 
@@ -394,61 +302,32 @@ namespace Distribution
                 sendMessage_2lvl(treeM);
             }
 #endif
-            auto timeR = steady_clock::now();
+            double timeR = omp_get_wtime();
             if (countConflicts != 0)
             {
-                const int countInTree = G.CountOfConnected(cycles[indexOfConflict[0].first].GetArcs()[0].first);
                 const int lastIndexOfConflict = -1;
-
-                if (needPrint)
-                    printf("SAPFOR: before del %d\n", countInTree);
-
-                /*int64_t countVars = 0;
-                CountConflictVarints(countVars, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict);
-                printf("SAPFOR: count of vars %lld\n", countVars);*/
-
-                if (onlySecondConflictType)
-                    FindBestSequenceForDelArcs
-                        <vType, wType, attrType, checkGraph>
-                            (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
-                else
-                    FindBestSequenceForDelArcs
-                        <vType, wType, attrType, checkGraphTrue>
-                            (globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, fastCache, cycles, indexOfConflict, lastIndexOfConflict, countInTree, G);
-
-                if (needPrint)
-                {
-                    auto tmpReducedG = G;
-                    tmpReducedG.RemovedEdges(toDelArcs, allArrays);
-                    if (needPrint)
-                        printf("SAPFOR: after del %d\n", tmpReducedG.CountOfConnected(cycles[indexOfConflict[0].first].GetArcs()[0].first));
-                }
+                FindBestSequenceForDelArcs(globalSumLocal, toDelArcs, 0, localDelArcs, localDelArcShort, cycles, indexOfConflict, lastIndexOfConflict);
                 globalSum += globalSumLocal;
             }
 
             if (needPrint)
             {
-                sprintf(buf, "PROF: FindBestSequenceForDelArcs: %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
-                printf("SAPFOR: time of FindBestSequenceForDelArcs %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
+                sprintf(buf, "PROF: FindBestSequenceForDelArcs: %f sec\n", omp_get_wtime() - timeR);
                 addToGlobalBufferAndPrint(buf);
             }
-
-            timeR = steady_clock::now();
+            timeR = omp_get_wtime();
             FindNonConflictDelArcs(toDelArcs, cycles);
             if (needPrint)
-            {                
-                sprintf(buf, "PROF: FindNonConflictDelArcs %f\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
+            {
+                sprintf(buf, "PROF: FindNonConflictDelArcs %f\n", omp_get_wtime() - timeR);
                 addToGlobalBufferAndPrint(buf);
             }
-
-            delete []fastCache;
         }
-
 #ifdef _WIN32
         if (needPrint)
             sendMessage_2lvl(L"");
 #endif
-        return make_pair(allOnlySecondType, globalSum);
+        return globalSum;
     }
 
 #define TEST 0
@@ -466,8 +345,6 @@ namespace Distribution
 
         string FullName = "_full_graph_reg" + std::to_string(regionNum) + ".txt";
         string ReducedName = "_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
-        //__spf_print(1, "flag keepFiles %d, flag onlyGraph %d\n", keepFiles, onlyGraph);
-            
         if (keepFiles)
         {
             if (!onlyGraph)
@@ -548,9 +425,7 @@ namespace Distribution
             }
 #endif
 
-            pair<bool, double> retVal = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
-            globalSum = retVal.second;
-            bool onlySecondType = retVal.first;
+            globalSum = CreateOptimalAlignementTree(G, allArrays, toDelArcs);
 
             reducedG = G;
             reducedG.RemovedEdges(toDelArcs, allArrays);
@@ -588,12 +463,13 @@ namespace Distribution
                         findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
 
                         vector<tuple<int, int, attrType>> toDelArcsLocal;
-                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true).second;
+                        globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true);
                         if (toDelArcsLocal.size() != 0)
                             reducedG.RemovedEdges(toDelArcsLocal, allArrays);
                     }
                 }
             }
+
 #ifdef _WIN32
             sendMessage_2lvl(L"");
 #endif

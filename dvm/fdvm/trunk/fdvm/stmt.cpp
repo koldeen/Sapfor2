@@ -692,7 +692,7 @@ SgStatement *doIfThenConstr(SgSymbol *ar)
 // creating
 //          IF ( ar(1) .EQ. 0) THEN
 //          ENDIF 
- ea = new SgArrayRefExp(*ar, *new SgValueExp(1));  ///IS_TEMPLATE(ar) && !INTERFACE_RTS2 ? new SgArrayRefExp(*ar) : new SgArrayRefExp(*ar, *new SgValueExp(1));
+ ea = IS_TEMPLATE(ar) ? new SgArrayRefExp(*ar) : new SgArrayRefExp(*ar, *new SgValueExp(1));
  ifst = new SgIfStmt( SgEqOp(*ea, *new SgValueExp(0)), *new SgStatement(CONT_STAT));
  where->insertStmtBefore(*ifst,*where->controlParent());
  ifst->lexNext()->extractStmt(); // extracting CONTINUE statement

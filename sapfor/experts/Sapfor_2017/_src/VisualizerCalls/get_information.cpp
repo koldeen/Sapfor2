@@ -29,7 +29,6 @@
 #include "../Sapfor.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
-#include "../Predictor/PredictScheme.h"
 
 using std::string;
 using std::wstring;
@@ -45,9 +44,8 @@ static void setOptions(const int *options)
     //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
     out_free_form = options[FREE_FORM];
-    keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
+    keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
-    parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
 }
 
 static int strLen(const short *shString)
@@ -74,9 +72,6 @@ static bool tryOpenProjectFile(const char *project)
 
 static void ConvertShortToChar(const short *projName, int &strL, char *&prName)
 {
-    if (projName == NULL)
-        return;
-
     strL = strLen(projName);
     prName = new char[strL + 1];
 
@@ -131,14 +126,21 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
 
 static void runPassesForVisualizer(const short *projName, const vector<passes> &passesToRun, const short *folderName = NULL)
 {
-    int strL = 0, strF = 0;
+    int strL, strF;
     char *prName = NULL;
     char *folderNameChar = NULL;
     ConvertShortToChar(projName, strL, prName);
     ConvertShortToChar(folderName, strF, folderNameChar);
-
+        
+    fflush(NULL);
     try
     {
+        if (strF == 0)
+        {
+            delete []folderNameChar;
+            folderNameChar = NULL;
+        }
+
         if (strL == 0)
         {
             prName = new char[16];
@@ -275,7 +277,7 @@ int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *
     int retSize = -1;    
     try
     {
-        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES } );
+        runPassesForVisualizer(projName, { CALL_GRAPH2 } );
          
         string resVal = "";
         resVal = to_string(allFuncInfo.size());
@@ -321,7 +323,7 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
     int retSize = -1;
     try
     {
-        runPassesForVisualizer(projName, { FILL_PAR_REGIONS_LINES });
+        runPassesForVisualizer(projName, { CALL_GRAPH2 });
 
         map<string, CallV> V;
         vector<string> E;
@@ -334,8 +336,8 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
         graph += to_string(E.size()) + "|";
         for (auto &e : E)
             graph += e + "|";
-        //erase last "|"
-        graph.erase(graph.end() - 1);
+        if (E.size() != 0)
+            graph.erase(graph.end() - 1);
 
         copyStringToShort(result, graph, false);
         retSize = (int)graph.size();
@@ -365,7 +367,6 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
 
 extern int PASSES_DONE[EMPTY_PASS];
 extern int *ALGORITHMS_DONE[EMPTY_ALGO];
-extern const char *passNames[EMPTY_PASS + 1];
 
 int SPF_GetPassesState(int *&passInfo)
 {
@@ -374,46 +375,19 @@ int SPF_GetPassesState(int *&passInfo)
     return EMPTY_PASS;
 }
 
-int SPF_GetPassesStateStr(short *&passInfo)
-{
-    MessageManager::clearCache();
-    string donePasses = "";
-    for (int i = 0; i < EMPTY_PASS; ++i)
-    {
-        printf("SAPFOR: pass %d is %d with name %s\n", 1, PASSES_DONE[i], passNames[i]);
-        if (PASSES_DONE[i] == 1)
-        {
-            donePasses += passNames[i] + string("|");
-        }
-    }
-
-    //erase last "|"
-    if (donePasses != "" && donePasses[donePasses.size() - 1] == '|')
-        donePasses.erase(donePasses.end() - 1);
-
-    copyStringToShort(passInfo, donePasses);
-    return (int)donePasses.size();
-}
-
-
 extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 static void printDeclArraysState()
 {
     printf("SAPFOR: decl state: \n");
-    int dist = 0, priv = 0, err = 0;
     for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
     {
         if (it->second.first->GetNonDistributeFlag() == false)
-            //printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
-            dist++;
+            printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
         else if (it->second.first->GetNonDistributeFlag() == true)
-            //printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
-            priv++;
+            printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
         else
-            //printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
-            err++;        
+            printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
     }
-    printf("   PRIV %d, DIST %d, ERR %d, ALL %d\n", priv, dist, err, dist + priv + err);
 }
 
 extern vector<ParallelRegion*> parallelRegions;
@@ -478,18 +452,11 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     return retSize;
 }
 
-extern map<string, PredictorStats> allPredictorStats;
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
-                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
+                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
-    if (folderName == NULL)
-    {
-        MessageManager::setWinHandler(-1);
-        allPredictorStats.clear();
-    }
-    else
-        MessageManager::setWinHandler(winHandler);
+    MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -552,27 +519,6 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 
         printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
-        
-        if (folderName == NULL)
-        {
-            string predictRes = "";
-            PredictorStats summed;
-            for (auto &predFile : allPredictorStats)
-            {
-                summed.IntervalCount += predFile.second.IntervalCount;
-                summed.ParallelCount += predFile.second.ParallelCount;
-                summed.RedistributeCount += predFile.second.RedistributeCount;
-                summed.RemoteCount += predFile.second.RemoteCount;
-                summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
-                summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
-                summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
-                summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
-            }
-            predictRes += summed.to_string();
-
-            copyStringToShort(predictorStats, predictRes);
-            retSize = (int)predictRes.size() + 1;
-        }
     }
     catch (int ex)
     {

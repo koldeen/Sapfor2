@@ -55,7 +55,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -149,6 +149,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
@@ -212,7 +214,6 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -244,7 +245,6 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
-    <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp" />
     <ClCompile Include="..\_src\DEAR\dep_analyzer_Kataev.cpp" />
@@ -281,12 +281,9 @@
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
-    <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp" />
-    <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\expr_transform.cpp" />
     <ClCompile Include="..\_src\GraphCall\graph_calls.cpp" />
-    <ClCompile Include="..\_src\GraphCall\graph_calls_base.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops.cpp" />
     <ClCompile Include="..\_src\GraphLoop\graph_loops_base.cpp" />
     <ClCompile Include="..\_src\Inliner\CopySubprogramBetweenFiles.cpp" />
@@ -301,63 +298,9 @@
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
-    <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
-    <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\adler32.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\AlignAxis.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\AMView.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\BGroup.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Block.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\CallParams.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\CommCost.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\compress.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\crc32.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\DArray.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\deflate.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\DimBound.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\DistAxis.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Event.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\FuncCall.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\gzio.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\infblock.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\infcodes.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\inffast.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\inflate.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\inftrees.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\infutil.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\intersection.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Interval.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\IntervalTemplate.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\LoopBlock.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\LoopLS.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Ls.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelDArray.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelInterval.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelIO.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelMPS_AM.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelParLoop.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelReduct.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelRegular.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelRemAccess.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ModelShadow.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ParLoop.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\ParseString.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\predictor.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Processor.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Ps.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\RedGroup.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\RedVar.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\RemAccessBuf.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\Space.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\TraceLine.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\trees.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\uncompr.c" />
-    <ClCompile Include="..\_src\Predictor\Lib\Vm.cpp" />
-    <ClCompile Include="..\_src\Predictor\Lib\zutil.c" />
-    <ClCompile Include="..\_src\Predictor\PredictorModel.cpp" />
     <ClCompile Include="..\_src\Predictor\PredictScheme.cpp" />
     <ClCompile Include="..\_src\PrivateAnalyzer\private_analyzer.cpp" />
     <ClCompile Include="..\_src\SageAnalysisTool\annotationDriver.cpp" />
@@ -405,7 +348,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
-    <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\coll_list_element.h" />
@@ -494,9 +436,11 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirectiveBase.h" />
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
-    <ClInclude Include="..\_src\DynamicAnalysis\gcov_info.h" />
-    <ClInclude Include="..\_src\DynamicAnalysis\gCov_parser_func.h" />
-
+<<<<<<< HEAD
+    <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInsertor.h" />
+    <ClInclude Include="..\_src\errors.h" />
+=======
+>>>>>>> master
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\_src\GraphCall\graph_calls_func.h" />
@@ -508,53 +452,10 @@
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
-    <ClInclude Include="..\_src\LoopConverter\loops_splitter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
-    <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\AlignAxis.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\AMView.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\BGroup.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Block.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\CallInfoStructs.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\CommCost.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\DArray.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\deflate.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\DimBound.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\DistAxis.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Event.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\FuncCall.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\infblock.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\infcodes.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\inffast.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\inffixed.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\inftrees.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\infutil.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Interval.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\LoopBlock.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\LoopLS.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Ls.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\ModelStructs.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\ParLoop.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\ParseString.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Processor.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Ps.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\RedGroup.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\RedVar.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\RemAccessBuf.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Space.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\StdAfx.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\TraceLine.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\trees.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Ver.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\Vm.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\zconf.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\zlib.h" />
-    <ClInclude Include="..\_src\Predictor\Lib\zutil.h" />
-    <ClInclude Include="..\_src\Predictor\PredictorInterface.h" />
-    <ClInclude Include="..\_src\Predictor\PredictorModel.h" />
     <ClInclude Include="..\_src\Predictor\PredictScheme.h" />
     <ClInclude Include="..\_src\PrivateAnalyzer\private_analyzer.h" />
     <ClInclude Include="..\_src\Sapfor.h" />

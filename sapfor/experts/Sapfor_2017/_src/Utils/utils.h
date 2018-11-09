@@ -4,16 +4,11 @@
 #include <set>
 #include <string>
 
-namespace Distribution
-{
-    class Array;
-    template<typename vType> class Arrays;
-}
-namespace DIST = Distribution;
+#include "../Distribution/Distribution.h"
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);
-void printHelp(const char **passNames, const int lastPass);
+void printHelp();
 void convertToLower(std::string &str);
 void convertToUpper(std::string &str);
 
@@ -28,7 +23,7 @@ const std::string& getGlobalBuffer();
 void convertGlobalBuffer(short *&result, int *&resultSize);
 void clearGlobalMessagesBuffer();
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize);
-void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName, bool keepSpfDirs, int removeDvmDirs = 0);
+void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName, int removeDvmDirs = 0);
 
 std::string splitDirective(const std::string &in);
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);

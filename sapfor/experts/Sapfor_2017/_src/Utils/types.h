@@ -2,20 +2,19 @@
 
 #include <vector>
 #include <map>
-#include <set>
 
-class ArrayRefExp;
+#include "AstWrapper.h"
 
 typedef std::pair<std::pair<int, int>, std::pair<int, int>> attrType;
 
 struct ArrayOp
 {
-    // stored ARRAY[A*x + B] -> (A, B) with weight
-    std::map<std::pair<int, int>, double> coefficients;
+    // stored ARRAY[A*x + B] -> (A, B)
+    std::vector<std::pair<int, int>> coefficients;
 
     ArrayOp() { }
-    ArrayOp(const std::pair<std::pair<int, int>, double> &pair) { coefficients[pair.first] = pair.second; }
-    ArrayOp(const std::map<std::pair<int, int>, double> &coefficients) : coefficients(coefficients) { }
+    ArrayOp(const std::pair<int, int> &pair) { coefficients.push_back(pair); }
+    ArrayOp(const std::vector<std::pair<int, int>> &coefficients) : coefficients(coefficients) { }
 };
 
 struct ArrayInfo

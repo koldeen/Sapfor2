@@ -13,7 +13,6 @@
 #include "../Distribution/GraphCSR.h"
 #include "../Distribution/Arrays.h"
 #include "../Distribution/Distribution.h"
-#include "../Distribution/DvmhDirective_func.h"
 
 #include "../Utils/errors.h"
 #include "loop_analyzer.h"
@@ -112,16 +111,15 @@ static void addShadowFromAnalysis(ParallelDirective *dir, const map<DIST::Array*
         bool needBreak = false;
         for (int idx = 0; idx < dimSize; ++idx)
         {
-            for (auto &reads : currInfo.readOps[idx].coefficients)
+            for (int k = 0; k < currInfo.readOps[idx].coefficients.size(); ++k)
             {
-                auto &readPair = reads.first;
-                if (readPair.second != 0)
+                if (currInfo.readOps[idx].coefficients[k].second != 0)
                 {
                     int left = 0, right = 0;
-                    if (readPair.second < 0)
-                        left = -readPair.second;
+                    if (currInfo.readOps[idx].coefficients[k].second < 0)
+                        left = -currInfo.readOps[idx].coefficients[k].second;
                     else
-                        right = readPair.second;
+                        right = currInfo.readOps[idx].coefficients[k].second;
 
                     if (toAdd == NULL)
                     {
@@ -318,8 +316,8 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
         {
             set<pair<int, int>> uniqAccess;
             const ArrayOp &acceses = currInfo.writeOps[lastPosWrite];
-            for (auto &elem : acceses.coefficients)
-                uniqAccess.insert(elem.first);
+            for (int k = 0; k < (int)acceses.coefficients.size(); ++k)
+                uniqAccess.insert(make_pair(acceses.coefficients[k].first, acceses.coefficients[k].second));
 
             bool underAcross = isUnderAcrossDir(arrayName.c_str(), acrossInfo);
             if (uniqAccess.size() > 1)
@@ -404,11 +402,11 @@ static bool checkForConflict(const map<DIST::Array*, const ArrayInfo*> &currAcce
 static void findRegularReads(const ArrayInfo &currInfo, DIST::Array *arrayUniqKey, const int i, int &maxDim, MapToArray &mainArray)
 {
     map<pair<int, int>, int> countAcc;
-    for (auto &reads : currInfo.readOps[i].coefficients)
+    for (int k = 0; k < (int)currInfo.readOps[i].coefficients.size(); ++k)
     {
-        auto it = countAcc.find(reads.first);
+        auto it = countAcc.find(currInfo.readOps[i].coefficients[k]);
         if (it == countAcc.end())
-            countAcc.insert(it, make_pair(reads.first, 1));
+            countAcc.insert(it, make_pair(currInfo.readOps[i].coefficients[k], 1));
         else
             it->second++;
     }
@@ -490,7 +488,7 @@ static void fillArraysWithAcrossStatus(LoopGraph *loopInfo, set<string> &uniqNam
     LoopGraph *curr = loopInfo;
     while (curr->perfectLoop > 1)
     {
-        curr = curr->children[0];
+        curr = curr->childs[0];
         fillArrays(curr, uniqNames);
     }
 
@@ -781,20 +779,20 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     LoopGraph *next = current;
 
     for (int i = 0; i < current->perfectLoop - 1; ++i)
-        next = next->children[0];
+        next = next->childs[0];
 
-    if (next->children.size() == 0)
+    if (next->childs.size() == 0)
         return true;
     else
     //    return false;
     {
-        while (next->children.size() != 0)
+        while (next->childs.size() != 0)
         {
-            if (next->children.size() > 1)
+            if (next->childs.size() > 1)
                 return false;
             else
             {
-                next = next->children[0];
+                next = next->childs[0];
                 bool condition = next->directive != NULL;
                 if (condition)
                     condition = next->directive->arrayRef != NULL;
@@ -913,7 +911,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             vector<vector<int>> AllLinks(realArrayRef.size());
             int currL = 0;
             for (auto &array : realArrayRef)
-                AllLinks[currL++] = findLinksBetweenArrays(array, currDistArray, regionId);
+                reducedG.FindLinksBetweenArrays(allArrays, array, currDistArray, AllLinks[currL++]);
 
             if (isAllRulesEqual(AllLinks))
                 links = AllLinks[0];
@@ -1161,30 +1159,19 @@ static pair<vector<int>, vector<pair<string, vector<Expression*>>>>
     return make_pair(selectedIdxOfDistr, out);
 }
 
-static bool ifRuleNull(const DistrVariant *currVar)
-{
-    for (auto &elem : currVar->distRule)
-        if (elem == BLOCK)
-            return false;
-    return true;
-}
-
-static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+static void addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
 {    
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
-    
-    bool needToSkip = true;
 
-    for (int z = 0; z < redistrDirs.first.size(); ++z)
-    {
-        if (ifRuleNull(redistributeRules[z].second))
-            return needToSkip;
-    }
+    if (redistributeRules.size())
+        current->setNewRedistributeRules(redistributeRules);
 
-    needToSkip = false;
+    for (int z = 0; z < redistrDirs.second.size(); ++z)
+        toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
+
     for (int z = 0; z < redistrDirs.first.size(); ++z)
     {
         const int idx = redistrDirs.first[z];
@@ -1212,8 +1199,6 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         }
         redistSt[0] = new Expression(new SgExpression(EXPR_LIST, ref, NULL, NULL));
         redistSt[1] = new Expression(pointer);
-
-        toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
         toInsert.push_back(make_pair(current->lineNumAfterLoop, make_pair(redist, redistSt)));
                 
         __spf_print(1, "WARN: added redistribute for loop on line %d by array '%s' can significantly reduce performance\n", current->lineNum, distribution[idx].first->GetShortName().c_str());
@@ -1222,9 +1207,6 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         sprintf(buf, "Added redistribute for loop by array '%s' can significantly reduce performance", distribution[idx].first->GetShortName().c_str());
         messages.push_back(Messages(WARR, current->lineNum, buf, 3009));
     }
-    current->setNewRedistributeRules(redistributeRules);
-
-    return needToSkip;
 }
 
 static void constructRules(vector<pair<DIST::Array*, const DistrVariant*>>& outRules, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution, LoopGraph *loop)
@@ -1280,48 +1262,6 @@ static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<boo
 
         analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
         analyzeRightPart(ex->rhs(), rightValues, dimsNotMatch);
-    }
-}
-
-
-static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &arrays, const int regId,
-    const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-    DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
-{
-    bool changed = true;
-    while (changed)
-    {
-        changed = false;
-        for (auto &elem : arrays)
-        {
-            auto array = elem.first;
-            if (array->GetTemplateArray(regId) == NULL)
-            {
-                vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
-                    getAlignRuleWithTemplate(array, arrayLinksByFuncCalls, reducedG, allArrays, regId);
-
-                int idx = 0;
-                for (auto &elem : templRule)
-                {
-                    if (get<0>(elem) == NULL)
-                    {
-                        idx++;
-                        continue;
-                    }
-                    auto templ = get<0>(elem);
-                    auto alignDim = get<1>(elem);
-                    auto intRule = get<2>(elem);
-
-                    int dimNum = -1;
-                    int err = allArrays.GetDimNumber(get<0>(elem), alignDim, dimNum);
-                    if (err == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                    array->AddLinkWithTemplate(idx, dimNum, templ, intRule, regId);
-                    ++idx;
-                    changed = true;
-                }
-            }
-        }
     }
 }
 
@@ -1396,8 +1336,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
 //TODO: calculate not only consts
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
-                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
+                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     bool resolved = false;
 
@@ -1468,48 +1407,6 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                 return false;
     }
 
-    //check multiplied Arrays to BLOCK distr of template
-    for (auto &elem : dimsNotMatch)
-    {
-        const DIST::Array *templ = elem.first->GetTemplateArray(regId);
-        if (!templ)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        if (elem.first->GetDimSize() != templ->GetDimSize())
-        {
-            const DistrVariant *var = NULL;
-            for (auto &distRule : distribution)
-            {
-                if (distRule.first == templ)
-                {
-                    var = distRule.second;
-                    break;
-                }
-            }
-
-            if (!var)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            auto &alignLinks = elem.first->GetLinksWithTemplate(regId);
-            const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
-            for (int z = 0; z < templ->GetDimSize(); ++z)
-            {
-                if (alingLinksSet.find(z) == alingLinksSet.end())
-                {
-                    if (var->distRule[z] == BLOCK)
-                    {
-                        //check all accesses to write
-                        for (auto &left : values)
-                            for (auto &toCheck : left.second)
-                                if (toCheck.first)
-                                    return false;
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
     vector<pair<bool, int>> updateOn(parDirective->on.size());
     std::fill(updateOn.begin(), updateOn.end(), make_pair(false, 0));
 
@@ -1533,8 +1430,6 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     
     if (resolved)
     {
-        propagateTemplateInfo(rightValues, regId, arrayLinksByFuncCalls, reducedG, allArrays);
-
         for (auto &elem : rightValues)
         {
             auto &shortName = elem.first->GetShortName();
@@ -1620,23 +1515,19 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     }
                 } */
                 
-                bool needToContinue = false;
                 if (topCheck)
                 {
                      //<Array, linksWithTempl> -> dims not mached
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls))
+                            addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                     }
                 }
                 else
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                    addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
                 
-                if (needToContinue)
-                    continue;
-
                 vector<pair<DIST::Array*, const DistrVariant*>> newRules;
                 constructRules(newRules, distribution, loop);
 
@@ -1648,8 +1539,8 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         }
         else //TODO: add checker for indexing in this loop
         {
-            if (loopGraph[i]->children.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, 
+            if (loopGraph[i]->childs.size() != 0)
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->childs, 
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }

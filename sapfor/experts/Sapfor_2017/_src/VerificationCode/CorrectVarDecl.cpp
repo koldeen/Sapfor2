@@ -6,13 +6,13 @@
 #include <set>
 #include <string>
 #include <map>
-#include <vector>
 
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
 #include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
+#include <vector>
 
 using std::vector;
 using std::string;
@@ -81,21 +81,13 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                     string modName = st->symbol()->identifier();
 
                     auto it = mod.find(modName);
-                                        
+
+                    set<string> allS;
+                    for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                        allS.insert(exI->lhs()->symbol()->identifier());
+                    
                     if (ex && ex->variant() == ONLY_NODE && it != mod.end())
                     {
-                        set<string> allS;
-                        for (auto exI = ex->lhs(); exI; exI = exI->rhs())
-                        {
-                            if (exI->lhs()->variant() == RENAME_NODE)
-                            {
-                                if (exI->lhs()->lhs()->symbol())
-                                    allS.insert(exI->lhs()->lhs()->symbol()->identifier());
-                                if (exI->lhs()->rhs() && exI->lhs()->rhs()->symbol())
-                                    allS.insert(exI->lhs()->rhs()->symbol()->identifier());
-                            }
-                        }
-
                         set<DIST::Array*> needToAdd;
                         for (auto &parReg : regs)
                         {
@@ -122,78 +114,6 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-void correctModuleProcNames(SgFile *file)
-{
-    vector<SgStatement*> modules;
-    findModulesInFile(file, modules);
-        
-    for (auto &mod : modules)
-    {
-        const string modName = mod->symbol()->identifier();
-        for (SgStatement *st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
-        {
-            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
-            {
-                char *lastName = new char[256];
-                addToCollection(__LINE__, __FILE__, lastName, 2);
-                sprintf(lastName, "%s", st->symbol()->identifier());
-                st->symbol()->changeName((modName + "_" + st->symbol()->identifier()).c_str());
-                st->symbol()->addAttribute(VARIABLE_NAME, lastName, sizeof(sizeof(char) * 256));
-            }
-        }
-    }
-
-    if (modules.size() == 0)
-        return;
-
-    for (int z = 0; z < file->numberOfFunctions(); ++z)
-    {
-        SgStatement *func = file->functions(z);
-        if (func->controlParent()->variant() == MODULE_STMT)
-            continue;
-
-        for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
-        {
-            if (isSgExecutableStatement(st))
-            {
-                if (st->variant() == PROC_STAT)
-                {
-                    SgSymbol *procS = st->symbol();
-                    if (procS->moduleSymbol())
-                    {
-                        st->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
-                        st->setSymbol(*procS->moduleSymbol());                        
-                    }
-                }
-            }
-        }
-    }
-}
-
-void restoreCorrectedModuleProcNames(SgFile *file)
-{
-    vector<SgStatement*> modules;
-    findModulesInFile(file, modules);
-
-    if (modules.size() == 0)
-        return;
-
-    for (auto &mod : modules)
-    {
-        const string modName = mod->symbol()->identifier();
-        for (SgStatement *st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
-        {
-            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
-            {                
-                const vector<char*> attrs = getAttributes<SgSymbol*, char*>(st->symbol(), set<int>({ VARIABLE_NAME }));
-                if (attrs.size() != 1)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                st->symbol()->changeName(attrs[0]);
             }
         }
     }

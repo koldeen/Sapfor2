@@ -24,8 +24,6 @@
 #include "version.h"
 
 #include "../GraphLoop/graph_loops.h"
-#include "../Distribution/Array.h"
-#include "../Distribution/Arrays.h"
 
 using std::map;
 using std::pair;
@@ -45,7 +43,7 @@ void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<Loop
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             sortedLoopGraph[(*loopGraph)[i]->lineNum] = (*loopGraph)[i];
-            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->children));
+            createMapLoopGraph(sortedLoopGraph, &((*loopGraph)[i]->childs));
         }
     }
 }
@@ -102,7 +100,7 @@ string OnlyExt(const char *filename)
     return retVal;
 }
 
-void printHelp(const char **passNames, const int lastPass)
+void printHelp()
 {
     printf("Help info for passes.\n\n");
     printf(" -f90      free form\n");
@@ -120,7 +118,7 @@ void printHelp(const char **passNames, const int lastPass)
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
-    for (int i = 0; i < lastPass; ++i)
+    for (int i = 0; i < EMPTY_PASS; ++i)
         printf("    pass_num = %d:  %s\n", i, passNames[i]);
     printf("\n");
     printf(" -t    <analysis_num>\n");
@@ -217,7 +215,6 @@ void printBlanks(const int sizeOfBlank, const int countOfBlanks)
 }
 
 string globalOutputBuffer = "";
-int consoleMode = 0;
 void addToGlobalBufferAndPrint(const string &toPrint)
 {
     globalOutputBuffer += toPrint;
@@ -296,7 +293,7 @@ bool isSPF_comment(const string &bufStr)
 }
 
 void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
-                  const char *folderName, bool keepSpfDirs, int removeDvmDirs)
+                  const char *folderName, int removeDvmDirs)
 {
     for (auto &include : allIncludeFiles)
     {
@@ -541,20 +538,11 @@ void deletePointerAllocatedData()
 {
     int leaks = 0;
     int failed = 0;
-    /*vector<pair<void*, int>> pointers;
     for (auto &pointer : pointerCollection)
-        pointers.push_back(std::make_pair(pointer.first, std::get<0>(pointer.second)));*/
-
-//TODO:
-//#pragma omp parallel for reduction (+: failed, leaks)
-//    for (int z = 0; z < pointers.size(); ++z)
-    for (auto &elem : pointerCollection)
     {
-        //const pair<void*, int> &pointer = pointers[z];
-        const pair<void*, int> pointer = std::make_pair(elem.first, std::get<0>(elem.second));
-        //printf("%d %s\n", std::get<1>(elem.second), std::get<2>(elem.second));
+        //printf("%d %s\n", std::get<1>(it->second), std::get<2>(it->second));
         //fflush(NULL);
-        if (pointer.second == 0)
+        if (std::get<0>(pointer.second) == 0)
         {
             if (pointer.first)
             {
@@ -564,7 +552,7 @@ void deletePointerAllocatedData()
             else
                 failed++;
         }
-        else if (pointer.second == 1)
+        else if (std::get<0>(pointer.second) == 1)
         {
             if (pointer.first)
             {
@@ -574,7 +562,7 @@ void deletePointerAllocatedData()
             else
                 failed++;
         }
-        else if (pointer.second == 2)
+        else if (std::get<0>(pointer.second) == 2)
         {
             if (pointer.first)
             {

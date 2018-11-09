@@ -2455,9 +2455,6 @@ SgSymbol::SgSymbol(int variant, const char *name)
     SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
-
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -2476,9 +2473,6 @@ SgSymbol::SgSymbol(int variant)
     SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
-
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -2489,9 +2483,6 @@ SgSymbol::SgSymbol(PTR_SYMB symb)
     thesymb = symb;
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
-
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -2501,9 +2492,6 @@ SgSymbol::SgSymbol(PTR_SYMB symb)
 SgSymbol::SgSymbol(const SgSymbol &s)
 {
     thesymb = s.thesymb;
-
-    fileID = s.fileID;
-    project = s.project;
 //    Message("SgSymbol: no copy constructor allowed", 0);
     addToCollection(__LINE__, __FILE__, this, 1);
 }
@@ -2523,9 +2511,6 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_TYPE(thesymb) = t.thetype;
      SYMB_SCOPE(thesymb) = scope.thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
-
-     fileID = -1;
-     project = NULL;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -2563,9 +2548,6 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
 
      SetMappingInTableForSymb(thesymb, (void *)this);
 
-     fileID = -1;
-     project = NULL;
-
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
 #endif
@@ -2585,9 +2567,6 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
      SYMB_SCOPE(thesymb) = scope.thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
-
-     fileID = -1;
-     project = NULL;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -2609,9 +2588,6 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
      SYMB_SCOPE(thesymb) = (scope == 0) ? 0 : scope->thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
-
-     fileID = -1;
-     project = NULL;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -7389,24 +7365,6 @@ void SgSymbol::addAttribute(void *a, int size)
 }
 
 
-void SgSymbol::changeName(const char *name)
-{
-    if (name)
-    {
-        if (SYMB_IDENT(thesymb))
-        {
-#ifdef __SPF
-            removeFromCollection(SYMB_IDENT(thesymb));
-#endif
-            free(SYMB_IDENT(thesymb));
-        }
-
-        char *str = (char *)xmalloc(strlen(name) + 1);
-        strcpy(str, name);
-        SYMB_IDENT(thesymb) = str;
-    }
-}
-
 
 ////////////////// ATTRIBUTE FOR SgType /////////////////////
 
@@ -8395,9 +8353,6 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType *type, SgStatemen
             SYMB_MEMBER_NEXT(thesymb) = nextfield->thesymb;
     }
     SetMappingInTableForSymb(thesymb, (void *)this);
-
-    fileID = -1;
-    project = NULL;
 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);

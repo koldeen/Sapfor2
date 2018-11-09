@@ -30,7 +30,7 @@ void loopAnalyzer(SgFile *file,
                   DIST::Array*> &createdArrays,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
-                  const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
+                  const std::vector<FuncInfo*> &funcInfo,
                   const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -74,7 +74,7 @@ void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
-                           std::map<SgExpression*, std::string> &collection, const std::map<std::string, FuncInfo*> &allFuncs);
+                           std::map<SgExpression*, std::string> &collection);
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
@@ -117,8 +117,6 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
-bool check_par_reg_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
-
 void revertion_spf_dirs(SgFile *file, 
                         std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
                         std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt);
@@ -152,6 +150,6 @@ template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, Loop
                                        const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 // shadow.cpp
-void devourShadowByRemote(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void devourShadowByRemote(SgFile *file);
 void transformShadowIfFull(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, DIST::Arrays<int> &allArrays);

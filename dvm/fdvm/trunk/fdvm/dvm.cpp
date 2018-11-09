@@ -1673,10 +1673,10 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
    for(sl=dsym; sl; sl=sl->next) {
          //if(!isSgArrayType(sl->symb->type())) //for POINTER       
          // sl->symb ->setType(* new SgArrayType(*SgTypeInt()));
-      ///if(IS_TEMPLATE(sl->symb) && !RTS2_OBJECT(sl->symb)) { 
-      ///     ea = new SgVarRefExp(*(sl->symb));
+      if(IS_TEMPLATE(sl->symb) && !RTS2_OBJECT(sl->symb)) { 
+           ea = new SgVarRefExp(*(sl->symb));
 	
-      ///} else {
+      } else {
         ehs = IS_POINTER_F90(sl->symb) ? new SgExpression(DDOT) : new SgValueExp(HEADER_SIZE(sl->symb));
         ea = new SgArrayRefExp(*(sl->symb),*ehs);
         if(IS_POINTER(sl->symb) && (sl->symb->attributes() & DIMENSION_BIT)) { //array of POINTER
@@ -1685,7 +1685,7 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
           if(artype) 
             (ea->lhs())->setRhs(artype->getDimList());  //add dimensions of array
         }  
-      ///}
+      }
             //TYPE_BASE(sl->symb->type()->thetype) = SgTypeInt()->thetype;
       ea->setType(*SgTypeInt()); 
       if(IN_MODULE && !IS_POINTER_F90(sl->symb))
@@ -2030,9 +2030,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
 	}
 
         if( stmt->variant() == USE_STMT) {
-          all_replicated=0; 
-          if(stmt->lexPrev() != func && stmt->lexPrev()->variant()!=USE_STMT) 
-            err("Misplaced USE statement", 639, stmt); 
+          all_replicated=0;    
           continue;
         }
 
@@ -2184,8 +2182,6 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
               {  Error("'%s' is aligned with itself", alignee->identifier(), 266,stmt);
                  continue;
               } 
-              if(stmt->expr(1) && IN_MODULE && IS_ALLOCATABLE_POINTER(alignee))
-                Error("Inconsistent declaration of identifier '%s'", alignee->identifier(), 16,stmt);
               attr_alignee=(algn_attr *) alignee->attributeValue(0,ALIGN_TREE);
               if(stmt->expr(2) && (stmt->expr(2)->variant()==ARRAY_OP) && !IS_DUMMY(alignee))
 	        Error("Inconsistent declaration of identifier '%s'", alignee->identifier(), 16,stmt);
@@ -2615,7 +2611,8 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
 // generating assign statement
 // dvm000(1) = BegBl()
 // ( function BegBl defines the begin of object localisation block) 
-    if(distr || task_symb || TestDVMDirectivesInProcedure(pstmt)) { 
+    if(distr || task_symb || TestDVMDirectivesInProcedure(pstmt)) {
+       LINE_NUMBER_BEFORE(first_exec,first_exec);   
        BeginBlock_H();
        begin_block = 1;
        begbl = cur_st;
@@ -2685,7 +2682,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
      } 
      
      SgExpression *distr_rule_list = doDisRules(dsl->stdis,no_rules,idis);
-     nproc = 0;
+     nproc = 0; 
      target = hasOntoClause(dsl->stdis);
      if( target )  { //is there ONTO_clause 
        nproc = RankOfSection(target);
@@ -2704,8 +2701,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
         	/*  if(dsl->stdis->expr(2) && !IS_DUMMY(das))
 	            Error("'%s' is not a dummy argument", das->identifier(),dsl->stdis);
                  */
-        int is_global_template_in_procedure =  IS_TEMPLATE(das) && IN_COMMON(das) && !IN_MAIN_PROGRAM;
-        if(!dsl->stdis->expr(1) && !is_global_template_in_procedure)
+        if(!dsl->stdis->expr(1))
 	  SYMB_ATTR(das->thesymb)= SYMB_ATTR(das->thesymb) | POSTPONE_BIT;
                 /*if(IS_POINTER(das) && (das->attributes() & DIMENSION_BIT))
 	             Error("Distributee '%s' with POINTER attribute is not a scalar variable", das->identifier(),dsl->stdis);
@@ -2756,11 +2752,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
       fmask[GETAM] = 0; fmask[GETVM] = 0; 
     }  
   }
-
-  if(begin_block && !IN_MAIN_PROGRAM) {    
-      LINE_NUMBER_BEFORE(first_exec,begbl);
-  }
- 
+  
   if(lab_exec)
       first_exec-> setLabel(*lab_exec);  //restore label of first executable statement
 
@@ -4455,7 +4447,7 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
                 
   int ia,sign,re_sign,postponed_root;
   SgStatement *savest;
-
+   
   savest = where; 
   ifst = ndvm;
   pointer_in_tree = 0;
@@ -4487,16 +4479,13 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
   if(IN_COMMON(das)) //  COMMON-block element or TEMPLATE_COMMON
     if(das->scope()->variant() != PROG_HEDR) { // is not in MAIN-program
                  //if(stdis->controlParent()->variant() != PROG_HEDR)
-      
       if(IS_TEMPLATE(das))
-      { 
-        if(idisars == -1) { //interface of RTS2
+      {
+        if(idisars == -1)  //interface of RTS2
           das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-         // ArrayHeader(das,1);
-        } //else
         ArrayHeader(das,2);
       } else
-        ArrayHeader(das,1);  
+        ArrayHeader(das,1);
       goto TREE_;
     } 
   //if(DEFERRED_SHAPE_TEMPLATE(das)
@@ -4639,8 +4628,6 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
     { 
       ArrayHeader(das,iamv);
       doAssignTo(HeaderRef(das),DVM000(iamv)); // t = AMViewRef
-      if(IN_COMMON(das))
-        StoreLowerBoundsPlus(das,NULL);
     }      
   where = savest; //first_exec;
  
@@ -5629,43 +5616,19 @@ void AlignTreeAlloc( align *root,SgStatement *stmt) {
        AlignTreeAlloc(node,stmt);
     } 
 }
-align *CopyAlignTreeNode(SgSymbol *ar)
-{
-     algn_attr * attr;
-     align  *node, *node_copy;
-     SgStatement *algn_st;
-   
-     attr = (algn_attr *)  ORIGINAL_SYMBOL(ar)->attributeValue(0,ALIGN_TREE);
-     node = attr->ref; // reference to root of align tree
-     node_copy = new align;
-     node_copy->symb = ar;
-     node_copy->align_stmt = node->align_stmt; 
-     //algn_st = node->align_stmt;
-     return(node_copy);
-}
 
 void   AllocateAlignArray(SgSymbol *p, SgExpression *desc, SgStatement *stmt) {
  int nr=0,iaxis=0,*ix=NULL,ifst=0;
  SgStatement *algn_st;
  SgSymbol *base, *pb;
  SgExpression *align_rule_list;
- align *node,*root=NULL, *node_copy;
+ align * node,*root;
  ifst = ndvm; 
  pb = ORIGINAL_SYMBOL(p);
  if(!pb->attributeValue(0,ALIGN_TREE))
     return;
  node = ((algn_attr *) pb->attributeValue(0,ALIGN_TREE))->ref;
- algn_st = node->align_stmt;
- node_copy = IS_BY_USE(p) ? CopyAlignTreeNode(p) : node;
- if(algn_st->expr(2)){
-   base = (algn_st->expr(2)->variant()==ARRAY_OP) ? (algn_st->expr(2))->rhs()->symbol() : (algn_st->expr(2))->symbol();// align_base symbol
-   root = ((algn_attr *) base->attributeValue(0,ALIGN_TREE))->ref;
- }
- if(IS_ALLOCATABLE_POINTER(p)){
-   AlignAllocArray(node_copy,root,0,0,desc,stmt);
-   return;
- } 
-/* 
+ algn_st = node->align_stmt; 
  if(!algn_st->expr(2)){ //postponed aligning
    root = NULL;
    if(IS_ALLOCATABLE_POINTER(p)){
@@ -5674,24 +5637,23 @@ void   AllocateAlignArray(SgSymbol *p, SgExpression *desc, SgStatement *stmt) {
    } 
  }
  else {
- base = (algn_st->expr(2)->variant()==ARRAY_OP) ? (algn_st->expr(2))->rhs()->symbol() : (algn_st->expr(2))->symbol();// align_base symbol
+ base = (algn_st->expr(2)->variant()==ARRAY_OP) ? (algn_st->expr(2))->rhs()->symbol() :                                                  (algn_st->expr(2))->symbol();// align_base symbol
  root = ((algn_attr *) base->attributeValue(0,ALIGN_TREE))->ref;
   
  if(IS_ALLOCATABLE_POINTER(p)){
    AlignAllocArray(node,root,0,0,desc,stmt);
    return;
  } 
-*/
- if(root) {
-   LINE_NUMBER_BEFORE(stmt,stmt); // for tracing set the global variable of LibDVM to
+
+ LINE_NUMBER_BEFORE(stmt,stmt); // for tracing set the global variable of LibDVM to
                                 // line number of statement(stmt)
-   ix = ALIGN_RULE_INDEX(p);
-   if(ix)
-      {iaxis = *ix; nr = *(++ix);}
-   else {
-     iaxis = ndvm;
-     align_rule_list = doAlignRules(p,algn_st,0,nr);
-   }
+ ix = ALIGN_RULE_INDEX(p);
+ if(ix)
+    {iaxis = *ix; nr = *(++ix);}
+ else {
+  iaxis = ndvm;
+  align_rule_list = doAlignRules(p,algn_st,0,nr);
+ }
  }
  //sheap = heap_ar_decl ? heap_ar_decl->symbol() : p;//heap_ar_decl == NULL is user error
  //doAssignTo(stmt->expr(0), ARRAY_ELEMENT(sheap,1)); 
@@ -5727,7 +5689,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
   als = node->symb;
   ia = als->attributes();
  
-  if(!HEADER(ORIGINAL_SYMBOL(als))){
+  if(!HEADER(als)){
     Error("Array '%s' may not be allocated", als->identifier(),124,node->align_stmt);
     return;
   }
@@ -5754,7 +5716,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
     else if(!IS_POINTER(als))
       size_array = doDvmShapeList(als,node->align_stmt);  
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(als))));
-    align_rule_list = root ? doAlignRules(node->symb,node->align_stmt,0,nr) : NULL;
+    align_rule_list = (ia & POSTPONE_BIT) ? NULL : doAlignRules(node->symb,node->align_stmt,0,nr);
     if( root && align_rule_list)     //!(ia & POSTPONE_BIT) 
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
     if(IS_SAVE(als))
@@ -5795,7 +5757,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
   if(IS_ALLOCATABLE_POINTER(als)) {
       StoreLowerBoundsPlusOfAllocatable(als,desc);
       iaxis = ndvm;
-      if(root)  //!(ia & POSTPONE_BIT)       
+      if(!(ia & POSTPONE_BIT))   //if(root)       
         align_rule_list = doAlignRules(node->symb,node->align_stmt,0,nr); //nr = doAlignRule(als,node->align_stmt,0);
   }
   else {
@@ -5927,12 +5889,7 @@ void Template_Create(SgStatement *stmt)
          } 
          if(!(s->attributes() & POSTPONE_BIT))
          {
-            Error("Template '%s' has no postponed distribution", s->identifier(), 638,stmt); 
-            continue;
-         } 
-         if(!DEFERRED_SHAPE_TEMPLATE(s))
-         {
-            Error("Template '%s' has no deferred shape", s->identifier(), 640,stmt); 
+            Error("Template '%s' has no deferred ditribution", s->identifier(), 638,stmt); 
             continue;
          }         
          where = stmt;
@@ -5941,11 +5898,7 @@ void Template_Create(SgStatement *stmt)
          if(INTERFACE_RTS2)
             doCallAfter(DvmhTemplateCreate(s,HeaderRef(s),rank,size_array));
          else
-         {
-            doAssignTo_After(DVM000(INDEX(s)),CreateAMView(size_array, rank, 1));
-            where = cur_st; 
-            StoreLowerBoundsPlusOfAllocatable(s,el->lhs());
-         }
+            doAssignTo_After(DVM000(INDEX(s)),CreateAMView(size_array, rank, 1)); 
       }
       else
       {
@@ -6996,7 +6949,7 @@ int doDisRuleArrays (SgStatement *stdis, int aster, SgExpression **distr_list ) 
     all_replicated=0;
 
   if(aster)  // dummy arguments  inherit distribution
-     return(distr_list ? -1 : iaxis);
+     return(iaxis);
 
   if(distr_list)
   { 
@@ -8015,11 +7968,11 @@ SgExpression * HeaderRef (SgSymbol *ar) {
        ind = INDEX(ar);
        if (ind == 0)   // is pointer
           return(PointerHeaderRef(new SgVarRefExp(ar),1));
-       else ///if(ind<=1 || INTERFACE_RTS2) //is not template or interface of RTS2
+       else if(ind<=1) //is not template
          return( new SgArrayRefExp(*ar, *new SgValueExp(1)) ); /*10.03.03*/
           /*return( new SgArrayRefExp(*ar)); */
-       ///else            //is template in RTS1
-       ///  return( new SgVarRefExp(*ar) );
+       else            //is template in RTS1
+         return( new SgVarRefExp(*ar) );
 	 //return( new SgArrayRefExp(*dvmbuf, *new SgValueExp(ind)));
 }
 
@@ -8226,7 +8179,7 @@ SgExpression *LowerBound(SgSymbol *ar, int i)
   if((sbe=isSgSubscriptExp(e)) != NULL) {
     if(sbe->lbound())
       return(sbe->lbound());
-    else if(IS_ALLOCATABLE_POINTER(ar) || IS_TEMPLATE(ar)) {
+    else if(IS_ALLOCATABLE_POINTER(ar)){
       if(HEADER(ar))
         return(header_ref(ar,Rank(ar)+3+i));
       else
@@ -10253,11 +10206,9 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
           continue;
       }
 
-        if( stmt->variant() == USE_STMT) { 
-          if(stmt->lexPrev() != func && stmt->lexPrev()->variant()!=USE_STMT) 
-            err("Misplaced USE statement", 639, stmt);      
+        if( stmt->variant() == USE_STMT)       
           continue;     
-        }
+       
 	if(stmt->variant() == STRUCT_DECL){
           StructureProcessing(stmt);
           stmt=stmt->lastNodeOfStmt();
@@ -11625,13 +11576,12 @@ void StoreLowerBoundsPlus(SgSymbol *ar,SgExpression *arref)
    le = IS_POINTER(ar) ? new SgValueExp(1) : Exprn( LowerBound(ar,i));
    doAssignTo(!arref ? header_ref(ar,rank+3+i) : PointerHeaderRef(arref,rank+3+i), le) ; 
  }
- if(!IS_TEMPLATE(ar)) {
-   doAssignTo(!arref ? header_ref(ar,HSIZE(rank)+1) : PointerHeaderRef(arref,HSIZE(rank)+1), new SgValueExp(HSIZE(rank)+2));
+ 
+ doAssignTo(!arref ? header_ref(ar,HSIZE(rank)+1) : PointerHeaderRef(arref,HSIZE(rank)+1), new SgValueExp(HSIZE(rank)+2));
                           // initializing HEADER(2*rank+3) - counter of remote access buffers
-   if(ar->attributes() & POSTPONE_BIT)
-     doAssignTo(!arref ? header_ref(ar,HEADER_SIZE(ar)) : PointerHeaderRef(arref,HEADER_SIZE(ar)), new SgValueExp(0));  
-                          // HEADER(HEADER_SIZE) = 0 => the array is not distributed yet 
- } 
+ if(ar->attributes() & POSTPONE_BIT)
+   doAssignTo(!arref ? header_ref(ar,HEADER_SIZE(ar)) : PointerHeaderRef(arref,HEADER_SIZE(ar)), new SgValueExp(0));  
+                          // HEADER(HEADER_SIZE) = 0 => the array is not distributed yet  
 }
 
 void StoreLowerBoundsPlusFromAllocate(SgSymbol *ar,SgExpression *arref,SgExpression *lbound)
@@ -11651,13 +11601,12 @@ void StoreLowerBoundsPlusFromAllocate(SgSymbol *ar,SgExpression *arref,SgExpress
    
    doAssignTo(!arref ? header_ref(ar,rank+3+i) : PointerHeaderRef(arref,rank+3+i), le) ; 
   }
- if(!IS_TEMPLATE(ar)) {
-   doAssignTo(!arref ? header_ref(ar,HSIZE(rank)+1) : PointerHeaderRef(arref,HSIZE(rank)+1),     new SgValueExp(HSIZE(rank)+2));
+ doAssignTo(!arref ? header_ref(ar,HSIZE(rank)+1) : PointerHeaderRef(arref,HSIZE(rank)+1),     new SgValueExp(HSIZE(rank)+2));
                           // initializing HEADER(2*rank+3) - counter of remote access buffers
-   if(ar->attributes() & POSTPONE_BIT)
-     doAssignTo(!arref ? header_ref(ar,HEADER_SIZE(ar)) : PointerHeaderRef(arref,HEADER_SIZE(ar)), new SgValueExp(0));  
+ if(ar->attributes() & POSTPONE_BIT)
+   doAssignTo(!arref ? header_ref(ar,HEADER_SIZE(ar)) : PointerHeaderRef(arref,HEADER_SIZE(ar)), new SgValueExp(0));  
                           // HEADER(HEADER_SIZE) = 0 => the array is not distributed yet  
- }
+
 }
 
 
@@ -11673,13 +11622,11 @@ void StoreLowerBoundsPlusOfAllocatable(SgSymbol *ar,SgExpression *desc)
    le = (el->lhs()->variant() == DDOT) ? &el->lhs()->lhs()->copy() : new SgValueExp(1)  ;
    doAssignTo(header_ref(ar,rank+3+i), le) ; 
   }
- if(!IS_TEMPLATE(ar)) {
-   doAssignTo(header_ref(ar,HSIZE(rank)+1),  new SgValueExp(HSIZE(rank)+2));
+ doAssignTo(header_ref(ar,HSIZE(rank)+1),  new SgValueExp(HSIZE(rank)+2));
                           // initializing HEADER(2*rank+3) - counter of remote access buffers
-   if(ar->attributes() & POSTPONE_BIT)
-     doAssignTo(header_ref(ar,HEADER_SIZE(ar)), new SgValueExp(0));  
-                          // HEADER(HEADER_SIZE) = 0 => the array is not distributed yet 
- } 
+ if(ar->attributes() & POSTPONE_BIT)
+   doAssignTo(header_ref(ar,HEADER_SIZE(ar)), new SgValueExp(0));  
+                          // HEADER(HEADER_SIZE) = 0 => the array is not distributed yet  
 }
 
 
@@ -13746,9 +13693,7 @@ SgStatement *CreateModuleProcedure(SgStatement *mod_hedr, SgStatement *lst, SgSt
 void GenForUseStmts(SgStatement *hedr,SgStatement *where_st)
 {SgStatement *stmt;
   for(stmt=hedr->lexNext();stmt->variant() == USE_STMT;stmt=stmt->lexNext()){
-     GenCallForUSE(stmt,where_st);
- /*  
-   if(!(stmt->expr(0)))
+     if(!(stmt->expr(0)))
        GenCallForUSE(stmt,where_st);
      else if(stmt->expr(0)->variant() == ONLY_NODE)
        GenForUseList(stmt->expr(0)->lhs(),stmt,where_st);
@@ -13756,7 +13701,6 @@ void GenForUseStmts(SgStatement *hedr,SgStatement *where_st)
        GenForUseList(stmt->expr(0),stmt,where_st);
        GenCallForUSE(stmt,where_st);
      }
- */
   }
   
 }
