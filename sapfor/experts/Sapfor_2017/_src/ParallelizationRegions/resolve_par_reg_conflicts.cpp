@@ -450,10 +450,13 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         
         if (func->isIndirect())
         {
-            for (auto &call : func->callsFrom)
+            for (auto &elem : func->detailCallsFrom)
             {
+                auto line = elem.second;
+                auto call = elem.first;
                 auto callF = getFuncInfo(funcMap, call);
-                if (callF)
+                auto regs = getAllRegionsByLine(regions, func->fileName, line).size();
+                if (callF && !getAllRegionsByLine(regions, func->fileName, line).size())
                     callF->callRegions.insert(0);
             }
         }
