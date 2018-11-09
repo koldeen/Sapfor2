@@ -343,21 +343,29 @@ static void recursiveFill(SgStatement *st,
     {
         if (exp->variant() == ARRAY_REF)
         {
-            SgSymbol *arraySymbol = exp->symbol();
-            string arrayName = string(arraySymbol->identifier());
-            DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(arraySymbol), arrayName);
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
-
-            auto commonBlock = isInCommon(commonBlocks, arrayName);
-            if (commonBlock)
+            SgArrayRefExp *arrayRef = isSgArrayRefExp(exp);
+            SgType *type = exp->symbol()->type();
+            if (arrayRef && type && type->variant() != T_STRING)
             {
-                if (isSgExecutableStatement(st))
-                    region->AddUsedCommonArray(func, array, lines);
+                SgSymbol *arraySymbol = exp->symbol();
+                string arrayName = string(arraySymbol->identifier());
+                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(arraySymbol), arrayName);
+                FuncInfo *func = getFuncInfo(funcMap, funcName);
 
-                allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+
+                auto commonBlock = isInCommon(commonBlocks, arrayName);
+                if (commonBlock)
+                {
+                    if (isSgExecutableStatement(st))
+                        region->AddUsedCommonArray(func, array, lines);
+
+                    allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                }
+                else if (!lines.isImplicit())
+                    region->AddUsedLocalArray(func, array, lines);
             }
-            else if (!lines.isImplicit())
-                region->AddUsedLocalArray(func, array, lines);
         }
 
         recursiveFill(st, exp->rhs(), region, fileName, funcName, lines, funcMap, commonBlocks);
@@ -446,8 +454,7 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
         //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
         //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // DEBUG
 
-        // try to find call that is not in region
-        
+        // move region DEFAULT region (0)
         if (func->isIndirect())
         {
             for (auto &elem : func->detailCallsFrom)
@@ -465,6 +472,7 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
     allFuncPrint(funcMap); // DEBUG
     __spf_print(1, "-------------------\n"); // DEBUG
 
+    // move region DEFAULT region (0)
     bool changes = true;
     while (changes)
     {
