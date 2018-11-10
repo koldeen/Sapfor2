@@ -1329,9 +1329,9 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
                 if (st->lineNumber() == -1)
                     continue;
 
-                ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
-                if (currReg == NULL)
-                    continue;                
+                set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                if (allRegs.size() == 0)
+                    continue;
 
                 if (isSgExecutableStatement(st))
                 {

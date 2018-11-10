@@ -99,6 +99,25 @@ bool isRemovableDependence(const depNode *currNode, const set<string> &privVars)
     return result;
 }
 
+static SgStatement* getCurrentFunc(SgStatement *st)
+{
+    while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
+        st = st->controlParent();
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+    return st;
+}
+
+depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const set<string> *privVars)
+{
+    SgForStmt *currLoopRef = (SgForStmt*)currLoop->loop->GetOriginal();
+    double t = omp_get_wtime();
+    depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, *privVars);
+    t = omp_get_wtime() - t;
+    if (t > 1.0)
+        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+    return depg;
+}
+
 // try to find dependencies: reductions and privates for scalar 
 //                           and regular and other for arrrays
 //TODO: add optimization - dont call omega test for arrays many times
@@ -140,11 +159,12 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             initializeDepAnalysisForFunction(file, func, allFuncs);
         }
 
-        double t = omp_get_wtime();
-        depGraph *depg = new depGraph(file, currLoopRef->controlParent(), currLoopRef, privVars);
+        depGraph *depg = getDependenciesGraph(currLoop, file, &privVars);
+        /*double t = omp_get_wtime();
+        depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, privVars);
         t = omp_get_wtime() - t;
         if (t > 1.0)
-            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);*/
 
         if (depg)
         {

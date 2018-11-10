@@ -127,7 +127,7 @@ namespace Distribution
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
-              Symbol *declSymbol, const STRING &regName, const int typeSize) :
+              Symbol *declSymbol, const VECTOR<STRING> &regions, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
@@ -149,8 +149,8 @@ namespace Distribution
             }
                         
             GenUniqKey();
-            if (regName != "")
-                containsInRegions.insert(regName);
+            for (auto &reg : regions)
+                containsInRegions.insert(reg);
         }
 
         Array(const Array &copy)
