@@ -174,61 +174,6 @@ static void makeStringDeclarations(SgStatement *insertPlace, DIST::Array *array)
     }
 }
 
-static bool recursiveFindCall(SgExpression *exp, const string &funcName)
-{
-    if (exp)
-    {
-        if (exp->variant() == FUNC_CALL)
-            if (funcName == exp->symbol()->identifier())
-                return true;
-
-        return recursiveFindCall(exp->rhs(), funcName) || recursiveFindCall(exp->lhs(), funcName);
-    }
-
-    return false;
-}
-
-static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callFromRegion, bool &callFromCode)
-{
-    if (SgFile::switchToFile(callFunc->fileName) != -1)
-    {
-        bool isRegion = false;
-        SgStatement *iterator = callFunc->funcPointer->GetOriginal();
-        SgStatement *end = SgStatement::getStatementByFileAndLine(callFunc->fileName, callFunc->linesNum.second);
-
-        for (; iterator != end; iterator = iterator->lexNext())
-        {
-            if (iterator->variant() == SPF_PARALLEL_REG_DIR)
-                isRegion = true;
-
-            if (iterator->variant() == SPF_END_PARALLEL_REG_DIR)
-                isRegion = false;
-
-            if (isSPF_stat(iterator) || isDVM_stat(iterator))
-                continue;
-
-            bool retVal = false;
-
-            if (iterator->variant() == PROC_STAT)
-                if (iterator->symbol()->identifier() == func->funcName)
-                    retVal = true;
-
-            for (int i = 0; i < 3; ++i)
-                retVal = retVal || recursiveFindCall(iterator->expr(i), func->funcName);
-
-            if (retVal)
-            {
-                if (isRegion)
-                    callFromRegion = true;
-                else
-                    callFromCode = true;
-            }
-        }
-    }
-    else
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-}
-
 static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
 {
     auto it = funcMap.find(funcName);
@@ -906,7 +851,7 @@ static bool replaceCommonArray(const string &fileName,
     {
         string toPrint = "wrong parallel region position, there is no common-block with any of such arrays:";
         for (auto &arrayName : arraySynonymNames)
-            toPrint += " " + arrayName;
+            toPrint += " '" + arrayName + '\'';
         toPrint += " in file " + fileName;
         __spf_print(1, "%s on line %d\n", toPrint.c_str(), lines.lines.first);
         string message;
