@@ -1,6 +1,7 @@
 #include "dvm.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../SageAnalysisTool/depGraph.h"
 
-void splitLoops(SgFile *file, std::vector<LoopGraph*> &loopGraphs);
+void splitLoops(SgFile *file, std::vector<LoopGraph*> &loopGraphs, std::map<LoopGraph*, depGraph*> &depInfoForLoopGraph);
 
 

@@ -501,7 +501,9 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         for (auto &loop : loops)
         {
             const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
-            loop->region = getRegionByLine(regions, loop->fileName, currLine);
+            set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, loop->fileName, currLine);
+            if (allRegs.size() == 1)
+                loop->region = *(allRegs.begin());
         }
     }
 }

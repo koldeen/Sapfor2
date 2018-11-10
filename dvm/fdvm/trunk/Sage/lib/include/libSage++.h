@@ -450,6 +450,7 @@ public:
   // new opportunities were added by Kolganov A.S. 16.04.2018 and copyed by Yashin 08.09.2018
   inline int getFileId() const { return fileID; }
   inline void setFileId(const int newFileId) { fileID = newFileId; }
+  void changeName(const char *); // set new name for the symbol
 
   inline SgProject* getProject() const { return project; }
   inline void setProject(SgProject *newProj) { project = newProj; }
@@ -489,7 +490,6 @@ public:
   void addAttribute(int type); //void * is NULL;
   void addAttribute(void *a, int size); //no type specifed;
   void addAttribute(SgAttribute *att);
-  void changeName(const char *); // set new name
   SgAttribute *getAttribute(int i);
   SgAttribute *getAttribute(int i,int type);
 };

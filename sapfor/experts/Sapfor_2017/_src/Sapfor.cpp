@@ -720,7 +720,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto founded = loopGraph.find(file->filename());
             if (founded != loopGraph.end())
-                splitLoops(file, loopGraph.find(file->filename())->second);
+                splitLoops(file, loopGraph.find(file->filename())->second, depInfoForLoopGraph);
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
@@ -1506,6 +1506,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
     case PRIVATE_ARRAYS_BREEDING:
+    case LOOPS_SPLITTER:
     case INSERT_INTER_TREE:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;

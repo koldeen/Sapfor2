@@ -456,8 +456,9 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
 
         auto sizes = array->GetSizes();
         tmp_params->SizeArray.resize(sizes.size());
-        for (int i = (int)sizes.size() - 1; i >= 0; --i)
-            tmp_params->SizeArray[(int)sizes.size() - 1 - i] = sizes[i].second - sizes[i].first + 1;
+        const int rank = (int)sizes.size();
+        for (int i = rank - 1; i >= 0; --i)
+            tmp_params->SizeArray[rank - 1 - i] = sizes[i].second - sizes[i].first + 1;
         tmp_params->StaticSign = 0; //possible not
 
         cur_amv = tmp_params->ID;
@@ -607,7 +608,7 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
     return 0;
 }
 
-int Model_align(DIST::Array *array, const int regId, FILE *printOut)
+static int Model_align(DIST::Array *array, const int regId, FILE *printOut)
 {
     DIST::Array *templ = array->GetTemplateArray(regId);
     auto rule = array->GetAlignRulesWithTemplate(regId);
@@ -711,6 +712,8 @@ int Model_align(DIST::Array *array, const int regId, FILE *printOut)
         f.align();
     }
 
+    if (printOut)
+        fprintf(printOut, "%s", debug.c_str());
     return 0;
 }
 
@@ -813,12 +816,21 @@ int Model_rem(remote *rem)
     return 0;
 }
 
+static int findPosInParallel(vector<string> &parallel, const string &find)
+{
+    int ret = -1;
+    for (int z = 0; z < parallel.size(); ++z)
+        if (parallel[z] == find)
+            return z + 1;
+    return ret;
+}
+
 //==============
 //var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a
-int Model_par(LoopGraph *loop, ParallelDirective *directive)
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut)
 {
-    int i, j;
-    long LR, RID, SHG, SHG1, SHG2;
+    long LR = -1, RID = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
+    string debug = "";
 
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
     {
@@ -840,7 +852,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtrg();
         }
 
-        for (j = 0; j < r_few.size(); j++)
+        for (int j = 0; j < r_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = crtred_;
@@ -867,7 +879,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         crtpl_Info* tmp_params = new crtpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = getId(loop, mapLoopIds, loopIds);
+        LR = tmp_params->ID = getId(loop, mapLoopIds, loopIds);
         tmp_params->Rank = directive->parallel.size();
 
         f.call_time = 0.00000100;		// call time
@@ -901,7 +913,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < s_few.size(); j++)
+        for (int j = 0; j < s_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = inssh_;
@@ -916,7 +928,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(0);
             if (!(s_few[j].is_wid))
             {
-                for (i = 0; i < s_few[j].v->rank; i++)
+                for (int i = 0; i < s_few[j].v->rank; ++i)
                 {
                     tmp_params->HiShdWidthArray.push_back(-1);
                     tmp_params->LowShdWidthArray.push_back(-1);
@@ -924,7 +936,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             }
             else
             {
-                for (i = 0; i < s_few[j].v->rank; i++)
+                for (int i = 0; i < s_few[j].v->rank; ++i)
                 {
                     tmp_params->HiShdWidthArray.push_back(s_few[j].hi_wid[i]);
                     tmp_params->LowShdWidthArray.push_back(s_few[j].low_wid[i]);
@@ -991,7 +1003,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < a_few.size(); j++)
+        for (int j = 0; j < a_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = insshd_;
@@ -1005,7 +1017,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->ShdSignArray.resize(a_few[j].v->rank);
-            for (i = 0; i < a_few[j].v->rank; i++)
+            for (int i = 0; i < a_few[j].v->rank; ++i)
             {
                 tmp_params->HiShdWidthArray[i] = 0; //poss inverse
                 tmp_params->LowShdWidthArray[i] = a_few[j].low_wid[i];
@@ -1038,7 +1050,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < a_few.size(); j++)
+        for (int j = 0; j < a_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = insshd_;
@@ -1052,7 +1064,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->ShdSignArray.resize(a_few[j].v->rank);
-            for (i = 0; i < a_few[j].v->rank; i++)
+            for (int i = 0; i < a_few[j].v->rank; ++i)
             {
                 tmp_params->HiShdWidthArray[i] = a_few[j].hi_wid[i];
                 tmp_params->LowShdWidthArray[i] = 0; //poss inverse
@@ -1074,41 +1086,55 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         f.func_id = mappl_;
         mappl_Info* tmp_params = new mappl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
-        /*
-        tmp_params->LoopRef = LR;//тот что и в crtpl
-        tmp_params->PatternRef = 0x200000 + v1->addr;
-        tmp_params->PatternRefPtr = 0x100000 + v1->addr;
+        
+        tmp_params->LoopRef = LR; //тот что и в crtpl
+        tmp_params->PatternRef = getId(directive->arrayRef, mapArrayAddrs, arrayAddr);//для различия
+        tmp_params->PatternRefPtr = getId(directive->arrayRef, mapArrayAddrsPtr, arrayAddrPtr);//для различия        
         tmp_params->PatternType = 2; //DisArray
 
-        tmp_params->AxisArray.resize(d->rank);
-        tmp_params->CoeffArray.resize(d->rank);
-        tmp_params->ConstArray.resize(d->rank);
-        for (i = 0; i < d->rank; i++)
+        const int rank = directive->arrayRef->GetDimSize();
+        tmp_params->AxisArray.resize(rank);
+        tmp_params->CoeffArray.resize(rank);
+        tmp_params->ConstArray.resize(rank);
+        for (int i = 0; i < rank; ++i)
         {
-            tmp_params->AxisArray[i] = d->axis[i];
-            tmp_params->CoeffArray[i] = d->coef[i];
-            tmp_params->ConstArray[i] = d->cons[i];
+            if (directive->on[i].first == "*")
+            {
+                tmp_params->AxisArray[rank - 1 - i] = -1;
+                tmp_params->CoeffArray[rank - 1 - i] = 0;
+                tmp_params->ConstArray[rank - 1 - i] = 0;
+            }
+            else
+            {
+                tmp_params->AxisArray[rank - 1 - i] = findPosInParallel(directive->parallel, directive->on[i].first);
+                tmp_params->CoeffArray[rank - 1 - i] = directive->on[i].second.first;
+                tmp_params->ConstArray[rank - 1 - i] = directive->on[i].second.second;
+            }
         }
 
-        tmp_params->InInitIndexArray.resize(c->rank);
-        tmp_params->InLastIndexArray.resize(c->rank);
-        tmp_params->InStepArray.resize(c->rank);
-        for (i = 0; i < c->rank; i++)
+        const int loopRank = directive->parallel.size();
+        tmp_params->InInitIndexArray.resize(loopRank);
+        tmp_params->InLastIndexArray.resize(loopRank);
+        tmp_params->InStepArray.resize(loopRank);
+
+        LoopGraph *currL = loop;
+        for (int i = 0; i < loopRank; ++i)
         {
-            tmp_params->InInitIndexArray[i] = c->init[i];
-            tmp_params->InLastIndexArray[i] = c->last[i];
-            tmp_params->InStepArray[i] = c->step[i];
+            tmp_params->InInitIndexArray[i] = currL->startVal;
+            tmp_params->InLastIndexArray[i] = currL->endVal;
+            tmp_params->InStepArray[i] = currL->stepVal;
+
+            currL = currL->children[0];
         }
         
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        printf("mappl AxisArray=");
-        for (i = 0; i < tmp_params->AxisArray.size(); i++)
-            printf(" %d", tmp_params->AxisArray[i]);
-        printf("\n");
-        */
+        debug += "mappl AxisArray=";        
+        for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
+            debug += " " + tmp_params->AxisArray[i];
+        debug += "\n";        
         f.mappl();
     }
 
@@ -1164,10 +1190,10 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
     {
         FuncCall f;
         f.func_id = dopl_;
-        dopl_full_Info* tmp_params = new dopl_full_Info;
+        dopl_full_Info *tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR; //тот что и в crtpl
         tmp_params->ReturnVar = 1;
 
         f.call_time = 0.00000100;		// call time
@@ -1200,7 +1226,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         endpl_Info* tmp_params = new endpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR; //тот что и в crtpl
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1243,7 +1269,8 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         }
     }
 
-    lastLR = LR;
+    if (printOut)
+        fprintf(printOut, "%s", debug.c_str());
     return 0;
 }
 

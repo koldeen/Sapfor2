@@ -1975,7 +1975,7 @@ static void findArrayRefs(SgExpression *ex,
                           map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                           const set<string> &privates, const set<string> &deprecatedByIO, 
                           bool isExecutable, SgStatement *declSt, const string &currFunctionName, bool isWrite,
-                          const ParallelRegion *inRegion,
+                          const vector<string> &inRegion,
                           const set<string> &funcParNames)
 {
     if (ex == NULL)
@@ -2016,7 +2016,7 @@ static void findArrayRefs(SgExpression *ex,
                     DIST::Array *arrayToAdd = 
                         new DIST::Array(getShortName(uniqKey), symb->identifier(), ((SgArrayType*)(symb->type()))->dimension(), 
                                         getUniqArrayId(), decl->fileName(), decl->lineNumber(), arrayLocation, new Symbol(symb),
-                                        (inRegion != NULL) ? inRegion->GetName() : "", typeSize);
+                                        inRegion, typeSize);
 
                     itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 
@@ -2027,7 +2027,10 @@ static void findArrayRefs(SgExpression *ex,
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 else
-                    itNew->second.first->SetRegionPlace((inRegion != NULL) ? inRegion->GetName() : "");
+                {
+                    for (auto &reg : inRegion)
+                        itNew->second.first->SetRegionPlace(reg);
+                }
                 
                 const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
                 if (oldVal == DIST::DISTR || oldVal == DIST::NO_DISTR)
@@ -2227,14 +2230,17 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+            set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+            vector<string> regNames;
+            for (auto &reg : currRegs)
+                regNames.push_back(reg->GetName());
 
             //TODO: need to add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis
             for (int i = 0; i < 3; ++i)
                 findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                               isSgExecutableStatement(st) ? true : false, st, currFunctionName,
-                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, currReg, funcParNames);
+                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
             st = st->lexNext();
         }
     }

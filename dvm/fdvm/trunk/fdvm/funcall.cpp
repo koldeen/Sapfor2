@@ -1287,27 +1287,26 @@ SgExpression *InsertRemBuf(SgExpression *gref, SgExpression *buf)
   return(fe);
 }
 
-SgExpression *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign,int iplp,int iaxis,int icoeff,int iconst)
+SgStatement *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign,int iplp,int iaxis,int icoeff,int iconst)
 {
-//generating Function Call:
-// crtrbl(ArrayHeader[],BufferHeader[], Base,StaticSign,LoopRef, AxisArray[],CoeffArray[],
-//       ConstArray[], )
+//generating Subroutine Call:
+// crtrbl(ArrayHeader[],BufferHeader[], Base,StaticSign,LoopRef, AxisArray[],CoeffArray[],ConstArray[], )
 //creating buffer for remote data
-// SgSymbol *sbase; 
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[CRTRB]);
- fmask[CRTRB] = 1;
-  fe->addArg(*header);
-  fe->addArg(*buffer);
+// SgSymbol *sbase;
+  SgCallStmt *call = new SgCallStmt(*fdvm[CRTRB]);
+  fmask[CRTRB] = 2;
+  call->addArg(*header);
+  call->addArg(*buffer);
   //sbase = (header->symbol()->type()->baseType()->variant() == T_STRING) ? Chmem : Imem;  /* podd 14.01.12 */
   //fe->addArg(* new SgArrayRefExp(*sbase)); //Base
-  fe->addArg(* new SgArrayRefExp(*Imem)); //Base
-  fe->addArg(*ConstRef(st_sign));
-  fe->addArg(*DVM000(iplp));
-  fe->addArg(*DVM000(iaxis));
-  fe->addArg(*DVM000(icoeff));
-  fe->addArg(*DVM000(iconst));
+  call->addArg(* new SgArrayRefExp(*Imem)); //Base
+  call->addArg(*ConstRef(st_sign));
+  call->addArg(*DVM000(iplp));
+  call->addArg(*DVM000(iaxis));
+  call->addArg(*DVM000(icoeff));
+  call->addArg(*DVM000(iconst));
 
-  return(fe);
+  return(call);
 }
 /*
 SgExpression *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign,int icoeff,int iconst,int iinit,int ilast,int istep)
@@ -1331,49 +1330,49 @@ SgExpression *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign
 }
 */
 
-SgExpression *CreateRemBufP(SgExpression *header,SgExpression *buffer,int st_sign,SgExpression *psref,int icoord)
+SgStatement *CreateRemBufP(SgExpression *header,SgExpression *buffer,int st_sign,SgExpression *psref,int icoord)
 {
-//generating Function Call:
+//generating Subroutine Call:
 // crtrbp(ArrayHeader[],BufferHeader[], Base,StaticSign,LoopRef, AxisArray[],CoeffArray[],
 //       ConstArray[], )
 //creating buffer for remote data
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[CRTRBP]);
+  SgCallStmt *call = new SgCallStmt(*fdvm[CRTRBP]);
 // SgSymbol *sbase;
- fmask[CRTRBP] = 1;
-  fe->addArg(*header);
-  fe->addArg(*buffer);
+  fmask[CRTRBP] = 2;
+  call->addArg(*header);
+  call->addArg(*buffer);
   //sbase = (header->symbol()->type()->baseType()->variant() == T_STRING) ? Chmem : Imem; /* podd 14.01.12 */ 
   //fe->addArg(* new SgArrayRefExp(*sbase)); //Base
-  fe->addArg(* new SgArrayRefExp(*Imem));  //Base
-  fe->addArg(*ConstRef(st_sign));
-  fe->addArg(*psref);
-  fe->addArg(*DVM000(icoord));
-  return(fe);
+  call->addArg(* new SgArrayRefExp(*Imem));  //Base
+  call->addArg(*ConstRef(st_sign));
+  call->addArg(*psref);
+  call->addArg(*DVM000(icoord));
+  return(call);
 }
 
-SgExpression *LoadRemBuf(SgExpression *buf)
+SgStatement *LoadRemBuf(SgExpression *buf)
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                           loadrb(BufferHeader,RenewSign)
 //loading buffer
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[LOADRB]);
- fmask[LOADRB] = 1;
+  SgCallStmt *call = new SgCallStmt(*fdvm[LOADRB]);
+  fmask[LOADRB] = 2;
   
-  fe->addArg(*buf);
-  fe->addArg(*ConstRef(0));
-  return(fe);
+  call->addArg(*buf);
+  call->addArg(*ConstRef(0));
+  return(call);
 }
 
-SgExpression *WaitRemBuf(SgExpression *buf)
+SgStatement *WaitRemBuf(SgExpression *buf)
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                           waitrb(BufferHeader)
 //waiting completion of loading buffer
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[WAITRB]);
- fmask[WAITRB] = 1;
+  SgCallStmt *call = new SgCallStmt(*fdvm[WAITRB]);
+  fmask[WAITRB] = 2;
   
-  fe->addArg(*buf);
-  return(fe);
+  call->addArg(*buf);
+  return(call);
 }
 /*
 SgExpression *DelRemBuf(SgExpression *buf)
@@ -2206,7 +2205,6 @@ SgStatement *D_Iter_ON(int ind, int type)
   call->addArg(*ConstRef(type));
   return(call);
 }   
-
 
 SgStatement *D_RmBuf(SgExpression *source_headref, SgExpression *buf_headref, int rank, int index) 
 {

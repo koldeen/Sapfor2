@@ -75,6 +75,7 @@ void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
                            std::map<SgExpression*, std::string> &collection, const std::map<std::string, FuncInfo*> &allFuncs);
+depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const std::set<std::string> *privVars = NULL);
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
