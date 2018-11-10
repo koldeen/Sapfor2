@@ -85,41 +85,85 @@ static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpressi
     return expressionToExtend;
 }
 
-static void setAllocatable(SgStatement *newDecl)
-{
-    SgExpression *params = newDecl->expr(2);
-    if(params != NULL) { //ALLOCATABLE может уже быть
-        while(params != NULL) {
-            if(params->lhs()->variant() == ALLOCATABLE_OP)
-                return;
-            params = params->rhs();
+static void printSt(SgStatement* st) {
+    printf("Statement [%s]: %s\n", tag[st->variant()], st->unparse());
+    queue<SgExpression*> qq;
+    for(int i=0;i<3;++i)
+        if(st->expr(i))
+        {
+            printf("[%d,%s]: %s\n",i, tag[st->expr(i)->variant()], st->expr(i)->unparse());
+            qq.push(st->expr(i));
         }
+    while(!qq.empty())
+    {
+        SgExpression* exp = qq.front();
+        qq.pop();
+
+        printf("[%s]: %s\n", tag[exp->variant()], exp->unparse());
+        if(exp->variant() == TYPE_OP)
+        {
+            if(exp->symbol())
+                printf("%s, %s", exp->symbol()->identifier(), tag[exp->symbol()->variant()]);
+        }
+
+        if(exp->lhs())
+            qq.push(exp->lhs());
+        if(exp->rhs())
+            qq.push(exp->rhs());
+    }
+}
+
+static void setAllocatable(SgStatement *newDecl, SgSymbol *origSymbol)
+{
+    //Обычное объявление
+    if(newDecl->variant() == VAR_DECL)
+    {
+        SgExpression *params = newDecl->expr(2);
+        if(params != NULL) { //ALLOCATABLE может уже быть
+            while(params != NULL) {
+                if(params->lhs()->variant() == ALLOCATABLE_OP)
+                    return;
+                params = params->rhs();
+            }
+        }
+
+        //В объявлении нет ALLOCATABLE
+        params = newDecl->expr(2);
+        SgExpression newParams (EXPR_LIST, new SgExpression(ALLOCATABLE_OP), params, (SgSymbol*)NULL);
+        newDecl->setExpression(2, newParams);
+    }
+    //объявление с DIMENSION или с ALLOCATABLBE
+    else
+    {
+        newDecl->setVariant(VAR_DECL);
+        newDecl->setExpression(1, *(new SgTypeExp(*origSymbol->type()->baseType())));
+        newDecl->setExpression(2, *(new SgExpression(ALLOCATABLE_OP)));
     }
 
-    params = newDecl->expr(2);
-    SgExpression newParams (EXPR_LIST, new SgExpression(ALLOCATABLE_OP), params, (SgSymbol*)NULL);
-    newDecl->setExpression(2, newParams);
+
 }
 
 static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymbol *arraySymbol, vector<int> &dimensions) {
-    setAllocatable(declarationStatement);
-
+    SgSymbol *newArraySymbol = NULL;
     for(SgExpression *exprList = declarationStatement->expr(0); exprList != NULL; exprList = exprList->rhs())
     {
         SgExpression *array = exprList->lhs();
         if(!strcmp(array->symbol()->identifier(), arraySymbol->identifier()))
         {//нашли объявление исходного массива
             SgExpression *newArray = array->copyPtr();
-            SgSymbol *newArraySymbol = createNewArrayNameSymbol(newArray);
+            newArraySymbol = createNewArrayNameSymbol(newArray);
             extendArrayDeclaration(dimensions, newArray, newArraySymbol);
 
             SgExpression newExprList(EXPR_LIST, newArray, (SgExpression*)NULL, (SgSymbol*)NULL);
             declarationStatement->setExpression(0,newExprList);
-            return newArraySymbol;
+            break;
+
         }
     }
-    //На самом деле, это недостижимый код
-    return NULL;
+    setAllocatable(declarationStatement, arraySymbol);
+    //На самом деле, newArraySymbol не может быть NULL
+    return newArraySymbol;
+
 }
 
 static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, SgSymbol *arraySymbol, SgSymbol *newArraySymbol) {
@@ -185,12 +229,12 @@ static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclarati
     {}// More empty loops, MOAR!
 
     SgExpression newExprList(EXPR_LIST, exprList->lhs(), NULL, NULL);
-    SgStatement newDeclaration = originalDeclaration->copy();
+    SgStatement *newDeclaration = originalDeclaration->copyPtr();
 
-    newDeclaration.setExpression(0, newExprList);
-    firstStmtOfFile->insertStmtAfter(newDeclaration);
+    newDeclaration->setExpression(0, newExprList);
+    firstStmtOfFile->insertStmtAfter(*newDeclaration);
 
-    return firstStmtOfFile->lexNext();
+    return newDeclaration;
 }
 
 static SgExpression* constructBoundCall(bool upBound, SgSymbol *array, int dim) {
@@ -265,11 +309,11 @@ static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclarat
     SgExpression *arrayAllocation = constructArrayAllocationExp(forLoop, origArray, arraySymbol, depthOfBreed);
     SgExpression *arrayDeallocation = new SgExpression(EXPR_LIST, new SgExpression(ARRAY_REF, (SgExpression*)NULL, (SgExpression*)NULL, arraySymbol), (SgExpression*)NULL, (SgSymbol*)NULL);
 
-    SgStatement allocate  (ALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayAllocation, (SgExpression*)NULL, (SgExpression*)NULL);
-    SgStatement deallocate(DEALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayDeallocation, (SgExpression*)NULL, (SgExpression*)NULL);
+    SgStatement *allocate = new SgStatement(ALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayAllocation, (SgExpression*)NULL, (SgExpression*)NULL);
+    SgStatement *deallocate = new SgStatement(DEALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayDeallocation, (SgExpression*)NULL, (SgExpression*)NULL);
 
-    loopStmt->insertStmtBefore(allocate);
-    loopStmt->lastNodeOfStmt()->insertStmtAfter(deallocate);
+    loopStmt->insertStmtBefore(*allocate, *loopStmt->controlParent());
+    loopStmt->lastNodeOfStmt()->insertStmtAfter(*deallocate, *loopStmt->controlParent());
 }
 
 static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBreed)
@@ -363,4 +407,18 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
 
 
         }
+
+    if(string(file->filename()) == "COMPOZ.FOR")
+        for(auto& loopGraph : loopGraphs)
+        {
+            SgSymbol* array = findSymbol(loopGraph, "xj");
+            if(array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "yj");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+        }
+
 }

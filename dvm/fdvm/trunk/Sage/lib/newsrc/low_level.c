@@ -8805,6 +8805,7 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
     {
     case FUNCTION_NAME:
     case PROCEDURE_NAME:
+    case PROGRAM_NAME:
         /* find the body in the right file????*/
         body = getBodyOfSymb(symb);
         if (body && (cp = BIF_CP(body)) && cp->variant != INTERFACE_STMT && cp->variant != INTERFACE_ASSIGNMENT && cp->variant != INTERFACE_OPERATOR) /*20.04.17*/
