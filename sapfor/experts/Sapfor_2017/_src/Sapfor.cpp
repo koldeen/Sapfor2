@@ -35,6 +35,7 @@
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
 #include "DynamicAnalysis/gCov_parser_func.h"
+#include "DynamicAnalysis/fill_regions.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -710,6 +711,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
             parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo));
+        else if (curr_regime == FILL_REGIONS)
+            perform_time(file, file->firstStatement(), getObjectForFileFromMap(file_name, gCovInfo));
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());

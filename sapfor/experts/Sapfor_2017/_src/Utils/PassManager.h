@@ -160,6 +160,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(CALL_GRAPH2) <= Pass(PRIVATE_ARRAYS_BREEDING);
 
+    Pass(GCOV_PARSER) <= Pass(FILL_REGIONS);
+
     Pass(LOOP_ANALYZER_DATA_DIST_S1) <= Pass(LOOPS_SPLITTER);
 
     passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, EXTRACT_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF,
