@@ -683,7 +683,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 fillInOut(currInfo, st, st->lastNodeOfStmt());
         }
 
-        if (isSPF_NoInline(st->lexNext()))
+        if (isSPF_NoInline(new Statement(st->lexNext())))
         {
             __spf_print(1, "set NOINLINE attribute for function '%s'\n", currFunc.c_str());
             currInfo->doNotInline = true;
@@ -733,7 +733,13 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
 
             if (st->variant() == CONTAINS_STMT)
                 break;
-                        
+
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             const string prefix = containsPrefix == "" ? currFunc + "." : containsPrefix;
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)
@@ -777,7 +783,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 if (!dontFillFuncParam)
                     fillFuncParams(entryInfo, commonBlocks, st);
 
-                if (isSPF_NoInline(st->lexNext()))
+                if (isSPF_NoInline(new Statement(st->lexNext())))
                 {
                     __spf_print(1, "set NOINLINE attribute for function '%s'\n", entryName.c_str());
                     entryInfo->doNotInline = true;
@@ -1329,9 +1335,9 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
                 if (st->lineNumber() == -1)
                     continue;
 
-                ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
-                if (currReg == NULL)
-                    continue;                
+                set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                if (allRegs.size() == 0)
+                    continue;
 
                 if (isSgExecutableStatement(st))
                 {

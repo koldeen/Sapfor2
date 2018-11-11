@@ -9,6 +9,7 @@ extern "C" { __declspec(dllexport) int SPF_SetFunctionsToInclude(int winHandler,
 extern "C" { __declspec(dllexport) int SPF_GetAllDeclaratedArrays(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetFileLineInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetIncludeDependencies(int winHandler, int *options, short *projName, short *&result); }
+extern "C" { __declspec(dllexport) int SPF_GetGCovInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 
 extern "C" { __declspec(dllexport) int SPF_GetPassesState(int *&passInfo); }
 extern "C" { __declspec(dllexport) int SPF_GetPassesStateStr(short *&passInfo); }

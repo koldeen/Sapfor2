@@ -113,4 +113,5 @@ bool argIsReplaceable(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);
+void showDefsOfGraph(ControlFlowGraph *CGraph);
 void clearAllocatedExprValues();

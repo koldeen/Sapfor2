@@ -30,6 +30,7 @@
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
 #include "../Predictor/PredictScheme.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 using std::string;
 using std::wstring;
@@ -484,12 +485,11 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 {
     MessageManager::clearCache();
     if (folderName == NULL)
-    {
         MessageManager::setWinHandler(-1);
-        allPredictorStats.clear();
-    }
     else
         MessageManager::setWinHandler(winHandler);
+
+    allPredictorStats.clear();
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -507,10 +507,10 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
             varLens[(int)variants[i + 2]].push_back(std::make_pair(variants[i], variants[i + 1]));
         }
-        
+
         if (varLens.size() != parallelRegions.size())
             throw (-6);
-        
+
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             auto it = varLens.find(parallelRegions[z]->GetId());
@@ -526,7 +526,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 printf("SAPFOR: currV %d, dataDirectives.distrRules %d\n", (int)currVars.size(), (int)dataDirectives.distrRules.size());
                 throw (-3);
             }
-            
+
             map<int64_t, int> varMap;
             for (int i = 0; i < currVars.size(); ++i)
                 varMap[currVars[i].first] = (int)currVars[i].second;
@@ -537,7 +537,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 printf("SAPFOR: template address %lld with num %d\n", (int64_t)dataDirectives.distrRules[i].first, i);
                 templateIdx[(int64_t)dataDirectives.distrRules[i].first] = i;
             }
-            
+
             for (auto it = varMap.begin(); it != varMap.end(); ++it)
             {
                 auto itF = templateIdx.find(it->first);
@@ -552,27 +552,24 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 
         printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
-        
-        if (folderName == NULL)
-        {
-            string predictRes = "";
-            PredictorStats summed;
-            for (auto &predFile : allPredictorStats)
-            {
-                summed.IntervalCount += predFile.second.IntervalCount;
-                summed.ParallelCount += predFile.second.ParallelCount;
-                summed.RedistributeCount += predFile.second.RedistributeCount;
-                summed.RemoteCount += predFile.second.RemoteCount;
-                summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
-                summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
-                summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
-                summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
-            }
-            predictRes += summed.to_string();
 
-            copyStringToShort(predictorStats, predictRes);
-            retSize = (int)predictRes.size() + 1;
+        string predictRes = "";
+        PredictorStats summed;
+        for (auto &predFile : allPredictorStats)
+        {
+            summed.IntervalCount += predFile.second.IntervalCount;
+            summed.ParallelCount += predFile.second.ParallelCount;
+            summed.RedistributeCount += predFile.second.RedistributeCount;
+            summed.RemoteCount += predFile.second.RemoteCount;
+            summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
+            summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
+            summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
+            summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
         }
+        predictRes += summed.to_string();
+
+        copyStringToShort(predictorStats, predictRes);
+        retSize = (int)predictRes.size();
     }
     catch (int ex)
     {
@@ -947,6 +944,59 @@ int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, sh
     MessageManager::setWinHandler(winHandler);
 
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+extern map<string, map<int, Gcov_info>> gCovInfo;
+int SPF_GetGCovInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                    short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { GCOV_PARSER });
+
+        string resVal = "";
+        bool first = true;
+        for (auto &byFile : gCovInfo)
+        {
+            if (!first)
+                resVal += "@";
+            resVal += byFile.first + "@";
+            for (auto &elem : byFile.second)
+                resVal += to_string(elem.first) + " " + to_string(elem.second.getExecutedCount()) + " ";            
+            first = false;
+        }
+
+        copyStringToShort(result, resVal);
+        retSize = (int)resVal.size();
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retSize;
+    
 }
 
 extern void deleteAllAllocatedData(bool enable);

@@ -53,6 +53,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   38 "An equivalence operator at line %d is not supported yet"
 //   39 "Variabled '%s' and '%s' in one storage association (common block '%s') have different types" 
 //   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
+//   41 "parallel region '%s' has line that is included in another region in file '%s'"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -75,9 +76,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
 //   11 "Arrays have different align rules in this loop according to their write accesses"
-//   12 "parallel regions %s have common functions '%s'"
-//   13 "parallel regions %s have common array '%s'" 
-//   14 "parallel regions %s have local array '%s'"
+//   12 "parallel regions %shave common function '%s'"
+//   13 "parallel regions %shave local array '%s'"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 

@@ -54,6 +54,7 @@ public:
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
+        executionTimeInSec = 0.0;
     }
 
     ~LoopGraph()
@@ -219,12 +220,13 @@ public:
     int perfectLoop;
     int countOfIters;
     double countOfIterNested;
-
+    double executionTimeInSec;
     int calculatedCountOfIters; // save calculated
 
     int startVal;
     int endVal;
     int stepVal;
+    std::string loopSymbol;
     std::pair<Expression*, Expression*> startEndExpr;
 
     bool hasGoto;
@@ -291,6 +293,4 @@ void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
 
 void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-
-void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void createMapLoopGraph(const std::vector<LoopGraph*> &loops, std::map<int, LoopGraph*> &mapGraph);

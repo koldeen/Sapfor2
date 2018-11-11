@@ -91,7 +91,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
         char *read = fgets(buf, 8192, currFile);
         if (read)
         {
-            const string orig(read);
+            const string orig(replaceTabsToSpaces(read));
             string line(read);
             convertToLower(line);
             line = replaceTabsToSpaces(line);
@@ -164,9 +164,11 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 }
 
 //TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles, bool outFree)
-{
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
+                                  set<string> &allIncludeFiles, bool outFree)
+{ 
     fflush(NULL);
+
     int funcNum = file->numberOfFunctions();
     FILE *currFile = fopen(fileName, "r");
     if (currFile == NULL)
@@ -533,7 +535,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
     {
         if (data)
         {
-            fillPrivatesFromComment(data, privatesVars);
+            Statement *sData = new Statement(data);
+            fillPrivatesFromComment(sData, privatesVars);
 
             // try to find reductions and set its symbols as private in 
             // current loop analysis for correct scalar detection in 
@@ -541,8 +544,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
             map<string, set<string>> reductions;
             map<string, set<tuple<string, string, int>>> reductionsLoc;
 
-            fillReductionsFromComment(data, reductions);
-            fillReductionsFromComment(data, reductionsLoc);
+            fillReductionsFromComment(sData, reductions);
+            fillReductionsFromComment(sData, reductionsLoc);
 
             for (auto &redList : reductions)
                 privatesVars.insert(redList.second.begin(), redList.second.end());

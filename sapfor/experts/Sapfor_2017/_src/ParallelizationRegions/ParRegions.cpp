@@ -326,6 +326,15 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
     }
 }
 
+ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, const int regionId)
+{
+    for (auto &region : regions)
+        if (region->GetId() == regionId)
+            return region;
+
+    return NULL;
+}
+
 ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const string &file, const int line)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
@@ -492,7 +501,9 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         for (auto &loop : loops)
         {
             const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
-            loop->region = getRegionByLine(regions, loop->fileName, currLine);
+            set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, loop->fileName, currLine);
+            if (allRegs.size() == 1)
+                loop->region = *(allRegs.begin());
         }
     }
 }

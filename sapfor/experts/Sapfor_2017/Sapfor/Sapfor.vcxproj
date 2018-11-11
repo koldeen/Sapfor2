@@ -280,6 +280,9 @@
     </ClCompile>
     <ClCompile Include="..\_src\Distribution\GraphCSR.cpp">
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</InlineFunctionExpansion>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="..\_src\DynamicAnalysis\fill_regions.cpp" />
     <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp" />
@@ -294,6 +297,7 @@
     <ClCompile Include="..\_src\LoopAnalyzer\allocations_prepoc.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\dep_analyzer.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator.cpp" />
+    <ClCompile Include="..\_src\LoopAnalyzer\directive_creator_base.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\directive_parser.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\insert_directive.cpp" />
     <ClCompile Include="..\_src\LoopAnalyzer\loop_analyzer.cpp" />
@@ -504,6 +508,7 @@
     <ClInclude Include="..\_src\GraphLoop\graph_loops.h" />
     <ClInclude Include="..\_src\GraphLoop\graph_loops_func.h" />
     <ClInclude Include="..\_src\Inliner\inliner.h" />
+    <ClInclude Include="..\_src\LoopAnalyzer\directive_creator.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\directive_parser.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\loop_analyzer.h" />
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />

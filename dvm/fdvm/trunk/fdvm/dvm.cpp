@@ -4421,6 +4421,11 @@ void TemplateDeclarationTest(SgStatement *stmt)
          Error("Template may not be a dummy argument: %s",symb->identifier(), 80,stmt); 
       if(DeferredShape(eol->lhs()->lhs()))
          symb->addAttribute(DEFERRED_SHAPE,(void*)1,0);                      
+      if(IN_COMMON(symb) && IN_MODULE)
+      {
+         SYMB_ATTR(symb->thesymb) =  SYMB_ATTR(symb->thesymb) & (~COMMON_BIT);
+         Warning("COMMON attribute is ignored: %s",symb->identifier(), 641,stmt);
+      }  
    }
 }
 
@@ -9682,12 +9687,12 @@ void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
                      for(j=n-1; j>=0; j--)
                         doAssignStmtAfter(ReplaceFuncCall(step[j]));
 	         */
-            doAssignStmtAfter(CreateRemBuf( HeaderRef(el->lhs()->symbol()), header_rf(ar,ibuf,1), st_sign,iplp,iaxis,iaxis+n,iaxis+2*n));
+            doCallAfter(CreateRemBuf( HeaderRef(el->lhs()->symbol()), header_rf(ar,ibuf,1), st_sign,iplp,iaxis,iaxis+n,iaxis+2*n));
           } else {
             ideb = ndvm;
             for(j=n-1; j>=0; j--)
               doAssignStmtAfter(Calculate(ind_deb[j]));
-            doAssignStmtAfter(CreateRemBufP( HeaderRef(el->lhs()->symbol()), header_rf(ar,ibuf,1), st_sign,ConstRef(0),ideb));
+            doCallAfter(CreateRemBufP( HeaderRef(el->lhs()->symbol()), header_rf(ar,ibuf,1), st_sign,ConstRef(0),ideb));
           }
                            //if(nc)
                            //  doAssignTo_After(header_rf(ar,ibuf,nc+2),BufferHeaderNplus1(el->lhs(),nc,ibuf,ar));
@@ -9699,9 +9704,9 @@ void RemoteVariableList(SgSymbol *group, SgExpression *rml, SgStatement *stmt)
             ACC_Before_Loadrb(header_rf(ar,ibuf,1));
 
           // loading the buffer
-          doAssignStmtAfter(LoadRemBuf( header_rf(ar,ibuf,1)));        
+          doCallAfter(LoadRemBuf( header_rf(ar,ibuf,1)));        
           // waiting completion of loading the buffer
-          doAssignStmtAfter(WaitRemBuf( header_rf(ar,ibuf,1)));
+          doCallAfter(WaitRemBuf( header_rf(ar,ibuf,1)));
 
           if(IN_COMPUTE_REGION)  /*ACC*/
             ACC_Region_After_Waitrb(header_rf(ar,ibuf,1));

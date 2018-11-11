@@ -143,7 +143,6 @@ struct seq_loop
 long cur_amv, cur_ps; //попробую без cur_amv_ptr (считая его = cur_amv)
 long addr;
 
-Interval *NullInterval;
 Interval *SeqLoopInterval;
 Interval *RemoteCommInterval;
 long cur_res, result_cnt;
@@ -222,7 +221,7 @@ void Interval_node::calc(double times)
         inter->copy_poss(tmp_inter, 0, times);
         inter->CalcIdleAndImbalance();
 
-        printf("try to integrate loop %d  times=%d\n", this->line, times);
+        printf("try to integrate loop %d  times=%f\n", this->line, times);
         inter->Integrate();
     }
 }
@@ -427,6 +426,7 @@ static long arrayAddr = 1;
 static long arrayAddrPtr = 10000;
 static long ids = 1;
 static long loopIds = 1;
+static long redShIds = 1;
 
 static map<DIST::Array*, long> mapArrayAddrs;
 static map<DIST::Array*, long> mapArrayAddrsPtr;
@@ -434,15 +434,15 @@ static map<DIST::Array*, long> mapIds;
 static map<LoopGraph*, long> mapLoopIds;
 
 template<typename T>
-static long getId(T array, map<T, long> dict, long &counter)
+static long getId(T object, map<T, long> &dict, long &counter)
 {
-    auto it = dict.find(array);
+    auto it = dict.find(object);
     if (it == dict.end())
-        dict[array] = counter++;
-    return dict[array];
+        dict[object] = counter++;
+    return dict[object];
 }
 
-static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *printOut)
+static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *printOut = NULL)
 {
     string debug = "";
     {
@@ -452,12 +452,13 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
         f.call_params = (void *)tmp_params; // point to parameters
 
         tmp_params->AM_ID = cur_amv; //possible not
-        tmp_params->ID = getId(array, mapArrayAddrs, ids); //для различия
+        tmp_params->ID = getId(array, mapIds, ids); //для различия
 
         auto sizes = array->GetSizes();
         tmp_params->SizeArray.resize(sizes.size());
-        for (int i = (int)sizes.size() - 1; i >= 0; --i)
-            tmp_params->SizeArray[(int)sizes.size() - 1 - i] = sizes[i].second - sizes[i].first + 1;
+        const int rank = (int)sizes.size();
+        for (int i = rank - 1; i >= 0; --i)
+            tmp_params->SizeArray[rank - 1 - i] = sizes[i].second - sizes[i].first + 1;
         tmp_params->StaticSign = 0; //possible not
 
         cur_amv = tmp_params->ID;
@@ -607,7 +608,7 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
     return 0;
 }
 
-int Model_align(DIST::Array *array, const int regId, FILE *printOut)
+static int Model_align(DIST::Array *array, const int regId, FILE *printOut = NULL)
 {
     DIST::Array *templ = array->GetTemplateArray(regId);
     auto rule = array->GetAlignRulesWithTemplate(regId);
@@ -676,8 +677,8 @@ int Model_align(DIST::Array *array, const int regId, FILE *printOut)
 
         tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
         tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
-        tmp_params->PatternRef = getId(templ, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->PatternRef = getId(templ, mapArrayAddrsPtr, arrayAddrPtr); //для различия
+        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrs, arrayAddr); //для различия
         tmp_params->PatternType = 2; //Distr
 
         tmp_params->AxisArray.resize(rank);
@@ -711,6 +712,8 @@ int Model_align(DIST::Array *array, const int regId, FILE *printOut)
         f.align();
     }
 
+    if (printOut)
+        fprintf(printOut, "%s", debug.c_str());
     return 0;
 }
 
@@ -813,12 +816,20 @@ int Model_rem(remote *rem)
     return 0;
 }
 
-//==============
-//var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a
-int Model_par(LoopGraph *loop, ParallelDirective *directive)
+static int findPosInParallel(vector<string> &parallel, const string &find)
 {
-    int i, j;
-    long LR, RID, SHG, SHG1, SHG2;
+    int ret = -1;
+    for (int z = 0; z < parallel.size(); ++z)
+        if (parallel[z] == find)
+            return z + 1;
+    return ret;
+}
+
+//==============
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
+{
+    long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
+    string debug = "";
 
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
     {
@@ -828,11 +839,9 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             crtrg_Info* tmp_params = new crtrg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + addr;//для различия
-            RID = addr;
-
-            addr++;
-
+            RID = (redShIds++);
+            tmp_params->ID = RID;//для различия
+            
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
             setVectorCallRet(&f);
@@ -840,23 +849,49 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtrg();
         }
 
-        for (j = 0; j < r_few.size(); j++)
+        RIDG = (redShIds++);
+        for (auto &redG : directive->reduction)
         {
-            FuncCall f;
-            f.func_id = crtred_;
-            crtred_Info* tmp_params = new crtred_Info;
-            f.call_params = (void *)tmp_params; // point to parameters
+            for (auto &red : redG.second)
+            {
+                FuncCall f;
+                f.func_id = crtred_;
+                crtred_Info* tmp_params = new crtred_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xe10000 + RID;//для различия
-            tmp_params->LocElmLength = r_few[j].loc_type;
-            tmp_params->RedArrayLength = r_few[j].red_arr_len;
-            tmp_params->RedArrayType = r_few[j].red_arr_type;
+                tmp_params->ID = RIDG; //для различия
+                tmp_params->LocElmLength = 0;
+                tmp_params->RedArrayLength = 1; // count of elem
+                tmp_params->RedArrayType = 1; // INT TYPE
 
-            f.call_time = 0.00000100;		// call time
-            f.ret_time = 0.00000100;		// return time
-            setVectorCallRet(&f);
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
 
-            f.crtred();
+                f.crtred();
+            }
+        }
+
+        for (auto &redG : directive->reductionLoc)
+        {
+            for (auto &red : redG.second)
+            {
+                FuncCall f;
+                f.func_id = crtred_;
+                crtred_Info* tmp_params = new crtred_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
+
+                tmp_params->ID = RIDG; //для различия
+                tmp_params->LocElmLength = std::get<2>(red); // count of loc elem
+                tmp_params->RedArrayLength = std::get<2>(red); // count of elem
+                tmp_params->RedArrayType = 1; // INT TYPE
+
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
+
+                f.crtred();
+            }
         }
     }
 
@@ -867,7 +902,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         crtpl_Info* tmp_params = new crtpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = getId(loop, mapLoopIds, loopIds);
+        LR = tmp_params->ID = getId(loop, mapLoopIds, loopIds);
         tmp_params->Rank = directive->parallel.size();
 
         f.call_time = 0.00000100;		// call time
@@ -884,6 +919,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
     if (directive->shadowRenew.size()) //SHADOW RENEW
     {
         // не знаю куда задать CORNER
+        /*
         {
             FuncCall f;
             f.func_id = crtshg_;
@@ -901,7 +937,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < s_few.size(); j++)
+        for (int j = 0; j < s_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = inssh_;
@@ -916,7 +952,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(0);
             if (!(s_few[j].is_wid))
             {
-                for (i = 0; i < s_few[j].v->rank; i++)
+                for (int i = 0; i < s_few[j].v->rank; ++i)
                 {
                     tmp_params->HiShdWidthArray.push_back(-1);
                     tmp_params->LowShdWidthArray.push_back(-1);
@@ -924,7 +960,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             }
             else
             {
-                for (i = 0; i < s_few[j].v->rank; i++)
+                for (int i = 0; i < s_few[j].v->rank; ++i)
                 {
                     tmp_params->HiShdWidthArray.push_back(s_few[j].hi_wid[i]);
                     tmp_params->LowShdWidthArray.push_back(s_few[j].low_wid[i]);
@@ -968,10 +1004,12 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
 
             f.waitsh();
         }
+        */
     }
 
     if (directive->across.size()) // ACROSS
     {
+        /*
         {
             FuncCall f;
             f.func_id = crtshg_;
@@ -991,7 +1029,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < a_few.size(); j++)
+        for (int j = 0; j < a_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = insshd_;
@@ -1005,7 +1043,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->ShdSignArray.resize(a_few[j].v->rank);
-            for (i = 0; i < a_few[j].v->rank; i++)
+            for (int i = 0; i < a_few[j].v->rank; ++i)
             {
                 tmp_params->HiShdWidthArray[i] = 0; //poss inverse
                 tmp_params->LowShdWidthArray[i] = a_few[j].low_wid[i];
@@ -1038,7 +1076,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             f.crtshg();
         }
 
-        for (j = 0; j < a_few.size(); j++)
+        for (int j = 0; j < a_few.size(); ++j)
         {
             FuncCall f;
             f.func_id = insshd_;
@@ -1052,7 +1090,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->HiShdWidthArray.resize(a_few[j].v->rank);
             tmp_params->ShdSignArray.resize(a_few[j].v->rank);
-            for (i = 0; i < a_few[j].v->rank; i++)
+            for (int i = 0; i < a_few[j].v->rank; ++i)
             {
                 tmp_params->HiShdWidthArray[i] = a_few[j].hi_wid[i];
                 tmp_params->LowShdWidthArray[i] = 0; //poss inverse
@@ -1064,7 +1102,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             setVectorCallRet(&f);
 
             f.insshd();
-        }
+        }*/
     }
 
 
@@ -1074,41 +1112,58 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         f.func_id = mappl_;
         mappl_Info* tmp_params = new mappl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
-        /*
-        tmp_params->LoopRef = LR;//тот что и в crtpl
-        tmp_params->PatternRef = 0x200000 + v1->addr;
-        tmp_params->PatternRefPtr = 0x100000 + v1->addr;
+        
+        tmp_params->LoopRef = LR; //тот что и в crtpl
+        tmp_params->PatternRef = getId(directive->arrayRef, mapArrayAddrsPtr, arrayAddrPtr); //для различия 
+        tmp_params->PatternRefPtr = getId(directive->arrayRef, mapArrayAddrs, arrayAddr); //для различия
         tmp_params->PatternType = 2; //DisArray
 
-        tmp_params->AxisArray.resize(d->rank);
-        tmp_params->CoeffArray.resize(d->rank);
-        tmp_params->ConstArray.resize(d->rank);
-        for (i = 0; i < d->rank; i++)
+        const int rank = directive->arrayRef->GetDimSize();
+        tmp_params->AxisArray.resize(rank);
+        tmp_params->CoeffArray.resize(rank);
+        tmp_params->ConstArray.resize(rank);
+        for (int i = 0; i < rank; ++i)
         {
-            tmp_params->AxisArray[i] = d->axis[i];
-            tmp_params->CoeffArray[i] = d->coef[i];
-            tmp_params->ConstArray[i] = d->cons[i];
+            if (directive->on[i].first == "*")
+            {
+                tmp_params->AxisArray[rank - 1 - i] = -1;
+                tmp_params->CoeffArray[rank - 1 - i] = 0;
+                tmp_params->ConstArray[rank - 1 - i] = 0;
+            }
+            else
+            {
+                tmp_params->AxisArray[rank - 1 - i] = findPosInParallel(directive->parallel, directive->on[i].first);
+                tmp_params->CoeffArray[rank - 1 - i] = directive->on[i].second.first;
+                tmp_params->ConstArray[rank - 1 - i] = directive->on[i].second.second;
+            }
         }
 
-        tmp_params->InInitIndexArray.resize(c->rank);
-        tmp_params->InLastIndexArray.resize(c->rank);
-        tmp_params->InStepArray.resize(c->rank);
-        for (i = 0; i < c->rank; i++)
+        const int loopRank = directive->parallel.size();
+        tmp_params->InInitIndexArray.resize(loopRank);
+        tmp_params->InLastIndexArray.resize(loopRank);
+        tmp_params->InStepArray.resize(loopRank);
+
+        LoopGraph *currL = loop;
+        for (int i = 0; i < loopRank; ++i, currL = currL->children[0])
         {
-            tmp_params->InInitIndexArray[i] = c->init[i];
-            tmp_params->InLastIndexArray[i] = c->last[i];
-            tmp_params->InStepArray[i] = c->step[i];
+            tmp_params->InInitIndexArray[i] = currL->startVal;
+            tmp_params->InLastIndexArray[i] = currL->endVal;
+            tmp_params->InStepArray[i] = currL->stepVal;
+            
+            if (i == loopRank - 1)
+                break;
+            if (currL->children.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        printf("mappl AxisArray=");
-        for (i = 0; i < tmp_params->AxisArray.size(); i++)
-            printf(" %d", tmp_params->AxisArray[i]);
-        printf("\n");
-        */
+        debug += "mappl AxisArray=";        
+        for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
+            debug += " " + tmp_params->AxisArray[i];
+        debug += "\n";        
         f.mappl();
     }
 
@@ -1119,8 +1174,8 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         insred_Info* tmp_params = new insred_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->RG_ID = 0xed0000 + RID;//для различия
-        tmp_params->RV_ID = 0xe10000 + RID;//для различия
+        tmp_params->RG_ID = RID;//для различия
+        tmp_params->RV_ID = RIDG;//для различия
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1132,6 +1187,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
 
     if (directive->across.size()) //ACROSS
     {
+        /*
         FuncCall f;
         f.func_id = across_;
         across_Info* tmp_params = new across_Info;
@@ -1148,7 +1204,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        f.across();
+        f.across();*/
     }
 
     if (directive->remoteAccess.size())
@@ -1164,10 +1220,10 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
     {
         FuncCall f;
         f.func_id = dopl_;
-        dopl_full_Info* tmp_params = new dopl_full_Info;
+        dopl_full_Info *tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR; //тот что и в crtpl
         tmp_params->ReturnVar = 1;
 
         f.call_time = 0.00000100;		// call time
@@ -1187,7 +1243,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         tmp_params->ReturnVar = 0;
 
         //TODO: loop time!
-        f.call_time = 0.00000100;		// call time, c->time - это время цикла!
+        f.call_time = 100;		        // call time, c->time - это время цикла!
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
@@ -1200,7 +1256,7 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
         endpl_Info* tmp_params = new endpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR; //тот что и в crtpl
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1211,14 +1267,14 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
 
 
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
-    {
+    {        
         {
             FuncCall f;
             f.func_id = strtrd_;
             strtrd_Info* tmp_params = new strtrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = RID;//для различия
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
@@ -1233,17 +1289,18 @@ int Model_par(LoopGraph *loop, ParallelDirective *directive)
             waitrd_Info* tmp_params = new waitrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = RID;//для различия
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
             setVectorCallRet(&f);
 
             f.waitrd();
-        }
+        }        
     }
 
-    lastLR = LR;
+    if (printOut)
+        fprintf(printOut, "%s", debug.c_str());
     return 0;
 }
 
@@ -1934,7 +1991,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             }
             dir_type = dir_bin[i].data[0];
 
-            CurrInterval->copy(NullInterval); // reset CurrInterval
+            //CurrInterval->copy(NullInterval); // reset CurrInterval
 
             if (1 || mode) printf("scheme=%d directive=%d i=%d \n", scheme_id, dir_type, i);
             if (1 || mode)
@@ -2350,4 +2407,86 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     }
 
     return 0;
+}
+
+
+void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar, 
+                   const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict)
+{    
+    ps = new PS(mach_MYRINET, 4, 7.0, 0.004, 512); //MVS15k between nodes
+    //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, 512); //fastest communications
+
+    vector<long> testTopology = { 2, 4 };
+    //set configuration of PS
+    ps->setTopology(testTopology);
+
+    vector<long>	lb;
+    vector<long>	ASizeArray;
+    mach_Type		AMType;
+    int				AnumChanels = 1;
+    double			Ascale = 1.0;
+    double			ATStart;
+    double			ATByte;
+    double			AProcPower;
+    vector<double>  AvProcPower;
+
+    ps->nextPS(lb, ASizeArray, AMType, AnumChanels, Ascale, ATStart, ATByte, AProcPower, AvProcPower);
+
+    rootVM = new VM(ASizeArray, AMType, AnumChanels, Ascale, ATStart / 1000000.0, ATByte / 1000000.0, AProcPower, AvProcPower);
+    currentVM = rootVM;
+    rootProcCount = rootVM->getProcCount();
+
+    // времена работы каждого процессора
+    procElapsedTime = new double[rootProcCount];
+    for (int i = 0; i < rootProcCount; ++i)
+        procElapsedTime[i] = 0.0;
+
+    MinSizesOfAM.clear();
+    int maxSizeDist = 0;
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+
+        int countBlock = 0;
+        for (int z = 0; z < var->distRule.size(); ++z)
+            if (var->distRule[z] == dist::BLOCK)
+                ++countBlock;
+        maxSizeDist = std::max(maxSizeDist, countBlock);
+    }
+    MinSizesOfAM.resize(maxSizeDist);
+    std::fill(MinSizesOfAM.begin(), MinSizesOfAM.end(), 0);
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+        auto sizes = array->GetSizes();
+        int countBlock = 0;
+        for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
+        {
+            if (var->distRule[z] == dist::BLOCK)
+            {
+                MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
+                dim++;
+            }
+        }
+    }
+
+    for (auto &var : distVar)
+        Model_distr(var.first, var.second);
+    for (auto &array : allArrays)
+        if (!array->isTemplate() && !array->isLoopArray())
+            Model_align(array, regId);
+
+    for (auto &dir : dirsToPredict)
+    {
+        CurrInterval = new Interval(0);
+        Model_par(dir.first, dir.second);
+        CurrInterval->CalcIdleAndImbalance();
+        CurrInterval->Integrate();
+        delete CurrInterval;
+    }
+
+    delete rootVM;
+    delete ps;
 }

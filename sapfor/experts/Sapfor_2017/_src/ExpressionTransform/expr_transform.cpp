@@ -94,7 +94,8 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
         while(b != NULL)
         {
             ControlFlowItem *cfi = b->getStart();
-            while(cfi != NULL)
+            ControlFlowItem *till = b->getEnd()->getNext();
+            while(cfi != till)
             {
                 SgStatement *st = cfi->getStatement();
                 if(st && st->id() == stmt->id())
@@ -102,6 +103,7 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
                 st = cfi->getOriginalStatement();
                 if(st && st->id() == stmt->id())
                     return b;
+                cfi = cfi->getNext();
             }
             b = b->getLexNext();
         }
@@ -935,8 +937,8 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey,
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-    for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
-        b->clearGenKill();
+    /* Showtime */
+//    showDefsOfGraph(CGraph);
 }
 
 static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -1037,7 +1039,7 @@ static bool isInParallelRegion(SgStatement *func, const vector<ParallelRegion*> 
     auto last = func->lastNodeOfStmt();
     for (auto st = func; st != last; st = st->lexNext())
     {
-        if (getRegionByLine(regions, st->fileName(), st->lineNumber()))
+        if (getAllRegionsByLine(regions, st->fileName(), st->lineNumber()).size())
         {
             ok = true;
             break;

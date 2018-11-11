@@ -1,8 +1,8 @@
-#ifndef _XP_STRUCTS_H_
-#define _XP_STRUCTS_H_
+#pragma once 
 
 #include <vector>
 #include <list>
+#include "../Distribution/Distribution.h"
 
 typedef std::vector<int> vect_int;
 typedef std::vector<long> vect_long;
@@ -64,7 +64,7 @@ struct task_var
 	int id;
 	char *name; 
 	char *comment;
-	vector<struct classizes> values;
+	std::vector<struct classizes> values;
 };
 
 struct monom
@@ -84,12 +84,12 @@ struct expr
 	char *text;
 	char *polix_text;
 	bool is_line_expr;
-	vector<monom> monoms;
+	std::vector<monom> monoms;
 	bool can_be_calc; //may be only for debug
 
     float Calculate() { return 0.0; } //вычисляет
     float Calculate(float) { return 0.0; } //вычисляет если может, иначе присваивает float, can_be_calc=false
-    string Calculate(expr *express, var *v, expr *ex) { return ""; } //подставляет вместо переменной выражение
+    std::string Calculate(expr *express, var *v, expr *ex) { return ""; } //подставляет вместо переменной выражение
     char* find_varid() { return NULL; } //возвращает имя первой переменной в выражении
     int find_num(bool *can) { return 0; } //возвращает размер первого смещения в выражении
     var* find_v() { return NULL; } //возвращает первую переменную в выражении
@@ -103,10 +103,10 @@ struct var
 	char *type;
 	int type_size;
 	int rank;
-	vector<int> dim;
-	vector<bool> NotDistr; //заполняется в Find_loop_distr()
-	vector<expr *> low;
-	vector<expr *> hi;
+	std::vector<int> dim;
+	std::vector<bool> NotDistr; //заполняется в Find_loop_distr()
+	std::vector<expr *> low;
+	std::vector<expr *> hi;
 
 	bool io_restrict; //сюда кидаем и common признак, если плохой блок
 	bool call_restrict; //используется в вызове вcтроенной функции поэтому не может быть распределена
@@ -121,8 +121,8 @@ struct var
     //ставим в Find_loop_distr()
 	bool is_private; 	
 
-	vector <var *> io_rest_list; // последний в этом списке имеет io_restrict, остальные пишутся в одних массивах
-	vector <int> io_rest_line; // номера циклов связей массивов по записи и номер строки плохого оператора ввода-вывода
+	std::vector <var *> io_rest_list; // последний в этом списке имеет io_restrict, остальные пишутся в одних массивах
+	std::vector <int> io_rest_line; // номера циклов связей массивов по записи и номер строки плохого оператора ввода-вывода
 
 	bool is_private_in_one_loop;
 	var(int _id):id(_id){}
@@ -139,7 +139,7 @@ struct usage
 	long that_loop_id; 
 	char mode; // W or R
 	long oper;
-	vector<expr *> indexes;
+	std::vector<expr *> indexes;
 };
 
 struct oper
@@ -155,27 +155,27 @@ struct alloc
 	long oper_id;
 	long line;
 	var *v;
-	vector<expr *> low;
-	vector<expr *> hi;
+	std::vector<expr *> low;
+	std::vector<expr *> hi;
 };
 
 struct sector_usage
 {
 	long id;
 	var *v; //we assumed that such var exists in BD
-	vector<long> oper;
-	vector<expr *> min_ind;
-	vector<expr *> max_ind;
-	vector<expr *> step;
+	std::vector<long> oper;
+	std::vector<expr *> min_ind;
+	std::vector<expr *> max_ind;
+	std::vector<expr *> step;
 };
 
 struct glob_shadow
 {
 	var *v;
 	loop *loop;
-	vector<int> shad_wid_left;
-	vector<int> shad_wid_right;
-	vector<sector_usage *> write_use;
+	std::vector<int> shad_wid_left;
+	std::vector<int> shad_wid_right;
+	std::vector<sector_usage *> write_use;
 };
 
 /*
@@ -189,7 +189,7 @@ struct depend
 	int dimno;
 	struct var *loc_arr;
 	int loc_cnt;
-	vector<long> dep_usage_id;
+	std::vector<long> dep_usage_id;
 };*/
 
 struct loop
@@ -208,20 +208,20 @@ struct loop
 	bool iter_was_changed;
 
 	loop *parent;
-	vector<loop *> children;
-	vector<loop *> self_call;
+	std::vector<loop *> children;
+	std::vector<loop *> self_call;
 	bool tightly_with_parent;
 
-	vector<long> oper;
-	vector<long> oper_lines;
-	vector<usage> var_access;
-	//vector<depend> depends;
-	vector<var *> remote_vars; //remote operation in this node, not inner, not outer
+	std::vector<long> oper;
+	std::vector<long> oper_lines;
+	std::vector<usage> var_access;
+	//std::vector<depend> depends;
+	std::vector<var *> remote_vars; //remote operation in this node, not inner, not outer
 	bool is_io;
 	bool is_par;
 
-	vector<sector_usage> write_sect;
-	vector<sector_usage> read_sect;
+	std::vector<sector_usage> write_sect;
+	std::vector<sector_usage> read_sect;
 };
 
 struct routine
@@ -234,7 +234,7 @@ struct routine
 	long body_oper;
 	int file_id;
 	loop *root;
-	vector<var*> r_var;
+	std::vector<var*> r_var;
 };
 
 struct call
@@ -243,7 +243,7 @@ struct call
 	long oper_before;
 	long oper;
 	routine *rout;
-	vector<expr*> arg;
+	std::vector<expr*> arg;
 
 };
 
@@ -261,7 +261,7 @@ struct seq_loop  // getting unusefull
 struct my_red
 {	
     //ReductionOp type;
-	vector<var*> red_var;
+	std::vector<var*> red_var;
 	var *red_loc_arr;
 	int red_loc_cnt;
 };
@@ -269,28 +269,28 @@ struct my_red
 struct my_shad
 {	
     var * sh_var;
-	vector<long> lower;
-	vector<long> upper;
+	std::vector<long> lower;
+	std::vector<long> upper;
 	bool corner;
 };
 
 //================= Directives and Predict Results =====================
 struct dir_bin_data
-{	vector<int> data;
+{	std::vector<int> data;
 	float time;
 };
 
 struct data_distr_scheme
 {
 	int proc_id;
-	vector<var *> array;
-	vector<vect_int> dim_distr;
+	std::vector<var *> array;
+	std::vector<vect_int> dim_distr;
 };
 
 struct tmp_distr_var
 {
 	int id;
-	vector<int> proc_dim;
+	std::vector<int> proc_dim;
 };
 
 struct Interval_node
@@ -300,7 +300,7 @@ struct Interval_node
 	int type; //0=main  1=inner_seq
 	double iter_count;
 
-	vector<Interval_node *> children;
+	std::vector<Interval_node *> children;
 
 	void insert(loop *curr_loop, Interval *tmp_inter, int type, double times);
 	void add(loop *curr_loop, Interval *tmp_inter, int type, double times);
@@ -313,14 +313,14 @@ struct scheme_type
 	int id;
 	int xp_id;
 	char name[16];
-	vector <dir_bin_data> v_dir_bin;
-	vector <seq_loop> seq_loops;
-	vector <long> oper_line;
-	vector <long> oper_id;
-	vector <string> v_dir_str;
+	std::vector <dir_bin_data> v_dir_bin;
+	std::vector <seq_loop> seq_loops;
+	std::vector <long> oper_line;
+	std::vector <long> oper_id;
+	std::vector <std::string> v_dir_str;
 
-	vector<Interval *> results; // getting unusefull
-	vector<int> res_lines; // getting unusefull
+	std::vector<Interval *> results; // getting unusefull
+	std::vector<int> res_lines; // getting unusefull
 
 	struct Interval_node* Interval_tree;
 };
@@ -340,7 +340,7 @@ struct res
 struct conf	
 {	
     long proc_num;		
-	long_vect  proc_set;		
+	std::vector<long>  proc_set;		
 	long mark;	
 };
 
@@ -348,7 +348,7 @@ struct searched
 {
     long proc_num;		
 	int proc_id_diff;
-	long_vect  proc_set;		
+    std::vector<long>proc_set;
 	double time;	
 };
 
@@ -366,38 +366,40 @@ struct scheme_perf
 {
 	int sch_id;
 	int proc_num;
-	vector<long> proc_set;
+	std::vector<long> proc_set;
 
 	inter_perf main;
-	vector<inter_perf> intervals;
+	std::vector<inter_perf> intervals;
 };
 
-typedef vector<scheme_type> one_routine_all_scheme;
-typedef vector<var*> vect_var;
-typedef vector<usage*> vect_usage;
+typedef std::vector<scheme_type> one_routine_all_scheme;
+typedef std::vector<var*> vect_var;
+typedef std::vector<usage*> vect_usage;
 
 struct control_block
 {
-	vector<long> oper_line;
-	vector<long> oper_id;
+	std::vector<long> oper_line;
+	std::vector<long> oper_id;
 
 	bool flow_inside; //все операторы внутри блока идут последовательно. Нет переходов внутри и наружу.
 	control_block *next_block;
-	vector<control_block *> jump;
-	vector<var*> write_data;
-	vector<var*> read_data;
+	std::vector<control_block *> jump;
+	std::vector<var*> write_data;
+	std::vector<var*> read_data;
 };
 
 struct control_graph
 {
 	control_block *root_block;
-	vector<control_block> block;
+	std::vector<control_block> block;
 };
 
 struct associate_align
 {
 	// b(k)->a(k,m)
-	vector<int> dim_align; // dim_align[0]=0
+	std::vector<int> dim_align; // dim_align[0]=0
 	//and remember a(k,m) to make replace
 };
-#endif
+
+void predictScheme(const int regId, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
+                   const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict);

@@ -929,7 +929,7 @@ void    InsertReductions_H(SgExpression *red_op_list, int ilh);
 int LocElemNumber(SgExpression *en);
 int Reduction_Debug(SgStatement *stmt);
 int TestReductionClause(SgExpression *e);
-
+align *CopyAlignTreeNode(SgSymbol *ar);
 /*  acc.cpp */
 SgStatement *RegistrateDVMArray(SgSymbol *ar,int ireg,int inflag,int outflag);
 void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn);
@@ -1582,11 +1582,11 @@ SgExpression *LoadBG(SgExpression *gref);
 SgExpression *WaitBG(SgExpression *gref);
 SgExpression *CreateBG(int st_sign,int del_sign);
 SgExpression *InsertRemBuf(SgExpression *gref, SgExpression *buf);
-SgExpression *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign,int iplp, int iaxis,int icoeff,int iconst);
+SgStatement *CreateRemBuf(SgExpression *header,SgExpression *buffer,int st_sign,int iplp, int iaxis,int icoeff,int iconst);
 SgExpression *RemoteAccessKind(SgExpression *header,SgExpression *buffer,int st_sign,int iplp,int iaxis,int icoeff,int iconst,int ilsh,int ihsh);
-SgExpression *CreateRemBufP(SgExpression *header,SgExpression *buffer,int st_sign,SgExpression *psref,int icoord);
-SgExpression *LoadRemBuf(SgExpression *buf);
-SgExpression *WaitRemBuf(SgExpression *buf);
+SgStatement *CreateRemBufP(SgExpression *header,SgExpression *buffer,int st_sign,SgExpression *psref,int icoord);
+SgStatement *LoadRemBuf(SgExpression *buf);
+SgStatement *WaitRemBuf(SgExpression *buf);
 SgExpression *LoadIG(SgSymbol *group);
 SgExpression *WaitIG(SgSymbol *group);
 SgExpression *CreateIG(int st_sign,int del_sign);
