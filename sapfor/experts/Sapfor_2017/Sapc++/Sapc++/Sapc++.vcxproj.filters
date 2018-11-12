@@ -40,6 +40,12 @@
     <Filter Include="Исходные файлы\GraphCall">
       <UniqueIdentifier>{9da92901-a281-4cd6-b61c-0390a02b09a8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Исходные файлы\DirectiveAnalyzer">
+      <UniqueIdentifier>{f9d091f4-532b-4572-9e9a-5f80b8e012c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\LoopAnalyzer">
+      <UniqueIdentifier>{87d2a4f0-26c0-45a2-acd0-992c9f1be1bc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp">
@@ -65,6 +71,12 @@
     </ClCompile>
     <ClCompile Include="..\..\_src\GraphCall\graph_calls_base.cpp">
       <Filter>Исходные файлы\GraphCall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp">
+      <Filter>Исходные файлы\DirectiveAnalyzer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\_src\LoopAnalyzer\directive_creator_base.cpp">
+      <Filter>Исходные файлы\LoopAnalyzer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -106,6 +118,12 @@
     </ClInclude>
     <ClInclude Include="..\..\_src\Sapfor.h">
       <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h">
+      <Filter>Исходные файлы\DirectiveAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\_src\LoopAnalyzer\directive_creator.h">
+      <Filter>Исходные файлы\LoopAnalyzer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

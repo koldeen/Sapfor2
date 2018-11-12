@@ -364,3 +364,6 @@ private:
     std::vector<Statement*> userDvmRealignDirs;
     std::vector<Statement*> userDvmRedistrDirs;
 };
+
+ParallelRegion* getRegionByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);
+std::set<ParallelRegion*> getAllRegionsByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);

@@ -218,7 +218,7 @@ namespace Distribution
             sizesExpr = newSizesExpr;
             mappedDims = newMappedDims;
             depracateToDistribute = newDepr;
-            dimSize = sizes.size();
+            dimSize = (int)sizes.size();
         }
 
         int GetDimSize() const { return dimSize; }
@@ -374,6 +374,7 @@ namespace Distribution
             retVal += " " + name;
             retVal += " " + shortName;
             retVal += " " + TO_STR(dimSize);
+            retVal += " " + TO_STR(typeSize);
             retVal += " " + TO_STR(isNonDistribute);
             
             retVal += " " + TO_STR(locationPos.first);

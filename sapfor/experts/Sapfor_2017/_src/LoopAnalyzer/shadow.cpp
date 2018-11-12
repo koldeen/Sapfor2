@@ -172,7 +172,7 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
             else
             {
                 map<pair<string, string>, Expression*> remotes;
-                fillRemoteFromComment(stat, remotes, false, DVM_PARALLEL_ON_DIR);
+                fillRemoteFromComment(new Statement(stat), remotes, false, DVM_PARALLEL_ON_DIR);
                 for (auto &elem : remotes)
                     remotesNames.insert(elem.first.first);
                 pRem = remote;
@@ -585,7 +585,7 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
                 auto newShNode = new ShadowNode(st);
                 currF->allShadowNodes[st] = newShNode;
 
-                fillShadowAcrossFromParallel(SHADOW_RENEW_OP, st, newShNode->shadows, newShNode->corner);
+                fillShadowAcrossFromParallel(SHADOW_RENEW_OP, new Statement(st), newShNode->shadows, newShNode->corner);
                 newShNode->newShadows = newShNode->shadows;
                 newShNode->newCorner = newShNode->corner;
 

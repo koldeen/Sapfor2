@@ -122,6 +122,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
     <ClCompile Include="..\..\_src\Distribution\CreateDistributionDirs.cpp" />
     <ClCompile Include="..\..\_src\Distribution\Cycle.cpp" />
     <ClCompile Include="..\..\_src\Distribution\Distribution.cpp" />
@@ -129,9 +130,11 @@
     <ClCompile Include="..\..\_src\Distribution\GraphCSR.cpp" />
     <ClCompile Include="..\..\_src\GraphCall\graph_calls_base.cpp" />
     <ClCompile Include="..\..\_src\GraphLoop\graph_loops_base.cpp" />
+    <ClCompile Include="..\..\_src\LoopAnalyzer\directive_creator_base.cpp" />
     <ClCompile Include="..\..\_src\Utils\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\_src\DirectiveAnalyzer\DirectiveAnalyzer.h" />
     <ClInclude Include="..\..\_src\Distribution\Array.h" />
     <ClInclude Include="..\..\_src\Distribution\Arrays.h" />
     <ClInclude Include="..\..\_src\Distribution\CreateDistributionDirs.h" />
@@ -142,6 +145,7 @@
     <ClInclude Include="..\..\_src\Distribution\GraphCSR.h" />
     <ClInclude Include="..\..\_src\GraphCall\graph_calls.h" />
     <ClInclude Include="..\..\_src\GraphLoop\graph_loops.h" />
+    <ClInclude Include="..\..\_src\LoopAnalyzer\directive_creator.h" />
     <ClInclude Include="..\..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\..\_src\Sapfor.h" />
     <ClInclude Include="..\..\_src\Utils\utils.h" />

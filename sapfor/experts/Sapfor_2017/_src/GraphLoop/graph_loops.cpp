@@ -490,6 +490,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 }
 
                 newLoop->loop = new Statement(st);
+                newLoop->loopSymbol = st->symbol()->identifier();
 
                 SgStatement *lexPrev = st->lexPrev();
                 if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
