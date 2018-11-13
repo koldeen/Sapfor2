@@ -19,6 +19,7 @@
 #define RELEASE_CANDIDATE _WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
+#include "ParallelizationRegions/resolve_par_reg_conflicts.h"
 
 #include "Distribution/Distribution.h"
 #include "Distribution/GraphCSR.h"

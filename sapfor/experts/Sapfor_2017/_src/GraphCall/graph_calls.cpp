@@ -683,7 +683,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 fillInOut(currInfo, st, st->lastNodeOfStmt());
         }
 
-        if (isSPF_NoInline(st->lexNext()))
+        if (isSPF_NoInline(new Statement(st->lexNext())))
         {
             __spf_print(1, "set NOINLINE attribute for function '%s'\n", currFunc.c_str());
             currInfo->doNotInline = true;
@@ -777,7 +777,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 if (!dontFillFuncParam)
                     fillFuncParams(entryInfo, commonBlocks, st);
 
-                if (isSPF_NoInline(st->lexNext()))
+                if (isSPF_NoInline(new Statement(st->lexNext())))
                 {
                     __spf_print(1, "set NOINLINE attribute for function '%s'\n", entryName.c_str());
                     entryInfo->doNotInline = true;

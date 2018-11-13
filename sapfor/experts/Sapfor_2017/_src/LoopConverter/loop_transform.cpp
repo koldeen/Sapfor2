@@ -80,9 +80,9 @@ static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &
 {
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
-        fillPrivatesFromComment(data, privates);
-        fillReductionsFromComment(data, reduction);
-        fillReductionsFromComment(data, reduction_loc);
+        fillPrivatesFromComment(new Statement(data), privates);
+        fillReductionsFromComment(new Statement(data), reduction);
+        fillReductionsFromComment(new Statement(data), reduction_loc);
     }
 }
 

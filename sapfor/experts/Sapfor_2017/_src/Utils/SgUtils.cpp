@@ -533,7 +533,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
     {
         if (data)
         {
-            fillPrivatesFromComment(data, privatesVars);
+            Statement *sData = new Statement(data);
+            fillPrivatesFromComment(sData, privatesVars);
 
             // try to find reductions and set its symbols as private in 
             // current loop analysis for correct scalar detection in 
@@ -541,8 +542,8 @@ void tryToFindPrivateInAttributes(SgStatement *st, set<string> &privatesVars)
             map<string, set<string>> reductions;
             map<string, set<tuple<string, string, int>>> reductionsLoc;
 
-            fillReductionsFromComment(data, reductions);
-            fillReductionsFromComment(data, reductionsLoc);
+            fillReductionsFromComment(sData, reductions);
+            fillReductionsFromComment(sData, reductionsLoc);
 
             for (auto &redList : reductions)
                 privatesVars.insert(redList.second.begin(), redList.second.end());

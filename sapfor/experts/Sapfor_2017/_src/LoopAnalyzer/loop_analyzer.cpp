@@ -29,6 +29,8 @@ extern int passDone;
 #include "../Utils/errors.h"
 #include "loop_analyzer.h"
 #include "directive_parser.h"
+#include "directive_creator.h"
+
 #include "../Utils/SgUtils.h"
 #include "../Utils/AstWrapper.h"
 
@@ -735,9 +737,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     {
                         for (auto &data : getAttributes<SgStatement*, SgStatement*>(loop, set<int>{ SPF_ANALYSIS_DIR }))
                         {
-                            fillPrivatesFromComment(data, loopsPrivates);
-                            fillReductionsFromComment(data, loopsReductions);
-                            fillReductionsFromComment(data, loopsReductionsLoc);
+                            fillPrivatesFromComment(new Statement(data), loopsPrivates);
+                            fillReductionsFromComment(new Statement(data), loopsReductions);
+                            fillReductionsFromComment(new Statement(data), loopsReductionsLoc);
                         }
                     }
 
@@ -1738,8 +1740,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                         map<string, set<string>> reductions;
                         map<string, set<tuple<string, string, int>>> reductionsLoc;
 
-                        fillReductionsFromComment(data, reductions);
-                        fillReductionsFromComment(data, reductionsLoc);
+                        fillReductionsFromComment(new Statement(data), reductions);
+                        fillReductionsFromComment(new Statement(data), reductionsLoc);
 
                         hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
                         if (hasReduction)
@@ -1943,29 +1945,173 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
     }
 }
 
-static int getSizeOfType(SgType *type)
+//TODO: copy all functions from FDVM and fix them
+static inline int getStructureSize(SgSymbol *s)
 {
-    int ret = 4; // default integer
-    switch (type->variant())
+    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgSymbol *sf;
+
+    int n;
+    int size;
+    size = 0;
+
+    /*for (sf = FirstTypeField(s->type()); sf; sf = ((SgFieldSymb *)sf)->nextField())
     {
-    case T_FLOAT:
-    case T_INT:
-        ret = 4;
-        break;
-    case T_COMPLEX:
-    case T_DOUBLE:
-        ret = 8;
-        break;
-    case T_CHAR:
-        ret = 1;
-        break;
-    case T_DCOMPLEX:
-        ret = 16;
-        break;
-    default:
-        break;
+        if (IS_POINTER_F90(sf))
+        {
+            size = size + DVMTypeLength();
+            continue;
+        }
+        if (isSgArrayType(sf->type())) 
+        {
+            n = NumberOfElements(sf, cur_st, 2);
+            if (n != 0)
+                size = size + n * TypeSize(sf->type()->baseType());
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        else
+            size = size + TypeSize(sf->type());
+    }*/
+    return size;
+}
+
+static inline int getNumericTypeLength(SgType *t)
+{
+    SgExpression *le;
+    SgValueExp *ve;
+    if (t->variant() == T_STRING)  
+        return (0);
+
+    if (TYPE_RANGES(t->thetype)) 
+    {
+        le = t->length();
+        if (ve = isSgValueExp(le))
+            return ve->intValue();
+        else
+            return 0;
     }
-    return ret;
+
+    if (TYPE_KIND_LEN(t->thetype)) 
+    {
+        le = t->selector()->lhs();
+        if (ve = isSgValueExp(le))
+            if (t->variant() == T_COMPLEX || t->variant() == T_DCOMPLEX)
+                return 2 * ve->intValue();
+            else
+                return ve->intValue();
+        else
+            return 0;
+    }
+
+    return 0;
+}
+
+static inline int getIntrinsicTypeSize(SgType *t)
+{
+    const int default_real_size = 4;
+    const int default_integer_size = 4;
+    switch (t->variant()) 
+    {
+    case T_INT:
+    case T_BOOL:     
+        return default_integer_size;
+    case T_FLOAT:    
+        return default_real_size;
+    case T_COMPLEX: 
+        return 2 * default_real_size;
+    case T_DOUBLE:
+        return 2 * default_real_size;
+    case T_DCOMPLEX: 
+        return 4 * default_real_size;
+    case T_STRING:
+    case T_CHAR:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static SgExpression* getLengthOfKindExpr(SgType *t, SgExpression *se, SgExpression *le)
+{
+    switch (t->variant())
+    {
+    case T_INT:
+    case T_FLOAT:
+    case T_BOOL:
+    case T_DOUBLE:
+        return se->lhs();
+    case T_COMPLEX:
+    case T_DCOMPLEX:
+        return &(*new SgValueExp(2) * (*(se->lhs())));
+    case T_CHAR:
+    case T_STRING:
+    {
+        SgExpression *length, *kind;
+        if (se->rhs() && se->rhs()->variant() == LENGTH_OP)
+        {
+            length = se->rhs()->lhs();
+            kind = se->lhs()->lhs();
+        }
+        else if (se->rhs() && se->rhs()->variant() != LENGTH_OP)
+        {
+            length = se->lhs()->lhs();
+            kind = se->rhs()->lhs();
+        }
+        else
+        {
+            length = se->lhs();
+            kind = NULL;
+        }
+        length = le ? le : length;
+        if (kind)
+            return &(*length * (*kind));
+        else
+            return length;
+    }
+    default:
+        return(NULL);
+    }
+}
+
+static SgExpression* getTypeLengthExpr(SgType *t)
+{
+    SgExpression *len;
+    SgExpression *selector;
+    if (t->variant() == T_DERIVED_TYPE)
+        return new SgValueExp(getStructureSize(t->symbol()));
+
+    len = TYPE_RANGES(t->thetype) ? t->length() : NULL;
+    selector = TYPE_KIND_LEN(t->thetype) ? t->selector() : NULL;
+
+    if (!len && !selector) //the number of bytes is not specified in type declaration statement
+        return (new SgValueExp(getIntrinsicTypeSize(t)));
+    else if (len && !selector)   //INTEGER*2,REAL*8,CHARACTER*(N+1)
+        return CalculateInteger(len);
+    else
+        return CalculateInteger(getLengthOfKindExpr(t, selector, len)); //specified kind or/and len
+}
+
+static inline int getSizeOfType(SgType *t)
+{
+    int len = -1;
+    if (IS_INTRINSIC_TYPE(t))
+        return getIntrinsicTypeSize(t);
+    if (t->variant() == T_DERIVED_TYPE)  
+        return getStructureSize(t->symbol());
+    if (len = getNumericTypeLength(t))
+        return len;
+
+    SgExpression *le = getTypeLengthExpr(t);
+    if (le->isInteger()) 
+    {
+        len = le->valueInteger();
+        len = len < 0 ? 0 : len; //according to standard F90
+    }
+    else
+        len = -1; //may be error situation
+    return len;
 }
 
 static void findArrayRefs(SgExpression *ex,
@@ -1990,6 +2136,11 @@ static void findArrayRefs(SgExpression *ex,
             if (symb->type()->variant() == T_ARRAY)
             {
                 const int typeSize = getSizeOfType(symb->type()->baseType());
+                if (typeSize == 0)
+                {
+                    __spf_print(1, "Wrong type size for array %s\n", symb->identifier());
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
 
                 SgStatement *decl = declaratedInStmt(symb);
 
@@ -2123,11 +2274,11 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
             //after SPF preprocessing 
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
-                fillPrivatesFromComment(data, it->second);
+                fillPrivatesFromComment(new Statement(data), it->second);
 
             //before SPF preprocessing 
             if (iter->variant() == SPF_ANALYSIS_DIR)
-                fillPrivatesFromComment(iter, it->second);
+                fillPrivatesFromComment(new Statement(iter), it->second);
         }
     }
 
@@ -2160,17 +2311,17 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             //after SPF preprocessing 
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(iter, set<int>{ SPF_ANALYSIS_DIR }))
             {
-                fillPrivatesFromComment(data, privates);
-                fillReductionsFromComment(data, reductions);
-                fillReductionsFromComment(data, reductionsLoc);
+                fillPrivatesFromComment(new Statement(data), privates);
+                fillReductionsFromComment(new Statement(data), reductions);
+                fillReductionsFromComment(new Statement(data), reductionsLoc);
             }
 
             //before SPF preprocessing 
             if (iter->variant() == SPF_ANALYSIS_DIR)
             {
-                fillPrivatesFromComment(iter, privates);
-                fillReductionsFromComment(iter, reductions);
-                fillReductionsFromComment(iter, reductionsLoc);
+                fillPrivatesFromComment(new Statement(iter), privates);
+                fillReductionsFromComment(new Statement(iter), reductions);
+                fillReductionsFromComment(new Statement(iter), reductionsLoc);
             }
 
             if (iter->variant() == USE_STMT)

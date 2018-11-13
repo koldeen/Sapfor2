@@ -42,11 +42,6 @@ void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile,
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
-void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
-                              std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
-                              std::vector<Messages> &messagesForFile);
-
 void selectParallelDirectiveForVariant(SgFile *file, 
                                        ParallelRegion *currReg,
                                        DIST::GraphCSR<int, double, attrType> &reducedG,

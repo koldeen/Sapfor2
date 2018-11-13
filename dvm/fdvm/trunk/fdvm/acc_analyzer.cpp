@@ -60,8 +60,8 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
     return ret;
 }
 
-template<typename fillType>
-void fillPrivatesFromComment(SgStatement *st, std::set<fillType> &privates);
+#include "../_src/Utils/AstWrapper.h"
+template<typename fillType> void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);
 
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
 {
@@ -79,7 +79,7 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
         }
 
         set<string> privates;
-        fillPrivatesFromComment(stmt, privates);
+        fillPrivatesFromComment(new Statement(stmt), privates);
         if (privates.find(t) != privates.end())
             return;
     }
