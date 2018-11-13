@@ -21,9 +21,9 @@ using std::make_pair;
 
 static int getIntervalNumber(const int fileId, const int lineNumber, const int regionId)
 {
-    int fileMask = 0b11111111;
-    int lineMask = 0b1111111111111111111;
-    int regionMask = 0b1111;
+    int fileMask = 0xFF;
+    int lineMask = 0x7FFFF;
+    int regionMask = 0xF;
 
     int filePart = fileMask & fileId;
     int linePart = lineMask & lineNumber;
@@ -300,16 +300,19 @@ static void recursiveFill(SgStatement *st,
                 checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
                 checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
 
-                auto commonBlock = isInCommon(commonBlocks, arrayName);
-                if (commonBlock)
+                if (!array->GetNonDistributeFlag())
                 {
-                    if (isSgExecutableStatement(st))
-                        region->AddUsedCommonArray(func, array, lines);
+                    auto commonBlock = isInCommon(commonBlocks, arrayName);
+                    if (commonBlock)
+                    {
+                        if (isSgExecutableStatement(st))
+                            region->AddUsedCommonArray(func, array, lines);
 
-                    allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                        allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                    }
+                    else if (!lines.isImplicit())
+                        region->AddUsedLocalArray(func, array, lines);
                 }
-                else if (!lines.isImplicit())
-                    region->AddUsedLocalArray(func, array, lines);
             }
         }
 
@@ -653,8 +656,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
                 // just use previous created symbol
                 newArrSymb = itt->second.second;
 
-            if (!newArrSymb)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            checkNull(newArrSymb, convertFileName(__FILE__).c_str(), __LINE__);
 
             // inserting newArrSymb to COMM_STAT
             if (!curNode)
@@ -824,16 +826,14 @@ static bool replaceCommonArray(const string &fileName,
                         if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
                         {
                             DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
-
-                            if (!commArr)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            checkNull(commArr, convertFileName(__FILE__).c_str(), __LINE__);
 
                             auto itt = it->second.find(commArr);
                             if (itt == it->second.end())
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                             replaceSymbol(fileName, lines, varName, itt->second.second);
-                            if (needInsertCopying && !array->GetNonDistributeFlag())
+                            if (needInsertCopying)
                                 insertArrayCopying(fileName, lines, varSymb, itt->second.second);
 
                             // no error
@@ -1094,7 +1094,7 @@ static void copyFunction(ParallelRegion *region,
                                 string varName = varSymb->identifier();
                                 DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
 
-                                if (array)
+                                if (array && !array->GetNonDistributeFlag())
                                 {
                                     auto varsOnPos = getArraySynonyms(array);
 
@@ -1106,9 +1106,7 @@ static void copyFunction(ParallelRegion *region,
                                     if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
                                     {
                                         DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
-
-                                        if (!commArr)
-                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                        checkNull(commArr, convertFileName(__FILE__).c_str(), __LINE__);
 
                                         auto itt = it->second.find(commArr);
                                         if (itt == it->second.end())
@@ -1154,8 +1152,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 for (auto &lines : arrayLines.second)
                 {
                     replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
-                    if (!arrayLines.first->GetNonDistributeFlag())
-                        insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                    insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
                 }
             }
         }
