@@ -37,6 +37,7 @@ using std::string;
 
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
+extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs);
 
 static const set<string> *currentNonDistrArrays = NULL;
 static map<SgSymbol*, string> varInOut;
@@ -98,13 +99,33 @@ bool isRemovableDependence(const depNode *currNode, const set<string> &privVars)
     return result;
 }
 
+static SgStatement* getCurrentFunc(SgStatement *st)
+{
+    while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
+        st = st->controlParent();
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+    return st;
+}
+
+depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const set<string> *privVars)
+{
+    SgForStmt *currLoopRef = (SgForStmt*)currLoop->loop->GetOriginal();
+    double t = omp_get_wtime();
+    depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, *privVars);
+    t = omp_get_wtime() - t;
+    if (t > 1.0)
+        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+    return depg;
+}
+
 // try to find dependencies: reductions and privates for scalar 
 //                           and regular and other for arrrays
 //TODO: add optimization - dont call omega test for arrays many times
 void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
                            set<SgStatement*> &funcWasInit, SgFile *file, vector<ParallelRegion*> regions,
                            vector<Messages> *currMessages,
-                           map<SgExpression*, string> &collection)
+                           map<SgExpression*, string> &collection,
+                           const map<string, FuncInfo*> &allFuncs)
 {
     auto it = allLoops.find(currLoop->lineNum);
     if (it == allLoops.end())
@@ -135,14 +156,15 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         if (funcWasInit.find(func) == funcWasInit.end())
         {
             funcWasInit.insert(func);
-            initializeDepAnalysisForFunction(file, func);
+            initializeDepAnalysisForFunction(file, func, allFuncs);
         }
 
-        double t = omp_get_wtime();
-        depGraph *depg = new depGraph(file, currLoopRef->controlParent(), currLoopRef, privVars);
+        depGraph *depg = getDependenciesGraph(currLoop, file, &privVars);
+        /*double t = omp_get_wtime();
+        depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, privVars);
         t = omp_get_wtime() - t;
         if (t > 1.0)
-            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);*/
 
         if (depg)
         {
@@ -317,6 +339,6 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         currLoop->addConflictMessages(currMessages);
     }
     
-    for (int k = 0; k < currLoop->childs.size(); ++k)
-        tryToFindDependencies(currLoop->childs[k], allLoops, funcWasInit, file, regions, currMessages, collection);
+    for (int k = 0; k < currLoop->children.size(); ++k)
+        tryToFindDependencies(currLoop->children[k], allLoops, funcWasInit, file, regions, currMessages, collection, allFuncs);
 }

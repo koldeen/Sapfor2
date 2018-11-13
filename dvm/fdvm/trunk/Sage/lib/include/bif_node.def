@@ -173,7 +173,7 @@ DEFNODECODE(STRING_VAL,"nodetext",'c',0,LLNODE,			'_','c','_','_','_')
 DEFNODECODE(KEYWORD_VAL,"nodetext",'c',0,LLNODE,		'_','c','_','_','_')
 DEFNODECODE(COMPLEX_VAL,"nodetext",'c',0,LLNODE,		'_','c','_','_','_')
 
-DEFNODECODE(CONST_REF,"nodetext",'r',2,LLNODE,			'_','_','_','_','_')
+DEFNODECODE(CONST_REF,"nodetext",'r',0,LLNODE,			'_','_','s','_','_')
 DEFNODECODE(VAR_REF,"nodetext",'r',0,LLNODE,			'_','_','s','_','_')
 DEFNODECODE(ARRAY_REF,"nodetext",'r',1,LLNODE,			'_','_','s','_','_')
 DEFNODECODE(PROCESSORS_REF,"nodetext",'r',1,LLNODE,		'_','_','s','_','_')

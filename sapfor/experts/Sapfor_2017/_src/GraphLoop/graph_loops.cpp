@@ -11,6 +11,7 @@
 #include <string>
 
 #include "dvm.h"
+#include "../Sapfor.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../ExpressionTransform/expr_transform.h"
@@ -438,10 +439,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
-                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT } );
+                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
-                newLoop->hasImpureCalls = false;
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 
@@ -490,6 +490,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 }
 
                 newLoop->loop = new Statement(st);
+                newLoop->loopSymbol = st->symbol()->identifier();
 
                 SgStatement *lexPrev = st->lexPrev();
                 if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
@@ -499,8 +500,9 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                     loopGraph.push_back(newLoop);
                 else
                 {
-                    currLoop->childs.push_back(newLoop);
-                    currLoop->childs.back()->parent = parentLoops.back();
+                    currLoop->children.push_back(newLoop);
+                    currLoop->children.back()->parent = parentLoops.back();
+                    currLoop->children.back()->funcParent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);
@@ -523,7 +525,6 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             {
                 string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
                 currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
-                currLoop->hasImpureCalls = true; // has at least one potentially impure call
             }
             else if (currLoop)
             {
@@ -547,7 +548,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
 void LoopGraph::recalculatePerfect()
 {
     perfectLoop = ((SgForStmt*)(loop->GetOriginal()))->isPerfectLoopNest();
-    for (auto &loop : childs)
+    for (auto &loop : children)
         loop->recalculatePerfect();
 }
 
@@ -575,7 +576,7 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
 static int calculateNormalChildSize(const LoopGraph *currLoop)
 {
     int count = 0;
-    for (auto &elem : currLoop->childs)
+    for (auto &elem : currLoop->children)
         count += (elem->lineNum > 0) ? 1 : 0;
     return count;
 }
@@ -603,8 +604,8 @@ void convertToString(const LoopGraph *currLoop, string &result)
         for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
             result += " " + std::to_string(currLoop->linesOfIO[i]);
 
-        for (int i = 0; i < (int)currLoop->childs.size(); ++i)
-            convertToString(currLoop->childs[i], result);
+        for (int i = 0; i < (int)currLoop->children.size(); ++i)
+            convertToString(currLoop->children[i], result);
     }
 }
 #undef DEBUG

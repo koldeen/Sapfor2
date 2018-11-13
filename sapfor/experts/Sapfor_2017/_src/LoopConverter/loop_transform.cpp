@@ -21,15 +21,15 @@ using std::set;
 static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
 {
     loopTopMap[current] = top;
-    for (int i = 0; i < current->childs.size(); ++i)
-        buildTopParentLoop(current->childs[i], top, loopTopMap);
+    for (int i = 0; i < current->children.size(); ++i)
+        buildTopParentLoop(current->children[i], top, loopTopMap);
 }
 
 static void buildLoopMap(LoopGraph *current, map<PTR_BFND, LoopGraph*> &loopMap)
 {
     loopMap[current->loop->thebif] = current;
-    for (int i = 0; i < current->childs.size(); ++i)
-        buildLoopMap(current->childs[i], loopMap);
+    for (int i = 0; i < current->children.size(); ++i)
+        buildLoopMap(current->children[i], loopMap);
 }
 
 void reverseCreatedNestedLoops(const string &file, vector<LoopGraph*> &loopsInFile)
@@ -80,9 +80,9 @@ static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &
 {
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
-        fillPrivatesFromComment(data, privates);
-        fillReductionsFromComment(data, reduction);
-        fillReductionsFromComment(data, reduction_loc);
+        fillPrivatesFromComment(new Statement(data), privates);
+        fillReductionsFromComment(new Statement(data), reduction);
+        fillReductionsFromComment(new Statement(data), reduction_loc);
     }
 }
 
@@ -93,7 +93,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     // has non nested child loop
     __spf_print(1, "  createNestedLoops for loop at %d. Start\n", current->lineNum);
     bool outerTightened = false;
-    bool loopCondition = current->childs.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
+    bool loopCondition = current->children.size() == 1 && current->perfectLoop == 1 && !current->hasLimitsToParallel();
 
     // TODO: need to rewrite
     /*

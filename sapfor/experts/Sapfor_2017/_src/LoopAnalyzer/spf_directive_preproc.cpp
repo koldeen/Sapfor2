@@ -73,7 +73,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_ANALYSIS_DIR }))
     {
         set<string> privates;
-        fillPrivatesFromComment(data, privates);
+        fillPrivatesFromComment(new Statement(data), privates);
 
         retVal = retVal || privates.find(symbol->identifier()) != privates.end();
         if (retVal)
@@ -679,7 +679,7 @@ static bool checkRemote(SgStatement *st,
 }
 
 static bool checkParallelRegions(SgStatement *st,
-                                 const map<string, CommonBlock> &commonBlocks,
+                                 const map<string, CommonBlock> *commonBlocks,
                                  vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -725,20 +725,23 @@ static bool checkParallelRegions(SgStatement *st,
                     break;
             }
 
-            // common blocks checking
-            for (auto &commonBlockPair : commonBlocks)
+            if (commonBlocks)
             {
-                for (auto &variable : commonBlockPair.second.getVariables())
+                // common blocks checking
+                for (auto &commonBlockPair : *commonBlocks)
                 {
-                    if (variable.getName() == identSymbol->identifier())
+                    for (auto &variable : commonBlockPair.second.getVariables())
                     {
-                        __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
+                        if (variable.getName() == identSymbol->identifier())
+                        {
+                            __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
-                        string message;
-                        __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identSymbol->identifier(), commonBlockPair.first.c_str());
-                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
+                            string message;
+                            __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identSymbol->identifier(), commonBlockPair.first.c_str());
+                            messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
 
-                        retVal = false;
+                            retVal = false;
+                        }
                     }
                 }
             }
@@ -858,7 +861,7 @@ static bool checkParallelRegions(SgStatement *st,
 }
 
 static inline bool processStat(SgStatement *st, const string &currFile,
-                               const map<string, CommonBlock> &commonBlocks,
+                               const map<string, CommonBlock> *commonBlocks,
                                vector<Messages> &messagesForFile)
 {
     bool retVal = true;
@@ -901,7 +904,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // !$SPF ANALYSIS
             // PRIVATE(VAR)
             set<SgSymbol*> privates;
-            fillPrivatesFromComment(attributeStatement, privates);
+            fillPrivatesFromComment(new Statement(attributeStatement), privates);
             if (privates.size())
             {
                 bool result = checkPrivate(st, attributeStatement, privates, messagesForFile);
@@ -911,8 +914,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
             map<string, set<SgSymbol*>> reduction;
             map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
-            fillReductionsFromComment(attributeStatement, reduction);
-            fillReductionsFromComment(attributeStatement, reductionLoc);
+            fillReductionsFromComment(new Statement(attributeStatement), reduction);
+            fillReductionsFromComment(new Statement(attributeStatement), reductionLoc);
             if (reduction.size())
             {
                 bool result = checkReduction(st, attributeStatement, reduction, messagesForFile);
@@ -925,8 +928,8 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // !$SPF PARALLEL
             // SHADOW (VAR(list of  shadows)) / ACROSS (VAR(list of  shadows))
             vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> data;
-            fillShadowAcrossFromComment(SHADOW_OP, attributeStatement, data);
-            fillShadowAcrossFromComment(ACROSS_OP, attributeStatement, data);
+            fillShadowAcrossFromComment(SHADOW_OP, new Statement(attributeStatement), data);
+            fillShadowAcrossFromComment(ACROSS_OP, new Statement(attributeStatement), data);
             if (data.size())
             {
                 bool result = checkShadowAcross(st, attributeStatement, data, messagesForFile);
@@ -935,7 +938,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
 
             // REMOTE_ACCESS (EXPR)
             map<pair<SgSymbol*, string>, Expression*> remote;
-            fillRemoteFromComment(attributeStatement, remote, true);
+            fillRemoteFromComment(new Statement(attributeStatement), remote, true);
             if (remote.size())
             {
                 bool result = checkRemote(st, attributeStatement, remote, messagesForFile);
@@ -946,7 +949,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF TRANSFORM
             // NOINLINE
-            if (isSPF_NoInline(st))
+            if (isSPF_NoInline(new Statement(st)))
             {
                 SgStatement *prev = st->lexPrev();
                 const int prevVar = prev->variant();
@@ -962,7 +965,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     return retVal;
 }
 
-static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
+static bool processModules(vector<SgStatement*> &modules, const string &currFile, const map<string, CommonBlock> *commonBlocks, vector<Messages> &messagesForFile)
 {
     bool retVal = true;
 
@@ -990,6 +993,41 @@ static bool processModules(vector<SgStatement*> &modules, const string &currFile
     return retVal;
 }
 
+bool check_par_reg_dirs(SgFile *file, vector<Messages> &messagesForFile)
+{
+    int funcNum = file->numberOfFunctions();
+    const string currFile = file->filename();
+
+    bool noError = true;
+
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+        while (st != lastNode)
+        {
+            currProcessing.second = NULL;
+            if (st == NULL)
+            {
+                __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
+                break;
+            }
+
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            if (st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR)
+            {
+                bool result = checkParallelRegions(st, NULL, messagesForFile);
+                noError = noError && result;
+            }                       
+            st = st->lexNext();
+        }
+    }
+
+    return noError;
+}
+
 bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlocks, vector<Messages> &messagesForFile)
 {
     int funcNum = file->numberOfFunctions();
@@ -1013,7 +1051,7 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            bool result = processStat(st, currFile, commonBlocks, messagesForFile);
+            bool result = processStat(st, currFile, &commonBlocks, messagesForFile);
             noError = noError && result;
 
             SgStatement *next = st->lexNext();
@@ -1026,7 +1064,7 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
 
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
-    bool result = processModules(modules, currFile, commonBlocks, messagesForFile);
+    bool result = processModules(modules, currFile, &commonBlocks, messagesForFile);
     noError = noError && result;
     return noError;
 }
@@ -1323,7 +1361,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
 
             set<string> added;
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(itLoop->second, set<int>{ SPF_ANALYSIS_DIR }))
-                fillPrivatesFromComment(data, added);
+                fillPrivatesFromComment(new Statement(data), added);
 
             int uniq = 0;
             int k = 0;

@@ -60,8 +60,8 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
     return ret;
 }
 
-template<typename fillType>
-void fillPrivatesFromComment(SgStatement *st, std::set<fillType> &privates);
+#include "../../../../sapfor/experts/Sapfor_2017/_src/Utils/AstWrapper.h"
+template<typename fillType> void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);
 
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
 {
@@ -79,7 +79,7 @@ inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
         }
 
         set<string> privates;
-        fillPrivatesFromComment(stmt, privates);
+        fillPrivatesFromComment(new Statement(stmt), privates);
         if (privates.find(t) != privates.end())
             return;
     }
@@ -155,6 +155,9 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"fnpr", 4, { {1, NULL, INTRINSIC_IN},{ 2, NULL, INTRINSIC_IN },{ 3, NULL, INTRINSIC_IN },{ 4, NULL, INTRINSIC_IN } } },
     {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
+
+static map<SgStatement*, ControlFlowGraph*> CFG_cache;
+
 
 static bool isIntrinsicFunctionNameACC(char* name)
 {
@@ -340,8 +343,9 @@ void Private_Vars_Analyzer(SgStatement* start)
     //stage 3: fulfilling loop data
     FillPrivates(CGraph);
 
-
+#if !__SPF
     delete CGraph;
+#endif
 
     if (privateDelayedList)
         delete privateDelayedList;
@@ -762,15 +766,25 @@ AnalysedCallsList* CallData::GetDataForGraph(ControlFlowGraph* s)
 
 ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, CallData* calls, CommonData* commons)
 {
-    if (start == NULL) {
+    if (start == NULL) 
+    {
         //is_correct = "no body for call found";
         return NULL;
     }
+
+    ControlFlowGraph *cfgRet = NULL;
+    if (CFG_cache.find(start) != CFG_cache.end())
+        return CFG_cache[start];
+
     doLoops l;
     ControlFlowItem* funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
     fillLabelJumps(funcGraph);
     setLeaders(funcGraph);
-    return new ControlFlowGraph(false, main, funcGraph, NULL);
+
+    
+    cfgRet = new ControlFlowGraph(false, main, funcGraph, NULL);
+    CFG_cache[start] = cfgRet;
+    return cfgRet;
 }
 
 void FillCFGSets(ControlFlowGraph* graph)
@@ -3407,7 +3421,9 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntr
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
 #endif
-    disabled = false;
+    // TODO: need to check all alhorithm!!
+    disabled = true;
+
     if (!r)
         subscripts = 0;
     else

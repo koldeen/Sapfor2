@@ -12,6 +12,7 @@
 #include "../Utils/errors.h"
 #include "../Utils/SgUtils.h"
 #include "../Sapfor.h"
+#include "../GraphCall/graph_calls_func.h"
 
 #include "dvm.h"
 
@@ -37,6 +38,10 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
         {
             if (ex->symbol() && OriginalSymbol(ex->symbol())->identifier() == arrayName)
             {
+                SgSymbol *symb = OriginalSymbol(ex->symbol());
+                SgStatement *decl = declaratedInStmt(symb);
+                const DIST::Array *currArray = getArrayFromDeclarated(decl, arrayName);
+
                 SgArrayRefExp *ref = (SgArrayRefExp*)ex;
 
                 int countOfShadows = 0;
@@ -53,10 +58,12 @@ static bool findArrayRefAndCheck(SgExpression *ex, const string &arrayName, cons
                     }
                     else if (coefs.size() == 0)
                     {
-                        __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d\n", arrayName.c_str(), line);
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        if (!currArray->IsDimDepracated(i))
+                        {
+                            __spf_print(1, "error in ARRAY_REF coeffs: %s at line %d at %d subscript\n", arrayName.c_str(), line, i);
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
                     }
-
                 }
 
                 if (countOfShadows > 1)
@@ -179,6 +186,20 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
+static inline SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig)
+{
+    if (byUse.size())
+    {
+        auto it = byUse.find(orig->identifier());
+        if (it == byUse.end())
+            return orig;
+        else
+            return *(it->second.begin());
+    }
+    else
+        return orig;
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -191,6 +212,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 {
     string directive = "";
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
+
+    map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(loop->GetOriginal());
 
     if (langType == LANG_F)
     {
@@ -348,7 +371,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope)));
                     for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
                         newArrayRef->addSubscript(*elem);
 
@@ -414,7 +437,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     }
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*currArray->GetDeclSymbol());
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol()));
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     for (auto &elem : genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1]))

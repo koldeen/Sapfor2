@@ -727,6 +727,7 @@ public:
 #endif
     }
     inline const std::string& getVarName() const { return varName; }
+    inline const SgSymbol* getSymbol() const { return var; }
     inline bool isPointer() const { return pointer; }
     inline bool operator<(const SymbolKey &rhs) const   { return varName < rhs.varName; }
     inline bool operator==(const SymbolKey &rhs) const  { return varName == rhs.varName; }
@@ -739,7 +740,8 @@ private:
     std::string unparsed;
 public:
     ExpressionValue(): exp(NULL), unparsed("") {}
-    ExpressionValue(SgExpression *e): exp(e), unparsed(e->unparse()) {}
+    ExpressionValue(SgExpression *e): exp(e), unparsed(e->unparse()) { }
+    ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp) { }
     inline SgExpression* getExp() const { return exp; }
     inline const std::string& getUnparsed() const { return unparsed; }
     inline bool operator<(const ExpressionValue &other) const   { return unparsed < other.unparsed; }
@@ -789,13 +791,13 @@ class CBasicBlock
     void processReadStat(SgStatement* readSt);
     std::map <SymbolKey, std::set<SgExpression*>> gen_p;
     std::set <SymbolKey> kill_p;
-    std::map <SymbolKey, std::set<ExpressionValue>> in_defs_p;
-    std::map <SymbolKey, std::set<ExpressionValue>> out_defs_p;
+    std::map <SymbolKey, std::set<ExpressionValue*>> in_defs_p;
+    std::map <SymbolKey, std::set<ExpressionValue*>> out_defs_p;
 
     std::map <SymbolKey, SgExpression*> gen;
     std::set <SymbolKey> kill;
-    std::map <SymbolKey, std::set<ExpressionValue>> in_defs;
-    std::map <SymbolKey, std::set<ExpressionValue>> out_defs;
+    std::map <SymbolKey, std::set<ExpressionValue*>> in_defs;
+    std::map <SymbolKey, std::set<ExpressionValue*>> out_defs;
 #endif
 
 public:
@@ -889,15 +891,15 @@ public:
 
     inline std::map<SymbolKey, std::set<SgExpression*>>* getGenP() { return &gen_p; }
     inline std::set<SymbolKey>* getKillP() { return &kill_p; }
-    inline void setInDefsP(std::map<SymbolKey, std::set<ExpressionValue>>* inDefsP) { in_defs_p = *inDefsP; }
-    inline std::map<SymbolKey, std::set<ExpressionValue>>* getInDefsP() { return &in_defs_p; }
-    inline std::map<SymbolKey, std::set<ExpressionValue>>* getOutDefsP() { return &out_defs_p; }
+    inline void setInDefsP(std::map<SymbolKey, std::set<ExpressionValue*>>* inDefsP) { in_defs_p = *inDefsP; }
+    inline std::map<SymbolKey, std::set<ExpressionValue*>>* getInDefsP() { return &in_defs_p; }
+    inline std::map<SymbolKey, std::set<ExpressionValue*>>* getOutDefsP() { return &out_defs_p; }
 
     inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
     inline std::set<SymbolKey>* getKill() { return &kill; }
-    inline void setInDefs(std::map<SymbolKey, std::set<ExpressionValue>>* inDefs) { in_defs = *inDefs; }
-    inline std::map<SymbolKey, std::set<ExpressionValue>>* getInDefs() { return &in_defs; }
-    inline std::map<SymbolKey, std::set<ExpressionValue>>* getOutDefs() { return &out_defs; }
+    inline void setInDefs(std::map<SymbolKey, std::set<ExpressionValue*>>* inDefs) { in_defs = *inDefs; }
+    inline std::map<SymbolKey, std::set<ExpressionValue*>>* getInDefs() { return &in_defs; }
+    inline std::map<SymbolKey, std::set<ExpressionValue*>>* getOutDefs() { return &out_defs; }
 
 #endif
 };

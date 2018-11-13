@@ -66,8 +66,8 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 					DvmhRegion dvmhRegion(loopNode);
 					regions.push_back(dvmhRegion);
 				}
-			} else if (loopNode->loop->lexPrev()->variant() != DVM_PARALLEL_ON_DIR && loopNode->childs.size() > 0) 
-				findEdgesForRegions(loopNode->childs); 
+			} else if (loopNode->loop->lexPrev()->variant() != DVM_PARALLEL_ON_DIR && loopNode->children.size() > 0) 
+				findEdgesForRegions(loopNode->children); 
     }
 }
 
@@ -135,7 +135,7 @@ LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop) {
 	bool hasImpureCalls = loopChecks.hasImpureCalls;
 	bool usesIO = loopChecks.usesIO;
 
-	for (auto &nestedLoop: loop->childs) {
+	for (auto &nestedLoop: loop->children) {
 			loopChecks = updateLoopNode(nestedLoop);
 
 			hasImpureCalls |= loopChecks.hasImpureCalls;
