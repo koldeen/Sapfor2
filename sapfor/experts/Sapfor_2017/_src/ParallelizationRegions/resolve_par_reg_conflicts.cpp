@@ -642,7 +642,7 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     insertPlace->insertStmtAfter(*copyDecl, *st);
     insertPlace->lexNext()->setlineNumber(nextLine);
 
-    // create declarations via comment
+    // create declaration via comment
     insertStringDeclarations(insertPlace->lexNext(), array);
 }
 
