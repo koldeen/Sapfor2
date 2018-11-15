@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE _WIN32
+#define RELEASE_CANDIDATE 0 //_WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
@@ -47,6 +47,9 @@
 #include "LoopConverter/private_arrays_breeder.h"
 #include "LoopConverter/loops_splitter.h"
 #include "Predictor/PredictScheme.h"
+#if RELEASE_CANDIDATE
+#include "Predictor/PredictorModel.h"
+#endif
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -1284,6 +1287,24 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
         }
     }
+#if RELEASE_CANDIDATE
+    else if (curr_regime == PREDICT_SCHEME)
+    {
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();
+            const vector<int> &currentVariant = parallelRegions[z]->GetCurrentVariant();
+            DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
+
+            auto &tmp = dataDirectives.distrRules;
+            vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
+            for (int z1 = 0; z1 < currentVariant.size(); ++z1)
+                currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
+
+            predictScheme(parallelRegions[z]->GetId(), currentVar, allArrays.GetArrays());
+        }
+    }
+#endif
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;

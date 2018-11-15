@@ -222,7 +222,7 @@ void Interval_node::calc(double times)
         inter->copy_poss(tmp_inter, 0, times);
         inter->CalcIdleAndImbalance();
 
-        printf("try to integrate loop %d  times=%d\n", this->line, times);
+        printf("try to integrate loop %d  times=%f\n", this->line, times);
         inter->Integrate();
     }
 }
@@ -434,7 +434,7 @@ static map<DIST::Array*, long> mapIds;
 static map<LoopGraph*, long> mapLoopIds;
 
 template<typename T>
-static long getId(T array, map<T, long> dict, long &counter)
+static long getId(T array, map<T, long> &dict, long &counter)
 {
     auto it = dict.find(array);
     if (it == dict.end())
@@ -452,7 +452,7 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
         f.call_params = (void *)tmp_params; // point to parameters
 
         tmp_params->AM_ID = cur_amv; //possible not
-        tmp_params->ID = getId(array, mapArrayAddrs, ids); //для различия
+        tmp_params->ID = getId(array, mapIds, ids); //для различия
 
         auto sizes = array->GetSizes();
         tmp_params->SizeArray.resize(sizes.size());
@@ -677,8 +677,8 @@ static int Model_align(DIST::Array *array, const int regId, FILE *printOut)
 
         tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
         tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
-        tmp_params->PatternRef = getId(templ, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->PatternRef = getId(templ, mapArrayAddrsPtr, arrayAddrPtr); //для различия
+        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrs, arrayAddr); //для различия
         tmp_params->PatternType = 2; //Distr
 
         tmp_params->AxisArray.resize(rank);
@@ -2377,4 +2377,75 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     }
 
     return 0;
+}
+
+
+void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar, 
+                   const set<DIST::Array*> &allArrays)
+{    
+    ps = new PS(mach_MYRINET, 4, 7.0, 0.004, 512); //MVS15k between nodes
+    //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, 512); //fastest communications
+
+    vector<long> testTopology = { 2, 4, 2 };
+    //set configuration of PS
+    ps->setTopology(testTopology);
+
+    vector<long>	lb;
+    vector<long>	ASizeArray;
+    mach_Type		AMType;
+    int				AnumChanels = 1;
+    double			Ascale = 1.0;
+    double			ATStart;
+    double			ATByte;
+    double			AProcPower;
+    vector<double>  AvProcPower;
+
+    ps->nextPS(lb, ASizeArray, AMType, AnumChanels, Ascale, ATStart, ATByte, AProcPower, AvProcPower);
+
+    rootVM = new VM(ASizeArray, AMType, AnumChanels, Ascale, ATStart / 1000000.0, ATByte / 1000000.0, AProcPower, AvProcPower);
+    currentVM = rootVM;
+    rootProcCount = rootVM->getProcCount();
+
+    CurrInterval = new Interval(0);
+
+    MinSizesOfAM.clear();
+    int maxSizeDist = 0;
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+
+        int countBlock = 0;
+        for (int z = 0; z < var->distRule.size(); ++z)
+            if (var->distRule[z] == dist::BLOCK)
+                ++countBlock;
+        maxSizeDist = std::max(maxSizeDist, countBlock);
+    }
+    MinSizesOfAM.resize(maxSizeDist);
+    std::fill(MinSizesOfAM.begin(), MinSizesOfAM.end(), 0);
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+        auto sizes = array->GetSizes();
+        int countBlock = 0;
+        for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
+        {
+            if (var->distRule[z] == dist::BLOCK)
+            {
+                MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
+                dim++;
+            }
+        }
+    }
+
+    for (auto &var : distVar)
+        Model_distr(var.first, var.second, NULL);
+    for (auto &array : allArrays)
+        if (!array->isTemplate() && !array->isLoopArray())
+            Model_align(array, regId, NULL);
+
+    delete rootVM;
+    delete CurrInterval;
+    delete ps;
 }
