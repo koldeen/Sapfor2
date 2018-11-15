@@ -924,14 +924,7 @@ static void copyFunction(ParallelRegion *region,
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
-            //copyStat->setFileName(strdup(origStat->fileName()));
-            BIF_FILE_NAME(copyStat->thebif) = new file_name;
-            BIF_FILE_NAME(copyStat->thebif)->next = NULL;
-            BIF_FILE_NAME(copyStat->thebif)->name = strdup(origStat->fileName());
-#if __SPF
-            addToCollection(__LINE__, __FILE__, BIF_FILE_NAME(copyStat->thebif), 1);
-            addToCollection(__LINE__, __FILE__, BIF_FILE_NAME(copyStat->thebif)->name, 1);
-#endif
+            BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }
 
         // replace all func calls in copy function
