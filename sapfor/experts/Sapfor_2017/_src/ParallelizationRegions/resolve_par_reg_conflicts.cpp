@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <string.h>
 
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
@@ -923,7 +924,14 @@ static void copyFunction(ParallelRegion *region,
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
-            //copyStat->setFileName(origStat->fileName());
+            //copyStat->setFileName(strdup(origStat->fileName()));
+            BIF_FILE_NAME(copyStat->thebif) = new file_name;
+            BIF_FILE_NAME(copyStat->thebif)->next = NULL;
+            BIF_FILE_NAME(copyStat->thebif)->name = strdup(origStat->fileName());
+#if __SPF
+            addToCollection(__LINE__, __FILE__, BIF_FILE_NAME(copyStat->thebif), 1);
+            addToCollection(__LINE__, __FILE__, BIF_FILE_NAME(copyStat->thebif)->name, 1);
+#endif
         }
 
         // replace all func calls in copy function
