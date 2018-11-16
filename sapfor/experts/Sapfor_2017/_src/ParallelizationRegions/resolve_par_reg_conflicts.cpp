@@ -395,16 +395,16 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
     {
         for (auto &fileLines : region->GetAllLines())
         {
-            for (auto &regionLine : fileLines.second)
+            for (auto &lines : fileLines.second)
             {
-                if (!regionLine.isImplicit())
+                if (!lines.isImplicit())
                 {
-                    for (auto &regionLine2 : fileLines.second)
+                    for (auto &lines2 : fileLines.second)
                     {
-                        if (regionLine2.isImplicit() && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
+                        if (lines2.isImplicit() && lines2.lines.first <= lines.lines.first && lines2.lines.second >= lines.lines.second)
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
-                                        fileLines.first.c_str(), regionLine2.lines.first);
+                                        fileLines.first.c_str(), lines2.lines.first);
                             string message;
                             __spf_printToBuf(message, "parallel region '%s' is included in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
 
@@ -412,7 +412,40 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                             if (itM == SPF_messages.end())
                                 itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
 
-                            itM->second.push_back(Messages(ERROR, regionLine2.lines.first, message, 1033));
+                            itM->second.push_back(Messages(ERROR, lines2.lines.first, message, 1033));
+
+                            noError = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // check if explicit region lines are included by another region
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            for (auto &lines : fileLines.second)
+            {
+                if (!lines.isImplicit())
+                {
+                    for (auto line = lines.lines.first; line <= lines.lines.second; ++line)
+                    {
+                        auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
+                        if (inRegs.size() > 1)
+                        {
+                            __spf_print(1, "parallel region '%s' has line that is included in another region in file '%s' on line %d\n", region->GetName().c_str(),
+                                        fileLines.first.c_str(), line);
+                            string message;
+                            __spf_printToBuf(message, "parallel region '%s' has line that is included in another region in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
+
+                            auto itM = SPF_messages.find(fileLines.first);
+                            if (itM == SPF_messages.end())
+                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
+
+                            itM->second.push_back(Messages(ERROR, line, message, 1041));
 
                             noError = false;
                         }
