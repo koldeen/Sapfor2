@@ -222,11 +222,14 @@ void DvmhRegionInsertor::insertActualDirectives() {
     {
         SgStatement *st = file.functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
-		while (st != lastNode)
+		while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
         {
-            if (st == NULL || st->variant() == CONTAINS_STMT)
+            if (isSgExecutableStatement(st) == NULL) {
+                st = st->lexNext();
                 continue;
+            }
 
+            /*
             DvmhRegion* region1 = getContainingRegion(st);
             if (region1)
                 cout << "[Region] ";
@@ -235,15 +238,27 @@ void DvmhRegionInsertor::insertActualDirectives() {
                 
             st->unparsestdout();
             
-            /*
             std::set<SgSymbol *> symbols = getUsedSymbols(st);
             // debug 
             if (symbols.size() > 0) {
                 insertActualDirectiveBefore(st, *symbols.begin());
                 break;
-            }
+            } */
 
-            DvmhRegion* region = getContainingRegion(st);
+            //DvmhRegion* region = getContainingRegion(st);
+            const std::map<SymbolKey, std::set<SgExpression*> > defs = getReachingDefinitions(st);
+            
+            for (auto& var : defs) {
+                DIST::Array* arr =  getArrayFromDeclarated(declaratedInStmt(var.first.getSymbol), var.first.getVarName());
+                bool isDistr = !arr->GetNonDistributeFlag();
+                std::cout << var.first.getVarName() + ": " << std::endl;
+                for (auto &def : var.second) {
+                    def->unparsestdout();
+                }
+                std::cout << "********************" << std::endl;
+            } 
+            
+            /*
             for (auto& symbol : symbols) {
                 set<SgStatement*> defenitions = getDefenitions(st, symbol);
 

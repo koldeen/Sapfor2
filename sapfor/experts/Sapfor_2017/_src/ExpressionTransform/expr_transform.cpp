@@ -91,17 +91,21 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
         if(graph.second->file_id != stmt->getFileId())
             continue;
         CBasicBlock *b = graph.second->CGraph->getFirst();
+        //std::cout << "1" << std::endl;
         while(b != NULL)
         {
+            //std::cout << "2" << std::endl;
             ControlFlowItem *cfi = b->getStart();
             while(cfi != NULL)
             {
+                //std::cout << "3" << std::endl;
                 SgStatement *st = cfi->getStatement();
                 if(st && st->id() == stmt->id())
                     return b;
                 st = cfi->getOriginalStatement();
                 if(st && st->id() == stmt->id())
                     return b;
+                cfi = cfi->getNext();
             }
             b = b->getLexNext();
         }
@@ -117,7 +121,7 @@ const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stm
         __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
         return map<SymbolKey, set<SgExpression*>>();
     }
-
+    std::cout << "!!" << std::endl;
     return b->getReachedDefinitions(stmt);
 }
 
