@@ -217,11 +217,11 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     }
 }
 
-static const CommonBlock* isInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
+static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
 {
     for (auto &commonBlockPair : commonBlocks)
         for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == arrayName)
+            if (variable.getName() == arrayName && variable.getType() == ARRAY)
                 return &commonBlockPair.second;
 
     return NULL;
@@ -254,7 +254,7 @@ static void recursiveFill(SgStatement *st,
 
                 if (!array->GetNonDistributeFlag())
                 {
-                    auto commonBlock = isInCommon(commonBlocks, arrayName);
+                    auto commonBlock = isArrayInCommon(commonBlocks, arrayName);
                     if (commonBlock)
                     {
                         if (isSgExecutableStatement(st))
