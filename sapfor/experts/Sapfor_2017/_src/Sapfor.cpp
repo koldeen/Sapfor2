@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE 0 //_WIN32
+#define RELEASE_CANDIDATE 0//_WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
@@ -1301,7 +1301,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                 currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
-            predictScheme(parallelRegions[z]->GetId(), currentVar, allArrays.GetArrays());
+            map<LoopGraph*, ParallelDirective*> parallelDirs;
+            for (int i = n - 1; i >= 0; --i)
+            {
+                SgFile *file = &(project.file(i));
+                current_file_id = i;
+                current_file = file;
+
+                auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
+                parallelDirs.insert(fountInfo.begin(), fountInfo.end());
+            }
+            predictScheme(parallelRegions[z]->GetId(), currentVar, allArrays.GetArrays(), parallelDirs);
         }
     }
 #endif

@@ -402,4 +402,4 @@ struct associate_align
 };
 
 void predictScheme(const int regId, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
-                   const std::set<DIST::Array*> &allArrays);
+                   const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict);

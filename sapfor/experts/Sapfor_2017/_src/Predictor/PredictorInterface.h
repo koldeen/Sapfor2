@@ -1,5 +1,4 @@
-#ifndef _PREDICTOR_H_
-#define _PREDICTOR_H_
+#pragma once
 
 #include <vector>
 using namespace std;
@@ -1077,5 +1076,3 @@ int CheckEuristik(std::vector<long> & who);
 
 extern long_vect MinSizesOfAM; // для автоматического поиска
 extern long currentAM_ID;
-
-#endif

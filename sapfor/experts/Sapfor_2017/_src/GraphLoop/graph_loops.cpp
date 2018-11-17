@@ -608,4 +608,49 @@ void convertToString(const LoopGraph *currLoop, string &result)
             convertToString(currLoop->children[i], result);
     }
 }
+
+void createMapLoopGraph(const vector<LoopGraph*> &loops, map<int, LoopGraph*> &mapGraph)
+{
+    for (auto &elem : loops)
+    {
+        if (mapGraph.find(elem->lineNum) != mapGraph.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        mapGraph[elem->lineNum] = elem;
+    }
+
+    for (auto &elem : loops)
+        createMapLoopGraph(elem->children, mapGraph);
+}
+
+map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector<LoopGraph*> &loops, const int regId)
+{
+    if (loops.size() == 0)
+        return map<LoopGraph*, ParallelDirective*>();
+
+    map<LoopGraph*, ParallelDirective*> retVal;
+
+    map<int, LoopGraph*> mapGraph;
+    createMapLoopGraph(loops, mapGraph);
+
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() == DVM_PARALLEL_ON_DIR)
+        {
+            auto next = st->lexNext();
+            if (next->variant() != FOR_NODE)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            auto it = mapGraph.find(next->lineNumber());
+            if (it == mapGraph.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            if (it->second->region && it->second->region->GetId() == regId)
+                retVal[it->second] = it->second->directive;
+        }
+    }
+
+    return retVal;
+}
+
 #undef DEBUG
