@@ -91,7 +91,7 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
         char *read = fgets(buf, 8192, currFile);
         if (read)
         {
-            const string orig(read);
+            const string orig(replaceTabsToSpaces(read));
             string line(read);
             convertToLower(line);
             line = replaceTabsToSpaces(line);
@@ -164,9 +164,11 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 }
 
 //TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, set<string> &allIncludeFiles, bool outFree)
-{
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
+                                  set<string> &allIncludeFiles, bool outFree)
+{ 
     fflush(NULL);
+
     int funcNum = file->numberOfFunctions();
     FILE *currFile = fopen(fileName, "r");
     if (currFile == NULL)

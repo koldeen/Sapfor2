@@ -1,4 +1,7 @@
 #include "loops_splitter.h"
+
+#include "../LoopAnalyzer/loop_analyzer.h"
+
 #include <string>
 #include <vector>
 /*удалить от сих*/
@@ -7,6 +10,9 @@
 /*до сих*/
 using std::string;
 using std::vector;
+using std::map;
+using std::pair;
+using std::make_pair;
 
 static SgForStmt* createNewLoop(LoopGraph *globalLoop)
 {
@@ -36,25 +42,60 @@ static SgForStmt* createNewLoop(LoopGraph *globalLoop)
         lowestInsertedFor = lowestInsertedFor->lexPrev();
     return (SgForStmt*)lowestInsertedFor->lexPrev(); //самый внутренний цикл
 }
-
-static bool setupSinceTill(LoopGraph *lowestParentGraph, depGraph *lowestParentDepGraph, SgStatement *&since, SgStatement *&till)
+static void addDepGraph(SgForStmt* loopStmt, vector<pair<LoopGraph*, depGraph*>> &deps, LoopGraph *mainGraph, map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
-    if(lowestParentDepGraph) // есть зависимости в цикле
+    for(int i=0;i<mainGraph->children.size(); ++i)
+        if(mainGraph->children[i]->loop->GetOriginal()->id() == loopStmt->id())
+        {
+            auto found = depInfoForLoopGraph.find(mainGraph->children[i]);
+            deps.push_back(make_pair(mainGraph->children[i], found != depInfoForLoopGraph.end() ? found->second : NULL));
+        }
+}
+
+static bool dependenciesAreEnclosed(vector<pair<LoopGraph*, depGraph*>> &deps, depGraph *parentDepGraph)
+{/*
+    printf("parent graph dependencies: ");
+    if(parentDepGraph) {
+        printf("\n");
+        parentDepGraph->display();
+    } else
+        printf("none\n");
+    for(auto& p : deps)
     {
-        since = till = NULL;
-        printf("Splitting of loops with dependencies not implemented yet.\n");
-//        lowestParentDepGraph->display();
+        printf("%s\n",p.first->loop->GetOriginal()->unparse());
+        if(p.second)
+            p.second->display();
+        else
+            printf("No dependencies\n");
+    }*/
+    return false;
+}
+
+static bool setupSinceTill(LoopGraph *lowestParentGraph, map<LoopGraph*, depGraph*> &depInfoForLoopGraph, SgStatement *&since, SgStatement *&till)
+{
+    auto found = depInfoForLoopGraph.find(lowestParentGraph);
+
+    if(lowestParentGraph->children.size() == 0)
         return false;
-    }
+
+    const std::set<std::string> privVars;
+    depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
+    if(lowestParentDepGraph)
+        lowestParentDepGraph->display();
+
+    vector<pair<LoopGraph*, depGraph*>> deps;
+
     //Нет зависиомостей в цикле. выносится каждый подцикл и операции до следующего подцикла
     //для первого цикла захватываются предшествующие операции.
-    bool hasLoop = since->variant() == FOR_NODE;
+    SgForStmt* loopStmt = since->variant() == FOR_NODE ? (SgForStmt*)since : NULL;
+    if(loopStmt)
+        addDepGraph(loopStmt, deps, lowestParentGraph, depInfoForLoopGraph);
     till = since->lastNodeOfStmt()->lexNext();
     while(till->variant() != CONTROL_END)
     {
-        if(till->variant() == FOR_NODE && hasLoop)
-            return true; //Между since и till есть цикл
-        else hasLoop = true;
+        if(till->variant() == FOR_NODE && loopStmt && dependenciesAreEnclosed(deps, lowestParentDepGraph))
+            return true; //Между since и till есть цикл и зависимости позволяют вырвать кусок с since по till
+        else loopStmt = (SgForStmt*) till;
         till = till->lastNodeOfStmt()->lexNext();
     }
 
@@ -80,18 +121,15 @@ static void moveStatements(SgForStmt *newLoop, SgStatement *since, SgStatement *
 static void splitLoop(LoopGraph *loopGraph, std::map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
     LoopGraph *lowestParentGraph = loopGraph;
-    auto found = depInfoForLoopGraph.find(loopGraph);
-    depGraph *lowestParentDepGraph = (found == depInfoForLoopGraph.end() ? NULL : found->second);
     for(int i = 0; i < loopGraph->perfectLoop; ++i)
-        if(lowestParentGraph->children.size() == 1) {
+    {
+        if(lowestParentGraph->children.size() == 1)
             lowestParentGraph = lowestParentGraph->children[0];
-            found = depInfoForLoopGraph.find(lowestParentGraph);
-            lowestParentDepGraph = (found == depInfoForLoopGraph.end() ? NULL : found->second);
-        }
+    }
 
     SgStatement *since = ((SgForStmt*)lowestParentGraph->loop->GetOriginal())->body();
     SgStatement *till;
-    while(setupSinceTill(lowestParentGraph, lowestParentDepGraph, since, till))
+    while(setupSinceTill(lowestParentGraph, depInfoForLoopGraph, since, till))
     {
         moveStatements(createNewLoop(loopGraph), since, till);
         since = till;
@@ -99,7 +137,7 @@ static void splitLoop(LoopGraph *loopGraph, std::map<LoopGraph*, depGraph*> &dep
 }
 
 
-void splitLoops(SgFile *file, std::vector<LoopGraph*> &loopGraphs, std::map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
+void splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
     if(string(file->filename()) == "z_solve_inlined.f")
         for(auto& loopGraph : loopGraphs)

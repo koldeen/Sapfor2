@@ -421,6 +421,12 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == FOR_NODE)
             {
