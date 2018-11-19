@@ -118,7 +118,7 @@ static void insertStringDeclarations(SgStatement *insertPlace, DIST::Array *arra
     {
         SgSymbol *varSymb = varsOnPos[0]->getSymbol();
         string varName = varSymb->identifier();
-        string newName = varName + "_r";
+        string newName = varName + "_c";
         varSymb->changeName(newName.c_str());
         string decl = getStringDeclaration(varsOnPos[0]->getSymbol());
         varSymb->changeName(varName.c_str());
@@ -217,11 +217,11 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     }
 }
 
-static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
+static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
 {
     for (auto &commonBlockPair : commonBlocks)
         for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == arrayName && variable.getType() == ARRAY)
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == 1) // 1 - common
                 return &commonBlockPair.second;
 
     return NULL;
@@ -254,7 +254,7 @@ static void recursiveFill(SgStatement *st,
 
                 if (!array->GetNonDistributeFlag())
                 {
-                    auto commonBlock = isArrayInCommon(commonBlocks, arrayName);
+                    auto commonBlock = isArrayInCommon(commonBlocks, array);
                     if (commonBlock)
                     {
                         if (isSgExecutableStatement(st))
@@ -579,7 +579,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
         {
             // new common-block is not created for array at this file, so create it
             // creating new common-block statement
-            string commBlockName = array->GetShortName() + "_reg";
+            string commBlockName = array->GetShortName() + "_r";
             SgStatement *commDecl = new SgStatement(COMM_STAT);
 
             // TODO: check new common-block name
@@ -602,7 +602,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             if (itt == it->second.end())
             {
                 // need to create symbol
-                string newArrName = varsOnPos[0]->getName() + "_r";
+                string newArrName = varsOnPos[0]->getName() + "_c";
 
                 // TODO: check new array name
 
@@ -1079,7 +1079,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
             for (auto &arrayLines : funcArrays.second)
             {
                 auto place = *arrayLines.first->GetDeclInfo().begin();
-                auto origCopy = copyArray(place, arrayLines.first, string("_") + region->GetName());
+                auto origCopy = copyArray(place, arrayLines.first, string("_l") + to_string(region->GetId()));
 
                 for (auto &lines : arrayLines.second)
                 {
