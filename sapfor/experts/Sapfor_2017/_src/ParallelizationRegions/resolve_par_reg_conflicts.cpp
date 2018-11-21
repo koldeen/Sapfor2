@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <string.h>
 
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
@@ -117,7 +118,7 @@ static void insertStringDeclarations(SgStatement *insertPlace, DIST::Array *arra
     {
         SgSymbol *varSymb = varsOnPos[0]->getSymbol();
         string varName = varSymb->identifier();
-        string newName = varName + "_r";
+        string newName = varName + "_c";
         varSymb->changeName(newName.c_str());
         string decl = getStringDeclaration(varsOnPos[0]->getSymbol());
         varSymb->changeName(varName.c_str());
@@ -216,11 +217,11 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     }
 }
 
-static const CommonBlock* isInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
+static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
 {
     for (auto &commonBlockPair : commonBlocks)
         for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == arrayName)
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == 1) // 1 - common
                 return &commonBlockPair.second;
 
     return NULL;
@@ -253,7 +254,7 @@ static void recursiveFill(SgStatement *st,
 
                 if (!array->GetNonDistributeFlag())
                 {
-                    auto commonBlock = isInCommon(commonBlocks, arrayName);
+                    auto commonBlock = isArrayInCommon(commonBlocks, array);
                     if (commonBlock)
                     {
                         if (isSgExecutableStatement(st))
@@ -394,16 +395,16 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
     {
         for (auto &fileLines : region->GetAllLines())
         {
-            for (auto &regionLine : fileLines.second)
+            for (auto &lines : fileLines.second)
             {
-                if (!regionLine.isImplicit())
+                if (!lines.isImplicit())
                 {
-                    for (auto &regionLine2 : fileLines.second)
+                    for (auto &lines2 : fileLines.second)
                     {
-                        if (regionLine2.isImplicit() && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
+                        if (lines2.isImplicit() && lines2.lines.first <= lines.lines.first && lines2.lines.second >= lines.lines.second)
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
-                                        fileLines.first.c_str(), regionLine2.lines.first);
+                                        fileLines.first.c_str(), lines2.lines.first);
                             string message;
                             __spf_printToBuf(message, "parallel region '%s' is included in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
 
@@ -411,7 +412,40 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                             if (itM == SPF_messages.end())
                                 itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
 
-                            itM->second.push_back(Messages(ERROR, regionLine2.lines.first, message, 1033));
+                            itM->second.push_back(Messages(ERROR, lines2.lines.first, message, 1033));
+
+                            noError = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // check if explicit region lines are included by another region
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            for (auto &lines : fileLines.second)
+            {
+                if (!lines.isImplicit())
+                {
+                    for (auto line = lines.lines.first; line <= lines.lines.second; ++line)
+                    {
+                        auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
+                        if (inRegs.size() > 1)
+                        {
+                            __spf_print(1, "parallel region '%s' has line that is included in another region in file '%s' on line %d\n", region->GetName().c_str(),
+                                        fileLines.first.c_str(), line);
+                            string message;
+                            __spf_printToBuf(message, "parallel region '%s' has line that is included in another region in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
+
+                            auto itM = SPF_messages.find(fileLines.first);
+                            if (itM == SPF_messages.end())
+                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
+
+                            itM->second.push_back(Messages(ERROR, line, message, 1041));
 
                             noError = false;
                         }
@@ -545,7 +579,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
         {
             // new common-block is not created for array at this file, so create it
             // creating new common-block statement
-            string commBlockName = array->GetShortName() + "_reg";
+            string commBlockName = array->GetShortName() + "_r";
             SgStatement *commDecl = new SgStatement(COMM_STAT);
 
             // TODO: check new common-block name
@@ -568,7 +602,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             if (itt == it->second.end())
             {
                 // need to create symbol
-                string newArrName = varsOnPos[0]->getName() + "_r";
+                string newArrName = varsOnPos[0]->getName() + "_c";
 
                 // TODO: check new array name
 
@@ -642,7 +676,7 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     insertPlace->insertStmtAfter(*copyDecl, *st);
     insertPlace->lexNext()->setlineNumber(nextLine);
 
-    // create declarations via comment
+    // create declaration via comment
     insertStringDeclarations(insertPlace->lexNext(), array);
 }
 
@@ -683,8 +717,10 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             assign = new SgStatement(ASSIGN_STAT);
             left = new SgArrayRefExp(*origSymb);
             right = new SgArrayRefExp(*newSymb);
+            
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
+            assign->setlineNumber(getNextNegativeLineNumber()); // after region
             regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             it2->second.insert(arrName);
@@ -923,7 +959,7 @@ static void copyFunction(ParallelRegion *region,
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
-            //copyStat->setFileName(origStat->fileName());
+            BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }
 
         // replace all func calls in copy function
@@ -1035,6 +1071,15 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
+    map<DIST::Array*, set<ParallelRegion*>> regionsByLocalArray;
+    for (auto &region : regions)
+    {
+        auto localArrays = region->GetUsedLocalArrays();
+        for (auto &funcArrays : localArrays)
+            for (auto &arrLines : funcArrays.second)
+                regionsByLocalArray[arrLines.first].insert(region);
+    }
+
     for (auto &region : regions)
     {
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // DEBUG
@@ -1044,13 +1089,20 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
         {
             for (auto &arrayLines : funcArrays.second)
             {
-                auto place = *arrayLines.first->GetDeclInfo().begin();
-                auto origCopy = copyArray(place, arrayLines.first, string("_") + region->GetName());
+                auto arrayRegions = regionsByLocalArray.find(arrayLines.first);
+                if (arrayRegions == regionsByLocalArray.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                for (auto &lines : arrayLines.second)
+                if (arrayRegions->second.size() > 1)
                 {
-                    replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
-                    insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                    auto place = *arrayLines.first->GetDeclInfo().begin();
+                    auto origCopy = copyArray(place, arrayLines.first, string("_l") + to_string(region->GetId()));
+
+                    for (auto &lines : arrayLines.second)
+                    {
+                        replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
+                        insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                    }
                 }
             }
         }
@@ -1280,6 +1332,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 {
                     if (!lines.isImplicit())
                     {
+                        // create DVM INTERVAL before region
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
@@ -1295,17 +1348,20 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
 
+                        // create DVM INTERVAL after region
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
+                        for (SgStatement *st = start; st && st->lineNumber() < 0; st = st->lexNext())
                             end = st;
 
                         if (end)
@@ -1317,10 +1373,12 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
                     }

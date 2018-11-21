@@ -1217,6 +1217,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             map<string, FuncInfo*> funcMap;
             createMapOfFunc(allFuncInfo, funcMap);
 
+            // check functions
             for (auto &nameFunc : funcMap)
             {
                 auto func = nameFunc.second;
@@ -1259,6 +1260,50 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             if (line.stats.first && line.stats.second)
                             {
                                 getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3012));
+                                internalExit = 1;
+                                ok = true;
+                                break;
+                            }
+                        }
+                        if (ok)
+                            break;
+                    }
+                    if (ok == false)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
+
+            // check local arrays
+            map<DIST::Array*, set<ParallelRegion*>> regionsByArray;
+            for (auto &reg : parallelRegions)
+            {
+                auto localArrays = reg->GetUsedLocalArrays();
+                for (auto &funcArrays : localArrays)
+                    for (auto &arrLines : funcArrays.second)
+                        regionsByArray[arrLines.first].insert(reg);
+            }
+
+            for (auto &regsByArr : regionsByArray)
+            {
+                if (regsByArr.second.size() > 1)
+                {
+                    string regions = "";
+                    for (auto &reg : regsByArr.second)
+                        regions += "'" + reg->GetName() + "' ";
+                    __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
+
+                    string message;
+                    __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first->GetShortName().c_str());
+
+                    auto lines = (*regsByArr.second.begin())->GetAllLines();
+                    bool ok = false;
+                    for (auto &linePair : lines)
+                    {
+                        for (auto &line : linePair.second)
+                        {
+                            if (line.stats.first && line.stats.second)
+                            {
+                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
                                 internalExit = 1;
                                 ok = true;
                                 break;
