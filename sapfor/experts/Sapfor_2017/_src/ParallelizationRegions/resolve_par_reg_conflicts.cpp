@@ -221,7 +221,7 @@ static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &common
 {
     for (auto &commonBlockPair : commonBlocks)
         for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == 1) // 1 - common
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
                 return &commonBlockPair.second;
 
     return NULL;
