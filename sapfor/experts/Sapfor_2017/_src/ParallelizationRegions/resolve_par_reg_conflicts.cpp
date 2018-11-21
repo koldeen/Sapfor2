@@ -717,8 +717,10 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             assign = new SgStatement(ASSIGN_STAT);
             left = new SgArrayRefExp(*origSymb);
             right = new SgArrayRefExp(*newSymb);
+            
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
+            assign->setlineNumber(getNextNegativeLineNumber()); // after region
             regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             it2->second.insert(arrName);
@@ -1330,6 +1332,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 {
                     if (!lines.isImplicit())
                     {
+                        // create DVM INTERVAL before region
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
@@ -1345,17 +1348,20 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
 
+                        // create DVM INTERVAL after region
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
+                        for (SgStatement *st = start; st && st->lineNumber() < 0; st = st->lexNext())
                             end = st;
 
                         if (end)
@@ -1367,10 +1373,12 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
                     }
