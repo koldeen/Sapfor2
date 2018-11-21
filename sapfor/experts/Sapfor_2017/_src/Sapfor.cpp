@@ -1285,33 +1285,36 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
             for (auto &regsByArr : regionsByArray)
             {
-                string regions = "";
-                for (auto &reg : regsByArr.second)
-                    regions += "'" + reg->GetName() + "' ";
-                __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first.c_str());
-
-                string message;
-                __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first.c_str());
-
-                auto lines = (*regsByArr.second.begin())->GetAllLines();
-                bool ok = false;
-                for (auto &linePair : lines)
+                if (regsByArr.second.size() > 1)
                 {
-                    for (auto &line : linePair.second)
+                    string regions = "";
+                    for (auto &reg : regsByArr.second)
+                        regions += "'" + reg->GetName() + "' ";
+                    __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first.c_str());
+
+                    string message;
+                    __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first.c_str());
+
+                    auto lines = (*regsByArr.second.begin())->GetAllLines();
+                    bool ok = false;
+                    for (auto &linePair : lines)
                     {
-                        if (line.stats.first && line.stats.second)
+                        for (auto &line : linePair.second)
                         {
-                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
-                            internalExit = 1;
-                            ok = true;
-                            break;
+                            if (line.stats.first && line.stats.second)
+                            {
+                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
+                                internalExit = 1;
+                                ok = true;
+                                break;
+                            }
                         }
+                        if (ok)
+                            break;
                     }
-                    if (ok)
-                        break;
+                    if (ok == false)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
-                if (ok == false)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
     }
