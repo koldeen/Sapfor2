@@ -733,7 +733,13 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
 
             if (st->variant() == CONTAINS_STMT)
                 break;
-                        
+
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             const string prefix = containsPrefix == "" ? currFunc + "." : containsPrefix;
             //printf("var %d, line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == PROC_STAT)

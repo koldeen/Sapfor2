@@ -582,6 +582,17 @@ static inline void extractComments(SgStatement *where, const string &what)
     }
 }
 
+SgStatement* firstExec(SgStatement *in, const string &currF)
+{
+    while (in)
+    {
+        if (isSgExecutableStatement(in) && !isSPF_stat(in) && in->fileName() == currF)
+            return in;
+        in = in->lexNext();
+    }
+    return in;
+}
+
 //NOTE: this function inserts also local templates for parallel loop without distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                         map<string, string> templateDeclInIncludes,
@@ -635,7 +646,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     string templDyn = "!DVM$ DYNAMIC " + array->GetShortName() + "\n";
 
                     string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));
-                    SgStatement *nextSt = st->lexNext();
+                    
                               
                     bool needToInsert = true;
                     auto inIncl = templateDeclInIncludes.find(fullDecl);
@@ -684,6 +695,8 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
 
                     if (needToInsert && includedToThisFile.find(fullDecl) == includedToThisFile.end())
                     {
+                        SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
+                        
                         if (extractDir)
                             extractComments(nextSt, fullDecl);
                         else
@@ -726,8 +739,8 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     string templDist = genTemplateDistr(array, distrRules, regionId, templIdx, true);
                     string templDyn = "";
 
-                    string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));
-                    SgStatement *nextSt = st->lexNext();
+                    string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));                    
+                    SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
 
                     if (includedToThisFile.find(fullDecl) == includedToThisFile.end())
                     {

@@ -111,10 +111,15 @@ depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const set<stri
 {
     SgForStmt *currLoopRef = (SgForStmt*)currLoop->loop->GetOriginal();
     double t = omp_get_wtime();
+
+    map<SgExpression*, string> tmpCollection;
+    currentCollection = &tmpCollection;
+
     depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, *privVars);
     t = omp_get_wtime() - t;
     if (t > 1.0)
         printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+    currentCollection = NULL;
     return depg;
 }
 
@@ -148,10 +153,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
         const set<string> &privVars = it->second.second.first;
         const set<string> &nonDistrArrays = it->second.second.second;
-
-        currentNonDistrArrays = &nonDistrArrays;
-        currentCollection = &collection;
-
+        
         SgStatement *func = currLoopRef->controlParent();
         if (funcWasInit.find(func) == funcWasInit.end())
         {
@@ -159,7 +161,12 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
             initializeDepAnalysisForFunction(file, func, allFuncs);
         }
 
+        currentNonDistrArrays = &nonDistrArrays;
+        currentCollection = &collection;
         depGraph *depg = getDependenciesGraph(currLoop, file, &privVars);
+        currentNonDistrArrays = NULL;
+        currentCollection = NULL;
+
         /*double t = omp_get_wtime();
         depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, privVars);
         t = omp_get_wtime() - t;

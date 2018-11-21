@@ -280,61 +280,68 @@ int variant;
 int hasTypeBaseType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("hasTypeBaseType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("hasTypeBaseType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][2] == 'b')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][2] == 'b')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isStructType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("isStructType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("isStructType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][0] == 's')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][0] == 's')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isPointerType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("isPointerType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("isPointerType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][0] == 'p')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][0] == 'p')
+        return TRUE;
+    else
+        return FALSE;
 }
-
 
 /***************************************************************************/
 int isUnionType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("isUnionType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("isUnionType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][0] == 'u')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][0] == 'u')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 
@@ -342,15 +349,17 @@ int variant;
 int isEnumType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("EnumType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("EnumType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][0] == 'e')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][0] == 'e')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 
@@ -358,60 +367,68 @@ int variant;
 int hasTypeSymbol(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("hasTypeSymbol not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("hasTypeSymbol not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][1] == 's')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][1] == 's')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isAtomicType(variant)
 int variant;
 {
-  if (!isATypeNode(variant))
+    if (!isATypeNode(variant))
     {
-      Message("isAtomicType not applied to a type node",0);
-      return 0;
+#if !__SPF
+        Message("isAtomicType not applied to a type node", 0);
+#endif
+        return FALSE;
     }
-  if (info_type[variant][0] == 'a')
-    return TRUE;
-  else
-    return FALSE;
+    if (info_type[variant][0] == 'a')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int hasNodeASymb(variant)
 int variant;
 {
-  if ((!isABifNode(variant)) && (!isALoNode(variant)))
+    if ((!isABifNode(variant)) && (!isALoNode(variant)))
     {
-      Message("hasNodeASymb not applied to a bif or low level node",0);
-      return 0;
+#if !__SPF
+        Message("hasNodeASymb not applied to a bif or low level node", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][2] == 's')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][2] == 's')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isNodeAConst(variant)
 int variant;
 {
-  if ((!isABifNode(variant)) && (!isALoNode(variant)))
+    if ((!isABifNode(variant)) && (!isALoNode(variant)))
     {
-      Message("isNodeAConst not applied to a bif or low level node",0);
-      return 0;
+#if !__SPF
+        Message("isNodeAConst not applied to a bif or low level node", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][1] == 'c')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][1] == 'c')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 
@@ -419,75 +436,85 @@ int variant;
 int isAStructDeclBif(variant)
 int variant;
 {
-  if (!isABifNode(variant))
+    if (!isABifNode(variant))
     {
-      Message("isAStructDeclBif not applied to a bif",0);
-      return 0;
+#if !__SPF
+        Message("isAStructDeclBif not applied to a bif", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][1] == 's')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][1] == 's')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isAUnionDeclBif(variant)
 int variant;
 {
-  if (!isABifNode(variant))
+    if (!isABifNode(variant))
     {
-      Message("isAUnionDeclBif not applied to a bif",0);
-      return 0;
+#if !__SPF
+        Message("isAUnionDeclBif not applied to a bif", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][1] == 'u')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][1] == 'u')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isAEnumDeclBif(variant)
 int variant;
 {
-  if (!isABifNode(variant))
+    if (!isABifNode(variant))
     {
-      Message("isAEnumDeclBif not applied to a bif",0);
-      return 0;
+#if !__SPF
+        Message("isAEnumDeclBif not applied to a bif", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][1] == 'e')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][1] == 'e')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isADeclBif(variant)
 int variant;
 {
-  if (!isABifNode(variant))
+    if (!isABifNode(variant))
     {
-      Message("isADeclBif not applied to a bif",0);
-      return 0;
+#if !__SPF
+        Message("isADeclBif not applied to a bif", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][0] == 'd')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][0] == 'd')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /***************************************************************************/
 int isAControlEnd(variant)
 int variant;
 {
-  if (!isABifNode(variant))
+    if (!isABifNode(variant))
     {
-      Message("isAControlEnd not applied to a bif",0);
-      return 0;
+#if !__SPF
+        Message("isAControlEnd not applied to a bif", 0);
+#endif
+        return FALSE;
     }
-  if (general_info[variant][0] == 'c')
-    return TRUE;
-  else
-    return FALSE;
+    if (general_info[variant][0] == 'c')
+        return TRUE;
+    else
+        return FALSE;
 }
 
 #ifdef __SPF

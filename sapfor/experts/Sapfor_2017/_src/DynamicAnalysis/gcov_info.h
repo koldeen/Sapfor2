@@ -28,25 +28,25 @@ class Gcov_info
 	int numLine;
 	int executedCount;
 	int countCalls;
-	std::map<int,Perform> calls;
+	std::map<int, Perform> calls;
 	int countBranches;
-    std::map<int,Perform> branches;
+    std::map<int, Perform> branches;
 
 public:
 	Gcov_info(); 
 	Gcov_info(int a, int b);
-//	~Gcov_info();
 	void set(int a, int b, int c, int d);
-	int getNumLine();
-	int getExecutedCount();
+    void clear() { calls.clear(); branches.clear(); countCalls = 0; countBranches = 0; }
+	int getNumLine() const;
+	int getExecutedCount() const;
 	void setNumLine(int a);
 	void setExecutedCount(int a);
-	int getCountCalls();
-	int getCountBranches();
-	std::map<int,Perform> getCalls();
-	std::map<int,Perform> getBranches();
+	int getCountCalls() const;
+	int getCountBranches() const;
+	std::map<int,Perform> getCalls() const;
+	std::map<int,Perform> getBranches() const;
 	void setCall(Perform a);
 	void setBranch(Perform a);
-	void gcov_print();
+	void gcov_print() const;
 	friend std::ostream &operator<<(std::ostream &out, const Gcov_info &a);
 };

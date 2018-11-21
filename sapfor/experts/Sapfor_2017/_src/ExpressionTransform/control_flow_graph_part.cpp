@@ -241,6 +241,7 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
 {
     ControlFlowItem *cfi = getStart();
     ControlFlowItem *till = getEnd()->getNext();
+    clearGenKill();
     bool founded = false;
     while (cfi != till)
     {
@@ -268,6 +269,9 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
                         founded->second.insert(exp->getExp());
             }
         }
+
+        for(auto &it : gen)
+            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second);
     }
     return defs;
 }
@@ -388,9 +392,9 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
         if(it->first.isPointer())
-            printf("--- %s => %s", it->first.getVarName().c_str(), it->second->unparse());
+            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
         else
-            printf("--- %s = %s", it->first.getVarName().c_str(), it->second->unparse());
+            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
         printf("\n");
     }
     printf("\n");
@@ -410,7 +414,7 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
     printf("\n");
 }
 
-static void showDefsOfGraph(ControlFlowGraph *CGraph)
+void showDefsOfGraph(ControlFlowGraph *CGraph)
 {
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
@@ -427,6 +431,7 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
             if (cfi->getStatement())
             {
                 printed = true;
+                printf("id(%d) ", cfi->getStatement()->id());
                 cfi->getStatement()->unparsestdout();
             }
             else if(cfi->getOriginalStatement())
@@ -435,6 +440,7 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
                 if(origSt->variant() == IF_NODE)
                 {
                     printed = true;
+                    printf("id(%d) ", origSt->id());
                     printf("If:   (%s)\n", ((SgIfStmt*) origSt)->conditional()->unparse());
                 }
 

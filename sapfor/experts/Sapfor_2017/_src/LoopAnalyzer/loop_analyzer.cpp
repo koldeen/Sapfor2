@@ -1310,6 +1310,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             const int currentLine = st->lineNumber() < -1 ? st->localLineNumber() : st->lineNumber();
             ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), currentLine);
             if (currReg == NULL)

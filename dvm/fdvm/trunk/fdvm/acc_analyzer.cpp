@@ -357,6 +357,7 @@ CallData::~CallData()
 #if __SPF
     removeFromCollection(this);
 #endif
+    /*
     for (AnalysedCallsList* l = calls_list; l != NULL;) 
     {
         if (!l->isIntrinsic && l->graph)
@@ -371,7 +372,7 @@ CallData::~CallData()
         l = l->next;
         delete temp;
         temp = NULL;
-    }
+    }*/
 }
 
 CommonData::~CommonData()
