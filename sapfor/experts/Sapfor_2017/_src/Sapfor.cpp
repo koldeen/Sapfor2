@@ -1274,13 +1274,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
 
             // check local arrays
-            map<string, set<ParallelRegion*>> regionsByArray;
+            map<DIST::Array*, set<ParallelRegion*>> regionsByArray;
             for (auto &reg : parallelRegions)
             {
                 auto localArrays = reg->GetUsedLocalArrays();
                 for (auto &funcArrays : localArrays)
                     for (auto &arrLines : funcArrays.second)
-                        regionsByArray[arrLines.first->GetShortName()].insert(reg);
+                        regionsByArray[arrLines.first].insert(reg);
             }
 
             for (auto &regsByArr : regionsByArray)
@@ -1290,10 +1290,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     string regions = "";
                     for (auto &reg : regsByArr.second)
                         regions += "'" + reg->GetName() + "' ";
-                    __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first.c_str());
+                    __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
 
                     string message;
-                    __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first.c_str());
+                    __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first->GetShortName().c_str());
 
                     auto lines = (*regsByArr.second.begin())->GetAllLines();
                     bool ok = false;
