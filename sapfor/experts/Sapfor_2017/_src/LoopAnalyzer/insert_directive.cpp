@@ -87,7 +87,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         file->firstStatement()->addComment(printVersionAsFortranComm().c_str());
         genVersionDone.insert(file);
     }
-    int funcNum = file->numberOfFunctions();
 
     map<int, vector<vector<Expression*>>> toInsertMap;
     for (int i = 0; i < toInsert.size(); ++i)
@@ -106,9 +105,12 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
     removeDoubleRedistribute(toInsertMap);
     vector<SgStatement*> toDel;
 
-    for (int i = 0; i < funcNum; ++i)
+    vector<SgStatement*> modulesAndFuncs;
+    getModulesAndFunctions(file, modulesAndFuncs);
+
+    for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
-        SgStatement *st = file->functions(i);
+        SgStatement *st = modulesAndFuncs[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
         
         int numSt = 0;
@@ -329,7 +331,7 @@ static inline string genTemplateDelc(DIST::Array *templ, SgStatement *module = N
 {
     string templDecl = (module == NULL) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     if (module && templ->isTemplate() && !templ->isLoopArray())
-        templ->ChangeLocation(2, module->symbol()->identifier());
+        templ->ChangeLocation(DIST::l_MODULE, module->symbol()->identifier());
     
     const vector<pair<int, int>> &sizes = templ->GetSizes();
     const auto &sizesExpr = templ->GetSizesExpr();
@@ -582,7 +584,7 @@ static inline void extractComments(SgStatement *where, const string &what)
     }
 }
 
-SgStatement* firstExec(SgStatement *in, const string &currF)
+static SgStatement* firstExec(SgStatement *in, const string &currF)
 {
     while (in)
     {
@@ -638,7 +640,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
             const set<DIST::Array*> &arrays = allArrays.GetArrays();
             for (auto &array : arrays)
             {
-                if (array->isTemplate() && !array->isLoopArray())
+                if (array->isTemplate() && !array->isLoopArray() && array->GetLocation().first != DIST::l_MODULE)
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     string templDecl = genTemplateDelc(array, NULL, true);

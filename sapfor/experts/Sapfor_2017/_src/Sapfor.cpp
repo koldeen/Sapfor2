@@ -1507,7 +1507,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
             runAnalysis(*project, PREDICT_SCHEME, false);
-            
+
             if (folderName || consoleMode)
                 runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
 
@@ -1516,7 +1516,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
             runPass(CLEAR_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN_BACK, proj_name, folderName);
-
+                        
             //clear shadow grouping
             for (auto &funcbyFile : allFuncInfo)
             {

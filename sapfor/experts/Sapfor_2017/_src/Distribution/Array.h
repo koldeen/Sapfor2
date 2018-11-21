@@ -19,6 +19,7 @@ class Expression;
 namespace Distribution
 {
     typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
+    typedef enum arrayLocation : int { l_LOCAL = 0, l_COMMON, l_MODULE, l_PARAMETER } arrayLocType;
 
     class Array;
 
@@ -87,7 +88,7 @@ namespace Distribution
 
         //TYPE: 0 - local, 1 - common, 2 - module, 3 - function parameter
         // PAIR<NAME, TYPE>
-        PAIR<int, STRING> locationPos;
+        PAIR<arrayLocation, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
 
         SET<STRING> containsInRegions;
@@ -123,10 +124,13 @@ namespace Distribution
             isNonDistribute = NO_DISTR;
             typeSize = 0;
             uniqKey = "";
+            dimSize = 0;
+            id = -1;
+            declSymbol = NULL;
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
-              const STRING &declFile, const int declLine, const PAIR<int, STRING> &locationPos,
+              const STRING &declFile, const int declLine, const PAIR<arrayLocation, STRING> &locationPos,
               Symbol *declSymbol, const VECTOR<STRING> &regions, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
@@ -419,17 +423,17 @@ namespace Distribution
         bool GetNonDistributeFlag() const { return (isNonDistribute == DISTR) ? false : true; }
         distFlag GetNonDistributeFlagVal() const { return isNonDistribute; }
 
-        void ChangeLocation(int loc, const STRING &name)
+        void ChangeLocation(arrayLocation loc, const STRING &name)
         {
             locationPos = std::make_pair(loc, name);
         }
 
-        void SetLocation(int loc, const STRING &name) 
+        void SetLocation(arrayLocation loc, const STRING &name)
         {
             ChangeLocation(loc, name);
             GenUniqKey();
         }
-        PAIR<int, STRING> GetLocation() const { return locationPos; }
+        PAIR<arrayLocation, STRING> GetLocation() const { return locationPos; }
 
         Symbol* GetDeclSymbol() const { return declSymbol; }
 

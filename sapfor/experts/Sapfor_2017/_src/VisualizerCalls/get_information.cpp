@@ -961,11 +961,15 @@ int SPF_GetGCovInfo(int winHandler, int *options, short *projName, short *&resul
         runPassesForVisualizer(projName, { GCOV_PARSER });
 
         string resVal = "";
+        bool first = true;
         for (auto &byFile : gCovInfo)
         {
-            resVal += byFile.first + "@ ";
+            if (!first)
+                resVal += "@";
+            resVal += byFile.first + "@";
             for (auto &elem : byFile.second)
                 resVal += to_string(elem.first) + " " + to_string(elem.second.getExecutedCount()) + " ";            
+            first = false;
         }
 
         copyStringToShort(result, resVal);
