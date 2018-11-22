@@ -30,7 +30,7 @@ void loopAnalyzer(SgFile *file,
                   DIST::Array*> &createdArrays,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
-                  const std::vector<FuncInfo*> &funcInfo,
+                  const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
                   const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
                   const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -41,11 +41,6 @@ void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile,
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-
-void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo,
-                              std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
-                              const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
-                              std::vector<Messages> &messagesForFile);
 
 void selectParallelDirectiveForVariant(SgFile *file, 
                                        ParallelRegion *currReg,
@@ -74,7 +69,8 @@ void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
-                           std::map<SgExpression*, std::string> &collection);
+                           std::map<SgExpression*, std::string> &collection, const std::map<std::string, FuncInfo*> &allFuncs);
+depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const std::set<std::string> *privVars = NULL);
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
@@ -117,6 +113,8 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
+bool check_par_reg_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
+
 void revertion_spf_dirs(SgFile *file, 
                         std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
                         std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> declaratedArraysSt);

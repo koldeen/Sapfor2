@@ -14,6 +14,7 @@ extern int passDone;
 #include <vector>
 #include <queue>
 #include <iterator>
+#include <omp.h>
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
@@ -82,6 +83,44 @@ GraphItem* GraphsKeeper::getGraph(const string &funcName)
     GraphItem* res = graphs.find(funcName)->second;
     CurrentProject->file(res->file_id);
     return res;
+}
+
+CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
+{
+    for(auto &graph : graphs) {
+        if(graph.second->file_id != stmt->getFileId())
+            continue;
+        CBasicBlock *b = graph.second->CGraph->getFirst();
+        while(b != NULL)
+        {
+            ControlFlowItem *cfi = b->getStart();
+            ControlFlowItem *till = b->getEnd()->getNext();
+            while(cfi != till)
+            {
+                SgStatement *st = cfi->getStatement();
+                if(st && st->id() == stmt->id())
+                    return b;
+                st = cfi->getOriginalStatement();
+                if(st && st->id() == stmt->id())
+                    return b;
+                cfi = cfi->getNext();
+            }
+            b = b->getLexNext();
+        }
+    }
+    return NULL;
+}
+
+
+const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
+{
+    CBasicBlock* b = graphsKeeper->findBlock(stmt);
+    if(!b) {
+        __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
+        return map<SymbolKey, set<SgExpression*>>();
+    }
+
+    return b->getReachedDefinitions(stmt);
 }
 
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
@@ -523,7 +562,7 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         if (founded_inDefs != b->getInDefs()->end())
             //if smth is founded_inDefs, it has single value
             //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = founded_inDefs->second.begin()->getExp();
+            exp = (*(founded_inDefs->second.begin()))->getExp();
 
         //we have to check if this value was killed inside block
         if (exp != NULL)
@@ -701,8 +740,8 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
 {
     bool wereReplacements = false;
     SgExpression *lhs = exp->lhs(), *rhs = exp->rhs();
-    //We don't want expand arguments of other functions.
-    if(lhs && lhs->variant() != FUNC_CALL)
+
+    if(lhs && lhs->variant() != FUNC_CALL)     //We don't want expand arguments of other functions.
     {
         if(lhs->variant() == VAR_REF)
         {
@@ -714,10 +753,10 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
             }
         }
         else
-            replaceVarsInCallArgument(lhs, lineNumber, b);
+            wereReplacements |= replaceVarsInCallArgument(lhs, lineNumber, b);
     }
-    //We don't want expand arguments of other functions and other arguments
-    if(rhs && rhs->variant() != FUNC_CALL && rhs->variant() != EXPR_LIST)
+
+    if(rhs && rhs->variant() != FUNC_CALL)    //We don't want expand arguments of other functions
     {
         if(rhs->variant() == VAR_REF)
         {
@@ -729,7 +768,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
             }
         }
         else
-            replaceVarsInCallArgument(rhs, lineNumber, b);
+            wereReplacements |= replaceVarsInCallArgument(rhs, lineNumber, b);
     }
 
     return wereReplacements;
@@ -771,8 +810,17 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         for (int i = 0; i < numberOfArgs; ++i)
         {
             arg = args->lhs();
-            if ((arg->variant() != VAR_REF) || argIsReplaceable(i, callData))
-                wereReplacements |= replaceVarsInCallArgument(args, lineNumber, b);
+            if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
+            {
+                SgExpression* newExp = valueOfVar(arg, b);
+                if (newExp != NULL)
+                {
+                    setNewSubexpression(args, false, newExp, lineNumber);
+                    wereReplacements = true;
+                }
+            }
+            else if (arg->variant() != VAR_REF)
+                wereReplacements |= replaceVarsInCallArgument(arg, lineNumber, b);
             args = args->rhs();
         }
     }
@@ -842,7 +890,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
     return wereReplacements;
 }
 
-void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
+void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
 {
     bool wereReplacements = true;
     while (wereReplacements)
@@ -852,11 +900,25 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             throw boost::thread_interrupted();
 #endif
         __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
+        double time = omp_get_wtime();
+
         wereReplacements = false;
         visitedStatements.clear();
+
+        __spf_print(PRINT_PROF_INFO, " clear vis %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         ClearCFGInsAndOutsDefs(CGraph);
+        __spf_print(PRINT_PROF_INFO, " clear CFG %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
+        __spf_print(PRINT_PROF_INFO, " fill %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
+
         CorrectInDefs(CGraph);
+        __spf_print(PRINT_PROF_INFO, " correct %f\n", omp_get_wtime() - time);
+        time = omp_get_wtime();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         {
@@ -864,18 +926,19 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
+        __spf_print(PRINT_PROF_INFO, " replace %f\n", omp_get_wtime() - time);
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue>> &inDefs)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
 
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-    for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
-        b->clearGenKill();
+    /* Showtime */
+//    showDefsOfGraph(CGraph);
 }
 
 static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -976,7 +1039,7 @@ static bool isInParallelRegion(SgStatement *func, const vector<ParallelRegion*> 
     auto last = func->lastNodeOfStmt();
     for (auto st = func; st != last; st = st->lexNext())
     {
-        if (getRegionByLine(regions, st->fileName(), st->lineNumber()))
+        if (getAllRegionsByLine(regions, st->fileName(), st->lineNumber()).size())
         {
             ok = true;
             break;
@@ -1033,12 +1096,12 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        map<SymbolKey, set<ExpressionValue>> inDefs;
+        map<SymbolKey, set<ExpressionValue*>> inDefs;
 
         if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
-                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue>()))
-                .first->second.insert(ExpressionValue());
+                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue*>()))
+                .first->second.insert(new ExpressionValue());
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();

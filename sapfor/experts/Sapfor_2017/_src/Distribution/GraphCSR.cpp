@@ -3,8 +3,9 @@
 #include <algorithm>
 #include <string>
 #include <assert.h>
-#include <omp.h>
+#include <chrono>
 #include <vector>
+#include <queue>
 #include <map>
 #include <set>
 #include <tuple>
@@ -24,6 +25,7 @@ extern int passDone;
 #include "GraphCSR.h"
 
 using std::vector;
+using std::queue;
 using std::map;
 using std::set;
 using std::pair;
@@ -31,6 +33,7 @@ using std::make_pair;
 using std::tuple;
 using std::string;
 using std::wstring;
+using namespace std::chrono;
 
 enum { WHITE, GREY, BLACK };
 enum { CONFLICT_TYPE_1, CONFLICT_TYPE_2 };
@@ -117,7 +120,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     int GraphCSR<vType, wType, attrType>::
-         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew)
+         CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew, const uint8_t &linkTypeIn)
     {
         int ifExist = -1;
         if (!ifNew)
@@ -125,11 +128,12 @@ namespace Distribution
             auto currNeigh = neighbors.data();
             auto currEdges = edges.data();
             auto currAttr = attributes.data();
+            auto currLinks = linkType.data();
 
             for (vType i = currNeigh[V1]; i < currNeigh[V1 + 1]; ++i)
             {
                 const vType k = currEdges[i];
-                if (k == V2 && attr == currAttr[i])
+                if (k == V2 && attr == currAttr[i] && linkTypeIn == currLinks[i])
                 {
                     ifExist = (int)i;
                     break;
@@ -278,7 +282,7 @@ namespace Distribution
     void GraphCSR<vType, wType, attrType>::
          RemoveDuplicates(vector<Cycle<vType, wType, attrType>> &cycles)
     {
-        double timeR = omp_get_wtime();
+        auto timeR = steady_clock::now();
         __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: start removing with %d cycles\n", (int)cycles.size());
 
         vector<vector<pair<pair<vType, vType>, attrType>>> allUniqEdges(cycles.size());
@@ -315,7 +319,7 @@ namespace Distribution
         __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: done inserting\n");
 
         const vType part = vType((vType)cycles.size() * 0.1);
-        double timeT = omp_get_wtime();
+        auto timeT = steady_clock::now();
         //#pragma omp parallel for schedule(dynamic)
         for (int p = 0; p < (int)parts.size() - 1; ++p)
         {
@@ -323,8 +327,8 @@ namespace Distribution
             {
                 if (it % part == 0 && PRINT_TIMES)
                 {
-                    double timeT1 = omp_get_wtime();
-                    __spf_print(PRINT_TIMES, "PROF: %d done with time %.3f sec\n", it, timeT1 - timeT);
+                    auto timeT1 = steady_clock::now();
+                    __spf_print(PRINT_TIMES, "PROF: %d done with time %.3f sec\n", it, (duration_cast<duration<double>>(timeT1 - timeT)).count());
                     timeT = timeT1;
                 }
 
@@ -387,7 +391,7 @@ namespace Distribution
                 newLoops.push_back(cycles[uniqLoops[k][i]]);
 
         cycles = newLoops;
-        __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: done removing with %d cycles, time %f sec\n", (int)cycles.size(), omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES, "PROF: RemoveDuplicates: done removing with %d cycles, time %f sec\n", (int)cycles.size(), (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -604,8 +608,8 @@ namespace Distribution
 
         int idxExist = -1, idxExistRev = -1;
 
-        idxExist = CheckExist(localV1, localV2, attr, ifNew1);
-        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2);
+        idxExist = CheckExist(localV1, localV2, attr, ifNew1, linkType);
+        idxExistRev = CheckExist(localV2, localV1, attrRev, ifNew2, linkType);
 
         bool ifExist = (idxExist != -1) && (idxExistRev != -1);
 
@@ -715,7 +719,7 @@ namespace Distribution
             maxNum = std::max(maxNum, numbers[i]);
         __spf_print(PRINT_TIMES && needPrint, "max num value = %d\n", maxNum);
         
-        double timeFind = omp_get_wtime();
+        auto timeFind = steady_clock::now();
         __spf_print(PRINT_TIMES && needPrint, "graph size: |V| = %d, |E| = %d, quality: [%d, %d]\n", numVerts, numEdges / 2, maxLoopDim, maxChainLen);
         if (maxNum + 1 != numEdges / 2 && maxNum != 0)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -803,7 +807,7 @@ namespace Distribution
                     activeV[activeCounter++] = currentV;
                     FindLoop(cyclesTmp[t], currentV, currentV, numbers);
                     activeCounter--;
-                    __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", omp_get_wtime() - timeFind);
+                    __spf_print(PRINT_TIMES && needPrint, "done with time %f\n", (duration_cast<duration<double>>(steady_clock::now() - timeFind)).count());
                 }
                 maxChainLen = wasMaxChainLen;
                 maxLoopDim = wasMaxLoopDim;
@@ -856,8 +860,6 @@ namespace Distribution
                 __spf_print(PRINT_TIMES && needPrint, "  found cycles with size %d = %d\n", it->first, it->second);
         }
 
-        timeFind = omp_get_wtime() - timeFind;
-        
         int allCycles = 0;
         for (auto it = countOfCycles.begin(); it != countOfCycles.end(); ++it)
         {
@@ -869,7 +871,7 @@ namespace Distribution
         delete []activeE;
         delete []activeArcs;
 
-        __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, timeFind);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: num cycles %d, time of find %f s\n", allCycles, (duration_cast<duration<double>>(steady_clock::now() - timeFind)).count());
         __spf_print(PRINT_TIMES && needPrint, "PROF: minimum cycle size %d, maximum cycle size %d\n", minSize, maxSize);
     }
 
@@ -877,7 +879,7 @@ namespace Distribution
     int GraphCSR<vType, wType, attrType>::
         SortLoopsBySize(vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint)
     {
-        double timeR = omp_get_wtime();
+        auto timeR = steady_clock::now();
         __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: start\n");
         int err = 0;
         vector<Cycle<vType, wType, attrType>> sortedLoops(cycles.size());
@@ -904,7 +906,7 @@ namespace Distribution
         }
         else
             cycles = sortedLoops;
-        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsBySize: end %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
         return err;
     }
 
@@ -912,12 +914,12 @@ namespace Distribution
     int GraphCSR<vType, wType, attrType>::
         SortLoopsByWeight(vector<Cycle<vType, wType, attrType>> &cycles, bool needPrint)
     {
-        double timeR = omp_get_wtime();
+        auto timeR = steady_clock::now();
         __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: start\n");
 
         if (cycles.size() == 0)
         {
-            __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
+            __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
             return 0;
         }
 
@@ -937,7 +939,7 @@ namespace Distribution
         }
         if (start != end)
             sort(cycles.begin() + start, cycles.begin() + end);
-        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: SortLoopsByWeight: end %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
         return err;
     }
 
@@ -949,7 +951,7 @@ namespace Distribution
                           const Arrays<vType> &allArrays,
                           vector<pair<int, int>> &indexOfConflict, bool needPrint)
     {
-        double timeR = omp_get_wtime();
+        auto timeR = steady_clock::now();
         __spf_print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: start\n");
 
         int countOfConflict = 0;
@@ -1056,7 +1058,7 @@ namespace Distribution
             }
 #endif
         }
-        __spf_print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: end %f sec\n", omp_get_wtime() - timeR);
+        __spf_print(PRINT_TIMES && needPrint, "PROF: GetConflictCycles: end %f sec\n", (duration_cast<duration<double>>(steady_clock::now() - timeR)).count());
         return countOfConflict;
     }
 #undef WITH_CONFLICT_1 
@@ -1758,8 +1760,8 @@ namespace Distribution
     {
         if (hardLinksWasUp)
             return;
-
-        wType sum = 1.0;
+        wType sum;
+        /*sum = 1.0;
         // count all RR_link weight
         for (int i = 0; i < weights.size(); ++i)
         {
@@ -1772,7 +1774,7 @@ namespace Distribution
         {
             if (linkType[i] == WR_link)
                 weights[i] += sum;
-        }
+        } */
 
         sum = 1.0;
         // count all RR_link and WR_link weight
@@ -1898,6 +1900,199 @@ namespace Distribution
         if (ferror(file)) return false;
 
         return true;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    vector<attrType> GraphCSR<vType, wType, attrType>::
+        GetAllAttributes(const int vert) const
+    {
+        vector<attrType> retVal;
+        if (localIdx.size() == 0 || vert >= localIdx.size())
+            return retVal;
+
+        int locV = localIdx[vert];
+        if (locV < 0)
+            return retVal;
+
+        for (int z = neighbors[locV]; z < neighbors[locV + 1]; ++z)
+            retVal.push_back(attributes[z]);
+
+        return retVal;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    int GraphCSR<vType, wType, attrType>::
+        CountOfConnected(const vType startV) const
+    {
+        std::vector<unsigned char> inSet(numVerts);
+        std::fill(inSet.begin(), inSet.end(), 0);
+
+        vector<vType> next;
+        next.reserve(numVerts);
+
+        next.push_back(startV);
+        inSet[startV] = 1;
+        int count = 1;
+
+        while (next.size())
+        {
+            const vType V = next.back();
+            next.pop_back();
+
+            for (vType k = neighbors[V]; k < neighbors[V + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                if (inSet[toV] == 0)
+                {
+                    inSet[toV] = 1;
+                    count++;
+                    next.push_back(toV);
+                }
+            }
+        }
+        return count;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    pair<int, int> GraphCSR<vType, wType, attrType>::
+        MakeConnected(const vType startV, vector<unsigned char> &inSet) const
+    {
+        int count = 0;
+        int countE = 0;
+
+        inSet.resize(numVerts);
+        std::fill(inSet.begin(), inSet.end(), 0);
+
+        vector<vType> next;
+        next.reserve(numVerts);
+
+        next.push_back(startV);
+        inSet[startV] = 1;
+        count = 1;
+
+        while (next.size())
+        {
+            const vType V = next.back();
+            next.pop_back();
+
+            for (vType k = neighbors[V]; k < neighbors[V + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                if (inSet[toV] == 0)
+                {
+                    inSet[toV] = 1;
+                    count++;
+                    next.push_back(toV);
+                }
+            }
+        }
+
+        for (int v = 0; v < numVerts; ++v)
+        {
+            for (vType k = neighbors[v]; k < neighbors[v + 1]; ++k)
+            {
+                const vType toV = edges[k];
+                if (inSet[toV])
+                    countE++;
+            }
+        }
+
+        return make_pair(count, countE / 2);
+    }
+
+    template<typename vType, typename attrType>
+    static tuple<vType, vType, attrType> makeReverse(const tuple<vType, vType, attrType> &in)
+    {
+        vType from = std::get<0>(in);
+        vType to = std::get<1>(in);
+        attrType attr = std::get<2>(in);
+        attrType attrRev = make_pair(attr.second, attr.first);
+        
+        return std::make_tuple(to, from, attrRev);
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    vector<tuple<vType, vType, attrType>> GraphCSR<vType, wType, attrType>::
+        CreateMaximumSpanningTree()
+    {
+        set<tuple<vType, vType, attrType>> selected;
+                
+        set<vType> tmp;
+        for (int z = 0; z < numEdges; ++z)
+            tmp.insert(edges[z]);
+        int countOfRealV = tmp.size();
+        tmp.clear();
+
+        tuple<vType, vType, attrType> maxEdge;
+        wType startW = -1;
+        set<vType> vInserted;
+
+        while (vInserted.size() != countOfRealV)
+        {
+            startW = -1;
+            for (auto &z : vInserted)
+            {
+                for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+                {
+                    if (vInserted.find(edges[k]) != vInserted.end())
+                        continue;
+
+                    if (startW < weights[k])
+                    {
+                        startW = weights[k];
+                        maxEdge = std::make_tuple(z, edges[k], attributes[k]);
+                    }
+                }
+            }
+
+            if (startW != -1)
+            {
+                selected.insert(maxEdge);
+                selected.insert(makeReverse(maxEdge));
+
+                vInserted.insert(std::get<0>(maxEdge));
+                vInserted.insert(std::get<1>(maxEdge));
+            } // next tree
+            else
+            {
+                for (vType z = 0; z < numVerts; ++z)
+                {
+                    for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+                    {
+                        if (vInserted.find(edges[k]) != vInserted.end())
+                            continue;
+
+                        if (startW < weights[k])
+                        {
+                            startW = weights[k];
+                            maxEdge = std::make_tuple(z, edges[k], attributes[k]);
+                        }
+                    }
+                }
+
+                if (startW == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                else
+                {
+                    selected.insert(maxEdge);
+                    selected.insert(makeReverse(maxEdge));
+
+                    vInserted.insert(std::get<0>(maxEdge));
+                    vInserted.insert(std::get<1>(maxEdge));
+                }
+            }
+        }
+
+        vector<tuple<vType, vType, attrType>> toDel;
+        for (vType z = 0; z < numVerts; ++z)
+        {
+            for (vType k = neighbors[z]; k < neighbors[z + 1]; ++k)
+            {
+                if (selected.find(std::make_tuple(z, edges[k], attributes[k])) == selected.end())
+                    toDel.push_back(std::make_tuple(z, edges[k], attributes[k]));                    
+            }
+        }
+        return toDel;
     }
 
     template class GraphCSR<int, double, attrType>;

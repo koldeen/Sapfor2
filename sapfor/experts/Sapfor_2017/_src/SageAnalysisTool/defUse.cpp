@@ -2,11 +2,19 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <vector>
+#include <map>
+#include <string>
 
+#include "../GraphCall/graph_calls.h"
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
 #include "definitionSet.h"
+
+
+using std::map;
+using std::string;
+using std::vector;
 
 #ifdef __SPF
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
@@ -61,60 +69,75 @@ static inline bool isVarRef(SgExpression *ex)
     return (var == ARRAY_REF || var == VAR_REF || var == ARRAY_OP);
 }
 
-static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL);
+static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL, 
+                    const map<string, FuncInfo*> &funcs);
 
-static void fillUse(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+static void fillUse(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL,
+                    const map<string, FuncInfo*> &funcs)
 {
     if (ex)
     {
         if (isVarRef(ex))
         {
             useL.push_back(ex);
-            fillUse(ex->lhs(), useL, defL);
-            fillUse(ex->rhs(), useL, defL);
+            fillUse(ex->lhs(), useL, defL, funcs);
+            fillUse(ex->rhs(), useL, defL, funcs);
         }
         else if (ex->variant() == FUNC_CALL)
-            fillDef(ex, useL, defL);
+            fillDef(ex, useL, defL, funcs);
         else
         {
-            fillUse(ex->lhs(), useL, defL);
-            fillUse(ex->rhs(), useL, defL);
+            fillUse(ex->lhs(), useL, defL, funcs);
+            fillUse(ex->rhs(), useL, defL, funcs);
         }
     }
 }
 
-static void fillDef(SgExpression *ex, std::vector<SgExpression*> &useL, std::vector<SgExpression*> &defL)
+static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL,
+                    const map<string, FuncInfo*> &funcs)
 {
     if (ex)
     {
-        if (isVarRef(ex))
+        if (ex->variant() == FUNC_CALL)
         {
-            useL.push_back(ex);
-            defL.push_back(ex);
-
-            fillUse(ex->lhs(), useL, defL);
-            fillUse(ex->rhs(), useL, defL);
-        }
-        else if (ex->variant() == FUNC_CALL && !isSymbolIntrinsic(ex->symbol()))
-        {
+            bool isIntrinsic = isSymbolIntrinsic(ex->symbol());
             SgFunctionCallExp *call = (SgFunctionCallExp*)ex;
+
+            FuncInfo *currInfo = NULL;
+            auto it = funcs.find(call->funName()->identifier());
+            if (funcs.end() != it)
+            {
+                currInfo = it->second;
+                if (currInfo->funcParams.countOfPars != call->numberOfArgs())
+                    throw -991;
+            }
+            
             for (int z = 0; z < call->numberOfArgs(); ++z)
             {
                 SgExpression *arg = call->arg(z);
                 if (isVarRef(arg))
                 {
-                    defL.push_back(arg);
+                    if (currInfo)
+                    {
+                        if (currInfo->funcParams.isArgOut(z))
+                            defL.push_back(arg);
+                    }
+                    else
+                    {
+                        if (!isIntrinsic)
+                            defL.push_back(arg);
+                    }
                     useL.push_back(arg);
                 }
 
-                fillUse(arg->lhs(), useL, defL);
-                fillUse(arg->rhs(), useL, defL);
+                fillUse(arg->lhs(), useL, defL, funcs);
+                fillUse(arg->rhs(), useL, defL, funcs);
             }
         }
         else
         {
-            fillUse(ex->lhs(), useL, defL);
-            fillUse(ex->rhs(), useL, defL);
+            fillUse(ex->lhs(), useL, defL, funcs);
+            fillUse(ex->rhs(), useL, defL, funcs);
         }
     }
 }
@@ -139,8 +162,8 @@ SgExpression* makeList(const std::vector<SgExpression*> &vec)
     return r_list;
 }
 
-//old variant
-static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use)
+static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use, 
+                      const map<string, FuncInfo*> &allFuncs)
 {
     SgExpression *expr1, *expr2;
     SgExpression *temp, *pt, *pt1;
@@ -190,6 +213,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                 }
             }
         }
+
         for (temp = *use; temp; temp = temp->rhs())
         {
             if (aref = isSgArrayRefExp(temp->lhs()))
@@ -205,8 +229,18 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     }
                 }
             }
+
             if (fc = isSgFunctionCallExp(temp->lhs()))
             {
+                FuncInfo *currInfo = NULL;
+                auto it = allFuncs.find(fc->funName()->identifier());
+                if (allFuncs.end() != it)
+                {
+                    currInfo = it->second;
+                    if (currInfo->funcParams.countOfPars != fc->numberOfArgs())
+                        throw -991;
+                }
+
                 pt = fc->args();
                 if (pt)
                 {
@@ -216,16 +250,35 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     {
                         exprli->linkToEnd(*pt1);
                     }
-                    // if not an intrinsic, needs to be added to the def list;
-                    if (!isSymbolIntrinsic(fc->funName()))
+
+                    //new algo
+                    if (currInfo)
                     {
-                        pt1 = pt->symbRefs();
-                        if (pt1 && (exprli = isSgExprListExp(*def)))
+                        vector<SgExpression*> defL;
+                        vector<SgExpression*> useL;
+                        fillDef(fc, useL, defL, allFuncs);
+                        if (defL.size())
                         {
-                            exprli->linkToEnd(*pt1);
+                            SgExpression *list = makeList(defL);
+                            if (exprli = isSgExprListExp(*def))
+                                exprli->linkToEnd(*list);
+                            else
+                                *def = list;
                         }
-                        else
-                            *def = pt1;
+                    } //old algo
+                    else
+                    {
+                        // if not an intrinsic, needs to be added to the def list;
+                        if (!isSymbolIntrinsic(fc->funName()))
+                        {
+                            pt1 = pt->symbRefs();
+                            if (pt1 && (exprli = isSgExprListExp(*def)))
+                            {
+                                exprli->linkToEnd(*pt1);
+                            }
+                            else
+                                *def = pt1;
+                        }
                     }
                 }
             }
@@ -416,19 +469,35 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
             printf("old def:\n");
             recExpressionPrint(*def);*/
                         
-            std::vector<SgExpression*> defL;
-            std::vector<SgExpression*> useL;
+            vector<SgExpression*> defL;
+            vector<SgExpression*> useL;
+
+            FuncInfo *currInfo = NULL;
+            auto it = allFuncs.find(callStat->name()->identifier());
+            if (allFuncs.end() != it)
+            {
+                currInfo = it->second;
+                if (currInfo->funcParams.countOfPars != callStat->numberOfArgs())
+                    throw -991;
+            }
+
             for (int z = 0; z < callStat->numberOfArgs(); ++z)
             {
                 SgExpression *arg = callStat->arg(z);
-                if (arg->variant() == VAR_REF || arg->variant() == ARRAY_REF || arg->variant() == ARRAY_OP)
+                if (isVarRef(arg))
                 {
-                    defL.push_back(arg);
+                    if (currInfo)
+                    {
+                        if (currInfo->funcParams.isArgOut(z))
+                            defL.push_back(arg);
+                    }
+                    else
+                        defL.push_back(arg);
                     useL.push_back(arg);
                 }
                 
-                fillUse(arg->lhs(), useL, defL);
-                fillUse(arg->rhs(), useL, defL);
+                fillUse(arg->lhs(), useL, defL, allFuncs);
+                fillUse(arg->rhs(), useL, defL, allFuncs);
             }
 
             *use = makeList(useL);
@@ -468,7 +537,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
 }
 
 
-void initDefUseTable(SgStatement *func)
+void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs)
 {
     SgStatement *last, *first, *lastfunc, *temp;
     SgExpression *def, *use, *pt;
@@ -505,7 +574,7 @@ void initDefUseTable(SgStatement *func)
     {
         if (isSgExecutableStatement(temp))
         {
-            defUseVar(temp, func, &def, &use);
+            defUseVar(temp, func, &def, &use, allFuncs);
             temp->addAttribute(USEDLIST_ATTRIBUTE, (void*)use, 0);
             temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void*)def, 0);
         }

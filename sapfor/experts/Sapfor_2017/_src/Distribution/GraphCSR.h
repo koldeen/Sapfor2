@@ -39,7 +39,7 @@ namespace Distribution
         std::pair<wType, attrType> *activeArcs;
         uint64_t usedMem;
         std::vector<std::pair<int, int>> treesQuality;
-
+        
         int activeCounter;
         vType findFrom;
         bool hardLinksWasUp;
@@ -65,8 +65,7 @@ namespace Distribution
         vType GetLocalVNum(const vType &V, bool &ifNew);
         void AddEdgeToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const bool &ifNew, const uint8_t linkType);
         void IncreaseWeight(const int &idx, const int &idxRev, const wType &W);
-        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew);        
-        std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
+        int CheckExist(const vType &V1, const vType &V2, const attrType &attr, const bool &ifNew, const uint8_t &linkType);        
 
         //old algorithm without sort in the fly
         //TODO: need to update
@@ -137,6 +136,7 @@ namespace Distribution
             countMissToAdd = 0;
         }
 
+        std::set<vType> FindTrees(std::vector<vType> &inTree, std::vector<std::vector<vType>> &vertByTrees);
         bool SaveGraphToFile(FILE *file);
         bool LoadGraphFromFile(FILE *file);
         int AddToGraph(const vType &V1, const vType &V2, const wType &W, const attrType &attr, const uint8_t linkType);
@@ -167,6 +167,11 @@ namespace Distribution
         void ChangeQuality(const int newMaxLoopDim, const int newMaxChainLen) { SetMaxLoopDim(newMaxLoopDim); SetMaxChainLen(newMaxChainLen); }
         int getCountOfReq() const { return countRequestsToAdd; }
         int getCountOfMiss() const { return countMissToAdd; }
+
+        std::vector<attrType> GetAllAttributes(const int vert) const;
+        int CountOfConnected(const vType startV) const;
+        std::vector<std::tuple<vType, vType, attrType>> CreateMaximumSpanningTree();
+        std::pair<int, int> MakeConnected(const vType startV, std::vector<unsigned char> &inSet) const;
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);

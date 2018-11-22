@@ -221,9 +221,17 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                 regionStarted = true;
                 regionName = data->symbol()->identifier();
                 if (funcs)
-                    setExplicitFlag(file->functions(i)->symbol()->identifier(), mapFuncs);
+                {
+                    auto itFunc = mapFuncs.find(file->functions(i)->symbol()->identifier());
+                    if (itFunc != mapFuncs.end())
+                    {
+                        itFunc->second->inRegion = 3;
+                        itFunc->second->callRegions.insert(0);
+                    }
+                }
             }
-            else if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
+
+            if (next && next->variant() == SPF_END_PARALLEL_REG_DIR)
             {
                 updateRegionInfo(st, startEnd, lines_, funcCallFromReg);
                 SgStatement *data = next;
@@ -318,6 +326,15 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
     }
 }
 
+ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, const int regionId)
+{
+    for (auto &region : regions)
+        if (region->GetId() == regionId)
+            return region;
+
+    return NULL;
+}
+
 ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const string &file, const int line)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
@@ -331,7 +348,7 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
                 regFound.insert(regions[i]);
 
         if (regFound.size() == 0)
-            return 0;
+            return NULL;
         else if (regFound.size() == 1)
             return *regFound.begin();
         else
@@ -344,6 +361,22 @@ ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const st
         return NULL;
 
     return NULL;
+}
+
+set<ParallelRegion*> getAllRegionsByLine(const vector<ParallelRegion*> &regions, const string &file, const int line)
+{
+    set<ParallelRegion*> regFound;
+
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        regFound.insert(regions[0]);
+    else if (regions.size() > 0)
+    {
+        for (int i = 0; i < regions.size(); ++i)
+            if (regions[i]->HasThisLine(line, file))
+                regFound.insert(regions[i]);
+    }
+
+    return regFound;
 }
 
 static void getAllLoops(vector<LoopGraph*> &loopGraph, vector<LoopGraph*> &loops)
@@ -404,8 +437,13 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                 if (it != funcMap.end())
                 {
                     regions[i]->AddLines(it->second->linesNum, it->second->fileName);
+                    regions[i]->AddFuncCallsToAllCalls(it->second);
+
                     if (it->second->inRegion == 0)
                         it->second->inRegion = 2;
+
+                    it->second->callRegions.insert(i);
+
                     toPrint += elem + " ";
                 }
             }
@@ -442,9 +480,12 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
                     if (it->second->inRegion > 0)
                     {
                         func.second->inRegion = 3;
+                        func.second->callRegions.insert(0);
                         changed = true;
                         break;
                     }
+                    else
+                        func.second->callRegions.insert(0);
                 }
             }
         }
@@ -460,7 +501,9 @@ void fillRegionLinesStep2(vector<ParallelRegion*> &regions, const map<string, ve
         for (auto &loop : loops)
         {
             const int currLine = loop->lineNum < -1 ? loop->loop->localLineNumber() : loop->lineNum;
-            loop->region = getRegionByLine(regions, loop->fileName, currLine);
+            set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, loop->fileName, currLine);
+            if (allRegs.size() == 1)
+                loop->region = *(allRegs.begin());
         }
     }
 }

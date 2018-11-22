@@ -162,13 +162,21 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
         findShadowAndRemote(spec, shadow, remote, beforeSh);
 
         if (shadow)
-        {
+        {            
+            set<string> remotesNames;
+
             SgExpression *newRemote = NULL;
             SgExpression *pRem = NULL;
             if (!remote)
                 pRem = newRemote = new SgExpression(REMOTE_ACCESS_OP);
             else
+            {
+                map<pair<string, string>, Expression*> remotes;
+                fillRemoteFromComment(new Statement(stat), remotes, false, DVM_PARALLEL_ON_DIR);
+                for (auto &elem : remotes)
+                    remotesNames.insert(elem.first.first);
                 pRem = remote;
+            }
             
             bool remoteWasAdded = false;
             auto currShadowP = shadow;
@@ -196,7 +204,7 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                         auto arraySizes = realArray->GetSizes();
                         //check sizes
                         for (auto &dim : arraySizes)
-                            if (dim.first > dim.second || dim.first == -1 || dim.second == -1)
+                            if (dim.first > dim.second || (dim.first == -1 && dim.second == -1))
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         if (spec.size() != arraySizes.size())
@@ -226,9 +234,15 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                         SgExpression *toAdd = new SgExpression(EXPR_LIST);
                         toAdd->setLhs(elem);
                         toAdd->setRhs(pRem->lhs());
-                        pRem->setLhs(toAdd);
-                        remoteWasAdded = true;
 
+                        auto it = remotesNames.find(OriginalSymbol(elem->symbol())->identifier());
+                        if (it == remotesNames.end())
+                        {
+                            remotesNames.insert(it, OriginalSymbol(elem->symbol())->identifier());
+                            pRem->setLhs(toAdd);
+                        }                     
+
+                        remoteWasAdded = true;
                         convertShadowToDDOTRemote(elem->lhs());
                         
                         if (currShadowP == shadow)
@@ -571,7 +585,7 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
                 auto newShNode = new ShadowNode(st);
                 currF->allShadowNodes[st] = newShNode;
 
-                fillShadowAcrossFromParallel(SHADOW_RENEW_OP, st, newShNode->shadows, newShNode->corner);
+                fillShadowAcrossFromParallel(SHADOW_RENEW_OP, new Statement(st), newShNode->shadows, newShNode->corner);
                 newShNode->newShadows = newShNode->shadows;
                 newShNode->newCorner = newShNode->corner;
 

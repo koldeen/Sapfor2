@@ -29,6 +29,8 @@
 #include "../Sapfor.h"
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
+#include "../Predictor/PredictScheme.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 using std::string;
 using std::wstring;
@@ -44,8 +46,9 @@ static void setOptions(const int *options)
     //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
     out_free_form = options[FREE_FORM];
-    keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
+    keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
+    parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
 }
 
 static int strLen(const short *shString)
@@ -72,6 +75,9 @@ static bool tryOpenProjectFile(const char *project)
 
 static void ConvertShortToChar(const short *projName, int &strL, char *&prName)
 {
+    if (projName == NULL)
+        return;
+
     strL = strLen(projName);
     prName = new char[strL + 1];
 
@@ -126,21 +132,14 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
 
 static void runPassesForVisualizer(const short *projName, const vector<passes> &passesToRun, const short *folderName = NULL)
 {
-    int strL, strF;
+    int strL = 0, strF = 0;
     char *prName = NULL;
     char *folderNameChar = NULL;
     ConvertShortToChar(projName, strL, prName);
     ConvertShortToChar(folderName, strF, folderNameChar);
-        
-    fflush(NULL);
+
     try
     {
-        if (strF == 0)
-        {
-            delete []folderNameChar;
-            folderNameChar = NULL;
-        }
-
         if (strL == 0)
         {
             prName = new char[16];
@@ -336,8 +335,8 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
         graph += to_string(E.size()) + "|";
         for (auto &e : E)
             graph += e + "|";
-        if (E.size() != 0)
-            graph.erase(graph.end() - 1);
+        //erase last "|"
+        graph.erase(graph.end() - 1);
 
         copyStringToShort(result, graph, false);
         retSize = (int)graph.size();
@@ -367,6 +366,7 @@ int SPF_GetGraphVizOfFunctions(int *options, short *projName, short *&result, sh
 
 extern int PASSES_DONE[EMPTY_PASS];
 extern int *ALGORITHMS_DONE[EMPTY_ALGO];
+extern const char *passNames[EMPTY_PASS + 1];
 
 int SPF_GetPassesState(int *&passInfo)
 {
@@ -375,19 +375,46 @@ int SPF_GetPassesState(int *&passInfo)
     return EMPTY_PASS;
 }
 
+int SPF_GetPassesStateStr(short *&passInfo)
+{
+    MessageManager::clearCache();
+    string donePasses = "";
+    for (int i = 0; i < EMPTY_PASS; ++i)
+    {
+        printf("SAPFOR: pass %d is %d with name %s\n", 1, PASSES_DONE[i], passNames[i]);
+        if (PASSES_DONE[i] == 1)
+        {
+            donePasses += passNames[i] + string("|");
+        }
+    }
+
+    //erase last "|"
+    if (donePasses != "" && donePasses[donePasses.size() - 1] == '|')
+        donePasses.erase(donePasses.end() - 1);
+
+    copyStringToShort(passInfo, donePasses);
+    return (int)donePasses.size();
+}
+
+
 extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 static void printDeclArraysState()
 {
     printf("SAPFOR: decl state: \n");
+    int dist = 0, priv = 0, err = 0;
     for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
     {
         if (it->second.first->GetNonDistributeFlag() == false)
-            printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is DISTR\n", it->second.first->GetShortName().c_str());
+            dist++;
         else if (it->second.first->GetNonDistributeFlag() == true)
-            printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is PRIVATE\n", it->second.first->GetShortName().c_str());
+            priv++;
         else
-            printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
+            //printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
+            err++;        
     }
+    printf("   PRIV %d, DIST %d, ERR %d, ALL %d\n", priv, dist, err, dist + priv + err);
 }
 
 extern vector<ParallelRegion*> parallelRegions;
@@ -452,11 +479,17 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     return retSize;
 }
 
+extern map<string, PredictorStats> allPredictorStats;
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
-                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+                              short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
 {
     MessageManager::clearCache();
-    MessageManager::setWinHandler(winHandler);
+    if (folderName == NULL)
+        MessageManager::setWinHandler(-1);
+    else
+        MessageManager::setWinHandler(winHandler);
+
+    allPredictorStats.clear();
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -474,10 +507,10 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
             varLens[(int)variants[i + 2]].push_back(std::make_pair(variants[i], variants[i + 1]));
         }
-        
+
         if (varLens.size() != parallelRegions.size())
             throw (-6);
-        
+
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             auto it = varLens.find(parallelRegions[z]->GetId());
@@ -493,7 +526,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 printf("SAPFOR: currV %d, dataDirectives.distrRules %d\n", (int)currVars.size(), (int)dataDirectives.distrRules.size());
                 throw (-3);
             }
-            
+
             map<int64_t, int> varMap;
             for (int i = 0; i < currVars.size(); ++i)
                 varMap[currVars[i].first] = (int)currVars[i].second;
@@ -504,7 +537,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 printf("SAPFOR: template address %lld with num %d\n", (int64_t)dataDirectives.distrRules[i].first, i);
                 templateIdx[(int64_t)dataDirectives.distrRules[i].first] = i;
             }
-            
+
             for (auto it = varMap.begin(); it != varMap.end(); ++it)
             {
                 auto itF = templateIdx.find(it->first);
@@ -519,6 +552,24 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 
         printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
+
+        string predictRes = "";
+        PredictorStats summed;
+        for (auto &predFile : allPredictorStats)
+        {
+            summed.IntervalCount += predFile.second.IntervalCount;
+            summed.ParallelCount += predFile.second.ParallelCount;
+            summed.RedistributeCount += predFile.second.RedistributeCount;
+            summed.RemoteCount += predFile.second.RemoteCount;
+            summed.ParallelStat.AcrossCount += predFile.second.ParallelStat.AcrossCount;
+            summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
+            summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
+            summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
+        }
+        predictRes += summed.to_string();
+
+        copyStringToShort(predictorStats, predictRes);
+        retSize = (int)predictRes.size();
     }
     catch (int ex)
     {
@@ -893,6 +944,59 @@ int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, sh
     MessageManager::setWinHandler(winHandler);
 
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+extern map<string, map<int, Gcov_info>> gCovInfo;
+int SPF_GetGCovInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                    short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { GCOV_PARSER });
+
+        string resVal = "";
+        bool first = true;
+        for (auto &byFile : gCovInfo)
+        {
+            if (!first)
+                resVal += "@";
+            resVal += byFile.first + "@";
+            for (auto &elem : byFile.second)
+                resVal += to_string(elem.first) + " " + to_string(elem.second.getExecutedCount()) + " ";            
+            first = false;
+        }
+
+        copyStringToShort(result, resVal);
+        retSize = (int)resVal.size();
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retSize;
+    
 }
 
 extern void deleteAllAllocatedData(bool enable);

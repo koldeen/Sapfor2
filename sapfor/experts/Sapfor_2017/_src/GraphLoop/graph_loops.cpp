@@ -11,6 +11,7 @@
 #include <string>
 
 #include "dvm.h"
+#include "../Sapfor.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../ExpressionTransform/expr_transform.h"
@@ -420,6 +421,12 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             //printf("new st with var = %d, on line %d\n", st->variant(), st->lineNumber());
             if (st->variant() == FOR_NODE)
             {
@@ -438,7 +445,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
-                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT } );
+                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
 
@@ -489,6 +496,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 }
 
                 newLoop->loop = new Statement(st);
+                newLoop->loopSymbol = st->symbol()->identifier();
 
                 SgStatement *lexPrev = st->lexPrev();
                 if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
@@ -500,6 +508,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 {
                     currLoop->children.push_back(newLoop);
                     currLoop->children.back()->parent = parentLoops.back();
+                    currLoop->children.back()->funcParent = parentLoops.back();
                 }
 
                 parentLoops.push_back(newLoop);
@@ -605,4 +614,49 @@ void convertToString(const LoopGraph *currLoop, string &result)
             convertToString(currLoop->children[i], result);
     }
 }
+
+void createMapLoopGraph(const vector<LoopGraph*> &loops, map<int, LoopGraph*> &mapGraph)
+{
+    for (auto &elem : loops)
+    {
+        if (mapGraph.find(elem->lineNum) != mapGraph.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        mapGraph[elem->lineNum] = elem;
+    }
+
+    for (auto &elem : loops)
+        createMapLoopGraph(elem->children, mapGraph);
+}
+
+map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector<LoopGraph*> &loops, const int regId)
+{
+    if (loops.size() == 0)
+        return map<LoopGraph*, ParallelDirective*>();
+
+    map<LoopGraph*, ParallelDirective*> retVal;
+
+    map<int, LoopGraph*> mapGraph;
+    createMapLoopGraph(loops, mapGraph);
+
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() == DVM_PARALLEL_ON_DIR)
+        {
+            auto next = st->lexNext();
+            if (next->variant() != FOR_NODE)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            auto it = mapGraph.find(next->lineNumber());
+            if (it == mapGraph.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            if (it->second->region && it->second->region->GetId() == regId)
+                retVal[it->second] = it->second->directive;
+        }
+    }
+
+    return retVal;
+}
+
 #undef DEBUG

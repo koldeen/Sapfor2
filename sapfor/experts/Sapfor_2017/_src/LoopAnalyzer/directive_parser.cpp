@@ -24,19 +24,23 @@ using std::map;
 using std::make_pair;
 using std::pair;
 
-bool isSPF_NoInline(SgStatement *st)
+bool isSPF_NoInline(Statement *stIn)
 {
-    for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_TRANSFORM_DIR }))
+    if (stIn)
     {
-        SgExpression *exprList = data->expr(0);
-        while (exprList)
+        SgStatement *st = stIn->GetOriginal();
+        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ SPF_TRANSFORM_DIR }))
         {
-            if (exprList->lhs()->variant() == SPF_NOINLINE_OP)
+            SgExpression *exprList = data->expr(0);
+            while (exprList)
             {
-                //__spf_print(1, "found no inline\n");
-                return true;
+                if (exprList->lhs()->variant() == SPF_NOINLINE_OP)
+                {
+                    //__spf_print(1, "found no inline\n");
+                    return true;
+                }
+                exprList = exprList->rhs();
             }
-            exprList = exprList->rhs();
         }
     }
     return false;
@@ -57,10 +61,11 @@ static inline Symbol* getData(SgExpression *symb, Symbol**)
 }
 
 template<typename fillType>
-void fillPrivatesFromComment(SgStatement *st, set<fillType> &privates)
+void fillPrivatesFromComment(Statement *stIn, set<fillType> &privates)
 {
-    if (st)
+    if (stIn)
     {
+        SgStatement *st = stIn->GetOriginal();
         if (st->variant() == SPF_ANALYSIS_DIR)
         {
             SgExpression *exprList = st->expr(0);
@@ -83,16 +88,17 @@ void fillPrivatesFromComment(SgStatement *st, set<fillType> &privates)
     }
 }
 
-template void fillPrivatesFromComment(SgStatement *st, set<string> &privates);
-template void fillPrivatesFromComment(SgStatement *st, set<SgSymbol*> &privates);
-template void fillPrivatesFromComment(SgStatement *st, set<Symbol*> &privates);
+template void fillPrivatesFromComment(Statement *st, set<string> &privates);
+template void fillPrivatesFromComment(Statement *st, set<SgSymbol*> &privates);
+template void fillPrivatesFromComment(Statement *st, set<Symbol*> &privates);
 
 //for simple reduction
 template<typename fillType>
-void fillReductionsFromComment(SgStatement *st, map<string, set<fillType>> &reduction)
+void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &reduction)
 {    
-    if (st)
+    if (stIn)
     {
+        SgStatement *st = stIn->GetOriginal();
         if (st->variant() == SPF_ANALYSIS_DIR)
         {
             SgExpression *exprList = st->expr(0);
@@ -134,15 +140,16 @@ void fillReductionsFromComment(SgStatement *st, map<string, set<fillType>> &redu
     }
 }
 
-template void fillReductionsFromComment(SgStatement *st, map<string, set<string>> &reduction);
-template void fillReductionsFromComment(SgStatement *st, map<string, set<SgSymbol*>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction);
 
 //for mini/max loc reduction
 template<typename fillType>
-void fillReductionsFromComment(SgStatement *st, map<string, set<tuple<fillType, fillType, int>>> &reduction)
+void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, fillType, int>>> &reduction)
 {
-    if (st)
+    if (stIn)
     {
+        SgStatement *st = stIn->GetOriginal();
         if (st->variant() == SPF_ANALYSIS_DIR)
         {
             SgExpression *exprList = st->expr(0);
@@ -186,116 +193,126 @@ void fillReductionsFromComment(SgStatement *st, map<string, set<tuple<fillType, 
     }
 }
 
-template void fillReductionsFromComment(SgStatement *st, map<string, set<tuple<string, string, int>>> &reduction);
-template void fillReductionsFromComment(SgStatement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction);
 
 template<typename fillType>
-static void fillShadowAcross(const int type, SgStatement *st, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
+static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
 {
-    for (int list = 0; list < 3; ++list)
+    if (stIn)
     {
-        SgExpression *exprList = st->expr(list);
-        while (exprList)
+        SgStatement *st = stIn->GetOriginal();
+        for (int list = 0; list < 3; ++list)
         {
-            if (exprList->lhs()->variant() == type)
+            SgExpression *exprList = st->expr(list);
+            while (exprList)
             {
-                SgExpression *listExp = exprList->lhs()->lhs();
-                while (listExp)
+                if (exprList->lhs()->variant() == type)
                 {
-                    SgExpression *list = listExp;
-                    bool needCornerAdd = false;
-                    if (list->lhs()->variant() == ARRAY_OP)
+                    SgExpression *listExp = exprList->lhs()->lhs();
+                    while (listExp)
                     {
-                        list = list->lhs();
-                        needCornerAdd = true;
-                    }
-                        
-                    SgSymbol *symb = OriginalSymbol(list->lhs()->symbol());
-                    
-                    fillType arrayName, *dummy = NULL;
-                    arrayName = getData(list->lhs(), dummy);
-                    bool cond = false;
-
-                    if (corner && needCornerAdd)
-                        corner->insert(arrayName);
-
-                    pair<pair<fillType, string>, vector<pair<int, int>>> *toAdd;
-                    for (int i = 0; i < data.size(); ++i)
-                    {
-                        if (data[i].first.first == arrayName)
+                        SgExpression *list = listExp;
+                        bool needCornerAdd = false;
+                        if (list->lhs()->variant() == ARRAY_OP)
                         {
-                            toAdd = &data[i];
-                            cond = true;
-                            break;
+                            list = list->lhs();
+                            needCornerAdd = true;
                         }
-                    }
 
-                    if (!cond)
-                    {
-                        auto uniqKey = getFromUniqTable(symb);
-                        data.push_back(make_pair(make_pair(arrayName, getShortName(uniqKey)), vector<pair<int, int>>()));
-                        toAdd = &data.back();
-                    }
+                        SgSymbol *symb = OriginalSymbol(list->lhs()->symbol());
 
-                    SgExpression *listEx = list->lhs()->lhs();
-                    int idx = 0;
-                    while (listEx)
-                    {
-                        SgExpression *width = listEx->lhs();
-                        const int left = width->lhs()->valueInteger();
-                        const int right = width->rhs()->valueInteger();
-                        if (toAdd->second.size() <= idx)
-                            toAdd->second.push_back(make_pair(left, right));
-                        else
+                        fillType arrayName, *dummy = NULL;
+                        arrayName = getData(list->lhs(), dummy);
+                        bool cond = false;
+
+                        if (corner && needCornerAdd)
+                            corner->insert(arrayName);
+
+                        pair<pair<fillType, string>, vector<pair<int, int>>> *toAdd;
+                        for (int i = 0; i < data.size(); ++i)
                         {
-                            toAdd->second[idx].first = std::max(toAdd->second[idx].first, left);
-                            toAdd->second[idx].second = std::max(toAdd->second[idx].second, right);
+                            if (data[i].first.first == arrayName)
+                            {
+                                toAdd = &data[i];
+                                cond = true;
+                                break;
+                            }
                         }
-                        idx++;
-                        listEx = listEx->rhs();
-                    }
 
-                    listExp = listExp->rhs();
+                        if (!cond)
+                        {
+                            auto uniqKey = getFromUniqTable(symb);
+                            data.push_back(make_pair(make_pair(arrayName, getShortName(uniqKey)), vector<pair<int, int>>()));
+                            toAdd = &data.back();
+                        }
+
+                        SgExpression *listEx = list->lhs()->lhs();
+                        int idx = 0;
+                        while (listEx)
+                        {
+                            SgExpression *width = listEx->lhs();
+                            const int left = width->lhs()->valueInteger();
+                            const int right = width->rhs()->valueInteger();
+                            if (toAdd->second.size() <= idx)
+                                toAdd->second.push_back(make_pair(left, right));
+                            else
+                            {
+                                toAdd->second[idx].first = std::max(toAdd->second[idx].first, left);
+                                toAdd->second[idx].second = std::max(toAdd->second[idx].second, right);
+                            }
+                            idx++;
+                            listEx = listEx->rhs();
+                        }
+
+                        listExp = listExp->rhs();
+                    }
                 }
+                exprList = exprList->rhs();
             }
-            exprList = exprList->rhs();
         }
     }
 }
 
 
 template<typename fillType>
-void fillShadowAcrossFromComment(const int type, SgStatement *st, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data)
+void fillShadowAcrossFromComment(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data)
 {
-    if (st)
-        if (st->variant() == SPF_PARALLEL_DIR)
-            fillShadowAcross(type, st, data);
+    if (stIn)
+        if (stIn->GetOriginal()->variant() == SPF_PARALLEL_DIR)
+            fillShadowAcross(type, stIn, data);
 }
 
-template void fillShadowAcrossFromComment(const int type, SgStatement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data);
-template void fillShadowAcrossFromComment(const int type, SgStatement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data);
+template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data);
+template void fillShadowAcrossFromComment(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data);
 
 
 template<typename fillType>
-void fillShadowAcrossFromParallel(const int type, SgStatement *st, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> &corner)
+void fillShadowAcrossFromParallel(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> &corner)
 {
-    if (st)
-        if (st->variant() == DVM_PARALLEL_ON_DIR)
-            fillShadowAcross(type, st, data, &corner);
+    if (stIn)
+        if (stIn->GetOriginal()->variant() == DVM_PARALLEL_ON_DIR)
+            fillShadowAcross(type, stIn, data, &corner);
 }
 
-template void fillShadowAcrossFromParallel(const int type, SgStatement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data, set<string> &corner);
-template void fillShadowAcrossFromParallel(const int type, SgStatement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data, set<SgSymbol*> &corner);
+template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<string, string>, vector<pair<int, int>>>> &data, set<string> &corner);
+template void fillShadowAcrossFromParallel(const int type, Statement *st, vector<pair<pair<SgSymbol*, string>, vector<pair<int, int>>>> &data, set<SgSymbol*> &corner);
 
 
 template<typename fillType>
-void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expression*> &remote, bool isFull)
+void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expression*> &remote, bool isFull, int type)
 {
-    if (st)
+    if (stIn)
     {
-        if (st->variant() == SPF_PARALLEL_DIR)
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() ==  type)
         {
-            SgExpression *exprList = st->expr(0);
+            SgExpression *exprList = NULL;
+            if (type == SPF_PARALLEL_DIR)
+                exprList = st->expr(0);
+            else if (type == DVM_PARALLEL_ON_DIR)
+                exprList = st->expr(1);
+
             while (exprList)
             {
                 if (exprList->lhs()->variant() == REMOTE_ACCESS_OP)
@@ -321,14 +338,14 @@ void fillRemoteFromComment(SgStatement *st, map<pair<fillType, string>, Expressi
     }
 }
 
-template void fillRemoteFromComment(SgStatement *st, map<pair<string, string>, Expression*> &remote, bool isFull);
-template void fillRemoteFromComment(SgStatement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull);
+template void fillRemoteFromComment(Statement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
-        fillShadowAcrossFromComment(ACROSS_OP, data, acrossInfo);
+        fillShadowAcrossFromComment(ACROSS_OP, new Statement(data), acrossInfo);
 }
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
@@ -336,11 +353,12 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
     {
-        fillPrivatesFromComment(data, directive->privates);
-        fillReductionsFromComment(data, directive->reduction);
-        fillReductionsFromComment(data, directive->reductionLoc);
-        fillShadowAcrossFromComment(SHADOW_OP, data, directive->shadowRenew);
-        fillShadowAcrossFromComment(ACROSS_OP, data, directive->across);
-        fillRemoteFromComment(data, directive->remoteAccess);
+        Statement *sData = new Statement(data);
+        fillPrivatesFromComment(sData, directive->privates);
+        fillReductionsFromComment(sData, directive->reduction);
+        fillReductionsFromComment(sData, directive->reductionLoc);
+        fillShadowAcrossFromComment(SHADOW_OP, sData, directive->shadowRenew);
+        fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
+        fillRemoteFromComment(sData, directive->remoteAccess);
     }
 }

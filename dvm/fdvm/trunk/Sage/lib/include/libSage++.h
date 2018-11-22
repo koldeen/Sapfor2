@@ -395,6 +395,12 @@ friend SgExpression &SgBitNumbOp( SgExpression &lhs, SgExpression &rhs);
 };
 
 class SgSymbol{
+private:
+    // copyed by Yashin 08.09.2018
+    int fileID;
+    SgProject *project;
+    //
+
 public:
   // basic class contains
   PTR_SYMB thesymb;
@@ -440,6 +446,37 @@ public:
  
   SgStatement *body(); // the body of the symbol if has one (like, function call, class,...)
   inline SgSymbol *moduleSymbol();  // module symbol reference  "by use"
+
+  // new opportunities were added by Kolganov A.S. 16.04.2018 and copyed by Yashin 08.09.2018
+  inline int getFileId() const { return fileID; }
+  inline void setFileId(const int newFileId) { fileID = newFileId; }
+  void changeName(const char *); // set new name for the symbol
+
+  inline SgProject* getProject() const { return project; }
+  inline void setProject(SgProject *newProj) { project = newProj; }
+
+  inline bool switchToFile()
+  {
+      if (fileID == -1 || project == NULL)
+          return false;
+
+      if (current_file_id != fileID)
+      {
+          SgFile *file = &(project->file(fileID));
+          current_file_id = fileID;
+          current_file = file;
+      }
+      return true;
+  }
+
+  inline SgFile* getFile() const
+  {
+      if (fileID == -1 || project == NULL)
+          return NULL;
+      else
+          return &(project->file(fileID));
+  }
+  //
 
   /////////////// FOR ATTRIBUTES //////////////////////////
 
@@ -3524,18 +3561,48 @@ inline SgSymbol *SgSymbol::next()
 { return SymbMapping(SYMB_NEXT(thesymb));}
 
 inline SgSymbol &SgSymbol::copy() 
-{ return *SymbMapping(duplicateSymbol(thesymb)); }
+{
+    SgSymbol *copy = SymbMapping(duplicateSymbol(thesymb));
+
+#ifdef __SPF
+    copy->setProject(project);
+    copy->setFileId(fileID);
+#endif
+    return *copy;
+}
 
 inline SgSymbol &SgSymbol::copyLevel1() 
-{ return *SymbMapping(duplicateSymbolLevel1(thesymb)); }
+{
+    SgSymbol *new_symb = SymbMapping(duplicateSymbolLevel1(thesymb));
+
+#ifdef __SPF
+    new_symb->setProject(project);
+    new_symb->setFileId(fileID);
+#endif
+    return *new_symb;
+}
 
 inline SgSymbol &SgSymbol::copyLevel2() 
-{ return *SymbMapping(duplicateSymbolLevel2(thesymb)); }
+{
+    SgSymbol *new_symb = SymbMapping(duplicateSymbolLevel2(thesymb));
+
+#ifdef __SPF
+    new_symb->setProject(project);
+    new_symb->setFileId(fileID);
+#endif
+    return *new_symb;
+}
 
 inline SgSymbol &SgSymbol::copyAcrossFiles(SgStatement &where) 
 { 
   resetDoVarForSymb();
-  return *SymbMapping(duplicateSymbolAcrossFiles(thesymb,where.thebif)); 
+  SgSymbol *new_symb = SymbMapping(duplicateSymbolAcrossFiles(thesymb,where.thebif));
+
+#ifdef __SPF
+  new_symb->setProject(project);
+  new_symb->setFileId(fileID);
+#endif
+  return *new_symb;
 }
 
 inline SgSymbol &SgSymbol::copySubprogram(SgStatement &where) 

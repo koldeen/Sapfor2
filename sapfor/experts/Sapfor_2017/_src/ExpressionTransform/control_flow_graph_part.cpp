@@ -1,10 +1,12 @@
 #include "../Utils/leak_detector.h"
+#include <omp.h>
 
 #include "dvm.h"
 #include "acc_analyzer.h"
 #include "expr_transform.h"
 #include <stack>
 
+#define PRINT_PROF_INFO 0
 using std::string;
 using std::vector;
 using std::map;
@@ -19,6 +21,7 @@ void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
+static map<string, ExpressionValue*> allocated;
 
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
@@ -58,12 +61,12 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
 
 bool argIsReplaceable(int i, AnalysedCallsList *callData)
 {
-    // AnalysedCallsList == -1 or -2 if no user procedure /subroutine found
+    // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
     if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
         return false;
     SgProcHedrStmt *header = isSgProcHedrStmt(callData->header);
     if (header == NULL)
-        return NULL;
+        return false;
     if (header->parameter(i) == NULL)
         return false;
     int attr = header->parameter(i)->attributes();
@@ -142,7 +145,7 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     if (found_inDefs != in_defs.end())
     {
         for (auto& value : found_inDefs->second)
-                addVarToKill(value.getExp()->symbol());
+                addVarToKill(value->getExp()->symbol());
     }
 }
 
@@ -238,6 +241,7 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
 {
     ControlFlowItem *cfi = getStart();
     ControlFlowItem *till = getEnd()->getNext();
+    clearGenKill();
     bool founded = false;
     while (cfi != till)
     {
@@ -262,33 +266,49 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
                     founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
 
                 for (auto &exp : it.second)
-                        founded->second.insert(exp.getExp());
+                        founded->second.insert(exp->getExp());
             }
         }
+
+        for(auto &it : gen)
+            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second);
     }
     return defs;
 }
 
-static bool mergeExpressionMaps(set<ExpressionValue> &main, set<ExpressionValue> &term)
+size_t max1 = 0;
+size_t min1 = 0;
+size_t max2 = 0;
+size_t min2 = 0;
+size_t countMerge = 0;
+
+static bool mergeExpressionMaps(set<ExpressionValue*> &main, set<ExpressionValue*> &term)
 {
-    int mainSize = main.size();
+#if PRINT_PROF_INFO
+    ++countMerge;
+    max1 = std::max(max1, main.size());
+    max2 = std::max(max2, term.size());
+    min1 = std::min(min1, main.size());
+    min2 = std::min(min2, term.size());
+#endif
+    size_t mainSize = main.size();
     main.insert(term.begin(), term.end());
     if(main.size() != mainSize)
         return true;
     return false;
 }
 
-static void mergeDefs(map<SymbolKey, set<ExpressionValue>> *main, map<SymbolKey, set<ExpressionValue>> *term, set<SymbolKey> *allowedVars)
+static void mergeDefs(map<SymbolKey, set<ExpressionValue*>> *main, map<SymbolKey, set<ExpressionValue*>> *term, set<SymbolKey> *allowedVars)
 {
-    for (auto it = term->begin(); it != term->end(); ++it)
+    for (auto &toCheck : *term)
     {
-        if (!allowedVars || (allowedVars && allowedVars->find(it->first) != allowedVars->end()))
+        if (!allowedVars || (allowedVars && allowedVars->find(toCheck.first) != allowedVars->end()))
         {
-            auto founded = main->find(it->first);
+            auto founded = main->find(toCheck.first);
             if (founded == main->end())
-                main->insert(founded, *it);
-            if (founded != main->end())
-                mergeExpressionMaps(founded->second, it->second);
+                main->insert(founded, toCheck);
+            else if (founded != main->end())
+                mergeExpressionMaps(founded->second, toCheck.second);
         }
     }
 }
@@ -303,14 +323,26 @@ void CBasicBlock::initializeOutWithGen()
             newExp = elem.second->copyPtr();
             auto inserted = out_defs.find(elem.first);
             if (inserted == out_defs.end())
-                inserted = out_defs.insert(inserted, make_pair(elem.first, set<ExpressionValue>()));
-            inserted->second.insert(newExp);
+                inserted = out_defs.insert(inserted, make_pair(elem.first, set<ExpressionValue*>()));
+
+            string unp = newExp->unparse();
+            auto alloc = allocated.find(unp);
+
+            ExpressionValue* newExpVal = NULL;
+            if (alloc == allocated.end())
+            {
+                newExpVal = new ExpressionValue(newExp, unp);
+                allocated.insert(alloc, make_pair(unp, newExpVal));
+            }
+            else
+                newExpVal = alloc->second;
+            inserted->second.insert(newExpVal);
         }
     }
 }
 
-static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue>> *main,
-                                  map<SymbolKey, set<ExpressionValue>> *defs, set<SymbolKey> *kill)
+static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue*>> *main,
+                                  map<SymbolKey, set<ExpressionValue*>> *defs, set<SymbolKey> *kill)
 {
     bool mainChanged = false;
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -331,7 +363,7 @@ static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue>> *main,
     return mainChanged;
 }
 
-void showDefs(map<SymbolKey, set<ExpressionValue>> *defs)
+void showDefs(map<SymbolKey, set<ExpressionValue*>> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
     for (auto it = defs->begin(); it != defs->end(); ++it)
@@ -342,8 +374,8 @@ void showDefs(map<SymbolKey, set<ExpressionValue>> *defs)
             printf("--- %s = ", it->first.getVarName().c_str());
         for (auto iter = it->second.begin(); iter != it->second.end(); ++iter)
         {
-            if(iter->getExp())
-                printf("%s", iter->getUnparsed().c_str());
+            if((*iter)->getExp())
+                printf("%s", (*iter)->getUnparsed().c_str());
             else
                 printf("empty value");
             if (iter != it->second.end())
@@ -360,9 +392,9 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
         if(it->first.isPointer())
-            printf("--- %s => %s", it->first.getVarName().c_str(), it->second->unparse());
+            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
         else
-            printf("--- %s = %s", it->first.getVarName().c_str(), it->second->unparse());
+            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
         printf("\n");
     }
     printf("\n");
@@ -382,7 +414,7 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
     printf("\n");
 }
 
-static void showDefsOfGraph(ControlFlowGraph *CGraph)
+void showDefsOfGraph(ControlFlowGraph *CGraph)
 {
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
@@ -399,6 +431,7 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
             if (cfi->getStatement())
             {
                 printed = true;
+                printf("id(%d) ", cfi->getStatement()->id());
                 cfi->getStatement()->unparsestdout();
             }
             else if(cfi->getOriginalStatement())
@@ -407,6 +440,7 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
                 if(origSt->variant() == IF_NODE)
                 {
                     printed = true;
+                    printf("id(%d) ", origSt->id());
                     printf("If:   (%s)\n", ((SgIfStmt*) origSt)->conditional()->unparse());
                 }
 
@@ -448,13 +482,55 @@ static void showDefsOfGraph(ControlFlowGraph *CGraph)
 
 void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
 {
+    int64_t memCount = 0;
+    int64_t elemCount = 0;
+    int64_t elemCount1 = 0;
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
     {
+#if PRINT_PROF_INFO
+        auto gen = b->getGen();
+        for (auto &elem : *gen)
+        {
+            memCount += elem.first.getVarName().size() + sizeof(SgExpression*);
+            ++elemCount;
+            elemCount1 += 2;
+        }
+
+        auto in_def = b->getInDefs();
+        for (auto &elem : *in_def)
+        {
+            memCount += elem.first.getVarName().size() + elem.second.size() * sizeof(ExpressionValue*);
+            ++elemCount;
+            elemCount1 = elemCount1 + 1 + elem.second.size();
+        }
+        auto out_def = b->getOutDefs();
+        for (auto &elem : *out_def)
+        {
+            memCount += elem.first.getVarName().size() + elem.second.size() * sizeof(ExpressionValue*);
+            ++elemCount;
+            elemCount1 = elemCount1 + 1 + elem.second.size();
+        }
+#endif
         b->clearGenKill();
         b->clearDefs();
         b = b->getLexNext();
     }
+
+    int64_t countS = 0;
+    for (auto &elem : allocated)
+    {
+#if PRINT_PROF_INFO
+        countS += elem.second->getUnparsed().size();
+#endif
+        delete elem.second;
+    }
+#if PRINT_PROF_INFO
+    //if (allocated.size())
+        __spf_print(1, "   count of elem %lld, in MB %f, info %lld in MB %f, elemCount = %d, elemCount1 = %d\n", 
+                    countS, (double)countS / 1024. / 1024., memCount, double(memCount) / 1024./1024., elemCount, elemCount1);
+#endif
+    allocated.clear();
 }
 
 //TODO
@@ -509,7 +585,7 @@ void PreparePointers(ControlFlowGraph *CGraph)
     }
 }
 
-void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<ExpressionValue>> *inDefs, CommonVarsOverseer *overseer_Ptr)
+void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr)
 {
     overseerPtr = overseer_Ptr;
     CBasicBlock *b = CGraph->getFirst();
@@ -517,6 +593,8 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     PreparePointers(CGraph);
 
     b = CGraph->getFirst();
+
+    double time = omp_get_wtime();
     while (b != NULL)
     {
         ControlFlowItem *cfi = b->getStart();
@@ -531,27 +609,52 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
         b->initializeOutWithGen();
         b = b->getLexNext();
     }
-
+    __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", omp_get_wtime() - time);
+    time = omp_get_wtime();
     if (inDefs != NULL)
         CGraph->getFirst()->setInDefs(inDefs);
 
+    double timeMerge = 0;
+    double timeAdd = 0;
     bool setsChanged = true;
+
+    size_t countIn1 = 0;
+    countMerge = 0;
+    size_t countSet1 = 0;
+    size_t countSet2 = 0;
     while (setsChanged)
     {
         setsChanged = false;
         b = CGraph->getFirst();
         while (b != NULL)
         {
+            double locT = omp_get_wtime();
             /*Updating IN*/
-            for (BasicBlockItem* prev = b->getPrev(); prev != NULL; prev = prev->next)
+            for (BasicBlockItem *prev = b->getPrev(); prev != NULL; prev = prev->next)
+            {
+#if PRINT_PROF_INFO
+                countSet1 = std::max(countSet1, b->getInDefs()->size());
+                countSet2 = std::max(countSet2, prev->block->getOutDefs()->size());
+                countIn1++;
+#endif
                 mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
 
+            }
+            timeMerge += (omp_get_wtime() - locT);
+
+            locT = omp_get_wtime();
             /*Updating OUT, true, if OUT has been changed*/
             setsChanged |= addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
+            timeAdd += (omp_get_wtime() - locT);
 
             b = b->getLexNext();
         }
     }
+    __spf_print(PRINT_PROF_INFO, "   block 2 %f\n", omp_get_wtime() - time);
+    __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n", 
+                timeMerge, countIn1, min1, max1, min2, max2, countMerge, countSet1, countSet2);
+    __spf_print(PRINT_PROF_INFO, "     add %f\n", timeAdd);
+    //printf("[%s]: %s\n", tag[newDeclaration->variant()], newDeclaration->unparse());
 
     /*Showtime*/
     //showDefsOfGraph(CGraph);
@@ -616,19 +719,19 @@ bool valueWithArrayReference(SgExpression *exp)
 * 4. value has itself within (recursion)
 * 5. value has array reference
 */
-void CBasicBlock::correctInDefsSimple() 
+void CBasicBlock::correctInDefsSimple()
 {
     for(auto it = in_defs.begin(); it != in_defs.end();)
     {
         if (it->second.size() != 1) //1
             it = in_defs.erase(it);
-        else if(it->second.begin()->getExp() == NULL)
+        else if((*(it->second.begin()))->getExp() == NULL)
             it = in_defs.erase(it);
-        else if (valueWithFunctionCall(it->second.begin()->getExp())) //3
+        else if (valueWithFunctionCall((*(it->second.begin()))->getExp())) //3
             it = in_defs.erase(it);
-        else if (valueWithRecursion(it->first, it->second.begin()->getExp())) //4
+        else if (valueWithRecursion(it->first, (*(it->second.begin()))->getExp())) //4
             it = in_defs.erase(it);
-        else if(valueWithArrayReference(it->second.begin()->getExp()))
+        else if(valueWithArrayReference((*(it->second.begin()))->getExp()))
             it = in_defs.erase(it);
         else
             it++;
@@ -670,7 +773,7 @@ bool CBasicBlock::correctInDefsIterative()
                 it++;
 
         //Clean outDefs
-        vector<map<SymbolKey, set<ExpressionValue>>::const_iterator> toDel;
+        vector<map<SymbolKey, set<ExpressionValue*>>::const_iterator> toDel;
         for (auto it = out_defs.begin(); it != out_defs.end(); ++it)
             if (allowedVars->find(it->first) == allowedVars->end()
                 && gen.find(it->first) == gen.end())
