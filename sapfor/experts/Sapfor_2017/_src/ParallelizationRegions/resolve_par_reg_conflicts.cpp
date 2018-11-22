@@ -314,9 +314,9 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                     if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                     else
-                        iterator = regionLines.stats.first;
+                        iterator = regionLines.stats.first->GetOriginal();
 
-                    for (; iterator && iterator != end; iterator = iterator->lexNext())
+                    for (; iterator && iterator != end->lexNext(); iterator = iterator->lexNext())
                     {
                         if (isSPF_stat(iterator) || isDVM_stat(iterator))
                             continue;
