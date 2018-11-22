@@ -436,10 +436,9 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                         auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
                         if (inRegs.size() > 1)
                         {
-                            __spf_print(1, "parallel region '%s' has line that is included in another region in file '%s' on line %d\n", region->GetName().c_str(),
-                                        fileLines.first.c_str(), line);
+                            __spf_print(1, "parallel region '%s' has line included in another region in current file on line %d\n", region->GetName().c_str(), line);
                             string message;
-                            __spf_printToBuf(message, "parallel region '%s' has line that is included in another region in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
+                            __spf_printToBuf(message, "parallel region '%s' has line included in another region in current file", region->GetName().c_str());
 
                             auto itM = SPF_messages.find(fileLines.first);
                             if (itM == SPF_messages.end())
