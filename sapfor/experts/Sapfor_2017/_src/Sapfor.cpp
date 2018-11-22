@@ -738,8 +738,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-            createInterTree(file, getObjectForFileFromMap(file_name, intervals));
+            vector<string> include_functions = {};
+            int threshold = 500;
+            
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals), keepFiles, false);
             //assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
+            //removeNodes(threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));

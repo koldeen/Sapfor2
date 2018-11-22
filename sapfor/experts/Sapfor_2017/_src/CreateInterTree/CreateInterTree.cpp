@@ -5,24 +5,33 @@ using std::vector;
 using std::map;
 using std::cout;
 using std::endl;
-using std::ifstream;
+using std::fstream;
+
+static long int getNextTag()
+{
+    static long int INTERVAL_TAG = 0;
+
+    return INTERVAL_TAG++;
+}
 
 //Debug funcs
-void printTree(Interval* inter)
+void printTree(Interval* inter, fstream& file, int level)
 {
     if(!(inter->ifInclude))
         return;
 
-    cout << inter->tag << " ";
-    cout << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << endl;
+    for(int i = 0; i < level; i++) file << " ";
+    file << inter->tag << " ";    
+    file << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << endl;
 
     for(int i = 0; i < inter->includes.size(); i++)
-        printTree(inter->includes[i]);
+        printTree(inter->includes[i], file, level + 1);
 
     for(int i = 0; i < inter->ends.size(); i++)
     {
-        cout << inter->tag << " ";
-        cout << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
+        for(int i = 0; i < level; i++) file << " ";
+        file << inter->tag << " ";
+        file << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
     }
 }
 
@@ -51,6 +60,40 @@ static void findAllLabels(SgStatement* st, map<int, int> &labelsRef)
     }
 }
 
+//Nested intervals removal
+static int getNestedLevel(SgStatement* loop_stmt)
+{
+    int depth = 0;
+    SgStatement *current_loop = loop_stmt->lexNext();
+    SgStatement *controlEnd = current_loop->lastNodeOfStmt();
+    
+    while(isSgForStmt(current_loop) && isSgControlEndStmt(controlEnd)) {
+        current_loop = current_loop->lexNext();
+        controlEnd = controlEnd->lexPrev();
+        depth++;
+    }
+
+    return depth;
+}
+
+static void removeNestedIntervals(Interval* interval)
+{
+    if(isSgForStmt(interval->begin))
+    {
+        int depth = getNestedLevel(interval->begin);
+        Interval* current_interval = interval;
+
+        for(int i = 0; i < depth; i++)
+        {
+            current_interval = current_interval->includes[0];
+            current_interval->ifInclude = false;
+        }
+    }
+
+    for(auto &include : interval->includes)
+        removeNestedIntervals(include);
+}
+
 //Tree creation funcs
 static bool checkIfHasCall(SgExpression* exp)
 {
@@ -65,7 +108,7 @@ static bool checkIfHasCall(SgExpression* exp)
     return false;
 }
 
-static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level, int &tag)
+static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
 {
     bool if_has_call;
     int currentVar;
@@ -118,17 +161,16 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
         inter->parent = interval;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->exit_levels.push_back(0);
-        inter->tag = ++tag;
+        inter->tag = getNextTag();
         interval->includes.push_back(inter);
 
-        findIntervals(inter, labelsRef, gotoStmts, currentSt, level + 1, tag);
+        findIntervals(inter, labelsRef, gotoStmts, currentSt, level + 1);
     }
 }
 
-void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
+void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool keep, bool nested_on)
 {
     int funcNum = file->numberOfFunctions();
-    int tag = 0;
     map<int, int> labelsRef;           // id => line
     map<int, vector<int>> gotoStmts;   // line => label_ids
 
@@ -142,18 +184,34 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
         Interval* func_inters = new Interval();
 
         func_inters->begin = file->functions(i);
+        func_inters->tag = getNextTag();
         
         func_inters->ends.push_back(func_inters->begin->lastNodeOfStmt());
         func_inters->exit_levels.push_back(0);
 
         SgStatement* currentSt = func_inters->begin;
-        findIntervals(func_inters, labelsRef, gotoStmts, currentSt, 1, tag);
+        findIntervals(func_inters, labelsRef, gotoStmts, currentSt, 1);
 
         fileIntervals.push_back(func_inters);
     }
 
-    for(auto &interval : fileIntervals)
-        printTree(interval);
+    if(keep)
+    {
+        fstream file_intervals;
+
+        string filename = "_";
+        filename += file->filename();
+        filename += ".intervals";
+
+        file_intervals.open(filename, fstream::out);
+        for(auto &interval : fileIntervals)
+            printTree(interval, file_intervals, 0);
+        file_intervals.close();
+    }
+
+    if(nested_on)
+        for(auto &interval : fileIntervals)
+            removeNestedIntervals(interval);
 }
 
 //Interval insertion funcs
@@ -217,10 +275,10 @@ void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
 static FileProfile parseProfiles(const string &filename)
 {
     FileProfile fileProfile;
-    ifstream file;
+    fstream file;
     string line;
 
-    file.open(filename);
+    file.open(filename, fstream::in);
 
     while (!file.eof())
     {
@@ -271,9 +329,13 @@ static void removeNode(Interval* inter, int threshold)
         removeNode(inter->includes[i], threshold);
 }
 
-void removeNodes(int threshold, map<string, vector<Interval*>> &allIntervals)
+void removeNodes(int threshold, vector<Interval*> &intervals, vector<string> &include_functions)
 {
-    for (auto &byFile : allIntervals)
-        for (auto &interval : byFile.second)
+    for (auto &interval : intervals)
+    {
+        string func_name = interval->begin->symbol()->identifier();
+
+        if(find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
             removeNode(interval, threshold);    
+    }
 }
