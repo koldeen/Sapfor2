@@ -8,6 +8,7 @@
 
 #include "dvm.h"
 #include "gCov_parser_func.h"
+#include "../Utils/SgUtils.h"
 
 using namespace std;
 
@@ -84,11 +85,13 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
     bool executedCountGot = false;
     int i = 0;
     int len = str.length();
+    int minus = 0;
+    int ddot = 0;
     while (i != len) 
     {
         char c = str[i];
         if ((c >= 48) && (c <= 57))  //symbols '0'-'9'
-            num.push_back(c);        
+            num.push_back(c);
         else
         {
             switch (c) 
@@ -102,15 +105,21 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
                 num.clear();
                 break;
             case ':':
+                ddot++;
                 if ((!lex.empty()) && (isNeverExecuted(lex))) 
                 {
                     executedCountGot = true;
+                    infoLine.setExecutedCount(0);
                 }
-                if (!num.empty()) 
+                if (!num.empty())
                 {
                     if (!executedCountGot)
                     {
-                        infoLine.setExecutedCount(stoi(num, nullptr));
+                        const int value = stoi(num, nullptr);
+                        if (minus == 1 && ddot == 1 && value == 0)
+                            infoLine.setExecutedCount(-1);
+                        else
+                            infoLine.setExecutedCount(value);
                         executedCountGot = true;
                     }
                     else
@@ -124,6 +133,7 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
                 num.clear();
                 break;
             case '-':
+                minus++;
                 num.push_back('0');
                 break;
             default:
@@ -196,44 +206,96 @@ static void fixGcovInfo(SgFile *fileSg, map<int, Gcov_info> &gCovInfo)
 {
     for (SgStatement *st = fileSg->firstStatement(); st; st = st->lexNext())
     {
-        if (isSgExecutableStatement(st))
+        if (isSgExecutableStatement(st) && !isDVM_stat(st) && !isSPF_stat(st) &&
+            (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
         {
             auto next = st->lexNext();
             const int currLine = st->lineNumber();
             const int nextLine = next ? next->lineNumber() : -1;
             if (next)
             {
-                auto it = gCovInfo.find(currLine);
-                if (it == gCovInfo.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                if (nextLine == currLine)
+                    continue;
 
-                if (it->second.getExecutedCount() == 0)
+                auto it = gCovInfo.find(currLine);
+
+                if (it != gCovInfo.end())
                 {
-                    int nextL = currLine + 1;
-                    while (nextL != nextLine)
+                    if (it->second.getExecutedCount() <= 0)
                     {
-                        auto itNext = gCovInfo.find(nextL);
-                        if (itNext != gCovInfo.end())
+                        int nextL = currLine + 1;
+                        while (nextL != nextLine)
                         {
-                            if (itNext->second.getExecutedCount() != 0)
+                            auto itNext = gCovInfo.find(nextL);
+                            if (itNext != gCovInfo.end())
                             {
-                                it->second.setExecutedCount(itNext->second.getExecutedCount());
-                                for (auto &call : itNext->second.getCalls())
-                                    it->second.setCall(call.second);
-                                for (auto &branch : itNext->second.getBranches())
-                                    it->second.setBranch(branch.second);
-                                break;
+                                if (itNext->second.getExecutedCount() >= 0)
+                                {
+                                    it->second.clear();
+                                    it->second.setExecutedCount(itNext->second.getExecutedCount());
+                                    for (auto &call : itNext->second.getCalls())
+                                        it->second.setCall(call.second);
+                                    for (auto &branch : itNext->second.getBranches())
+                                        it->second.setBranch(branch.second);
+
+                                    // copy to between 
+                                    for (int z = currLine + 1; z != nextL; ++z)
+                                    {
+                                        auto itZ = gCovInfo.find(z);
+                                        if (itZ != gCovInfo.end())
+                                        {
+                                            itZ->second.clear();
+                                            itZ->second.setExecutedCount(itNext->second.getExecutedCount());
+                                            for (auto &call : itNext->second.getCalls())
+                                                itZ->second.setCall(call.second);
+                                            for (auto &branch : itNext->second.getBranches())
+                                                itZ->second.setBranch(branch.second);
+                                        }
+                                    }
+                                    break;
+                                }
                             }
+                            nextL++;
                         }
-                        nextL++;
                     }
                 }
             }
         }
     }
+
+    for (SgStatement *st = fileSg->firstStatement(); st; st = st->lexNext())
+    {
+        if (isSgExecutableStatement(st) && !isDVM_stat(st) && !isSPF_stat(st) &&
+            (st->variant() != DVM_INTERVAL_DIR && st->variant() != DVM_ENDINTERVAL_DIR))
+        {
+            if (st->variant() == CONTROL_END)
+            {
+                auto cp = st->controlParent();
+                auto it = gCovInfo.find(cp->lineNumber());
+                if (it != gCovInfo.end() && cp->variant() != PROG_HEDR &&
+                    cp->variant() != PROC_HEDR && cp->variant() != FUNC_HEDR &&
+                    isSgExecutableStatement(cp))
+                {
+                    auto it = gCovInfo.find(st->lineNumber());
+                    auto itCp = gCovInfo.find(cp->lineNumber());
+                    if (it != gCovInfo.end())
+                    {
+                        it->second.clear();
+                        it->second.setExecutedCount(itCp->second.getExecutedCount());
+                        for (auto &call : itCp->second.getCalls())
+                            it->second.setCall(call.second);
+                        for (auto &branch : itCp->second.getBranches())
+                            it->second.setBranch(branch.second);
+                    }
+                }
+                continue;
+            }
+        }
+    }
 }
 
-void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_info> &gCovInfo)
+static map<string, map<int, Gcov_info>> allGCovInfo;
+void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_info> &gCovInfo, bool keep)
 {
     if (basefileNameIn == "")
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -253,17 +315,49 @@ void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_
             file.close();
             fixGcovInfo(fileSg, gCovInfo);
 
-#if _WIN32 && _DEBUG
-            // FOR DEBUG ONLY
-            string name_f = modify_name(basefileName);
-            ofstream myfile(name_f);
-            if (myfile.is_open()) 
-                printInfo2file(gCovInfo, myfile);            
-            else
-                __spf_print(1, "   Error: unable to create file %s\n", name_f.c_str());
-#endif
+            if (keep)
+            {
+                // FOR DEBUG ONLY
+                string name_f = modify_name(basefileName);
+                ofstream myfile(name_f);
+                if (myfile.is_open())
+                    printInfo2file(gCovInfo, myfile);
+                else
+                    __spf_print(1, "   Error: unable to create file %s\n", name_f.c_str());
+            }
         }
         else
             __spf_print(1, "   Error: unable to open file %s\n", basefileName.c_str());
     }
+    allGCovInfo[fileSg->filename()] = gCovInfo;
+}
+
+bool __gcov_doesThisLineExecuted(const string &file, const int line)
+{
+    bool ret = true;
+    auto itF = allGCovInfo.find(file);
+    if (itF != allGCovInfo.end())
+    {
+        auto itL = itF->second.find(line);
+        if (itL != itF->second.end())
+            ret = itL->second.getExecutedCount() != 0;
+    }
+    return ret;
+}
+
+pair<int, int> __gcov_GetExecuted(const string &file, const int line)
+{
+    pair<int, int> ret = make_pair(0, 0);
+    auto itF = allGCovInfo.find(file);
+    if (itF != allGCovInfo.end())
+    {
+        auto itL = itF->second.find(line);
+        if (itL != itF->second.end())
+            ret.second = itL->second.getExecutedCount();
+        else
+            ret.first = -1;
+    }
+    else
+        ret.first = -1;
+    return ret;
 }

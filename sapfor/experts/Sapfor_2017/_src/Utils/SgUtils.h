@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "../Distribution/Distribution.h"
 #include "../GraphCall/graph_calls.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
 

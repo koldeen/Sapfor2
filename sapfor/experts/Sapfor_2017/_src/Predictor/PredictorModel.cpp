@@ -61,17 +61,17 @@ const char* CONFIG_TaskSet = "*.cts";
 // xp-settings max_dim=10
 const char max_dim = 10;
 
-struct dis_pat //шаблон распределения
+struct dis_pat //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 {
     int rank;
     char dim[max_dim]; //0=*, 1=BLOCK
 };
 
-struct ali_pat //шаблон выравнивания
+struct ali_pat //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 {
     int rank;
-    long varid; //индекс переменной в таблице vars
-    long axis[max_dim]; //стоит использовать вектор
+    long varid; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ vars
+    long axis[max_dim]; //пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     long coef[max_dim];
     long cons[max_dim];
 };
@@ -79,15 +79,15 @@ struct ali_pat //шаблон выравнивания
 struct circle
 {
     int rank;
-    double time; //время в каких-то единицах, идеально в секундах. Я использую секунды.
-    long init[max_dim]; //стоит использовать вектор
+    double time; //пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+    long init[max_dim]; //пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     long last[max_dim];
     long step[max_dim];
 };
 
 struct reduct
 {
-    bool is; // есть ли она вообще для этого параллельного цикла
+    bool is; // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
     int loc_type;
     long red_arr_len;
     int red_arr_type;
@@ -95,28 +95,28 @@ struct reduct
 
 struct shadow
 {
-    bool is; // есть ли она вообще для этого параллельного цикла
-    struct var *v; //ссылка на массив, элементы которого будут передаваться
-    bool is_wid; //заданы ли теневые грани в этой директиве, или надо брать по умолчанию
+    bool is; // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+    struct var *v; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    bool is_wid; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     bool corner;
     int rank;
-    int low_wid[max_dim]; //если заданы то эти вектора тоже долны быть заданы.
+    int low_wid[max_dim]; //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
     int hi_wid[max_dim];
 };
 
 struct across
 {
-    bool is; // есть ли она вообще для этого параллельного цикла
-    struct var *v; //ссылка на массив, элементы которого зависят по данным
-    int low_wid[max_dim]; //границы зависимости (тоже лучше вектора)
+    bool is; // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+    struct var *v; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+    int low_wid[max_dim]; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     int hi_wid[max_dim];
 };
 
 struct remote
 {
     long loop_addr_ref;
-    struct var *v; //ссылка на массив, элементы которого располагаются удаленно
-    long axis[max_dim]; //удаленные элементы (тоже лучше вектора)
+    struct var *v; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    long axis[max_dim]; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     long coef[max_dim];
     long cons[max_dim];
 };
@@ -134,16 +134,15 @@ struct seq_loop
 {	long beg_line;
     long end_line;
     long times;
-    bool ifgoto; //флаг того, что надо пробегать цикл, а не умножать время витка на его количество
+    bool ifgoto; //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 };
 */
 
 
 
-long cur_amv, cur_ps; //попробую без cur_amv_ptr (считая его = cur_amv)
+long cur_amv, cur_ps; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ cur_amv_ptr (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ = cur_amv)
 long addr;
 
-Interval *NullInterval;
 Interval *SeqLoopInterval;
 Interval *RemoteCommInterval;
 long cur_res, result_cnt;
@@ -222,12 +221,12 @@ void Interval_node::calc(double times)
         inter->copy_poss(tmp_inter, 0, times);
         inter->CalcIdleAndImbalance();
 
-        printf("try to integrate loop %d  times=%d\n", this->line, times);
+        printf("try to integrate loop %d  times=%f\n", this->line, times);
         inter->Integrate();
     }
 }
 
-//поиск вглубь и снизу
+//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
 Interval_node *find_node(Interval_node *parent, long line)
 {
     int i;
@@ -247,7 +246,7 @@ Interval_node *find_node(Interval_node *parent, long line)
         return NULL;
 }
 
-//поиск вглубь
+//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 Interval_node *find_node_of_closest_parent(Interval_node *root, struct loop *curr_loop)
 {
     int i;
@@ -297,8 +296,8 @@ void Interval_node::add(struct loop *curr_loop, Interval *tmp_inter, int type, d
     this->children.push_back(tmp_node);
 }
 
-// процедура позволяет две вещи - расписывать число повторений (times) по дереву
-// и записывать в дерево интервалы, когда указано tmp_inter!=NULL
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (times) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ tmp_inter!=NULL
 void Interval_node::insert(struct loop *curr_loop, Interval *tmp_inter, int type, double times)
 {
     int i;
@@ -386,8 +385,8 @@ struct loop* Find_loop_id_tree(int line)
 void setVectorCallRet(FuncCall *f)
 {
     int k;
-    // если у каждого процессора своя мощность, то надо заполнить вектор vcall_time следующим образом. 
-    // В предикторе это делалось автоматически при чтении трассы из файла
+    // пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ vcall_time пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. 
+    // пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 
     f->vcall_time.resize(currentVM->getProcCount());
@@ -427,6 +426,7 @@ static long arrayAddr = 1;
 static long arrayAddrPtr = 10000;
 static long ids = 1;
 static long loopIds = 1;
+static long redShIds = 1;
 
 static map<DIST::Array*, long> mapArrayAddrs;
 static map<DIST::Array*, long> mapArrayAddrsPtr;
@@ -434,15 +434,15 @@ static map<DIST::Array*, long> mapIds;
 static map<LoopGraph*, long> mapLoopIds;
 
 template<typename T>
-static long getId(T array, map<T, long> dict, long &counter)
+static long getId(T object, map<T, long> &dict, long &counter)
 {
-    auto it = dict.find(array);
+    auto it = dict.find(object);
     if (it == dict.end())
-        dict[array] = counter++;
-    return dict[array];
+        dict[object] = counter++;
+    return dict[object];
 }
 
-static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *printOut)
+static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *printOut = NULL)
 {
     string debug = "";
     {
@@ -452,7 +452,7 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
         f.call_params = (void *)tmp_params; // point to parameters
 
         tmp_params->AM_ID = cur_amv; //possible not
-        tmp_params->ID = getId(array, mapArrayAddrs, ids); //для различия
+        tmp_params->ID = getId(array, mapIds, ids); //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
         auto sizes = array->GetSizes();
         tmp_params->SizeArray.resize(sizes.size());
@@ -522,8 +522,8 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
 
         const int rank = array->GetDimSize();
 
-        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->ReDistrSign = 0; //poss not 3
         tmp_params->StaticSign = 0; //poss not
         tmp_params->TypeSize = array->GetTypeSize();
@@ -573,8 +573,8 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
         align_Info* tmp_params = new align_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->PatternRef = cur_amv;
         tmp_params->PatternRefPtr = cur_amv;
         tmp_params->PatternType = 1; //AMView
@@ -608,7 +608,7 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
     return 0;
 }
 
-static int Model_align(DIST::Array *array, const int regId, FILE *printOut)
+static int Model_align(DIST::Array *array, const int regId, FILE *printOut = NULL)
 {
     DIST::Array *templ = array->GetTemplateArray(regId);
     auto rule = array->GetAlignRulesWithTemplate(regId);
@@ -622,8 +622,8 @@ static int Model_align(DIST::Array *array, const int regId, FILE *printOut)
         crtda_Info* tmp_params = new crtda_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->ReDistrSign = 0;
         tmp_params->StaticSign = 0; //poss not
         tmp_params->TypeSize = array->GetTypeSize(); //ch!!!
@@ -675,10 +675,10 @@ static int Model_align(DIST::Array *array, const int regId, FILE *printOut)
         align_Info* tmp_params = new align_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//для различия
-        tmp_params->PatternRef = getId(templ, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrsPtr, arrayAddrPtr);//для различия
+        tmp_params->ArrayHeader = getId(array, mapArrayAddrs, arrayAddr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->ArrayHandlePtr = getId(array, mapArrayAddrsPtr, arrayAddrPtr);//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->PatternRef = getId(templ, mapArrayAddrsPtr, arrayAddrPtr); //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->PatternRefPtr = getId(templ, mapArrayAddrs, arrayAddr); //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->PatternType = 2; //Distr
 
         tmp_params->AxisArray.resize(rank);
@@ -734,12 +734,12 @@ int Model_rem(remote *rem)
         f.call_params = (void *)tmp_params; // point to parameters
 
 
-        tmp_params->ID = 0xf00000 + rem->v->addr;//для различия
+        tmp_params->ID = 0xf00000 + rem->v->addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->RemArrayHeader = 0x100000 + rem->v->addr;
         tmp_params->StaticSign = 0; //may be not always
         tmp_params->PSRef = 0;
-        tmp_params->IsLocal = 0; // нет такого параметра в RTS
-        tmp_params->CoordArray; //это координаты рассылаемого элемента
+        tmp_params->IsLocal = 0; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ RTS
+        tmp_params->CoordArray; //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 
         f.call_time = 0.00000100;		// call time
@@ -749,16 +749,16 @@ int Model_rem(remote *rem)
     }
 
 
-    //	 если remote относится к циклу	
+    //	 пїЅпїЅпїЅпїЅ remote пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ	
     {
         FuncCall f;
         f.func_id = crtrbl_;
         crtrbl_Info* tmp_params = new crtrbl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->BufferHeader = 0xf00000 + rem->v->addr;//для различия
+        tmp_params->BufferHeader = 0xf00000 + rem->v->addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         RID = tmp_params->BufferHeader;
-        addr++; //надо отказываться от этого параметра
+        addr++; //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->RemArrayHeader = 0x100000 + rem->v->addr;
 
         tmp_params->AxisArray.resize(rem->v->rank);
@@ -826,10 +826,9 @@ static int findPosInParallel(vector<string> &parallel, const string &find)
 }
 
 //==============
-//var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a
-static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut)
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
 {
-    long LR = -1, RID = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
+    long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
     string debug = "";
 
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
@@ -840,11 +839,9 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             crtrg_Info* tmp_params = new crtrg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + addr;//для различия
-            RID = addr;
-
-            addr++;
-
+            RID = (redShIds++);
+            tmp_params->ID = RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+            
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
             setVectorCallRet(&f);
@@ -852,23 +849,49 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             f.crtrg();
         }
 
-        for (int j = 0; j < r_few.size(); ++j)
+        RIDG = (redShIds++);
+        for (auto &redG : directive->reduction)
         {
-            FuncCall f;
-            f.func_id = crtred_;
-            crtred_Info* tmp_params = new crtred_Info;
-            f.call_params = (void *)tmp_params; // point to parameters
+            for (auto &red : redG.second)
+            {
+                FuncCall f;
+                f.func_id = crtred_;
+                crtred_Info* tmp_params = new crtred_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xe10000 + RID;//для различия
-            tmp_params->LocElmLength = r_few[j].loc_type;
-            tmp_params->RedArrayLength = r_few[j].red_arr_len;
-            tmp_params->RedArrayType = r_few[j].red_arr_type;
+                tmp_params->ID = RIDG; //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                tmp_params->LocElmLength = 0;
+                tmp_params->RedArrayLength = 1; // count of elem
+                tmp_params->RedArrayType = 1; // INT TYPE
 
-            f.call_time = 0.00000100;		// call time
-            f.ret_time = 0.00000100;		// return time
-            setVectorCallRet(&f);
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
 
-            f.crtred();
+                f.crtred();
+            }
+        }
+
+        for (auto &redG : directive->reductionLoc)
+        {
+            for (auto &red : redG.second)
+            {
+                FuncCall f;
+                f.func_id = crtred_;
+                crtred_Info* tmp_params = new crtred_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
+
+                tmp_params->ID = RIDG; //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                tmp_params->LocElmLength = std::get<2>(red); // count of loc elem
+                tmp_params->RedArrayLength = std::get<2>(red); // count of elem
+                tmp_params->RedArrayType = 1; // INT TYPE
+
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
+
+                f.crtred();
+            }
         }
     }
 
@@ -895,14 +918,15 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
     if (directive->shadowRenew.size()) //SHADOW RENEW
     {
-        // не знаю куда задать CORNER
+        // пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ CORNER
+        /*
         {
             FuncCall f;
             f.func_id = crtshg_;
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -921,7 +945,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG;
-            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + s_few[j].v->addr;
             tmp_params->FullShdSign = 0;//poss not
             tmp_params->HiShdWidthArray.resize(0);
@@ -980,17 +1004,19 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
             f.waitsh();
         }
+        */
     }
 
     if (directive->across.size()) // ACROSS
     {
+        /*
         {
             FuncCall f;
             f.func_id = crtshg_;
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG1 = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -1011,7 +1037,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG1;
-            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
             tmp_params->MaxShdCount = 1; //poss not
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
@@ -1037,7 +1063,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG2 = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -1058,7 +1084,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG2;
-            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
             tmp_params->MaxShdCount = 1; //poss not
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
@@ -1076,7 +1102,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             setVectorCallRet(&f);
 
             f.insshd();
-        }
+        }*/
     }
 
 
@@ -1087,9 +1113,9 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         mappl_Info* tmp_params = new mappl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
         
-        tmp_params->LoopRef = LR; //тот что и в crtpl
-        tmp_params->PatternRef = getId(directive->arrayRef, mapArrayAddrs, arrayAddr);//для различия
-        tmp_params->PatternRefPtr = getId(directive->arrayRef, mapArrayAddrsPtr, arrayAddrPtr);//для различия        
+        tmp_params->LoopRef = LR; //пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
+        tmp_params->PatternRef = getId(directive->arrayRef, mapArrayAddrsPtr, arrayAddrPtr); //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+        tmp_params->PatternRefPtr = getId(directive->arrayRef, mapArrayAddrs, arrayAddr); //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         tmp_params->PatternType = 2; //DisArray
 
         const int rank = directive->arrayRef->GetDimSize();
@@ -1118,13 +1144,16 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         tmp_params->InStepArray.resize(loopRank);
 
         LoopGraph *currL = loop;
-        for (int i = 0; i < loopRank; ++i)
+        for (int i = 0; i < loopRank; ++i, currL = currL->children[0])
         {
             tmp_params->InInitIndexArray[i] = currL->startVal;
             tmp_params->InLastIndexArray[i] = currL->endVal;
             tmp_params->InStepArray[i] = currL->stepVal;
-
-            currL = currL->children[0];
+            
+            if (i == loopRank - 1)
+                break;
+            if (currL->children.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         
         f.call_time = 0.00000100;		// call time
@@ -1145,8 +1174,8 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         insred_Info* tmp_params = new insred_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->RG_ID = 0xed0000 + RID;//для различия
-        tmp_params->RV_ID = 0xe10000 + RID;//для различия
+        tmp_params->RG_ID = RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->RV_ID = RIDG;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1158,6 +1187,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
     if (directive->across.size()) //ACROSS
     {
+        /*
         FuncCall f;
         f.func_id = across_;
         across_Info* tmp_params = new across_Info;
@@ -1174,7 +1204,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
-        f.across();
+        f.across();*/
     }
 
     if (directive->remoteAccess.size())
@@ -1193,7 +1223,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         dopl_full_Info *tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR; //тот что и в crtpl
+        tmp_params->ID = LR; //пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
         tmp_params->ReturnVar = 1;
 
         f.call_time = 0.00000100;		// call time
@@ -1209,11 +1239,11 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         dopl_full_Info* tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR;//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
         tmp_params->ReturnVar = 0;
 
         //TODO: loop time!
-        f.call_time = 0.00000100;		// call time, c->time - это время цикла!
+        f.call_time = 100;		        // call time, c->time - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ!
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
@@ -1226,7 +1256,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         endpl_Info* tmp_params = new endpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR; //тот что и в crtpl
+        tmp_params->ID = LR; //пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1237,14 +1267,14 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
 
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
-    {
+    {        
         {
             FuncCall f;
             f.func_id = strtrd_;
             strtrd_Info* tmp_params = new strtrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
@@ -1259,14 +1289,14 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             waitrd_Info* tmp_params = new waitrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
             setVectorCallRet(&f);
 
             f.waitrd();
-        }
+        }        
     }
 
     if (printOut)
@@ -1288,7 +1318,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             crtrg_Info* tmp_params = new crtrg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + addr;//для различия
+            tmp_params->ID = 0xed0000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             RID = addr;
 
             addr++;
@@ -1307,7 +1337,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             crtred_Info* tmp_params = new crtred_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xe10000 + RID;//для различия
+            tmp_params->ID = 0xe10000 + RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             tmp_params->LocElmLength = r_few[j].loc_type;
             tmp_params->RedArrayLength = r_few[j].red_arr_len;
             tmp_params->RedArrayType = r_few[j].red_arr_type;
@@ -1327,7 +1357,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         crtpl_Info* tmp_params = new crtpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = 0xc00000 + addr;//для различия
+        tmp_params->ID = 0xc00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         LR = tmp_params->ID;
         tmp_params->Rank = c->rank;
 
@@ -1345,14 +1375,14 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
 
     if (s->is) //SHADOW RENEW
     {
-        // не знаю куда задать CORNER
+        // пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ CORNER
         {
             FuncCall f;
             f.func_id = crtshg_;
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -1373,7 +1403,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG;
-            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + s_few[j].v->addr;
             tmp_params->FullShdSign = 0;//poss not
             tmp_params->HiShdWidthArray.resize(0);
@@ -1442,7 +1472,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG1 = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -1463,7 +1493,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG1;
-            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
             tmp_params->MaxShdCount = 1; //poss not
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
@@ -1489,7 +1519,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             crtshg_Info* tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = 0xb00000 + addr;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             SHG2 = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -1510,7 +1540,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG2;
-            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//было 0xd00000
+            tmp_params->ArrayHandlePtr = 0x200000 + a_few[j].v->addr;//пїЅпїЅпїЅпїЅ 0xd00000
             tmp_params->ArrayHeader = 0x100000 + a_few[j].v->addr;
             tmp_params->MaxShdCount = 1; //poss not
             tmp_params->LowShdWidthArray.resize(a_few[j].v->rank);
@@ -1539,7 +1569,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         mappl_Info* tmp_params = new mappl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->LoopRef = LR;//тот что и в crtpl
+        tmp_params->LoopRef = LR;//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
         tmp_params->PatternRef = 0x200000 + v1->addr;
         tmp_params->PatternRefPtr = 0x100000 + v1->addr;
         tmp_params->PatternType = 2; //DisArray
@@ -1583,8 +1613,8 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         insred_Info* tmp_params = new insred_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->RG_ID = 0xed0000 + RID;//для различия
-        tmp_params->RV_ID = 0xe10000 + RID;//для различия
+        tmp_params->RG_ID = 0xed0000 + RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        tmp_params->RV_ID = 0xe10000 + RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1630,7 +1660,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         dopl_full_Info* tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR;//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
         tmp_params->ReturnVar = 1;
 
         f.call_time = 0.00000100;		// call time
@@ -1646,7 +1676,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         dopl_full_Info* tmp_params = new dopl_full_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR;//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
         tmp_params->ReturnVar = 0;
 
         f.call_time = c->time - 0.00000100;		// call time
@@ -1662,7 +1692,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
         endpl_Info* tmp_params = new endpl_Info;
         f.call_params = (void *)tmp_params; // point to parameters
 
-        tmp_params->ID = LR;//тот что и в crtpl
+        tmp_params->ID = LR;//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅ crtpl
 
         f.call_time = 0.00000100;		// call time
         f.ret_time = 0.00000100;		// return time
@@ -1680,7 +1710,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             strtrd_Info* tmp_params = new strtrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = 0xed0000 + RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
@@ -1695,7 +1725,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
             waitrd_Info* tmp_params = new waitrd_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ID = 0xed0000 + RID;//для различия
+            tmp_params->ID = 0xed0000 + RID;//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
@@ -1710,7 +1740,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
 }
 
 //============== Model switch
-int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следующей команды
+int Model(int scheme_id, long line_beg, long line_end)  //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 {
     int i, j, k, q;
     int mode = 1, seq_index;
@@ -1746,7 +1776,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     //for(i=line_beg;i<=line_end;i++)
     while (1)
     {
-        //склейка контекстов
+        //пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         for (i = 0; i < result_cnt; i++)
             for (j = i + 1; j < result_cnt; j++)
             {
@@ -1772,7 +1802,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     }
                     if (t1 < t2) result[i].inter_max->copy(result[j].inter_max);
 
-                    //копируем из конца в освободившуюся середину результат
+                    //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                     result[j].inter_mid = result[result_cnt - 1].inter_mid;
                     result[j].inter_min = result[result_cnt - 1].inter_min;
                     result[j].inter_max = result[result_cnt - 1].inter_max;
@@ -1792,16 +1822,16 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             }
 
 
-        // cur_res = result c минимальным номером строки.
+        // cur_res = result c пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
         for (j = 1, cur_res = 0; j < result_cnt; j++)
         {
             printf("j=%d res_line=%d\n", j, result[j].line);
             if (result[j].line < result[cur_res].line) cur_res = j;
         }
 
-        if (result[cur_res].line > line_end) break; //выход из while
+        if (result[cur_res].line > line_end) break; //пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ while
 
-        i = result[cur_res].line; //для краткости
+        i = result[cur_res].line; //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
         if (mode) printf("\ncur_res=%d\n", cur_res);
 
@@ -1842,32 +1872,32 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     tmp_min->copy(result[cur_res].inter_min);
                     tmp_max->copy(result[cur_res].inter_max);
 
-                    //первая итерация
-                    //моделирование последовательной ее части
+                    //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                    //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                     result[cur_res].inter_mid->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
                     result[cur_res].inter_min->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
                     result[cur_res].inter_max->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
 
-                    //моделирование вложенной части
+                    //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                     Model(scheme_id,/*s, is_loop,*/seq_loops[seq_index].beg_line, seq_loops[seq_index].end_line);
 
-                    tmp_mid->copy_poss(result[cur_res].inter_mid, -1, 1); //получить разницу
-                    tmp_min->copy_poss(result[cur_res].inter_min, -1, 1); //получить разницу
-                    tmp_max->copy_poss(result[cur_res].inter_max, -1, 1); //получить разницу
+                    tmp_mid->copy_poss(result[cur_res].inter_mid, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                    tmp_min->copy_poss(result[cur_res].inter_min, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                    tmp_max->copy_poss(result[cur_res].inter_max, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
                     tmp_res->copy(tmp_mid);
 
                     //printInterval(tmp_res);
 
 
-                    //все последующие
+                    //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                     if (seq_loops[seq_index].times >= 2)
                     {
                         tmp_mid->copy(result[cur_res].inter_mid);
                         tmp_min->copy(result[cur_res].inter_min);
                         tmp_max->copy(result[cur_res].inter_max);
 
-                        //моделирование последовательной ее части
+                        //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                         result[cur_res].inter_mid->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
                         result[cur_res].inter_min->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
                         result[cur_res].inter_max->copy_poss(SeqLoopInterval, 1, seq_loops[seq_index].iter_time);
@@ -1877,12 +1907,12 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                         //insert EMPTY interval for adding par intervals
                         all_scheme[curr_routine][scheme_id].Interval_tree->insert(Find_loop_id_tree(seq_loops[seq_index].loop_line), NULL, 0, seq_loops[seq_index].times);
 
-                        //моделирование вложенной части
+                        //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                         Model(scheme_id,/*s, is_loop,*/seq_loops[seq_index].beg_line, seq_loops[seq_index].end_line);
 
-                        tmp_mid->copy_poss(result[cur_res].inter_mid, -1, 1); //получить разницу
-                        tmp_min->copy_poss(result[cur_res].inter_min, -1, 1); //получить разницу
-                        tmp_max->copy_poss(result[cur_res].inter_max, -1, 1); //получить разницу
+                        tmp_mid->copy_poss(result[cur_res].inter_mid, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                        tmp_min->copy_poss(result[cur_res].inter_min, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                        tmp_max->copy_poss(result[cur_res].inter_max, -1, 1); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 //						tmp_mid->Integrate();				tmp_min->Integrate();				tmp_max->Integrate();
 //						printf("TMP mid - %.10f   min - %.10f   max - %.10f\n",tmp_mid->GetExecTime(),tmp_min->GetExecTime(),tmp_max->GetExecTime());
@@ -1914,9 +1944,9 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
 
 //						all_scheme[curr_routine][scheme_id].Interval_tree->print(0);
 
-                        result[cur_res].inter_mid->copy_poss(tmp_mid, 1, (seq_loops[seq_index].times - 2)); //прибавит времена остальных витков
-                        result[cur_res].inter_max->copy_poss(tmp_max, 1, (seq_loops[seq_index].times - 2)); //прибавит времена остальных витков
-                        result[cur_res].inter_min->copy_poss(tmp_min, 1, (seq_loops[seq_index].times - 2)); //прибавит времена остальных витков
+                        result[cur_res].inter_mid->copy_poss(tmp_mid, 1, (seq_loops[seq_index].times - 2)); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+                        result[cur_res].inter_max->copy_poss(tmp_max, 1, (seq_loops[seq_index].times - 2)); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+                        result[cur_res].inter_min->copy_poss(tmp_min, 1, (seq_loops[seq_index].times - 2)); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 //						printInterval(tmp_mid);
 //						printf("************** %.0f\n",seq_loops[seq_index].times-1);
@@ -1944,11 +1974,11 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 result[cur_res].line = seq_loops[seq_index].end_line + 1;
 
                 //				result[cur_res].inter_mid->copy(tmp_res); 
-                //				result[cur_res].inter_min->copy(tmp_res); //не высчитываю
-                //				result[cur_res].inter_max->copy(tmp_res); //не высчитываю
+                //				result[cur_res].inter_min->copy(tmp_res); //пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                //				result[cur_res].inter_max->copy(tmp_res); //пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
             }
-            //			i=is_loop[i].end_line; //потому что обработана не только первая строка но и весь цикл.
+            //			i=is_loop[i].end_line; //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.
         }
         else
         {
@@ -1961,7 +1991,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             }
             dir_type = dir_bin[i].data[0];
 
-            CurrInterval->copy(NullInterval); // reset CurrInterval
+            //CurrInterval->copy(NullInterval); // reset CurrInterval
 
             if (1 || mode) printf("scheme=%d directive=%d i=%d \n", scheme_id, dir_type, i);
             if (1 || mode)
@@ -2004,15 +2034,15 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             case 2:
             {	struct ali_pat d;
             struct shadow s;
-            // для красоты - и не передавать еще один параметр			d.varid=dir_bin[i].data[2];
-            // тут целая манипуляция с переворачиванием индексов выравнивания за счет особенностей фортрана 
-                // и особенностей реализации выравнивания в DVM со стороны выравненного массива на выравниваемый а не наоборот как может показаться
+            // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ			d.varid=dir_bin[i].data[2];
+            // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+                // пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ DVM пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             s.rank = vars[dir_bin[i].data[1]].rank;
             d.rank = vars[dir_bin[i].data[2]].rank;
             q = dir_bin[i].data[3];
 
-            //отменяем
-            //						//начинаются с конца
+            //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+            //						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
             //						for(j=0; j<q; j++)
             //							if(d.rank>j)
             //							{
@@ -2020,7 +2050,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
             //								d.coef[d.rank-j-1]=dir_bin[i].data[3*j+5];
             //								d.cons[d.rank-j-1]=dir_bin[i].data[3*j+6];
             //							}
-                                    //начинаются с начала
+                                    //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             for (j = 0; j < q; j++)
                 if (d.rank > j)
                 {
@@ -2029,7 +2059,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     d.cons[j] = dir_bin[i].data[3 * j + 6];
                 }
 
-            //остальные размножаются
+            //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //						for(j=0; j<d.rank-q; j++)
 //						{
 //							d.axis[j]=-1;
@@ -2068,7 +2098,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 struct shadow s;
                 struct across a;
 
-                //!!!надо бы перевернуть выравнивание слево направо
+                //!!!пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
                 r.is = dir_bin[i].data[1] != 0;
                 s.is = dir_bin[i].data[2] != 0;
@@ -2089,7 +2119,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 }
                 c.rank = dir_bin[i].data[k++];
 
-                //начальное значение, чтобы вычислить кол-во всех итераций
+                //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                 c.time = 1.0;
                 for (j = 0; j < c.rank; j++)
                 {
@@ -2101,8 +2131,8 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 printf("iters=%.0f\n", c.time);
                 //						if(c.time<0) 
                 //							getchar();
-                c.time = c.time*dir_bin[i].time / 1000000; //время всего цикла // учет числа витков для параллельного цикла
-                c.time = c.time * (1000.0 / mach_set[curr_mach].proc_perf);  //учет производительности для параллельного цикла
+                c.time = c.time*dir_bin[i].time / 1000000; //пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+                c.time = c.time * (1000.0 / mach_set[curr_mach].proc_perf);  //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
                 printf("time whole loop =%f sec\n", c.time);
                 if (c.time < 0)
@@ -2134,7 +2164,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
 
                         if (s.is_wid == 1)
                         {
-                            //надо перевернуть, потому что переворачивать при построении директивы сейчас уже трудно
+                            //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
                             for (j = s.v->rank - 1; j >= 0; j--)
                             {
                                 s.low_wid[j] = dir_bin[i].data[k++];
@@ -2151,7 +2181,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     for (q = 0; q < a_few.size(); q++)
                     {
                         a.v = &vars[dir_bin[i].data[k++]];
-                        //надо перевернуть, потому что переворачивать при построении директивы сейчас уже трудно
+                        //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
                         for (j = a.v->rank - 1; j >= 0; j--)
                         {
                             a.low_wid[j] = dir_bin[i].data[k++];
@@ -2168,7 +2198,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 //						if(ccc>=18) 
                 //							j=0;
                 //							exit(0);
-                Model_par(&vars[d.varid], &d, &c, &r, &s, &a); //в структуре только флаги, остальное в векторах
+                Model_par(&vars[d.varid], &d, &c, &r, &s, &a); //пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
                 Interval *tmp_res = new Interval(0);
                 tmp_res->copy(CurrInterval);
@@ -2199,11 +2229,11 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
 
                 break;
             }
-            case 4: // IF //пока только с GOTO и без ELSE
+            case 4: // IF //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ GOTO пїЅ пїЅпїЅпїЅ ELSE
                 if (mode) printf("goto ");
                 poss = 0.5;
-                j = 4; // куда GOTO
-                if (j < i) if (mode) printf("error: jump back - cannot make prediction - so ignore goto");//ссылка назад
+                j = 4; // пїЅпїЅпїЅпїЅ GOTO
+                if (j < i) if (mode) printf("error: jump back - cannot make prediction - so ignore goto");//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
                 //else goto next
                 p = result[cur_res].poss;
@@ -2228,7 +2258,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 break;
             case 5:
             {
-                //вызывать перед ПарЛупом (код 3)
+                //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ 3)
 
                 //struct remote rem;
                 k = 2;
@@ -2247,10 +2277,10 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                 Model_rem(&lastrem);
                 break;
             }
-            /* //теперь другая схема.. трасса уже есть, вызовы там подставлены
+            /* //пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.. пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                             case 6: //call subroutine
                                 {
-                                    //scheme_id уже неактуален, потому что каждая схема идет вместе с ее функцией
+                                    //scheme_id пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
                                     int t;
 
@@ -2314,7 +2344,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     //						printf("result[cur_res].inter_mid Execution_time=%.15f\n",result[cur_res].inter_mid->GetProcPred(0,_Execution_time));
                     //						printf("seq_loop=%d beg RemoteTime=%.15f\n",dir_bin[save_i].data[1], RemoteTime-SaveRemoteTime);
 
-                                            //моделирование вложенной части
+                                            //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                     i = Model(scheme_id, save_i + 1, save_i + 100000);
                     printf("end of Model seq loop=%d\n", dir_bin[save_i].data[1]);
 
@@ -2326,8 +2356,8 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
                     //was						res=new Interval(0);
                     //was						res->Integrate();	
 
-                                            // для последовательных циклов моделируем выполнение только одной итерации. Умножение на число витков будет при объединении интервалов по дереву
-                    res->copy_poss(SeqLoopInterval, 1, dir_bin[save_i].time * (1000.0 / mach_set[curr_mach].proc_perf)); //учет производительности
+                                            // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+                    res->copy_poss(SeqLoopInterval, 1, dir_bin[save_i].time * (1000.0 / mach_set[curr_mach].proc_perf)); //пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                     res->copy_poss(RemoteCommInterval, 1, RemoteTime - SaveRemoteTime);
 
                     //						printf("SeqLoopIntervalTime=%.15f\n",SeqLoopInterval->GetProcPred(0,_Execution_time));
@@ -2377,4 +2407,86 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     }
 
     return 0;
+}
+
+
+void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar, 
+                   const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict)
+{    
+    ps = new PS(mach_MYRINET, 4, 7.0, 0.004, 512); //MVS15k between nodes
+    //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, 512); //fastest communications
+
+    vector<long> testTopology = { 2, 4 };
+    //set configuration of PS
+    ps->setTopology(testTopology);
+
+    vector<long>	lb;
+    vector<long>	ASizeArray;
+    mach_Type		AMType;
+    int				AnumChanels = 1;
+    double			Ascale = 1.0;
+    double			ATStart;
+    double			ATByte;
+    double			AProcPower;
+    vector<double>  AvProcPower;
+
+    ps->nextPS(lb, ASizeArray, AMType, AnumChanels, Ascale, ATStart, ATByte, AProcPower, AvProcPower);
+
+    rootVM = new VM(ASizeArray, AMType, AnumChanels, Ascale, ATStart / 1000000.0, ATByte / 1000000.0, AProcPower, AvProcPower);
+    currentVM = rootVM;
+    rootProcCount = rootVM->getProcCount();
+
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    procElapsedTime = new double[rootProcCount];
+    for (int i = 0; i < rootProcCount; ++i)
+        procElapsedTime[i] = 0.0;
+
+    MinSizesOfAM.clear();
+    int maxSizeDist = 0;
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+
+        int countBlock = 0;
+        for (int z = 0; z < var->distRule.size(); ++z)
+            if (var->distRule[z] == dist::BLOCK)
+                ++countBlock;
+        maxSizeDist = std::max(maxSizeDist, countBlock);
+    }
+    MinSizesOfAM.resize(maxSizeDist);
+    std::fill(MinSizesOfAM.begin(), MinSizesOfAM.end(), 0);
+    for (auto &elem : distVar)
+    {
+        DIST::Array *array = elem.first;
+        const DistrVariant *var = elem.second;
+        auto sizes = array->GetSizes();
+        int countBlock = 0;
+        for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
+        {
+            if (var->distRule[z] == dist::BLOCK)
+            {
+                MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
+                dim++;
+            }
+        }
+    }
+
+    for (auto &var : distVar)
+        Model_distr(var.first, var.second);
+    for (auto &array : allArrays)
+        if (!array->isTemplate() && !array->isLoopArray())
+            Model_align(array, regId);
+
+    for (auto &dir : dirsToPredict)
+    {
+        CurrInterval = new Interval(0);
+        Model_par(dir.first, dir.second);
+        CurrInterval->CalcIdleAndImbalance();
+        CurrInterval->Integrate();
+        delete CurrInterval;
+    }
+
+    delete rootVM;
+    delete ps;
 }

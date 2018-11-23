@@ -1310,6 +1310,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
+            {
+                st = st->lexNext();
+                continue;
+            }
+
             const int currentLine = st->lineNumber() < -1 ? st->localLineNumber() : st->lineNumber();
             ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), currentLine);
             if (currReg == NULL)
@@ -1694,18 +1700,21 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             addToDistributionGraph(convertedLoopInfo, arrayLinksByFuncCalls);
 
             for (auto &toDel : tmpLoops)
-                delete toDel;            
+                delete toDel;
 
-            for (auto &loop : loopWithOutArrays)
+            for (auto &loopLine : loopWithOutArrays)
             {
-                tryToFindDependencies(sortedLoopGraph[loop], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
-                sortedLoopGraph[loop]->withoutDistributedArrays = true;
+                if (loopLine > 0)
+                {
+                    tryToFindDependencies(sortedLoopGraph[loopLine], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                    sortedLoopGraph[loopLine]->withoutDistributedArrays = true;
+                }
             }
 
             //only top loop may be parallel
-            for (auto &loop : loopWithOutArrays)
+            for (auto &loopLine : loopWithOutArrays)
             {
-                auto loopRef = sortedLoopGraph[loop];
+                auto loopRef = sortedLoopGraph[loopLine];
                 loopRef->setWithOutDistrFlagToFalse();
 
                 SgForStmt *forSt = (SgForStmt*)(loopRef->loop);
@@ -1722,9 +1731,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 }
             }
             
-            for (auto &loop : loopWithOutArrays)
+            for (auto &loopLine : loopWithOutArrays)
             {
-                if (sortedLoopGraph[loop]->withoutDistributedArrays)
+                if (sortedLoopGraph[loopLine]->withoutDistributedArrays && loopLine > 0)
                 {
                     //TODO: enable linear writes to non distr arrays for CONSISTENT
                     bool hasWritesToArray = false;
@@ -1732,7 +1741,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     //TODO: add IPA for non pure
                     bool hasNonPureProcedures = false;
 
-                    auto loopRef = sortedLoopGraph[loop];
+                    auto loopRef = sortedLoopGraph[loopLine];
                     SgStatement *loopSt = loopRef->loop;
 
                     for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
@@ -1781,10 +1790,10 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         {
             createParallelDirectives(convertedLoopInfo, regions, sortedLoopGraph, arrayLinksByFuncCalls, messagesForFile);
 
-            for (auto &loop : loopWithOutArrays)
+            for (auto &loopLine : loopWithOutArrays)
             {
-                auto loopRef = sortedLoopGraph[loop];
-                if (loopRef->withoutDistributedArrays && loopRef->region && !loopRef->hasLimitsToParallel())
+                auto loopRef = sortedLoopGraph[loopLine];
+                if (loopRef->withoutDistributedArrays && loopRef->region && !loopRef->hasLimitsToParallel() && loopLine > 0)
                 {
                     auto region = loopRef->region;
                     auto allArrays = region->GetAllArrays();
@@ -1795,7 +1804,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     ArrayInfo tmpArrayInfo;
                     tmpArrayInfo.dimSize = 1;
 
-                    ArrayOp tmpOp(make_pair(make_pair(1, 0), 1.0));                    
+                    ArrayOp tmpOp(make_pair(make_pair(1, 0), 1.0));
                     tmpArrayInfo.writeOps.push_back(tmpOp);
                     tmpArrayInfo.readOps.push_back(ArrayOp());
                     map<LoopGraph*, map<DIST::Array*, const ArrayInfo*>> convertedLoopInfo;
@@ -2145,21 +2154,21 @@ static void findArrayRefs(SgExpression *ex,
                 SgStatement *decl = declaratedInStmt(symb);
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
-                pair<int, string> arrayLocation;
+                pair<DIST::arrayLocType, string> arrayLocation;
                 if (symb != ex->symbol())
                 {
                     SgStatement *scope = symb->scope();
                     if (scope)
-                        arrayLocation = make_pair(2, scope->symbol()->identifier());
+                        arrayLocation = make_pair(DIST::l_MODULE, scope->symbol()->identifier());
                     else //TODO: find module name with another way
-                        arrayLocation = make_pair(2, "UNREC_MODULE_NAME");
+                        arrayLocation = make_pair(DIST::l_MODULE, "UNREC_MODULE_NAME");
                 }
                 else if (get<1>(uniqKey).find("common_") != string::npos)
-                    arrayLocation = make_pair(1, get<1>(uniqKey).substr(strlen("common_")));
+                    arrayLocation = make_pair(DIST::l_COMMON, get<1>(uniqKey).substr(strlen("common_")));
                 else if (funcParNames.find(symb->identifier()) != funcParNames.end())
-                    arrayLocation = make_pair(3, currFunctionName);
+                    arrayLocation = make_pair(DIST::l_PARAMETER, currFunctionName);
                 else
-                    arrayLocation = make_pair(0, currFunctionName);
+                    arrayLocation = make_pair(DIST::l_LOCAL, currFunctionName);
 
                 auto itNew = declaratedArrays.find(uniqKey);
                 if (itNew == declaratedArrays.end())

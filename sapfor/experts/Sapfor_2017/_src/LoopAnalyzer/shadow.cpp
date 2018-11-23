@@ -204,7 +204,7 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                         auto arraySizes = realArray->GetSizes();
                         //check sizes
                         for (auto &dim : arraySizes)
-                            if (dim.first > dim.second || dim.first == -1 || dim.second == -1)
+                            if (dim.first > dim.second || (dim.first == -1 && dim.second == -1))
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                         if (spec.size() != arraySizes.size())

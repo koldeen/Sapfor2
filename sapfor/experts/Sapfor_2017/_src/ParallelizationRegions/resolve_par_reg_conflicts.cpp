@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <string.h>
 
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
@@ -19,57 +20,27 @@ using std::string;
 using std::to_string;
 using std::make_pair;
 
+static int getIntervalNumber(const int fileId, const int lineNumber, const int regionId)
+{
+    int fileMask = 0xFF;
+    int lineMask = 0x7FFFF;
+    int regionMask = 0xF;
+
+    int filePart = fileMask & fileId;
+    int linePart = lineMask & lineNumber;
+    int regionPart = regionMask & regionId;
+
+    filePart = filePart << 4;
+    linePart = linePart << 12;
+    int number = 1 << 31;
+
+    number = number | filePart | linePart | regionPart;
+
+    return number;
+}
+
 // array -> common-block
 static map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
-
-static void recPrint(SgStatement *st, SgExpression *exp)
-{
-    if (exp)
-    {
-        if (exp->symbol())
-            __spf_print(1, "line %d, symb %s, id %d\n", st->lineNumber(), exp->symbol()->identifier(), exp->symbol()->id());
-
-        recPrint(st, exp->lhs());
-        recPrint(st, exp->rhs());
-    }
-}
-
-static void statPrint(SgStatement *start, SgStatement *end)
-{
-    for (auto st = start; st != end; st = st->lexNext())
-        for (auto i = 0; i < 3; ++i)
-            recPrint(st, st->expr(i));
-
-    __spf_print(1, "end\n");
-}
-
-static void funcPrint(const FuncInfo *func)
-{
-    statPrint(func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
-}
-
-static void allFuncPrint(const map<string, FuncInfo*> &funcMap)
-{
-    for (auto &nameFunc : funcMap)
-    {
-        auto func = nameFunc.second;
-        if (func->inRegion)
-        {
-            __spf_print(1, "  func '%s' in regions:", nameFunc.first.c_str());
-            for (auto &i : func->callRegions)
-                __spf_print(1, " %d", i);
-            __spf_print(1, "\n");
-        }
-    }
-}
-
-static void symbPrint(SgFile *file)
-{
-    __spf_print(1, "symbols in file %s:\n", file->filename());
-
-    for (auto s = file->firstSymbol(); s; s = s->next())
-        __spf_print(1, "  SYMB ID: %d, NAME : %s\n", s->id(), s->identifier());
-}
 
 static bool checkSymbName(const string &symbName)
 {
@@ -140,83 +111,19 @@ static string getStringDeclaration(SgSymbol *symb)
     return decl;
 }
 
-static void makeStringDeclarations(SgStatement *insertPlace, DIST::Array *array)
+static void insertStringDeclarations(SgStatement *insertPlace, DIST::Array *array)
 {
     auto varsOnPos = getArraySynonyms(array);
     if (varsOnPos.size() && varsOnPos[0]->getName() == array->GetShortName())
     {
         SgSymbol *varSymb = varsOnPos[0]->getSymbol();
         string varName = varSymb->identifier();
-        string newName = varName + "_r";
+        string newName = varName + "_c";
         varSymb->changeName(newName.c_str());
         string decl = getStringDeclaration(varsOnPos[0]->getSymbol());
         varSymb->changeName(varName.c_str());
         insertPlace->addComment(decl.c_str());
     }
-}
-
-static bool recursiveFindCall(SgExpression *exp, const string &funcName)
-{
-    if (exp)
-    {
-        if (exp->variant() == FUNC_CALL)
-            if (funcName == exp->symbol()->identifier())
-                return true;
-
-        return recursiveFindCall(exp->rhs(), funcName) || recursiveFindCall(exp->lhs(), funcName);
-    }
-
-    return false;
-}
-
-static void findCall(const FuncInfo *func, const FuncInfo *callFunc, bool &callFromRegion, bool &callFromCode)
-{
-    if (SgFile::switchToFile(callFunc->fileName) != -1)
-    {
-        bool isRegion = false;
-        SgStatement *iterator = callFunc->funcPointer->GetOriginal();
-        SgStatement *end = SgStatement::getStatementByFileAndLine(callFunc->fileName, callFunc->linesNum.second);
-
-        for (; iterator != end; iterator = iterator->lexNext())
-        {
-            if (iterator->variant() == SPF_PARALLEL_REG_DIR)
-                isRegion = true;
-
-            if (iterator->variant() == SPF_END_PARALLEL_REG_DIR)
-                isRegion = false;
-
-            if (isSPF_stat(iterator) || isDVM_stat(iterator))
-                continue;
-
-            bool retVal = false;
-
-            if (iterator->variant() == PROC_STAT)
-                if (iterator->symbol()->identifier() == func->funcName)
-                    retVal = true;
-
-            for (int i = 0; i < 3; ++i)
-                retVal = retVal || recursiveFindCall(iterator->expr(i), func->funcName);
-
-            if (retVal)
-            {
-                if (isRegion)
-                    callFromRegion = true;
-                else
-                    callFromCode = true;
-            }
-        }
-    }
-    else
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-}
-
-static ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, int regionId)
-{
-    for (auto &region : regions)
-        if (region->GetId() == regionId)
-            return region;
-
-    return NULL;
 }
 
 static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
@@ -228,7 +135,7 @@ static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string
     return it->second;
 }
 
-static void createSetOfCalledFunc(const string &funcName, const map<string, FuncInfo*> &funcMap, set<FuncInfo*> &callSet)
+static void createSetOfCalledFuncs(const string &funcName, const map<string, FuncInfo*> &funcMap, set<FuncInfo*> &callSet)
 {
     set<string> queue;
 
@@ -304,22 +211,17 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
 
             // ALEX, TODO: а проверка на entry?
             // SERG, TODO: а нужно? флаг isEntryCovered выставляется в true, только если встретился entry
-            //if (isEntryCovered)
-            //    entry->setIsCoveredByRegion(1);
-
-            //if (isFuncCovered)
-            //    func->setIsCoveredByRegion(1);
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 }
 
-static const CommonBlock* isInCommon(const map<string, CommonBlock> &commonBlocks, const string &arrayName)
+static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
 {
     for (auto &commonBlockPair : commonBlocks)
         for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == arrayName)
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
                 return &commonBlockPair.second;
 
     return NULL;
@@ -338,22 +240,32 @@ static void recursiveFill(SgStatement *st,
     {
         if (exp->variant() == ARRAY_REF)
         {
-            SgSymbol *arraySymbol = exp->symbol();
-            string arrayName = string(arraySymbol->identifier());
-            DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(arraySymbol), arrayName);
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
-
-            auto commonBlock = isInCommon(commonBlocks, arrayName);
-            if (commonBlock)
+            SgArrayRefExp *arrayRef = isSgArrayRefExp(exp);
+            SgType *type = exp->symbol()->type();
+            if (arrayRef && type && type->variant() != T_STRING)
             {
-                auto it = region->GetCrossedFuncs().find(func);
-                if (isSgExecutableStatement(st))
-                    region->AddUsedCommonArray(func, array, lines);
+                SgSymbol *arraySymbol = exp->symbol();
+                string arrayName = string(arraySymbol->identifier());
+                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(arraySymbol), arrayName);
+                FuncInfo *func = getFuncInfo(funcMap, funcName);
 
-                allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (!array->GetNonDistributeFlag())
+                {
+                    auto commonBlock = isArrayInCommon(commonBlocks, array);
+                    if (commonBlock)
+                    {
+                        if (isSgExecutableStatement(st))
+                            region->AddUsedCommonArray(func, array, lines);
+
+                        allUsedCommonArrays.insert(make_pair(array, commonBlock));
+                    }
+                    else if (!lines.isImplicit())
+                        region->AddUsedLocalArray(func, array, lines);
+                }
             }
-            else if (!lines.isImplicit())
-                region->AddUsedLocalArray(func, array, lines);
         }
 
         recursiveFill(st, exp->rhs(), region, fileName, funcName, lines, funcMap, commonBlocks);
@@ -402,9 +314,9 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                     if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                     else
-                        iterator = regionLines.stats.first;
+                        iterator = regionLines.stats.first->GetOriginal();
 
-                    for (; iterator && iterator != end; iterator = iterator->lexNext())
+                    for (; iterator && iterator != end->lexNext(); iterator = iterator->lexNext())
                     {
                         if (isSPF_stat(iterator) || isDVM_stat(iterator))
                             continue;
@@ -420,54 +332,58 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
     }
 }
 
-static set<FuncInfo*> allCommonFunctions;
-
 void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
         return;
 
-    for (auto &region : regions)
-    {
-        for (auto &func : region->GetAllFuncCalls())
-        {
-            auto callingRegions = getAllRegionsByLine(regions, func->fileName, func->linesNum.first);
-            if (callingRegions.size() > 1)
-                region->AddCrossedFunc(func);
-        }
-    }
-
     // funcName -> funcInfo
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
-    for (auto &funcPair : funcMap)
+    for (auto &nameFunc : funcMap)
     {
-        bool callFromRegion = false;
-        bool callFromCode = false;
+        auto func = nameFunc.second;
 
-        fillRegionCover(funcPair.second, funcMap);
+        fillRegionCover(func, funcMap);
 
-        //__spf_print(1, "  func '%s' at lines %d-%d is covered %d\n", funcPair.second->funcName.c_str(),
-        //            funcPair.second->linesNum.first, funcPair.second->linesNum.second, funcPair.second->isCoveredByRegion); // DEBUG
-
-        for (auto &call : funcPair.second->callsTo)
-            findCall(funcPair.second, call, callFromRegion, callFromCode);
-
-        if (callFromCode && callFromRegion)
-            allCommonFunctions.insert(funcPair.second);
-
-        if (callFromCode)
-            funcPair.second->callRegions.insert(0);
+        // move region DEFAULT region (0)
+        if (func->isIndirect())
+        {
+            for (auto &elem : func->detailCallsFrom)
+            {
+                auto line = elem.second;
+                auto call = elem.first;
+                auto callF = getFuncInfo(funcMap, call);
+                auto regs = getAllRegionsByLine(regions, func->fileName, line).size();
+                if (callF && !getAllRegionsByLine(regions, func->fileName, line).size())
+                    callF->callRegions.insert(0);
+            }
+        }
     }
 
-    set<FuncInfo*> callSet;
-    for (auto &commFunc : allCommonFunctions)
-        createSetOfCalledFunc(commFunc->funcName, funcMap, callSet);
-
-    for (auto &region : regions)
-        for (auto &func : callSet)
-            region->AddCrossedFunc(func);
+    // move region DEFAULT region (0)
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+        for (auto &nameFunc : funcMap)
+        {
+            auto func = nameFunc.second;
+            if (func->callRegions.size() > 1 && func->callRegions.find(0) != func->callRegions.end())
+            {
+                for (auto &call : func->callsFrom)
+                {
+                    auto callF = getFuncInfo(funcMap, call);
+                    if (callF && callF->callRegions.find(0) == callF->callRegions.end())
+                    {
+                        changes = true;
+                        callF->callRegions.insert(0);
+                    }
+                }
+            }
+        }
+    }
 }
 
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
@@ -479,16 +395,16 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
     {
         for (auto &fileLines : region->GetAllLines())
         {
-            for (auto &regionLine : fileLines.second)
+            for (auto &lines : fileLines.second)
             {
-                if (!regionLine.isImplicit())
+                if (!lines.isImplicit())
                 {
-                    for (auto &regionLine2 : fileLines.second)
+                    for (auto &lines2 : fileLines.second)
                     {
-                        if (regionLine2.isImplicit() && regionLine2.lines.first <= regionLine.lines.first && regionLine2.lines.second >= regionLine.lines.second)
+                        if (lines2.isImplicit() && lines2.lines.first <= lines.lines.first && lines2.lines.second >= lines.lines.second)
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
-                                        fileLines.first.c_str(), regionLine2.lines.first);
+                                        fileLines.first.c_str(), lines2.lines.first);
                             string message;
                             __spf_printToBuf(message, "parallel region '%s' is included in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
 
@@ -496,7 +412,39 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                             if (itM == SPF_messages.end())
                                 itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
 
-                            itM->second.push_back(Messages(ERROR, regionLine2.lines.first, message, 1033));
+                            itM->second.push_back(Messages(ERROR, lines2.lines.first, message, 1033));
+
+                            noError = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // check if explicit region lines are included by another region
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            for (auto &lines : fileLines.second)
+            {
+                if (!lines.isImplicit())
+                {
+                    for (auto line = lines.lines.first; line <= lines.lines.second; ++line)
+                    {
+                        auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
+                        if (inRegs.size() > 1)
+                        {
+                            __spf_print(1, "parallel region '%s' has line included in another region in current file on line %d\n", region->GetName().c_str(), line);
+                            string message;
+                            __spf_printToBuf(message, "parallel region '%s' has line included in another region in current file", region->GetName().c_str());
+
+                            auto itM = SPF_messages.find(fileLines.first);
+                            if (itM == SPF_messages.end())
+                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
+
+                            itM->second.push_back(Messages(ERROR, line, message, 1041));
 
                             noError = false;
                         }
@@ -518,9 +466,6 @@ static void recursiveReplace(SgStatement *st, SgExpression *exp, const string &f
             if (exp->symbol() && exp->symbol()->identifier() == from)
             {
                 exp->setSymbol(to);
-
-                //st->unparsestdout(); // DEBUG
-                //__spf_print(1, "  replace symbol '%s' to '%s' on line %d\n", from.c_str(), to->identifier(), st->lineNumber()); // DEBUG
             }
         }
 
@@ -546,18 +491,7 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &lin
                     continue;
 
                 if (iterator->symbol() && iterator->symbol()->identifier() == origSymbName)
-                {
                     iterator->setSymbol(*newSymb);
-
-                    /*
-                    iterator->unparsestdout(); // DEBUG
-                    __spf_print(1, "  replace symbol '%s' to '%s' in file %s on line %d\n",
-                                origSymbName.c_str(),
-                                newSymb->identifier(),
-                                fileName.c_str(),
-                                iterator->lineNumber()); // DEBUG
-                    */
-                }
 
                 for (int i = 0; i < 3; ++i)
                     recursiveReplace(iterator, iterator->expr(i), origSymbName, newSymb);
@@ -644,7 +578,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
         {
             // new common-block is not created for array at this file, so create it
             // creating new common-block statement
-            string commBlockName = array->GetShortName() + "_reg";
+            string commBlockName = array->GetShortName() + "_r";
             SgStatement *commDecl = new SgStatement(COMM_STAT);
 
             // TODO: check new common-block name
@@ -667,7 +601,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             if (itt == it->second.end())
             {
                 // need to create symbol
-                string newArrName = varsOnPos[0]->getName() + "_r";
+                string newArrName = varsOnPos[0]->getName() + "_c";
 
                 // TODO: check new array name
 
@@ -680,8 +614,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
                 // just use previous created symbol
                 newArrSymb = itt->second.second;
 
-            if (!newArrSymb)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            checkNull(newArrSymb, convertFileName(__FILE__).c_str(), __LINE__);
 
             // inserting newArrSymb to COMM_STAT
             if (!curNode)
@@ -700,8 +633,6 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             curNode->setLhs(arrNode);
 
             fileArrayBlock->second.insert(make_pair(array, commDecl));
-
-            //__spf_print(1, "  new common block '%s' in file %s created\n", commBlockName.c_str(), fileName.c_str()); // DEBUG
 
             return commDecl;
         }
@@ -744,13 +675,8 @@ static void insertCommonBlock(FuncInfo *func, DIST::Array *array)
     insertPlace->insertStmtAfter(*copyDecl, *st);
     insertPlace->lexNext()->setlineNumber(nextLine);
 
-    /*
-    __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
-                funcArrays.first->fileName.c_str(), funcArrays.first->funcName.c_str(), insertPlace->lineNumber()); // DEBUG
-    */
-
-    // create declarations via comment
-    makeStringDeclarations(insertPlace->lexNext(), array);
+    // create declaration via comment
+    insertStringDeclarations(insertPlace->lexNext(), array);
 }
 
 // file -> lines -> arrays; lines where arrays copying is inserted
@@ -786,19 +712,17 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             assign->setExpression(1, *right);
             regionLines.stats.first->GetOriginal()->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
-            //__spf_print(1, "insert '%s = %s'\n", newSymb->identifier(), origSymb->identifier()); // DEBUG
-
             // A = A_reg
             assign = new SgStatement(ASSIGN_STAT);
             left = new SgArrayRefExp(*origSymb);
             right = new SgArrayRefExp(*newSymb);
+            
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
+            assign->setlineNumber(getNextNegativeLineNumber()); // after region
             regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             it2->second.insert(arrName);
-
-            //__spf_print(1, "insert '%s = %s'\n", origSymb->identifier(), newSymb->identifier()); // DEBUG
 
             // TODO: SPF_ANALYSIS(decl)
         }
@@ -851,16 +775,14 @@ static bool replaceCommonArray(const string &fileName,
                         if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
                         {
                             DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
-
-                            if (!commArr)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            checkNull(commArr, convertFileName(__FILE__).c_str(), __LINE__);
 
                             auto itt = it->second.find(commArr);
                             if (itt == it->second.end())
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                             replaceSymbol(fileName, lines, varName, itt->second.second);
-                            if (needInsertCopying && !array->GetNonDistributeFlag())
+                            if (needInsertCopying)
                                 insertArrayCopying(fileName, lines, varSymb, itt->second.second);
 
                             // no error
@@ -878,7 +800,7 @@ static bool replaceCommonArray(const string &fileName,
     {
         string toPrint = "wrong parallel region position, there is no common-block with any of such arrays:";
         for (auto &arrayName : arraySynonymNames)
-            toPrint += " " + arrayName;
+            toPrint += " '" + arrayName + '\'';
         toPrint += " in file " + fileName;
         __spf_print(1, "%s on line %d\n", toPrint.c_str(), lines.lines.first);
         string message;
@@ -922,13 +844,6 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         newArrSymb->changeName(newArrName.c_str());
         newDecl = newArrSymb->makeVarDeclStmt();
         decl->insertStmtAfter(*newDecl, *decl->controlParent());
-
-        /*
-        __spf_print(1, "  new array '%s' as copy of array '%s' (line: %d)\n",
-                    newArrName.c_str(),
-                    arrSymb->identifier(),
-                    decl->lineNumber()); // DEBUG
-        */
 
         if (IS_ALLOCATABLE(arrSymb))
         {
@@ -1037,16 +952,13 @@ static void copyFunction(ParallelRegion *region,
         if (SgFile::switchToFile(func->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        //__spf_print(1, "  new function '%s' as copy of function '%s' (scope: %d) for file %s\n",
-        //            newFuncName.c_str(), funcSymb->identifier(), funcSymb->scope()->lineNumber(), func->fileName.c_str()); // DEBUG
-
         // set line numbers
         for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
              origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
-            //copyStat->setFileName(origStat->fileName());
+            BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }
 
         // replace all func calls in copy function
@@ -1071,78 +983,73 @@ static void copyFunction(ParallelRegion *region,
                     createCommonBlock(file, arrayBlock.first);
 
                 auto usedCommonArrays = region->GetUsedCommonArrays().find(func);
-                for (auto &arrayLines : usedCommonArrays->second)
+                if (usedCommonArrays != region->GetUsedCommonArrays().end())
                 {
-                    SgStatement *commDecl = createCommonBlock(file, arrayLines.first);
-                    SgStatement *copyDecl = commDecl->copyPtr();
-
-                    while (!isSgExecutableStatement(copyStat) || isSPF_stat(copyStat))
-                        copyStat = copyStat->lexNext();
-
-                    copyStat = copyStat->lexPrev();
-                    copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
-
-                    /*
-                    __spf_print(1, "  new common block 'reg' inserted in file %s in func '%s' at line %d\n",
-                                func->fileName.c_str(), newFuncName.c_str(), copyStat->lineNumber()); // DEBUG
-                    */
-
-                    // making declaration of new common array symbol
-                    // make declarations via comment through files
-                    makeStringDeclarations(copyStat->lexNext(), arrayLines.first);
-                }
-
-                auto it = createdCommonArrays.find(file->filename());
-                if (it == createdCommonArrays.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                // replace common arrays to new common arrays in executable code section
-                SgStatement *iterator = begin->GetOriginal();
-
-                for (; iterator != end->GetOriginal() && (!isSgExecutableStatement(iterator) || isSPF_stat(iterator)); iterator = iterator->lexNext())
-                    ;
-
-                Statement *start = new Statement(iterator);
-                ParallelRegionLines lines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end));
-
-                // get common-blocks ref
-                map<string, vector<SgExpression*>> commonBlocksRef;
-                getCommonBlocksRef(commonBlocksRef, func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
-
-                for (auto &commonBlockRef : commonBlocksRef)
-                {
-                    for (auto &commExp : commonBlockRef.second)
+                    for (auto &arrayLines : usedCommonArrays->second)
                     {
-                        for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
+                        SgStatement *commDecl = createCommonBlock(file, arrayLines.first);
+                        SgStatement *copyDecl = commDecl->copyPtr();
+
+                        while (!isSgExecutableStatement(copyStat) || isSPF_stat(copyStat))
+                            copyStat = copyStat->lexNext();
+
+                        copyStat = copyStat->lexPrev();
+                        copyStat->insertStmtAfter(*copyDecl, *copyStat->controlParent());
+
+                        // making declaration of new common array symbol via comment through files
+                        insertStringDeclarations(copyStat->lexNext(), arrayLines.first);
+                    }
+
+                    auto it = createdCommonArrays.find(file->filename());
+                    if (it == createdCommonArrays.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    // replace common arrays to new common arrays in executable code section
+                    SgStatement *iterator = begin->GetOriginal();
+
+                    for (; iterator != end->GetOriginal() && (!isSgExecutableStatement(iterator) || isSPF_stat(iterator)); iterator = iterator->lexNext())
+                        ;
+
+                    Statement *start = new Statement(iterator);
+                    ParallelRegionLines lines(make_pair(start->lineNumber(), end->lineNumber()), make_pair(start, end));
+
+                    // get common-blocks ref
+                    map<string, vector<SgExpression*>> commonBlocksRef;
+                    getCommonBlocksRef(commonBlocksRef, func->funcPointer->GetOriginal(), func->funcPointer->GetOriginal()->lastNodeOfStmt());
+
+                    for (auto &commonBlockRef : commonBlocksRef)
+                    {
+                        for (auto &commExp : commonBlockRef.second)
                         {
-                            SgSymbol *varSymb = exp->lhs()->symbol();
-                            string varName = varSymb->identifier();
-                            DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
-
-                            if (array)
+                            for (auto exp = commExp->lhs(); exp; exp = exp->rhs())
                             {
-                                auto varsOnPos = getArraySynonyms(array);
+                                SgSymbol *varSymb = exp->lhs()->symbol();
+                                string varName = varSymb->identifier();
+                                DIST::Array *array = getArrayFromDeclarated(declaratedInStmt(varSymb), varName);
 
-                                if (!varsOnPos.size())
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                auto var = varsOnPos[0];
-
-                                if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
+                                if (array && !array->GetNonDistributeFlag())
                                 {
-                                    DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
+                                    auto varsOnPos = getArraySynonyms(array);
 
-                                    if (!commArr)
+                                    if (!varsOnPos.size())
                                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                    auto itt = it->second.find(commArr);
-                                    if (itt == it->second.end())
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    auto var = varsOnPos[0];
 
-                                    replaceSymbol(func->fileName, lines, varName, itt->second.second);
+                                    if (SgFile::switchToFile(var->getSymbol()->getFile()->filename()) != -1)
+                                    {
+                                        DIST::Array *commArr = getArrayFromDeclarated(declaratedInStmt(var->getSymbol()), var->getName());
+                                        checkNull(commArr, convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        auto itt = it->second.find(commArr);
+                                        if (itt == it->second.end())
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        replaceSymbol(func->fileName, lines, varName, itt->second.second);
+                                    }
+                                    else
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                                 }
-                                else
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                             }
                         }
                     }
@@ -1163,6 +1070,15 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
+    map<DIST::Array*, set<ParallelRegion*>> regionsByLocalArray;
+    for (auto &region : regions)
+    {
+        auto localArrays = region->GetUsedLocalArrays();
+        for (auto &funcArrays : localArrays)
+            for (auto &arrLines : funcArrays.second)
+                regionsByLocalArray[arrLines.first].insert(region);
+    }
+
     for (auto &region : regions)
     {
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // DEBUG
@@ -1172,14 +1088,20 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
         {
             for (auto &arrayLines : funcArrays.second)
             {
-                auto place = *arrayLines.first->GetDeclInfo().begin();
-                auto origCopy = copyArray(place, arrayLines.first, string("_") + region->GetName());
+                auto arrayRegions = regionsByLocalArray.find(arrayLines.first);
+                if (arrayRegions == regionsByLocalArray.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                for (auto &lines : arrayLines.second)
+                if (arrayRegions->second.size() > 1)
                 {
-                    replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
-                    if (!arrayLines.first->GetNonDistributeFlag())
+                    auto place = *arrayLines.first->GetDeclInfo().begin();
+                    auto origCopy = copyArray(place, arrayLines.first, string("_l") + to_string(region->GetId()));
+
+                    for (auto &lines : arrayLines.second)
+                    {
+                        replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
                         insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                    }
                 }
             }
         }
@@ -1254,7 +1176,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                                         SgStatement *iterator = getFuncStat(lines2.stats.first->GetOriginal());
                                         string func2Name = iterator->symbol()->identifier();
                                         set<FuncInfo*> callSet;
-                                        createSetOfCalledFunc(func2Name, funcMap, callSet);
+                                        createSetOfCalledFuncs(func2Name, funcMap, callSet);
 
                                         auto it = callSet.find(funcArrays.first);
                                         if (it != callSet.end())
@@ -1285,7 +1207,6 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
     }
 
     __spf_print(1, "create functions\n"); // DEBUG
-    allFuncPrint(funcMap); // DEBUG
 
     // creating new functions
     for (auto &fileFuncs : allFuncInfo)
@@ -1410,6 +1331,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                 {
                     if (!lines.isImplicit())
                     {
+                        // create DVM INTERVAL before region
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
@@ -1421,21 +1343,24 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             // DVM INTERVAL N
                             SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
                             SgExprListExp *newNode = new SgExprListExp();
-                            int val = - (lines.stats.first->GetOriginal()->lexPrev()->lineNumber() + current_file_id);
+                            int val = getIntervalNumber(current_file_id, lines.stats.first->GetOriginal()->lexPrev()->lineNumber(), region->GetId());
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
 
+                        // create DVM INTERVAL after region
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
+                        for (SgStatement *st = start; st && st->lineNumber() < 0; st = st->lexNext())
                             end = st;
 
                         if (end)
@@ -1443,14 +1368,16 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                             // DVM INTERVAL N
                             SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
                             SgExprListExp *newNode = new SgExprListExp();
-                            int val = -(lines.stats.second->GetOriginal()->lexNext()->lineNumber() + current_file_id);
+                            int val = getIntervalNumber(current_file_id, lines.stats.second->GetOriginal()->lexNext()->lineNumber(), region->GetId());
                             SgValueExp *valNode = new SgValueExp(val);
                             newNode->setLhs(valNode);
                             interval->setExpression(0, *newNode);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             start->insertStmtBefore(*interval, *start->controlParent());
 
                             // DVM END INTERVAL
                             interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
                             end->insertStmtAfter(*interval, *end->controlParent());
                         }
                     }
@@ -1464,21 +1391,43 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
     return error;
 }
 
-int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions)
+int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-    string outText = "";    
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    string outText = "";
+    string elems = "";
+    
     for (auto &region : regions)
     {
         outText += "*** REGION '" + region->GetName() + "'\n";
-        outText += "  COMMON ARRAYS:";
+        for (auto &nameFunc : funcMap)
+        {
+            if (nameFunc.second->callRegions.size() > 1)
+            {
+                for (auto &regId : nameFunc.second->callRegions)
+                    if (region->GetId() == regId)
+                        elems += " '" + nameFunc.first + '\'';
+            }
+        }
 
+        if (elems.size())
+            outText += "  COMMON FUNCTIONS:" + elems + '\n';
+
+        set<string> arrays;
         for (auto &funcArrays : region->GetUsedCommonArrays())
             for (auto &arrayLines : funcArrays.second)
-                outText += " " + arrayLines.first->GetShortName();
+                arrays.insert(arrayLines.first->GetShortName());
 
-        outText += "\n";
-        outText += "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n";
-        
+        elems.clear();
+        for (auto &arrayName : arrays)
+            elems += " '" + arrayName + '\'';
+
+        if (elems.size())
+            outText += "  COMMON ARRAYS:" + elems + '\n';
+
+        elems.clear();
         for (auto &funcArrays : region->GetUsedLocalArrays())
         {
             for (auto &arrayLines : funcArrays.second)
@@ -1491,30 +1440,30 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
                     toPrint += "]";
                 }
 
-                outText += "    [" + funcArrays.first->funcName + ", " + arrayLines.first->GetShortName() + ", " + toPrint + "]\n";
+                elems += "    [" + funcArrays.first->funcName + ", " + arrayLines.first->GetShortName() + ", " + toPrint + "]\n";
             }
         }
-        outText += "  CROSSED FUNCTIONS:";
 
-        for (auto &func : region->GetCrossedFuncs())
-            outText += " " + func->funcName;
-
-        outText += "\n\n";
+        if (elems.size())
+            outText += "  LOCAL ARRAYS in [FUNC, ARRAY, [LINES]]:\n" + elems;
     }
 
     outText += "*** SUMMARY\n";
-    outText += "  ALL COMMON ARRAYS:";
+    
+    elems.clear();
+    for (auto &nameFunc : funcMap)
+        if (nameFunc.second->callRegions.size() > 1)
+            elems += " '" + nameFunc.first + '\'';
 
+    if (elems.size())
+        outText += "  ALL COMMON FUNCTIONS : " + elems + '\n';
+
+    elems.clear();
     for (auto &commonArrayCommonBlock : allUsedCommonArrays)
-        outText += " " + commonArrayCommonBlock.first->GetShortName();
+        elems += " '" + commonArrayCommonBlock.first->GetShortName() + '\'';
 
-    outText += "\n";
-    outText += "  ALL COMMON FUNCTIONS:";
-
-    for (auto &func : allCommonFunctions)
-        outText += " " + func->funcName;
-
-    outText += "\n";
+    if (elems.size())
+        outText += "  ALL COMMON ARRAYS:" + elems + '\n';
            
     if (fileName == NULL)
         __spf_print(1, "%s", outText.c_str());    

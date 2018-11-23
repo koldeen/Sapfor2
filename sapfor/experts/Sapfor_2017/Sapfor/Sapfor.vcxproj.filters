@@ -1019,8 +1019,11 @@
     <ClInclude Include="..\_src\LoopAnalyzer\directive_creator.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClInclude>
+<<<<<<< HEAD
     <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInsertor.h">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClInclude>
+=======
+>>>>>>> master
   </ItemGroup>
 </Project>

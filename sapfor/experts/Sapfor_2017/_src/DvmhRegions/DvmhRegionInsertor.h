@@ -45,7 +45,6 @@ class DvmhRegionInsertor {
     std::vector<FuncInfo*> funcGraph;
     std::vector<DvmhRegion> regions;
 
-    std::set<SgStatement* > getDefenitions(SgStatement *, SgSymbol *);
     DvmhRegion* getContainingRegion(SgStatement *);
     void printFuncName(SgStatement *);
     void findEdgesForRegions(std::vector<LoopGraph *>);

@@ -30,6 +30,7 @@
 #include "../ParallelizationRegions/ParRegions.h"
 #include "SendMessage.h"
 #include "../Predictor/PredictScheme.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 using std::string;
 using std::wstring;
@@ -943,6 +944,59 @@ int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, sh
     MessageManager::setWinHandler(winHandler);
 
     return simpleTransformPass(CONVERT_TO_ENDDO, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+extern map<string, map<int, Gcov_info>> gCovInfo;
+int SPF_GetGCovInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+                    short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { GCOV_PARSER });
+
+        string resVal = "";
+        bool first = true;
+        for (auto &byFile : gCovInfo)
+        {
+            if (!first)
+                resVal += "@";
+            resVal += byFile.first + "@";
+            for (auto &elem : byFile.second)
+                resVal += to_string(elem.first) + " " + to_string(elem.second.getExecutedCount()) + " ";            
+            first = false;
+        }
+
+        copyStringToShort(result, resVal);
+        retSize = (int)resVal.size();
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retSize;
+    
 }
 
 extern void deleteAllAllocatedData(bool enable);

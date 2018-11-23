@@ -86,6 +86,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     templ->SetId(0);
     templ->SetTemplateFlag(true);
 
+    if (distArray->isLoopArray())
+        for (int z = 0; z < templ->GetDimSize(); ++z)
+            templ->SetMappedDim(z);
+
     vector<pair<int, int>> initTemplSize(distArray->GetDimSize());
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);

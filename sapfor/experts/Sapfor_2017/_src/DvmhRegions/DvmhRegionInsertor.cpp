@@ -97,7 +97,7 @@ LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNo
 
 	for (auto &nameAndLineOfFuncCalled: loopNode->calls)
 	{
-		FuncInfo *calledFuncInfo;
+		FuncInfo *calledFuncInfo = NULL;
 
 		// TODO: search for func in whole project
 		for (auto &funcNode: funcGraph)
@@ -108,6 +108,9 @@ LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNo
 				break;
 			}
 		}
+
+		if (!calledFuncInfo)
+			continue;
 
 		if (!calledFuncInfo || !calledFuncInfo->isPure) // if funcInfo was not found assume func to be impure
 			loopCheckResults.hasImpureCalls = true;
@@ -228,70 +231,56 @@ void DvmhRegionInsertor::insertActualDirectives() {
                 st = st->lexNext();
                 continue;
             }
-
-            /*
-            DvmhRegion* region1 = getContainingRegion(st);
-            if (region1)
-                cout << "[Region] ";
-            else
-                cout << "[Sequent] ";
-                
-            st->unparsestdout();
+			
+			DvmhRegion* region = getContainingRegion(st);
+            const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
             
-            std::set<SgSymbol *> symbols = getUsedSymbols(st);
-            // debug 
-            if (symbols.size() > 0) {
-                insertActualDirectiveBefore(st, *symbols.begin());
-                break;
-            } */
-
-            //DvmhRegion* region = getContainingRegion(st);
-            const std::map<SymbolKey, std::set<SgExpression*> > defs = getReachingDefinitions(st);
-            
-            for (auto& var : defs) {
-				SgSymbol symbol = *var.first.getSymbol();
-                DIST::Array* arr =  getArrayFromDeclarated(declaratedInStmt(&symbol), var.first.getVarName());
-                bool isDistr = !arr->GetNonDistributeFlag();
+            for (auto& var : vars) {
+				// DEBUG
                 std::cout << var.first.getVarName() + ": " << std::endl;
                 for (auto &def : var.second) {
                     def->unparsestdout();
                 }
                 std::cout << "********************" << std::endl;
+				// END OF DEBUG
+
+				SgSymbol *symbol = (SgSymbol *) var.first.getSymbol();
+				if (!isSgArrayType(symbol->type()))
+					continue;
+
+				DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
+				bool isDistr = !arr->GetNonDistributeFlag();
+
+				if (region) {
+					// Searching for defenition not in region
+					bool symbolDeclaredInSequentPart = false;
+					for (auto& defenition : var.second) {
+						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
+						if (!containingRegion) {
+							symbolDeclaredInSequentPart = true;
+							break;
+						}
+					}
+
+					if (symbolDeclaredInSequentPart)
+						region->needActualisation.push_back(*symbol);
+				}
+				else {
+					// Seatching for defenition in region
+					bool symbolDeclaredInRegion = false;
+					for (auto& defenition : var.second) {
+						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
+						if (containingRegion) {
+							symbolDeclaredInRegion = true;
+							break;
+						}
+					}
+
+					if (symbolDeclaredInRegion)
+						insertActualDirectiveBefore(st, symbol);
+				}
             } 
-            
-            /*
-            for (auto& symbol : symbols) {
-                set<SgStatement*> defenitions = getDefenitions(st, symbol);
-
-                if (region) {
-                    // Searching for defenition not in region
-                    bool symbolDeclaredInSequentPart = false;
-                    for (auto& defenition : defenitions) {
-                        DvmhRegion* containingRegion = getContainingRegion(defenition);
-                        if (!containingRegion) {
-                            symbolDeclaredInSequentPart = true;
-                            break;
-                        }
-                    }
-
-                    if (symbolDeclaredInSequentPart) {}
-                        region->needActualisation.push_back(*symbol);
-                } else {
-                    // Seatching for defenition in region
-                    bool symbolDeclaredInRegion = false;
-                    for (auto& defenition : defenitions) {
-                        DvmhRegion* containingRegion = getContainingRegion(defenition);
-                        if (containingRegion) {
-                            symbolDeclaredInRegion = true;
-                            break;
-                        }
-                    }
-
-                    if (symbolDeclaredInRegion)
-                        insertActualDirectiveBefore(st, symbol);
-                }
-            }
-            */
+			
 			st = st->lexNext();
 		}
 	}
@@ -337,13 +326,10 @@ DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
     return NULL;
 }
 
-// TODO: implement me
-set<SgStatement*> DvmhRegionInsertor::getDefenitions(SgStatement *st, SgSymbol *symbol) {
-    set<SgStatement*> result;
-    return result;
-}
-
 void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, SgSymbol *symbol) {
     SgStatement *getActualSt = new SgStatement(ACC_GET_ACTUAL_DIR);
+	//SgVarRefExp();
+	//SgExprListExp *t;
+	getActualSt->setExpression(0, SgVarRefExp(symbol));
 	st->insertStmtBefore(*getActualSt);
 }

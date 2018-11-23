@@ -60,7 +60,7 @@ static inline bool ifVarIsLoopSymb(SgStatement *stmt, const string symb)
     return ret;
 }
 
-#include "../../../../sapfor/experts/Sapfor_2017/_src/Utils/AstWrapper.h"
+#include "../_src/Utils/AstWrapper.h"
 template<typename fillType> void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);
 
 inline void Warning(const char *s, const char *t, int num, SgStatement *stmt)
@@ -357,6 +357,7 @@ CallData::~CallData()
 #if __SPF
     removeFromCollection(this);
 #endif
+    /*
     for (AnalysedCallsList* l = calls_list; l != NULL;) 
     {
         if (!l->isIntrinsic && l->graph)
@@ -371,7 +372,7 @@ CallData::~CallData()
         l = l->next;
         delete temp;
         temp = NULL;
-    }
+    }*/
 }
 
 CommonData::~CommonData()
