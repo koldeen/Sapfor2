@@ -12,6 +12,7 @@
 #include "../ExpressionTransform/expr_transform.h"
 #include <iostream>
 #include <set>
+#include <vector>
 
 #ifndef NULL
 #define NULL   ((void *) 0)

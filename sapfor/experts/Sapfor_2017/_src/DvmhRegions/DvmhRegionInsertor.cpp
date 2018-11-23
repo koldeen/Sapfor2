@@ -249,7 +249,8 @@ void DvmhRegionInsertor::insertActualDirectives() {
             const std::map<SymbolKey, std::set<SgExpression*> > defs = getReachingDefinitions(st);
             
             for (auto& var : defs) {
-                DIST::Array* arr =  getArrayFromDeclarated(declaratedInStmt(var.first.getSymbol), var.first.getVarName());
+				SgSymbol symbol = *var.first.getSymbol();
+                DIST::Array* arr =  getArrayFromDeclarated(declaratedInStmt(&symbol), var.first.getVarName());
                 bool isDistr = !arr->GetNonDistributeFlag();
                 std::cout << var.first.getVarName() + ": " << std::endl;
                 for (auto &def : var.second) {

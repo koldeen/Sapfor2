@@ -1,0 +1,10 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskName": "задача-DvmhRegionInsertor",
+      "appliesTo": "sapfor/experts/Sapfor_2017/_src/DvmhRegions/DvmhRegionInsertor.cpp",
+      "type": "launch"
+    }
+  ]
+}
