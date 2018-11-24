@@ -724,7 +724,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto founded = loopGraph.find(file->filename());
             if (founded != loopGraph.end())
-                splitLoops(file, loopGraph.find(file->filename())->second, depInfoForLoopGraph);
+                splitLoops(file, loopGraph.find(file->filename())->second);
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {

@@ -201,7 +201,7 @@ SgExpression* ReplaceParameter(SgExpression *e)
                 {
                     int num = sub->valueInteger();
                     SgExpression *value = getFromConstructor(constructor->lhs(), num);
-                    if (value && value->lhs() == NULL && value->rhs() == NULL)
+                    if (value && ((value->lhs() == NULL && value->rhs() == NULL) || value->variant() == MINUS_OP))
                         return (ReplaceParameter(&(value->copy())));
                 }
             }
@@ -217,7 +217,6 @@ SgExpression* ReplaceConstant(SgExpression *e)
 {
     SgExpression *er;
     er = ReplaceParameter(&(e->copy()));
-
     if (er->isInteger())
         return (new SgValueExp(er->valueInteger()));
     else

@@ -226,7 +226,7 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
                     addVarToGen(left->symbol(), right);
             }
             else if (left->variant() == ARRAY_REF) // a(...) = ...
-                addVarToKill(left->symbol());
+                addVarToGen(left->symbol(), right);
         }
         else if(st->variant() == READ_STAT)
             processReadStat(st);
