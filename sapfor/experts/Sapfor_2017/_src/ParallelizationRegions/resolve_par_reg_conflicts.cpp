@@ -826,7 +826,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
         // TODO: check new array name
         
-        while (!isSgExecutableStatement(decl) || isSPF_stat(decl))
+        while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
             decl = decl->lexNext();
         decl = decl->lexPrev();
 
