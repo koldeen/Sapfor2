@@ -700,6 +700,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
+            assign->setlineNumber(getNextNegativeLineNumber()); // before region
             regionLines.stats.first->GetOriginal()->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             // A = A_reg
@@ -709,7 +710,6 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            assign->setlineNumber(getNextNegativeLineNumber()); // after region
             regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             it2->second.insert(arrName);
@@ -1325,7 +1325,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
-                        for (SgStatement *st = end; st && !st->lineNumber(); st = st->lexPrev())
+                        for (SgStatement *st = end; st && st->lineNumber() < 0; st = st->lexPrev())
                             start = st;
 
                         if (start)
@@ -1350,7 +1350,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && st->lineNumber() < 0; st = st->lexNext())
+                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
                             end = st;
 
                         if (end)
