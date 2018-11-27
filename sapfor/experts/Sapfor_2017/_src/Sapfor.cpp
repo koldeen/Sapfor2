@@ -1290,10 +1290,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     string regions = "";
                     for (auto &reg : regsByArr.second)
                         regions += "'" + reg->GetName() + "' ";
-                    __spf_print(1, "parallel regions %shave local array '%s'\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
+                    __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
 
                     string message;
-                    __spf_printToBuf(message, "parallel regions %shave local array '%s'", regions.c_str(), regsByArr.first->GetShortName().c_str());
+                    __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), regsByArr.first->GetShortName().c_str());
 
                     auto lines = (*regsByArr.second.begin())->GetAllLines();
                     bool ok = false;
@@ -1314,6 +1314,39 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     }
                     if (ok == false)
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
+
+            // check common arrays
+            for (auto &reg : parallelRegions)
+            {
+                for (auto &funcArrays : reg->GetUsedCommonArrays())
+                {
+                    for (auto &arrayLines : funcArrays.second)
+                    {
+                        auto commonBlock = isArrayInCommon(commonBlocks, arrayLines.first);
+                        checkNull(commonBlock, convertFileName(__FILE__).c_str(), __LINE__);
+                        if (!arrayLines.second.size())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        // check common block name and variables count
+                        int line = arrayLines.second[0].lines.first;
+                        string commonBlockName = commonBlock->getName();
+                        auto pos = commonBlockName.rfind("_r");
+                        if (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1)
+                        {
+                            __spf_print(1, "parallel region '%s' has common array '%s' that is not resolved on line %d\n",
+                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), line);
+
+                            string message;
+                            __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
+                                             reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                            getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 3014));
+                        }
+
+                        // check array copying existing
+                        
+                    }
                 }
             }
         }

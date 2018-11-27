@@ -217,16 +217,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     }
 }
 
-static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
-{
-    for (auto &commonBlockPair : commonBlocks)
-        for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
-                return &commonBlockPair.second;
-
-    return NULL;
-}
-
 static void recursiveFill(SgStatement *st,
                           SgExpression *exp,
                           ParallelRegion *region,
@@ -436,9 +426,9 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                         auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
                         if (inRegs.size() > 1)
                         {
-                            __spf_print(1, "parallel region '%s' has line included in another region in current file on line %d\n", region->GetName().c_str(), line);
+                            __spf_print(1, "parallel region '%s' has line included in another region on line %d\n", region->GetName().c_str(), line);
                             string message;
-                            __spf_printToBuf(message, "parallel region '%s' has line included in another region in current file", region->GetName().c_str());
+                            __spf_printToBuf(message, "parallel region '%s' has line included in another region", region->GetName().c_str());
 
                             auto itM = SPF_messages.find(fileLines.first);
                             if (itM == SPF_messages.end())

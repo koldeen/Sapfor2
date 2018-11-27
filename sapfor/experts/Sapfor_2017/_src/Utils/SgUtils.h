@@ -51,3 +51,4 @@ int printCommonBlocks(const char *fileName, const std::map<std::string, CommonBl
 void groupDeclarations(SgFile *file);
 
 bool ifSymbolExists(SgFile *file, const std::string &symbName);
+const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &commonBlocks, const DIST::Array *array);
