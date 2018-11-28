@@ -35,7 +35,7 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
 
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
-    if (toAttr->comments())
+    if (toAttr->comments() && variant != SPF_END_PARALLEL_REG_DIR && variant != SPF_PARALLEL_REG_DIR)
     {
         string comments(toAttr->comments());
 

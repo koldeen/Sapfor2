@@ -924,6 +924,7 @@ template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
+template const vector<DIST::Array*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<int*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<FuncInfo*> getAttributes(SgStatement *st, const set<int> dataType);
 
@@ -1619,4 +1620,29 @@ const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks,
                 return &commonBlockPair.second;
 
     return NULL;
+}
+
+static void fillArraysFromDirsRec(SgExpression *ex, vector<DIST::Array*> &toAdd)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            auto attributes = getAttributes<SgExpression*, DIST::Array*>(ex, { ARRAY_REF });
+            toAdd.insert(toAdd.end(), attributes.begin(), attributes.end());
+        }
+
+        if (ex->lhs())
+            fillArraysFromDirsRec(ex->lhs(), toAdd);
+        if (ex->rhs())
+            fillArraysFromDirsRec(ex->rhs(), toAdd);
+    }
+}
+
+vector<DIST::Array*> fillArraysFromDir(Statement *loopSt)
+{
+    vector<DIST::Array*> retVal;
+    for (int z = 0; z < 3; ++z)
+        fillArraysFromDirsRec(loopSt->GetOriginal()->lexPrev()->expr(z), retVal);
+    return retVal;
 }
