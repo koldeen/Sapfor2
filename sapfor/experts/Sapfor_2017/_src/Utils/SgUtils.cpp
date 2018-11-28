@@ -1610,3 +1610,13 @@ bool ifSymbolExists(SgFile *file, const string &symbName)
 
     return false;
 }
+
+const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
+{
+    for (auto &commonBlockPair : commonBlocks)
+        for (auto &variable : commonBlockPair.second.getVariables())
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
+                return &commonBlockPair.second;
+
+    return NULL;
+}
