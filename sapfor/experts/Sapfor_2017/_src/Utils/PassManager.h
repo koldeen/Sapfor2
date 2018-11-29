@@ -160,7 +160,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(CALL_GRAPH2) <= Pass(PRIVATE_ARRAYS_BREEDING);
 
-    Pass(GCOV_PARSER) <= Pass(FILL_REGIONS);
+    Pass(GCOV_PARSER) <= Pass(CREATE_PARALLEL_REGIONS);
 
     Pass(LOOP_ANALYZER_DATA_DIST_S1) <= Pass(LOOPS_SPLITTER);
 

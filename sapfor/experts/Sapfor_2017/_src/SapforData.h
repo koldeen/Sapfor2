@@ -14,7 +14,7 @@
 #include "DynamicAnalysis/gcov_info.h"
 #include "Sapfor.h"
 #include "Utils/errors.h"
-#include "DynamicAnalysis/fill_regions.h"
+#include "DynamicAnalysis/createParallelRegions.h"
 
 extern std::map<std::string, std::string> shortFileNames;
 static int activeState = 0;

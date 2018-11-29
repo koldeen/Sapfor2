@@ -99,7 +99,7 @@ enum passes {
     PRIVATE_ARRAYS_BREEDING,
     LOOPS_SPLITTER,
     CHECK_PAR_REG_DIR,
-    FILL_REGIONS,
+    CREATE_PARALLEL_REGIONS,
 
     EMPTY_PASS
 };
@@ -204,6 +204,6 @@ static void setPassValues()
     passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
-    passNames[FILL_REGIONS] = "FILL_REGIONS";
+    passNames[CREATE_PARALLEL_REGIONS] = "CREATE_PARALLEL_REGIONS";
 }
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
