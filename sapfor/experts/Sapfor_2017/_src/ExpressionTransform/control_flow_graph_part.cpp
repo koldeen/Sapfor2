@@ -44,7 +44,9 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
 {
+
     addVarToKill(var);
+    e_gen.insert(value);
     gen.insert(make_pair(var, value));
 }
 
@@ -55,6 +57,12 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
     for (auto it = gen.begin(); it != gen.end();)
         if (it->first == key)
             it = gen.erase(it);
+        else
+            ++it;
+
+    for (auto it = e_gen.begin(); it != e_gen.end();)
+        if (symbolInExpression(key, *it))
+            it = e_gen.erase(it);
         else
             ++it;
 }
@@ -162,7 +170,6 @@ void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right
             addVarToGen(SymbolKey(symbol, true), found->second);
         //else if(found_inDefsP != in_defs_p.end())
             //addVarToGenP(SymbolKey(symbol, true), found_inDefsP->second);
-
     }
     else
         addVarToGen(SymbolKey(symbol, true), right);
@@ -226,7 +233,7 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
                     addVarToGen(left->symbol(), right);
             }
             else if (left->variant() == ARRAY_REF) // a(...) = ...
-                addVarToKill(left->symbol());
+                addVarToGen(left->symbol(), right);
         }
         else if(st->variant() == READ_STAT)
             processReadStat(st);
@@ -313,7 +320,7 @@ static void mergeDefs(map<SymbolKey, set<ExpressionValue*>> *main, map<SymbolKey
     }
 }
 
-void CBasicBlock::initializeOutWithGen()
+void CBasicBlock::initializeOut()
 {
     for (auto &elem : gen)
     {
@@ -339,6 +346,48 @@ void CBasicBlock::initializeOutWithGen()
             inserted->second.insert(newExpVal);
         }
     }
+}
+
+void CBasicBlock::initializeEOut(set<SgExpression*>& allEDefs)
+{
+    e_in.insert(allEDefs.begin(), allEDefs.end()); //чтобы потом только уменьшать при пересечении
+    if(getPrev() != NULL) //OUT[first] = empty
+        e_out.insert(allEDefs.begin(), allEDefs.end());
+}
+
+
+bool CBasicBlock::updateEDefs()
+{
+    //IN == intersection of all prev OUT
+    for (BasicBlockItem *prev = getPrev(); prev != NULL; prev = prev->next)
+    {
+        CBasicBlock *b = prev->block;
+        for(auto it = e_in.begin(); it != e_in.end(); ++it)
+            if(b->e_out.find(*it) == b->e_out.end())
+                it = e_in.erase(it);
+            else
+                ++it;
+    }
+    int out_size = e_out.size();
+    //OUT = e_gen обеъденить c (IN - kill)
+    e_out.clear();
+    e_out.insert(e_gen.begin(), e_gen.end());
+    for(auto it = e_in.begin(); it != e_in.end(); ++it)
+    {
+        bool killed = false;
+        for(auto killIt = kill.begin(); killIt != kill.end(); ++killIt)
+            if(symbolInExpression(*killIt, *it))
+            {
+                killed = true;
+                break;
+            }
+        if(!killed)
+            e_out.insert(*it);
+    }
+
+    if(out_size != e_out.size())
+        return true;
+    return false;
 }
 
 static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue*>> *main,
@@ -595,6 +644,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     b = CGraph->getFirst();
 
     double time = omp_get_wtime();
+    set<SgExpression*> availableExpressions;
     while (b != NULL)
     {
         ControlFlowItem *cfi = b->getStart();
@@ -605,10 +655,17 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
             cfi = cfi->getNext();
         }
 
+        availableExpressions.insert(b->getEGen()->begin(), b->getEGen()->end());
         /*Initialization of OUT, it equals to GEN	*/
-        b->initializeOutWithGen();
+        b->initializeOut();
         b = b->getLexNext();
     }
+/*    b = CGraph->getFirst();
+    while(b != NULL)
+    {
+        b->initializeEOut(availableExpressions);
+        b = b->getLexNext();
+    }*/
     __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", omp_get_wtime() - time);
     time = omp_get_wtime();
     if (inDefs != NULL)
@@ -654,6 +711,18 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n", 
                 timeMerge, countIn1, min1, max1, min2, max2, countMerge, countSet1, countSet2);
     __spf_print(PRINT_PROF_INFO, "     add %f\n", timeAdd);
+/*
+    setsChanged = true;
+    while (setsChanged)
+    {
+        setsChanged = false;
+        b = CGraph->getFirst();
+        while (b != NULL)
+        {
+            setsChanged |= b->updateEDefs();
+            b = b->getLexNext();
+        }
+    }*/
     //printf("[%s]: %s\n", tag[newDeclaration->variant()], newDeclaration->unparse());
 
     /*Showtime*/

@@ -798,6 +798,10 @@ class CBasicBlock
     std::set <SymbolKey> kill;
     std::map <SymbolKey, std::set<ExpressionValue*>> in_defs;
     std::map <SymbolKey, std::set<ExpressionValue*>> out_defs;
+
+    std::set <SgExpression*> e_gen;
+    std::set <SgExpression*> e_in;
+    std::set <SgExpression*> e_out;
 #endif
 
 public:
@@ -874,7 +878,7 @@ public:
 
 #ifdef __SPF
     AnalysedCallsList* getProc() { return proc; }
-    void clearGenKill() { gen.clear(); kill.clear(); }
+    void clearGenKill() { gen.clear(); kill.clear(); e_gen.clear(); }
     void clearGenKillPointers() { gen_p.clear(); kill_p.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); }
     void clearDefsPointers() { in_defs_p.clear(); out_defs_p.clear(); }
@@ -887,7 +891,9 @@ public:
     void correctInDefsSimple();
     bool correctInDefsIterative();
     const std::map<SymbolKey, std::set<SgExpression*>> getReachedDefinitions(SgStatement* stmt);
-    void initializeOutWithGen();
+    void initializeOut();
+    void initializeEOut(std::set<SgExpression*>& allEDefs);
+    bool updateEDefs();
 
     inline std::map<SymbolKey, std::set<SgExpression*>>* getGenP() { return &gen_p; }
     inline std::set<SymbolKey>* getKillP() { return &kill_p; }
@@ -900,6 +906,10 @@ public:
     inline void setInDefs(std::map<SymbolKey, std::set<ExpressionValue*>>* inDefs) { in_defs = *inDefs; }
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getInDefs() { return &in_defs; }
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getOutDefs() { return &out_defs; }
+
+    inline std::set<SgExpression*>* getEGen() { return &e_gen; }
+    inline std::set<SgExpression*>* getEIn() { return &e_in; }
+    inline std::set<SgExpression*>* getEOut() { return &e_out; }
 
 #endif
 };
