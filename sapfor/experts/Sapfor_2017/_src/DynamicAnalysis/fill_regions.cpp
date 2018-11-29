@@ -18,27 +18,51 @@ int perform_time(SgFile *file, SgStatement *src,  map<int, Gcov_info> &gCovInfo)
     int count = 0;
 
     switch (stmt->variant()) 
-    {
+    {   // add PROC_CALL!
+
         case IF_NODE:
+        case LOGIF_NODE:
+        case ELSEIF_NODE:
         {
             SgIfStmt* ifSt = (SgIfStmt*)src;
-            count += (info.getBranches()[0].getPercent()) * perform_time(file, ifSt->trueBody(), gCovInfo);
-            count += (info.getBranches()[1].getPercent()) * perform_time(file, ifSt->falseBody(), gCovInfo);
+            SgStatement* tmp = ifSt->trueBody();
+            int t = 0;
+            while (tmp->variant != CONTROL_END)
+            {
+                t += perform_time(file, tmp, gCovInfo);
+                tmp = tmp->lexNext();
+            }
+            count += (info.getBranches()[0].getPercent()) * t;
+            t = 0;
+            tmp = ifSt->falseBody();
+            while (tmp && tmp->variant != CONTROL_END)
+            {
+                t += perform_time(file, tmp, gCovInfo);
+                tmp = tmp->lexNext();
+            }
+            count += (info.getBranches()[1].getPercent()) * t;
             break;
         }
-        case LOOP_NODE:
-            // ??
         case WHILE_NODE:
         {
             SgWhileStmt* whileSt = (SgWhileStmt*)src;
-            // ??
-            count += perform_time(file, whileSt->body(), gCovInfo);
+            SgStatement* tmp = whileSt->body();
+            while (tmp->variant != CONTROL_END)
+            {
+                count += perform_time(file, tmp, gCovInfo);
+                tmp = tmp->lexNext();
+            }
             break;
         }
         case FOR_NODE:
         {
             SgForStmt* forSt = (SgForStmt*)src;
-            count += perform_time(file, forSt->body(), gCovInfo);
+            SgStatement* tmp = forSt->body();
+            while (tmp->variant != CONTROL_END)
+            {
+                count += perform_time(file, tmp, gCovInfo);
+                tmp = tmp->lexNext();
+            }
             break;
         }
         default:
