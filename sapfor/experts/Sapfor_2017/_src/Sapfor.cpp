@@ -1342,6 +1342,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
                                              reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
                             getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 3014));
+                            internalExit = 1;
                         }
 
                         // check array copying existing
