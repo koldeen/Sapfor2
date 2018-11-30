@@ -122,7 +122,6 @@ const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stm
         __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
         return map<SymbolKey, set<SgExpression*>>();
     }
-    std::cout << "!!" << std::endl;
     return b->getReachedDefinitions(stmt);
 }
 

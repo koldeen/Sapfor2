@@ -219,8 +219,10 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
 */
 
 void DvmhRegionInsertor::insertActualDirectives() {
+	std::cout << "IN INSERT ACTUALS" << std::endl;
 	int funcNum = file.numberOfFunctions();
 
+	
 	for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file.functions(i);
@@ -234,37 +236,59 @@ void DvmhRegionInsertor::insertActualDirectives() {
 			
 			DvmhRegion* region = getContainingRegion(st);
             const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
-            
+			set<SgSymbol*> usedSymbols = getUsedSymbols(st); 
+
+			std::vector<SgSymbol*> toActualise;
             for (auto& var : vars) {
+				bool found = false;
+				for (auto& symbol : usedSymbols) {
+					if (var.first.getVarName() == symbol->identifier()) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) // skip unused symbols
+					continue;
+
+				SgSymbol *symbol = (SgSymbol *) var.first.getSymbol();
+				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
+					continue;
+				printf("3");
+				DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
+				if (arr->GetNonDistributeFlag()) // if array's not distributed, skip it
+					continue;
+				
 				// DEBUG
+				std::cout << "~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+				st->unparsestdout();
                 std::cout << var.first.getVarName() + ": " << std::endl;
                 for (auto &def : var.second) {
-                    def->unparsestdout();
+					if (def) {
+                    	def->unparsestdout();	
+					}
                 }
                 std::cout << "********************" << std::endl;
 				// END OF DEBUG
-
-				SgSymbol *symbol = (SgSymbol *) var.first.getSymbol();
-				if (!isSgArrayType(symbol->type()))
-					continue;
-
-				DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
-				bool isDistr = !arr->GetNonDistributeFlag();
-
 				if (region) {
 					// Searching for defenition not in region
 					bool symbolDeclaredInSequentPart = false;
 					for (auto& defenition : var.second) {
+						if (!SgStatement::getStatmentByExpression(defenition)) {
+							printf("Unable to find statement for expr:\n");
+							defenition->unparsestdout();
+						}
+						/*
 						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
 						if (!containingRegion) {
 							symbolDeclaredInSequentPart = true;
 							break;
 						}
+						*/
 					}
-
 					if (symbolDeclaredInSequentPart)
-						region->needActualisation.push_back(*symbol);
-				}
+						region->needActualisation.push_back(*symbol); 
+				} 
 				else {
 					// Seatching for defenition in region
 					bool symbolDeclaredInRegion = false;
@@ -275,12 +299,14 @@ void DvmhRegionInsertor::insertActualDirectives() {
 							break;
 						}
 					}
-
 					if (symbolDeclaredInRegion)
-						insertActualDirectiveBefore(st, symbol);
+						toActualise.push_back(symbol);
 				}
             } 
-			
+
+			if (toActualise.size() > 0)
+				insertActualDirectiveBefore(st, toActualise);
+
 			st = st->lexNext();
 		}
 	}
@@ -291,12 +317,6 @@ void DvmhRegionInsertor::insertDirectives()
     findEdgesForRegions(loopGraph);
     insertRegionDirectives();
 	insertActualDirectives();
-/*
-	getControlFlowGraph();
-    setUpReachingDefenitions();
-    insertActualDirectives();
-    deleteControlFlowGraph();
-*/
 }
 
 DvmhRegionInsertor::~DvmhRegionInsertor()
@@ -326,10 +346,18 @@ DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
     return NULL;
 }
 
-void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, SgSymbol *symbol) {
+void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vector<SgSymbol*> symbols) {
     SgStatement *getActualSt = new SgStatement(ACC_GET_ACTUAL_DIR);
-	//SgVarRefExp();
-	//SgExprListExp *t;
-	getActualSt->setExpression(0, SgVarRefExp(symbol));
+
+	SgExprListExp t;
+	for (auto symbol : symbols) {
+		SgExpression *expr = new SgVarRefExp(symbol);
+		t.append(*expr);
+	}
+
+	getActualSt->setExpression(0, *t.rhs());
 	st->insertStmtBefore(*getActualSt);
+	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	getActualSt->unparsestdout();
+	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
 }

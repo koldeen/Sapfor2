@@ -51,7 +51,7 @@ class DvmhRegionInsertor {
     bool hasLimitsToDvmhParallel(LoopGraph *);
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirectiveBefore(SgStatement *, SgSymbol *);
+    void insertActualDirectiveBefore(SgStatement *, std::vector<SgSymbol*>);
     //void insertActualForRedistribute();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *);
     LoopCheckResults updateLoopNode(LoopGraph *);
