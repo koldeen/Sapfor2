@@ -1111,6 +1111,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PAR_REGIONS)
     {
+        fillRegionIntervals(parallelRegions);
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
 
@@ -1344,10 +1345,135 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 3014));
                             internalExit = 1;
                         }
-
-                        // check array copying existing
-                        
                     }
+                }
+            }
+
+            // check intervals and arrays copying
+            for (auto &reg : parallelRegions)
+            {
+                for (auto &fileLines : reg->GetAllLines())
+                {
+                    if (SgFile::switchToFile(fileLines.first) != -1)
+                    {
+                        // check array copying existing
+                        for (auto &lines : fileLines.second)
+                        {
+                            // check interval existing
+                            if (!lines.intervalBefore.first || !lines.intervalBefore.second || !lines.intervalAfter.first || !lines.intervalAfter.second)
+                            {
+                                __spf_print(1, "parallel region '%s' has lines that does not have intervals on line %d\n",
+                                            reg->GetName().c_str(), lines.lines.first);
+
+                                string message;
+                                __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
+                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3015));
+                                internalExit = 1;
+                            }
+                            // check arrays
+                            else
+                            {
+                                set<DIST::Array*> leftBefore;
+                                set<DIST::Array*> rightAfter;
+
+                                for (auto st = lines.intervalBefore.first->GetOriginal()->lexNext(); st != lines.intervalBefore.second->GetOriginal(); st = st->lexNext())
+                                {
+                                    if (st->variant() != ASSIGN_STAT)
+                                    {
+                                        __spf_print(1, "expected only assign operands in interval on line %d\n", st->lineNumber());
+
+                                        string message;
+                                        __spf_printToBuf(message, "expected only assign operands in interval", reg->GetName().c_str());
+                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 3016));
+                                        internalExit = 1;
+                                    }
+
+                                    auto varSymb = st->expr(0)->symbol();
+                                    checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
+                                    auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
+                                    checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                                    leftBefore.insert(array);
+                                }
+
+                                for (auto st = lines.intervalAfter.first->GetOriginal()->lexNext(); st != lines.intervalAfter.second->GetOriginal(); st = st->lexNext())
+                                {
+                                    if (st->variant() != ASSIGN_STAT)
+                                    {
+                                        __spf_print(1, "expected only assign operands in interval on line %d\n", st->lineNumber());
+
+                                        string message;
+                                        __spf_printToBuf(message, "expected only assign operands in interval", reg->GetName().c_str());
+                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 3016));
+                                        internalExit = 1;
+                                    }
+
+                                    auto varSymb = st->expr(1)->symbol();
+                                    checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
+                                    auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
+                                    checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                                    rightAfter.insert(array);
+                                }
+
+                                // check left and right sets if common array is used at this lines
+                                for (auto funcArrays : reg->GetUsedCommonArrays())
+                                {
+                                    if (funcArrays.first->fileName == fileLines.first)
+                                    {
+                                        for (auto &arrayLines : funcArrays.second)
+                                        {
+                                            for (auto &lines2 : arrayLines.second)
+                                            {
+                                                if (lines == lines2)
+                                                {
+                                                    if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
+                                                    {
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
+                                                                    reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
+
+                                                        string message;
+                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
+                                                                         reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        internalExit = 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // check left and right sets if local array is used at this lines
+                                for (auto funcArrays : reg->GetUsedLocalArrays())
+                                {
+                                    if (funcArrays.first->fileName == fileLines.first)
+                                    {
+                                        for (auto &arrayLines : funcArrays.second)
+                                        {
+                                            for (auto &lines2 : arrayLines.second)
+                                            {
+                                                if (lines == lines2)
+                                                {
+                                                    if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
+                                                    {
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
+
+                                                        string message;
+                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        internalExit = 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
             }
         }

@@ -376,6 +376,66 @@ void fillRegionFunctions(vector<ParallelRegion*> &regions, const map<string, vec
     }
 }
 
+void fillRegionIntervals(vector<ParallelRegion*> &regions)
+{
+    if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
+        return;
+
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLinesToModify())
+        {
+            // switch to current file
+            if (SgFile::switchToFile(fileLines.first) != -1)
+            {
+                for (auto &lines : fileLines.second)
+                {
+                    // explicit lines
+                    if (!lines.isImplicit())
+                    {
+                        SgStatement *start = NULL;
+                        SgStatement *end = NULL;
+
+                        // try to find interval before explicit lines
+                        end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev(); // before SPF_PARALLEL_REG_DIR
+                        if (end && end->variant() == DVM_ENDINTERVAL_DIR)
+                        {
+                            for (auto st = end; st; st = st->lexPrev())
+                            {
+                                if (st->variant() == DVM_INTERVAL_DIR)
+                                {
+                                    start = st;
+                                    Statement *intervalStart = new Statement(start);
+                                    Statement *intervalEnd = new Statement(end);
+                                    lines.intervalBefore = make_pair(intervalStart, intervalEnd);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // try to find interval after explicit lines
+                        start = lines.stats.second->GetOriginal()->lexNext()->lexNext(); // after SPF_END_PARALLEL_REG_DIR
+                        if (start && start->variant() == DVM_INTERVAL_DIR)
+                        {
+                            for (auto st = start; st; st = st->lexNext())
+                            {
+                                if (st->variant() == DVM_ENDINTERVAL_DIR)
+                                {
+                                    end = st;
+                                    Statement *intervalStart = new Statement(start);
+                                    Statement *intervalEnd = new Statement(end);
+                                    lines.intervalAfter = make_pair(intervalStart, intervalEnd);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;

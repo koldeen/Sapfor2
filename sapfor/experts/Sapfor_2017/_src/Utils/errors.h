@@ -79,7 +79,9 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   12 "parallel regions %shave common function '%s'"
 //   13 "parallel regions %shave local array '%s' that is not resolved"
 //   14 "parallel region '%s' has common array '%s' that is not resolved"
-//   15 "parallel region '%s' does not have copying of common array '%'"
+//   15 "parallel region '%s' has lines that does not have intervals"
+//   16 "expected only assign operands in interval"
+//   17 "parallel region '%s' does not have copying of array '%' in interval"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 

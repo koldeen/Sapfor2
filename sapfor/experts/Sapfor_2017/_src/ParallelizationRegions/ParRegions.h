@@ -21,14 +21,22 @@ struct ParallelRegionLines
     {
         lines = std::make_pair(-1, -1);
         stats = std::make_pair<Statement*, Statement*>(NULL, NULL);
+        intervalBefore = std::make_pair<Statement*, Statement*>(NULL, NULL);
+        intervalAfter = std::make_pair<Statement*, Statement*>(NULL, NULL);
     }
 
     ParallelRegionLines(const std::pair<int, int> &lines) : lines(lines) 
     {
         stats = std::make_pair<Statement*, Statement*>(NULL, NULL);
+        intervalBefore = std::make_pair<Statement*, Statement*>(NULL, NULL);
+        intervalAfter = std::make_pair<Statement*, Statement*>(NULL, NULL);
     }
 
-    ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats) { }
+    ParallelRegionLines(const std::pair<int, int> &lines, const std::pair<Statement*, Statement*> stats) : lines(lines), stats(stats)
+    {
+        intervalBefore = std::make_pair<Statement*, Statement*>(NULL, NULL);
+        intervalAfter = std::make_pair<Statement*, Statement*>(NULL, NULL);
+    }
 
     bool operator==(const ParallelRegionLines &regionLines) const { return lines == regionLines.lines && stats == regionLines.stats; }
     bool operator<(const ParallelRegionLines &otherLines) const { return lines.first < otherLines.lines.first; }
@@ -48,6 +56,10 @@ struct ParallelRegionLines
     std::pair<int, int> lines;
     // <start, end> stats
     std::pair<Statement*, Statement*> stats;
+
+    // <start, end> interval
+    std::pair<Statement*, Statement*> intervalBefore;
+    std::pair<Statement*, Statement*> intervalAfter;
 };
 
 #if __SPF
@@ -128,6 +140,7 @@ public:
     int GetId() const { return regionId; }
     const std::string& GetName() const { return originalName; }
     const std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLines() const { return lines; }
+    std::map<std::string, std::vector<ParallelRegionLines>>& GetAllLinesToModify() { return lines; }
     const std::vector<ParallelRegionLines>* GetLines(const std::string &file) const 
     {
         auto it = lines.find(file);
@@ -137,13 +150,13 @@ public:
             return &(it->second);
     }
 
-    const DIST::GraphCSR<int, double, attrType>& GetGraph() { return G; }
+    const DIST::GraphCSR<int, double, attrType>& GetGraph() const { return G; }
     DIST::GraphCSR<int, double, attrType>& GetGraphToModify() { return G; }
 
-    const DIST::GraphCSR<int, double, attrType>& GetReducedGraph() { return reducedG; }
+    const DIST::GraphCSR<int, double, attrType>& GetReducedGraph() const { return reducedG; }
     DIST::GraphCSR<int, double, attrType>& GetReducedGraphToModify() { return reducedG; }
 
-    const DIST::Arrays<int>& GetAllArrays() { return allArrays; }
+    const DIST::Arrays<int>& GetAllArrays() const { return allArrays; }
     DIST::Arrays<int>& GetAllArraysToModify() { return allArrays; }
 
     void SetCurrentVariant(const std::vector<int> &newVariant) { currentVariant = newVariant; }
