@@ -318,21 +318,23 @@
 %token ACC_CUDA_BLOCK 318
 %token BY 319
 %token IO_MODE 320
-%token SPF_ANALYSIS 321
-%token SPF_PARALLEL 322
-%token SPF_TRANSFORM 323
-%token SPF_NOINLINE 324
-%token SPF_PARALLEL_REG 325
-%token SPF_END_PARALLEL_REG 326
-%token CP_CREATE 327
-%token CP_LOAD 328
-%token CP_SAVE 329
-%token CP_WAIT 330
-%token FILES 331
-%token VARLIST 332
-%token STATUS 333
-%token EXITINTERVAL 334
-%token TEMPLATE_CREATE 335
+%token CP_CREATE 321
+%token CP_LOAD 322
+%token CP_SAVE 323
+%token CP_WAIT 324
+%token FILES 325
+%token VARLIST 326
+%token STATUS 327
+%token EXITINTERVAL 328
+%token TEMPLATE_CREATE 329
+%token SPF_ANALYSIS 330
+%token SPF_PARALLEL 331
+%token SPF_TRANSFORM 332
+%token SPF_NOINLINE 333
+%token SPF_PARALLEL_REG 334
+%token SPF_END_PARALLEL_REG 335
+%token SPF_PRIVATES_EXPANSION 336
+%token SPF_FISSION 337
 
 %{
 #include <string.h>
@@ -5824,13 +5826,14 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                     if((type_options & PROCESSORS_BIT)) { /* 27.06.18 || (type_options & TEMPLATE_BIT)){*/
+                     if(type_options & PROCESSORS_BIT) {    /* 27.06.18 || (type_options & TEMPLATE_BIT)){ */
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/
 	               }
                      } 
-                   /*  else {
+
+                    /*  else {
                        if($6)
                          err("Shape specification is not permitted", 263);
                      } */
@@ -5881,7 +5884,7 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                    if((type_options & PROCESSORS_BIT) || (type_options & TEMPLATE_BIT)){
+                    if(type_options & PROCESSORS_BIT) { /*23.10.18  || (type_options & TEMPLATE_BIT)){ */
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/
@@ -7977,8 +7980,13 @@ transform_spec_list:  transform_spec
 
 transform_spec: needkeyword SPF_NOINLINE
                 { $$ = make_llnd(fi,SPF_NOINLINE_OP,LLNULL,LLNULL,SMNULL);}
+              | needkeyword SPF_FISSION LEFTPAR loop_var_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_FISSION_OP,$4,LLNULL,SMNULL);}
+              | needkeyword SPF_PRIVATES_EXPANSION 
+                { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,LLNULL,LLNULL,SMNULL);}
+              | needkeyword SPF_PRIVATES_EXPANSION LEFTPAR loop_var_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,$4,LLNULL,SMNULL);}
               ;
-
 region_name: name
            { $$ = make_parallel_region($1);}
            ;   

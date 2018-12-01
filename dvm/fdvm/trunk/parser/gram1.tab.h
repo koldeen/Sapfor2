@@ -359,23 +359,25 @@
      ACC_CUDA_BLOCK = 318,
      BY = 319,
      IO_MODE = 320,
-     SPF_ANALYSIS = 321,
-     SPF_PARALLEL = 322,
-     SPF_TRANSFORM = 323,
-     SPF_NOINLINE = 324,
-     SPF_PARALLEL_REG = 325,
-     SPF_END_PARALLEL_REG = 326,
-     CP_CREATE = 327,
-     CP_LOAD = 328,
-     CP_SAVE = 329,
-     CP_WAIT = 330,
-     FILES = 331,
-     VARLIST = 332,
-     STATUS = 333,
-     EXITINTERVAL = 334,
-     TEMPLATE_CREATE = 335,
-     BINARY_OP = 338,
-     UNARY_OP = 339
+     CP_CREATE = 321,
+     CP_LOAD = 322,
+     CP_SAVE = 323,
+     CP_WAIT = 324,
+     FILES = 325,
+     VARLIST = 326,
+     STATUS = 327,
+     EXITINTERVAL = 328,
+     TEMPLATE_CREATE = 329,
+     SPF_ANALYSIS = 330,
+     SPF_PARALLEL = 331,
+     SPF_TRANSFORM = 332,
+     SPF_NOINLINE = 333,
+     SPF_PARALLEL_REG = 334,
+     SPF_END_PARALLEL_REG = 335,
+     SPF_PRIVATES_EXPANSION = 336,
+     SPF_FISSION = 337,
+     BINARY_OP = 340,
+     UNARY_OP = 341
    };
 #endif
 /* Tokens.  */
@@ -699,30 +701,32 @@
 #define ACC_CUDA_BLOCK 318
 #define BY 319
 #define IO_MODE 320
-#define SPF_ANALYSIS 321
-#define SPF_PARALLEL 322
-#define SPF_TRANSFORM 323
-#define SPF_NOINLINE 324
-#define SPF_PARALLEL_REG 325
-#define SPF_END_PARALLEL_REG 326
-#define CP_CREATE 327
-#define CP_LOAD 328
-#define CP_SAVE 329
-#define CP_WAIT 330
-#define FILES 331
-#define VARLIST 332
-#define STATUS 333
-#define EXITINTERVAL 334
-#define TEMPLATE_CREATE 335
-#define BINARY_OP 338
-#define UNARY_OP 339
+#define CP_CREATE 321
+#define CP_LOAD 322
+#define CP_SAVE 323
+#define CP_WAIT 324
+#define FILES 325
+#define VARLIST 326
+#define STATUS 327
+#define EXITINTERVAL 328
+#define TEMPLATE_CREATE 329
+#define SPF_ANALYSIS 330
+#define SPF_PARALLEL 331
+#define SPF_TRANSFORM 332
+#define SPF_NOINLINE 333
+#define SPF_PARALLEL_REG 334
+#define SPF_END_PARALLEL_REG 335
+#define SPF_PRIVATES_EXPANSION 336
+#define SPF_FISSION 337
+#define BINARY_OP 340
+#define UNARY_OP 341
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 418 "gram1.y"
+#line 420 "gram1.y"
 {
     int token;
     char charv;
@@ -735,7 +739,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 739 "gram1.tab.h"
+#line 743 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
