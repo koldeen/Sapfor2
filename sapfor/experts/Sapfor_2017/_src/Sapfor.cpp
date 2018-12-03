@@ -52,6 +52,7 @@
 #endif
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "Utils/utils.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -134,15 +135,6 @@ void deleteAllAllocatedData(bool enable)
         deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
-}
-
-template<typename objT>
-static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
-{
-    auto it = mapObject.find(fileName);
-    if (it == mapObject.end())
-        it = mapObject.insert(it, make_pair(fileName, objT()));
-    return it->second;
 }
 
 static inline void printDvmActiveDirsErrors()
