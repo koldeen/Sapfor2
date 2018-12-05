@@ -40,7 +40,7 @@ static void matchGotoLabels(SgStatement *st, map<int, vector<int>> &gotoStmts)
 {
     map<int, vector<int>> labelsRef;
 
-    findAllRefsToLables(st, labelsRef);
+    findAllRefsToLables(st, labelsRef, false);
 
     for(auto &key : labelsRef)
         for(auto &it : key.second)
@@ -120,7 +120,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
         if_has_call = checkIfHasCall(currentSt->expr(0)) || checkIfHasCall(currentSt->expr(1)) || checkIfHasCall(currentSt->expr(2));
         currentVar = currentSt->variant();
 
-        if(currentVar == RETURN_STAT)
+        if(currentVar == RETURN_STAT || currentVar == STOP_STAT)
         {
             interval->ends.push_back(currentSt);
             interval->exit_levels.push_back(level);
@@ -215,6 +215,16 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool keep, 
 }
 
 //Interval insertion funcs
+static void LogIftoIfThen(SgStatement *stmt)
+{
+    SgControlEndStmt *control = new SgControlEndStmt();
+    stmt->setVariant(IF_NODE);
+    (stmt->lexNext())->insertStmtAfter(* control,*stmt);
+
+    if (stmt->numberOfAttributes(OMP_MARK) > 0)
+        control->addAttribute(OMP_MARK);
+}
+
 static void insertTree(Interval* interval)
 {
     if(interval->ifInclude)
@@ -224,6 +234,9 @@ static void insertTree(Interval* interval)
         beg_inter->setExpression(0, *expr);
 
         SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
+
+        if(interval->begin->lexPrev()->variant() == LOGIF_NODE)
+                LogIftoIfThen(interval->begin->lexPrev());
 
         if(interval->parent)
         {
@@ -257,6 +270,9 @@ static void insertTree(Interval* interval)
             curr_list_elem->setRhs(NULL);
             SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
             exit_inter->setExpression(0, *expli);
+
+            if(interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
+                LogIftoIfThen(interval->ends[i]->lexPrev());
             interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
         }
     }
