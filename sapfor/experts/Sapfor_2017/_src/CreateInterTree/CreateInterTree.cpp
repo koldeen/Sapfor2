@@ -15,7 +15,7 @@ static long int getNextTag()
 }
 
 //Debug funcs
-void printTree(Interval* inter, fstream& file, int level)
+static void printTree(Interval* inter, fstream& file, int level)
 {
     if(!(inter->ifInclude))
         return;
@@ -33,6 +33,20 @@ void printTree(Interval* inter, fstream& file, int level)
         file << inter->tag << " ";
         file << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
     }
+}
+
+void saveIntervals(SgFile *file, vector<Interval*> &fileIntervals)
+{
+    fstream file_intervals;
+
+    string filename = "_";
+    filename += file->filename();
+    filename += ".intervals.txt";
+
+    file_intervals.open(filename, fstream::out);
+    for(auto &interval : fileIntervals)
+        printTree(interval, file_intervals, 0);
+    file_intervals.close();
 }
 
 //Labels funcs
@@ -132,7 +146,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
             interval->exit_levels.push_back(1);   
         }
 
-        if(gotoStmts.find(currentSt->lineNumber()) != gotoStmts.end())
+        if(gotoStmts.find(currentSt->lineNumber()) != gotoStmts.end() && currentVar != LOGIF_NODE)
         {
             vector<int>& labels = gotoStmts[currentSt->lineNumber()];
 
@@ -168,7 +182,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
     }
 }
 
-void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool keep, bool nested_on)
+void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool nested_on)
 {
     int funcNum = file->numberOfFunctions();
     map<int, int> labelsRef;           // id => line
@@ -193,20 +207,6 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool keep, 
         findIntervals(func_inters, labelsRef, gotoStmts, currentSt, 1);
 
         fileIntervals.push_back(func_inters);
-    }
-
-    if(keep)
-    {
-        fstream file_intervals;
-
-        string filename = "_";
-        filename += file->filename();
-        filename += ".intervals";
-
-        file_intervals.open(filename, fstream::out);
-        for(auto &interval : fileIntervals)
-            printTree(interval, file_intervals, 0);
-        file_intervals.close();
     }
 
     if(nested_on)
@@ -309,7 +309,7 @@ static FileProfile parseProfiles(const string &filename)
             int pos_com = nums.find(",");
 
             int line_num = stoi(nums.substr(0, pos_com));
-            int calls_num = stoi(nums.substr(pos_com + 1));
+            long long calls_num = stoll(nums.substr(pos_com + 1));
 
             fileProfile.profile[line_num] = calls_num;
         }
@@ -336,7 +336,7 @@ void assignCallsToFile(const string &baseFilename, vector<Interval*> &intervals)
 }
 
 //Deleting intervals funcs
-static void removeNode(Interval* inter, int threshold)
+static void removeNode(Interval* inter, long long threshold)
 {
     if(inter->calls > threshold)
         inter->ifInclude = false;
@@ -345,13 +345,13 @@ static void removeNode(Interval* inter, int threshold)
         removeNode(inter->includes[i], threshold);
 }
 
-void removeNodes(int threshold, vector<Interval*> &intervals, vector<string> &include_functions)
+void removeNodes(long long threshold, vector<Interval*> &intervals, vector<string> &include_functions)
 {
     for (auto &interval : intervals)
     {
         string func_name = interval->begin->symbol()->identifier();
 
-        if(find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
+        if(include_functions.size() == 0 || find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
             removeNode(interval, threshold);    
     }
 }
