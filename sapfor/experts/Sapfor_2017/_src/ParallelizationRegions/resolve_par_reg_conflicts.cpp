@@ -217,16 +217,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
     }
 }
 
-static const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
-{
-    for (auto &commonBlockPair : commonBlocks)
-        for (auto &variable : commonBlockPair.second.getVariables())
-            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
-                return &commonBlockPair.second;
-
-    return NULL;
-}
-
 static void recursiveFill(SgStatement *st,
                           SgExpression *exp,
                           ParallelRegion *region,
@@ -314,9 +304,9 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                     if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
                     else
-                        iterator = regionLines.stats.first;
+                        iterator = regionLines.stats.first->GetOriginal();
 
-                    for (; iterator && iterator != end; iterator = iterator->lexNext())
+                    for (; iterator && iterator != end->lexNext(); iterator = iterator->lexNext())
                     {
                         if (isSPF_stat(iterator) || isDVM_stat(iterator))
                             continue;
@@ -436,10 +426,9 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                         auto inRegs = getAllRegionsByLine(regions, fileLines.first, line);
                         if (inRegs.size() > 1)
                         {
-                            __spf_print(1, "parallel region '%s' has line that is included in another region in file '%s' on line %d\n", region->GetName().c_str(),
-                                        fileLines.first.c_str(), line);
+                            __spf_print(1, "parallel region '%s' has line included in another region on line %d\n", region->GetName().c_str(), line);
                             string message;
-                            __spf_printToBuf(message, "parallel region '%s' has line that is included in another region in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
+                            __spf_printToBuf(message, "parallel region '%s' has line included in another region", region->GetName().c_str());
 
                             auto itM = SPF_messages.find(fileLines.first);
                             if (itM == SPF_messages.end())
@@ -711,6 +700,7 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
 
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
+            assign->setlineNumber(getNextNegativeLineNumber()); // before region
             regionLines.stats.first->GetOriginal()->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             // A = A_reg
@@ -720,7 +710,6 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
             
             assign->setExpression(0, *left);
             assign->setExpression(1, *right);
-            assign->setlineNumber(getNextNegativeLineNumber()); // after region
             regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             it2->second.insert(arrName);
@@ -837,7 +826,7 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
         // TODO: check new array name
         
-        while (!isSgExecutableStatement(decl) || isSPF_stat(decl))
+        while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
             decl = decl->lexNext();
         decl = decl->lexPrev();
 
@@ -1336,7 +1325,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
-                        for (SgStatement *st = end; st && !st->lineNumber(); st = st->lexPrev())
+                        for (SgStatement *st = end; st && st->lineNumber() < 0; st = st->lexPrev())
                             start = st;
 
                         if (start)
@@ -1361,7 +1350,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && st->lineNumber() < 0; st = st->lexNext())
+                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
                             end = st;
 
                         if (end)

@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <vector>
 #include <map>
+#include <set>
 
 #ifdef _MSC_VER
 /*Windows*/
@@ -24,6 +25,7 @@
 
 using std::vector;
 using std::map;
+using std::set;
 using std::to_string;
 
 //from xp.cpp
@@ -582,11 +584,15 @@ static int Model_distr(DIST::Array *array, const DistrVariant *distrVar, FILE *p
         tmp_params->AxisArray.resize(array->GetDimSize());
         tmp_params->CoeffArray.resize(array->GetDimSize());
         tmp_params->ConstArray.resize(array->GetDimSize());
-        for (int i = 0; i < array->GetDimSize(); ++i)
+        const int rank = array->GetDimSize();
+        for (int i = 0; i < rank; ++i)
         {
             tmp_params->AxisArray[i] = i + 1;
+            if (distrVar->distRule[rank - 1 - i] == dist::BLOCK)
+                tmp_params->ConstArray[i] = 0 - array->GetSizes()[rank - 1 - i].first;
+            else
+                tmp_params->ConstArray[i] = 0;
             tmp_params->CoeffArray[i] = 1;
-            tmp_params->ConstArray[i] = 0;
         }
 
         if (printOut)
@@ -696,7 +702,7 @@ static int Model_align(DIST::Array *array, const int regId, FILE *printOut = NUL
             {
                 tmp_params->AxisArray[i] = i + 1;
                 tmp_params->CoeffArray[i] = rule[rank - 1 - i].first;
-                tmp_params->ConstArray[i] = rule[rank - 1 - i].second;
+                tmp_params->ConstArray[i] = rule[rank - 1 - i].second - array->GetSizes()[rank - 1 - i].first;
             }
         }
 
@@ -825,12 +831,23 @@ static int findPosInParallel(vector<string> &parallel, const string &find)
     return ret;
 }
 
+static bool shadowExist(const ParallelDirective *directive)
+{
+    for (auto &sh : directive->shadowRenew)
+        for (auto &elem : sh.second)
+            if (elem.first != 0 || elem.second != 0)
+                return true;
+    return false;
+}
+
+extern vector<DIST::Array*> fillArraysFromDir(Statement *loopSt);
 //==============
 static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
 {
     long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
     string debug = "";
 
+    //TODO: count of reduction elems
     if (directive->reduction.size() || directive->reductionLoc.size()) //REDUCTION
     {
         {
@@ -883,7 +900,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
                 tmp_params->ID = RIDG; //для различия
                 tmp_params->LocElmLength = std::get<2>(red); // count of loc elem
-                tmp_params->RedArrayLength = std::get<2>(red); // count of elem
+                tmp_params->RedArrayLength = 1; // count of elem
                 tmp_params->RedArrayType = 1; // INT TYPE
 
                 f.call_time = 0.00000100;		// call time
@@ -916,17 +933,16 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
             rem_few[i].loop_addr_ref = LR;*/
     }
 
-    if (directive->shadowRenew.size()) //SHADOW RENEW
+    // TODO: add CORNER
+    if (shadowExist(directive)) //SHADOW RENEW
     {
-        // не знаю куда задать CORNER
-        /*
         {
             FuncCall f;
             f.func_id = crtshg_;
-            crtshg_Info* tmp_params = new crtshg_Info;
+            crtshg_Info *tmp_params = new crtshg_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
-            tmp_params->ShadowGroupRef = 0xb00000 + addr;//для различия
+            tmp_params->ShadowGroupRef = (redShIds++);//для различия
             SHG = tmp_params->ShadowGroupRef;
             tmp_params->StaticSign = 0; //poss not
 
@@ -936,45 +952,43 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
             f.crtshg();
         }
-
-        for (int j = 0; j < s_few.size(); ++j)
+        
+        auto arraysInShadow = fillArraysFromDir(loop->loop);        
+        for (int j = 0; j < directive->shadowRenew.size(); ++j)
         {
+            DIST::Array *shArray = NULL;
+            for (auto &elem : arraysInShadow)
+                if (elem->GetName() == directive->shadowRenew[j].first.second)
+                    shArray = elem;
+            checkNull(shArray, __FILE__, __LINE__);
+
             FuncCall f;
             f.func_id = inssh_;
             inssh_Info* tmp_params = new inssh_Info;
             f.call_params = (void *)tmp_params; // point to parameters
 
             tmp_params->ShadowGroupRef = SHG;
-            tmp_params->ArrayHandlePtr = 0x200000 + s_few[j].v->addr; //было 0xd00000
-            tmp_params->ArrayHeader = 0x100000 + s_few[j].v->addr;
-            tmp_params->FullShdSign = 0;//poss not
+            tmp_params->ArrayHandlePtr = getId(shArray, mapArrayAddrsPtr, arrayAddrPtr);
+            tmp_params->ArrayHeader = getId(shArray, mapArrayAddrs, arrayAddr);
+            tmp_params->FullShdSign = 0; //poss not
             tmp_params->HiShdWidthArray.resize(0);
             tmp_params->LowShdWidthArray.resize(0);
-            if (!(s_few[j].is_wid))
+
+            const int rank = shArray->GetDimSize();
+            for (int z = 0; z < rank; ++z)
             {
-                for (int i = 0; i < s_few[j].v->rank; ++i)
-                {
-                    tmp_params->HiShdWidthArray.push_back(-1);
-                    tmp_params->LowShdWidthArray.push_back(-1);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < s_few[j].v->rank; ++i)
-                {
-                    tmp_params->HiShdWidthArray.push_back(s_few[j].hi_wid[i]);
-                    tmp_params->LowShdWidthArray.push_back(s_few[j].low_wid[i]);
-                }
+                tmp_params->HiShdWidthArray.push_back(directive->shadowRenew[j].second[rank - 1 - z].second);
+                tmp_params->LowShdWidthArray.push_back(directive->shadowRenew[j].second[rank - 1 - z].first);
             }
 
             f.call_time = 0.00000100;		// call time
             f.ret_time = 0.00000100;		// return time
             setVectorCallRet(&f);
 
-            printf("ins_sh  %s  ArrayPtr=%d\n", s_few[j].v->name, tmp_params->ArrayHeader);
+            debug += "ins_sh  " + shArray->GetShortName() + "  ArrayPtr=" + to_string(tmp_params->ArrayHeader) + "\n";
             f.inssh();
         }
-
+        
         {
             FuncCall f;
             f.func_id = strtsh_;
@@ -1004,7 +1018,6 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
             f.waitsh();
         }
-        */
     }
 
     if (directive->across.size()) // ACROSS
@@ -1162,7 +1175,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
 
         debug += "mappl AxisArray=";        
         for (int i = 0; i < tmp_params->AxisArray.size(); ++i)
-            debug += " " + tmp_params->AxisArray[i];
+            debug += " " + to_string(tmp_params->AxisArray[i]);
         debug += "\n";        
         f.mappl();
     }
@@ -2409,6 +2422,56 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     return 0;
 }
 
+static int multiply(const vector<int> &array_) 
+{
+    int res = 1;
+    for (size_t i = 0; i < array_.size(); ++i)
+        res *= array_[i];
+    return res;
+}
+
+static vector<int> get_divisors(size_t N) 
+{
+    vector<int> res;
+    res.push_back(N);
+
+    if (N > 1) 
+    {
+        int k = N / 2;
+        for (size_t i = k; i > 1; --i) 
+            if (N % i == 0)
+                res.push_back(i);        
+        res.push_back(1);
+    }
+    return res;
+}
+
+static void recGen(vector<int> divisors, vector<int> &matrix, size_t index, int procNum, vector<vector<int>> &result) 
+{
+    if (index < matrix.size()) 
+    {
+        for (size_t i = 0; i < divisors.size(); i++) 
+        {
+            matrix[index] = divisors[i];
+            recGen(divisors, matrix, index + 1, procNum, result);
+        }
+    }
+    else 
+    {
+        if (multiply(matrix) == procNum)
+            result.push_back(matrix);
+    }
+}
+
+vector<vector<int>> generate_matrixes(int procNum, int dim) 
+{
+    vector<vector<int>> result;
+    vector<int> divisors = get_divisors(procNum);
+
+    vector<int> matrix(dim);
+    recGen(divisors, matrix, 0, procNum, result);
+    return result;
+}
 
 void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar, 
                    const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict)
@@ -2416,7 +2479,7 @@ void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrV
     ps = new PS(mach_MYRINET, 4, 7.0, 0.004, 512); //MVS15k between nodes
     //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, 512); //fastest communications
 
-    vector<long> testTopology = { 2, 4 };
+    vector<long> testTopology = { 2, 2 };
     //set configuration of PS
     ps->setTopology(testTopology);
 
@@ -2484,6 +2547,7 @@ void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrV
         Model_par(dir.first, dir.second);
         CurrInterval->CalcIdleAndImbalance();
         CurrInterval->Integrate();
+        printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());
         delete CurrInterval;
     }
 

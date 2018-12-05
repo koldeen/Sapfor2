@@ -904,13 +904,14 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                     if((type_options & PROCESSORS_BIT)) { /* 27.06.18 || (type_options & TEMPLATE_BIT)){*/
+                     if(type_options & PROCESSORS_BIT) {    /* 27.06.18 || (type_options & TEMPLATE_BIT)){ */
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/
 	               }
                      } 
-                   /*  else {
+
+                    /*  else {
                        if($6)
                          err("Shape specification is not permitted", 263);
                      } */
@@ -961,7 +962,7 @@ dvm_combined_dir: dvm_attribute_list COLON COLON  in_dcl name dims
                    { PTR_SYMB s;
 	             PTR_LLND q, r, p;
                      int numdim;
-                    if((type_options & PROCESSORS_BIT) || (type_options & TEMPLATE_BIT)){
+                    if(type_options & PROCESSORS_BIT) { /*23.10.18  || (type_options & TEMPLATE_BIT)){ */
                        if(! explicit_shape) {
                          err("Explicit shape specification is required", 50);
 		         /*$$ = BFNULL;*/

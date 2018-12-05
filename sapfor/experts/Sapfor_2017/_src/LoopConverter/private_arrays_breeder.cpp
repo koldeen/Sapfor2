@@ -1,6 +1,7 @@
 #include "private_arrays_breeder.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/errors.h"
 
 #include <set>
 #include <queue>
@@ -162,6 +163,8 @@ static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymb
     }
     setAllocatable(declarationStatement, arraySymbol);
     //На самом деле, newArraySymbol не может быть NULL
+    if(newArraySymbol == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     return newArraySymbol;
 
 }
@@ -418,6 +421,49 @@ void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
             array = findSymbol(loopGraph, "yj");
             if (array)
                 breedArray(loopGraph, array, -1);
+
+
+
+            array = findSymbol(loopGraph, "flwi");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "flci");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "flji");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+
+
+            array = findSymbol(loopGraph, "flwj");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "flcj");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "fljj");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+
+
+            array = findSymbol(loopGraph, "flwk");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "flck");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
+            array = findSymbol(loopGraph, "fljk");
+            if (array)
+                breedArray(loopGraph, array, -1);
+
 
         }
 

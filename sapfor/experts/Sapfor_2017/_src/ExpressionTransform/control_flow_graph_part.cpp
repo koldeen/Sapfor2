@@ -15,8 +15,8 @@ using std::make_pair;
 using std::set;
 using std::pair;
 
-
-void showDefs(map<SymbolKey, set<ExpressionValue>> *defs);
+void showDefs(set<ExpressionValue*> *defs);
+void showDefs(map<SymbolKey, set<ExpressionValue*>> *defs);
 void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
@@ -28,8 +28,11 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
     bool result = false;
     if (exp)
     {
-        if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
+        if (exp->variant() == VAR_REF)
             return (symbol == exp->symbol());
+
+        if(exp->variant() == ARRAY_REF && symbol == exp->symbol())
+            return true;
 
         bool hasSymbol = false;
         if (exp->rhs())
@@ -42,10 +45,29 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
     return result;
 }
 
+static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
+{
+    string unp = newExp->unparse();
+    auto alloc = allocated.find(unp);
+
+    ExpressionValue* newExpVal = NULL;
+    if (alloc == allocated.end())
+    {
+        newExpVal = new ExpressionValue(newExp, unp);
+        allocated.insert(alloc, make_pair(unp, newExpVal));
+    }
+    else
+        newExpVal = alloc->second;
+    return newExpVal;
+}
+
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
 {
+
     addVarToKill(var);
-    gen.insert(make_pair(var, value));
+    ExpressionValue* expVal = allocateExpressionValue(value);
+    e_gen.insert(expVal);
+    gen.insert(make_pair(var, expVal));
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -55,6 +77,12 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
     for (auto it = gen.begin(); it != gen.end();)
         if (it->first == key)
             it = gen.erase(it);
+        else
+            ++it;
+
+    for (auto it = e_gen.begin(); it != e_gen.end();)
+        if (symbolInExpression(key, (*it)->getExp()))
+            it = e_gen.erase(it);
         else
             ++it;
 }
@@ -137,7 +165,7 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     auto found = gen.find(symbol);
     if (found != gen.end())
     {
-        addVarToGen(found->second->symbol(), right);
+        addVarToGen(found->second->getExp()->symbol(), right);
         return;
     }
 
@@ -159,10 +187,9 @@ void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right
         auto found = gen.find(rSymbol);
         //auto found_inDefsP = in_defs_p.find(rSymbol);
         if(found != gen.end())
-            addVarToGen(SymbolKey(symbol, true), found->second);
+            addVarToGen(SymbolKey(symbol, true), found->second->getExp());
         //else if(found_inDefsP != in_defs_p.end())
             //addVarToGenP(SymbolKey(symbol, true), found_inDefsP->second);
-
     }
     else
         addVarToGen(SymbolKey(symbol, true), right);
@@ -226,7 +253,7 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
                     addVarToGen(left->symbol(), right);
             }
             else if (left->variant() == ARRAY_REF) // a(...) = ...
-                addVarToKill(left->symbol());
+                addVarToGen(left->symbol(), right);
         }
         else if(st->variant() == READ_STAT)
             processReadStat(st);
@@ -235,6 +262,28 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
     }
 
     checkFuncAndProcCalls(cfi);
+}
+
+bool CBasicBlock::expressionIsAvailable(ExpressionValue* expValue) {
+
+    for(auto it = e_gen.begin(); it != e_gen.end(); ++it)
+        if(**it == *expValue)
+            return true;
+
+    for(auto it = e_in.begin(); it != e_in.end(); ++it)
+        if(**it == *expValue)
+        {
+            bool killed = false;
+            for(auto killIt = kill.begin(); killIt != kill.end(); ++killIt)
+                if(symbolInExpression(*killIt, expValue->getExp()))
+                {
+                    killed = true;
+                    break;
+                }
+            if(!killed)
+                return true;
+        }
+    return false;
 }
 
 const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgStatement *stmt)
@@ -271,7 +320,7 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
         }
 
         for(auto &it : gen)
-            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second);
+            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second->getExp());
     }
     return defs;
 }
@@ -313,32 +362,61 @@ static void mergeDefs(map<SymbolKey, set<ExpressionValue*>> *main, map<SymbolKey
     }
 }
 
-void CBasicBlock::initializeOutWithGen()
+void CBasicBlock::initializeOut()
 {
     for (auto &elem : gen)
     {
         SgExpression *newExp = NULL;
         if (elem.second)
         {
-            newExp = elem.second->copyPtr();
             auto inserted = out_defs.find(elem.first);
             if (inserted == out_defs.end())
                 inserted = out_defs.insert(inserted, make_pair(elem.first, set<ExpressionValue*>()));
-
-            string unp = newExp->unparse();
-            auto alloc = allocated.find(unp);
-
-            ExpressionValue* newExpVal = NULL;
-            if (alloc == allocated.end())
-            {
-                newExpVal = new ExpressionValue(newExp, unp);
-                allocated.insert(alloc, make_pair(unp, newExpVal));
-            }
-            else
-                newExpVal = alloc->second;
-            inserted->second.insert(newExpVal);
+            inserted->second.insert(elem.second);
         }
     }
+}
+
+void CBasicBlock::initializeEOut(set<ExpressionValue*>& allEDefs)
+{
+    e_in.insert(allEDefs.begin(), allEDefs.end()); //чтобы потом только уменьшать при пересечении
+    if(getPrev() != NULL) //OUT[first] = empty
+        e_out.insert(allEDefs.begin(), allEDefs.end());
+}
+
+
+bool CBasicBlock::updateEDefs()
+{
+    //IN == intersection of all prev OUT
+    for (BasicBlockItem *prev = getPrev(); prev != NULL; prev = prev->next)
+    {
+        CBasicBlock *b = prev->block;
+        for(auto it = e_in.begin(); it != e_in.end();)
+            if(b->e_out.find(*it) == b->e_out.end())
+                it = e_in.erase(it);
+            else
+                ++it;
+    }
+    int out_size = e_out.size();
+    //OUT = e_gen обеъденить c (IN - kill)
+    e_out.clear();
+    e_out.insert(e_gen.begin(), e_gen.end());
+    for(auto it = e_in.begin(); it != e_in.end(); ++it)
+    {
+        bool killed = false;
+        for(auto killIt = kill.begin(); killIt != kill.end(); ++killIt)
+            if(symbolInExpression(*killIt, (*it)->getExp()))
+            {
+                killed = true;
+                break;
+            }
+        if(!killed)
+            e_out.insert(*it);
+    }
+
+    if(out_size != e_out.size())
+        return true;
+    return false;
 }
 
 static bool addDefsFilteredByKill(map<SymbolKey, set<ExpressionValue*>> *main,
@@ -382,6 +460,17 @@ void showDefs(map<SymbolKey, set<ExpressionValue*>> *defs)
                 printf(", ");
         }
         printf("\n");
+    }
+    printf("\n");
+}
+
+void showDefs(set<ExpressionValue*> *defs)
+{
+    printf("Defs: %d\n", (int)defs->size());
+    printf(" ");
+    for (auto it = defs->begin(); it != defs->end(); ++it)
+    {
+        printf("%s, ", (*it)->getUnparsed().c_str());
     }
     printf("\n");
 }
@@ -465,16 +554,22 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
 
         if (printed)
         {
-            printf("\n In ");
+/*            printf("\n In ");
             showDefs(b->getInDefs());
             printf("\n Gen");
-            showDefs(b->getGen());
+            showDefs(b->getGen());*/
+            printf("\n E Gen");
+            showDefs(b->getEGen());
             printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
-            printf("\n Out ");
+/*            printf("\n Out ");
             showDefs(b->getOutDefs());
+*/            printf("\n E In ");
+            showDefs(b->getEIn());
+            printf("\n E Out ");
+            showDefs(b->getEOut());
         }
         b = b->getLexNext();
     }
@@ -595,6 +690,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     b = CGraph->getFirst();
 
     double time = omp_get_wtime();
+    set<ExpressionValue*> availableExpressions;
     while (b != NULL)
     {
         ControlFlowItem *cfi = b->getStart();
@@ -605,8 +701,15 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
             cfi = cfi->getNext();
         }
 
+        availableExpressions.insert(b->getEGen()->begin(), b->getEGen()->end());
         /*Initialization of OUT, it equals to GEN	*/
-        b->initializeOutWithGen();
+        b->initializeOut();
+        b = b->getLexNext();
+    }
+    b = CGraph->getFirst();
+    while(b != NULL)
+    {
+        b->initializeEOut(availableExpressions);
         b = b->getLexNext();
     }
     __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", omp_get_wtime() - time);
@@ -654,6 +757,18 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n", 
                 timeMerge, countIn1, min1, max1, min2, max2, countMerge, countSet1, countSet2);
     __spf_print(PRINT_PROF_INFO, "     add %f\n", timeAdd);
+
+    setsChanged = true;
+    while (setsChanged)
+    {
+        setsChanged = false;
+        b = CGraph->getFirst();
+        while (b != NULL)
+        {
+            setsChanged |= b->updateEDefs();
+            b = b->getLexNext();
+        }
+    }
     //printf("[%s]: %s\n", tag[newDeclaration->variant()], newDeclaration->unparse());
 
     /*Showtime*/
