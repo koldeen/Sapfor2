@@ -36,7 +36,7 @@ using std::iterator;
 using std::make_pair;
 using std::queue;
 
-#define PRINT_PROF_INFO 1
+#define PRINT_PROF_INFO 0
 /*
  * Contains original SgExpressions.
  * map <string, ...> key is a file, where replacements take place

@@ -1,3 +1,3 @@
 #pragma once
 
-#define VERSION "925"
+#define VERSION "932"

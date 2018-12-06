@@ -16,6 +16,7 @@ using std::set;
 using std::pair;
 
 void showDefs(set<ExpressionValue*> *defs);
+void showDefs(map<SymbolKey, ExpressionValue*> *defs);
 void showDefs(map<SymbolKey, set<ExpressionValue*>> *defs);
 void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
@@ -47,7 +48,7 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 
 static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
 {
-    string unp = newExp->unparse();
+    string unp = newExp == NULL ? "" : newExp->unparse();
     auto alloc = allocated.find(unp);
 
     ExpressionValue* newExpVal = NULL;
@@ -63,7 +64,6 @@ static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
 {
-
     addVarToKill(var);
     ExpressionValue* expVal = allocateExpressionValue(value);
     e_gen.insert(expVal);
@@ -475,6 +475,20 @@ void showDefs(set<ExpressionValue*> *defs)
     printf("\n");
 }
 
+void showDefs(map<SymbolKey, ExpressionValue*> *defs)
+{
+    printf("Defs: %d\n", (int)defs->size());
+    for (auto it = defs->begin(); it != defs->end(); ++it)
+    {
+        if(it->first.isPointer())
+            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->getUnparsed().c_str());
+        else
+            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->getUnparsed().c_str());
+        printf("\n");
+    }
+    printf("\n");
+}
+
 void showDefs(map<SymbolKey, SgExpression*> *defs)
 {
     printf("Defs: %d\n", (int)defs->size());
@@ -520,7 +534,7 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
             if (cfi->getStatement())
             {
                 printed = true;
-                printf("id(%d) ", cfi->getStatement()->id());
+                printf("%d ", cfi->getStatement()->lineNumber());
                 cfi->getStatement()->unparsestdout();
             }
             else if(cfi->getOriginalStatement())
@@ -529,7 +543,7 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
                 if(origSt->variant() == IF_NODE)
                 {
                     printed = true;
-                    printf("id(%d) ", origSt->id());
+                    printf("%d ", origSt->lineNumber());
                     printf("If:   (%s)\n", ((SgIfStmt*) origSt)->conditional()->unparse());
                 }
 
@@ -558,18 +572,18 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
             showDefs(b->getInDefs());
             printf("\n Gen");
             showDefs(b->getGen());*/
-            printf("\n E Gen");
-            showDefs(b->getEGen());
-            printf("\n Kill %d\n ", b->getKill()->size());
+/*            printf("\n E Gen");
+            showDefs(b->getEGen());*/
+/*            printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
-/*            printf("\n Out ");
-            showDefs(b->getOutDefs());
-*/            printf("\n E In ");
+            printf("\n Out ");
+            showDefs(b->getOutDefs());*/
+/*            printf("\n E In ");
             showDefs(b->getEIn());
             printf("\n E Out ");
-            showDefs(b->getEOut());
+            showDefs(b->getEOut());*/
         }
         b = b->getLexNext();
     }

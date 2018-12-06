@@ -713,7 +713,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
+            parse_gcovfile(file, "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
@@ -809,7 +809,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             G.ChangeQuality(QUALITY, SPEED);
 
             reducedG.SetMaxAvailMemory(currentAvailMemory);
-            DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, i, (curr_regime == ONLY_ARRAY_GRAPH));
+            DIST::createOptimalDistribution<int, double, attrType>(G, reducedG, allArrays, currReg->GetId(), (curr_regime == ONLY_ARRAY_GRAPH));
 
             set<DIST::Array*> usedArraysLocal;
             usedArraysLocal.insert(allArrays.GetArrays().begin(), allArrays.GetArrays().end());
@@ -1069,7 +1069,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 if (keepFiles)
                 {
                     char fName[256];
-                    sprintf(fName, "_reduced_graph_with_templ_reg%d.txt", z);
+                    sprintf(fName, "_reduced_graph_with_templ_reg%d.txt", parallelRegions[z]->GetId());
                     reducedG.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
                 }
                 createAlignDirs(reducedG, allArrays, dataDirectives, parallelRegions[z]->GetId(), arrayLinksByFuncCalls);
@@ -1365,6 +1365,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
         }
     }
+    else if (curr_regime == GCOV_PARSER)
+        parseTimesDvmStatisticFile("stat.txt", timesFromDvmStat);
 #if RELEASE_CANDIDATE
     else if (curr_regime == PREDICT_SCHEME)
     {

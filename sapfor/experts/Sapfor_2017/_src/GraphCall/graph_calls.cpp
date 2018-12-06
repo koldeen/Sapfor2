@@ -721,7 +721,6 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             st = st->lexNext();
         }
 
-
         st = file->functions(i);
         while (st != lastNode)
         {
@@ -1333,6 +1332,9 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
                     break;
 
                 if (st->lineNumber() == -1)
+                    continue;
+
+                if (!__gcov_doesThisLineExecuted(st->fileName(), st->lineNumber()))
                     continue;
 
                 set<ParallelRegion*> allRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
