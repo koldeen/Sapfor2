@@ -729,11 +729,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CREATE_INTER_TREE)
         {
             vector<string> include_functions = {};
-            long long threshold = 19992350602;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
-            removeNodes(threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
+            removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
 
             if(keepFiles)
                 saveIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -1695,7 +1694,12 @@ int main(int argc, char **argv)
             switch (curr_arg[0])
             {
             case '-':
-                if (string(curr_arg) == "-p")
+                if( string(curr_arg) == "-threshold")
+                {
+                    i++;
+                    intervals_threshold = atoll(argv[i]);
+                }
+                else if (string(curr_arg) == "-p")
                 {
                     i++;
                     proj_name = argv[i];
@@ -1765,6 +1769,8 @@ int main(int argc, char **argv)
                         curr_regime = REMOVE_DVM_DIRS;
                     else if (par == 18)
                         curr_regime = CREATE_NESTED_LOOPS;
+                    else if (par == 19)
+                        curr_regime = INSERT_INTER_TREE;
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp(passNames, EMPTY_PASS);

@@ -109,29 +109,13 @@ static void removeNestedIntervals(Interval* interval)
 }
 
 //Tree creation funcs
-static bool checkIfHasCall(SgExpression* exp)
-{
-    if(exp)
-    {
-        if(exp->variant() == FUNC_CALL)
-            return true;
-
-        return checkIfHasCall(exp->lhs()) || (checkIfHasCall(exp->rhs()));
-    }
-
-    return false;
-}
-
 static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
 {
-    bool if_has_call;
     int currentVar;
 
     while(currentSt != interval->ends[0])
     {
         currentSt = currentSt->lexNext();
-
-        if_has_call = checkIfHasCall(currentSt->expr(0)) || checkIfHasCall(currentSt->expr(1)) || checkIfHasCall(currentSt->expr(2));
         currentVar = currentSt->variant();
 
         if(currentVar == RETURN_STAT || currentVar == STOP_STAT)
@@ -167,7 +151,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
             }
         }
 
-        if(currentSt == interval->ends[0] || currentVar != FOR_NODE && currentVar != PROC_STAT && !if_has_call)
+        if(currentSt == interval->ends[0] || currentVar != FOR_NODE)
             continue;
 
         Interval* inter = new Interval();
@@ -240,15 +224,22 @@ static void insertTree(Interval* interval)
 
         if(interval->parent)
         {
-            interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
-            interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
+            if(interval->begin->lexPrev()->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexNext()->variant() != DVM_ENDINTERVAL_DIR)
+            {
+                interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
+                interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
+            }
         }
         else
         {
             SgStatement* currentSt = interval->begin;
             while(!isSgExecutableStatement(currentSt)) currentSt = currentSt->lexNext();
-            currentSt->insertStmtBefore(*beg_inter, *currentSt->controlParent());
-            interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
+
+            if(currentSt->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexPrev()->variant() != DVM_ENDINTERVAL_DIR)
+            {
+                currentSt->insertStmtBefore(*beg_inter, *currentSt->controlParent());
+                interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
+            }
         }
 
         for(int i = 1; i < interval->ends.size(); i++)
@@ -273,7 +264,9 @@ static void insertTree(Interval* interval)
 
             if(interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
                 LogIftoIfThen(interval->ends[i]->lexPrev());
-            interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
+
+            if(interval->ends[i]->lexPrev()->variant() != DVM_EXIT_INTERVAL_DIR)
+                interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
         }
     }
 
@@ -288,13 +281,10 @@ void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
 }
 
 //Profiling funcs
-static FileProfile parseProfiles(const string &filename)
+static FileProfile parseProfiles(fstream &file)
 {
     FileProfile fileProfile;
-    fstream file;
     string line;
-
-    file.open(filename, fstream::in);
 
     while (!file.eof())
     {
@@ -314,7 +304,6 @@ static FileProfile parseProfiles(const string &filename)
             fileProfile.profile[line_num] = calls_num;
         }
     }
-    file.close();
 
     return fileProfile;
 }
@@ -329,7 +318,15 @@ static void assignRec(Interval* inter, FileProfile &fp)
 
 void assignCallsToFile(const string &baseFilename, vector<Interval*> &intervals)
 {
-    FileProfile fileProfile = parseProfiles(baseFilename + ".gcov");
+    fstream file;
+    file.open(baseFilename + ".gcov", fstream::in);
+
+    if(!file.good())
+        return;
+
+    FileProfile fileProfile = parseProfiles(file);
+
+    file.close();
 
     for(auto &interval : intervals)
         assignRec(interval, fileProfile);
@@ -347,6 +344,9 @@ static void removeNode(Interval* inter, long long threshold)
 
 void removeNodes(long long threshold, vector<Interval*> &intervals, vector<string> &include_functions)
 {
+    if(threshold == 0)
+        return;
+
     for (auto &interval : intervals)
     {
         string func_name = interval->begin->symbol()->identifier();
