@@ -1769,8 +1769,6 @@ int main(int argc, char **argv)
                         curr_regime = REMOVE_DVM_DIRS;
                     else if (par == 18)
                         curr_regime = CREATE_NESTED_LOOPS;
-                    else if (par == 19)
-                        curr_regime = INSERT_INTER_TREE;
                 }
                 else if (curr_arg[1] == 'h')
                     printHelp(passNames, EMPTY_PASS);
