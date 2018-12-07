@@ -179,7 +179,7 @@ VerifySageStructures.o: $(REPO_SPF_BASE)VerificationCode/VerifySageStructures.cp
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)VerificationCode/VerifySageStructures.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 private_analyzer.o: $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.cpp $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)PrivateAnalyzer/private_analyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-acc_analyzer.o: $(REPO_FDVM_BASE)fdvm/acc_analyzer.cpp 
+acc_analyzer.o: $(REPO_FDVM_BASE)fdvm/acc_analyzer.cpp $(REPO_FDVM_BASE)include/acc_analyzer.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_FDVM_BASE)fdvm/acc_analyzer.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) -I$(REPO_SPF_BASE)	
 acc_data.o: $(REPO_FDVM_BASE)fdvm/acc_data.cpp 
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_FDVM_BASE)fdvm/acc_data.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
@@ -241,9 +241,9 @@ graph_calls.o: $(REPO_SPF_BASE)GraphCall/graph_calls.cpp $(REPO_SPF_BASE)GraphLo
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphCall/graph_calls.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 graph_calls_base.o: $(REPO_SPF_BASE)GraphCall/graph_calls_base.cpp $(REPO_SPF_BASE)GraphCall/graph_calls_func.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphCall/graph_calls_base.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
-expr_transform.o: $(REPO_SPF_BASE)ExpressionTransform/expr_transform.cpp
+expr_transform.o: $(REPO_SPF_BASE)ExpressionTransform/expr_transform.cpp $(REPO_FDVM_BASE)include/acc_analyzer.h $(REPO_SPF_BASE)ExpressionTransform/expr_transform.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ExpressionTransform/expr_transform.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-control_flow_graph_part.o: $(REPO_SPF_BASE)ExpressionTransform/control_flow_graph_part.cpp
+control_flow_graph_part.o: $(REPO_SPF_BASE)ExpressionTransform/control_flow_graph_part.cpp $(REPO_FDVM_BASE)include/acc_analyzer.h $(REPO_SPF_BASE)ExpressionTransform/expr_transform.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ExpressionTransform/control_flow_graph_part.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 CreateDistributionDirs.o: $(REPO_SPF_BASE)Distribution/CreateDistributionDirs.cpp  $(REPO_SPF_BASE)Distribution/Distribution.h  $(REPO_SPF_BASE)Distribution/GraphCSR.h \
 						  $(REPO_SPF_BASE)Distribution/Arrays.h  $(REPO_SPF_BASE)Utils/errors.h  $(REPO_SPF_BASE)GraphLoop/graph_loops.h  $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
