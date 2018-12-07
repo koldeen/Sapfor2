@@ -1078,7 +1078,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         int pos;
 
         auto founded = funcToFuncInfo.find(((SgProgHedrStmt*)start)->nameWithContains());
-        start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
+        start->addAttribute(PROC_CALL, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
         if (header && start->variant() != PROG_HEDR)

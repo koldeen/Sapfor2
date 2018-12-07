@@ -507,6 +507,9 @@
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator_base.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInserter.cpp">
+      <Filter>Файлы исходного кода\DvmhRegions</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1015,6 +1018,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\LoopAnalyzer\directive_creator.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInserter.h">
+      <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

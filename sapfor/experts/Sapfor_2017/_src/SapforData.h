@@ -104,6 +104,7 @@ std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
 
 //for GCOV_PARSER
 std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
+std::map<std::string, std::map<int, double>> timesFromDvmStat; // file -> [lines, times]
 //
 
 const char *passNames[EMPTY_PASS + 1];

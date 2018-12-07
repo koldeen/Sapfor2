@@ -361,3 +361,74 @@ pair<int, int> __gcov_GetExecuted(const string &file, const int line)
         ret.first = -1;
     return ret;
 }
+
+void parseTimesDvmStatisticFile(const char *file, map<string, map<int, double>> &timesFromDvmStat)
+{
+    FILE *stat = fopen(file, "r");
+    if (stat)
+    {
+        char buf[8192];
+        int execDone = 0;
+        int line = -1;
+        string fileN = "";
+
+        while (!feof(stat))
+        {
+            char *read = fgets(buf, 8192, stat);
+            if (read)
+            {
+                const string origLine(read);
+                auto itF = origLine.find("INTERVAL");
+                if (itF != string::npos)
+                {
+                    execDone = 0;
+                    line = -1;
+                    fileN = "";
+
+                    auto itL = origLine.find("NLINE=");
+                    if (itL != string::npos)
+                    {
+                        string lineS = "";
+                        for (size_t z = itL + 6; origLine[z] != ' '; ++z)
+                            lineS += origLine[z];
+                        line = atoi(lineS.c_str());
+                    }
+
+                    auto itS = origLine.find("SOURCE=");
+                    if (itS != string::npos)
+                    {
+                        string source = "";
+                        for (size_t z = itS + 7; origLine[z] != ' '; ++z)
+                            source += origLine[z];    
+                        fileN = source;
+                        convertToLower(fileN);
+                    }
+
+                    if (line != -1 && fileN != "")
+                    {
+                        if (timesFromDvmStat.find(fileN) == timesFromDvmStat.end())
+                            timesFromDvmStat[fileN][line] = 0;
+                        else if (timesFromDvmStat[fileN].find(line) == timesFromDvmStat[fileN].end())
+                            timesFromDvmStat[fileN][line] = 0;
+                    }
+                }
+                
+                auto itE = origLine.find("Execution time");
+                if (itE != string::npos && execDone == 0)
+                {
+                    execDone = 1;
+                    size_t idx = 16;
+                    while (origLine[idx++] == ' '); 
+                    string execC = "";
+                    for (size_t z = idx - 1; z < origLine.size(); ++z)
+                        execC += origLine[z];
+                    double execTime = atof(execC.c_str());
+
+                    if (line != -1 && fileN != "")
+                        timesFromDvmStat[fileN][line] += execTime;
+                }
+            }
+        }
+        fclose(stat);        
+    }
+}

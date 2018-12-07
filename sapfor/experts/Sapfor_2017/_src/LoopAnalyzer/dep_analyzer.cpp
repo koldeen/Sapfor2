@@ -38,6 +38,7 @@ using std::string;
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
 extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs);
+extern int staticPrivateAnalysis;
 
 static const set<string> *currentNonDistrArrays = NULL;
 static map<SgSymbol*, string> varInOut;
@@ -294,8 +295,16 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
                     break;
                 case PRIVATEDEP:
-                    if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
-                        privatesToAdd.push_back(currNode);
+                    if (staticPrivateAnalysis == 0)
+                    {
+                        if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+                            privatesToAdd.push_back(currNode);
+                    }
+                    else
+                    {
+                        if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+                            unknownScalarDep.push_back(currNode);
+                    }
                     break;
                 case REDUCTIONDEP:
                     if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())

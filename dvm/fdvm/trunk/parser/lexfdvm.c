@@ -428,6 +428,7 @@ struct Keylist keys[] = {
 	{"external", EXTERNAL},
         {"files",FILES},
 	{"find", FIND},
+        {"fission",SPF_FISSION},
         {"firstprivate", OMPDVM_FIRSTPRIVATE},/*OMP*/
         {"forall", FORALL},
 	{"format", FORMAT},
@@ -513,6 +514,7 @@ struct Keylist keys[] = {
 /*        {"port", PORT},*/
 /*       {"post", POST}, */
 	{"print", PRINT},
+        {"privates_expansion",SPF_PRIVATES_EXPANSION},
         {"private", PRIVATE}, 
 /*!!!        {"probe", PROBE}, */
 /*!!!        {"procedure", PROCEDURE},*/
