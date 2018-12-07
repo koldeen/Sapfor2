@@ -786,8 +786,8 @@ class CBasicBlock
     std::string visunparse;
 #ifdef __SPF
     bool varIsPointer(SgSymbol* symbol);
-    void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
-    void processPointerAssignment(SgSymbol *symbol, SgExpression *right);
+    void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right, SgStatement *st);
+    void processPointerAssignment(SgSymbol *symbol, SgExpression *right, SgStatement *st);
     void processReadStat(SgStatement* readSt);
     std::map <SymbolKey, std::set<SgExpression*>> gen_p;
     std::set <SymbolKey> kill_p;
@@ -882,7 +882,7 @@ public:
     void clearGenKillPointers() { gen_p.clear(); kill_p.clear(); }
     void clearDefs() { in_defs.clear(); out_defs.clear(); e_in.clear(); e_out.clear(); }
     void clearDefsPointers() { in_defs_p.clear(); out_defs_p.clear(); }
-    void addVarToGen(SymbolKey var, SgExpression* value);
+    void addVarToGen(SymbolKey var, SgExpression* value, SgStatement *defSt);
     void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
