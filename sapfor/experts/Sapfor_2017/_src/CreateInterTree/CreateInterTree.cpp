@@ -5,25 +5,48 @@ using std::vector;
 using std::map;
 using std::cout;
 using std::endl;
-using std::ifstream;
+using std::fstream;
+
+static long int getNextTag()
+{
+    static long int INTERVAL_TAG = 0;
+
+    return INTERVAL_TAG++;
+}
 
 //Debug funcs
-void printTree(Interval* inter)
+static void printTree(Interval* inter, fstream& file, int level)
 {
     if(!(inter->ifInclude))
         return;
 
-    cout << inter->tag << " ";
-    cout << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << endl;
+    for(int i = 0; i < level; i++) file << " ";
+    file << inter->tag << " ";    
+    file << "Begin " << tag[inter->begin->variant()] << " " << inter->calls << endl;
 
     for(int i = 0; i < inter->includes.size(); i++)
-        printTree(inter->includes[i]);
+        printTree(inter->includes[i], file, level + 1);
 
     for(int i = 0; i < inter->ends.size(); i++)
     {
-        cout << inter->tag << " ";
-        cout << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
+        for(int i = 0; i < level; i++) file << " ";
+        file << inter->tag << " ";
+        file << "End " << inter->exit_levels[i] << " " << tag[inter->ends[i]->variant()] << endl;
     }
+}
+
+void saveIntervals(SgFile *file, vector<Interval*> &fileIntervals)
+{
+    fstream file_intervals;
+
+    string filename = "_";
+    filename += file->filename();
+    filename += ".intervals.txt";
+
+    file_intervals.open(filename, fstream::out);
+    for(auto &interval : fileIntervals)
+        printTree(interval, file_intervals, 0);
+    file_intervals.close();
 }
 
 //Labels funcs
@@ -31,7 +54,7 @@ static void matchGotoLabels(SgStatement *st, map<int, vector<int>> &gotoStmts)
 {
     map<int, vector<int>> labelsRef;
 
-    findAllRefsToLables(st, labelsRef);
+    findAllRefsToLables(st, labelsRef, false);
 
     for(auto &key : labelsRef)
         for(auto &it : key.second)
@@ -51,33 +74,51 @@ static void findAllLabels(SgStatement* st, map<int, int> &labelsRef)
     }
 }
 
-//Tree creation funcs
-static bool checkIfHasCall(SgExpression* exp)
+//Nested intervals removal
+static int getNestedLevel(SgStatement* loop_stmt)
 {
-    if(exp)
-    {
-        if(exp->variant() == FUNC_CALL)
-            return true;
-
-        return checkIfHasCall(exp->lhs()) || (checkIfHasCall(exp->rhs()));
+    int depth = 0;
+    SgStatement *current_loop = loop_stmt->lexNext();
+    SgStatement *controlEnd = current_loop->lastNodeOfStmt();
+    
+    while(isSgForStmt(current_loop) && isSgControlEndStmt(controlEnd)) {
+        current_loop = current_loop->lexNext();
+        controlEnd = controlEnd->lexPrev();
+        depth++;
     }
 
-    return false;
+    return depth;
 }
 
+static void removeNestedIntervals(Interval* interval)
+{
+    if(isSgForStmt(interval->begin))
+    {
+        int depth = getNestedLevel(interval->begin);
+        Interval* current_interval = interval;
+
+        for(int i = 0; i < depth; i++)
+        {
+            current_interval = current_interval->includes[0];
+            current_interval->ifInclude = false;
+        }
+    }
+
+    for(auto &include : interval->includes)
+        removeNestedIntervals(include);
+}
+
+//Tree creation funcs
 static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
 {
-    bool if_has_call;
     int currentVar;
 
     while(currentSt != interval->ends[0])
     {
         currentSt = currentSt->lexNext();
-
-        if_has_call = checkIfHasCall(currentSt->expr(0)) || checkIfHasCall(currentSt->expr(1)) || checkIfHasCall(currentSt->expr(2));
         currentVar = currentSt->variant();
 
-        if(currentVar == RETURN_STAT)
+        if(currentVar == RETURN_STAT || currentVar == STOP_STAT)
         {
             interval->ends.push_back(currentSt);
             interval->exit_levels.push_back(level);
@@ -89,7 +130,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
             interval->exit_levels.push_back(1);   
         }
 
-        if(gotoStmts.find(currentSt->lineNumber()) != gotoStmts.end())
+        if(gotoStmts.find(currentSt->lineNumber()) != gotoStmts.end() && currentVar != LOGIF_NODE)
         {
             vector<int>& labels = gotoStmts[currentSt->lineNumber()];
 
@@ -110,7 +151,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
             }
         }
 
-        if(currentSt == interval->ends[0] || currentVar != FOR_NODE && currentVar != PROC_STAT && !if_has_call)
+        if(currentSt == interval->ends[0] || currentVar != FOR_NODE)
             continue;
 
         Interval* inter = new Interval();
@@ -118,14 +159,14 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
         inter->parent = interval;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->exit_levels.push_back(0);
-        inter->tag = interval->tag + 1;
+        inter->tag = getNextTag();
         interval->includes.push_back(inter);
 
         findIntervals(inter, labelsRef, gotoStmts, currentSt, level + 1);
     }
 }
 
-void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
+void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool nested_on)
 {
     int funcNum = file->numberOfFunctions();
     map<int, int> labelsRef;           // id => line
@@ -141,6 +182,7 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
         Interval* func_inters = new Interval();
 
         func_inters->begin = file->functions(i);
+        func_inters->tag = getNextTag();
         
         func_inters->ends.push_back(func_inters->begin->lastNodeOfStmt());
         func_inters->exit_levels.push_back(0);
@@ -150,9 +192,23 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals)
 
         fileIntervals.push_back(func_inters);
     }
+
+    if(nested_on)
+        for(auto &interval : fileIntervals)
+            removeNestedIntervals(interval);
 }
 
 //Interval insertion funcs
+static void LogIftoIfThen(SgStatement *stmt)
+{
+    SgControlEndStmt *control = new SgControlEndStmt();
+    stmt->setVariant(IF_NODE);
+    (stmt->lexNext())->insertStmtAfter(* control,*stmt);
+
+    if (stmt->numberOfAttributes(OMP_MARK) > 0)
+        control->addAttribute(OMP_MARK);
+}
+
 static void insertTree(Interval* interval)
 {
     if(interval->ifInclude)
@@ -163,14 +219,28 @@ static void insertTree(Interval* interval)
 
         SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
 
-        //while(!isSgExecutableStatement(begin)) 
-         //   begin = begin->lexNext();
+        if(interval->begin->lexPrev()->variant() == LOGIF_NODE)
+                LogIftoIfThen(interval->begin->lexPrev());
 
-        interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
-        if(interval->tag)
-            interval->ends[0]->insertStmtAfter(*end_inter, *interval->ends[0]->controlParent());
+        if(interval->parent)
+        {
+            if(interval->begin->lexPrev()->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexNext()->variant() != DVM_ENDINTERVAL_DIR)
+            {
+                interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
+                interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
+            }
+        }
         else
-            interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
+        {
+            SgStatement* currentSt = interval->begin;
+            while(!isSgExecutableStatement(currentSt)) currentSt = currentSt->lexNext();
+
+            if(currentSt->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexPrev()->variant() != DVM_ENDINTERVAL_DIR)
+            {
+                currentSt->insertStmtBefore(*beg_inter, *currentSt->controlParent());
+                interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
+            }
+        }
 
         for(int i = 1; i < interval->ends.size(); i++)
         {
@@ -191,7 +261,12 @@ static void insertTree(Interval* interval)
             curr_list_elem->setRhs(NULL);
             SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
             exit_inter->setExpression(0, *expli);
-            interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
+
+            if(interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
+                LogIftoIfThen(interval->ends[i]->lexPrev());
+
+            if(interval->ends[i]->lexPrev()->variant() != DVM_EXIT_INTERVAL_DIR)
+                interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
         }
     }
 
@@ -206,13 +281,10 @@ void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
 }
 
 //Profiling funcs
-static FileProfile parseProfiles(const string &filename)
+static FileProfile parseProfiles(fstream &file)
 {
     FileProfile fileProfile;
-    ifstream file;
     string line;
-
-    file.open(filename);
 
     while (!file.eof())
     {
@@ -227,12 +299,11 @@ static FileProfile parseProfiles(const string &filename)
             int pos_com = nums.find(",");
 
             int line_num = stoi(nums.substr(0, pos_com));
-            int calls_num = stoi(nums.substr(pos_com + 1));
+            long long calls_num = stoll(nums.substr(pos_com + 1));
 
             fileProfile.profile[line_num] = calls_num;
         }
     }
-    file.close();
 
     return fileProfile;
 }
@@ -242,24 +313,27 @@ static void assignRec(Interval* inter, FileProfile &fp)
     for(int i = 0; i < inter->includes.size(); i++)
         assignRec(inter->includes[i], fp);
 
-    if(inter->tag)
-        inter->calls = fp.profile[inter->begin->lineNumber()];
-    else
-        inter->calls = fp.profile[inter->begin->controlParent()->lineNumber()];
+    inter->calls = fp.profile[inter->begin->lineNumber()];
 }
 
 void assignCallsToFile(const string &baseFilename, vector<Interval*> &intervals)
 {
-    FileProfile fileProfile = parseProfiles(baseFilename + ".gcov");
+    fstream file;
+    file.open(baseFilename + ".gcov", fstream::in);
 
-    for(auto &interval : intervals){
+    if(!file.good())
+        return;
+
+    FileProfile fileProfile = parseProfiles(file);
+
+    file.close();
+
+    for(auto &interval : intervals)
         assignRec(interval, fileProfile);
-        printTree(interval);
-    }
 }
 
 //Deleting intervals funcs
-static void removeNode(Interval* inter, int threshold)
+static void removeNode(Interval* inter, long long threshold)
 {
     if(inter->calls > threshold)
         inter->ifInclude = false;
@@ -268,9 +342,16 @@ static void removeNode(Interval* inter, int threshold)
         removeNode(inter->includes[i], threshold);
 }
 
-void removeNodes(int threshold, map<string, vector<Interval*>> &allIntervals)
+void removeNodes(long long threshold, vector<Interval*> &intervals, vector<string> &include_functions)
 {
-    for (auto &byFile : allIntervals)
-        for (auto &interval : byFile.second)
+    if(threshold == 0)
+        return;
+
+    for (auto &interval : intervals)
+    {
+        string func_name = interval->begin->symbol()->identifier();
+
+        if(include_functions.size() == 0 || find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
             removeNode(interval, threshold);    
+    }
 }

@@ -18,6 +18,10 @@
 extern std::map<std::string, std::string> shortFileNames;
 static int activeState = 0;
 
+//Threshold for intervals
+long long intervals_threshold = 0;
+//
+
 int staticShadowAnalysis = 1; // always on
 int staticPrivateAnalysis = 0;
 int keepDvmDirectives = 0;

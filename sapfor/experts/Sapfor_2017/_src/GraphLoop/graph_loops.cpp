@@ -98,7 +98,7 @@ static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
     return ret;
 }
 
-static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList)
+static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList, bool includeWrite = true)
 {
     if (curr->variant() == GOTO_NODE)
     {
@@ -115,7 +115,7 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
         SgExpression *lb = ((SgComputedGotoStmt*)curr)->labelList();
         insertLabels(lb, labelsList, curr->lineNumber());
     }
-    else if (curr->variant() == PRINT_STAT)
+    else if (curr->variant() == PRINT_STAT && includeWrite)
     {
         SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
         SgExpression *spec = ioStat->specList();
@@ -132,7 +132,7 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
             }
         }
     }
-    else if (curr->variant() == WRITE_STAT)
+    else if (curr->variant() == WRITE_STAT && includeWrite)
     {
         SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
         SgExpression *spec = ioStat->specList();
@@ -301,11 +301,11 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
         return 0;
 }
 
-void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef)
+void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite = true)
 {
     SgStatement *last = st->lastNodeOfStmt();
     for ( ; st != last; st = st->lexNext())
-        processLables(st, labelsRef);
+        processLables(st, labelsRef, includeWrite);
 }
 
 static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
