@@ -9,7 +9,7 @@
 #include "resolve_par_reg_conflicts.h"
 
 #include "../Utils/SgUtils.h"
-
+#include "../Utils/Utils.h"
 #include "../GraphCall/graph_calls_func.h"
 
 using std::map;
@@ -1131,15 +1131,6 @@ static void copyFunction(ParallelRegion *region,
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-template<typename objT>
-static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
-{
-    auto it = mapObject.find(fileName);
-    if (it == mapObject.end())
-        it = mapObject.insert(it, make_pair(fileName, objT()));
-    return it->second;
-}
-
 void fillUsedArraysInExp(const pair<Statement*, Statement*> &interval, const int exp, set<DIST::Array*> &varSet)
 {
     if (exp > 2 || exp < 0)
@@ -1420,7 +1411,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
     return error;
 }
 
-bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
+int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     bool error = false;
 
@@ -1745,7 +1736,7 @@ bool resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vecto
         }
     }
 
-    return error;
+    return (error ? 1 : 0);
 }
 
 int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo)
