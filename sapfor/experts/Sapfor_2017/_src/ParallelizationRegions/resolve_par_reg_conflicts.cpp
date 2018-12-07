@@ -1140,6 +1140,45 @@ static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &ma
     return it->second;
 }
 
+void fillUsedArraysInExp(const pair<Statement*, Statement*> &interval, const int exp, set<DIST::Array*> &varSet)
+{
+    if (exp > 2 || exp < 0)
+        return;
+
+    interval.first->GetOriginal()->unparsestdout(); // DEBUG
+
+    for (auto st = interval.first->GetOriginal()->lexNext(); st != interval.second->GetOriginal(); st = st->lexNext())
+    {
+        // after CONVERT_ASSIGN_TO_LOOP
+        if (st->variant() == LOOP_START)
+        {
+            // TODO: check atributes
+            for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
+            {
+                auto varSymb = data->expr(exp)->symbol();
+                checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
+                auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
+                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                varSet.insert(array);
+            }
+        }
+        /*
+        else if (st->variant() == ASSIGN_STAT)
+        {
+            auto varSymb = st->expr(exp)->symbol();
+            checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
+            auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
+            checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+            varSet.insert(array);
+        }
+        */
+
+        st->unparsestdout(); // DEBUG
+    }
+
+    interval.second->GetOriginal()->unparsestdout(); // DEBUG
+}
+
 bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                            const map<string, vector<FuncInfo*>> &allFuncInfo,
                            const map<string, CommonBlock> &commonBlocks,
@@ -1311,54 +1350,8 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             set<DIST::Array*> leftBefore;
                             set<DIST::Array*> rightAfter;
 
-                            lines.intervalBefore.first->GetOriginal()->unparsestdout(); // DEBUG
-
-                            for (auto st = lines.intervalBefore.first->GetOriginal()->lexNext(); st != lines.intervalBefore.second->GetOriginal(); st = st->lexNext())
-                            {
-                                if (st->variant() != ASSIGN_STAT)
-                                {
-                                    __spf_print(1, "expected only assign operands in interval on line %d\n", st->lineNumber());
-
-                                    string message;
-                                    __spf_printToBuf(message, "expected only assign operands in interval", reg->GetName().c_str());
-                                    getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 3016));
-                                    error = true;
-                                }
-
-                                st->unparsestdout(); // DEBUG
-
-                                auto varSymb = st->expr(0)->symbol();
-                                checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
-                                auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
-                                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
-                                leftBefore.insert(array);
-                            }
-
-                            lines.intervalBefore.second->GetOriginal()->unparsestdout(); // DEBUG
-                            lines.intervalAfter.first->GetOriginal()->unparsestdout(); // DEBUG
-
-                            for (auto st = lines.intervalAfter.first->GetOriginal()->lexNext(); st != lines.intervalAfter.second->GetOriginal(); st = st->lexNext())
-                            {
-                                if (st->variant() != ASSIGN_STAT)
-                                {
-                                    __spf_print(1, "expected only assign operands in interval on line %d\n", st->lineNumber());
-
-                                    string message;
-                                    __spf_printToBuf(message, "expected only assign operands in interval", reg->GetName().c_str());
-                                    getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 3016));
-                                    error = true;
-                                }
-
-                                st->unparsestdout(); // DEBUG
-
-                                auto varSymb = st->expr(1)->symbol();
-                                checkNull(varSymb, convertFileName(__FILE__).c_str(), __LINE__);
-                                auto array = getArrayFromDeclarated(declaratedInStmt(varSymb), varSymb->identifier());
-                                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
-                                rightAfter.insert(array);
-                            }
-
-                            lines.intervalAfter.second->GetOriginal()->unparsestdout(); // DEBUG
+                            fillUsedArraysInExp(lines.intervalBefore, 0, leftBefore);
+                            fillUsedArraysInExp(lines.intervalAfter, 1, rightAfter);
 
                             // check left and right sets if common array is used at this lines
                             for (auto funcArrays : reg->GetUsedCommonArrays())

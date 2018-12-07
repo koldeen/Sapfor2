@@ -678,13 +678,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
-        {
-            fillRegionIntervals(parallelRegions); // need to check assign operand before convertion
-            bool error = checkRegionsResolving(parallelRegions, allFuncInfo, commonBlocks, SPF_messages);
-            if (error)
-                internalExit = 1;
             convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
-        }
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
             restoreAssignsFromLoop(file);
         else if (curr_regime == PREDICT_SCHEME)
@@ -1117,7 +1111,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PAR_REGIONS)
     {
-        //fillRegionIntervals(parallelRegions); // check convert assign to loop
+        fillRegionIntervals(parallelRegions);
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
 
@@ -1219,11 +1213,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
-        /*
         bool error = checkRegionsResolving(parallelRegions, allFuncInfo, commonBlocks, SPF_messages);
         if (error)
             internalExit = 1;
-        */
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {
