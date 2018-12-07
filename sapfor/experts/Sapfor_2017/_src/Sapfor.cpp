@@ -728,7 +728,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-            vector<string> include_functions = {};
+            vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
