@@ -252,7 +252,8 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                         if (prev && 
                             (prev->variant() == DVM_PARALLEL_ON_DIR || 
                              prev->variant() == SPF_ANALYSIS_DIR || 
-                             prev->variant() == SPF_TRANSFORM_DIR))
+                             prev->variant() == SPF_TRANSFORM_DIR ||
+                             prev->variant() == DVM_INTERVAL_DIR))
                         {
                             locSt = prev;
                             change = true;
