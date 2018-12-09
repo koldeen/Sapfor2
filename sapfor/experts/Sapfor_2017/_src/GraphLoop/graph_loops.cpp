@@ -377,7 +377,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<int, double> &statisticTimes, vector<Messages> &messages)
 {
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
@@ -448,6 +448,11 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
+                auto itTime = statisticTimes.find(newLoop->lineNum);
+                if (itTime != statisticTimes.end())
+                    newLoop->executionTimeInSec = itTime->second;
+                else if (statisticTimes.size())
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, "can not find execution time in statistic"));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 
