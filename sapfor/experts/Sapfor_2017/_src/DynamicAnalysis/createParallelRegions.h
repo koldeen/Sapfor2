@@ -2,5 +2,7 @@
 
 #include "../Utils/utils.h"
 #include <map>
+#include <vector>
 
-int perform_time(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, int rec_level = 0);
+int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo>> &funcInfo, int rec_level = 0);
+void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo>> &funcInfo);
