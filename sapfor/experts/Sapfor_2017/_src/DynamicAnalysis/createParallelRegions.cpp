@@ -66,13 +66,14 @@ int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovIn
 
             SgCallStmt *call = (SgCallStmt*)src;
             SgStatement *tmp = call->name()->body();
+          
             while (tmp->variant() != RETURN_STAT)
             {
                 count += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
                 tmp = tmp->lexNext();
             }
-            // count = (float)count / calls.find();
-            // вытащить имя функции, разделить на кол-во вызовов функции
+            count = (float)count / calls[call->name()->identifier];
+            
             break;
         }
         case IF_NODE:
@@ -146,7 +147,7 @@ void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, 
         {
             SgStatement *tmp = inter->begin;
             // понять и осознать, какой нужен end
-            while (tmp != inter->ends) 
+           // while (tmp != inter->ends) 
             {
                 time += performTime(file, tmp, gCovInfo, funcInfo, 0);
                 tmp = tmp->lexNext();
@@ -164,10 +165,11 @@ void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, 
         wasChanged = false;
         for (auto obl : regions) 
         {
-            if (obl.time < C &&)
+            //if (obl.time < C && )
+            //if (obl.time < C && )
             {
-                // понять, подряд ли склеивать
-                obl +=
+                // понять, подряд ли склеивать и склеить
+                // obl +=
                 wasChanged = true;
             }
         }
