@@ -31,12 +31,14 @@ struct LoopCheckResults {
 };
 
 struct DvmhRegion {
-	LoopGraph *loop;
+	std::vector<LoopGraph *> loops;
 
-    std::vector<SgSymbol> needActualisation;
+    std::vector<SgSymbol*> needActualisation;
 	DvmhRegion();
 	DvmhRegion(LoopGraph *loopNode);
 	bool isInRegion(SgStatement *);
+	SgStatement* getFirstSt();
+	SgStatement* getLastSt();
 };
 
 class DvmhRegionInsertor {
@@ -51,7 +53,8 @@ class DvmhRegionInsertor {
     bool hasLimitsToDvmhParallel(LoopGraph *);
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirectiveBefore(SgStatement *, std::vector<SgSymbol*>);
+    void insertActualDirectiveBefore(SgStatement *, std::vector<SgSymbol*>, int);
+	void mergeRegions();
     //void insertActualForRedistribute();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *);
     LoopCheckResults updateLoopNode(LoopGraph *);

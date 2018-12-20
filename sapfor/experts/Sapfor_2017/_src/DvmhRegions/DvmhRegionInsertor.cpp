@@ -35,27 +35,7 @@ void DvmhRegionInsertor::printFuncName(SgStatement* st)
     }
 }
 
-/*
-CallData DvmhRegionInsertor::getControlFlowGraph()
-{
-    int funcNum = file.numberOfFunctions();
-
-    CallData calls;
-    for (int i = 0; i < funcNum; ++i)
-    {
-        SgStatement *st = file.functions(i);
-
-        CommonData commons;
-        SetUpVars(&commons, &calls, calls.AddHeader(st, false, st->symbol(), current_file_id));
-
-        ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, st, &calls, &commons);
-        calls.AssociateGraphWithHeader(st, CGraph);
-        commons.MarkEndOfCommon(GetCurrentProcedure());
-    }
-
-    return calls;
-} */
-
+// TODO: init first and last statements
 void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // here as link
 {
     for (auto &loopNode: loops)
@@ -73,8 +53,6 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 
 bool DvmhRegionInsertor::hasLimitsToDvmhParallel(LoopGraph *loop)
 {
-	bool hasUnpureCalls = true;
-
 	return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls;
 }
 
@@ -82,11 +60,21 @@ void DvmhRegionInsertor::insertRegionDirectives()
 {
 	for(auto &region: regions)
 	{
+		if (region.loops.size() < 1) {
+			printf("Warning, empty region.\n");
+			continue;
+		}
 		SgStatement *regionStartSt = new SgStatement(ACC_REGION_DIR);
-		region.loop->loop->insertStmtBefore(*regionStartSt);
+
+		SgStatement *statementBefore = region.getFirstSt()->lexPrev();
+		if (!statementBefore || statementBefore->variant() != DVM_PARALLEL_ON_DIR) {
+			// TODO: report an error: region's illegal
+			continue;
+		}
+		statementBefore->insertStmtBefore(*regionStartSt);
 
 		SgStatement *regionEndSt = new SgStatement(ACC_END_REGION_DIR);
-		SgStatement *lastStOfTheLoop = region.loop->loop->lastNodeOfStmt();
+		SgStatement *lastStOfTheLoop = region.getLastSt();
 		lastStOfTheLoop->insertStmtAfter(*regionEndSt);
 	}
 }
@@ -214,28 +202,66 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
     2. Должны находиться в одной области видимости
     3. Если между регионами что-то есть:
         а) нет переходов вверх-вниз
-        б) если объявляются переменные -- перенести наверх
+        б) если объявляются переменные -- перенести наверх (можно перенести, если данные не используются в пред. регионе)
         в) если вызов функции -- используются ли данные из предыдущегрегиона в этой функции*
 */
+
+static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
+{
+	return st->variant() == ASSIGN_STAT && st->expr(0)->variant() == ARRAY_REF && st->expr(0)->symbol()->identifier() == var->identifier();
+}
+
+// Finds the closest variable's defenition
+static std::map<SymbolKey, std::set<SgExpression*> > dummyDefenitions(SgStatement* st)
+{
+	std::map<SymbolKey, std::set<SgExpression*> > result;
+
+	set<SgSymbol*> usedSymbols = getUsedSymbols(st);
+
+	for (auto& var : usedSymbols) 
+	{
+		SgStatement* prev = st->lexPrev();
+
+		std::set<SgExpression*> defs;
+		while (prev)
+		{
+			if (SymbDefinedIn(var, prev)) {
+				defs.insert(prev->expr(1));
+				break;
+			}
+
+			prev = prev->lexPrev();
+		}
+
+		result[SymbolKey(var, false)] = defs;
+	}
+
+	return result;
+}
 
 void DvmhRegionInsertor::insertActualDirectives() {
 	std::cout << "IN INSERT ACTUALS" << std::endl;
 	int funcNum = file.numberOfFunctions();
-
 	
 	for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file.functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
-		while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
+		while (st && st != lastNode)
         {
             if (isSgExecutableStatement(st) == NULL) {
                 st = st->lexNext();
                 continue;
             }
+
+			if (st->variant() == CONTAINS_STMT) {
+				st = st->lexNext();
+				continue;
+			}
 			
 			DvmhRegion* region = getContainingRegion(st);
-            const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
+            //const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
+			const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
 			set<SgSymbol*> usedSymbols = getUsedSymbols(st); 
 
 			std::vector<SgSymbol*> toActualise;
@@ -254,11 +280,17 @@ void DvmhRegionInsertor::insertActualDirectives() {
 				SgSymbol *symbol = (SgSymbol *) var.first.getSymbol();
 				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
 					continue;
-				printf("3");
-				DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
+
+				DIST::Array* arr;
+				try {
+					arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
+				}
+				catch(...) {
+					continue;
+				}
 				if (arr->GetNonDistributeFlag()) // if array's not distributed, skip it
 					continue;
-				
+				/*
 				// DEBUG
 				std::cout << "~~~~~~~~~~~~~~~~~~~~~" << std::endl;
 				st->unparsestdout();
@@ -270,27 +302,38 @@ void DvmhRegionInsertor::insertActualDirectives() {
                 }
                 std::cout << "********************" << std::endl;
 				// END OF DEBUG
+				*/
 				if (region) {
 					// Searching for defenition not in region
 					bool symbolDeclaredInSequentPart = false;
 					for (auto& defenition : var.second) {
-						if (!SgStatement::getStatmentByExpression(defenition)) {
+						auto saveName = current_file->filename();
+
+						auto stEx = SgStatement::getStatmentByExpression(defenition);
+						if (!stEx) { // couldn't find defenition for statement
 							printf("Unable to find statement for expr:\n");
 							defenition->unparsestdout();
+							printInternalError(saveName, st->lineNumber());
+							continue;
 						}
-						/*
-						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
+
+						if (!stEx->switchToFile())
+							printInternalError(saveName, st->lineNumber());
+					
+						DvmhRegion* containingRegion = getContainingRegion(stEx);
 						if (!containingRegion) {
 							symbolDeclaredInSequentPart = true;
 							break;
 						}
-						*/
+
+						if (SgFile::switchToFile(saveName) == -1)
+							printInternalError(saveName, st->lineNumber());
 					}
 					if (symbolDeclaredInSequentPart)
-						region->needActualisation.push_back(*symbol); 
+						region->needActualisation.push_back(symbol); 
 				} 
 				else {
-					// Seatching for defenition in region
+					// Searching for defenition in region
 					bool symbolDeclaredInRegion = false;
 					for (auto& defenition : var.second) {
 						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
@@ -304,17 +347,87 @@ void DvmhRegionInsertor::insertActualDirectives() {
 				}
             } 
 
-			if (toActualise.size() > 0)
-				insertActualDirectiveBefore(st, toActualise);
+			insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
 
 			st = st->lexNext();
 		}
 	}
+
+	for (auto& region : regions) {
+		if (region.loops.size() > 0)
+			insertActualDirectiveBefore(region.getFirstSt()->lexPrev()->lexPrev(), region.needActualisation, ACC_ACTUAL_DIR);
+		else
+			printf("Warning, empty region.\n");
+	}
+}
+
+static bool compareByStart(const DvmhRegion &a, const DvmhRegion &b)
+{
+	if (a.loops.size() < 1 || b.loops.size() < 1) {// TODO: report error
+		return false;
+		printf("Warning, empty region.\n");
+	}
+
+	return a.loops[0]->loop->lineNumber() < b.loops[0]->loop->lineNumber();
+}
+
+static bool areNeighbours(DvmhRegion& first, DvmhRegion& second)
+{
+	std::set<int> toSkip = { DVM_PARALLEL_ON_DIR };
+	SgStatement* mediumSt = first.getLastSt()->lexNext();
+	while (toSkip.count(mediumSt->variant())) // skip statements which don't prevent from merging
+		mediumSt = mediumSt->lexNext();
+
+	SgStatement* firstSt = second.getFirstSt();
+	return mediumSt->fileName() == firstSt->fileName() && mediumSt->lineNumber() == firstSt->lineNumber();
+}
+void DvmhRegionInsertor::mergeRegions() 
+{
+	if (regions.size() < 2)
+		return;
+
+	std::sort(regions.begin(), regions.end(), compareByStart);
+
+	std::vector<DvmhRegion> newRegions;
+	DvmhRegion newRegion;
+	DvmhRegion& regionPrev = regions[0];
+	bool isFirst = true;
+	for (auto& loop : regions[0].loops)
+		newRegion.loops.push_back(loop);
+
+	for (auto& region: regions)
+	{
+		if (isFirst) // first region in sequence to merge
+		{
+			regionPrev = region;
+			isFirst = false;
+			continue;
+		}
+
+		if (areNeighbours(regionPrev, region)) // logic of intermediate derectives here, in perspective they can be accumulated and moved
+		{
+			regionPrev = region;
+			for (auto& loop : region.loops) 
+				newRegion.loops.push_back(loop);
+		}
+		else 
+		{
+			isFirst = true;
+			newRegions.push_back(newRegion);
+			newRegion = DvmhRegion();
+			for (auto& loop : region.loops)
+				newRegion.loops.push_back(loop);
+		}
+	}
+	newRegions.push_back(newRegion);
+
+	regions = newRegions;
 }
 
 void DvmhRegionInsertor::insertDirectives()
 {
     findEdgesForRegions(loopGraph);
+	mergeRegions();
     insertRegionDirectives();
 	insertActualDirectives();
 }
@@ -327,14 +440,20 @@ DvmhRegionInsertor::~DvmhRegionInsertor()
 /*********** DvmhRegion *************/
 DvmhRegion::DvmhRegion() {}
 
-DvmhRegion::DvmhRegion(LoopGraph *loopNode) : loop(loopNode) {}
+DvmhRegion::DvmhRegion(LoopGraph *loopNode) 
+{
+	loops.push_back(loopNode); 
+}
 
 bool DvmhRegion::isInRegion(SgStatement *st) {
+	if (!st)
+		return false;
+
     int line = st->lineNumber();
-    if (line >= loop->lineNum && line < loop->lineNumAfterLoop)
-        return true;
-    else
-        return false;
+	bool inLoop = false;
+	for (auto& loop : loops)
+		inLoop |= (st->fileName() == loop->fileName && line >= loop->lineNum && line < loop->lineNumAfterLoop);
+	return inLoop;
 }
 
 DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
@@ -346,8 +465,11 @@ DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) {
     return NULL;
 }
 
-void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vector<SgSymbol*> symbols) {
-    SgStatement *getActualSt = new SgStatement(ACC_GET_ACTUAL_DIR);
+void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vector<SgSymbol*> symbols, int directive) {
+	if (symbols.size() < 1 || !st)
+		return;
+
+    SgStatement *actualizingSt = new SgStatement(directive);
 
 	SgExprListExp t;
 	for (auto symbol : symbols) {
@@ -355,9 +477,29 @@ void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vecto
 		t.append(*expr);
 	}
 
-	getActualSt->setExpression(0, *t.rhs());
-	st->insertStmtBefore(*getActualSt);
+	actualizingSt->setExpression(0, *t.rhs());
+	st->insertStmtBefore(*actualizingSt);
+	/*
 	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 	getActualSt->unparsestdout();
 	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+	*/
+}
+
+SgStatement* DvmhRegion::getFirstSt() {
+	if (loops.size() < 1) {
+		printf("Warning, empty region.\n");
+		return NULL;
+	}
+
+	return loops.front()->loop;
+}
+
+SgStatement* DvmhRegion::getLastSt() {
+	if (loops.size() < 1) {
+		printf("Warning, empty region.\n");
+		return NULL;
+	}
+
+	return loops.back()->loop->lastNodeOfStmt();
 }
