@@ -379,7 +379,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == LOOP_GRAPH)        
-            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph));
+            loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, timesFromDvmStat), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
         {
             bool res = EndDoLoopChecker(file, getObjectForFileFromMap(file_name, SPF_messages));
@@ -705,7 +705,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
+            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());
@@ -720,8 +720,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-            createInterTree(file, getObjectForFileFromMap(file_name, intervals));
-            assignCallsToFile(file_name, getObjectForFileFromMap(file_name, intervals));
+            vector<string> include_functions;
+            
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
+            assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
+            removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
+
+            if(keepFiles)
+                saveIntervals(file, getObjectForFileFromMap(file_name, intervals));
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -1224,7 +1230,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
     }
     else if (curr_regime == GCOV_PARSER)
-        parseTimesDvmStatisticFile("stat.txt", timesFromDvmStat);
+        parseTimesDvmStatisticFile((consoleMode == 1) ? string("statistic.txt") : "./visualiser_data/statistic/" + string("statistic.txt"), timesFromDvmStat);
 #if RELEASE_CANDIDATE
     else if (curr_regime == PREDICT_SCHEME)
     {
@@ -1548,7 +1554,12 @@ int main(int argc, char **argv)
             switch (curr_arg[0])
             {
             case '-':
-                if (string(curr_arg) == "-p")
+                if( string(curr_arg) == "-threshold")
+                {
+                    i++;
+                    intervals_threshold = atoll(argv[i]);
+                }
+                else if (string(curr_arg) == "-p")
                 {
                     i++;
                     proj_name = argv[i];

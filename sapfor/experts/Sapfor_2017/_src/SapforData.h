@@ -29,6 +29,7 @@ int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 int parallizeFreeLoops = 0; // parallize free loops without arrays with DIST status
 int automaticDeprecateArrays = 0; // automatic change DIST status to NON_DIST of Array
+long long intervals_threshold = 0; //Threshold for intervals
 
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph

@@ -362,9 +362,9 @@ pair<int, int> __gcov_GetExecuted(const string &file, const int line)
     return ret;
 }
 
-void parseTimesDvmStatisticFile(const char *file, map<string, map<int, double>> &timesFromDvmStat)
+void parseTimesDvmStatisticFile(const string &file, map<string, map<int, double>> &timesFromDvmStat)
 {
-    FILE *stat = fopen(file, "r");
+    FILE *stat = fopen(file.c_str(), "r");
     if (stat)
     {
         char buf[8192];
@@ -399,7 +399,7 @@ void parseTimesDvmStatisticFile(const char *file, map<string, map<int, double>> 
                     {
                         string source = "";
                         for (size_t z = itS + 7; origLine[z] != ' '; ++z)
-                            source += origLine[z];    
+                            source += origLine[z];
                         fileN = source;
                         convertToLower(fileN);
                     }
@@ -412,13 +412,13 @@ void parseTimesDvmStatisticFile(const char *file, map<string, map<int, double>> 
                             timesFromDvmStat[fileN][line] = 0;
                     }
                 }
-                
+
                 auto itE = origLine.find("Execution time");
                 if (itE != string::npos && execDone == 0)
                 {
                     execDone = 1;
                     size_t idx = 16;
-                    while (origLine[idx++] == ' '); 
+                    while (origLine[idx++] == ' ');
                     string execC = "";
                     for (size_t z = idx - 1; z < origLine.size(); ++z)
                         execC += origLine[z];
@@ -429,6 +429,8 @@ void parseTimesDvmStatisticFile(const char *file, map<string, map<int, double>> 
                 }
             }
         }
-        fclose(stat);        
+        fclose(stat);
     }
+    else
+        __spf_print(1, "   Error: unable to open file %s\n", file.c_str());
 }

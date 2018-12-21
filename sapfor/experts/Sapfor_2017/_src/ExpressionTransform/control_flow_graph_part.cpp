@@ -23,6 +23,27 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
 static map<string, ExpressionValue*> allocated;
+static map<SymbolKey, map<ExpressionValue*, SgStatement*>> symbolAndExpToDefinition;
+
+SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value)
+{
+    auto found = symbolAndExpToDefinition.find(symbol);
+    if(found == symbolAndExpToDefinition.end())
+        return NULL;
+    auto ffound = found->second.find(value);
+    if(ffound == found->second.end())
+        return NULL;
+    return ffound->second;
+}
+
+static void saveDefinitionStatement(SymbolKey &var, ExpressionValue *value, SgStatement *defSt)
+{
+    auto found = symbolAndExpToDefinition.find(var);
+    if(found == symbolAndExpToDefinition.end())
+        symbolAndExpToDefinition.insert(found, make_pair(var, map<ExpressionValue*, SgStatement*>()))->second.insert(make_pair(value, defSt));
+    else
+        found->second.insert(make_pair(value, defSt));
+}
 
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
@@ -62,12 +83,13 @@ static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
     return newExpVal;
 }
 
-void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value)
+void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *defSt)
 {
     addVarToKill(var);
     ExpressionValue* expVal = allocateExpressionValue(value);
     e_gen.insert(expVal);
     gen.insert(make_pair(var, expVal));
+    saveDefinitionStatement(var, expVal, defSt);
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -158,14 +180,13 @@ bool CBasicBlock::varIsPointer(SgSymbol *symbol)
     return false;
 }
 
-void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *right)
+void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *right, SgStatement* st)
 {
-
     //printf("processAssignThroughPointer REBUILD?!\n");
     auto found = gen.find(symbol);
     if (found != gen.end())
     {
-        addVarToGen(found->second->getExp()->symbol(), right);
+        addVarToGen(found->second->getExp()->symbol(), right, st);
         return;
     }
 
@@ -177,7 +198,7 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     }
 }
 
-void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right)
+void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right, SgStatement* st)
 {
     //right is a single VAR_REF
     SgSymbol *rSymbol = right->symbol();
@@ -187,12 +208,12 @@ void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right
         auto found = gen.find(rSymbol);
         //auto found_inDefsP = in_defs_p.find(rSymbol);
         if(found != gen.end())
-            addVarToGen(SymbolKey(symbol, true), found->second->getExp());
+            addVarToGen(SymbolKey(symbol, true), found->second->getExp(), st);
         //else if(found_inDefsP != in_defs_p.end())
             //addVarToGenP(SymbolKey(symbol, true), found_inDefsP->second);
     }
     else
-        addVarToGen(SymbolKey(symbol, true), right);
+        addVarToGen(SymbolKey(symbol, true), right, st);
 }
 
 void CBasicBlock::adjustGenAndKillP(ControlFlowItem *cfi)
@@ -204,7 +225,7 @@ void CBasicBlock::adjustGenAndKillP(ControlFlowItem *cfi)
         SgExpression *right = st->expr(1);
 
         if (st->variant() == POINTER_ASSIGN_STAT)
-            processPointerAssignment(left->symbol(), right);
+            processPointerAssignment(left->symbol(), right, st);
     }
 
     //checkFuncAndProcCalls(cfi);
@@ -223,7 +244,7 @@ void CBasicBlock::processReadStat(SgStatement *readSt)
         SgExpression *exp = toCheck.top();
         toCheck.pop();
         if (exp->variant() == VAR_REF || exp->variant() == ARRAY_REF)
-            addVarToGen(exp->symbol(), NULL);
+            addVarToGen(exp->symbol(), NULL, readSt);
             //addVarToKill(exp->symbol());
         else
         {
@@ -248,17 +269,17 @@ void CBasicBlock::adjustGenAndKill(ControlFlowItem *cfi)
             if (left->variant() == VAR_REF) // x = ...
             {
                 if (varIsPointer(left->symbol()))
-                    processAssignThroughPointer(left->symbol(), right);
+                    processAssignThroughPointer(left->symbol(), right, st);
                 else
-                    addVarToGen(left->symbol(), right);
+                    addVarToGen(left->symbol(), right, st);
             }
             else if (left->variant() == ARRAY_REF) // a(...) = ...
-                addVarToGen(left->symbol(), right);
+                addVarToGen(left->symbol(), right, st);
         }
         else if(st->variant() == READ_STAT)
             processReadStat(st);
         else if (st->variant() == POINTER_ASSIGN_STAT)
-            processPointerAssignment(left->symbol(), right);
+            processPointerAssignment(left->symbol(), right, st);
     }
 
     checkFuncAndProcCalls(cfi);
@@ -568,22 +589,22 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
 
         if (printed)
         {
-/*            printf("\n In ");
+            printf("\n In ");
             showDefs(b->getInDefs());
             printf("\n Gen");
-            showDefs(b->getGen());*/
-/*            printf("\n E Gen");
-            showDefs(b->getEGen());*/
-/*            printf("\n Kill %d\n ", b->getKill()->size());
+            showDefs(b->getGen());
+            printf("\n E Gen");
+            showDefs(b->getEGen());
+            printf("\n Kill %d\n ", b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
             printf("\n Out ");
-            showDefs(b->getOutDefs());*/
-/*            printf("\n E In ");
+            showDefs(b->getOutDefs());
+            printf("\n E In ");
             showDefs(b->getEIn());
             printf("\n E Out ");
-            showDefs(b->getEOut());*/
+            showDefs(b->getEOut());
         }
         b = b->getLexNext();
     }
