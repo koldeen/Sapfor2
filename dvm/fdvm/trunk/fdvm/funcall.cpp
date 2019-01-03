@@ -685,16 +685,15 @@ SgExpression * BeginParLoop (int iloopref,SgExpression *header, int rank, int ia
   return(fe);
 }
 
-SgExpression *EndParLoop(int iloopref)
+SgStatement *EndParLoop(int iloopref)
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                           EndPL(LoopRef)
  
- SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[ENDPLP]);
-  fmask[ENDPLP] = 1;
-  fe->addArg(*DVM000(iloopref));
-  return(fe);
+  SgCallStmt *call= new SgCallStmt(*fdvm[ENDPLP]);
+  fmask[ENDPLP] = 2;
+  call->addArg(*DVM000(iloopref));
+  return(call);
 }
 
 SgExpression *BoundFirst(int iloopref, SgExpression *gref)
@@ -702,7 +701,7 @@ SgExpression *BoundFirst(int iloopref, SgExpression *gref)
 //generating Function Call:
 //                           exfrst(LoopRef,BoundGroupRef)
  
- SgFunctionCallExp *fe;
+  SgFunctionCallExp *fe;
   fe = new SgFunctionCallExp(*fdvm[BFIRST]);
   fmask[BFIRST] = 1;
   fe->addArg(*DVM000(iloopref));
@@ -715,7 +714,7 @@ SgExpression *BoundLast(int iloopref, SgExpression *gref)
 //generating Function Call:
 //                           imlast(LoopRef,BoundGroupRef)
  
- SgFunctionCallExp *fe;
+  SgFunctionCallExp *fe;
   fe = new SgFunctionCallExp(*fdvm[BLAST]);
   fmask[BLAST] = 1;
   fe->addArg(*DVM000(iloopref));
@@ -818,26 +817,24 @@ SgExpression *SaveRedVars(SgExpression *gref)
   return(fe);
 }
 
-SgExpression *StartRed(SgExpression *gref)
+SgStatement *StartRed(SgExpression *gref)
 {
-//creating function call:
-//                        StartR(RedGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[STARTR]);
-  fmask[STARTR] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+//creating subroutine call:
+//                        strtrd(RedGroupRef)
+  SgCallStmt *call = new SgCallStmt(*fdvm[STARTR]);
+  fmask[STARTR] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *WaitRed(SgExpression *gref)
+SgStatement *WaitRed(SgExpression *gref)
 {
-//creating function call:
-//                        WaitR(RedGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[WAITR]);
-  fmask[WAITR] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+//creating subroutine call:
+//                        waitrd(RedGroupRef)
+  SgCallStmt *call = new SgCallStmt(*fdvm[WAITR]);
+  fmask[WAITR] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
 SgExpression *DelRG(SgExpression *gref)
@@ -1907,15 +1904,15 @@ SgStatement *D_RegistrateArray(int rank, int type, SgExpression *headref,  SgExp
 SgStatement *D_LoadVar(SgExpression *vref, int type, SgExpression *headref, SgExpression *opref) 
 {
 //generating Subroutine Call: dldv(TypePtr,Addr,Handle,Operand)                       
-/* 
- SgCallStmt *call = new SgCallStmt(*fdvm[DLOADV]);
-         //fmask[DLOADV] = 1;
+ 
+  SgCallStmt *call = new SgCallStmt(*fdvm[DLOADV]);
+  fmask[DLOADV] = 2;
   call->addArg(*ConstRef(type));
   call->addArg(*GetAddresMem(vref));
   call->addArg(*headref);
   call->addArg(*new SgValueExp(UnparseExpr(opref)));
   return(call);
-*/
+/*
  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DLOADV]);
  fmask[DLOADV] = 1;
   fe->addArg(*ConstRef(type));
@@ -1925,6 +1922,7 @@ SgStatement *D_LoadVar(SgExpression *vref, int type, SgExpression *headref, SgEx
   ndvm++;
   FREE_DVM(1);
   return(new SgAssignStmt(*DVM000(ndvm),*fe));
+*/
 }   
 
 SgStatement *D_LoadVar2(SgExpression *vref, int type, SgExpression *headref, SgExpression *opref) 
@@ -1961,14 +1959,15 @@ SgStatement *D_StorVar()
 SgStatement *D_PrStorVar(SgExpression *vref, int type, SgExpression *headref, SgExpression *opref) 
 {
 //generating Subroutine Call:  dprstv(TypePtr,Addr,Handle,Operand)                          
-/* 
- SgCallStmt *call = new SgCallStmt(*fdvm[DPRSTV]);
+  SgCallStmt *call = new SgCallStmt(*fdvm[DPRSTV]);
+  fmask[DPRSTV] = 2;
   call->addArg(*ConstRef(type));
   call->addArg(*GetAddresMem(vref));
   call->addArg(*headref);
   call->addArg(*new SgValueExp(UnparseExpr(opref)));
   return(call);
-*/
+
+/*
  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DPRSTV]);
  fmask[DPRSTV] = 1;
   fe->addArg(*ConstRef(type));
@@ -1978,6 +1977,7 @@ SgStatement *D_PrStorVar(SgExpression *vref, int type, SgExpression *headref, Sg
   ndvm++;
   FREE_DVM(1);
   return(new SgAssignStmt(*DVM000(ndvm),*fe));
+*/
 }
 
 SgStatement *D_InOutVar(SgExpression *vref, int type, SgExpression *headref) 
@@ -2087,7 +2087,7 @@ SgStatement *D_Begpl(int num_loop,int rank,int iinit)
   SgCallStmt *call = new SgCallStmt(*fdvm[DBEGPL]);
   fmask[DBEGPL] = 2;
   call->addArg(*ConstRef(rank));
-  call->addArg(*DVM000(num_loop));
+  call->addArg(*ConstRef_F95(num_loop));//addArg(*DVM000(num_loop));
   call->addArg(*DVM000(iinit));
   call->addArg(*DVM000(iinit+rank));
   call->addArg(*DVM000(iinit+2*rank));
@@ -2099,7 +2099,7 @@ SgStatement *D_Begsl(int num_loop)
 //generating Subroutine Call:  dbegsl(No) 
   SgCallStmt *call = new SgCallStmt(*fdvm[DBEGSL]);
   fmask[DBEGSL] = 2;
-  call->addArg(*DVM000(num_loop));
+  call->addArg(*ConstRef_F95(num_loop)); //addArg(*DVM000(num_loop));
   return(call);
 }   
 
@@ -2150,7 +2150,7 @@ SgExpression *doSL(int num_loop,int iout)
  SgFunctionCallExp *fe;
   fe = new SgFunctionCallExp(*fdvm[DOSL]);
   fmask[DOSL] = 1;
-  fe->addArg(*DVM000(num_loop));
+  fe->addArg(*ConstRef_F95(num_loop)); //addArg(*DVM000(num_loop));
   fe->addArg(*DVM000(iout));
   fe->addArg(*DVM000(iout+1));
   fe->addArg(*DVM000(iout+2));
@@ -2171,8 +2171,8 @@ SgStatement *D_Endl(int num_loop, int begin_line )
 //generating Subroutine Call:  dendl(No,Line) 
   SgCallStmt *call = new SgCallStmt(*fdvm[DENDL]);
   fmask[DENDL] = 2;
-  call->addArg(*DVM000(num_loop));
-  call->addArg(*DVM000(begin_line));
+  call->addArg(*ConstRef_F95(num_loop));   //addArg(*DVM000(num_loop));
+  call->addArg(*ConstRef_F95(begin_line)); //addArg(*DVM000(begin_line));
   return(call);
 }   
 
@@ -2375,7 +2375,7 @@ SgStatement *St_Bsloop(int num_fragment)
 //generating Subroutine Call:  bsloop(nfrag) 
   SgCallStmt *call = new SgCallStmt(*fdvm[BSLOOP]);
   fmask[BSLOOP] = 2;
-  call->addArg(*DVM000(num_fragment));
+  call->addArg(*ConstRef_F95(num_fragment)); //addArg(*DVM000(num_fragment));
   return(call);
 }   
 
@@ -2385,7 +2385,7 @@ SgStatement *St_Bploop(int num_fragment)
 //generating Subroutine Call:  bploop(nfrag) 
   SgCallStmt *call = new SgCallStmt(*fdvm[BPLOOP]);
   fmask[BPLOOP] = 2;
-  call->addArg(*DVM000(num_fragment));
+  call->addArg(*ConstRef_F95(num_fragment)); //addArg(*DVM000(num_fragment));
   return(call);
 }   
 
@@ -2394,8 +2394,8 @@ SgStatement *St_Enloop(int num_fragment,int begin_line)
 //generating Subroutine Call:  enloop(nfrag,nline) 
   SgCallStmt *call = new SgCallStmt(*fdvm[ENLOOP]);
   fmask[ENLOOP] = 2;
-  call->addArg(*DVM000(num_fragment));
-  call->addArg(*DVM000(begin_line));
+  call->addArg(*ConstRef_F95(num_fragment));//addArg(*DVM000(num_fragment));
+  call->addArg(*ConstRef_F95(begin_line));  //addArg(*DVM000(begin_line));
   return(call);
 } 
 

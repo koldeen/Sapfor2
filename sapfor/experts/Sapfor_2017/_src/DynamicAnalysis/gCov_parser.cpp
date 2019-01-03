@@ -58,7 +58,10 @@ static void isKeyWord(const string &lex, key_word &lineType)
         break;
     default:
         if (lineType != UNKNOWN)
-            cout << "Error: Wrong work of analysis keywords\n";
+        {
+            __spf_print(1, "Error: Wrong work of analysis keywords\n");
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
     }
 }
 
@@ -115,7 +118,7 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
                 {
                     if (!executedCountGot)
                     {
-                        const int value = stoi(num, nullptr);
+                        const int64_t value = stoll(num);
                         if (minus == 1 && ddot == 1 && value == 0)
                             infoLine.setExecutedCount(-1);
                         else
@@ -158,7 +161,9 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
     case UNKNOWN:
         break;
     default:
-        cout << "Error: get unreal type\n";
+        __spf_print(1, "Error: get unreal type\n");
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        break;
     }
 }
 
@@ -345,9 +350,9 @@ bool __gcov_doesThisLineExecuted(const string &file, const int line)
     return ret;
 }
 
-pair<int, int> __gcov_GetExecuted(const string &file, const int line)
+pair<int, int64_t> __gcov_GetExecuted(const string &file, const int line)
 {
-    pair<int, int> ret = make_pair(0, 0);
+    pair<int, int64_t> ret = make_pair(0, 0);
     auto itF = allGCovInfo.find(file);
     if (itF != allGCovInfo.end())
     {

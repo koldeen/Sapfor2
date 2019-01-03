@@ -873,7 +873,7 @@ static int simpleTransformPass(const passes PASS_NAME, int *options, short *proj
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");    
+    printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -895,6 +895,21 @@ int SPF_ResolveParallelRegionConflicts(int winHandler, int *options, short *proj
     return simpleTransformPass(RESOLVE_PAR_REGIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_PrivateExpansion(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                         int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(PRIVATE_ARRAYS_BREEDING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+int SPF_LoopFission(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                    int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
 
 int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)

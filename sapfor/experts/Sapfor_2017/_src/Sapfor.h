@@ -83,6 +83,8 @@ enum passes {
 
     FILL_COMMON_BLOCKS,
     PREDICT_SCHEME,
+    CALCULATE_STATS_SCHEME,
+
     DEF_USE_STAGE1,
     DEF_USE_STAGE2,
     REVERT_SPF_DIRS,
@@ -203,5 +205,7 @@ static void setPassValues()
     passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
+    passNames[CALCULATE_STATS_SCHEME] = "CALCULATE_STATS_SCHEME";
 }
+
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

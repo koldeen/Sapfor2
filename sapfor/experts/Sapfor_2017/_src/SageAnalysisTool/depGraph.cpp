@@ -268,6 +268,77 @@ void depNode::displayDep() const
     }
 }
 
+std::string depNode::displayDepToStr() const
+{
+    std::string out = "";
+
+    SgExpression *ex1, *ex2;
+    int i;
+    ddnature nature;
+    ex1 = varin;
+    ex2 = varout;
+
+
+    if (!typedep)
+    {
+        out += "UNKNOWN DATA DEPENDENCE";
+        return out;
+    }
+
+    if (typedep == ARRAYDEP)
+    {
+        nature = (ddnature)kinddep;        
+        switch (nature)
+        {
+        case ddflow:
+            out += "FLOW dependence between ";
+            break;
+        case ddanti:
+            out += "ANTI dependence between ";            
+            break;
+        case ddoutput:
+            out += "OUTPUT dependence between ";
+            break;
+        case ddreduce:
+            out += "REDUCE dependence between ";
+            break;
+        }
+        out += string(ex1->unparse());
+        out += " (line (" + std::to_string(stmtin->lineNumber()) + ") and ";
+        out += string(ex2->unparse());        
+        out += " (line " + std::to_string(stmtout->lineNumber()) + ") with vector (";
+
+        for (i = 1; i <= lenghtvect; i++)
+        {
+            if (knowndist[i])
+                out += std::to_string(distance[i]);                
+            else
+            {
+                if (distance[i] & DEPZERO)
+                    out += "0";                
+                if (distance[i] & DEPGREATER)
+                    out += "+";
+                if (distance[i] & DEPLESS)
+                    out += "-";
+            }
+
+            if (i < lenghtvect)
+                out += ", ";
+        }
+        out += ")";
+    }
+    else
+    {
+        out += "This is a Scalar Dep on ";
+        out += string(ex1->unparse());
+        
+        if (typedep == PRIVATEDEP)
+            out += " and variable can be PRIVATE";
+        if (typedep == REDUCTIONDEP)
+            out += " and variable can be REDUCTION with kind " + std::to_string((int)kinddep);
+    }
+    return out;
+}
 ///////////////////////////////////////////////////////////////////////////////////////
 // Here are the methods of depGraph
 ///////////////////////////////////////////////////////////////////////////////////////

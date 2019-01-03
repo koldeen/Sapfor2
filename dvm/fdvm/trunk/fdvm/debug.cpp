@@ -6,6 +6,7 @@
 \**************************************************************/
 
 #include "dvm.h"
+extern int   is_heap_ref;
 
 /***************************************************************\
  *         Debugging mode functions                            *
@@ -225,18 +226,289 @@ void D_ReplaceDoLab(SgLabel *lab, SgLabel *newlab)
  }     
 }
 
+void  DebugVarArrayRef(SgExpression *e,SgStatement *stmt)
+{  SgSymbol *ar;
+  //int ind;
+  SgExpression *el, *ehead, *rme, *ea;
+  //int *h;
+
+  if(!e)
+    return;
+
+  if(isSgVarRefExp(e)) {
+    if(isDoVar(e->symbol())) //do variable is not traced
+        return;
+    if(level_debug == 4)
+      if(e->symbol()->variant()==VARIABLE_NAME && VarType(e->symbol())) //&& e->symbol()->type()->variant() != T_STRING  && e->symbol()->type()->variant() != T_DERIVED_TYPE)
+        InsertNewStatementBefore(D_LoadVar(e,VarType(e->symbol()), ConstRef(0),e),stmt);
+     return;
+  }
+
+  if(isSgArrayRefExp(e)) {     // array element, array section, whole array
+    ea = & (e->copy()); 
+    for(el=e->lhs(); el; el=el->rhs())
+       DebugVarArrayRef(el->lhs(),stmt);
+
+    if(isSgArrayType(e->type())) // array section, whole array
+      return;
+
+    ar = e -> symbol();
+    if(HEADER(ar)) { //distributed array reference
+      //ind = *h;  
+         if((rme=isRemAccessRef(e))){ //is remote data
+            rem_var * rv;
+            rv = (rem_var *)rme->attributeValue(0,REMOTE_VARIABLE);
+            if((rv->ncolon == 0) && (rv->amv == -1 )) 
+              ehead = ConstRef(0);
+            else
+              ehead = GetAddresDVM((rv->amv != 1 ) ? DVM000(rv->index) : HeaderRefInd(ar,rv->index ));
+        } else
+              ehead = GetAddresDVM(HeaderRefInd(ar,1));
+	 // ea = & (e->copy());  
+       DistArrayRef(e,0,stmt);
+       if(level_debug == 4 || level_debug == 2)
+         if(ar->variant()==VARIABLE_NAME && VarType(ar)){
+           if(hpf_ind)
+             InsertNewStatementBefore(D_LoadVar(e,VarType(ar), HPF000(hpf_ind), ea),stmt);
+           else
+             InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ehead, ea),stmt);
+         }
+    } 
+    else 
+      if(level_debug == 4 || level_debug == 2 && IS_DVM_ARRAY(ar)) 
+        if(ar->variant()==VARIABLE_NAME && VarType(ar)){
+             //InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ConstRef(0), ea),stmt);
+          ehead = GetAddresMem(FirstArrayElement(ar));
+          InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ehead, ea),stmt);
+	}
+    return; 
+  }
+ 
+  if(isSgFunctionCallExp(e)) {
+                        //if(!e->lhs())
+                        //argument list is absent
+    ReplaceFuncCall(e);
+    for(el=e->lhs(); el; el=el->rhs())
+      DebugArg_VarArrayRef(el,stmt);
+    return;
+  } 
+  if(isSgRecordRefExp(e) && !only_debug){
+     ChangeDistArrayRef(e);
+     return;
+  }
+  DebugVarArrayRef(e->lhs(),stmt); 
+  DebugVarArrayRef(e->rhs(),stmt); 
+  return;
+}
+
+void  DebugVarArrayRef_Left(SgExpression *e,SgStatement *stmt,SgStatement *stcur)
+{ SgExpression *el,*ea;
+  SgSymbol *ar;
+ 
+  if(isSgVarRefExp(e)) {  //variable
+    if(isDoVar(e->symbol())) //do variable is not traced
+        return;
+    if(level_debug > 2)
+      /*if(e->symbol()->type()->variant() != T_STRING &&  e->symbol()->type()->variant() != T_COMPLEX &&  e->symbol()->type()->variant() != T_DCOMPLEX) { */
+      //if(e->symbol()->type()->variant() != T_STRING) {
+      //variant of scalar variable reference, that has type T_STRING, is  ARRAY_REF 
+      if(e->symbol()->variant()==VARIABLE_NAME && VarType(e->symbol())) {
+	//InsertNewStatementBefore(D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), e),stmt); /*28.03.03*/
+        InsertNewStatementAfter (D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), e),stcur,stmt->controlParent());
+        InsertNewStatementAfter (D_StorVar(),stmt,stmt->controlParent());
+        InsertNewStatementAfter (Addres(e),stmt,stmt->controlParent()); 
+    }                                     //inserting before and after assignment statement
+    
+    //stmt->insertStmtAfter (*D_StorVar(e,VarType(e->symbol()), new SgValueExp(0))); 
+    //InsertNewStatementBefore(D_StorVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt);
+     return;
+  }
+ 
+  if(isSgArrayRefExp(e)) {  // array element, array section, whole array
+    ea = &e->copy();
+    for(el=e->lhs(); el; el=el->rhs()) //looking through the subscript list
+       DebugVarArrayRef(el->lhs(),stmt);
+    if(isSgArrayType(e->type())) // array section, whole array
+      return;   
+    ar = e->symbol(); //array symbol
+    if(HEADER(ar)) {
+      //ea = &e->copy();
+      DistArrayRef(e,1,stmt); // 1 - modified variable
+      /*if(ar->variant()==VARIABLE_NAME && e->type()->variant() != T_STRING &&  e->type()->variant() != T_COMPLEX &&  e->type()->variant() != T_DCOMPLEX){*/
+      //!!! variant of scalar variable reference, that has type T_STRING, is  ARRAY_REF 
+      if(ar->variant()==VARIABLE_NAME  && VarType(ar)) {
+      InsertNewStatementAfter(D_PrStorVar(e,VarType(ar),GetAddresDVM(HeaderRefInd(ar,1)), ea),stcur,stmt->controlParent());
+      InsertNewStatementAfter(D_StorVar(),stmt,stmt->controlParent());
+      }                                  //inserting before and after assignment statement
+    }
+    else
+      if(level_debug > 2 || level_debug > 0 && IS_DVM_ARRAY(ar)) 
+        if(ar->variant()==VARIABLE_NAME && VarType(ar)) {
+          InsertNewStatementAfter(D_PrStorVar(e,VarType(ar),GetAddresMem(FirstArrayElement(ar)), ea),stcur,stmt->controlParent());
+          InsertNewStatementAfter(D_StorVar(),stmt,stmt->controlParent());
+        }                                 //inserting before and after assignment statement
+      
+  
+    return;
+  }
+   
+ if(e->variant()==ARRAY_OP){ //substring
+      DebugVarArrayRef(e->lhs()->lhs(),stmt);
+      DebugVarArrayRef(e->rhs(),stmt);
+      return;
+  }   
+ if(!only_debug) ChangeDistArrayRef_Left(e);        
+  return;
+}
+
+void CheckVarArrayRef(SgExpression *e, SgStatement *stmt, SgExpression *epr)
+{
+  if(isSgVarRefExp(e) || isSgArrayRefExp(e) ) {  //variable
+
+      if(e->symbol()->type()->variant() != T_STRING) {
+        InsertNewStatementAfter(D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), epr),stmt,stmt->controlParent());
+        InsertNewStatementAfter (D_StorVar(),cur_st,stmt->controlParent());
+
+        //InsertNewStatementAfter (Addres(e),stmt,stmt->controlParent()); 
+    }                                     //inserting before and after assignment statement
+    
+     return;
+  }
+  //f(isSgArrayRefExp(e))  return;
+  return;
+}
+
+void  DebugArg_VarArrayRef(SgExpression *ele,SgStatement *stmt)
+{  SgSymbol *ar;
+  SgExpression *el, *e;
+ e = ele->lhs();
+ if(!e)
+    return;
+ if(isSgKeywordArgExp(e))
+   e = e->rhs();
+  if(isSgVarRefExp(e)) {
+    if(isDoVar(e->symbol())) //do variable is not traced
+        return;
+    if(e->symbol()->variant()!=VARIABLE_NAME) //argument is function name
+      return;
+  //if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
+  //      return;  
+  //  InsertNewStatementBefore(D_InOutVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt); 
+  //  InsertNewStatementAfter (D_InOutVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt,stmt->controlParent()); 
+    
+  return;
+   } 
+  if(e->variant()==ARRAY_OP){ //substring
+      DebugVarArrayRef(e->lhs()->lhs(),stmt);
+      DebugVarArrayRef(e->rhs(),stmt);
+  }
+ if(isSgArrayRefExp(e)) {
+   if(!(e->lhs())) // argument is whole array (array name)
+       return;
+   el=e->lhs()->lhs();  //first subscript of argument
+   //testing: is first subscript of ArrayRef a POINTER 
+   if((isSgVarRefExp(el) || isSgArrayRefExp(el)) && IS_POINTER(el->symbol())){
+     DebugVarArrayRef(el->lhs(),stmt);
+     if(!only_debug) {   
+      if(!strcmp(e->symbol()->identifier(),"heap") || (e->symbol()->attributes() & HEAP_BIT))
+          is_heap_ref = 1;
+        else
+          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt); 
+        if(e->lhs()->rhs())  //there are other subscripts
+          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt);
+        if(HEADER(e->symbol()))
+          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt);
+
+        e->setSymbol(*heapdvm); //replace ArrayRef: A(P)=>HEAP00(P) or A(P(I))=>HEAP00(P(I))
+            //ele->setLhs(PointerHeaderRef(el,1));  
+                          //replace  ArrayRef by PointerRef: A(P)=>P(1) orA(P(I))=>P(1,I)  
+     }
+  /*
+     else  {  //only_debug 
+      if(!strcmp(e->symbol()->identifier(),"heap") || (e->symbol()->attributes() & HEAP_BIT))
+         heap_point = HeapList(heap_point,e->symbol(),el->symbol());
+     }    
+   */
+     return;
+   }    
+
+   for(el=e->lhs(); el; el=el->rhs())
+       DebugVarArrayRef(el->lhs(),stmt);
+   ar = e->symbol();
+   if(HEADER(ar)) {
+      DistArrayRef(e,0,stmt);
+     // if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
+     //   return; 
+     //!!! insert test for remote data as in DebugVarArrayRef 
+    //  InsertNewStatementBefore(D_InOutVar(e,VarType(ar), HeaderRef(ar)),stmt);
+    //  InsertNewStatementAfter (D_InOutVar(e,VarType(ar), HeaderRef(ar)),stmt,stmt->controlParent()); 
+   }
+     // else { 
+     //  if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
+     //     return;  
+     // InsertNewStatementBefore(D_InOutVar(e,VarType(ar), new SgValueExp(0)),stmt); 
+     // InsertNewStatementAfter (D_InOutVar(e,VarType(ar), new SgValueExp(0)),stmt,stmt->controlParent());
+     // }   
+   return;
+ } 
+  DebugVarArrayRef(e,stmt);
+  return;
+}
+
+void DebugExpression(SgExpression *e, SgStatement *stmt)
+{
+    SgStatement *stif,*st1; 
+    SgExpression *el;             
+    st1=stmt->lexPrev(); 
+    if(isSgCallStmt(stmt))
+        // looking through the arguments list
+        for(el=stmt->expr(0); el; el=el->rhs())            
+            DebugArg_VarArrayRef(el,stmt);   // argument        
+    else  
+        DebugVarArrayRef(e,stmt);
+    st1 = st1->lexNext() ;
+    if(st1 != stmt){
+        if(dbg_if_regim){
+            InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),st1);  
+            TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
+	}
+        LINE_NUMBER_BEFORE(stmt,st1);
+    }	
+}
+
+void DebugAssignStatement(SgStatement *stmt)
+{
+    SgStatement *stif,*st1,*st_next,*st_current; 
+              
+    st1 = stmt->lexPrev(); 
+    st_next = stmt->lexNext();  
+    DebugVarArrayRef_Left(stmt->expr(0),stmt,st1);     // left part
+    DebugVarArrayRef(stmt->expr(1),stmt);              // right part 
+    st_current = cur_st;
+    st1 = st1->lexNext() ;
+    if(st1 != stmt){
+        if(dbg_if_regim){
+            InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),st1); 
+            TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
+	}
+        LINE_NUMBER_BEFORE(stmt,st1);
+    }
+    if(dbg_if_regim && stmt->lexNext() != st_next){  
+        InsertNewStatementAfter(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt,stmt->controlParent()); 
+        TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),st_next);
+    }
+    cur_st = st_current;
+}
+
 void  DebugLoop(SgStatement *stmt)
-{int No,ino;
+{int No;
  SetDoVar(stmt->symbol());
  LINE_NUMBER_BEFORE(stmt,stmt);
  DebugVarArrayRef(stmt->expr(0),stmt);
  DebugVarArrayRef(stmt->expr(1),stmt); 
  No =++Dloop_No; 
  AddAttrLoopNumber(No,stmt);
- ino = ndvm;
- doAssignStmtBefore(new SgValueExp(No),stmt); /*FREE_DVM(1);*/
-
- InsertNewStatementBefore(D_Begsl(ino),stmt); 
+ InsertNewStatementBefore(D_Begsl(No),stmt); 
 
  if(dbg_if_regim) {
    SgStatement *stnew,*if_stmt;
@@ -283,7 +555,7 @@ void  DebugLoop(SgStatement *stmt)
  doAssignStmtBefore(stdo->end(), stmt);
  doAssignStmtBefore((stdo->step()) ? stdo->step() : new SgValueExp(1),stmt);
  stwhile = new SgWhileStmt(WHILE_NODE);
- stwhile->setExpression(0,SgEqOp(*doSL(ino,iout) , *new SgValueExp(1)) );//0->1
+ stwhile->setExpression(0,SgEqOp(*doSL(No,iout) , *new SgValueExp(1)) );//0->1
  stmt->insertStmtBefore(*stwhile); 
  stdo->setStart(*DVM000(iout));   
  stdo->setEnd(*DVM000(iout+1));   
@@ -302,23 +574,17 @@ void  DebugTaskRegion(SgStatement *stmt)
 }
 
 void CloseTaskRegion(SgStatement *tr_st,SgStatement *stmt)
-{int ino;
+{
  if(!tr_st) return;
- ino = ndvm;
  LINE_NUMBER_AFTER(stmt,stmt); 
- doAssignStmtAfter(new SgValueExp(taskreg_No)); 
- doAssignStmtAfter(new SgValueExp(tr_st->lineNumber()));
- InsertNewStatementAfter( D_Endl(ino,ino+1),cur_st,stmt->controlParent()); 
+ InsertNewStatementAfter( D_Endl(taskreg_No,tr_st->lineNumber()),cur_st,stmt->controlParent()); 
 }
 
 void  DebugParLoop(SgStatement *stmt,int rank, int iinit)
 {
  pardo_No = ++Dloop_No;
- LINE_NUMBER_AFTER_WITH_CP(par_do,stmt,par_do->controlParent());
-   
- doAssignStmtAfter(new SgValueExp(pardo_No)); 
- FREE_DVM(1); 
- InsertNewStatementAfter(D_Begpl(ndvm,rank,iinit),cur_st,cur_st->controlParent());
+ LINE_NUMBER_AFTER_WITH_CP(par_do,stmt,par_do->controlParent());   
+ InsertNewStatementAfter(D_Begpl(pardo_No,rank,iinit),cur_st,cur_st->controlParent());
            
 }
 
@@ -329,7 +595,7 @@ SgStatement *CloseLoop(SgStatement *stmt)
  //returns last statement of outer most sequential loop  of resturtured loop nest
  SgStatement *stat, *parent, *lst, *dst, *est;
  //SgForStmt *do_st;
- int No,Ni,ino;
+ int No,Ni;
 
  parent=stmt->controlParent();
  cur_st = lst = stmt;
@@ -346,27 +612,18 @@ SgStatement *CloseLoop(SgStatement *stmt)
  else if((No=LoopNumber(parent)) != 0){
    if(stmt->lineNumber()) {
      LINE_NUMBER_AFTER_WITH_CP(stmt,cur_st,parent->controlParent());
-           //InsertNewStatementAfter(D_Lnumb(stmt->lineNumber()),cur_st,parent->controlParent());
    }
    seq_loop_nest=1;
-   ino = ndvm;
-   stat = D_Endl(ino,ino+1);
-   dst = cur_st;
+   stat = D_Endl(No,parent->lineNumber());  
    InsertNewStatementAfter(stat,cur_st,parent->controlParent());
-   doAssignStmtBefore(new SgValueExp(No),cur_st); 
-   doAssignStmtBefore(new SgValueExp(parent->lineNumber()),cur_st);
-   dst = dst->lexNext(); 
+   dst = cur_st; 
    est = NULL;
    if( perf_analysis && (Ni = IntervalNumber(parent)) != 0){
      close_loop_interval = close_loop_interval - 1;
+     InsertNewStatementAfter(St_Enloop(Ni,parent->lineNumber()),cur_st,parent->controlParent());
      est = cur_st;
-     InsertNewStatementAfter(St_Enloop(ino+2,ino+1),cur_st,parent->controlParent());
-     doAssignStmtBefore(new SgValueExp(Ni),cur_st);
-     est = est->lexNext(); 
-        //InsertNewStatementAfter(St_Enloop(Ni,parent->lineNumber()),cur_st,parent->controlParent());
    }
-   SET_DVM(ino);
-       //ReplaceGoToLabelInsideLoop(parent,lst,lab_after);
+
    ReplaceGoToInsideLoop(parent,lst,dst,est);
 
    if(dbg_if_regim){
@@ -400,26 +657,16 @@ SgStatement *CloseLoop(SgStatement *stmt)
      OffDoVar(parent->symbol());
      ReplaceDoLabel(cur_st,GetLabel());
      lst = cur_st->lexNext();
-     ino = ndvm;
-     stat = D_Endl(ino,ino+1);
+     stat = D_Endl(No,parent->lineNumber()); 
      dst = lst;
      InsertNewStatementAfter(stat,cur_st->lexNext(),parent->controlParent());
-     doAssignStmtBefore(new SgValueExp(No),cur_st); 
-     doAssignStmtBefore(new SgValueExp(parent->lineNumber()),cur_st);
      dst = dst->lexNext();
-     /*
-     stat = D_Endl(No,parent->lineNumber());
-     InsertNewStatementAfter(stat,cur_st->lexNext(),parent->controlParent());
-     */
      est = NULL;
      if(perf_analysis && (Ni=IntervalNumber(parent)) != 0){
        close_loop_interval = close_loop_interval - 1;
-       est = cur_st; 
-       InsertNewStatementAfter(St_Enloop(ino+2,ino+1),cur_st,parent->controlParent());
-       doAssignStmtBefore(new SgValueExp(Ni),cur_st);
-       est = est->lexNext(); 
+       InsertNewStatementAfter(St_Enloop(Ni,parent->lineNumber()),cur_st,parent->controlParent());
+       est = cur_st;
      }
-     SET_DVM(ino);
      ReplaceGoToInsideLoop(parent,lst,dst,est);
 
    }
@@ -496,20 +743,13 @@ void CloseParLoop(SgStatement *dostmt,SgStatement *stmt,SgStatement *end_stmt)
 {SgStatement *st;
  SgForStmt *do_st;
  SgLabel *do_lab;
- int ino;
  int end_line_num = end_stmt->lineNumber();
  if (end_line_num)
  {  
     LINE_NUMBER_AFTER_WITH_CP(end_stmt, stmt, par_do->controlParent());
  }
- ino = ndvm;
- InsertNewStatementAfter( D_Endl(ino,ino+1),cur_st,par_do->controlParent());
- doAssignStmtBefore(new SgValueExp(pardo_No),cur_st); 
- doAssignStmtBefore(new SgValueExp(par_do->lineNumber()),cur_st);  FREE_DVM(2);
-
-   //InsertNewStatementAfter( D_Endl(pardo_No,par_do->lineNumber()),cur_st,par_do->controlParent());
-
- //InsertNewStatementAfter( D_Endl(pardo_No,par_do->lineNumber()),stmt,stmt->controlParent());
+ 
+ InsertNewStatementAfter( D_Endl(pardo_No,par_do->lineNumber()),cur_st,par_do->controlParent());
  OffDoVar(dostmt->symbol());
  do_lab=((SgForStmt *)dostmt)->endOfLoop();
  if(!do_lab) //DO statement 'dostmt' without label
@@ -590,7 +830,7 @@ void  ReplaceGoToLabelInsideLoop(SgStatement *parent,SgStatement *lst, SgLabel *
 }
 
 void  ReplaceGoToInsideLoop(SgStatement *dost,SgStatement *endst, SgStatement *dst, SgStatement *est)
-{ //dost - do-statement, endst - last statement of do-loop
+{ //dost - do-statement, endst - last statement of do-loop   
  stmt_list *gol, *prevl;
  SgLabel *golab;
  int branch_line_num; //line number of statement to that goto points
@@ -646,16 +886,11 @@ void InsertStmtsBeforeGoTo(SgStatement *gotost, SgStatement *dst, SgStatement *e
     cur_st = *st;
 
  if(dst)
- {  InsertNewStatementAfter( &(dst->copy()),cur_st,cur_st->controlParent());
-    InsertNewStatementAfter( &(dst->lexNext()->copy()),cur_st,cur_st->controlParent());
-    InsertNewStatementAfter( &(dst->lexNext()->lexNext()->copy()),cur_st,cur_st->controlParent());
- }  
+    InsertNewStatementAfter( &(dst->copy()),cur_st,cur_st->controlParent());
+  
  if(est)
- {  InsertNewStatementAfter( &(est->copy()),cur_st,cur_st->controlParent());
-    InsertNewStatementAfter( &(est->lexNext()->copy()),cur_st,cur_st->controlParent());
-    if(!dst)
-      InsertNewStatementAfter( &(est->lexNext()->lexNext()->copy()),cur_st,cur_st->controlParent());
- } 
+    InsertNewStatementAfter( &(est->copy()),cur_st,cur_st->controlParent());
+  
  *DEBUG_STMTS_FOR_GOTO(gotost) = cur_st;
  cur_st = save;
 } 
@@ -743,14 +978,12 @@ int IntervalNumber(SgStatement *stmt)
 }
 
 void   SeqLoopBegin(SgStatement *st)
-{int ind;
+{
   if( !IntervalNumber(st)){
      AddAttrIntervalNumber(st);
      close_loop_interval = close_loop_interval + 1;
      LINE_NUMBER_BEFORE(st,st);
-     ind = ndvm; doAssignStmtBefore(new SgValueExp(nfrag),st);
-     InsertNewStatementBefore(St_Bsloop(ind),st);
-     FREE_DVM(1);
+     InsertNewStatementBefore(St_Bsloop(nfrag),st);
   }   
 }
 
@@ -769,13 +1002,8 @@ SgStatement *SeqLoopEnd(SgStatement *end_stmt,SgStatement *stmt)
   //lab_after =  stmt->lexNext()->lineNumber() ? stmt->lexNext()->label() :  stmt->lexNext()->lexNext()->label(); //there is (not) inserted CONTINUE statement by ReplaceDoNestLabel_Above
   if( (Ni = IntervalNumber(parent)) != 0){
     close_loop_interval = close_loop_interval - 1;
-    ind = ndvm;
+    InsertNewStatementAfter(St_Enloop(Ni,parent->lineNumber()),stmt,parent->controlParent());
     est = cur_st;
-    InsertNewStatementAfter(St_Enloop(ind,ind+1),stmt,parent->controlParent());
-    doAssignStmtBefore(new SgValueExp(Ni),cur_st);
-    doAssignStmtBefore(new SgValueExp(parent->lineNumber()),cur_st);
-    est = est->lexNext();
-    FREE_DVM(2);
     //ReplaceGoToLabelInsideLoop(parent,lst,lab_after);
     ReplaceGoToInsideLoop(parent,end_stmt,NULL,est);   
   }
@@ -801,13 +1029,8 @@ SgStatement *SeqLoopEnd(SgStatement *end_stmt,SgStatement *stmt)
      close_loop_interval = close_loop_interval - 1;
      ReplaceDoLabel(cur_st,GetLabel());
      lst = cur_st->lexNext();
-     ind = ndvm;
-     est = lst;
-     InsertNewStatementAfter(St_Enloop(ind,ind+1),cur_st->lexNext(), parent->controlParent());
-     doAssignStmtBefore(new SgValueExp(Ni),cur_st);
-     doAssignStmtBefore(new SgValueExp(parent->lineNumber()),cur_st);
-     est = est->lexNext();
-     FREE_DVM(2);
+     InsertNewStatementAfter(St_Enloop(Ni,parent->lineNumber()),lst, parent->controlParent());
+     est = cur_st;
      ReplaceGoToInsideLoop(parent,lst,NULL,est);
    }
    else

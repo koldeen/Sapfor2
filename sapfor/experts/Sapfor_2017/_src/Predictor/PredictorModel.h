@@ -4,9 +4,6 @@
 #include <list>
 #include "../Distribution/Distribution.h"
 
-typedef std::vector<int> vect_int;
-typedef std::vector<long> vect_long;
-
 struct var;
 struct loop;
 
@@ -48,7 +45,7 @@ struct proc_set
 {
 	int id;
 	int proc_num;
-	vect_long proc;
+    std::vector<long> proc;
 };
 	
 struct classizes
@@ -284,7 +281,7 @@ struct data_distr_scheme
 {
 	int proc_id;
 	std::vector<var *> array;
-	std::vector<vect_int> dim_distr;
+	std::vector<std::vector<int>> dim_distr;
 };
 
 struct tmp_distr_var
@@ -401,5 +398,6 @@ struct associate_align
 	//and remember a(k,m) to make replace
 };
 
-void predictScheme(const int regId, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
-                   const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict);
+int predictScheme(ParallelRegion *reg, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
+                   const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict,
+                   const std::map<std::string, std::map<int, double>> &timesByFile, std::map<std::string, std::vector<Messages>> &messagesByFile);

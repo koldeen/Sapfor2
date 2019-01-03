@@ -295,7 +295,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
                     break;
                 case PRIVATEDEP:
-                    if (staticPrivateAnalysis == 0)
+                    /*if (staticPrivateAnalysis == 0)
                     {
                         if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
                             privatesToAdd.push_back(currNode);
@@ -304,7 +304,9 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                     {
                         if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
                             unknownScalarDep.push_back(currNode);
-                    }
+                    }*/
+                    if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
+                        privatesToAdd.push_back(currNode);
                     break;
                 case REDUCTIONDEP:
                     if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())

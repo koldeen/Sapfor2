@@ -445,14 +445,14 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<in
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
-                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
+                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
                 auto itTime = statisticTimes.find(newLoop->lineNum);
                 if (itTime != statisticTimes.end())
                     newLoop->executionTimeInSec = itTime->second;
                 else if (statisticTimes.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "can not find execution time in statistic"));                
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Ñan not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

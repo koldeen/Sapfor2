@@ -4,10 +4,12 @@
 #include "../Utils/errors.h"
 #include <string>
 #include <vector>
+
 /*удалить от сих*/
-#include "dvm.h"
-#include "../GraphLoop/graph_loops.h"
+//#include "dvm.h"
+//#include "../GraphLoop/graph_loops.h"
 /*до сих*/
+
 using std::string;
 using std::vector;
 using std::map;
@@ -22,24 +24,24 @@ static SgForStmt* createNewLoop(LoopGraph *globalLoop)
     LoopGraph *curLoopGraph = globalLoop;
     vector<LoopGraph*> graphs(globalLoop->perfectLoop);
 
-    for(int i = 0; i < globalLoop->perfectLoop; ++i) {
+    for (int i = 0; i < globalLoop->perfectLoop; ++i) {
         graphs[i] = curLoopGraph;
-        if(curLoopGraph->children.size())
+        if (curLoopGraph->children.size())
             curLoopGraph = curLoopGraph->children[0];
     }
 
-    for(int i = graphs.size()-1; i > 0; --i) {
-        SgForStmt* curForStmt = (SgForStmt*) graphs[i]->loop->GetOriginal();
+    for (int i = graphs.size() - 1; i > 0; --i) {
+        SgForStmt* curForStmt = (SgForStmt*)graphs[i]->loop->GetOriginal();
         newLoop = new SgForStmt(curForStmt->doName(), curForStmt->start(), curForStmt->end(), curForStmt->step(), newLoop);
     }
 
-    SgForStmt *curForStmt = (SgForStmt*) graphs[0]->loop->GetOriginal();
+    SgForStmt *curForStmt = (SgForStmt*)graphs[0]->loop->GetOriginal();
     SgForStmt *newGlobalLoop = new SgForStmt(curForStmt->doName(), curForStmt->start(), curForStmt->end(), curForStmt->step(), newLoop);
 
     insertBeforeThis->insertStmtBefore(*newGlobalLoop);
 
     SgStatement *lowestInsertedFor = insertBeforeThis;
-    for(int i=0; i< globalLoop->perfectLoop; ++i) //пройти по всем enddo
+    for (int i = 0; i < globalLoop->perfectLoop; ++i) //пройти по всем enddo
         lowestInsertedFor = lowestInsertedFor->lexPrev();
     return (SgForStmt*)lowestInsertedFor->lexPrev(); //самый внутренний цикл
 }
@@ -49,7 +51,8 @@ static inline bool lineInsideBorder(int lineNumber, pair<SgStatement*, SgStateme
     return lineNumber >= border.first->lineNumber() && lineNumber < border.second->lineNumber();
 }
 
-static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders, depGraph* parentDepGraph, map<SgExpression*, string> &collection)
+static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders, 
+                                  depGraph* parentDepGraph, map<SgExpression*, string> &collection)
 {
     openDependencies.clear();
     for(depNode* node : parentDepGraph->getNodes())
@@ -125,7 +128,8 @@ void expandCopyBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pai
     }
 }
 
-static bool setupSplitBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pair<SgStatement*, SgStatement*>>& borders, depGraph* parentDepGraph, map<SgExpression*, string>& collection)
+static bool setupSplitBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pair<SgStatement*, SgStatement*>>& borders, 
+                              depGraph* parentDepGraph, map<SgExpression*, string>& collection)
 {
     if(loopNums.size() <= 1) //остался один подцикл, оставим его на месте и прекратим разделение
         return false;
@@ -181,9 +185,9 @@ static void moveStatements(SgForStmt *newLoop, vector<pair<SgStatement*,SgStatem
     }
 }
 
-static bool hasIndirectChildLoops(LoopGraph* parentGraph)
+static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &messages)
 {
-    SgStatement* st = parentGraph->loop->GetOriginal()->lexNext();
+    /*SgStatement* st = parentGraph->loop->GetOriginal()->lexNext();
     int directLoops = 0;
     while(st->variant() != CONTROL_END)
     {
@@ -191,81 +195,124 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph)
             directLoops++;
         st = st->lastNodeOfStmt()->lexNext();
     }
-
+       
     if(directLoops != parentGraph->children.size())
     {
         printf("Loop on line %d has indirect child loops and cannot be splitted\n", parentGraph->loop->GetOriginal()->lineNumber());
         return true;
-    }
+    }*/
 
-    return false;
+    int countOfInderect = 0;
+    for (auto &chLoop : parentGraph->children)
+        countOfInderect += chLoop->children.size();
+
+    if (countOfInderect != 0)
+    {
+        messages.push_back(Messages(WARR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
+        __spf_print(1, "This loop has indirect child loops  and can not be splitted on line %d\n", parentGraph->lineNum);
+        return true;
+    }
+    else
+        return false;
 }
 
-static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDepGraph)
+static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDepGraph, vector<Messages> &messages)
 {
-
     bool has = false;
-    for(depNode* node : parentDepGraph->getNodes())
-        if(node->typedep != ARRAYDEP)
+    int countOfMessages = 10;
+    int idxOfMessages = 0;
+    for (depNode* node : parentDepGraph->getNodes())
+    {
+        if (node->typedep != ARRAYDEP)
         {
             bool privateInChild = false;
-            for(LoopGraph* childGraph : parentGraph->children)
+            for (LoopGraph* childGraph : parentGraph->children)
             {
                 SgStatement *childLoop = childGraph->loop->GetOriginal();
-                if(lineInsideBorder(node->stmtin->lineNumber(), make_pair(childLoop, childLoop->lastNodeOfStmt()->lexNext())))
+                if (lineInsideBorder(node->stmtin->lineNumber(), make_pair(childLoop, childLoop->lastNodeOfStmt()->lexNext())))
                     privateInChild = node->typedep == PRIVATEDEP;
             }
             has |= !privateInChild;
-            if(!privateInChild)
+            if (!privateInChild)
             {
-                printf("Cannot split loop on %d line because of dependecy:\n", parentGraph->loop->GetOriginal()->lineNumber());
-                node->displayDep();
+                if (idxOfMessages < countOfMessages)
+                {
+                    idxOfMessages++;
+                    string str;
+
+                    __spf_printToBuf(str, "Can not split this loop because of dependecy: %s", node->displayDepToStr().c_str());
+                    messages.push_back(Messages(WARR, parentGraph->lineNum, str, 2009));
+                    __spf_print(1, "%s on line %d\n", str.c_str(), parentGraph->lineNum);
+                }
             }
         }
+    }
     return has;
 }
 
-static void splitLoop(LoopGraph *loopGraph)
-{
-     LoopGraph *lowestParentGraph = loopGraph;
-    for(int i = 0; i < loopGraph->perfectLoop; ++i)
-        if(lowestParentGraph->children.size() == 1)
+static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int deep)
+{    
+    LoopGraph *lowestParentGraph = loopGraph;
+    for (int i = 0; i < std::min(loopGraph->perfectLoop, deep); ++i)
+        if (lowestParentGraph->children.size() == 1)
             lowestParentGraph = lowestParentGraph->children[0];
 
-    if(hasIndirectChildLoops(lowestParentGraph))
-        return;
+    if (hasIndirectChildLoops(lowestParentGraph, messages))
+        return -1;
 
     //Номера подиклов, которые стоит попробовать вытащить в отдельный цикл
     vector<int> loopNums(lowestParentGraph->children.size());
-    for (int i=0; i< lowestParentGraph->children.size(); ++i)
+    for (int i = 0; i < lowestParentGraph->children.size(); ++i)
         loopNums[i] = i;
+
     if (loopNums.size() <= 1)
-        return;
-    //Вектор пар since-till, новые циклы будут формироваться из фрагментов с since включителььно, по till не включительно
+    {
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        return -1;
+    }
+    //Вектор пар since-till, новые циклы будут формироваться из фрагментов с since включительно, по till не включительно
     vector<pair<SgStatement*, SgStatement*>> borders;
     //Граф с зависимостями
-    const std::set<std::string> privVars;
+    const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
     //Коллекция с выражениями, которые проходили unparse
     map<SgExpression*, string> collection;
-    if(hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph))
-        return;
-    while(setupSplitBorders(lowestParentGraph, loopNums, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+    if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
+        return -1;
+    while (setupSplitBorders(lowestParentGraph, loopNums, borders, lowestParentDepGraph, collection) && borders.size() > 0)
         moveStatements(createNewLoop(loopGraph), borders);
+
+    return 0;
 }
 
 
-void splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs)
+int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &messages)
 {
-    if(string(file->filename()) == "z_solve_inlined.f")
-        for(auto& loopGraph : loopGraphs)
-        {
-            splitLoop(loopGraph);
-        }
+    map<int, LoopGraph*> mapLoopGraph;
+    createMapLoopGraph(loopGraphs, mapLoopGraph);
+    int totalErr = 0;
 
-    if(string(file->filename()) == "COMPOZ.FOR")
-        for(auto& loopGraph : loopGraphs)
+    for (auto &loopPair : mapLoopGraph)
+    {
+        LoopGraph *loop = loopPair.second;
+        auto attrsTr = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_TRANSFORM_DIR });
+        for (auto attr : attrsTr)
         {
-            splitLoop(loopGraph);
+            SgExpression *list = attr->expr(0);
+            if (list->lhs()->variant() == SPF_FISSION_OP)
+            {
+                checkNull(list->lhs()->lhs(), convertFileName(__FILE__).c_str(), __LINE__);
+
+                SgExprListExp *listExp = isSgExprListExp(list->lhs()->lhs());
+                checkNull(listExp, convertFileName(__FILE__).c_str(), __LINE__);
+                const int deep = listExp->length();
+                //TODO: use deep!
+                int err = splitLoop(loop, messages, deep);
+                if (err != 0)
+                    totalErr = -1;
+            }
         }
+    }  
+
+    return totalErr;
 }

@@ -575,36 +575,38 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                             for (int z = 0; z < loopT->GetDimSize(); ++z)
                                 if (loop->directiveForLoop->on[z].first != "*")
                                     dimToMap = z;
-                            if (dimToMap == -1)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                            if (loopT != templ)
+                            if (dimToMap != -1)
                             {
-                                DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
-                                if (templ != loopTempl)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
-                                if (loopAlignCoefs[dimToMap] == -1)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                else
-                                    dimToMap = loopAlignCoefs[dimToMap];
-                            }
-
-                            if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
-                            {
-                                bool found = false;
-
-                                for (int l = 0; l < alignCoefs.size(); ++l)
+                                if (loopT != templ)
                                 {
-                                    if (alignCoefs[l] == dimToMap)
-                                        found = true;
-                                }
-                                ok = found;
+                                    DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                    if (templ != loopTempl)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                if (!ok)
-                                    addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                    auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+                                    if (loopAlignCoefs[dimToMap] == -1)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    else
+                                        dimToMap = loopAlignCoefs[dimToMap];
+                                }
+
+                                if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
+                                {
+                                    bool found = false;
+
+                                    for (int l = 0; l < alignCoefs.size(); ++l)
+                                    {
+                                        if (alignCoefs[l] == dimToMap)
+                                            found = true;
+                                    }
+                                    ok = found;
+
+                                    if (!ok)
+                                        addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                }
                             }
+                            else
+                                ;//printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                         }
                     }
 

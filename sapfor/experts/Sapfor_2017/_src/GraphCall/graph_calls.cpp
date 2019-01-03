@@ -1835,6 +1835,25 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     createMapOfFunc(allFuncInfo, funcByName);
 
     propagateWritesToArrays(funcByName);
+
+    //debug dump
+    /*for (auto &elem : declaratedArrays)
+    {
+        auto array = elem.second.first;
+        auto flag = array->GetNonDistributeFlagVal();
+        // int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
+        string flagS = "";
+        if (flag == DIST::DISTR)
+            flagS = "DISTR";
+        else if (flag == DIST::NO_DISTR)
+            flagS = "NO_DISTR";
+        else if (flag == DIST::SPF_PRIV)
+            flagS = "SPF_PRIV";
+        else if (flag == DIST::IO_PRIV)
+            flagS = "IO_PRIV";
+
+        printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
+    }*/
 }
 
 #undef DEBUG

@@ -18,6 +18,7 @@
 #include "../Distribution/Distribution.h"
 #include "../Distribution/DvmhDirective.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../ParallelizationRegions/ParRegions.h"
 
 #include "PredictorInterface.h"
 #include "PredictorModel.h"
@@ -32,7 +33,7 @@ using std::to_string;
 vector<struct routine> routines;
 int curr_routine;
 int curr_gvar;
-vector<vect_int> all_Gvar; // array[Nsubr] - a global variant
+vector<vector<int>> all_Gvar; // array[Nsubr] - a global variant
 int  *Fvar; // array[Nsubr+1] - the first variant for i-th subroutine	// so that  Fvar[Nsubr]==Nvars
 vector<one_routine_all_scheme> all_scheme;
 vector<struct var> vars;
@@ -50,7 +51,7 @@ int loop_rank;
 long lastLR;
 bool last_body_is_loop;
 int curr_proc_set;
-vector<vect_long> proc_set;
+vector<vector<long>> proc_set;
 
 vector<struct mach> mach_set;
 vector<struct proc_set> proc_sets;
@@ -842,7 +843,7 @@ static bool shadowExist(const ParallelDirective *directive)
 
 extern vector<DIST::Array*> fillArraysFromDir(Statement *loopSt);
 //==============
-static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, const double loopTime, FILE *printOut = NULL)
 {
     long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
     string debug = "";
@@ -1255,8 +1256,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         tmp_params->ID = LR;//тот что и в crtpl
         tmp_params->ReturnVar = 0;
 
-        //TODO: loop time!
-        f.call_time = 100;		        // call time, c->time - это время цикла!
+        f.call_time = loopTime;         // call time, c->time - это время цикла!
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
@@ -2422,23 +2422,23 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
     return 0;
 }
 
-static int multiply(const vector<int> &array_) 
+static int multiply(const vector<long> &array_)
 {
     int res = 1;
-    for (size_t i = 0; i < array_.size(); ++i)
+    for (long i = 0; i < array_.size(); ++i)
         res *= array_[i];
     return res;
 }
 
-static vector<int> get_divisors(size_t N) 
+static vector<long> get_divisors(long N)
 {
-    vector<int> res;
+    vector<long> res;
     res.push_back(N);
 
     if (N > 1) 
     {
         int k = N / 2;
-        for (size_t i = k; i > 1; --i) 
+        for (long i = k; i > 1; --i) 
             if (N % i == 0)
                 res.push_back(i);        
         res.push_back(1);
@@ -2446,7 +2446,7 @@ static vector<int> get_divisors(size_t N)
     return res;
 }
 
-static void recGen(vector<int> divisors, vector<int> &matrix, size_t index, int procNum, vector<vector<int>> &result) 
+static void recGen(vector<long> divisors, vector<long> &matrix, size_t index, int procNum, vector<vector<long>> &result)
 {
     if (index < matrix.size()) 
     {
@@ -2463,46 +2463,31 @@ static void recGen(vector<int> divisors, vector<int> &matrix, size_t index, int 
     }
 }
 
-vector<vector<int>> generate_matrixes(int procNum, int dim) 
+static vector<vector<long>> generate_matrixes(int procNum, int dim)
 {
-    vector<vector<int>> result;
-    vector<int> divisors = get_divisors(procNum);
+    vector<vector<long>> result;
+    vector<long> divisors = get_divisors(procNum);
 
-    vector<int> matrix(dim);
+    vector<long> matrix(dim);
     recGen(divisors, matrix, 0, procNum, result);
     return result;
 }
 
-void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar, 
-                   const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict)
-{    
-    ps = new PS(mach_MYRINET, 4, 7.0, 0.004, 512); //MVS15k between nodes
-    //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, 512); //fastest communications
+static void addTimeMessage(map<string, vector<Messages>> &messagesByFile, const string file, const int line)
+{
+    string messg = "";
+    __spf_printToBuf(messg, "Can not find execution time for this loop, try to get times statistic");
+    messagesByFile[file].push_back(Messages(ERROR, line, messg, 3016));
 
-    vector<long> testTopology = { 2, 2 };
-    //set configuration of PS
-    ps->setTopology(testTopology);
+    __spf_print(1, "%s on line %d\n", messg.c_str(), line);
+}
 
-    vector<long>	lb;
-    vector<long>	ASizeArray;
-    mach_Type		AMType;
-    int				AnumChanels = 1;
-    double			Ascale = 1.0;
-    double			ATStart;
-    double			ATByte;
-    double			AProcPower;
-    vector<double>  AvProcPower;
-
-    ps->nextPS(lb, ASizeArray, AMType, AnumChanels, Ascale, ATStart, ATByte, AProcPower, AvProcPower);
-
-    rootVM = new VM(ASizeArray, AMType, AnumChanels, Ascale, ATStart / 1000000.0, ATByte / 1000000.0, AProcPower, AvProcPower);
-    currentVM = rootVM;
-    rootProcCount = rootVM->getProcCount();
-
-    // времена работы каждого процессора
-    procElapsedTime = new double[rootProcCount];
-    for (int i = 0; i < rootProcCount; ++i)
-        procElapsedTime[i] = 0.0;
+int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar,
+                  const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict,
+                  const map<string, map<int, double>> &timesByFile, map<string, vector<Messages>> &messagesByFile)
+{
+    int errCode = 0;
+    const int procNum = 8;
 
     MinSizesOfAM.clear();
     int maxSizeDist = 0;
@@ -2519,38 +2504,92 @@ void predictScheme(const int regId, const vector<pair<DIST::Array*, const DistrV
     }
     MinSizesOfAM.resize(maxSizeDist);
     std::fill(MinSizesOfAM.begin(), MinSizesOfAM.end(), 0);
-    for (auto &elem : distVar)
+
+    vector<vector<long>> allTolopogies = generate_matrixes(procNum, maxSizeDist);
+    
+    for (auto &topology : allTolopogies)
     {
-        DIST::Array *array = elem.first;
-        const DistrVariant *var = elem.second;
-        auto sizes = array->GetSizes();
-        int countBlock = 0;
-        for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
+        ps = new PS(mach_MYRINET, 4, 7.0, 0.004, procNum); //MVS15k between nodes
+        //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, procNum); //fastest communications
+
+        //set configuration of PS
+        ps->setTopology(topology);
+
+        vector<long>	lb;
+        vector<long>	ASizeArray;
+        mach_Type		AMType;
+        int				AnumChanels = 1;
+        double			Ascale = 1.0;
+        double			ATStart;
+        double			ATByte;
+        double			AProcPower;
+        vector<double>  AvProcPower;
+
+        ps->nextPS(lb, ASizeArray, AMType, AnumChanels, Ascale, ATStart, ATByte, AProcPower, AvProcPower);
+
+        rootVM = new VM(ASizeArray, AMType, AnumChanels, Ascale, ATStart / 1000000.0, ATByte / 1000000.0, AProcPower, AvProcPower);
+        currentVM = rootVM;
+        rootProcCount = rootVM->getProcCount();
+
+        // времена работы каждого процессора
+        procElapsedTime = new double[rootProcCount];
+        for (int i = 0; i < rootProcCount; ++i)
+            procElapsedTime[i] = 0.0;
+
+        for (auto &elem : distVar)
         {
-            if (var->distRule[z] == dist::BLOCK)
+            DIST::Array *array = elem.first;
+            const DistrVariant *var = elem.second;
+            auto sizes = array->GetSizes();
+            int countBlock = 0;
+            for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
             {
-                MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
-                dim++;
+                if (var->distRule[z] == dist::BLOCK)
+                {
+                    MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
+                    dim++;
+                }
             }
         }
+
+        for (auto &var : distVar)
+            Model_distr(var.first, var.second);
+        for (auto &array : allArrays)
+            if (!array->isTemplate() && !array->isLoopArray())
+                Model_align(array, reg->GetId());
+
+        for (auto &dir : dirsToPredict)
+        {
+            auto itTimes = timesByFile.find(dir.first->fileName);
+            if (itTimes == timesByFile.end())
+            {                
+                addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
+                errCode = -1;
+                //break;
+            }
+            auto itLoopT = itTimes->second.find(dir.first->lineNum);
+            if (itLoopT == itTimes->second.end())
+            {
+                addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
+                errCode = -1;
+                //break;
+            }
+
+            CurrInterval = new Interval(0);
+            Model_par(dir.first, dir.second, itLoopT->second);
+            CurrInterval->CalcIdleAndImbalance();
+            CurrInterval->Integrate();
+            //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());
+            reg->AddTimeForTopology(topology, CurrInterval->GetExecTime());
+            delete CurrInterval;
+        }
+
+        delete rootVM;
+        delete ps;
+
+        if (errCode != 0)
+            break;
     }
 
-    for (auto &var : distVar)
-        Model_distr(var.first, var.second);
-    for (auto &array : allArrays)
-        if (!array->isTemplate() && !array->isLoopArray())
-            Model_align(array, regId);
-
-    for (auto &dir : dirsToPredict)
-    {
-        CurrInterval = new Interval(0);
-        Model_par(dir.first, dir.second);
-        CurrInterval->CalcIdleAndImbalance();
-        CurrInterval->Integrate();
-        printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());
-        delete CurrInterval;
-    }
-
-    delete rootVM;
-    delete ps;
+    return errCode;
 }

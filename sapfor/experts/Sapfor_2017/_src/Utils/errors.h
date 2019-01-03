@@ -54,6 +54,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   39 "Variabled '%s' and '%s' in one storage association (common block '%s') have different types" 
 //   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
 //   41 "parallel region '%s' has line included in another region"
+//   42 "distributed array in common block %s must have declaration in main unit"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -63,6 +64,9 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   05 "loops on lines %d and %d were combined"
 //   06 "substitute statement function with name '%s'"
 //   07 "Internal error during unparsing process has occurred"
+//   08 "Can not do PRIVATE EXPANSION for this loop - privates not found"
+//   09 "Can not split this loop because of dependecy: %s"
+//   10 "This loop has indirect child loops  and can not be splitted\n"
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -80,6 +84,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   13 "parallel regions %shave local array '%s' that is not resolved"
 //   14 "parallel region '%s' has common array '%s' that is not resolved"
 //   15 "parallel region '%s' does not have copying of common array '%'"
+//   16  "Can not find execution time for this loop, try to get times statistic"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -87,7 +92,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 struct Messages
 {
 public:
-    explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
+    //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
     explicit Messages(const typeMessage type, const int line, const std::string &value_, const int group) : type(type), line(line), group(group)
     {
         value = value_;

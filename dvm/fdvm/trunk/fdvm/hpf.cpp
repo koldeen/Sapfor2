@@ -436,10 +436,8 @@ int IndependentLoop(SgStatement *stmt)
   LINE_NUMBER_AFTER(stmt,stmt);
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
- {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
+  {
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
   }
   ins_st1 = cur_st;
 
@@ -569,10 +567,8 @@ int IndependentLoop_Debug(SgStatement *stmt)
   LINE_NUMBER_AFTER(stmt,stmt);
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
- {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
+  {
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
   }
   ins_st1 = cur_st;
 
