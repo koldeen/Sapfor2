@@ -326,15 +326,6 @@ public:
                userDvmRealignDirs.size() != 0 ||
                userDvmRedistrDirs.size() != 0;
     }
-
-    void AddTimeForTopology(const std::vector<long> &top, const double time)
-    {
-        auto it = summaryTimeByTopology.find(top);
-        if (it == summaryTimeByTopology.end())
-            it = summaryTimeByTopology.insert(it, std::make_pair(top, 0));
-        it->second += time;
-    }
-
 private:
     int regionId;
     //name in program
@@ -368,8 +359,6 @@ private:
     std::vector<Statement*> userDvmShadowDirs;
     std::vector<Statement*> userDvmRealignDirs;
     std::vector<Statement*> userDvmRedistrDirs;
-
-    std::map<std::vector<long>, double> summaryTimeByTopology;
 };
 
 ParallelRegion* getRegionById(const std::vector<ParallelRegion*> &regions, const int regionId);

@@ -367,9 +367,9 @@ pair<int, int64_t> __gcov_GetExecuted(const string &file, const int line)
     return ret;
 }
 
-void parseTimesDvmStatisticFile(const string &file, map<string, vector<Interval*>> &intervals)
+void parseTimesDvmStatisticFile(const string &file, map<string, vector<SpfInterval*>> &intervals)
 {
-    map<string, map<int, Interval*>> mapOfIntervals;
+    map<string, map<int, SpfInterval*>> mapOfIntervals;
     for (auto &intByfile : intervals)
         createMapOfinterval(mapOfIntervals[intByfile.first], intByfile.second);
 
@@ -380,7 +380,7 @@ void parseTimesDvmStatisticFile(const string &file, map<string, vector<Interval*
         int execDone = 1;
         int line = -1;
         string fileN = "";
-        Interval *curr = NULL;
+        SpfInterval *curr = NULL;
 
         while (!feof(stat))
         {

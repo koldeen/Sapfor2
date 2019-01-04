@@ -100,7 +100,7 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 std::map<std::string, PredictorStats> allPredictorStats;
 
 //for DVM INTERVALS
-std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
+std::map<std::string, std::vector<SpfInterval*>> intervals; // file -> intervals
 //
 
 //for GCOV_PARSER

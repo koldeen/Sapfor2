@@ -10,17 +10,17 @@
 
 #include "../GraphLoop/graph_loops_func.h"
 
-struct Interval
+struct SpfInterval
 {
     int tag = 0;
     long long calls = 0;
     bool ifInclude = true;
     SgStatement *begin;
-    Interval *parent = NULL;
+    SpfInterval *parent = NULL;
 
     std::vector<SgStatement*> ends;
     std::vector<int> exit_levels;        
-    std::vector<Interval*> nested;
+    std::vector<SpfInterval*> nested;
 
     //from statistic after execution
     int exec_count = 0;
@@ -32,9 +32,9 @@ struct FileProfile
     std::map<int, long long> profile;
 };
 
-void saveIntervals(SgFile*, std::vector<Interval*>&);
-void createInterTree(SgFile*, std::vector<Interval*>&, bool);
-void assignCallsToFile(const std::string&, std::vector<Interval*>&);
-void removeNodes(long long, std::vector<Interval*>&, std::vector<std::string>&);
-void insertIntervals(SgFile*, const std::vector<Interval*>&);
-void createMapOfinterval(std::map<int, Interval*> &mapIntervals, const std::vector<Interval*> &intervals);
+void saveIntervals(SgFile*, std::vector<SpfInterval*>&);
+void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool);
+void assignCallsToFile(const std::string&, std::vector<SpfInterval*>&);
+void removeNodes(long long, std::vector<SpfInterval*>&, std::vector<std::string>&);
+void insertIntervals(SgFile*, const std::vector<SpfInterval*>&);
+void createMapOfinterval(std::map<int, SpfInterval*> &mapIntervals, const std::vector<SpfInterval*> &intervals);

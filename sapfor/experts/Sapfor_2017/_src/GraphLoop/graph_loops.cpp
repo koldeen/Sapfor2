@@ -377,9 +377,9 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<Interval*> &intervalTree, vector<Messages> &messages)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
 {
-    map<int, Interval*> mapIntervals;
+    map<int, SpfInterval*> mapIntervals;
     createMapOfinterval(mapIntervals, intervalTree);
 
     int funcNum = file->numberOfFunctions();

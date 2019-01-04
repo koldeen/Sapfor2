@@ -53,7 +53,7 @@ bool last_body_is_loop;
 int curr_proc_set;
 vector<vector<long>> proc_set;
 
-vector<struct mach> mach_set;
+//vector<struct mach> mach_set;
 vector<struct proc_set> proc_sets;
 int curr_mach;
 
@@ -150,6 +150,7 @@ Interval *SeqLoopInterval;
 Interval *RemoteCommInterval;
 long cur_res, result_cnt;
 
+#if 0
 void Interval_node::print(int level)
 {
     int i;
@@ -348,6 +349,7 @@ void Interval_node::insert(struct loop *curr_loop, Interval *tmp_inter, int type
 
     }
 }
+#endif
 
 struct loop* Find_loop_id_tree(struct loop* curr_loop, int line)
 {
@@ -843,7 +845,7 @@ static bool shadowExist(const ParallelDirective *directive)
 
 extern vector<DIST::Array*> fillArraysFromDir(Statement *loopSt);
 //==============
-static int Model_par(LoopGraph *loop, ParallelDirective *directive, const double loopTime, FILE *printOut = NULL)
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
 {
     long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
     string debug = "";
@@ -1256,7 +1258,7 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, const double
         tmp_params->ID = LR;//тот что и в crtpl
         tmp_params->ReturnVar = 0;
 
-        f.call_time = loopTime;         // call time, c->time - это время цикла!
+        f.call_time = loop->executionTimeInSec; // call time, c->time - это время цикла!
         f.ret_time = 0.00000100;		// return time
         setVectorCallRet(&f);
 
@@ -1752,6 +1754,7 @@ int Model_par(var *v1, ali_pat *d, circle *c, reduct *r, shadow *s, across *a)
     return 0;
 }
 
+#if 0
 //============== Model switch
 int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следующей команды
 {
@@ -2421,6 +2424,7 @@ int Model(int scheme_id, long line_beg, long line_end)  //возвращает номер следу
 
     return 0;
 }
+#endif
 
 static int multiply(const vector<long> &array_)
 {
@@ -2484,7 +2488,7 @@ static void addTimeMessage(map<string, vector<Messages>> &messagesByFile, const 
 
 int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const DistrVariant*>> &distVar,
                   const set<DIST::Array*> &allArrays, const map<LoopGraph*, ParallelDirective*> &dirsToPredict,
-                  const map<string, map<int, double>> &timesByFile, map<string, vector<Messages>> &messagesByFile)
+                  const map<string, vector<SpfInterval*>> &intervals, map<string, vector<Messages>> &messagesByFile)
 {
     int errCode = 0;
     const int procNum = 8;
@@ -2560,27 +2564,17 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
 
         for (auto &dir : dirsToPredict)
         {
-            auto itTimes = timesByFile.find(dir.first->fileName);
-            if (itTimes == timesByFile.end())
-            {                
-                addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
-                errCode = -1;
-                //break;
-            }
-            auto itLoopT = itTimes->second.find(dir.first->lineNum);
-            if (itLoopT == itTimes->second.end())
+            if (dir.first->executionTimeInSec == -1.0)
             {
                 addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
                 errCode = -1;
-                //break;
             }
 
             CurrInterval = new Interval(0);
-            Model_par(dir.first, dir.second, itLoopT->second);
+            Model_par(dir.first, dir.second);
             CurrInterval->CalcIdleAndImbalance();
             CurrInterval->Integrate();
             //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());
-            reg->AddTimeForTopology(topology, CurrInterval->GetExecTime());
             delete CurrInterval;
         }
 

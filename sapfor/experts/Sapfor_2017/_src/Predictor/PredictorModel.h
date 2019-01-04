@@ -3,6 +3,7 @@
 #include <vector>
 #include <list>
 #include "../Distribution/Distribution.h"
+#include "../CreateInterTree/CreateInterTree.h"
 
 struct var;
 struct loop;
@@ -30,7 +31,7 @@ struct loop;
 };*/
 
 //================ Internal form of DB ===============
-struct mach
+/*struct mach
 {
 	int id;
 	char *name;
@@ -39,7 +40,7 @@ struct mach
 	double TByte;
 	long proc_number;	
 	long proc_perf;	
-};
+};*/
 
 struct proc_set
 {
@@ -169,7 +170,7 @@ struct sector_usage
 struct glob_shadow
 {
 	var *v;
-	loop *loop;
+	loop *loopS;
 	std::vector<int> shad_wid_left;
 	std::vector<int> shad_wid_right;
 	std::vector<sector_usage *> write_use;
@@ -290,6 +291,7 @@ struct tmp_distr_var
 	std::vector<int> proc_dim;
 };
 
+class Interval;
 struct Interval_node
 {
 	Interval *inter;
@@ -356,7 +358,7 @@ struct inter_perf
 	float seq_time;
 	float par_time;
 	float comm_time;
-	loop *loop;
+	loop *loopI;
 };
 
 struct scheme_perf
@@ -400,4 +402,4 @@ struct associate_align
 
 int predictScheme(ParallelRegion *reg, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
                    const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict,
-                   const std::map<std::string, std::map<int, double>> &timesByFile, std::map<std::string, std::vector<Messages>> &messagesByFile);
+                   const std::map<std::string, std::vector<SpfInterval*>> &intervals, std::map<std::string, std::vector<Messages>> &messagesByFile);

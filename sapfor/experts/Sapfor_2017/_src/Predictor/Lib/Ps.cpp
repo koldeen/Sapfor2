@@ -891,7 +891,7 @@ PS::PS(const char *option_file)
 			dbl.push_back(1.0);
 		weight_list.push(dbl);
 	}
-#endif+
+#endif
 
 	/* //====//
 //grig add-on

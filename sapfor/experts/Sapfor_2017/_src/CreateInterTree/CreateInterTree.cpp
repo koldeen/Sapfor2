@@ -14,7 +14,7 @@ static long int getNextTag()
 }
 
 //Debug funcs
-static void printTree(Interval* inter, fstream& file, int level)
+static void printTree(SpfInterval* inter, fstream& file, int level)
 {
     if (!(inter->ifInclude))
         return;
@@ -39,7 +39,7 @@ static void printTree(Interval* inter, fstream& file, int level)
     }
 }
 
-void saveIntervals(SgFile *file, vector<Interval*> &fileIntervals)
+void saveIntervals(SgFile *file, vector<SpfInterval*> &fileIntervals)
 {
     fstream file_intervals;
 
@@ -93,12 +93,12 @@ static int getNestedLevel(SgStatement* loop_stmt)
     return depth;
 }
 
-static void removeNestedIntervals(Interval* interval)
+static void removeNestedIntervals(SpfInterval* interval)
 {
     if (isSgForStmt(interval->begin))
     {
         int depth = getNestedLevel(interval->begin);
-        Interval* current_interval = interval;
+        SpfInterval* current_interval = interval;
 
         for (int i = 0; i < depth; i++)
         {
@@ -112,7 +112,7 @@ static void removeNestedIntervals(Interval* interval)
 }
 
 //Tree creation funcs
-static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
+static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
 {
     int currentVar;
 
@@ -142,7 +142,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
                 int label_line = labelsRef[*it];
                 int depth = 0;
 
-                Interval* labelSearch = interval;
+                SpfInterval* labelSearch = interval;
                 while (label_line < labelSearch->begin->lineNumber() || label_line >= labelSearch->begin->lastNodeOfStmt()->lineNumber())
                 {
                     labelSearch = labelSearch->parent;
@@ -157,7 +157,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
         if (currentSt == interval->ends[0] || currentVar != FOR_NODE)
             continue;
 
-        Interval* inter = new Interval();
+        SpfInterval* inter = new SpfInterval();
         inter->begin = currentSt;
         inter->parent = interval;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
@@ -169,7 +169,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
     }
 }
 
-void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool nested_on)
+void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nested_on)
 {
     int funcNum = file->numberOfFunctions();
     map<int, int> labelsRef;           // id => line
@@ -182,7 +182,7 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool nested
         matchGotoLabels(file->functions(i), gotoStmts);
         //
 
-        Interval* func_inters = new Interval();
+        SpfInterval* func_inters = new SpfInterval();
 
         func_inters->begin = file->functions(i);
         func_inters->tag = getNextTag();
@@ -201,7 +201,7 @@ void createInterTree(SgFile *file, vector<Interval*> &fileIntervals, bool nested
             removeNestedIntervals(interval);
 }
 
-//Interval insertion funcs
+//SpfInterval insertion funcs
 static void LogIftoIfThen(SgStatement *stmt)
 {
     SgControlEndStmt *control = new SgControlEndStmt();
@@ -212,7 +212,7 @@ static void LogIftoIfThen(SgStatement *stmt)
         control->addAttribute(OMP_MARK);
 }
 
-static void insertTree(Interval* interval)
+static void insertTree(SpfInterval* interval)
 {
     if (interval->ifInclude)
     {
@@ -252,7 +252,7 @@ static void insertTree(Interval* interval)
         for (int i = 1; i < interval->ends.size(); i++)
         {
             int depth = interval->exit_levels[i];
-            Interval* curr_inter = interval->parent;
+            SpfInterval* curr_inter = interval->parent;
 
             SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
             SgExprListExp* curr_list_elem = expli;
@@ -281,7 +281,7 @@ static void insertTree(Interval* interval)
         insertTree(interval->nested[i]);
 }
 
-void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
+void insertIntervals(SgFile *file, const vector<SpfInterval*> &fileIntervals)
 {
     for (auto &interval : fileIntervals)
         insertTree(interval);
@@ -315,7 +315,7 @@ static FileProfile parseProfiles(fstream &file)
     return fileProfile;
 }
 
-static void assignRec(Interval* inter, FileProfile &fp)
+static void assignRec(SpfInterval* inter, FileProfile &fp)
 {
     for (int i = 0; i < inter->nested.size(); i++)
         assignRec(inter->nested[i], fp);
@@ -323,7 +323,7 @@ static void assignRec(Interval* inter, FileProfile &fp)
     inter->calls = fp.profile[inter->begin->lineNumber()];
 }
 
-void assignCallsToFile(const string &baseFilename, vector<Interval*> &intervals)
+void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &intervals)
 {
     fstream file;
     file.open(baseFilename + ".gcov", fstream::in);
@@ -340,7 +340,7 @@ void assignCallsToFile(const string &baseFilename, vector<Interval*> &intervals)
 }
 
 //Deleting intervals funcs
-static void removeNode(Interval* inter, long long threshold)
+static void removeNode(SpfInterval* inter, long long threshold)
 {
     if (inter->calls > threshold)
         inter->ifInclude = false;
@@ -349,7 +349,7 @@ static void removeNode(Interval* inter, long long threshold)
         removeNode(inter->nested[i], threshold);
 }
 
-void removeNodes(long long threshold, vector<Interval*> &intervals, vector<string> &include_functions)
+void removeNodes(long long threshold, vector<SpfInterval*> &intervals, vector<string> &include_functions)
 {
     if (threshold == 0)
         return;
@@ -363,7 +363,7 @@ void removeNodes(long long threshold, vector<Interval*> &intervals, vector<strin
     }
 }
 
-void createMapOfinterval(map<int, Interval*> &mapIntervals, const vector<Interval*> &intervals)
+void createMapOfinterval(map<int, SpfInterval*> &mapIntervals, const vector<SpfInterval*> &intervals)
 {
     for (auto &inter : intervals)
     {

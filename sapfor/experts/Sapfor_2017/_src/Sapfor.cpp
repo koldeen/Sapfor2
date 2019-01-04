@@ -47,9 +47,7 @@
 #include "LoopConverter/private_arrays_breeder.h"
 #include "LoopConverter/loops_splitter.h"
 #include "Predictor/PredictScheme.h"
-#if RELEASE_CANDIDATE
 #include "Predictor/PredictorModel.h"
-#endif
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 
@@ -1414,7 +1412,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == GCOV_PARSER)
         parseTimesDvmStatisticFile((consoleMode == 1) ? string("statistic.txt") : "./visualiser_data/statistic/" + string("statistic.txt"), intervals);
-#if RELEASE_CANDIDATE
     else if (curr_regime == PREDICT_SCHEME)
     {
         for (int z = 0; z < parallelRegions.size(); ++z)
@@ -1438,13 +1435,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
                 parallelDirs.insert(fountInfo.begin(), fountInfo.end());
             }
-            int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, timesFromDvmStat, SPF_messages);
+            int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages);
             if (err != 0)
                 internalExit = err;
         }
     }
-#endif
-
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
     __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
