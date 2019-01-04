@@ -26,8 +26,8 @@ static void printTree(Interval* inter, fstream& file, int level)
     file << "line number " << inter->begin->lineNumber() << endl;
 
 
-    for (int i = 0; i < inter->includes.size(); i++)
-        printTree(inter->includes[i], file, level + 1);
+    for (int i = 0; i < inter->nested.size(); i++)
+        printTree(inter->nested[i], file, level + 1);
 
     for (int i = 0; i < inter->ends.size(); i++)
     {
@@ -102,12 +102,12 @@ static void removeNestedIntervals(Interval* interval)
 
         for (int i = 0; i < depth; i++)
         {
-            current_interval = current_interval->includes[0];
+            current_interval = current_interval->nested[0];
             current_interval->ifInclude = false;
         }
     }
 
-    for (auto &include : interval->includes)
+    for (auto &include : interval->nested)
         removeNestedIntervals(include);
 }
 
@@ -163,7 +163,7 @@ static void findIntervals(Interval* interval, map<int, int> &labelsRef, map<int,
         inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->exit_levels.push_back(0);
         inter->tag = getNextTag();
-        interval->includes.push_back(inter);
+        interval->nested.push_back(inter);
 
         findIntervals(inter, labelsRef, gotoStmts, currentSt, level + 1);
     }
@@ -277,8 +277,8 @@ static void insertTree(Interval* interval)
         }
     }
 
-    for (int i = 0; i < interval->includes.size(); i++)
-        insertTree(interval->includes[i]);
+    for (int i = 0; i < interval->nested.size(); i++)
+        insertTree(interval->nested[i]);
 }
 
 void insertIntervals(SgFile *file, const vector<Interval*> &fileIntervals)
@@ -317,8 +317,8 @@ static FileProfile parseProfiles(fstream &file)
 
 static void assignRec(Interval* inter, FileProfile &fp)
 {
-    for (int i = 0; i < inter->includes.size(); i++)
-        assignRec(inter->includes[i], fp);
+    for (int i = 0; i < inter->nested.size(); i++)
+        assignRec(inter->nested[i], fp);
 
     inter->calls = fp.profile[inter->begin->lineNumber()];
 }
@@ -345,8 +345,8 @@ static void removeNode(Interval* inter, long long threshold)
     if (inter->calls > threshold)
         inter->ifInclude = false;
 
-    for (int i = 0; i < inter->includes.size(); i++)
-        removeNode(inter->includes[i], threshold);
+    for (int i = 0; i < inter->nested.size(); i++)
+        removeNode(inter->nested[i], threshold);
 }
 
 void removeNodes(long long threshold, vector<Interval*> &intervals, vector<string> &include_functions)
@@ -361,4 +361,16 @@ void removeNodes(long long threshold, vector<Interval*> &intervals, vector<strin
         if (include_functions.size() == 0 || find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
             removeNode(interval, threshold);
     }
+}
+
+void createMapOfinterval(map<int, Interval*> &mapIntervals, const vector<Interval*> &intervals)
+{
+    for (auto &inter : intervals)
+    {
+        auto it = mapIntervals.find(inter->begin->lineNumber());
+        if (it != mapIntervals.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        mapIntervals[inter->begin->lineNumber()] = inter;
+        createMapOfinterval(mapIntervals, inter->nested);
+    }    
 }

@@ -98,7 +98,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     passDeps = &passDepsIn;
 
-    Pass(CREATE_INTER_TREE) <= Pass(INSERT_INTER_TREE);
+    Pass(CREATE_INTER_TREE) <= list({ GCOV_PARSER, PREDICT_SCHEME, INSERT_INTER_TREE });
 
     list({ FILE_LINE_INFO, BUILD_INCLUDE_DEPENDENCIES }) <= Pass(CORRECT_VAR_DECL);
 

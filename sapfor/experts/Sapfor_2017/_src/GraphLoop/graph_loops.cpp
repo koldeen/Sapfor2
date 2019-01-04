@@ -301,7 +301,7 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
         return 0;
 }
 
-void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite = true)
+void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite)
 {
     SgStatement *last = st->lastNodeOfStmt();
     for ( ; st != last; st = st->lexNext())
@@ -377,8 +377,11 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<int, double> &statisticTimes, vector<Messages> &messages)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<Interval*> &intervalTree, vector<Messages> &messages)
 {
+    map<int, Interval*> mapIntervals;
+    createMapOfinterval(mapIntervals, intervalTree);
+
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
 
@@ -448,10 +451,10 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<in
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
-                auto itTime = statisticTimes.find(newLoop->lineNum);
-                if (itTime != statisticTimes.end())
-                    newLoop->executionTimeInSec = itTime->second;
-                else if (statisticTimes.size())
+                auto itTime = mapIntervals.find(newLoop->lineNum);
+                if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
+                    newLoop->executionTimeInSec = itTime->second->exec_time;
+                else if (mapIntervals.size())
                     messages.push_back(Messages(NOTE, newLoop->lineNum, "Ñan not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);

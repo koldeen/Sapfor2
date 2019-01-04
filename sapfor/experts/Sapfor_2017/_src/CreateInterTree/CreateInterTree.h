@@ -15,13 +15,16 @@ struct Interval
     int tag = 0;
     long long calls = 0;
     bool ifInclude = true;
-    SgStatement* begin;
-    Interval* parent = NULL;
+    SgStatement *begin;
+    Interval *parent = NULL;
 
     std::vector<SgStatement*> ends;
-    std::vector<int> exit_levels;
+    std::vector<int> exit_levels;        
+    std::vector<Interval*> nested;
 
-    std::vector<Interval*> includes;
+    //from statistic after execution
+    int exec_count = 0;
+    double exec_time = 0;
 };
 
 struct FileProfile
@@ -34,3 +37,4 @@ void createInterTree(SgFile*, std::vector<Interval*>&, bool);
 void assignCallsToFile(const std::string&, std::vector<Interval*>&);
 void removeNodes(long long, std::vector<Interval*>&, std::vector<std::string>&);
 void insertIntervals(SgFile*, const std::vector<Interval*>&);
+void createMapOfinterval(std::map<int, Interval*> &mapIntervals, const std::vector<Interval*> &intervals);
