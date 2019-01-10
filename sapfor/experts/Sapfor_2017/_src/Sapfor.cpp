@@ -74,7 +74,7 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 
 #include "SapforData.h"
 
-static SgProject *project = NULL;
+SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
@@ -740,9 +740,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
-
-            if (keepFiles)
-                saveIntervals(file, getObjectForFileFromMap(file_name, intervals));
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -946,8 +943,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
         updateFuncInfo(allFuncInfo);
 
+        uniteIntervalsBetweenProcCalls(intervals, allFuncInfo);
         if (keepFiles)
+        {
             CreateFuncInfo("_funcInfo.txt", allFuncInfo);
+            saveIntervals("_intervals_united.txt", intervals);
+        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1414,32 +1415,104 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         parseTimesDvmStatisticFile((consoleMode == 1) ? string("statistic.txt") : "./visualiser_data/statistic/" + string("statistic.txt"), intervals);
     else if (curr_regime == PREDICT_SCHEME)
     {
+        int maxSizeDist = 0;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();
             const vector<int> &currentVariant = parallelRegions[z]->GetCurrentVariant();
-            DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
 
             auto &tmp = dataDirectives.distrRules;
             vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
             for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                 currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
-            map<LoopGraph*, ParallelDirective*> parallelDirs;
-            for (int i = n - 1; i >= 0; --i)
+            for (auto &elem : currentVar)
             {
-                SgFile *file = &(project.file(i));
-                current_file_id = i;
-                current_file = file;
+                DIST::Array *array = elem.first;
+                const DistrVariant *var = elem.second;
 
-                auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
-                parallelDirs.insert(fountInfo.begin(), fountInfo.end());
+                int countBlock = 0;
+                for (int z = 0; z < var->distRule.size(); ++z)
+                    if (var->distRule[z] == dist::BLOCK)
+                        ++countBlock;
+                maxSizeDist = std::max(maxSizeDist, countBlock);
             }
-            int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages);
-            if (err != 0)
-                internalExit = err;
         }
+                        
+        SpfInterval *mainIterval = getMainInterval(&project, intervals);
+        topologies.clear();
+        if (maxSizeDist)
+        {
+            const int procNum = 8;
+            topologies = getTopologies(procNum, maxSizeDist);
+
+            const int countOfTop = topologies.size();
+            if (countOfTop < 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (auto &inter : intervals)
+                initTimeForIntervalTree(countOfTop, inter.second);
+
+            for (int z = 0; z < parallelRegions.size(); ++z)
+            {
+                const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();
+                const vector<int> &currentVariant = parallelRegions[z]->GetCurrentVariant();
+                DIST::Arrays<int> &allArrays = parallelRegions[z]->GetAllArraysToModify();
+
+                auto &tmp = dataDirectives.distrRules;
+                vector<pair<DIST::Array*, const DistrVariant*>> currentVar;
+                for (int z1 = 0; z1 < currentVariant.size(); ++z1)
+                    currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
+
+                map<LoopGraph*, ParallelDirective*> parallelDirs;
+                for (int i = n - 1; i >= 0; --i)
+                {
+                    SgFile *file = &(project.file(i));
+                    current_file_id = i;
+                    current_file = file;
+
+                    auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
+                    parallelDirs.insert(fountInfo.begin(), fountInfo.end());
+                }
+                int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, maxSizeDist, procNum);
+                if (err != 0)
+                    internalExit = err;
+            }
+
+            vector<SpfInterval*> tmp = { mainIterval };
+            aggregatePredictedTimes(tmp);
+
+            int idx = 0;
+            int best = -1;
+            double bestSpeedUp = 0;
+            for (auto &top : topologies)
+            {
+                string outStr = "";
+                for (auto &elem : top)
+                    outStr += std::to_string(elem) + " ";
+                double currS = mainIterval->exec_time / mainIterval->predictedTimes[idx];
+                __spf_print(1, "%d: speed up %f for top. %s\n", idx, currS, outStr.c_str());
+                
+                if (best == -1 || bestSpeedUp < currS)
+                {
+                    bestSpeedUp = currS;
+                    best = idx;
+                }
+                ++idx;
+            }
+            __spf_print(1, "best topology %d with speed up %f\n", best, bestSpeedUp);
+        }
+        else
+            for (auto &inter : intervals)
+                initTimeForIntervalTree(0, inter.second);
+
     }
+    else if (curr_regime == CREATE_INTER_TREE)
+    {
+        if (keepFiles)
+            saveIntervals("_intervals.txt", intervals);
+    }
+
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
     __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
@@ -1632,7 +1705,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 
-            if (!folderName && !consoleMode)
+            if (!folderName && !consoleMode || predictOn)
                 runAnalysis(*project, PREDICT_SCHEME, false);
 
             if (folderName || consoleMode)
@@ -1825,6 +1898,8 @@ int main(int argc, char **argv)
                     staticPrivateAnalysis = 1;
                 else if (string(curr_arg) == "-keep")
                     keepFiles = 1;
+                else if (string(curr_arg) == "-pred")
+                    predictOn = 1;
                 else if (string(curr_arg) == "-keepSPF")
                     keepSpfDirs = 1;
                 else if (string(curr_arg) == "-keepDVM")
@@ -1846,7 +1921,7 @@ int main(int argc, char **argv)
                     folderName = argv[i];
                 }
                 else if (string(curr_arg) == "-print")
-                    printText = true;
+                    printText = true;                
                 else if (string(curr_arg) == "-useDvm")
                     ignoreDvmChecker = 1;
                 else if (string(curr_arg) == "-passTree")

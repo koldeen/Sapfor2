@@ -455,7 +455,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time;
                 else if (mapIntervals.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Ñan not find execution time in statistic", 3016));                
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Can not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

@@ -32,7 +32,7 @@ LoopBlock** ProcBlock;
 long *s,*n,x,y,z,LoopSZ;
 int *p,*dmax,*conv_beg,*conv_end,add,first;
 double time_c,time_x,call_time;
-int mode=1 ;  //now mode=0 (no print)    //was mode==0 (only global), 1(global+approach), 2(only approach), 3(global+aproach+no_print)
+int mode=0 ;  //now mode=0 (no print)    //was mode==0 (only global), 1(global+approach), 2(only approach), 3(global+aproach+no_print)
 int full_mode=0; //full_mode==0(as old dvm), 1(max_rank-pipeline calc(full search the best)) 2(different order of cycles for find the best in full search)
 
 int *pip,mult,*mult_is,*mm,rank_mas,max_rank=4; //максимальный ранк моделируемого конвейера

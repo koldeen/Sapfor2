@@ -13,9 +13,10 @@
 struct SpfInterval
 {
     int tag = 0;
-    long long calls = 0;
+    long long calls_count = 0;
     bool ifInclude = true;
     SgStatement *begin;
+    std::pair<int, std::string> lineFile;
     SpfInterval *parent = NULL;
 
     std::vector<SgStatement*> ends;
@@ -25,6 +26,23 @@ struct SpfInterval
     //from statistic after execution
     int exec_count = 0;
     double exec_time = 0;
+    std::vector<double> predictedTimes;
+
+    int getBestTimeIdx()
+    {
+        int idx = -1;
+        double best = 0;
+        for (int z = 0; z < predictedTimes.size(); ++z)
+        {
+            if (idx == -1 || best > predictedTimes[z])
+            {
+                best = predictedTimes[z];
+                idx = z;
+            }
+        }
+
+        return idx;
+    }
 };
 
 struct FileProfile
@@ -32,9 +50,13 @@ struct FileProfile
     std::map<int, long long> profile;
 };
 
-void saveIntervals(SgFile*, std::vector<SpfInterval*>&);
+void saveIntervals(const std::string &fileName, std::map<std::string, std::vector<SpfInterval*>> &intervals);
 void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool);
 void assignCallsToFile(const std::string&, std::vector<SpfInterval*>&);
 void removeNodes(long long, std::vector<SpfInterval*>&, std::vector<std::string>&);
 void insertIntervals(SgFile*, const std::vector<SpfInterval*>&);
 void createMapOfinterval(std::map<int, SpfInterval*> &mapIntervals, const std::vector<SpfInterval*> &intervals);
+void initTimeForIntervalTree(const int numOfTopologies, std::vector<SpfInterval*> &intervals);
+void aggregatePredictedTimes(std::vector<SpfInterval*> &itervals);
+SpfInterval* getMainInterval(SgProject *project, const std::map<std::string, std::vector<SpfInterval*>> &intervals);
+void uniteIntervalsBetweenProcCalls(std::map<std::string, std::vector<SpfInterval*>> &intervals, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);

@@ -1695,8 +1695,11 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             SgExpression* lh = new SgVarRefExp(fst->symbol());
             SgStatement* fa = new SgAssignStmt(*lh, *fst->start());
             bool needs_goto = true;
+#if !__SPF
+            // create goto edge if can not calculate count of loop's iterations
             if (fst->start()->variant() == INT_VAL && fst->end()->variant() == INT_VAL && fst->start()->valueInteger() < fst->end()->valueInteger())
                 needs_goto = false;
+#endif
             //fa->setLabel(*(*stmt)->label());
             ControlFlowItem* last;
             ControlFlowItem* emptyAfterDo = new ControlFlowItem(currentProcedure);

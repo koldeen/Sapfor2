@@ -401,5 +401,8 @@ struct associate_align
 };
 
 int predictScheme(ParallelRegion *reg, const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distVar, 
-                   const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict,
-                   const std::map<std::string, std::vector<SpfInterval*>> &intervals, std::map<std::string, std::vector<Messages>> &messagesByFile);
+                  const std::set<DIST::Array*> &allArrays, const std::map<LoopGraph*, ParallelDirective*> &dirsToPredict,
+                  std::map<std::string, std::vector<SpfInterval*>> &intervals, std::map<std::string, std::vector<Messages>> &messagesByFile, 
+                  const int maxSizeDist, const int procNum);
+
+std::vector<std::vector<long>> getTopologies(const int procNum, const int maxSizeDist);

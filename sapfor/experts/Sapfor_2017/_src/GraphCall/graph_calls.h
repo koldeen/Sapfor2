@@ -91,7 +91,7 @@ struct FuncInfo
 
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
-    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL
+    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // <pointer, SG_VAR> SgStatement for PROC_STAT and SgExpression for FUNC_CALL
     std::vector<FuncParam> actualParams;
     std::map<std::string, std::set<std::string>> commonBlocks;
 

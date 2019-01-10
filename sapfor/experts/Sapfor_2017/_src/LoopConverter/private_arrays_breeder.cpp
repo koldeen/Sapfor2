@@ -426,7 +426,7 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
             __spf_printToBuf(str, "Can not do PRIVATE EXPANSION for this loop - privates not found");
 
             messages.push_back(Messages(NOTE, loop->lineNum, str, 2008));
-            __spf_print(1, "%s on line ", str.c_str(), loop->lineNum);
+            __spf_print(1, "%s on line %d", str.c_str(), loop->lineNum);
             return -1;
         }
         else
@@ -454,5 +454,7 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
             }
             return 0;
         }
-    }   
+    }
+
+    return 0;
 }

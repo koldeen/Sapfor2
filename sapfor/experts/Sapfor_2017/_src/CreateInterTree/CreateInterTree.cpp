@@ -1,4 +1,6 @@
 #include "CreateInterTree.h"
+#include "../Utils/SgUtils.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::string;
 using std::vector;
@@ -14,16 +16,15 @@ static long int getNextTag()
 }
 
 //Debug funcs
-static void printTree(SpfInterval* inter, fstream& file, int level)
+static void printTree(SpfInterval* inter, fstream &file, int level)
 {
     if (!(inter->ifInclude))
         return;
 
     for (int i = 0; i < level; i++)
-        file << " ";
-    file << "interNum " << inter->tag << ", ";
-    file << "Begin (var " << tag[inter->begin->variant()] << ", calls " << inter->calls << ") ";
-    file << "line number " << inter->begin->lineNumber() << endl;
+        file << "  ";
+    file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()] << ", gcov_calls " << inter->calls_count << ") ";
+    file << " [" << inter->lineFile.first << ", " << inter->lineFile.second << "]\n";
 
 
     for (int i = 0; i < inter->nested.size(); i++)
@@ -32,23 +33,25 @@ static void printTree(SpfInterval* inter, fstream& file, int level)
     for (int i = 0; i < inter->ends.size(); i++)
     {
         for (int i = 0; i < level; i++)
-            file << " ";
-        file << "interNum " << inter->tag << ", ";
-        file << "End (exit lvl " << inter->exit_levels[i] << ", var " << tag[inter->ends[i]->variant()] << ") ";
-        file << "line number " << inter->ends[i]->lineNumber() << endl;
+            file << "  ";
+        file << "  End INTERVAL #" << inter->tag << " (exit lvl " << inter->exit_levels[i] << ", var " << tag[inter->ends[i]->variant()] << ") ";
+        file << "line " << inter->ends[i]->lineNumber() << endl;
     }
+    if (level == 0)
+        file << endl;
 }
 
-void saveIntervals(SgFile *file, vector<SpfInterval*> &fileIntervals)
+void saveIntervals(const string &fileName, map<string, vector<SpfInterval*>> &intervals)
 {
     fstream file_intervals;
 
-    string filename = file->filename();
-    filename += ".intervals.txt";
-
-    file_intervals.open(filename, fstream::out);
-    for (auto &interval : fileIntervals)
-        printTree(interval, file_intervals, 0);
+    file_intervals.open(fileName, fstream::out);
+    for (auto &byfile : intervals)
+    {
+        file_intervals << "**** INTERVALS FOR FILE '" << byfile.first << "'\n";
+        for (auto &interval : byfile.second)
+            printTree(interval, file_intervals, 0);
+    }
     file_intervals.close();
 }
 
@@ -93,12 +96,12 @@ static int getNestedLevel(SgStatement* loop_stmt)
     return depth;
 }
 
-static void removeNestedIntervals(SpfInterval* interval)
+static void removeNestedIntervals(SpfInterval *interval)
 {
     if (isSgForStmt(interval->begin))
     {
         int depth = getNestedLevel(interval->begin);
-        SpfInterval* current_interval = interval;
+        SpfInterval *current_interval = interval;
 
         for (int i = 0; i < depth; i++)
         {
@@ -112,7 +115,7 @@ static void removeNestedIntervals(SpfInterval* interval)
 }
 
 //Tree creation funcs
-static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement* &currentSt, int level)
+static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt, int level)
 {
     int currentVar;
 
@@ -159,6 +162,7 @@ static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<i
 
         SpfInterval* inter = new SpfInterval();
         inter->begin = currentSt;
+        inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
         inter->parent = interval;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->exit_levels.push_back(0);
@@ -182,15 +186,16 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         matchGotoLabels(file->functions(i), gotoStmts);
         //
 
-        SpfInterval* func_inters = new SpfInterval();
+        SpfInterval *func_inters = new SpfInterval();
 
         func_inters->begin = file->functions(i);
+        func_inters->lineFile = std::make_pair(file->functions(i)->lineNumber(), file->functions(i)->fileName());
         func_inters->tag = getNextTag();
 
         func_inters->ends.push_back(func_inters->begin->lastNodeOfStmt());
         func_inters->exit_levels.push_back(0);
 
-        SgStatement* currentSt = func_inters->begin;
+        SgStatement *currentSt = func_inters->begin;
         findIntervals(func_inters, labelsRef, gotoStmts, currentSt, 1);
 
         fileIntervals.push_back(func_inters);
@@ -320,7 +325,7 @@ static void assignRec(SpfInterval* inter, FileProfile &fp)
     for (int i = 0; i < inter->nested.size(); i++)
         assignRec(inter->nested[i], fp);
 
-    inter->calls = fp.profile[inter->begin->lineNumber()];
+    inter->calls_count = fp.profile[inter->begin->lineNumber()];
 }
 
 void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &intervals)
@@ -342,7 +347,7 @@ void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &interva
 //Deleting intervals funcs
 static void removeNode(SpfInterval* inter, long long threshold)
 {
-    if (inter->calls > threshold)
+    if (inter->calls_count > threshold)
         inter->ifInclude = false;
 
     for (int i = 0; i < inter->nested.size(); i++)
@@ -369,8 +374,151 @@ void createMapOfinterval(map<int, SpfInterval*> &mapIntervals, const vector<SpfI
     {
         auto it = mapIntervals.find(inter->begin->lineNumber());
         if (it != mapIntervals.end())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            continue;
         mapIntervals[inter->begin->lineNumber()] = inter;
         createMapOfinterval(mapIntervals, inter->nested);
     }    
+}
+
+void initTimeForIntervalTree(const int numOfTopologies, vector<SpfInterval*> &intervals)
+{
+    for (auto &inter : intervals)
+    {
+        inter->predictedTimes.resize(numOfTopologies);
+        std::fill(inter->predictedTimes.begin(), inter->predictedTimes.end(), inter->exec_time);
+        initTimeForIntervalTree(numOfTopologies, inter->nested);
+    }
+}
+
+void aggregatePredictedTimes(vector<SpfInterval*> &itervals)
+{
+    for (auto &interval : itervals)
+    {
+        if (interval->nested.size())
+            aggregatePredictedTimes(interval->nested);
+
+        for (int topo = 0; topo < interval->predictedTimes.size(); ++topo)
+        {
+            double newTimeSum = 0;
+            for (auto &nestedI : interval->nested)
+                newTimeSum += nestedI->predictedTimes[topo];
+            if (interval->predictedTimes[topo] == interval->exec_time)
+                interval->predictedTimes[topo] = newTimeSum;
+        }
+    }
+}
+
+SpfInterval* getMainInterval(SgProject *project, const map<string, vector<SpfInterval*>> &intervals)
+{
+    SgStatement *mainUnit = findMainUnit(project);
+    SpfInterval *mainIterval = NULL;
+    checkNull(mainUnit, convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto itMainVec = intervals.find(mainUnit->fileName());
+    if (itMainVec == intervals.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (itMainVec->second.size() == 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else if (itMainVec->second.size() > 1)
+    {
+        for (auto &elem : itMainVec->second)
+            if (elem->begin->variant() == PROG_HEDR)
+                mainIterval = elem;
+        checkNull(mainIterval, convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    else
+        mainIterval = itMainVec->second[0];
+
+    return mainIterval;
+}
+
+static SpfInterval* findNearest(const map<SgStatement*, SpfInterval*> &intervals, SgStatement *st)
+{
+    SpfInterval *found = NULL;
+
+    while (st)
+    {
+        auto it = intervals.find(st);
+        if (it != intervals.end())
+        {
+            found = it->second;
+            break;
+        }
+        else
+            st = st->controlParent();
+    }
+    checkNull(found, convertFileName(__FILE__).c_str(), __LINE__);
+    return found;
+}
+
+static FuncInfo* getFunc(const string &name, const map<string, FuncInfo*> &allFuncs)
+{
+    auto it = allFuncs.find(name);
+    if (allFuncs.end() == it)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    return it->second;
+}
+
+void uniteIntervalsBetweenProcCalls(map<string, vector<SpfInterval*>> &intervals, const map<string, vector<FuncInfo*>> &allFuncInfo)
+{
+    map<string, map<SgStatement*, SpfInterval*>> intervalsBySt;
+    for (auto &byFile : intervals)
+        for (auto &interval : byFile.second)
+            intervalsBySt[byFile.first][interval->begin] = interval;
+
+    map<string, FuncInfo*> allFuncs;
+    createMapOfFunc(allFuncInfo, allFuncs);
+
+    for (auto &byFile : intervals)
+    {
+        for (auto &intvl : byFile.second)
+        {
+            if (intvl->begin->variant() != PROG_HEDR)
+            {
+                if (!intvl->begin->switchToFile())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                const string name = intvl->begin->symbol()->identifier();
+                auto currF = getFunc(name, allFuncs);
+                for (auto &callsTo : currF->callsTo)
+                {
+                    if (SgFile::switchToFile(callsTo->fileName) == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    for (auto &callsFrom : callsTo->pointerDetailCallsFrom)
+                    {
+                        SgStatement *base = NULL;
+                        if (callsFrom.second == PROC_STAT)
+                        {
+                            base = (SgStatement*)callsFrom.first;
+                            if (base->symbol()->identifier() != name)
+                                base = NULL;
+                        }
+                        else if (callsFrom.second == FUNC_CALL)
+                        {
+                            SgExpression *ex = (SgExpression*)callsFrom.first;
+                            if (ex->symbol()->identifier() == name)
+                                base = SgStatement::getStatmentByExpression(ex);
+                        }
+
+                        if (base == NULL)
+                            continue;
+                        else
+                        {
+                            auto itI = intervalsBySt.find(callsTo->fileName);
+                            if (itI == intervalsBySt.end())
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            auto nearest = findNearest(itI->second, base);
+                            bool inV = false;
+                            for (auto &elem : nearest->nested)
+                                if (elem == intvl)
+                                    inV = true;
+                            if (inV == false)
+                                nearest->nested.push_back(intvl);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

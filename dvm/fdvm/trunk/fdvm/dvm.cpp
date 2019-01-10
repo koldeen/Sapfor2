@@ -76,6 +76,7 @@ extern SgStatement *parallel_dir;
 extern int iacross;
 
 extern "C" int out_free_form;
+extern "C" int out_upper_case;
 extern "C" PTR_SYMB last_file_symbol;
 
 Options options;
@@ -251,6 +252,8 @@ int main(int argc, char *argv[]){
             options.setOn(RTC);  //for NVRTC compilation and execution
         else if (!strcmp(argv[0], "-ffo"))
             out_free_form = 1;
+        else if (!strcmp(argv[0], "-upcase"))
+            out_upper_case = 1;
         else if (!strcmp(argv[0], "-lgstd"))
         {
             (void)fprintf(stderr, "Illegal option -lgstd \n");
