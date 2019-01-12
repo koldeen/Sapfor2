@@ -2599,7 +2599,7 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
                 CurrInterval->CalcIdleAndImbalance();
                 CurrInterval->Integrate();
 
-                itInterval->second->predictedTimes[topIdx] = CurrInterval->GetExecTime();
+                itInterval->second->predictedTimes[topIdx] = CurrInterval->GetExecTime() * itInterval->second->exec_count;
             }
             //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());
             delete CurrInterval;

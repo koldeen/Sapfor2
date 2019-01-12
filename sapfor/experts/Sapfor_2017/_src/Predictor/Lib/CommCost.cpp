@@ -29,14 +29,17 @@ void calculate();
 
 double	TStart, TByte;
 LoopBlock** ProcBlock;
-long *s,*n,x,y,z,LoopSZ;
-int *p,*dmax,*conv_beg,*conv_end,add,first;
+vector<long> s, n;
+long x, y, z, LoopSZ;
+vector<int> p, dmax, conv_beg, conv_end;
+int add, first;
 double time_c,time_x,call_time;
-int mode=0 ;  //now mode=0 (no print)    //was mode==0 (only global), 1(global+approach), 2(only approach), 3(global+aproach+no_print)
+int mode=0;  //now mode=0 (no print)    //was mode==0 (only global), 1(global+approach), 2(only approach), 3(global+aproach+no_print)
 int full_mode=0; //full_mode==0(as old dvm), 1(max_rank-pipeline calc(full search the best)) 2(different order of cycles for find the best in full search)
 
-int *pip,mult,*mult_is,*mm,rank_mas,max_rank=4; //максимальный ранк моделируемого конвейера
-int *ord; //порядок запуска циклов
+vector<int> pip, mult_is, mm;
+int mult,rank_mas,max_rank=4; //максимальный ранк моделируемого конвейера
+vector<int> ord; //порядок запуска циклов
 int invers[10]; // 10 par loop inside each other
 //=***
 
@@ -656,899 +659,966 @@ void calculate_all_pipes()
 
 
 void calculate()
-{ int i,j,d,k;
-  float cur,cur_beg;
-	float **comm;
-  long *prev,*b,*post;
+{
+    int i, j, d, k;
+    float cur, cur_beg;
+    float **comm;
+    vector<long> prev, b, post;
 
-//mode=0;
-		
-//ord[0]=1; ord[1]=0; ord[2]=2; ord[3]=3; 
-//s[0]=1; s[1]=11; s[2]=1; s[3]=1;
+    //mode=0;
 
-  prev=(long *)malloc(max_rank*sizeof(long));
-  post=(long *)malloc(max_rank*sizeof(long));
-  n=(long *)malloc(max_rank*sizeof(long));
-  b=(long *)malloc(max_rank*sizeof(long));
-	
-	comm=(float **)malloc(MPSProcCount()*sizeof(float *));
-	for(i=0;i<MPSProcCount();i++)
-    if(ProcBlock[i]->GetRank())
-		  comm[i]=(float *)malloc(max_rank*sizeof(float));
+    //ord[0]=1; ord[1]=0; ord[2]=2; ord[3]=3; 
+    //s[0]=1; s[1]=11; s[2]=1; s[3]=1;
 
-//printf("Step %d %d %d\n",mstep(0,0),mstep(0,1),mstep(0,2));
-//printf("Invers %d %d %d\n",invers[0],invers[1],invers[2]);
+    prev.resize(max_rank);
+    post.resize(max_rank);
+    n.resize(max_rank);
+    b.resize(max_rank);
+    //prev = (long *)malloc(max_rank * sizeof(long));
+    //post = (long *)malloc(max_rank * sizeof(long));
+    //n = (long *)malloc(max_rank * sizeof(long));
+    //b = (long *)malloc(max_rank * sizeof(long));
 
-	if(rank_mas>=2) //was 3
-	{
-		float *****a,m,mwait,*com;
-		float **prev_comm, sz[4][4][4][4]; //max_rank=4; хранит размеры блоков текущего процессора
-		float beg,step,last;
-		int ind_beg; 
-		double time_beg;
-		double last_real_comm, real_comm;
+    comm = (float **)malloc(MPSProcCount() * sizeof(float *));
+    for (i = 0; i < MPSProcCount(); i++)
+        if (ProcBlock[i]->GetRank())
+            comm[i] = (float *)malloc(max_rank * sizeof(float));
 
-		int pip_ord[4]; //для корректного вычисления prev и post
+    //printf("Step %d %d %d\n",mstep(0,0),mstep(0,1),mstep(0,2));
+    //printf("Invers %d %d %d\n",invers[0],invers[1],invers[2]);
 
-		com=(float *)malloc(MPSProcCount()*sizeof(float));
+    if (rank_mas >= 2) //was 3
+    {
+        float *****a, m, mwait, *com;
+        float **prev_comm, sz[4][4][4][4]; //max_rank=4; хранит размеры блоков текущего процессора
+        float beg, step, last;
+        int ind_beg;
+        double time_beg;
+        double last_real_comm, real_comm;
 
+        int pip_ord[4]; //для корректного вычисления prev и post
 
-		prev_comm=(float **)malloc(max_rank*sizeof(float *));
-		for(i=0;i<rank_mas;i++)
-		  prev_comm[i]=(float *)malloc(rank_mas*sizeof(float));
-
-		//почему 4: 1-2-3=начало а по 2-3 можно спрогнозировать конец=4
-		a=(float *****)malloc(MPSProcCount()*sizeof(float ****));
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				a[i]=(float ****)malloc(4*sizeof(float ***));
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-					a[i][n[0]]=(float ***)malloc(4*sizeof(float **));
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-				for(n[1]=0;n[1]<4;n[1]++)
-					a[i][n[0]][n[1]]=(float **)malloc(4*sizeof(float *));
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-				for(n[1]=0;n[1]<4;n[1]++)
-				for(n[2]=0;n[2]<4;n[2]++)
-					a[i][n[0]][n[1]][n[2]]=(float *)malloc(4*sizeof(float));
-
-//		printf("ms %d %d %d \n",bsize(0,0,s[0]),bsize(0,1,s[1]),bsize(0,2,s[2]));
-//	printf("ALL=%d\n",LoopSZ);
-	if(call_time/LoopSZ>0.0000000001 && mode) printf("Send/Exec=%.f\n",(TStart+TByte)/(call_time/LoopSZ));
-
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<min(4,bsize(i,ord[0],s[ord[0]]));n[0]++)
-				for(n[1]=0;n[1]<min(4,bsize(i,ord[1],s[ord[1]]));n[1]++)
-				for(n[2]=0;n[2]<min(4,bsize(i,ord[2],s[ord[2]]));n[2]++)
-				for(n[3]=0;n[3]<min(4,bsize(i,ord[3],s[ord[3]]));n[3]++)
-				{ a[i][n[0]][n[1]][n[2]][n[3]]=1;
-				  for(j=0;j<4;j++)
-						if(n[j]<min(3,bsize(i,ord[j],s[ord[j]])-1)) a[i][n[0]][n[1]][n[2]][n[3]]*=s[j];
-							else a[i][n[0]][n[1]][n[2]][n[3]]*=(msize(i,j)%s[j])?msize(i,j)%s[j]:s[j];
-//			  printf("%d-%d-%d-%d-%d=%.f\n",i,n[0],n[1],n[2],n[3],a[i][n[0]][n[1]][n[2]][n[3]]);
-				}
-
-		for(i=0;i<MPSProcCount();i++) 
-		{ com[i]=0;
-			if(ProcBlock[i]->GetRank())
-				for(k=0;k<max_rank;k++) 
-					comm[i][k]=0;
-		}
+        com = (float *)malloc(MPSProcCount() * sizeof(float));
 
 
-		//==== предварительный обсчет
-		
-	for(i=0,time_c=0;i<max_rank;i++)
-	{	for(k=0;k<max_rank;k++)
-			n[k]=ord[(i+k)%max_rank];
-		for(k=1,m=pip[n[0]]-1;k<max_rank;k++)
-		  m*=pip[n[k]];
+        prev_comm = (float **)malloc(max_rank * sizeof(float *));
+        for (i = 0; i < rank_mas; i++)
+            prev_comm[i] = (float *)malloc(rank_mas * sizeof(float));
 
-		if(m) time_c+=m*calc_comm(1);
-	}
-  if(mode) printf("Communication::time_c=%.10f\n",time_c);
+        //почему 4: 1-2-3=начало а по 2-3 можно спрогнозировать конец=4
+        a = (float *****)malloc(MPSProcCount() * sizeof(float ****));
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                a[i] = (float ****)malloc(4 * sizeof(float ***));
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    a[i][n[0]] = (float ***)malloc(4 * sizeof(float **));
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    for (n[1] = 0; n[1] < 4; n[1]++)
+                        a[i][n[0]][n[1]] = (float **)malloc(4 * sizeof(float *));
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    for (n[1] = 0; n[1] < 4; n[1]++)
+                        for (n[2] = 0; n[2] < 4; n[2]++)
+                            a[i][n[0]][n[1]][n[2]] = (float *)malloc(4 * sizeof(float));
 
-	for(i=0,m=0;i<MPSProcCount();i++)
-    if(ProcBlock[i]->GetRank()) m++;
+        //		printf("ms %d %d %d \n",bsize(0,0,s[0]),bsize(0,1,s[1]),bsize(0,2,s[2]));
+        //	printf("ALL=%d\n",LoopSZ);
+        if (call_time / LoopSZ > 0.0000000001 && mode) printf("Send/Exec=%.f\n", (TStart + TByte) / (call_time / LoopSZ));
 
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < min(4, bsize(i, ord[0], s[ord[0]])); n[0]++)
+                    for (n[1] = 0; n[1] < min(4, bsize(i, ord[1], s[ord[1]])); n[1]++)
+                        for (n[2] = 0; n[2] < min(4, bsize(i, ord[2], s[ord[2]])); n[2]++)
+                            for (n[3] = 0; n[3] < min(4, bsize(i, ord[3], s[ord[3]])); n[3]++)
+                            {
+                                a[i][n[0]][n[1]][n[2]][n[3]] = 1;
+                                for (j = 0; j < 4; j++)
+                                    if (n[j] < min(3, bsize(i, ord[j], s[ord[j]]) - 1)) a[i][n[0]][n[1]][n[2]][n[3]] *= s[j];
+                                    else a[i][n[0]][n[1]][n[2]][n[3]] *= (msize(i, j) % s[j]) ? msize(i, j) % s[j] : s[j];
+                                //			  printf("%d-%d-%d-%d-%d=%.f\n",i,n[0],n[1],n[2],n[3],a[i][n[0]][n[1]][n[2]][n[3]]);
+                            }
 
-
-
-//printf("Time_comm=%f\n",time_c);
-//	printf("wanna insuff %f ->> %f - %f  comm=%f\n",call_time, cur*call_time/LoopSZ, call_time/m, time_c);
-	if(add)
-	{
-//		AddMPSTime(__Wait_shadow, time_c/m);
-//		AddMPSTime(__CPU_time_usr, call_time/LoopSZ);
-//		AddMPSTime(__CPU_time_usr, call_time/(m*mult));
-//		AddMPSTime(__Insuff_parall_sys, (cur*call_time/LoopSZ-call_time/m)/mult-time_c/m);
-//		AddMPSTime(__CPU_time_sys, cur*call_time/LoopSZ-call_time/m);
-	}
-
-
-		//=*** возможно это не точно но примерно верно рассчитывается объем вычислений и передач, а далее очень точно вычисляется когда закончится общее выполнение
-
-		ind_beg=-1;
-		for_calc(n,0,conv_beg[0],conv_end[0]) //n[0] пробегает 1 измерение процов конвейера в порядке для вычисления блоков конвейера
-		for_calc(n,1,conv_beg[1],conv_end[1]) //n[1] пробегает 2 измерение процов конвейера ...
-		for_calc(n,2,conv_beg[2],conv_end[2]) //n[2] пробегает 3 измерение процов конвейера ...
-		for_calc(n,3,conv_beg[3],conv_end[3]) //n[3] пробегает 4 измерение процов конвейера ...
-		{
-			//only comment	i=n[0]*p[1]*p[2]+n[1]*p[2]+n[2]; only comment
-			for(k=0,i=0;k<rank_mas;k++)
-			{
-			  for(j=k+1,d=1;j<rank_mas;j++)
- 				  d*=p[j];
-				i+=n[k]*d;
-			}
-
-			if(add)
-			{
-				for(j=0,cur=1;j<max_rank;j++)
-					cur*=msize(i,j);
-
-//				printf("proc[%d] cpu+=%f\n",i,cur*call_time/LoopSZ);
-				AddTime(__CPU_time_usr, i, cur*call_time/LoopSZ);
-				if(add==2) AddTime(__Insuff_parall_usr, i, cur*call_time/LoopSZ);
-
-			}
+        for (i = 0; i < MPSProcCount(); i++)
+        {
+            com[i] = 0;
+            if (ProcBlock[i]->GetRank())
+                for (k = 0; k < max_rank; k++)
+                    comm[i][k] = 0;
+        }
 
 
-		  if(ProcBlock[i]->GetRank()) 
-		  {
-				for(k=0;k<rank_mas;k++)
-				{ 
-					for(j=k+1,d=1;j<rank_mas;j++)
-						d*=p[j];
-				//надо prev == -1 если нет пред. процессора для него по этому измерению, кот. надо ждать
-					if(invers[k]) 
-						if(n[k]!=conv_end[k]/*pip[k]-1*/ && i+d<MPSProcCount() && ProcBlock[i+d]->GetRank()) prev[k]=i+d;
-						else prev[k]=-1;
-					else 
-						if(n[k]!=conv_beg[k]/*0*/ && i-d>=0 && ProcBlock[i-d]->GetRank()) prev[k]=i-d;
-						else prev[k]=-1;
+        //==== предварительный обсчет
 
-					if(!invers[k]) 
-						if(n[k]!=conv_end[k]/*pip[k]-1*/ && i+d<MPSProcCount() && ProcBlock[i+d]->GetRank()) post[k]=i+d;
-						else post[k]=-1;
-					else 
-						if(n[k]!=conv_beg[k]/*0*/ && i-d>=0 && ProcBlock[i-d]->GetRank()) post[k]=i-d;
-						else post[k]=-1;
-				}
-				
+        for (i = 0, time_c = 0; i < max_rank; i++)
+        {
+            for (k = 0; k < max_rank; k++)
+                n[k] = ord[(i + k) % max_rank];
+            for (k = 1, m = pip[n[0]] - 1; k < max_rank; k++)
+                m *= pip[n[k]];
 
-				if(ind_beg==-1)
-				{ 
-//					int tmp_shd_wid[4];
+            if (m) time_c += m * calc_comm(1);
+        }
+        if (mode) printf("Communication::time_c=%.10f\n", time_c);
 
-					for(k=0;k<max_rank;k++)
-					{
-//						tmp_shd_wid[k]=ShdWid[k];
-//						ShdWid[k]=0;
-						pip_ord[k]=-1;
-					}
-
-					for(k=0,d=1;k<rank_mas;k++)
-					{
-						if(post[k]!=-1)	
-							for(j=0;j<rank_mas;j++)
-								if(mbeg(i,j)!=mbeg(post[k],j) || mend(i,j)!=mend(post[k],j))
-								{ //ShdWid[k]=tmp_shd_wid[j];
-									pip_ord[k]=j;
-								}
-					}
-				}
-			if(mode) {printf("PIPE ORDER [ProcDim -> ArrDim]"); {for(k=0;k<max_rank;k++)if(pip_ord[k]!=-1)printf("  %d -> %d   ",k,pip_ord[k]);}	printf("\n"); }
-
-			{ int old_prev[4],old_post[4];
-				for(k=0;k<max_rank;k++)
-				{
-					old_prev[k]=prev[k];
-					old_post[k]=post[k];
-					prev[k]=-1;
-					post[k]=-1;
-				}
-				for(k=0;k<max_rank;k++)
-				{
-					if(pip_ord[k]!=-1)
-					{ prev[pip_ord[k]]=old_prev[k];
-						post[pip_ord[k]]=old_post[k];
-					}
-				}
-
-			}
-
-			if(mode) printf("WasPrev %2d= %2d %2d %2d\n",i,prev[0],prev[1],prev[2]);
-			if(mode) printf("WasPost %2d= %2d %2d %2d\n",i,post[0],post[1],post[2]);
-			if(mode) printf("ShdWid  %2d= %2d %2d %2d\n",i,ShdWid[0],ShdWid[1],ShdWid[2]);
-
-			if(ind_beg==-1) {ind_beg=i; time_beg=CurrProcTime(ind_beg);}
-
-			/*
-			for(k=0;k<4;k++)
-				if(mm[k]==1) 
-				{
-					for(j=3;j>k;j--)
-					{
-						prev[j]=prev[j-1];
-						post[j]=post[j-1];
-					}
-					prev[k]=-1;
-					post[k]=-1;
-				}
-			if(mode) printf("WillPrev %2d= %2d %2d %2d\n",i,prev[0],prev[1],prev[2]);
-			if(mode) printf("WillPost %2d= %2d %2d %2d\n",i,post[0],post[1],post[2]);
-*/
-//			printf("LZ=%f\n",call_time/LoopSZ*1000000);
+        for (i = 0, m = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank()) m++;
 
 
-//printf("proc[%d] time=%f beg=%f cur_beg=%.f\n",i,CurrProcTime(i),time_beg,(CurrProcTime(i)-time_beg)*LoopSZ/call_time);
 
 
-//				for(j=0;j<max_rank;j++)  prev_size[j]=0;
+        //printf("Time_comm=%f\n",time_c);
+        //	printf("wanna insuff %f ->> %f - %f  comm=%f\n",call_time, cur*call_time/LoopSZ, call_time/m, time_c);
+        if (add)
+        {
+            //		AddMPSTime(__Wait_shadow, time_c/m);
+            //		AddMPSTime(__CPU_time_usr, call_time/LoopSZ);
+            //		AddMPSTime(__CPU_time_usr, call_time/(m*mult));
+            //		AddMPSTime(__Insuff_parall_sys, (cur*call_time/LoopSZ-call_time/m)/mult-time_c/m);
+            //		AddMPSTime(__CPU_time_sys, cur*call_time/LoopSZ-call_time/m);
+        }
 
-//				cur=0; //так было
-				cur=(CurrProcTime(i)-time_beg)*LoopSZ/call_time; //возможно и отрицательный но потом после первой передачи все встанет на свои места
-				cur_beg=cur;
-				real_comm=0; last_real_comm=0;
-				d=0;
-				// макрос 'aа' заменяет (с+1)-тый индекс в выражении a[prev][b[0]][b[1]][b[2]][b[3]] на индекс 'p'
-				#define a_change(prev,c,p) ((c==0)?a[prev][p][b[1]][b[2]][b[3]]:(c==1)?a[prev][b[0]][p][b[2]][b[3]]:(c==2)?a[prev][b[0]][b[1]][p][b[3]]:a[prev][b[0]][b[1]][b[2]][p])
-				#define a_b(i) a[i][b[0]][b[1]][b[2]][b[3]]
+
+        //=*** возможно это не точно но примерно верно рассчитывается объем вычислений и передач, а далее очень точно вычисляется когда закончится общее выполнение
+
+        ind_beg = -1;
+        for_calc(n, 0, conv_beg[0], conv_end[0]) //n[0] пробегает 1 измерение процов конвейера в порядке для вычисления блоков конвейера
+            for_calc(n, 1, conv_beg[1], conv_end[1]) //n[1] пробегает 2 измерение процов конвейера ...
+            for_calc(n, 2, conv_beg[2], conv_end[2]) //n[2] пробегает 3 измерение процов конвейера ...
+            for_calc(n, 3, conv_beg[3], conv_end[3]) //n[3] пробегает 4 измерение процов конвейера ...
+        {
+            //only comment	i=n[0]*p[1]*p[2]+n[1]*p[2]+n[2]; only comment
+            for (k = 0, i = 0; k < rank_mas; k++)
+            {
+                for (j = k + 1, d = 1; j < rank_mas; j++)
+                    d *= p[j];
+                i += n[k] * d;
+            }
+
+            if (add)
+            {
+                for (j = 0, cur = 1; j < max_rank; j++)
+                    cur *= msize(i, j);
+
+                //				printf("proc[%d] cpu+=%f\n",i,cur*call_time/LoopSZ);
+                AddTime(__CPU_time_usr, i, cur*call_time / LoopSZ);
+                if (add == 2) AddTime(__Insuff_parall_usr, i, cur*call_time / LoopSZ);
+
+            }
+
+
+            if (ProcBlock[i]->GetRank())
+            {
+                for (k = 0; k < rank_mas; k++)
+                {
+                    for (j = k + 1, d = 1; j < rank_mas; j++)
+                        d *= p[j];
+                    //надо prev == -1 если нет пред. процессора для него по этому измерению, кот. надо ждать
+                    if (invers[k])
+                        if (n[k] != conv_end[k]/*pip[k]-1*/ && i + d < MPSProcCount() && ProcBlock[i + d]->GetRank()) prev[k] = i + d;
+                        else prev[k] = -1;
+                    else
+                        if (n[k] != conv_beg[k]/*0*/ && i - d >= 0 && ProcBlock[i - d]->GetRank()) prev[k] = i - d;
+                        else prev[k] = -1;
+
+                    if (!invers[k])
+                        if (n[k] != conv_end[k]/*pip[k]-1*/ && i + d < MPSProcCount() && ProcBlock[i + d]->GetRank()) post[k] = i + d;
+                        else post[k] = -1;
+                    else
+                        if (n[k] != conv_beg[k]/*0*/ && i - d >= 0 && ProcBlock[i - d]->GetRank()) post[k] = i - d;
+                        else post[k] = -1;
+                }
+
+
+                if (ind_beg == -1)
+                {
+                    //					int tmp_shd_wid[4];
+
+                    for (k = 0; k < max_rank; k++)
+                    {
+                        //						tmp_shd_wid[k]=ShdWid[k];
+                        //						ShdWid[k]=0;
+                        pip_ord[k] = -1;
+                    }
+
+                    for (k = 0, d = 1; k < rank_mas; k++)
+                    {
+                        if (post[k] != -1)
+                            for (j = 0; j < rank_mas; j++)
+                                if (mbeg(i, j) != mbeg(post[k], j) || mend(i, j) != mend(post[k], j))
+                                { //ShdWid[k]=tmp_shd_wid[j];
+                                    pip_ord[k] = j;
+                                }
+                    }
+                }
+                if (mode) { printf("PIPE ORDER [ProcDim -> ArrDim]"); {for (k = 0; k < max_rank; k++)if (pip_ord[k] != -1)printf("  %d -> %d   ", k, pip_ord[k]); }	printf("\n"); }
+
+                { int old_prev[4], old_post[4];
+                for (k = 0; k < max_rank; k++)
+                {
+                    old_prev[k] = prev[k];
+                    old_post[k] = post[k];
+                    prev[k] = -1;
+                    post[k] = -1;
+                }
+                for (k = 0; k < max_rank; k++)
+                {
+                    if (pip_ord[k] != -1)
+                    {
+                        prev[pip_ord[k]] = old_prev[k];
+                        post[pip_ord[k]] = old_post[k];
+                    }
+                }
+
+                }
+
+                if (mode) printf("WasPrev %2d= %2d %2d %2d\n", i, prev[0], prev[1], prev[2]);
+                if (mode) printf("WasPost %2d= %2d %2d %2d\n", i, post[0], post[1], post[2]);
+                if (mode) printf("ShdWid  %2d= %2d %2d %2d\n", i, ShdWid[0], ShdWid[1], ShdWid[2]);
+
+                if (ind_beg == -1) { ind_beg = i; time_beg = CurrProcTime(ind_beg); }
+
+                /*
+                for(k=0;k<4;k++)
+                    if(mm[k]==1)
+                    {
+                        for(j=3;j>k;j--)
+                        {
+                            prev[j]=prev[j-1];
+                            post[j]=post[j-1];
+                        }
+                        prev[k]=-1;
+                        post[k]=-1;
+                    }
+                if(mode) printf("WillPrev %2d= %2d %2d %2d\n",i,prev[0],prev[1],prev[2]);
+                if(mode) printf("WillPost %2d= %2d %2d %2d\n",i,post[0],post[1],post[2]);
+    */
+    //			printf("LZ=%f\n",call_time/LoopSZ*1000000);
+
+
+    //printf("proc[%d] time=%f beg=%f cur_beg=%.f\n",i,CurrProcTime(i),time_beg,(CurrProcTime(i)-time_beg)*LoopSZ/call_time);
+
+
+    //				for(j=0;j<max_rank;j++)  prev_size[j]=0;
+
+    //				cur=0; //так было
+                cur = (CurrProcTime(i) - time_beg)*LoopSZ / call_time; //возможно и отрицательный но потом после первой передачи все встанет на свои места
+                cur_beg = cur;
+                real_comm = 0; last_real_comm = 0;
+                d = 0;
+                // макрос 'aа' заменяет (с+1)-тый индекс в выражении a[prev][b[0]][b[1]][b[2]][b[3]] на индекс 'p'
+#define a_change(prev,c,p) ((c==0)?a[prev][p][b[1]][b[2]][b[3]]:(c==1)?a[prev][b[0]][p][b[2]][b[3]]:(c==2)?a[prev][b[0]][b[1]][p][b[3]]:a[prev][b[0]][b[1]][b[2]][p])
+#define a_b(i) a[i][b[0]][b[1]][b[2]][b[3]]
 
 //				printf("MIN %d %d %d %d\n",min(3,bsize(i,ord[0],s[ord[0]])-1),min(3,bsize(i,ord[1],s[ord[1]])-1),min(3,bsize(i,ord[2],s[ord[2]])-1),min(3,bsize(i,ord[3],s[ord[3]])-1));
 //				printf("Invers %d %d %d %d\n",invers[ord[0]],invers[ord[1]],invers[ord[2]],invers[ord[3]]);
 //				printf("ord %d %d %d %d\n",ord[0],ord[1],ord[2],ord[3]);
-				// ord[0]==0 && ord[1]==1 && ord[2]==2  ~~~~~~~~     z,x,y ~ 0 1 2 
-				for_calc(b,ord[3],0,min(3,bsize(i,ord[3],s[ord[3]])-1)) //b[ord[3]] пробегает блоки вдоль своего измерения в i-том проце
-				for_calc(b,ord[2],0,min(3,bsize(i,ord[2],s[ord[2]])-1)) //b[ord[2]] пробегает блоки ...
-				for_calc(b,ord[0],0,min(3,bsize(i,ord[0],s[ord[0]])-1)) //b[ord[0]] пробегает блоки ...
-				for_calc(b,ord[1],0,min(3,bsize(i,ord[1],s[ord[1]])-1)) //b[ord[1]] пробегает блоки ...
-				{ m=cur; mwait=m;
-					d=0; //чтобы пройти дальше если невозможно сделать ускоренный пробег
+                // ord[0]==0 && ord[1]==1 && ord[2]==2  ~~~~~~~~     z,x,y ~ 0 1 2 
+                for_calc(b, ord[3], 0, min(3, bsize(i, ord[3], s[ord[3]]) - 1)) //b[ord[3]] пробегает блоки вдоль своего измерения в i-том проце
+                    for_calc(b, ord[2], 0, min(3, bsize(i, ord[2], s[ord[2]]) - 1)) //b[ord[2]] пробегает блоки ...
+                    for_calc(b, ord[0], 0, min(3, bsize(i, ord[0], s[ord[0]]) - 1)) //b[ord[0]] пробегает блоки ...
+                    for_calc(b, ord[1], 0, min(3, bsize(i, ord[1], s[ord[1]]) - 1)) //b[ord[1]] пробегает блоки ...
+                {
+                    m = cur; mwait = m;
+                    d = 0; //чтобы пройти дальше если невозможно сделать ускоренный пробег
 //					if(mode) printf("B=%d %d %d %d\n",b[ord[1]],b[ord[0]],b[ord[2]],b[ord[3]]);
 
-					//ускоренный пробег
-				  if(1) //всегда делать [но вообще можно его отлючить и сравнить результаты (с ним & без него)]
-				  for(k=0;k<rank_mas;k++) 
-					{ 
-						if(!invers[ord[k]] && b[ord[k]]==3 || invers[ord[k]] && b[ord[k]]==0 && (bsize(i,ord[k],s[ord[k]])-1>3)) 
-						{ 
-							b[ord[k]]=invers[ord[k]]?2:1;
-							beg=a_b(i); // время завершения вычисления блока 1
-							b[ord[k]]=invers[ord[k]]?1:2;
-							step=a_b(i)-beg;				// промежуток времени между временами завершения вычислений соседних блоков
-							last=sz[b[0]][b[1]][b[2]][b[3]]; 
-							b[ord[k]]=invers[ord[k]]?0:3; 
+                    //ускоренный пробег
+                    if (1) //всегда делать [но вообще можно его отлючить и сравнить результаты (с ним & без него)]
+                        for (k = 0; k < rank_mas; k++)
+                        {
+                            if (!invers[ord[k]] && b[ord[k]] == 3 || invers[ord[k]] && b[ord[k]] == 0 && (bsize(i, ord[k], s[ord[k]]) - 1 > 3))
+                            {
+                                b[ord[k]] = invers[ord[k]] ? 2 : 1;
+                                beg = a_b(i); // время завершения вычисления блока 1
+                                b[ord[k]] = invers[ord[k]] ? 1 : 2;
+                                step = a_b(i) - beg;				// промежуток времени между временами завершения вычислений соседних блоков
+                                last = sz[b[0]][b[1]][b[2]][b[3]];
+                                b[ord[k]] = invers[ord[k]] ? 0 : 3;
 
-//							if(mode) printf("prev=%.f sz=%.f Beg %.f step=%.f * %d\n",last,a_b(i),beg,step,(bsize(i,ord[k],s[ord[k]])-2));
+                                //							if(mode) printf("prev=%.f sz=%.f Beg %.f step=%.f * %d\n",last,a_b(i),beg,step,(bsize(i,ord[k],s[ord[k]])-2));
 
-							sz[b[0]][b[1]][b[2]][b[3]]=a_b(i);
-							a_b(i)+=beg+step*(bsize(i,ord[k],s[ord[k]])-2)-last; // расчет времени последнего блока в этом измерении
-							cur=a_b(i);
+                                sz[b[0]][b[1]][b[2]][b[3]] = a_b(i);
+                                a_b(i) += beg + step * (bsize(i, ord[k], s[ord[k]]) - 2) - last; // расчет времени последнего блока в этом измерении
+                                cur = a_b(i);
 
-						  for(j=0;j<rank_mas;j++) 
-							{ //прогнозируем загрузку коммуникационных каналов
-								comm[i][j]+=(bsize(i,ord[k],s[ord[k]])-3)*prev_comm[ord[k]][j];
-//							  printf("comm=== %.f increased by %.f\n",comm[i][j],(bsize(i,ord[k],s[ord[k]])-3)*prev_comm[ord[k]][j]);
-								prev_comm[ord[k]][j]=0; //чтобы повышать один раз
-							}
+                                for (j = 0; j < rank_mas; j++)
+                                { //прогнозируем загрузку коммуникационных каналов
+                                    comm[i][j] += (bsize(i, ord[k], s[ord[k]]) - 3)*prev_comm[ord[k]][j];
+                                    //							  printf("comm=== %.f increased by %.f\n",comm[i][j],(bsize(i,ord[k],s[ord[k]])-3)*prev_comm[ord[k]][j]);
+                                    prev_comm[ord[k]][j] = 0; //чтобы повышать один раз
+                                }
 
-							real_comm+=(bsize(i,ord[k],s[ord[k]])-3)*last_real_comm;
-//							printf("[last=%f] * %d = [real_comm=%f]\n",last_real_comm,bsize(i,ord[k],s[ord[k]])-3,real_comm);
-
-							
-							if(mode) printf("%d-%d-%d-%d-%d==%.f\n",i,b[0],b[1],b[2],b[3],a_b(i));
-							d=-1;
-							break; //чтобы один раз вычислял этот блок
-						}
-					}
-					//если был сделан ускоренный пробег, то не надо вычислять этот блок еще раз
-					if(d<0) continue;
-			 
-					last_real_comm=0;
-					//comm - коммуникационый канал на вход и отвечает за то когда он закончит передачу данных
-				  for(k=0;k<rank_mas;k++) 
-					{
-//						if(mode) printf("Invers=%d Prev[%d]=%d  b[k]=%d\n",invers[k],k,prev[k],b[k]);
-						if(!invers[k] && b[k]==0 && prev[k]!=-1) 
-						{ comm[i][k]=max(comm[i][k],a_change(prev[k],k,min(3,bsize(i,ord[k],s[ord[k]])-1)))+(TStart+(a_b(i)/min(s[k],msize(i,k))*ShdWid[k])*TByte)*LoopSZ/call_time;
-								last_real_comm=max(last_real_comm, (TStart+(a_b(i)/min(s[k],msize(i,k))*ShdWid[k])*TByte));
-						}
-
-						if( invers[k] && b[k]==min(3,bsize(i,ord[k],s[ord[k]])-1) && prev[k]!=-1) 
-						{ comm[i][k]=max(comm[i][k],a_change(prev[k],k,0))+(TStart+(a_b(i)/min(s[k],msize(i,k))*ShdWid[k])*TByte)*LoopSZ/call_time;
-								last_real_comm=max(last_real_comm, (TStart+(a_b(i)/min(s[k],msize(i,k))*ShdWid[k])*TByte));
-						}
-
-						//чтобы и отправитель ждал конца передачи данных надо сделать следующее
-						if( invers[k] && b[k]==0 && post[k]!=-1		||		!invers[k] && b[k]==min(3,bsize(i,ord[k],s[ord[k]])-1) && post[k]!=-1) 
-						{ 	last_real_comm=max(last_real_comm, (TStart+(0*a_b(i)/min(s[k],msize(i,k))*ShdWid[k])*TByte));
-						}
+                                real_comm += (bsize(i, ord[k], s[ord[k]]) - 3)*last_real_comm;
+                                //							printf("[last=%f] * %d = [real_comm=%f]\n",last_real_comm,bsize(i,ord[k],s[ord[k]])-3,real_comm);
 
 
-					if(mode) printf("Proc[%d] last_real_comm=%f\n",i,last_real_comm);
-						
-						//у prev_comm есть направление [j] вдоль которого он ищет блоки с номерами 1 и 2
-						//для каждого направления он должен посмотреть, как изменялись коммуникационные каналы [k]
-						for(j=0;j<max_rank;j++)
-							if(!invers[ord[j]] && b[ord[j]]==1 || invers[ord[j]] && b[ord[j]]==2)
-								prev_comm[ord[j]][k]=comm[i][k];
-						for(j=0;j<max_rank;j++)
-							if(!invers[ord[j]] && b[ord[j]]==2 || invers[ord[j]] && b[ord[j]]==1)
-							  prev_comm[ord[j]][k]=comm[i][k]-prev_comm[ord[j]][k];
-					}
+                                if (mode) printf("%d-%d-%d-%d-%d==%.f\n", i, b[0], b[1], b[2], b[3], a_b(i));
+                                d = -1;
+                                break; //чтобы один раз вычислял этот блок
+                            }
+                        }
+                    //если был сделан ускоренный пробег, то не надо вычислять этот блок еще раз
+                    if (d < 0) continue;
 
-				
-					for(k=0;k<rank_mas;k++) 
-					{
-//						printf("[k=%d] m=%.f comm=%.f\n",k,m,comm[i][k]);
-						m=max(m,comm[i][k]);
-					}
-					mwait=m-mwait;
-					com[i]+=mwait*call_time/LoopSZ;
-					real_comm+=last_real_comm;
+                    last_real_comm = 0;
+                    //comm - коммуникационый канал на вход и отвечает за то когда он закончит передачу данных
+                    for (k = 0; k < rank_mas; k++)
+                    {
+                        //						if(mode) printf("Invers=%d Prev[%d]=%d  b[k]=%d\n",invers[k],k,prev[k],b[k]);
+                        if (!invers[k] && b[k] == 0 && prev[k] != -1)
+                        {
+                            comm[i][k] = max(comm[i][k], a_change(prev[k], k, min(3, bsize(i, ord[k], s[ord[k]]) - 1))) + (TStart + (a_b(i) / min(s[k], msize(i, k))*ShdWid[k])*TByte)*LoopSZ / call_time;
+                            last_real_comm = max(last_real_comm, (TStart + (a_b(i) / min(s[k], msize(i, k))*ShdWid[k])*TByte));
+                        }
 
-					//mwait и com[i] делают асинхронную передачу данных (совмещенную с вычислениями - и как результат учитывается только первая передача а остальные совмещаются)
-					//last_real_comm и real_comm делает синхронную (не совмещенную с вычислениями - и как результат учитываются все передачи)
+                        if (invers[k] && b[k] == min(3, bsize(i, ord[k], s[ord[k]]) - 1) && prev[k] != -1)
+                        {
+                            comm[i][k] = max(comm[i][k], a_change(prev[k], k, 0)) + (TStart + (a_b(i) / min(s[k], msize(i, k))*ShdWid[k])*TByte)*LoopSZ / call_time;
+                            last_real_comm = max(last_real_comm, (TStart + (a_b(i) / min(s[k], msize(i, k))*ShdWid[k])*TByte));
+                        }
+
+                        //чтобы и отправитель ждал конца передачи данных надо сделать следующее
+                        if (invers[k] && b[k] == 0 && post[k] != -1 || !invers[k] && b[k] == min(3, bsize(i, ord[k], s[ord[k]]) - 1) && post[k] != -1)
+                        {
+                            last_real_comm = max(last_real_comm, (TStart + (0 * a_b(i) / min(s[k], msize(i, k))*ShdWid[k])*TByte));
+                        }
+
+
+                        if (mode) printf("Proc[%d] last_real_comm=%f\n", i, last_real_comm);
+
+                        //у prev_comm есть направление [j] вдоль которого он ищет блоки с номерами 1 и 2
+                        //для каждого направления он должен посмотреть, как изменялись коммуникационные каналы [k]
+                        for (j = 0; j < max_rank; j++)
+                            if (!invers[ord[j]] && b[ord[j]] == 1 || invers[ord[j]] && b[ord[j]] == 2)
+                                prev_comm[ord[j]][k] = comm[i][k];
+                        for (j = 0; j < max_rank; j++)
+                            if (!invers[ord[j]] && b[ord[j]] == 2 || invers[ord[j]] && b[ord[j]] == 1)
+                                prev_comm[ord[j]][k] = comm[i][k] - prev_comm[ord[j]][k];
+                    }
+
+
+                    for (k = 0; k < rank_mas; k++)
+                    {
+                        //						printf("[k=%d] m=%.f comm=%.f\n",k,m,comm[i][k]);
+                        m = max(m, comm[i][k]);
+                    }
+                    mwait = m - mwait;
+                    com[i] += mwait * call_time / LoopSZ;
+                    real_comm += last_real_comm;
+
+                    //mwait и com[i] делают асинхронную передачу данных (совмещенную с вычислениями - и как результат учитывается только первая передача а остальные совмещаются)
+                    //last_real_comm и real_comm делает синхронную (не совмещенную с вычислениями - и как результат учитываются все передачи)
 
 //					if(mwait>=0) printf("%d-%d-%d-%d wait[%d]=%.f [%f sec]  last_real_comm=%f [sync=idle||insuf.sys]=%f\n",b[0],b[1],b[2],b[3],i,mwait,com[i],last_real_comm,com[i]-last_real_comm);
-					if(add && com[i]>last_real_comm) 
-					{ 
-						AddTime(__CPU_time_sys,i,com[i]-last_real_comm);
-						AddTime(__Insuff_parall_sys,i,com[i]-last_real_comm);
-						com[i]=last_real_comm;
-					}
+                    if (add && com[i] > last_real_comm)
+                    {
+                        AddTime(__CPU_time_sys, i, com[i] - last_real_comm);
+                        AddTime(__Insuff_parall_sys, i, com[i] - last_real_comm);
+                        com[i] = last_real_comm;
+                    }
 
-					sz[b[0]][b[1]][b[2]][b[3]]=a_b(i);
-					a_b(i)+=m;
-					cur=a_b(i);
-				  if(mode) printf("%d-%d-%d-%d-%d=%.f\n",i,b[0],b[1],b[2],b[3],cur);
-					if(mode) printf("Proc[%d] last_real_comm=%f\n",i,last_real_comm);
-				}
-			  
-//				printf("proc %d-%d-%d-%d done_time=%f\n",n[0],n[1],n[2],n[3],cur*call_time/LoopSZ);
+                    sz[b[0]][b[1]][b[2]][b[3]] = a_b(i);
+                    a_b(i) += m;
+                    cur = a_b(i);
+                    if (mode) printf("%d-%d-%d-%d-%d=%.f\n", i, b[0], b[1], b[2], b[3], cur);
+                    if (mode) printf("Proc[%d] last_real_comm=%f\n", i, last_real_comm);
+                }
 
-				if(add)
-				{
-//				AddTime(__Synchronize,i,time_beg+cur*call_time/LoopSZ);
+                //				printf("proc %d-%d-%d-%d done_time=%f\n",n[0],n[1],n[2],n[3],cur*call_time/LoopSZ);
 
-//					printf("proc[%d] wait_shad+= %f (async) || %f (sync)\n",i,com[i],real_comm);
-					if(mode) printf("proc[%d] wait_shad+= %f\n",i,real_comm);
-//					AddTime(__Wait_shadow,i,com[i]);//async
-					AddTime(__Wait_shadow,i,real_comm);//sync
+                if (add)
+                {
+                    //				AddTime(__Synchronize,i,time_beg+cur*call_time/LoopSZ);
 
-					//					printf("wait[%d]=%f sec   cur_beg=%.f cur=%.f  raznica=%f\n",i,com[i],cur_beg,cur,(cur-cur_beg)*call_time/LoopSZ);
+                    //					printf("proc[%d] wait_shad+= %f (async) || %f (sync)\n",i,com[i],real_comm);
+                    if (mode) printf("proc[%d] wait_shad+= %f\n", i, real_comm);
+                    //					AddTime(__Wait_shadow,i,com[i]);//async
+                    AddTime(__Wait_shadow, i, real_comm);//sync
+
+                    //					printf("wait[%d]=%f sec   cur_beg=%.f cur=%.f  raznica=%f\n",i,com[i],cur_beg,cur,(cur-cur_beg)*call_time/LoopSZ);
 //					AddTime(__CPU_time_usr, i, (cur-cur_beg)*call_time/LoopSZ - com[i]); //call_time/(m*mult)
-				}
+                }
 
-				/*
-				if(mode && com[i]>0.000001)
-				{ printf("proc(%d) wait %2.10f sec from [ ",i,com[i]);
-				  for(k=0;k<rank_mas;k++)
-						if(prev[k]!=-1) printf("%d ",prev[k]);
-					printf("]\n");
-				}
-				*/
-		  }
-		}
+                /*
+                if(mode && com[i]>0.000001)
+                { printf("proc(%d) wait %2.10f sec from [ ",i,com[i]);
+                  for(k=0;k<rank_mas;k++)
+                        if(prev[k]!=-1) printf("%d ",prev[k]);
+                    printf("]\n");
+                }
+                */
+            }
+        }
 
-			time_x=cur*call_time/LoopSZ;
+        time_x = cur * call_time / LoopSZ;
 
-//printf("Total=%f Idle=%f\n",cur*call_time/LoopSZ*m,cur*call_time/LoopSZ*m-call_time);
+        //printf("Total=%f Idle=%f\n",cur*call_time/LoopSZ*m,cur*call_time/LoopSZ*m-call_time);
 
-//	printf("Result %d-%d-%d=%d (time=%5.15f)\n",x,y,z,cur,cur*call_time/LoopSZ);
-//  printf("cur=%d call=%5.15f LoopSZ=%d\n",cur,call_time,LoopSZ);
-//  printf("Result %d-%d-%d=%d (time=%f)\n",x,y,z,cur,cur*call_time/LoopSZ);
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-				for(n[1]=0;n[1]<4;n[1]++)
-				for(n[2]=0;n[2]<4;n[2]++)
-					free(a[i][n[0]][n[1]][n[2]]);
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-				for(n[1]=0;n[1]<4;n[1]++)
-					free(a[i][n[0]][n[1]]);
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				for(n[0]=0;n[0]<4;n[0]++)
-					free(a[i][n[0]]);
-		for(i=0;i<MPSProcCount();i++)
-      if(ProcBlock[i]->GetRank())
-				free(a[i]);
-    free(a); 
-	}
+        //	printf("Result %d-%d-%d=%d (time=%5.15f)\n",x,y,z,cur,cur*call_time/LoopSZ);
+        //  printf("cur=%d call=%5.15f LoopSZ=%d\n",cur,call_time,LoopSZ);
+        //  printf("Result %d-%d-%d=%d (time=%f)\n",x,y,z,cur,cur*call_time/LoopSZ);
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    for (n[1] = 0; n[1] < 4; n[1]++)
+                        for (n[2] = 0; n[2] < 4; n[2]++)
+                            free(a[i][n[0]][n[1]][n[2]]);
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    for (n[1] = 0; n[1] < 4; n[1]++)
+                        free(a[i][n[0]][n[1]]);
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                for (n[0] = 0; n[0] < 4; n[0]++)
+                    free(a[i][n[0]]);
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank())
+                free(a[i]);
+        free(a);
+    }
 
-	for(i=0;i<MPSProcCount();i++)
-    if(ProcBlock[i]->GetRank())
-		  free(comm[i]);
-	free(comm);
-	free(prev);
-	free(n);
-	free(b);
-
-//mode=0;
-	return;
+    for (i = 0; i < MPSProcCount(); i++)
+        if (ProcBlock[i]->GetRank())
+            free(comm[i]);
+    free(comm);
+    //free(prev);
+    //free(n);
+    //free(b);
+    //mode=0;
+    return;
 }
 
 
 //==== procedure =========================================================================
-void CommCost::Across(double call_timeArg, long LoopSZArg, LoopBlock** ProcBlockArg,int type_size)
+void CommCost::Across(double call_timeArg, long LoopSZArg, LoopBlock** ProcBlockArg, int type_size)
 {
-	int i,j,i0,k;
-	int rank,r;
-	int *dim;
-	int ind[10];
-	vector<long> pp;
+    int i, j, i0, k;
+    int rank, r;
+    vector<int> dim;
+    int ind[10];
+    vector<long> pp;
 
-	ProcBlock=ProcBlockArg;
-	call_time=call_timeArg; 
-	LoopSZ=LoopSZArg;
+    ProcBlock = ProcBlockArg;
+    call_time = call_timeArg;
+    LoopSZ = LoopSZArg;
 
-	TStart = vm->getTStart();
-	TByte = vm->getTByte()*type_size;
-	  
-	pp=vm->getSizeArray();
-	rank=pp.size();
+    TStart = vm->getTStart();
+    TByte = vm->getTByte()*type_size;
 
-// печать конфигурации процессорной решетки
-	if(mode)
-	{
-   	printf("VM %d",pp[0]);
-		for(i=1;i<rank;i++)
-			printf("x%d",pp[i]);
-		printf("\n");
-	}
+    pp = vm->getSizeArray();
+    rank = pp.size();
 
-//calc invers
-	for(i=0;i<MPSProcCount();i++)  
-	for(j=0;j<ProcBlock[i]->GetRank();j++)
-		if(ProcBlock[i]->LSDim[j].Step<0) {invers[j]=1;ProcBlock[i]->LSDim[j].Step=-ProcBlock[i]->LSDim[j].Step;}
-		else invers[j]=0;
+    // печать конфигурации процессорной решетки
+    if (mode)
+    {
+        printf("VM %d", pp[0]);
+        for (i = 1; i < rank; i++)
+            printf("x%d", pp[i]);
+        printf("\n");
+    }
 
-//	printf("Inverse %d %d %d\n",invers[0],invers[1],invers[2]);
-	  
+    //calc invers
+    for (i = 0; i < MPSProcCount(); i++)
+        for (j = 0; j < ProcBlock[i]->GetRank(); j++)
+            if (ProcBlock[i]->LSDim[j].Step < 0) { invers[j] = 1; ProcBlock[i]->LSDim[j].Step = -ProcBlock[i]->LSDim[j].Step; }
+            else invers[j] = 0;
 
-//calc rank_mas 
-	for(i=0,rank_mas=0;i<MPSProcCount();i++)  
-	{	r=ProcBlock[i]->GetRank();
-		if(rank_mas<r) rank_mas=r;
-	}
+    //	printf("Inverse %d %d %d\n",invers[0],invers[1],invers[2]);
 
 
-	//correct rank if other dims equals 1
+    //calc rank_mas 
+    for (i = 0, rank_mas = 0; i < MPSProcCount(); i++)
+    {
+        r = ProcBlock[i]->GetRank();
+        if (rank_mas < r) rank_mas = r;
+    }
+
+
+    //correct rank if other dims equals 1
 //xp	for(i=k=rank_mas;i<rank;i++)
 //xp		if(pp[i]!=1) k=i;
 //xp	rank=k;
 
 
-  if(mode) printf("rank=%d rank_mas=%d\n",rank,rank_mas);
-//  if(rank>rank_mas) { printf("Too many dimensions %d>%d\n",rank,rank_mas); exit(1);}
-  if(rank_mas>max_rank) { printf("Cannot model ACROSS pipeline because of Array rank=%d>%d\n",rank_mas,max_rank); return;}
+    if (mode) printf("rank=%d rank_mas=%d\n", rank, rank_mas);
+    //  if(rank>rank_mas) { printf("Too many dimensions %d>%d\n",rank,rank_mas); exit(1);}
+    if (rank_mas > max_rank) { printf("Cannot model ACROSS pipeline because of Array rank=%d>%d\n", rank_mas, max_rank); return; }
 
-	s=(long *)malloc(max_rank*sizeof(long));
-	p=(int *)malloc(max_rank*sizeof(int));
-	dmax=(int *)malloc(max_rank*sizeof(int));
-	dim=(int *)malloc(max_rank*sizeof(int));
-	conv_beg=(int *)malloc(max_rank*sizeof(int));
-	conv_end=(int *)malloc(max_rank*sizeof(int));
+    s.resize(max_rank);
+    p.resize(max_rank);
+    dmax.resize(max_rank);
+    dim.resize(max_rank);
+    conv_beg.resize(max_rank);
+    conv_end.resize(max_rank);
+    mult_is.resize(max_rank);
+    pip.resize(max_rank);
+    ord.resize(max_rank);
 
-	mult_is=(int *)malloc(max_rank*sizeof(int));
-	pip=(int *)malloc(max_rank*sizeof(int));
-	ord=(int *)malloc(max_rank*sizeof(int));
+    //s = (long *)malloc(max_rank * sizeof(long));
+    //p = (int *)malloc(max_rank * sizeof(int));
+    //dmax = (int *)malloc(max_rank * sizeof(int));
+    //dim = (int *)malloc(max_rank * sizeof(int));
+    //conv_beg = (int *)malloc(max_rank * sizeof(int));
+    //conv_end = (int *)malloc(max_rank * sizeof(int));
 
-
-	for(i=rank;i<max_rank;i++)
-		ShdWid[i]=0;
-	for(i=0;i<rank;i++)
-		ShdWid[i]=ShdWid(i);
-
-
-	if(mode) printf("COMM ACROSS %5.10f ShdWid=%d %d %d %d\n",call_time,ShdWid[0],ShdWid[1],ShdWid[2],ShdWid[3]);
-
-	for(k=0;k<rank;k++)
-		p[k]=pp[k];
-//по другим измерения решетка процов имеет ширину 1
-	for(k=rank;k<max_rank;k++)
-		p[k]=1;
-
-//печать блоков каждого процессора
-  if(mode)
-  for(i=0;i<MPSProcCount();i++)  
-  { 
-    r=ProcBlock[i]->GetRank();
- 		for(k=0;k<rank_mas;k++)
-			ind[k]=i;
-		//only comment   i=ind[0]*p[2]*p[1]+ind[1]*p[2]+ind[2]; only comment
-		for(k=rank_mas-1;k>=0;k--)
-		{
-			ind[k]=ind[k]%p[k];
-			for(x=0;x<k;x++) 
-				ind[x]=ind[x]/p[k];
-		}
-
-		printf("[%d",ind[0]);
-		for(k=1;k<max_rank;k++)
-			if(k>=rank_mas) printf(",0");
-			else printf(",%d",ind[k]);
-		printf("]%2d. ",i);
-
-    for(j=0;j<r;j++)
-			printf("%d:%d:%d ",mbeg(i,j),mend(i,j),mstep(i,j));
-		printf("\n");
-  }
-
-  for(i=0;i<max_rank;i++) {dmax[i]=1; dim[i]=1;}
-
-  for(j=0;j<MPSProcCount();j++)  
-    if(ProcBlock[j]->GetRank()) break;
-  first=j; 
-  //first proc with data
-
-//calc dmax(max_dim_size)
-  for(k=0;k<max_rank;k++)
-	for(x=j,dmax[k]=msize(j,k),i=j+1;i<MPSProcCount();i++)  
-		if(ProcBlock[i]->GetRank()&& (msize(i,k)>msize(x,k))) 
-		{ x=i;
-			dmax[k]=msize(i,k);
-		}
-
-//calc mult (number of parallelizing pipelines) 
-//эта часть помогает вычислить mult в дальнейшем
-  if(rank_mas>=2)
-  { mult=1; 
-    for(k=0;k<max_rank;k++)
-			mult_is[k]=0;
-
-	//only comment i=i0*p[2]*p[1]+j0*p[2]+e0; only comment
-    for(i=0;i<MPSProcCount();i++)  
-      if(ProcBlock[i]->GetRank()) break;
-	//i=first proc with data
+    //mult_is = (int *)malloc(max_rank * sizeof(int));
+    //pip = (int *)malloc(max_rank * sizeof(int));
+    //ord = (int *)malloc(max_rank * sizeof(int));
 
 
-	if(mode)
-	{
-		printf("p=");
-		for(k=0;k<rank_mas;k++)
-			printf("%d ",p[k]);
-		printf("\n");
-	}
-
-    // Надо (x=0  i0=p[2]*p[1])   (x=1   i0=p[2])    (x=2   i0=1)
-    // это смещения для вычисления соседних процов вдоль какого-то измерения
-    for(x=0;x<max_rank;x++)
-		{ for(k=x+1,i0=1;k<rank_mas;k++)
-					i0=i0*p[k];
-
-			if(p[x]>1 && i+i0<MPSProcCount())
-			{
-				for(k=0,r=1;k<rank_mas;k++) 
-					if (mbeg(i+i0,k)!=mbeg(i,k) || mend(i+i0,k)!=mend(i,k)) 
-					{ if(ShdWid[k]!=0) {r=0;break;} 
-						else r=2;
-					}
-					// r==0 (соседние процы по одному измерению имеют разные блоки)    r==1 (одинаковые блоки)
-					if(r) { mult*=p[x]; mult_is[x]=r;}
-			}
-		}
-  }
-
-  if(mode) printf("MULT %d %d %d %d = %d\n",mult_is[0],mult_is[1],mult_is[2],mult_is[3],mult);
+    for (i = rank; i < max_rank; i++)
+        ShdWid[i] = 0;
+    for (i = 0; i < rank; i++)
+        ShdWid[i] = ShdWid(i);
 
 
-//	for(i=0;i<rank_mas;i++)
-//		if(ShdWid[i]==0) { mult_is[i]=1;}
+    if (mode) printf("COMM ACROSS %5.10f ShdWid=%d %d %d %d\n", call_time, ShdWid[0], ShdWid[1], ShdWid[2], ShdWid[3]);
 
-//  if(mode) printf("MULT + ZeroWidth %d %d %d %d\n",mult_is[0],mult_is[1],mult_is[2],mult_is[3]);
+    for (k = 0; k < rank; k++)
+        p[k] = pp[k];
+    //по другим измерения решетка процов имеет ширину 1
+    for (k = rank; k < max_rank; k++)
+        p[k] = 1;
 
-  j=first;
-// mm[i]==0 (по i-тому измерению есть конвейер)    ==1 (конвейера нет)
-	mm=(int *)malloc(max_rank*sizeof(int));
-	for(k=0;k<max_rank;k++)
-	  mm[k]=1;
+    //печать блоков каждого процессора
+    if (mode)
+    {
+        for (i = 0; i < MPSProcCount(); i++)
+        {
+            r = ProcBlock[i]->GetRank();
+            for (k = 0; k < rank_mas; k++)
+                ind[k] = i;
+            //only comment   i=ind[0]*p[2]*p[1]+ind[1]*p[2]+ind[2]; only comment
+            for (k = rank_mas - 1; k >= 0; k--)
+            {
+                ind[k] = ind[k] % p[k];
+                for (x = 0; x < k; x++)
+                    ind[x] = ind[x] / p[k];
+            }
 
-  for(i=0;i<MPSProcCount();i++)  
-		{ r=ProcBlock[i]->GetRank();
-			for(k=0;k<r;k++)
-				if(mbeg(i,k)!=mbeg(j,k) || mend(i,k)!=mend(j,k)) mm[k]=0;
-		}
+            printf("[%d", ind[0]);
+            for (k = 1; k < max_rank; k++)
+                if (k >= rank_mas)
+                    printf(",0");
+                else
+                    printf(",%d", ind[k]);
+            printf("]%2d. ", i);
 
+            for (j = 0; j < r; j++)
+                printf("%d:%d:%d ", mbeg(i, j), mend(i, j), mstep(i, j));
+            printf("\n");
+        }
+    }
 
-//	for(i=0;i<rank_mas;i++)
-//		if(ShdWid[i]==0) { mm[i]=1;}
+    for (i = 0; i < max_rank; i++) { dmax[i] = 1; dim[i] = 1; }
 
-  if(mode) printf("MM = %d %d %d %d\n",mm[0],mm[1],mm[2],mm[3]);
-//	for(i=0;i<max_rank;i++)
-//		mult_is[i]=(i<rank_mas)?1:0; //за пределами размерности массива считаем 0 (не размноженными) так по тем измерениям 1 процессор, иначе раньше вылетает с ошибкой пользователя
-/*
-	for(i=0,j=0;i<rank_mas;i++)
-		{
-			if(mm[i]==0) 
-			{ if(ShdWid[i]==0 && mult_is[j]==0) {mult*=p[j]; mult_is[j++]=2;}
-				else mult_is[j++]=0;
-			}
-			if(mm[i]==1) 
-			{ mult_is[j++]=1;}
-			
-		}
-	*/
+    for (j = 0; j < MPSProcCount(); j++)
+        if (ProcBlock[j]->GetRank()) break;
+    first = j;
+    //first proc with data
 
+  //calc dmax(max_dim_size)
+    for (k = 0; k < max_rank; k++)
+        for (x = j, dmax[k] = msize(j, k), i = j + 1; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank() && (msize(i, k) > msize(x, k)))
+            {
+                x = i;
+                dmax[k] = msize(i, k);
+            }
 
-  // mult_is == 1 (размноженный массив, => insuff.par.usr)			mult_is == 2 (shdwid==0, => параллельные конвейеры)	
-  if(mode) printf("MULT %d %d %d %d\n",mult_is[0],mult_is[1],mult_is[2],mult_is[3]);
+    //calc mult (number of parallelizing pipelines) 
+    //эта часть помогает вычислить mult в дальнейшем
+    if (rank_mas >= 2)
+    {
+        mult = 1;
+        for (k = 0; k < max_rank; k++)
+            mult_is[k] = 0;
 
-//вычисляем какие процы участвуют в конвейере! (процы [от i1 до i2][от j1 до j2] )
-  i=first;
-//conv_beg[0,1,2] ~ i
-  for(k=0;k<max_rank;k++)
-    conv_beg[k]=i;
-  for(k=max_rank-1;k>=0;k--)
-  {
-    conv_beg[k]=conv_beg[k]%p[k];
-    for(x=0;x<k;x++) 
-      conv_beg[x]=conv_beg[x]/p[k];
-  }
-
-  for(k=0;k<max_rank;k++)
-		conv_end[k]=conv_beg[k];
-
-  for(x=0;x<rank_mas;x++)
-  { for(k=x+1,i0=1;k<rank_mas;k++)
-      i0=i0*p[k];
-   
- 		for(j=1;j<p[x] && i+i0<MPSProcCount() && ProcBlock[i+i0]->GetRank();j++,i+=i0)
-		{ 
-			for(k=0,r=1;k<rank_mas;k++) 
-  			if (mbeg(i+i0,k)!=mbeg(i,k) || mend(i+i0,k)!=mend(i,k)) {r=0;break;}
-			// r==0 (соседние процы по одному измерению имеют разные блоки)    r==1 (одинаковые блоки)
-			if(r==0) { conv_end[x]++;}
-		}
-  }
-
-////вычисление процессоров по которым есть конвейер и заносится в массив 'pip' 
-  for(i=0;i<max_rank;i++)  
-    pip[i]=conv_end[i]-conv_beg[i]+1;
-  if(mode) printf("Konv procs=%d %d %d %d\n",pip[0],pip[1],pip[2],pip[3]);
+        //only comment i=i0*p[2]*p[1]+j0*p[2]+e0; only comment
+        for (i = 0; i < MPSProcCount(); i++)
+            if (ProcBlock[i]->GetRank()) break;
+        //i=first proc with data
 
 
-  if(mode) 
-  { printf("We got %d KONV ",mult);
-    for(k=0;k<max_rank;k++) 
-			if(k>=rank_mas) printf("%d=%d ",conv_beg[k],conv_end[k]);
-			else printf("%d:%d ",conv_beg[k],conv_end[k]);
-		printf("\n");
-  }
+        if (mode)
+        {
+            printf("p=");
+            for (k = 0; k < rank_mas; k++)
+                printf("%d ", p[k]);
+            printf("\n");
+        }
 
-  //вычисляем размеры массива который надо выполнить в конвейере
-  //only comment   i=ind[0]*p[2]*p[1]+ind[1]*p[2]+ind[2]; only comment
-  for(k=0;k<max_rank;k++)
-  { for(x=k+1,y=1;x<max_rank;x++)
-      y*=p[x];
-    dim[k]=mend(conv_end[k]*y,k)-mbeg(conv_beg[k]*y,k)+1;
-  }
-  if(mode) printf("Dim %d %d %d %d\n",dim[0],dim[1],dim[2],dim[3]);
+        // Надо (x=0  i0=p[2]*p[1])   (x=1   i0=p[2])    (x=2   i0=1)
+        // это смещения для вычисления соседних процов вдоль какого-то измерения
+        for (x = 0; x < max_rank; x++)
+        {
+            for (k = x + 1, i0 = 1; k < rank_mas; k++)
+                i0 = i0 * p[k];
 
+            if (p[x] > 1 && i + i0 < MPSProcCount())
+            {
+                for (k = 0, r = 1; k < rank_mas; k++)
+                    if (mbeg(i + i0, k) != mbeg(i, k) || mend(i + i0, k) != mend(i, k))
+                    {
+                        if (ShdWid[k] != 0) { r = 0; break; }
+                        else r = 2;
+                    }
+                // r==0 (соседние процы по одному измерению имеют разные блоки)    r==1 (одинаковые блоки)
+                if (r) { mult *= p[x]; mult_is[x] = r; }
+            }
+        }
+    }
 
-//!!!!!!!!!!! пока еще не рассмотрен случай когда rank>3
-// и когда есть >=2 параллельных конвейера (одинаковые)
-
-//подсчет времени коммуникаций и времени работы процов
-  if(rank_mas==1) //одномерный массив, => нет конвейера
-  { if(mode) printf("No pipeline\n");
-		double a,b,c,d;
-		k=0;
-		a=call_time;
-		b=(p[0]-1)*(TStart+ShdWid[0]*TByte);
-		if(mode) printf("exec=%f comm=%f\n",a,b);
-		for(i=1;i<p[0];i++) //не учтено что порядок может быть обратным
-		{
-			if(i!=1) c=CurrInterval->GetProcPred(i-1, _Execution_time);
-			else c=0.0;
-			d=CurrInterval->GetProcPred(i, _Execution_time);
-
-//			AddTime(__Insuff_parall_usr, currentVM->map(i), i*call_time/p[0]); //убрал, потому что нет дублирований, есть разбалансировка
-			AddTime(__Wait_shadow, currentVM->map(i), (TStart+ShdWid[0]*TByte) + max(0, c-d));
-		}
-		for(i=0;i<p[0];i++)
-		{
-			AddTime(__CPU_time_usr, currentVM->map(i), call_time/p[0]);
-		}
-  }
-  else 
-  { //pipeline in old dvm
-		long M,N,P,W,Q;
-
-		double DD,shad;
-
-	// M-конвейеризуемые   N-НЕконв.(квантуемые)   P-кол-во процов для конвейера
-		for(i=0,M=1,N=1,P=1;i<rank_mas;i++)
-			if(mm[i] || ShdWid[i]==0) N*=dim[i];
-			else {M*=dim[i];P*=pip[i];}
+    if (mode) printf("MULT %d %d %d %d = %d\n", mult_is[0], mult_is[1], mult_is[2], mult_is[3], mult);
 
 
-		for(i=0,DD=1;i<rank_mas;i++)
-			DD*=dmax[i];
-		for(i=0,W=0,shad=0;i<rank_mas;i++)
-			if(mm[i]==0) shad+=DD/dmax[i]*ShdWid[i]; // есть конвейер по этому измерению
-		W=ceil(shad/N);
-  
-		if(mode) printf("M=%d N=%d W=%d P=%d\n",M,N,W,P);
-		if(mode) printf("W=%d (Shad=%5.0f)\n",W,shad);
+    //	for(i=0;i<rank_mas;i++)
+    //		if(ShdWid[i]==0) { mult_is[i]=1;}
+
+    //  if(mode) printf("MULT + ZeroWidth %d %d %d %d\n",mult_is[0],mult_is[1],mult_is[2],mult_is[3]);
+
+    j = first;
+    // mm[i]==0 (по i-тому измерению есть конвейер)    ==1 (конвейера нет)
+    mm.resize(max_rank);
+    //mm = (int *)malloc(max_rank * sizeof(int));
+    for (k = 0; k < max_rank; k++)
+        mm[k] = 1;
+
+    for (i = 0; i < MPSProcCount(); i++)
+    {
+        r = ProcBlock[i]->GetRank();
+        for (k = 0; k < r; k++)
+            if (mbeg(i, k) != mbeg(j, k) || mend(i, k) != mend(j, k)) mm[k] = 0;
+    }
 
 
-		double Tc=call_time/LoopSZ;
-	//	double Tm=0.000023/500;
-	//	double T0wrecv=0.000001;
-	//	double Tirecv=0.000001;
-	//	double Tisend=0.000001;
-		double Tm=TStart + TByte;
-		double T0wrecv=TStart;
-		double Tirecv=TStart;
-		double Tisend=TStart;
-		double tt1,tt2;
+    //	for(i=0;i<rank_mas;i++)
+    //		if(ShdWid[i]==0) { mm[i]=1;}
 
-		if(mode)
-		{ //printf("pip=%d %d %d \n",pip[0],pip[1],pip[2]);
-			if(W*Tm>0.0000000001) printf("Greater? P=%d or %7.0f\n",P,(M*Tc)/(W*Tm));
-		}
-		if(W*Tm>0.0000000001 && P>(M*Tc)/(W*Tm))
-		{ if (TStart>0) Q=sqrt( N*( P*(Tc*M + P*Tm*W) - 2*Tc*M ) / (P*(Tirecv + T0wrecv)) );
-			else Q=-1;
-			if (Q>N) Q=N;
-			if (Q<1) Q=1;
-	//	  tt1 = (Tirecv + T0wrecv)*Q + (N*( P*(Tc*M + P*Tm*W) - 2*Tc*M ) / P )/Q;
-	//	  tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + N*Tm*W;
-			tt1 = (N*(P-2)*Tc*M)/(P*Q);
-			tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + (Tirecv + T0wrecv)*Q + N*Tm*W + N*P*Tm*W/Q;
-		}
-		else 
-		{ if (TStart>0) Q=sqrt( N*(P - 1)*(M*Tc + P*Tm*W)  / (P*(Tirecv + T0wrecv)) );
-			else Q=-1;
-			if (Q>N) Q=N;
-			if (Q<1) Q=1;
-	//	  tt1 = (Tirecv + T0wrecv)*Q + (N*(P - 1)*(Tc*M + P*Tm*W)/P)/Q;
-	//	  tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + Tc*M*N/P;
-			tt1 = (N*(P - 1)*Tc*M)/(P*Q) + Tc*M*N/P;
-			tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + (Tirecv + T0wrecv)*Q + N*(P-1)*Tm*W/Q;
-		}
+    if (mode) printf("MM = %d %d %d %d\n", mm[0], mm[1], mm[2], mm[3]);
+    //	for(i=0;i<max_rank;i++)
+    //		mult_is[i]=(i<rank_mas)?1:0; //за пределами размерности массива считаем 0 (не размноженными) так по тем измерениям 1 процессор, иначе раньше вылетает с ошибкой пользователя
+    /*
+        for(i=0,j=0;i<rank_mas;i++)
+            {
+                if(mm[i]==0)
+                { if(ShdWid[i]==0 && mult_is[j]==0) {mult*=p[j]; mult_is[j++]=2;}
+                    else mult_is[j++]=0;
+                }
+                if(mm[i]==1)
+                { mult_is[j++]=1;}
+
+            }
+        */
 
 
-		if(mode) printf("Q=%d time=%5.10f+%5.10f=%5.10f\n",Q,tt1,tt2,tt1+tt2);
+        // mult_is == 1 (размноженный массив, => insuff.par.usr)			mult_is == 2 (shdwid==0, => параллельные конвейеры)	
+    if (mode) printf("MULT %d %d %d %d\n", mult_is[0], mult_is[1], mult_is[2], mult_is[3]);
 
-//		{ 
-//			long *kk;
-//		kk=(long*)malloc(max_rank*sizeof(long));
-			for(i=0;i<rank_mas;i++)
-				s[i]=dmax[i];
+    //вычисляем какие процы участвуют в конвейере! (процы [от i1 до i2][от j1 до j2] )
+    i = first;
+    //conv_beg[0,1,2] ~ i
+    for (k = 0; k < max_rank; k++)
+        conv_beg[k] = i;
+    for (k = max_rank - 1; k >= 0; k--)
+    {
+        conv_beg[k] = conv_beg[k] % p[k];
+        for (x = 0; x < k; x++)
+            conv_beg[x] = conv_beg[x] / p[k];
+    }
 
-			for(i=rank_mas;i<max_rank;i++)
-				s[i]=1;
+    for (k = 0; k < max_rank; k++)
+        conv_end[k] = conv_beg[k];
+
+    for (x = 0; x < rank_mas; x++)
+    {
+        for (k = x + 1, i0 = 1; k < rank_mas; k++)
+            i0 = i0 * p[k];
+
+        for (j = 1; j < p[x] && i + i0 < MPSProcCount() && ProcBlock[i + i0]->GetRank(); j++, i += i0)
+        {
+            for (k = 0, r = 1; k < rank_mas; k++)
+                if (mbeg(i + i0, k) != mbeg(i, k) || mend(i + i0, k) != mend(i, k)) { r = 0; break; }
+            // r==0 (соседние процы по одному измерению имеют разные блоки)    r==1 (одинаковые блоки)
+            if (r == 0) { conv_end[x]++; }
+        }
+    }
+
+    ////вычисление процессоров по которым есть конвейер и заносится в массив 'pip' 
+    for (i = 0; i < max_rank; i++)
+        pip[i] = conv_end[i] - conv_beg[i] + 1;
+    if (mode) printf("Konv procs=%d %d %d %d\n", pip[0], pip[1], pip[2], pip[3]);
 
 
-		// Квантуем по многим измерениям
-			for(i=0,N=min(Q,N);i<rank_mas;i++)
-				if(mm[i] || ShdWid[i]==0) 
-				{
-					if(N>=dim[i])
-					{ s[i]=1;
-						if(mode) printf("QQ=%d ",dim[i]);
-					}
-					else 
-					{ s[i]=dim[i]/N;
-						if(mode) printf("QQ=%d ",N);
-						break;
-					}
-					N/=dim[i];
-				}
+    if (mode)
+    {
+        printf("We got %d KONV ", mult);
+        for (k = 0; k < max_rank; k++)
+            if (k >= rank_mas) printf("%d=%d ", conv_beg[k], conv_end[k]);
+            else printf("%d:%d ", conv_beg[k], conv_end[k]);
+        printf("\n");
+    }
+
+    //вычисляем размеры массива который надо выполнить в конвейере
+    //only comment   i=ind[0]*p[2]*p[1]+ind[1]*p[2]+ind[2]; only comment
+    for (k = 0; k < max_rank; k++)
+    {
+        for (x = k + 1, y = 1; x < max_rank; x++)
+            y *= p[x];
+        dim[k] = mend(conv_end[k] * y, k) - mbeg(conv_beg[k] * y, k) + 1;
+    }
+    if (mode) printf("Dim %d %d %d %d\n", dim[0], dim[1], dim[2], dim[3]);
 
 
-//			x=kk[0]; y=kk[1]; z=kk[2];
-//			free(kk);
-//		}
+    //!!!!!!!!!!! пока еще не рассмотрен случай когда rank>3
+    // и когда есть >=2 параллельных конвейера (одинаковые)
 
-//	printf("Shd=%d %d %d\n",ShdWid[0],ShdWid[1],ShdWid[2]);
+    //подсчет времени коммуникаций и времени работы процов
+    if (rank_mas == 1) //одномерный массив, => нет конвейера
+    {
+        if (mode) printf("No pipeline\n");
+        double a, b, c, d;
+        k = 0;
+        a = call_time;
+        b = (p[0] - 1)*(TStart + ShdWid[0] * TByte);
+        if (mode) printf("exec=%f comm=%f\n", a, b);
+        for (i = 1; i < p[0]; i++) //не учтено что порядок может быть обратным
+        {
+            if (i != 1) c = CurrInterval->GetProcPred(i - 1, _Execution_time);
+            else c = 0.0;
+            d = CurrInterval->GetProcPred(i, _Execution_time);
 
-		if(mode) printf("Konv Steps [%d,%d,%d,%d]\n",s[0],s[1],s[2],s[3]);
-	//	x=dmax[0];y=1;z=242;
-		for(k=0;k<max_rank;k++) // standart order of doing cycles
-		  ord[k]=k;
+            //			AddTime(__Insuff_parall_usr, currentVM->map(i), i*call_time/p[0]); //убрал, потому что нет дублирований, есть разбалансировка
+            AddTime(__Wait_shadow, currentVM->map(i), (TStart + ShdWid[0] * TByte) + max(0, c - d));
+        }
+        for (i = 0; i < p[0]; i++)
+        {
+            AddTime(__CPU_time_usr, currentVM->map(i), call_time / p[0]);
+        }
+    }
+    else
+    { //pipeline in old dvm
+        long M, N, P, W, Q;
 
-		if(full_mode==0) add=1; //записывает времена в интервал
-		calculate_all_pipes();
+        double DD, shad;
 
-		if(mode) printf("Time_c=%5.10f time_x=%5.10f\n",time_c,time_x);
-//end of pipeline in old dvm
+        // M-конвейеризуемые   N-НЕконв.(квантуемые)   P-кол-во процов для конвейера
+        for (i = 0, M = 1, N = 1, P = 1; i < rank_mas; i++)
+        {
+            if (mm[i] || ShdWid[i] == 0)
+                N *= dim[i];
+            else
+            {
+                M *= dim[i];
+                P *= pip[rank - 1 - i];
+            }
+        }
 
-    if (full_mode) // full_mode - searching better than pipe in old dvm
-		{ double ttt=1000000000;
-			long *best,*ord_best,count,*st;//st=step in full_search
+        for (i = 0, DD = 1; i < rank_mas; i++)
+            DD *= dmax[i];
+        for (i = 0, W = 0, shad = 0; i < rank_mas; i++)
+            if (mm[i] == 0) shad += DD / dmax[i] * ShdWid[i]; // есть конвейер по этому измерению
+        W = ceil(shad / N);
 
-			best=(long *)malloc(max_rank*sizeof(long));
-			ord_best=(long *)malloc(max_rank*sizeof(long));
-			st=(long *)malloc(max_rank*sizeof(long));
-			add=0; // не записывает в интервал, а только ищет наилучший
+        if (mode) printf("M=%d N=%d W=%d P=%d\n", M, N, W, P);
+        if (mode) printf("W=%d (Shad=%5.0f)\n", W, shad);
+
+
+        double Tc = call_time / LoopSZ;
+        //	double Tm=0.000023/500;
+        //	double T0wrecv=0.000001;
+        //	double Tirecv=0.000001;
+        //	double Tisend=0.000001;
+        double Tm = TStart + TByte;
+        double T0wrecv = TStart;
+        double Tirecv = TStart;
+        double Tisend = TStart;
+        double tt1, tt2;
+
+        if (mode)
+        { //printf("pip=%d %d %d \n",pip[0],pip[1],pip[2]);
+            if (W*Tm > 0.0000000001) printf("Greater? P=%d or %7.0f\n", P, (M*Tc) / (W*Tm));
+        }
+
+        if (W*Tm > 0.0000000001 && P > (M*Tc) / (W*Tm))
+        {
+            if (TStart > 0)
+            {
+                int tmp1 = N*(P*(Tc*M + P * Tm*W) - 2 * Tc*M);
+                int tmp2 = (P*(Tirecv + T0wrecv));
+                Q = sqrt(N*(P*(Tc*M + P * Tm*W) - 2 * Tc*M) / (P*(Tirecv + T0wrecv)));
+            }
+            else 
+                Q = -1;
+            if (Q > N)
+                Q = N;
+            if (Q < 1) 
+                Q = 1;
+            //	  tt1 = (Tirecv + T0wrecv)*Q + (N*( P*(Tc*M + P*Tm*W) - 2*Tc*M ) / P )/Q;
+            //	  tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + N*Tm*W;
+            tt1 = (N * (P - 2) * Tc * M) / (P * Q);
+            tt2 = Tirecv * P + Tisend * (P - 1) + T0wrecv + (Tirecv + T0wrecv) * Q + N * Tm * W + N * P * Tm * W / Q;
+        }
+        else
+        {
+            if (TStart > 0) 
+                Q = sqrt(N*(P - 1)*(M*Tc + P * Tm*W) / (P*(Tirecv + T0wrecv)));
+            else 
+                Q = -1;
+            if (Q > N) 
+                Q = N;
+            if (Q < 1) 
+                Q = 1;
+            //	  tt1 = (Tirecv + T0wrecv)*Q + (N*(P - 1)*(Tc*M + P*Tm*W)/P)/Q;
+            //	  tt2 = Tirecv*P + Tisend*(P - 1) + T0wrecv + Tc*M*N/P;
+            tt1 = (N*(P - 1)*Tc*M) / (P*Q) + Tc * M*N / P;
+            tt2 = Tirecv * P + Tisend * (P - 1) + T0wrecv + (Tirecv + T0wrecv)*Q + N * (P - 1)*Tm*W / Q;
+        }
+
+
+        if (mode) printf("Q=%d time=%5.10f+%5.10f=%5.10f\n", Q, tt1, tt2, tt1 + tt2);
+
+        //		{ 
+        //			long *kk;
+        //		kk=(long*)malloc(max_rank*sizeof(long));
+        for (i = 0; i < rank_mas; i++)
+            s[i] = dmax[i];
+
+        for (i = rank_mas; i < max_rank; i++)
+            s[i] = 1;
+
+
+        // Квантуем по многим измерениям
+        for (i = 0, N = min(Q, N); i < rank_mas; i++)
+            if (mm[i] || ShdWid[i] == 0)
+            {
+                if (N >= dim[i])
+                {
+                    s[i] = 1;
+                    if (mode) printf("QQ=%d ", dim[i]);
+                }
+                else
+                {
+                    s[i] = dim[i] / N;
+                    if (mode) printf("QQ=%d ", N);
+                    break;
+                }
+                N /= dim[i];
+            }
+
+
+        //			x=kk[0]; y=kk[1]; z=kk[2];
+        //			free(kk);
+        //		}
+
+        //	printf("Shd=%d %d %d\n",ShdWid[0],ShdWid[1],ShdWid[2]);
+
+        if (mode) printf("Konv Steps [%d,%d,%d,%d]\n", s[0], s[1], s[2], s[3]);
+        //	x=dmax[0];y=1;z=242;
+        for (k = 0; k < max_rank; k++) // standart order of doing cycles
+            ord[k] = k;
+
+        if (full_mode == 0) add = 1; //записывает времена в интервал
+        calculate_all_pipes();
+
+        if (mode) printf("Time_c=%5.10f time_x=%5.10f\n", time_c, time_x);
+        //end of pipeline in old dvm
+
+        if (full_mode) // full_mode - searching better than pipe in old dvm
+        {
+            double ttt = 1000000000;
+            long *best, *ord_best, count, *st;//st=step in full_search
+
+            best = (long *)malloc(max_rank * sizeof(long));
+            ord_best = (long *)malloc(max_rank * sizeof(long));
+            st = (long *)malloc(max_rank * sizeof(long));
+            add = 0; // не записывает в интервал, а только ищет наилучший
 
 //			if(full_mode==2) for(i=1;i<max_rank;i++) k*=i;
-	//		else k=1;
-			//k=сколько надо разных порядков обработать
+    //		else k=1;
+            //k=сколько надо разных порядков обработать
 //			printf("Orders=%d\n",k);
 
-			//лучший результат и порядок по схеме старого dvm конвейера
-			for(i=0;i<max_rank;i++)
-			{ best[i]=s[i];
-			  ord_best[i]=i; 
-			}
+            //лучший результат и порядок по схеме старого dvm конвейера
+            for (i = 0; i < max_rank; i++)
+            {
+                best[i] = s[i];
+                ord_best[i] = i;
+            }
 
-			ttt=time_x;
-			count=0;
-			for(ord[0]=0;ord[0]<max_rank;ord[0]++)
-			for(ord[1]=0;ord[1]<max_rank;ord[1]++)
-			for(ord[2]=0;ord[2]<max_rank;ord[2]++)
-			for(ord[3]=0;ord[3]<max_rank;ord[3]++)
-			{ if(ord[0]+ord[1]+ord[2]+ord[3]!=6) continue;
-				i=ord[0]*ord[1]+ord[2]*ord[3];
-				if(i!=6 && i!=3 && i!=2) continue;
-				//здесь они уже все разные и занимают все числа [от 0 до max_rank-1]
-				//need to check if you increase max_rank!!!
-				for(k=0,i=0;k<max_rank;k++)
-					if(dmax[ord[k]]==1 && ord[k]!=k) i=1; 
-				if(i) continue; //оставить только один порядок по этому измерению
+            ttt = time_x;
+            count = 0;
+            for (ord[0] = 0; ord[0] < max_rank; ord[0]++)
+                for (ord[1] = 0; ord[1] < max_rank; ord[1]++)
+                    for (ord[2] = 0; ord[2] < max_rank; ord[2]++)
+                        for (ord[3] = 0; ord[3] < max_rank; ord[3]++)
+                        {
+                            if (ord[0] + ord[1] + ord[2] + ord[3] != 6) continue;
+                            i = ord[0] * ord[1] + ord[2] * ord[3];
+                            if (i != 6 && i != 3 && i != 2) continue;
+                            //здесь они уже все разные и занимают все числа [от 0 до max_rank-1]
+                            //need to check if you increase max_rank!!!
+                            for (k = 0, i = 0; k < max_rank; k++)
+                                if (dmax[ord[k]] == 1 && ord[k] != k) i = 1;
+                            if (i) continue; //оставить только один порядок по этому измерению
 
-				printf("Ord %d %d %d %d\n",ord[0],ord[1],ord[2],ord[3]);
+                            if (mode)
+                                printf("Ord %d %d %d %d\n", ord[0], ord[1], ord[2], ord[3]);
 
-				//вычисление шага сетки
-				for(i=0;i<max_rank;i++)
-					st[i]=dmax[ord[i]]/10+1; //размер сетки == 10 по каждому измерению
+                            //вычисление шага сетки
+                            for (i = 0; i < max_rank; i++)
+                                st[i] = dmax[ord[i]] / 10 + 1; //размер сетки == 10 по каждому измерению
 
-				if(rank_mas>=2) //full_search
-				{ 
-//				  printf("Step %d %d %d %d\n",st[0],st[1],st[2],st[3]);
-					for(s[0]=1;s[0]<dmax[ord[0]] || s[0]<dmax[ord[0]]+st[0] && (s[0]=dmax[ord[0]]);s[0]+=st[0])
-					for(s[1]=1;s[1]<dmax[ord[1]] || s[1]<dmax[ord[1]]+st[1] && (s[1]=dmax[ord[1]]);s[1]+=st[1])
-					for(s[2]=1;s[2]<dmax[ord[2]] || s[2]<dmax[ord[2]]+st[2] && (s[2]=dmax[ord[2]]);s[2]+=st[2])
-					for(s[3]=1;s[3]<dmax[ord[3]] || s[3]<dmax[ord[3]]+st[3] && (s[3]=dmax[ord[3]]);s[3]+=st[3])
-					{ calculate_all_pipes();
-						if(time_x<ttt) 
-						{ ttt=time_x;
-							for(k=0;k<max_rank;k++)
-							{
-								best[ord[k]]=s[k];
-								ord_best[k]=ord[k];
-							}
-							if(mode) printf("BETTER %d %d %d %d [comm=%.10f] time=%.10f\n",s[ord[0]],s[ord[1]],s[ord[2]],s[ord[3]],time_c,time_x);
-						}
-						count++;
-					}
-				}
-				if(full_mode==1) {ord[0]=ord[1]=ord[2]=ord[3]=max_rank;} 
-			}
+                            if (rank_mas >= 2) //full_search
+                            {
+                                //				  printf("Step %d %d %d %d\n",st[0],st[1],st[2],st[3]);
+                                for (s[0] = 1; s[0] < dmax[ord[0]] || s[0] < dmax[ord[0]] + st[0] && (s[0] = dmax[ord[0]]); s[0] += st[0])
+                                    for (s[1] = 1; s[1] < dmax[ord[1]] || s[1] < dmax[ord[1]] + st[1] && (s[1] = dmax[ord[1]]); s[1] += st[1])
+                                        for (s[2] = 1; s[2] < dmax[ord[2]] || s[2] < dmax[ord[2]] + st[2] && (s[2] = dmax[ord[2]]); s[2] += st[2])
+                                            for (s[3] = 1; s[3] < dmax[ord[3]] || s[3] < dmax[ord[3]] + st[3] && (s[3] = dmax[ord[3]]); s[3] += st[3])
+                                            {
+                                                calculate_all_pipes();
+                                                if (time_x < ttt)
+                                                {
+                                                    ttt = time_x;
+                                                    for (k = 0; k < max_rank; k++)
+                                                    {
+                                                        best[ord[k]] = s[k];
+                                                        ord_best[k] = ord[k];
+                                                    }
+                                                    if (mode) printf("BETTER %d %d %d %d [comm=%.10f] time=%.10f\n", s[ord[0]], s[ord[1]], s[ord[2]], s[ord[3]], time_c, time_x);
+                                                }
+                                                count++;
+                                            }
+                            }
+                            if (full_mode == 1) { ord[0] = ord[1] = ord[2] = ord[3] = max_rank; }
+                        }
 
-			for(k=0;k<max_rank;k++)
-			{ ord[k]=ord_best[k];
-				s[k]=best[ord[k]];
-			}
-			if(mode) printf("BEST[%d %d %d %d] %d %d %d %d = %5.10f [tried %d variants]\n",ord[0],ord[1],ord[2],ord[3],s[0],s[1],s[2],s[3],ttt,count);
-			add=1; //запись в интервал
-			calculate_all_pipes();
-		}
-  }
+            for (k = 0; k < max_rank; k++)
+            {
+                ord[k] = ord_best[k];
+                s[k] = best[ord[k]];
+            }
+            if (mode) printf("BEST[%d %d %d %d] %d %d %d %d = %5.10f [tried %d variants]\n", ord[0], ord[1], ord[2], ord[3], s[0], s[1], s[2], s[3], ttt, count);
+            add = 1; //запись в интервал
+            calculate_all_pipes();
+        }
+    }
 
-	free(pip);
-	free(mult_is);
-  free(dmax);
-	free(conv_beg);
-	free(conv_end);
-	free(s);
-	return;
+    //free(pip);
+    //free(mult_is);
+    //free(dmax);
+    //free(conv_beg);
+    //free(conv_end);
+    //free(s);
+    return;
 }
 //=**************************************************************************************
 

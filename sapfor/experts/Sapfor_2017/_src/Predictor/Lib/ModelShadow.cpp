@@ -130,24 +130,20 @@ void FuncCall::crtshg()
 
 void FuncCall::inssh()
 {
-	inssh_Info* params  = (inssh_Info*) call_params;
-    _ShdGrpInfo* SG=GetShdGroupByIndex(params->ShadowGroupRef);
-    _DArrayInfo* DA=GetDArrayByIndex(params->ArrayHeader);		// DA_ID
-//====
-type_size=DA->DArray_Obj->TypeSize;
-//=***
-
-    SG->BoundGroup_Obj->AddBound(DA->DArray_Obj,params->LowShdWidthArray,
-                                 params->HiShdWidthArray, params->FullShdSign);
+    inssh_Info* params = (inssh_Info*)call_params;
+    _ShdGrpInfo* SG = GetShdGroupByIndex(params->ShadowGroupRef);
+    _DArrayInfo* DA = GetDArrayByIndex(params->ArrayHeader);		// DA_ID
+    type_size = DA->DArray_Obj->TypeSize;
+    SG->BoundGroup_Obj->AddBound(DA->DArray_Obj, params->LowShdWidthArray, params->HiShdWidthArray, params->FullShdSign);
 }
 
 void FuncCall::insshd()
 {
-	inssh_Info* params  = (inssh_Info*) call_params;
-    _ShdGrpInfo* SG=GetShdGroupByIndex(params->ShadowGroupRef);
-    _DArrayInfo* DA=GetDArrayByIndex(params->ArrayHeader);		// DA_ID
-    SG->BoundGroup_Obj->AddBound(DA->DArray_Obj,params->LowShdWidthArray,
-                                 params->HiShdWidthArray, 0);	// 0 - EVA ???
+    inssh_Info* params = (inssh_Info*)call_params;
+    _ShdGrpInfo* SG = GetShdGroupByIndex(params->ShadowGroupRef);
+    _DArrayInfo* DA = GetDArrayByIndex(params->ArrayHeader);		// DA_ID
+    type_size = DA->DArray_Obj->TypeSize;
+    SG->BoundGroup_Obj->AddBound(DA->DArray_Obj, params->LowShdWidthArray, params->HiShdWidthArray, 0);	// 0 - EVA ???
 }
 
 static void setShdWidth(inssh_Info* params, _DArrayInfo* DA) 
