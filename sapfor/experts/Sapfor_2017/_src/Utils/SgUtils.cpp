@@ -733,7 +733,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= 950 && var <= 956)
+    if (var >= 950 && var <= 958)
         ret = true;
     return ret;
 }
@@ -1640,10 +1640,10 @@ static void fillArraysFromDirsRec(SgExpression *ex, vector<DIST::Array*> &toAdd)
     }
 }
 
-vector<DIST::Array*> fillArraysFromDir(Statement *loopSt)
+vector<DIST::Array*> fillArraysFromDir(Statement *st)
 {
     vector<DIST::Array*> retVal;
     for (int z = 0; z < 3; ++z)
-        fillArraysFromDirsRec(loopSt->GetOriginal()->lexPrev()->expr(z), retVal);
+        fillArraysFromDirsRec(st->GetOriginal()->lexPrev()->expr(z), retVal);
     return retVal;
 }

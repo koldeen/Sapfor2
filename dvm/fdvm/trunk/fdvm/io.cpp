@@ -1111,16 +1111,14 @@ int control_list_open(SgExpression *e, SgExpression *ioc[])
 }        
 
 void InsertSendIOSTAT(SgExpression * eios)
-{int imem,icount;
+{int imem;
  SgType *t;
  imem = ndvm;  
  doAssignStmtAfter(GetAddresMem(eios));
  t = eios->symbol() ? Base_Type(eios->symbol()->type()) : SgTypeInt();//type of IOSTAT var
  doAssignStmtAfter(TypeLengthExpr(t)); //type size
  //doAssignStmtAfter(new SgValueExp(TypeSize(t))); 14.03.03
- icount = ndvm;
- doAssignStmtAfter(new SgValueExp(1)); //count of memory areas = 1
- doCallAfter(SendMemory(icount,imem,imem+1));
+ doCallAfter(SendMemory(1,imem,imem+1));  //count of memory areas = 1
  if(dvm_debug)
    InsertNewStatementAfter(D_Read(DVM000(imem)),cur_st,cur_st->controlParent());
  SET_DVM(imem);
@@ -1140,8 +1138,7 @@ void InsertSendInquire(SgExpression * eioc[])
      doAssignStmtAfter(TypeLengthExpr(eioc[i]->type())); 
      //doAssignStmtAfter(new SgValueExp(TypeSize(eioc[i]->type()))); 14.03.03
  if(j) {
-   icount = ndvm;
-   doAssignStmtAfter(new SgValueExp(j)); //count of memory areas
+   icount = j;   //count of memory areas
    doCallAfter(SendMemory(icount,imem,imem+j));
    if(dvm_debug)
      for(i=0; i<j; i++)
@@ -1156,7 +1153,7 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
 {int imem,j,i,icount,iel;
  SgExpression *el,*ein,*iisize[MAXLISTLEN],*iinumb[MAXLISTLEN],*iielem[MAXLISTLEN];
  SgType *t;
-
+ SgStatement *st_save = cur_st;
  imp_loop = NULL;
 
  if(dvm_debug)
@@ -1170,7 +1167,7 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
      t = io_stat->symbol() ? Base_Type(io_stat->symbol()->type()) : SgTypeInt();//type of IOSTAT var
      iisize[0] =  TypeLengthExpr(t); //new SgValueExp(TypeSize(t));
      j++;
-   }
+ }
  for (el=input_list;el;el=el->rhs()) {    
    ein = el->lhs();  // input list item
    if(j> MAXLISTLEN)
@@ -1215,24 +1212,25 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
       j++;      
    }  
  }
+//SendList (st_save,io_stat,j,
  for(i=0;i<j;i++)
-    doAssignStmtAfter(iisize[i]); 
-
-icount = ndvm;
-doAssignStmtAfter(new SgValueExp(j)); //count of memory areas
-doCallAfter(SendMemory(icount,imem,imem+j));
-if(dvm_debug){
-  for(i=0;i<j;i++)
-    if(iinumb[i] != NULL){ // input list item is array
-      iel = ndvm;
-      doAssignStmtAfter(iielem[i]); 
-      doAssignStmtAfter(iinumb[i]); 
-      InsertNewStatementAfter(D_ReadA(DVM000(imem+i),iel,iel+1),cur_st,cur_st->controlParent());
-      SET_DVM(iel);
-    } else
+    doAssignStmtAfter(iisize[i]);
+ 
+ icount = j;   //count of memory areas
+ doCallAfter(SendMemory(icount,imem,imem+j));
+//
+ if(dvm_debug){
+   for(i=0;i<j;i++)
+     if(iinumb[i] != NULL){ // input list item is array
+       iel = ndvm;
+       doAssignStmtAfter(iielem[i]); 
+       doAssignStmtAfter(iinumb[i]); 
+       InsertNewStatementAfter(D_ReadA(DVM000(imem+i),iel,iel+1),cur_st,cur_st->controlParent());
+       SET_DVM(iel);
+     } else
       InsertNewStatementAfter(D_Read(DVM000(imem+i)),cur_st,cur_st->controlParent());
-}
-SET_DVM(imem);
+ }
+ SET_DVM(imem);
 }
 
 int SpecialKindImplicitLoop(SgExpression *el, SgExpression *ein, int *pj, SgExpression *iisize[], SgExpression *iielem[],SgExpression *iinumb[],SgStatement *stmt)

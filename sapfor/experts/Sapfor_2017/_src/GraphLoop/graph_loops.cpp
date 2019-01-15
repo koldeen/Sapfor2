@@ -27,6 +27,8 @@
 #include "../Utils/errors.h"
 #include "../Utils/AstWrapper.h"
 
+#include "../LoopAnalyzer/directive_parser.h"
+
 using std::vector;
 using std::map;
 using std::set;
@@ -661,6 +663,60 @@ map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector
 
             if (it->second->region && it->second->region->GetId() == regId)
                 retVal[it->second] = it->second->directive;
+        }
+    }
+
+    return retVal;
+}
+
+vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleRemotes(SgFile *file, const int regId, vector<ParallelRegion*> &regions)
+{
+    vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> retVal;
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() == DVM_REMOTE_ACCESS_DIR)
+        {
+            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+            if (currReg)
+            {
+                map<pair<SgSymbol*, string>, Expression*> remotes;
+                fillRemoteFromComment(new Statement(st), remotes, false, DVM_REMOTE_ACCESS_DIR);
+
+                for (auto &array : remotes)
+                {
+                    auto arrName = array.first.first;
+                    DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(array.first.first), array.first.first->identifier());
+                    checkNull(currArr, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    vector<long> coords(currArr->GetDimSize());
+                    SgExpression *list = array.second->GetOriginal();
+
+                    if (list)
+                    {
+                        int idx = 0;
+                        while (list)
+                        {
+                            if (list->lhs())
+                            {
+                                const int var = list->lhs()->variant();
+                                if (var == DDOT || var == KEYWORD_VAL)
+                                    coords[currArr->GetDimSize() - 1 - idx] = -1;
+                                else
+                                    coords[currArr->GetDimSize() - 1 - idx] = 0;
+                            }
+                            else
+                                coords[currArr->GetDimSize() - 1 - idx] = -1;
+                            idx++;
+                            list = list->rhs();
+                        }
+                    }
+                    else // full
+                        std::fill(coords.begin(), coords.end(), -1);
+
+                    retVal.push_back(std::make_tuple(currArr, coords, std::make_pair(st->lexNext()->fileName(), st->lexNext()->lineNumber())));
+                }
+            }
         }
     }
 

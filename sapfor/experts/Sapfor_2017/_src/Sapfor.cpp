@@ -1465,6 +1465,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
                 map<LoopGraph*, ParallelDirective*> parallelDirs;
+                vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> allSingleRemotes;
                 for (int i = n - 1; i >= 0; --i)
                 {
                     SgFile *file = &(project.file(i));
@@ -1473,8 +1474,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                     auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
                     parallelDirs.insert(fountInfo.begin(), fountInfo.end());
+
+                    auto fountRem = findAllSingleRemotes(file, parallelRegions[z]->GetId(), parallelRegions);
+                    allSingleRemotes.insert(allSingleRemotes.end(), fountRem.begin(), fountRem.end());
                 }
-                int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, maxSizeDist, procNum);
+                int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);
                 if (err != 0)
                     internalExit = err;
             }

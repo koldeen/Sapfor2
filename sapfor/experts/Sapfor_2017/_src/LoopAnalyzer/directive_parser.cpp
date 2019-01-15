@@ -305,20 +305,24 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
     if (stIn)
     {
         SgStatement *st = stIn->GetOriginal();
-        if (st->variant() ==  type)
+        if (st->variant() == type)
         {
             SgExpression *exprList = NULL;
-            if (type == SPF_PARALLEL_DIR)
+            if (type == SPF_PARALLEL_DIR || type == DVM_REMOTE_ACCESS_DIR)
                 exprList = st->expr(0);
             else if (type == DVM_PARALLEL_ON_DIR)
-                exprList = st->expr(1);
+                exprList = st->expr(1);            
 
             while (exprList)
             {
-                if (exprList->lhs()->variant() == REMOTE_ACCESS_OP)
+                if (exprList->lhs()->variant() == REMOTE_ACCESS_OP || type == DVM_REMOTE_ACCESS_DIR)
                 {
-                    //recExpressionPrint(exprList);
-                    SgExpression *list = exprList->lhs()->lhs();
+                    SgExpression *list;
+                    if (type == DVM_REMOTE_ACCESS_DIR)
+                        list = exprList;
+                    else
+                        list = exprList->lhs()->lhs();
+
                     while (list)
                     {
                         fillType arrayName, *dummy = NULL;
@@ -332,6 +336,9 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
                         list = list->rhs();
                     }
                 }
+
+                if (type == DVM_REMOTE_ACCESS_DIR)
+                    break;
                 exprList = exprList->rhs();
             }
         }

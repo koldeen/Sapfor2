@@ -1770,7 +1770,7 @@ SgStatement *SendMemory(int icount, int inda, int indl)
  SgCallStmt *call = new SgCallStmt(*fdvm[SRMEM]);
  fmask[SRMEM] = 2;
 
-  call->addArg(*DVM000(icount));
+  call->addArg(*ConstRef_F95(icount)); //addArg(*DVM000(icount));
   call->addArg(*DVM000(inda));
   call->addArg(*DVM000(indl));
   return(call);
@@ -1888,17 +1888,14 @@ SgExpression *Barrier()
 SgStatement *D_RegistrateArray(int rank, int type, SgExpression *headref,  SgExpression *size_array,SgExpression *arref) 
 {
 //generating Subroutine Call: drarr(Rank,Type,Addr,Size_array,Operand)                       
-
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DRARR]);
- fmask[DRARR] = 1;
-  fe->addArg(*ConstRef(rank));
-  fe->addArg(*ConstRef(type));
-  fe->addArg(*headref);
-  fe->addArg(*size_array);
-  fe->addArg(*new SgValueExp(UnparseExpr(arref)));
-  ndvm++;
-  FREE_DVM(1);
-  return(new SgAssignStmt(*DVM000(ndvm),*fe));
+  SgCallStmt *call = new SgCallStmt(*fdvm[DRARR]);
+  fmask[DRARR] = 2;
+  call->addArg(*ConstRef(rank));
+  call->addArg(*ConstRef(type));
+  call->addArg(*headref);
+  call->addArg(*size_array);
+  call->addArg(*new SgValueExp(UnparseExpr(arref)));
+  return(call);
 }   
 
 SgStatement *D_LoadVar(SgExpression *vref, int type, SgExpression *headref, SgExpression *opref) 
@@ -2221,30 +2218,25 @@ SgStatement *D_RmBuf(SgExpression *source_headref, SgExpression *buf_headref, in
 
 SgStatement *D_Read(SgExpression *adr) 
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                        dread(Addr);
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DREAD]);
- fmask[DREAD] = 1;
 
-  fe->addArg(*adr);
-  ndvm++;
-  FREE_DVM(1);
-  return(new SgAssignStmt(*DVM000(ndvm),*fe));
+  SgCallStmt *call = new SgCallStmt(*fdvm[DREAD]);
+  fmask[DREAD] = 2;
+  call->addArg(*adr);
+  return(call);
 }      
 
 SgStatement *D_ReadA(SgExpression *adr,int indel, int icount) 
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                        dreada(StartArrayAddr, ElemLength, ArrayLength);
- SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[DREADA]);
- fmask[DREADA] = 1;
-
-  fe->addArg(*adr);
-  fe->addArg(*DVM000(indel));
-  fe->addArg(*DVM000(icount));
-  ndvm++;
-  FREE_DVM(1);
-  return(new SgAssignStmt(*DVM000(ndvm),*fe));
+  SgCallStmt *call = new SgCallStmt(*fdvm[DREADA]);
+  fmask[DREADA] = 2;
+  call->addArg(*adr);
+  call->addArg(*DVM000(indel));
+  call->addArg(*DVM000(icount));
+  return(call);
 }    
 
 SgExpression * D_CreateDebRedGroup()
@@ -2258,24 +2250,22 @@ SgExpression * D_CreateDebRedGroup()
   return(fe);
 }
 
-SgExpression *D_InsRedVar(SgExpression *dgref,int num_red, SgExpression *red_array, int ntype, int length, SgExpression *loc_array, int loc_length, int locindtype)
+SgStatement *D_InsRedVar(SgExpression *dgref,int num_red, SgExpression *red_array, int ntype, int length, SgExpression *loc_array, int loc_length, int locindtype)
 {
-//generating function call:
-//                 dinsrd(DebRedGroupref,RedFuncNumb, RedArray, RedArrayType, RedArrayLength,                                         LocArray, LocElmLength, LocIndType)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[DINSRD]);
-  fmask[DINSRD] = 1;
+//generating subroutine call:
+//                 dinsrd(DebRedGroupref, RedFuncNumb, RedArray, RedArrayType, RedArrayLength, LocArray, LocElmLength, LocIndType)
+  SgCallStmt *call = new SgCallStmt(*fdvm[DINSRD]);
+  fmask[DINSRD] = 2;
  
-  fe->addArg(dgref->copy());
-  fe->addArg(*ConstRef(num_red));
-  //fe->addArg(red_array->copy());
-  fe->addArg(*GetAddresMem(red_array));
-  fe->addArg(*ConstRef(ntype));
-  fe->addArg(*DVM000(length));
-  fe->addArg(loc_array->copy());
-  fe->addArg(*DVM000(loc_length));
-  fe->addArg(*ConstRef(locindtype));
-  return(fe);
+  call->addArg(dgref->copy());
+  call->addArg(*ConstRef(num_red));
+  call->addArg(*GetAddresMem(red_array));
+  call->addArg(*ConstRef(ntype));
+  call->addArg(*DVM000(length));
+  call->addArg(loc_array->copy());
+  call->addArg(*DVM000(loc_length));
+  call->addArg(*ConstRef(locindtype));
+  return(call);
 }
 
 SgExpression *D_SaveRG(SgExpression *dgref)
@@ -2289,26 +2279,24 @@ SgExpression *D_SaveRG(SgExpression *dgref)
   return(fe);
 }
 
-SgExpression *D_CalcRG(SgExpression *dgref)
+SgStatement *D_CalcRG(SgExpression *dgref)
 {
-//creating function call:
+//creating subroutine call:
 //                        dclcrg(DebRedGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[DCLCRG]);
-  fmask[DCLCRG] = 1;
-  fe->addArg(dgref->copy());
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[DCLCRG]);
+  fmask[DCLCRG] = 2;
+  call->addArg(dgref->copy());
+  return(call);
 }
 
-SgExpression *D_DelRG(SgExpression *dgref)
+SgStatement *D_DelRG(SgExpression *dgref)
 {
-//creating function call:
+//creating subroutine call:
 //                        ddelrg(DebRedGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[DDLRG]);
-  fmask[DDLRG] = 1;
-  fe->addArg(dgref->copy());
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[DDLRG]);
+  fmask[DDLRG] = 2;
+  call->addArg(dgref->copy());
+  return(call);
 }
 
 SgExpression *SummaOfDistrArray(SgExpression *headref, SgExpression *sumvarref)

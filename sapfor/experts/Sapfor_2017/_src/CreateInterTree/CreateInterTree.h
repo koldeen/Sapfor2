@@ -27,6 +27,7 @@ struct SpfInterval
     int exec_count = 0;
     double exec_time = 0;
     std::vector<double> predictedTimes;
+    std::vector<double> predictedRemoteTimes;
 
     int getBestTimeIdx()
     {
@@ -60,3 +61,5 @@ void initTimeForIntervalTree(const int numOfTopologies, std::vector<SpfInterval*
 void aggregatePredictedTimes(std::vector<SpfInterval*> &itervals);
 SpfInterval* getMainInterval(SgProject *project, const std::map<std::string, std::vector<SpfInterval*>> &intervals);
 void uniteIntervalsBetweenProcCalls(std::map<std::string, std::vector<SpfInterval*>> &intervals, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
+SpfInterval* findNearestUp(const std::map<SgStatement*, SpfInterval*> &intervals, SgStatement *st);
+SpfInterval* findNearestDown(const std::map<SgStatement*, SpfInterval*> &intervals, SgStatement *st);

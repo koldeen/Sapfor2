@@ -3258,12 +3258,12 @@ EXEC_PART_:
             LINE_NUMBER_AFTER(stmt,stmt); //for tracing set on global variable of LibDVM  
             doCallAfter(WaitRed(rg)); 
             if(dvm_debug)             
-              doAssignStmtAfter( D_CalcRG(DebReductionGroup( rg->symbol())));
+              doCallAfter( D_CalcRG(DebReductionGroup( rg->symbol())));
             
             doCallAfter(DeleteObject_H(rg)); 
             doAssignTo_After(rg, new SgValueExp(0));
             if(debug_regim)
-              doAssignStmtAfter( D_DelRG(DebReductionGroup( rg->symbol())));              
+              doCallAfter( D_DelRG(DebReductionGroup( rg->symbol())));              
 	   }
               //Extract_Stmt(stmt); // extracting DVM-directive
             wait_list = addToStmtList(wait_list, stmt); 
@@ -3524,18 +3524,12 @@ EXEC_PART_:
 	    // (begin of user interval)
             
             LINE_NUMBER_AFTER(stmt,stmt);
-                 //ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-                 //doAssignStmtAfter(Value(stmt->expr(0))); 
-                 // InsertNewStatementAfter(St_Binter(ind,ind+1), cur_st,cur_st->controlParent()); 
             InsertNewStatementAfter(St_Binter(OpenInterval(stmt),Value_F95(stmt->expr(0))), cur_st,cur_st->controlParent());       
-                 //FREE_DVM(2);
-            /*Extract_Stmt(stmt);         
-            stmt = cur_st; */
           }
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt); 
-            stmt = cur_st; 
-            break;
+          pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
+          stmt = cur_st;
+          break;
+
       case DVM_ENDINTERVAL_DIR:
           if (perf_analysis > 1){
             //generating call to 'einter' function of performance analizer
@@ -3548,10 +3542,6 @@ EXEC_PART_:
             if(St_frag && St_frag->begin_st &&  (St_frag->begin_st->controlParent() != stmt->controlParent()))
                 err("Misplaced directive",103,stmt); //interval must be a block
 	    LINE_NUMBER_AFTER(stmt,stmt);
-                 //ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-                 //doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-                 //InsertNewStatementAfter(St_Einter(ind,ind+1), cur_st, stmt->controlParent()); 
-                 //FREE_DVM(2);
             InsertNewStatementAfter(St_Einter(INTERVAL_NUMBER,INTERVAL_LINE), cur_st, stmt->controlParent());
             CloseInterval();
             Extract_Stmt(stmt); // extracting DVM-directive           
@@ -3560,40 +3550,25 @@ EXEC_PART_:
           else
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
-            break;
+          break;
 
       case DVM_EXIT_INTERVAL_DIR:
           if (perf_analysis > 1){
-            //generating call to 'einter' function of performance analizer
-	    // (exit from user interval)
+            //generating calls to 'einter' function of performance analizer
+	    // (exit from user intervals)
             
             if(!St_frag){
               err("Misplaced directive",103,stmt);
               break;
             }
-            interval_list *current_interval = St_frag;
-            SgExpression *el;                                 
-	    LINE_NUMBER_AFTER(stmt,stmt);
-            for(el=stmt->expr(0); el; el=el->rhs())
-            {               
-              if(ExpCompare(el->lhs(),current_interval->begin_st->expr(0)))
-              {
-                InsertNewStatementAfter(St_Einter(current_interval->No,current_interval->begin_st->lineNumber()), cur_st, stmt->controlParent());            
-                current_interval = current_interval->prev; 
-              }
-              else
-              {
-                err("Illegal interval number", 635, stmt);
-                break;
-              }
-            }
+            ExitInterval(stmt);
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;
           }
           else
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
-            break;
+          break;
 
        case DVM_MAP_DIR:
 	 {  int ind;
@@ -10601,7 +10576,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
               doCallAfter(DeleteObject_H(rg)); 
               doAssignTo_After(rg, new SgValueExp(0)); 	   
                   //Extract_Stmt(stmt); // extracting DVM-directive  
-              doAssignStmtAfter( D_DelRG(DebReductionGroup( rg->symbol())));               
+              doCallAfter( D_DelRG(DebReductionGroup( rg->symbol())));               
             }
             wait_list = addToStmtList(wait_list, stmt); 
             pstmt = addToStmtList(pstmt, stmt); 
@@ -10638,18 +10613,12 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 	    // (begin of user interval)
             
             LINE_NUMBER_AFTER(stmt,stmt);
-                       //ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-                       //doAssignStmtAfter(Value(stmt->expr(0))); 
-                       //InsertNewStatementAfter(St_Binter(ind,ind+1), cur_st,cur_st->controlParent()); 
-                       //FREE_DVM(2);
             InsertNewStatementAfter(St_Binter(OpenInterval(stmt),Value_F95(stmt->expr(0))), cur_st,cur_st->controlParent()); 
-            /*Extract_Stmt(stmt);           
-            stmt = cur_st; */
           }
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt);  
-            stmt = cur_st;
-            break;
+          pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
+          stmt = cur_st; 
+          break;
+
       case DVM_ENDINTERVAL_DIR:
           if (perf_analysis > 1){
             //generating call to 'einter' function of performance analizer
@@ -10662,19 +10631,32 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
             if(St_frag && St_frag->begin_st &&  (St_frag->begin_st->controlParent() != stmt->controlParent()))
                 err("Misplaced directive",103,stmt); //interval must be a block
 	    LINE_NUMBER_AFTER(stmt,stmt);
-                    //ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-                    //doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-                    //InsertNewStatementAfter(St_Einter(ind,ind+1), cur_st, stmt->controlParent()); 
-                    // FREE_DVM(2);
             InsertNewStatementAfter(St_Einter(INTERVAL_NUMBER,INTERVAL_LINE), cur_st, stmt->controlParent());
             CloseInterval();
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;
           }
           else
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt);  
+            pstmt = addToStmtList(pstmt, stmt); //including the DVM  directive to list 
+          break;
+
+      case DVM_EXIT_INTERVAL_DIR:
+          if (perf_analysis > 1){
+            //generating calls to 'einter' function of performance analizer
+	    // (exit from user intervals)
+            
+            if(!St_frag){
+              err("Misplaced directive",103,stmt);
+              break;
+            }
+            ExitInterval(stmt);
+            Extract_Stmt(stmt); // extracting DVM-directive           
+            stmt = cur_st;
+          }
+          else
+            pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
             break;
+
        case DVM_OWN_DIR: 
             if(dvm_debug && stmt->lexNext()->variant() == ASSIGN_STAT) 
                own_exe = 1;
@@ -10848,7 +10830,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
            //  call dvmh_delete_object(RedGroupRef)     // dvm000(i) = delobj(RedGroupRef)
            doCallAfter(DeleteObject_H(redgref));
            if(idebrg)
-              doAssignStmtAfter( D_DelRG(DVM000(idebrg)));   
+              doCallAfter( D_DelRG(DVM000(idebrg)));   
          } 
        } else  if(perf_analysis == 4)
          SeqLoopEndInParLoop(end_stmt,stmt);

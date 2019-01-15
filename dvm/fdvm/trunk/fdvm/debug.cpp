@@ -937,6 +937,26 @@ int CloseInterval()
   
 }
 
+void ExitInterval(SgStatement *stmt)
+{
+   interval_list *current_interval = St_frag;
+   SgExpression *el;                                
+   LINE_NUMBER_AFTER(stmt,stmt);
+   for(el=stmt->expr(0); el; el=el->rhs())
+   {               
+      if(ExpCompare(el->lhs(),current_interval->begin_st->expr(0)))
+      {
+         InsertNewStatementAfter(St_Einter(current_interval->No,current_interval->begin_st->lineNumber()), cur_st, stmt->controlParent());            
+         current_interval = current_interval->prev; 
+      }
+      else
+      {
+         err("Illegal interval number", 635, stmt);
+         break;
+      }
+   }
+}
+
 void OverLoopAnalyse(SgStatement *func)
 {SgStatement *st;
 //St_loop_first = NULL;

@@ -266,8 +266,8 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
            
 	  if(idebrg){
              if(dvm_debug)
-               doAssignStmtAfter( D_CalcRG(DVM000(idebrg)));
-             doAssignStmtAfter( D_DelRG (DVM000(idebrg)));
+               doCallAfter( D_CalcRG(DVM000(idebrg)));
+             doCallAfter( D_DelRG (DVM000(idebrg)));
           }
           // generating statement:
           //  call dvmh_delete_object(RedGroupRef)     //dvm000(i) = delobj(RedGroupRef)
@@ -1674,7 +1674,7 @@ void ReductionList  (SgExpression *el,SgExpression *gref, SgStatement *st, SgSta
      }
      if(debug_regim && st->variant()!=DVM_TASK_REGION_DIR) {
        debgref = idebrg ? DVM000(idebrg) : DebReductionGroup(gref->symbol());
-       doAssignStmtAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
+       doCallAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
      }
      last1 = cur_st;
      if(stmt1 != stmt2) 

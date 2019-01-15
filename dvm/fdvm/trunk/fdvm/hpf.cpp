@@ -864,7 +864,7 @@ void ReductionListIND1()
        doAssignStmtAfter(ReductionVar(num_red,evc,ntype,ilen, loc_var, ilen+1,sign));
      er->ind = irv;
      if(debug_regim) {
-       doAssignStmtAfter(D_InsRedVar(DVM000(idebrg),num_red,evc,ntype,ilen, loc_var, ilen+1,locindtype));
+       doCallAfter(D_InsRedVar(DVM000(idebrg),num_red,evc,ntype,ilen, loc_var, ilen+1,locindtype));
      }
   }   
      return;

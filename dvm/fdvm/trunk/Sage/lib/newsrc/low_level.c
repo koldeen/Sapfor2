@@ -1316,7 +1316,7 @@ char* filter(char *s)
     while (c != '\0')
     {
         c = s[i];
-        temp[buf_i] = out_upper_case && (!commentline || DVM!=0 || SPF!=0 || OMP!=0) && islower(c) ? toupper(c) : c;
+        temp[buf_i] = out_upper_case && (!commentline || DVM || SPF || OMP) && islower(c) ? toupper(c) : c;
         if (c == '\n')
         {
             if (buf_i + 1 > temp_size)

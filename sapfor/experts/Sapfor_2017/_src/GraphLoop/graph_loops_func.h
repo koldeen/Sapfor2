@@ -10,3 +10,4 @@ struct SpfInterval;
 void loopGraphAnalyzer(SgFile *file, std::vector<LoopGraph*> &loopGraph, const std::vector<SpfInterval*> &statisticTimes, std::vector<Messages> &messages);
 void findAllRefsToLables(SgStatement *st, std::map<int, std::vector<int>> &labelsRef, bool includeWrite = true);
 std::map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const std::vector<LoopGraph*> &loops, const int regId);
+std::vector<std::tuple<DIST::Array*, std::vector<long>, std::pair<std::string, int>>> findAllSingleRemotes(SgFile *file, const int regId, std::vector<ParallelRegion*> &regions);

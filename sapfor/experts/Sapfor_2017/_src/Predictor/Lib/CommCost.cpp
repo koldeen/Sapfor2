@@ -410,153 +410,156 @@ CommCost & CommCost::operator =(const CommCost & cc)
 
 double CommCost::GetCost()
 {
-	double	cost = 0.0;
-	long	p1, 
-			p2;
-	long	Distance, 
-			maxDistance = 0;	// текущее и максимальное растояние
-								// (длина минимального пути между процессорами) 
-								// между процессорами
-	long	Byte, 
-			maxByte = 0;		// -//- число пересылаемых байтов
-	long	s;					// размер пересылаемой по конвейеру порции данных(в байтах)
-	long	k;					// число порций
-	long	e;					// остаток
-	int		c = 0;				// 0 - если остаток = 0, 1 - иначе
+    double	cost = 0.0;
+    long	p1,
+        p2;
+    long	Distance,
+        maxDistance = 0;	// текущее и максимальное растояние
+                            // (длина минимального пути между процессорами) 
+                            // между процессорами
+    long	Byte,
+        maxByte = 0;		// -//- число пересылаемых байтов
+    long	s;					// размер пересылаемой по конвейеру порции данных(в байтах)
+    long	k;					// число порций
+    long	e;					// остаток
+    int		c = 0;				// 0 - если остаток = 0, 1 - иначе
 
-	long	LSize = rootVM->GetLSize();
-	assert(vm != NULL);
-	double	TStart = vm->getTStart();
-	double	TByte = vm->getTByte();
+    long	LSize = rootVM->GetLSize();
+    assert(vm != NULL);
+    double	TStart = vm->getTStart();
+    double	TByte = vm->getTByte();
 
-	switch (vm->getMType()) {
+    switch (vm->getMType()) {
 
-		case mach_ETHERNET :
+    case mach_ETHERNET:
 
 
-			if(DAF_tmp == NULL)
-			{
-				for (p1 = 0; p1 < LSize; p1++)
-					for (p2 = 0; p2 < LSize; p2++) 
-						if ((p1 != p2) && (transfer[p1][p2] != 0))
-							cost += TStart + TByte * transfer[p1][p2];
-			}
-			//====
-			else
-			{
-				for (p1 = 0; p1 < LSize; p1++)
-					DAF_tmp->ProcessTimeStamp[p1] = 0;
+        if (DAF_tmp == NULL)
+        {
+            for (p1 = 0; p1 < LSize; p1++)
+                for (p2 = 0; p2 < LSize; p2++)
+                    if ((p1 != p2) && (transfer[p1][p2] != 0))
+                        cost += TStart + TByte * transfer[p1][p2];
+        }
+        //====
+        else
+        {
+            for (p1 = 0; p1 < LSize; p1++)
+                DAF_tmp->ProcessTimeStamp[p1] = 0;
 
-				for (p1 = 0; p1 < LSize; p1++)
-					for (p2 = 0; p2 < LSize; p2++) 
-						if ((p1 != p2) && (transfer[p1][p2] != 0))
-						{
-							cost += TStart + TByte * transfer[p1][p2];
-							DAF_tmp->ProcessTimeStamp[p1] = cost; //ждет конца копирования отправитель
-							DAF_tmp->ProcessTimeStamp[p2] = cost; //ждет конца копирования получатель
+            for (p1 = 0; p1 < LSize; p1++)
+                for (p2 = 0; p2 < LSize; p2++)
+                    if ((p1 != p2) && (transfer[p1][p2] != 0))
+                    {
+                        cost += TStart + TByte * transfer[p1][p2];
+                        DAF_tmp->ProcessTimeStamp[p1] = cost; //ждет конца копирования отправитель
+                        DAF_tmp->ProcessTimeStamp[p2] = cost; //ждет конца копирования получатель
 //							printf("Trans %d -> %d = cost[%f]\n",p1,p2,cost);
-						}
-			}
+                    }
+        }
 
-			//=***
-			break; 
+        //=***
+        break;
 
-		case mach_TRANSPUTER :
-			// определение расстояния (минимального пути) до максимально 
-			// удаленных процессоров между которыми имеются пересылки
-			for (p1 =0; p1 < LSize; p1++) {
-				for (p2 = 0; p2 < LSize; p2++) {
+    case mach_TRANSPUTER:
+        // определение расстояния (минимального пути) до максимально 
+        // удаленных процессоров между которыми имеются пересылки
+        for (p1 = 0; p1 < LSize; p1++) {
+            for (p2 = 0; p2 < LSize; p2++) {
 
-					Distance = vm->GetDistance(p1, p2);
-					Byte = transfer[p1][p2];
+                Distance = vm->GetDistance(p1, p2);
+                Byte = transfer[p1][p2];
 
-					if (Distance >= maxDistance && Byte != 0) {
-						if (Distance > maxDistance) {
-							maxDistance = Distance;
-							maxByte = Byte;
-						} else
-							maxByte = max(Byte, maxByte);
-					}
-				}
-			}
+                if (Distance >= maxDistance && Byte != 0) {
+                    if (Distance > maxDistance) {
+                        maxDistance = Distance;
+                        maxByte = Byte;
+                    }
+                    else
+                        maxByte = max(Byte, maxByte);
+                }
+            }
+        }
 
-			// подсчет времени пересылки при использовании конвейера
-			if (maxDistance != 0) {
-				if (maxDistance != 1) {
+        // подсчет времени пересылки при использовании конвейера
+        if (maxDistance != 0) {
+            if (maxDistance != 1) {
 
-					s = sqrt(TStart * maxByte / (TByte * (maxDistance - 1)));
-					if (s > maxByte)
-					s = maxByte;
-					if (s == 0)
-						s = 1;
-					k = maxByte / s;
-					e = maxByte % s;
-					if (e != 0)
-						c = 1;
-					cost = (TStart + TByte * s) * (maxDistance + k - 1) + 
-						c * (TStart + TByte * e);
-				} else 
-					cost = TStart + TByte * maxByte;
-			}
+                s = sqrt(TStart * maxByte / (TByte * (maxDistance - 1)));
+                if (s > maxByte)
+                    s = maxByte;
+                if (s == 0)
+                    s = 1;
+                k = maxByte / s;
+                e = maxByte % s;
+                if (e != 0)
+                    c = 1;
+                cost = (TStart + TByte * s) * (maxDistance + k - 1) +
+                    c * (TStart + TByte * e);
+            }
+            else
+                cost = TStart + TByte * maxByte;
+        }
 
 
-			for (p1 =0; p1 < LSize; p1++) 
-				DAF_tmp->ProcessTimeStamp[p1] = cost; //====// все ждут конца копирования
+        for (p1 = 0; p1 < LSize; p1++)
+            DAF_tmp->ProcessTimeStamp[p1] = cost; //====// все ждут конца копирования
 
-			break;
+        break;
 
-		case mach_MYRINET :
-//====
-if(mode)
-{
-	printf("Myrinet!!!\n");
-	for (p1 = 0; p1 < LSize; p1++) 
-	{ for (p2 = 0; p2 < LSize; p2++) 
-			printf("%d\t",transfer[p1][p2]);
-		printf("\n");
-	}
-}
-//=***
-			for (p1 = 1; p1 < LSize; p1++) {
-				for (p2 = 0; p2 < p1; p2++) {
-					if (transfer[p1][p2] < transfer[p2][p1]) {
-						transfer[p1][p2] = transfer[p2][p1];
-					}
-				}
-			}
+    case mach_MYRINET:
+        //====
+        if (mode)
+        {
+            printf("Myrinet!!!\n");
+            for (p1 = 0; p1 < LSize; p1++)
+            {
+                for (p2 = 0; p2 < LSize; p2++)
+                    printf("%d\t", transfer[p1][p2]);
+                printf("\n");
+            }
+        }
+        //=***
+        for (p1 = 1; p1 < LSize; p1++) {
+            for (p2 = 0; p2 < p1; p2++) {
+                if (transfer[p1][p2] < transfer[p2][p1]) {
+                    transfer[p1][p2] = transfer[p2][p1];
+                }
+            }
+        }
 
-			if(DAF_tmp == NULL)
-			{
-				for (p1 = 1; p1 < LSize; p1++)
-					for (p2 = 0; p2 < p1; p2++) 
-						if ((p1 != p2) && (transfer[p1][p2] != 0))
-							cost += TStart + TByte * transfer[p1][p2];
-			}
-			//====
-			else
-			{
-				for (p1 = 0; p1 < LSize; p1++)
-					DAF_tmp->ProcessTimeStamp[p1] = 0;
+        if (DAF_tmp == NULL)
+        {
+            for (p1 = 1; p1 < LSize; p1++)
+                for (p2 = 0; p2 < p1; p2++)
+                    if ((p1 != p2) && (transfer[p1][p2] != 0))
+                        cost += TStart + TByte * transfer[p1][p2];
+        }
+        //====
+        else
+        {
+            for (p1 = 0; p1 < LSize; p1++)
+                DAF_tmp->ProcessTimeStamp[p1] = 0;
 
-				for (p1 = 1; p1 < LSize; p1++)
-					for (p2 = 0; p2 < p1; p2++) 
-						if ((p1 != p2) && (transfer[p1][p2] != 0))
-						{
-							cost += TStart + TByte * transfer[p1][p2];
-							DAF_tmp->ProcessTimeStamp[p1] += TStart + TByte * transfer[p1][p2];			//ждет конца копирования получатель
-							DAF_tmp->ProcessTimeStamp[p2] += TStart/* + TByte * transfer[p1][p2]*/; //ждет конца копирования отправитель 
+            for (p1 = 1; p1 < LSize; p1++)
+                for (p2 = 0; p2 < p1; p2++)
+                    if ((p1 != p2) && (transfer[p1][p2] != 0))
+                    {
+                        cost += TStart + TByte * transfer[p1][p2];
+                        DAF_tmp->ProcessTimeStamp[p1] += cost;			//ждет конца копирования получатель
+                        DAF_tmp->ProcessTimeStamp[p2] += cost; //ждет конца копирования отправитель 
 //							printf("Trans %d -> %d = cost[%f]\n",p2,p1,TStart + TByte * transfer[p1][p2]);
-						}
-			}
+                    }
+        }
 
-			//=***
-			break; 
+        //=***
+        break;
+    }
 
-
-		}
-		cost = (vm->getProcCount() < vm->getNumChanels()) ?
-			cost / vm->getProcCount() : cost / vm->getNumChanels();
-	return cost * vm->getScale();
+    const int procC = vm->getProcCount();
+    const int numCh = vm->getNumChanels();
+    cost = (procC < numCh) ? cost / procC : cost / numCh;
+    return cost * vm->getScale();
 }
 
 
