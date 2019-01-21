@@ -1147,7 +1147,6 @@ void revertion_spf_dirs(SgFile *file,
     map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());
-
     for (auto &allStats : declaratedArraysSt)
     {
         if (allStats.first->fileName() == fileName)

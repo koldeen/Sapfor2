@@ -3,7 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "ParLoop.h"
-
+extern int mode;
 using namespace std;
 
 extern ofstream prot; 
@@ -76,7 +76,7 @@ void ParLoop::SaveLoopParams(const vector<long>& AInInitIndex,
 			LoopStep.push_back(-AInLoopStep[i]);
 			Invers.push_back(1);
         }
-		printf("Save %d %d %d\n",LowerIndex[i],HigherIndex[i],LoopStep[i]);
+        if (mode) printf("Save %d %d %d\n",LowerIndex[i],HigherIndex[i],LoopStep[i]);
 	}
 }
 
@@ -96,10 +96,12 @@ void ParLoop::PrepareAlign(long& TempRank, const vector<long>& AAxisArray,
 		IniRule.push_back(AlignAxis(align_NORMTAXIS, 0, i-Rank+1));
 
 	// «аполнение DistRule в соответствии с параметрами
-	for (i = 0; i < TempRank; i++) {
+	for (i = 0; i < TempRank; i++) 
+    {
 //		prot << "i=" << i << ", AAxisArray[i]=" << AAxisArray[i] << endl;
 
-		printf("Rank=%d   IRSize=%d   i= %d    AAxisArray[i]=%d \n",Rank, IRSize, i, AAxisArray[i]);
+		if (mode)
+            printf("Rank=%d   IRSize=%d   i= %d    AAxisArray[i]=%d \n",Rank, IRSize, i, AAxisArray[i]);
 
 		if (AAxisArray[i] == -1)
 			  IniRule[i+Rank] = AlignAxis(align_REPLICATE, 0, i+1);

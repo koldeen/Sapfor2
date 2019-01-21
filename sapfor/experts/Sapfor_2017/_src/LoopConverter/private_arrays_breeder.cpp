@@ -2,6 +2,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
 #include "../Utils/errors.h"
+#include "../LoopAnalyzer/directive_parser.h"
 
 #include <set>
 #include <queue>
@@ -9,6 +10,7 @@
 
 using std::string;
 using std::set;
+using std::map;
 using std::queue;
 using std::vector;
 
@@ -86,7 +88,8 @@ static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpressi
     return expressionToExtend;
 }
 
-static void printSt(SgStatement* st) {
+static void printSt(SgStatement* st) 
+{
     printf("Statement [%s]: %s\n", tag[st->variant()], st->unparse());
     queue<SgExpression*> qq;
     for(int i=0;i<3;++i)
@@ -172,12 +175,13 @@ static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymb
 static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, SgSymbol *arraySymbol, SgSymbol *newArraySymbol) {
     queue<SgExpression*> toCheck = queue<SgExpression*>();
 
-    for(int i=0;i<3;++i)
-        if(st->expr(i))
+    for (int i = 0; i < 3; ++i)
+    {
+        if (st->expr(i))
         {
-            if(st->expr(i)->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
+            if (st->expr(i)->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
                 extendArrayRef(indexes, st->expr(i), newArraySymbol);
-            else if(st->expr(i)->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
+            else if (st->expr(i)->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
             {
                 SgExpression *extended = extendArrayRef(indexes, st->expr(i), newArraySymbol);
                 st->setExpression(i, *extended);
@@ -185,6 +189,7 @@ static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, S
             else
                 toCheck.push(st->expr(i));
         }
+    }
 
     while(!toCheck.empty())
     {
@@ -300,8 +305,8 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     return new SgExpression(EXPR_LIST, arrayRef, (SgExpression*)NULL, (SgSymbol*)NULL);
 }
 
-static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclaration, SgSymbol *origArraySymbol, SgSymbol *arraySymbol, int depthOfBreed) {
-
+static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclaration, SgSymbol *origArraySymbol, SgSymbol *arraySymbol, int depthOfBreed) 
+{
     SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
 
     SgExpression *origArray = NULL;
@@ -336,20 +341,26 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
 
         if(curLoop->children.size() == 1)
             curLoop = curLoop->children[0];
-        else if(i != depthOfBreed-1)
+        else if (i != depthOfBreed - 1)
+        {
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             return;
+        }
     }
+    std::reverse(indexes.begin(), indexes.end());
 
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
     SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
     SgSymbol *newArraySymbol = alterArrayDeclaration(copiedOriginalArrayDeclaration, arraySymbol, dimensions);
 
     SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
-    if(newArraySymbol)
+    if (newArraySymbol)
+    {
         insertAllocDealloc(forLoop, originalDeclaration, arraySymbol, newArraySymbol, indexes.size());
         for (SgStatement *st = loopStmt->lexNext(); st != loopStmt->lastNodeOfStmt()->lexNext(); st = st->lexNext())
-            if(st->variant() != ALLOCATE_STMT && st->variant() != DEALLOCATE_STMT)
+            if (st->variant() != ALLOCATE_STMT && st->variant() != DEALLOCATE_STMT)
                 extendArrayRefs(indexes, st, arraySymbol, newArraySymbol);
+    }
 }
 
 //for testing
@@ -388,83 +399,62 @@ static SgSymbol *findSymbol(LoopGraph*  forLoop, const char* arrayName)
 
 
 //Вычислять размер массива с учётом шага цикла - //TODO
-void breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs) {
-    if(string(file->filename()) == "z_solve_inlined.f")
-        for(auto& loopGraph : loopGraphs)
+int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgSymbol*> &doForThisPrivates, vector<Messages> &messages)
+{
+    map<int, LoopGraph*> mapLoopGraph;
+    createMapLoopGraph(loopGraphs, mapLoopGraph);
+
+    for (auto &loopPair : mapLoopGraph)
+    {
+        LoopGraph *loop = loopPair.second;
+        auto attrsTr = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_TRANSFORM_DIR });
+        auto attrsPriv = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_ANALYSIS_DIR });
+
+        set<SgSymbol*> privates;
+        set<SgSymbol*> arrayPrivates;
+        for (auto &spf : attrsPriv)
+            fillPrivatesFromComment(new Statement(spf), privates);
+        for (auto &s : privates)
+            if (s->type()->variant() == T_ARRAY)
+                arrayPrivates.insert(s);
+
+        arrayPrivates.insert(doForThisPrivates.begin(), doForThisPrivates.end());
+
+        if (arrayPrivates.size() == 0)
         {
-            SgSymbol* array = findSymbol(loopGraph, "njac");
-            if(array)
-                breedArray(loopGraph, array, -1);
+            string str;
+            __spf_printToBuf(str, "Can not do PRIVATE EXPANSION for this loop - privates not found");
 
-            array = findSymbol(loopGraph, "fjac");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "lhs");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "coeff");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-
+            messages.push_back(Messages(NOTE, loop->lineNum, str, 2008));
+            __spf_print(1, "%s on line %d", str.c_str(), loop->lineNum);
+            return -1;
         }
-
-    if(string(file->filename()) == "COMPOZ.FOR")
-        for(auto& loopGraph : loopGraphs)
+        else
         {
-            SgSymbol* array = findSymbol(loopGraph, "xj");
-            if(array)
-                breedArray(loopGraph, array, -1);
+            for (auto attr : attrsTr)
+            {
+                SgExpression *list = attr->expr(0);
+                if (list->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP)
+                {
+                    if (list->lhs()->lhs() == NULL)
+                    {
+                        for (auto &privArr : arrayPrivates)
+                            breedArray(loop, privArr, -1);
+                    }
+                    else
+                    {
+                        SgExprListExp *listExp = isSgExprListExp(list->lhs()->lhs());
+                        checkNull(listExp, convertFileName(__FILE__).c_str(), __LINE__);
+                        const int deep = listExp->length();
 
-            array = findSymbol(loopGraph, "yj");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-
-
-            array = findSymbol(loopGraph, "flwi");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "flci");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "flji");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-
-
-            array = findSymbol(loopGraph, "flwj");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "flcj");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "fljj");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-
-
-            array = findSymbol(loopGraph, "flwk");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "flck");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-            array = findSymbol(loopGraph, "fljk");
-            if (array)
-                breedArray(loopGraph, array, -1);
-
-
+                        for (auto &privArr : arrayPrivates)
+                            breedArray(loop, privArr, deep);
+                    }
+                }
+            }
+            return 0;
         }
+    }
 
+    return 0;
 }

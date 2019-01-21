@@ -372,6 +372,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
                     SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope)));
+                    newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
                     for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
                         newArrayRef->addSubscript(*elem);
 

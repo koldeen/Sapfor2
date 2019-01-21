@@ -23,6 +23,7 @@ int staticPrivateAnalysis = 0;
 int keepDvmDirectives = 0;
 int keepFiles = 0;
 int keepSpfDirs = 0;
+int predictOn = 0;
 //int consoleMode = 0; moved to utils.cpp
 int genAllVars = 0; //generate ALL distribution variants
 int genSpecificVar = -1; //generate specific distribution variant
@@ -100,12 +101,12 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 std::map<std::string, PredictorStats> allPredictorStats;
 
 //for DVM INTERVALS
-std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
+std::map<std::string, std::vector<SpfInterval*>> intervals; // file -> intervals
+std::vector<std::vector<long>> topologies; // current topologies
 //
 
 //for GCOV_PARSER
 std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
-std::map<std::string, std::map<int, double>> timesFromDvmStat; // file -> [lines, times]
 //
 
 const char *passNames[EMPTY_PASS + 1];

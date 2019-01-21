@@ -532,6 +532,8 @@ extern "C" void addToCollection(const int line, const char *file, void *pointer,
 
 extern "C" void removeFromCollection(void *pointer)
 {
+    if (pointerCollection.size() == 0)
+        return;
     auto it = pointerCollection.find(pointer);
     if (it != pointerCollection.end())
         pointerCollection.erase(it);

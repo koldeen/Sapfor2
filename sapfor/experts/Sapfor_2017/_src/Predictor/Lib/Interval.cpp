@@ -204,7 +204,7 @@ double Interval::GetPred(PredType pred)
 		case _CPU_time_sys: res=CPU_time_sys; break;
 	}
 
-	if(res < 0)
+	if (res < 0)
 	{
 		printf("PREDICTOR: fatal error - zero time\n");
 		exit(1);
@@ -237,7 +237,7 @@ void Interval::AddTime(TimeType InfoType, int proc_no, double TimeDelta)
           procElapsedTime[proc_no] += TimeDelta;
           break;
         case  __CPU_time_usr :
-			printf("Predictor: add CPU_usr[%d] timeDelta=%.10f\n",proc_no,TimeDelta);
+          //printf("Predictor: add CPU_usr[%d] timeDelta=%.10f\n",proc_no,TimeDelta);
           Procs[proc_no]->CPU_time_usr+=TimeDelta;
           Procs[proc_no]->CPU_time+=TimeDelta;
           Procs[proc_no]->Execution_time+=TimeDelta;

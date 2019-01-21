@@ -98,7 +98,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     passDeps = &passDepsIn;
 
-    Pass(CREATE_INTER_TREE) <= Pass(INSERT_INTER_TREE);
+    list({ CREATE_INTER_TREE, CORRECT_VAR_DECL }) << list({ GCOV_PARSER, PREDICT_SCHEME, INSERT_INTER_TREE });
 
     list({ FILE_LINE_INFO, BUILD_INCLUDE_DEPENDENCIES }) <= Pass(CORRECT_VAR_DECL);
 
@@ -160,13 +160,13 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ CORRECT_VAR_DECL, REVERT_SUBST_EXPR }) << list({ INSERT_INCLUDES, UNPARSE_FILE });
 
-    Pass(CALL_GRAPH2) <= Pass(PRIVATE_ARRAYS_BREEDING);
+    list({ CALL_GRAPH2, REVERT_SUBST_EXPR }) <= Pass(PRIVATE_ARRAYS_BREEDING);
 
-    Pass(LOOP_ANALYZER_DATA_DIST_S1) <= Pass(LOOPS_SPLITTER);
+    list({ LOOP_ANALYZER_DATA_DIST_S1, REVERT_SUBST_EXPR }) <= Pass(LOOPS_SPLITTER);
 
     passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, EXTRACT_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF,
                                    EXTRACT_SHADOW_DIRS, REVERT_SUBST_EXPR, CREATE_REMOTES, UNPARSE_FILE, REMOVE_AND_CALC_SHADOW,
-                                   REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS, TRANSFORM_SHADOW_IF_FULL });
+                                   REVERSE_CREATED_NESTED_LOOPS, PREDICT_SCHEME, CALCULATE_STATS_SCHEME, REVERT_SPF_DIRS, CLEAR_SPF_DIRS, TRANSFORM_SHADOW_IF_FULL });
         
     //only for print
     if (printTree)

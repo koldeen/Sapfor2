@@ -27,6 +27,8 @@
 #include "../Utils/errors.h"
 #include "../Utils/AstWrapper.h"
 
+#include "../LoopAnalyzer/directive_parser.h"
+
 using std::vector;
 using std::map;
 using std::set;
@@ -301,7 +303,7 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
         return 0;
 }
 
-void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite = true)
+void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite)
 {
     SgStatement *last = st->lastNodeOfStmt();
     for ( ; st != last; st = st->lexNext())
@@ -377,8 +379,11 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<int, double> &statisticTimes, vector<Messages> &messages)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
 {
+    map<int, SpfInterval*> mapIntervals;
+    createMapOfinterval(mapIntervals, intervalTree);
+
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
 
@@ -445,14 +450,14 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<in
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
-                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
+                newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
-                auto itTime = statisticTimes.find(newLoop->lineNum);
-                if (itTime != statisticTimes.end())
-                    newLoop->executionTimeInSec = itTime->second;
-                else if (statisticTimes.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "can not find execution time in statistic"));                
+                auto itTime = mapIntervals.find(newLoop->lineNum);
+                if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
+                    newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
+                else if (mapIntervals.size())
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Can not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 
@@ -658,6 +663,60 @@ map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector
 
             if (it->second->region && it->second->region->GetId() == regId)
                 retVal[it->second] = it->second->directive;
+        }
+    }
+
+    return retVal;
+}
+
+vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleRemotes(SgFile *file, const int regId, vector<ParallelRegion*> &regions)
+{
+    vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> retVal;
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() == DVM_REMOTE_ACCESS_DIR)
+        {
+            ParallelRegion *currReg = getRegionByLine(regions, st->fileName(), st->lineNumber());
+            if (currReg)
+            {
+                map<pair<SgSymbol*, string>, Expression*> remotes;
+                fillRemoteFromComment(new Statement(st), remotes, false, DVM_REMOTE_ACCESS_DIR);
+
+                for (auto &array : remotes)
+                {
+                    auto arrName = array.first.first;
+                    DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(array.first.first), array.first.first->identifier());
+                    checkNull(currArr, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    vector<long> coords(currArr->GetDimSize());
+                    SgExpression *list = array.second->GetOriginal();
+
+                    if (list)
+                    {
+                        int idx = 0;
+                        while (list)
+                        {
+                            if (list->lhs())
+                            {
+                                const int var = list->lhs()->variant();
+                                if (var == DDOT || var == KEYWORD_VAL)
+                                    coords[currArr->GetDimSize() - 1 - idx] = -1;
+                                else
+                                    coords[currArr->GetDimSize() - 1 - idx] = 0;
+                            }
+                            else
+                                coords[currArr->GetDimSize() - 1 - idx] = -1;
+                            idx++;
+                            list = list->rhs();
+                        }
+                    }
+                    else // full
+                        std::fill(coords.begin(), coords.end(), -1);
+
+                    retVal.push_back(std::make_tuple(currArr, coords, std::make_pair(st->lexNext()->fileName(), st->lexNext()->lineNumber())));
+                }
+            }
         }
     }
 

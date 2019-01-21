@@ -73,12 +73,8 @@ int ParallelLoop(SgStatement *stmt)
 
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
-  {
-     int ind = ndvm;
-     doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-     InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-     FREE_DVM(1);
-  }
+     InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
+
   //par_st = cur_st;
 
 //renewing loop-header's variables (used in start-expr, end-expr, step-expr)
@@ -242,9 +238,9 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
        // call dvmh_destroy_array(...)  
           ACC_UnregisterDvmBuffers();
        if(parloop_by_handler != 2 || (parloop_by_handler==2 && WhatInterface(parallel_dir) != 2))   
-       // generating assign statement:
-       //  dvm000(i) = EndPL(LoopRef)
-          doAssignStmtAfter(EndParLoop(iplp));
+       // generating call statement:
+       //  call endpl(LoopRef)
+          doCallAfter(EndParLoop(iplp));
 
        // generating statements for ACROSS:
        if(iacross){
@@ -257,21 +253,21 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
           ReductionVarsStart(red_list);
      
        if(irg) {//there is synchronous REDUCTION clause in PARALLEL
-          // generating assign statement:
-          //  dvm000(i) = StartR(RedGroupRef)
-          doAssignStmtAfter(StartRed(redgref));
+          // generating call statement:
+          //  call strtrd(RedGroupRef)
+          doCallAfter(StartRed(redgref));
 
-          // generating assign statement:
-          //  dvm000(i) = WaitR(RedGroupRef)
-          doAssignStmtAfter(WaitRed(redgref));
+          // generating call statement:
+          //  call waitrd(RedGroupRef)
+          doCallAfter(WaitRed(redgref));
 
           if(IN_COMPUTE_REGION || parloop_by_handler)       /*ACC*/   
              ACC_ReductionVarsAreActual();
            
 	  if(idebrg){
              if(dvm_debug)
-               doAssignStmtAfter( D_CalcRG(DVM000(idebrg)));
-             doAssignStmtAfter( D_DelRG (DVM000(idebrg)));
+               doCallAfter( D_CalcRG(DVM000(idebrg)));
+             doCallAfter( D_DelRG (DVM000(idebrg)));
           }
           // generating statement:
           //  call dvmh_delete_object(RedGroupRef)     //dvm000(i) = delobj(RedGroupRef)
@@ -303,11 +299,7 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
         // generating call eloop(...) - end of parallel interval
         // (performance analyzer function)
        if(perf_analysis && perf_analysis != 2) {
-         int ind;
-         ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-         doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-         InsertNewStatementAfter(St_Enloop(ind,ind+1),cur_st,cur_st->controlParent());
-         FREE_DVM(2);
+         InsertNewStatementAfter(St_Enloop(INTERVAL_NUMBER,INTERVAL_LINE),cur_st,cur_st->controlParent());
          CloseInterval();
          if(perf_analysis != 4)
            OverLoopAnalyse(func);
@@ -454,6 +446,7 @@ int WhatInterface(SgStatement *stmt)
            case ACC_CUDA_BLOCK_OP:
            case SHADOW_RENEW_OP:
            case SHADOW_COMP_OP:
+           case ACROSS_OP:
                 break;
            case REDUCTION_OP:
                 if(TestReductionClause(e))
@@ -471,7 +464,7 @@ int areIllegalClauses(SgStatement *stmt)
 { SgExpression *el;
 
   for(el=stmt->expr(1); el; el=el->rhs()) 
-    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP)
+    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP && el->lhs()->variant() != ACROSS_OP)
       return 1;
   return 0;                 
 }          
@@ -1681,7 +1674,7 @@ void ReductionList  (SgExpression *el,SgExpression *gref, SgStatement *st, SgSta
      }
      if(debug_regim && st->variant()!=DVM_TASK_REGION_DIR) {
        debgref = idebrg ? DVM000(idebrg) : DebReductionGroup(gref->symbol());
-       doAssignStmtAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
+       doCallAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
      }
      last1 = cur_st;
      if(stmt1 != stmt2) 
@@ -2101,11 +2094,9 @@ int ParallelLoop_Debug(SgStatement *stmt)
   redgref = NULL; red_list = NULL; irg = 0; idebrg = 0; mred =0;
   LINE_NUMBER_AFTER(stmt,stmt);
  //generating call to 'bploop' function of performance analizer (begin of parallel interval)
-  if(perf_analysis && perf_analysis != 2) {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
-  }
+  if(perf_analysis && perf_analysis != 2) 
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
+  
   iplp = 0;
   ndo = i = nloop = 0;
   // looking through the do_variables list

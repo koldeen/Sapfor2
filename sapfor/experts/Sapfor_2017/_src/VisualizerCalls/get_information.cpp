@@ -480,6 +480,10 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
 }
 
 extern map<string, PredictorStats> allPredictorStats;
+extern SgProject *project;
+extern map<string, vector<SpfInterval*>> intervals;
+extern vector<vector<long>> topologies;
+
 int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
                               short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
 {
@@ -567,6 +571,29 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
         }
         predictRes += summed.to_string();
+
+        if (folderName == NULL)
+        {
+            SpfInterval *mainIterval = getMainInterval(project, intervals);
+            const int idxBest = mainIterval->getBestTimeIdx();
+            double speedUpBest = 1;
+            string topo = "";
+            if (idxBest != -1 && mainIterval->exec_time != 0)
+            {
+                speedUpBest = mainIterval->exec_time / mainIterval->predictedTimes[idxBest];
+                topo += "[";
+                for (int z = 0; z < topologies[idxBest].size(); ++z)
+                {
+                    topo += to_string(topologies[idxBest][z]);
+                    if (z != topologies[idxBest].size() - 1)
+                        topo += "x";
+                }
+                topo += "]";
+            }
+            predictRes += "|" + to_string(speedUpBest) + topo;
+        }
+        else
+            predictRes += "|0";
 
         copyStringToShort(predictorStats, predictRes);
         retSize = (int)predictRes.size();
@@ -873,7 +900,7 @@ static int simpleTransformPass(const passes PASS_NAME, int *options, short *proj
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");    
+    printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -895,6 +922,21 @@ int SPF_ResolveParallelRegionConflicts(int winHandler, int *options, short *proj
     return simpleTransformPass(RESOLVE_PAR_REGIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_PrivateExpansion(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                         int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(PRIVATE_ARRAYS_BREEDING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+int SPF_LoopFission(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                    int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
 
 int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)

@@ -76,6 +76,7 @@ extern char* Tool_Unparse_Type();
 extern void BufferAllocate();
 
 int out_free_form;
+int out_upper_case;
 PTR_SYMB last_file_symbol;
 
 static int CountNullBifNext = 0; /* for internal debugging */
@@ -1315,7 +1316,7 @@ char* filter(char *s)
     while (c != '\0')
     {
         c = s[i];
-        temp[buf_i] = c;
+        temp[buf_i] = out_upper_case && (!commentline || DVM || SPF || OMP) && islower(c) ? toupper(c) : c;
         if (c == '\n')
         {
             if (buf_i + 1 > temp_size)

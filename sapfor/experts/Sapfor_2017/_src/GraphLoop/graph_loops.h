@@ -54,7 +54,7 @@ public:
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
-        executionTimeInSec = 0.0;
+        executionTimeInSec = -1.0;
     }
 
     ~LoopGraph()

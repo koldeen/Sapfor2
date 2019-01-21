@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string>
 #include <map>
+#include <stdint.h>
 
 #include "../Utils/utils.h"
 
@@ -26,7 +27,7 @@ struct Perform
 class Gcov_info
 {
 	int numLine;
-	int executedCount;
+	int64_t executedCount;
 	int countCalls;
 	std::map<int, Perform> calls;
 	int countBranches;
@@ -35,12 +36,12 @@ class Gcov_info
 public:
 	Gcov_info(); 
 	Gcov_info(int a, int b);
-	void set(int a, int b, int c, int d);
+	void set(int a, int64_t b, int c, int d);
     void clear() { calls.clear(); branches.clear(); countCalls = 0; countBranches = 0; }
 	int getNumLine() const;
-	int getExecutedCount() const;
+	int64_t getExecutedCount() const;
 	void setNumLine(int a);
-	void setExecutedCount(int a);
+	void setExecutedCount(int64_t a);
 	int getCountCalls() const;
 	int getCountBranches() const;
 	std::map<int,Perform> getCalls() const;

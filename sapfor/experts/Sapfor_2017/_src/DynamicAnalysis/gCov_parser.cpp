@@ -58,7 +58,10 @@ static void isKeyWord(const string &lex, key_word &lineType)
         break;
     default:
         if (lineType != UNKNOWN)
-            cout << "Error: Wrong work of analysis keywords\n";
+        {
+            __spf_print(1, "Error: Wrong work of analysis keywords\n");
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
     }
 }
 
@@ -115,7 +118,7 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
                 {
                     if (!executedCountGot)
                     {
-                        const int value = stoi(num, nullptr);
+                        const int64_t value = stoll(num);
                         if (minus == 1 && ddot == 1 && value == 0)
                             infoLine.setExecutedCount(-1);
                         else
@@ -158,7 +161,9 @@ static void getInfo(map<int, Gcov_info> &info, const string &str)
     case UNKNOWN:
         break;
     default:
-        cout << "Error: get unreal type\n";
+        __spf_print(1, "Error: get unreal type\n");
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        break;
     }
 }
 
@@ -345,9 +350,9 @@ bool __gcov_doesThisLineExecuted(const string &file, const int line)
     return ret;
 }
 
-pair<int, int> __gcov_GetExecuted(const string &file, const int line)
+pair<int, int64_t> __gcov_GetExecuted(const string &file, const int line)
 {
-    pair<int, int> ret = make_pair(0, 0);
+    pair<int, int64_t> ret = make_pair(0, 0);
     auto itF = allGCovInfo.find(file);
     if (itF != allGCovInfo.end())
     {
@@ -362,15 +367,20 @@ pair<int, int> __gcov_GetExecuted(const string &file, const int line)
     return ret;
 }
 
-void parseTimesDvmStatisticFile(const string &file, map<string, map<int, double>> &timesFromDvmStat)
+void parseTimesDvmStatisticFile(const string &file, map<string, vector<SpfInterval*>> &intervals)
 {
+    map<string, map<int, SpfInterval*>> mapOfIntervals;
+    for (auto &intByfile : intervals)
+        createMapOfinterval(mapOfIntervals[intByfile.first], intByfile.second);
+
     FILE *stat = fopen(file.c_str(), "r");
     if (stat)
     {
         char buf[8192];
-        int execDone = 0;
+        int execDone = 1;
         int line = -1;
         string fileN = "";
+        SpfInterval *curr = NULL;
 
         while (!feof(stat))
         {
@@ -379,11 +389,15 @@ void parseTimesDvmStatisticFile(const string &file, map<string, map<int, double>
             {
                 const string origLine(read);
                 auto itF = origLine.find("INTERVAL");
-                if (itF != string::npos)
+                auto itTypeU = origLine.find("USER");
+                auto itExpr = origLine.find("EXPR=");
+                if (itF != string::npos && itTypeU != string::npos && itExpr != string::npos)
                 {
                     execDone = 0;
                     line = -1;
-                    fileN = "";
+                    fileN = "";        
+                    int expr = 0;
+                    curr = NULL;
 
                     auto itL = origLine.find("NLINE=");
                     if (itL != string::npos)
@@ -404,12 +418,35 @@ void parseTimesDvmStatisticFile(const string &file, map<string, map<int, double>
                         convertToLower(fileN);
                     }
 
+                    string exprS = "";
+                    for (size_t z = itExpr + 5; origLine[z] != '\n'; ++z)
+                        exprS += origLine[z];
+                    expr = atoi(exprS.c_str());
+
                     if (line != -1 && fileN != "")
                     {
-                        if (timesFromDvmStat.find(fileN) == timesFromDvmStat.end())
-                            timesFromDvmStat[fileN][line] = 0;
-                        else if (timesFromDvmStat[fileN].find(line) == timesFromDvmStat[fileN].end())
-                            timesFromDvmStat[fileN][line] = 0;
+                        auto itIntF = mapOfIntervals.find(fileN);
+                        if (itIntF == mapOfIntervals.end())
+                        {
+                            //TODO: error
+                        }
+                        else
+                        {
+                            for (auto &inter : itIntF->second)
+                            {
+                                if (inter.second->tag == expr)
+                                {
+                                    curr = inter.second;
+                                    string execCountS = "";
+                                    auto itExec = origLine.find("EXE_COUNT=");
+                                    string execS = "";
+                                    for (size_t z = itExec + 10; origLine[z] != ' '; ++z)
+                                        execS += origLine[z];
+                                    inter.second->exec_count = atoi(execS.c_str());
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -424,8 +461,8 @@ void parseTimesDvmStatisticFile(const string &file, map<string, map<int, double>
                         execC += origLine[z];
                     double execTime = atof(execC.c_str());
 
-                    if (line != -1 && fileN != "")
-                        timesFromDvmStat[fileN][line] += execTime;
+                    if (line != -1 && fileN != "" && curr)
+                        curr->exec_time += execTime;
                 }
             }
         }
