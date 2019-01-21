@@ -577,6 +577,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             SpfInterval *mainIterval = getMainInterval(project, intervals);
             const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
+            int procCount = 1;
             string topo = "";
             if (idxBest != -1 && mainIterval->exec_time != 0)
             {
@@ -585,12 +586,15 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 for (int z = 0; z < topologies[idxBest].size(); ++z)
                 {
                     topo += to_string(topologies[idxBest][z]);
+                    procCount *= topologies[idxBest][z];
                     if (z != topologies[idxBest].size() - 1)
                         topo += "x";
                 }
                 topo += "]";
             }
-            predictRes += "|" + to_string(speedUpBest) + topo;
+            char buf[256];
+            sprintf(buf, "%.2f", speedUpBest / procCount * 100.0);
+            predictRes += "|" + string(buf) + topo;
         }
         else
             predictRes += "|0";

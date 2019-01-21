@@ -1,11 +1,8 @@
 #pragma once
 #include <string>
 
-#if !__SPC
-#include "dvm.h"
-#endif
-
 enum typeMessage { WARR, ERROR, NOTE };
+extern std::pair<std::string, int> currProcessing; // file and line, default ["", -1]
 
 // GROUP:
 // 10xx - analysis
@@ -139,9 +136,9 @@ static void printStackTrace() { };
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
 \
-    if (currProcessing.first && currProcessing.second)\
+    if (currProcessing.first != "" && currProcessing.second != -1)\
     { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second->lineNumber(), currProcessing.first->filename());\
+       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second, currProcessing.first.c_str());\
        addToGlobalBufferAndPrint(buf);\
     } \
     throw(-1);\

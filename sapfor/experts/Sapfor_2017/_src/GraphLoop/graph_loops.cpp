@@ -416,7 +416,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
         
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -662,11 +662,67 @@ map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const vector
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
             if (it->second->region && it->second->region->GetId() == regId)
-                retVal[it->second] = it->second->directive;
+                retVal[it->second] = it->second->directive;            
         }
     }
 
     return retVal;
+}
+
+static void fillFromList(SgExpression *list, vector<long> &coords, DIST::Array *currArr)
+{
+    if (list)
+    {
+        int idx = 0;
+        while (list)
+        {
+            if (list->lhs())
+            {
+                const int var = list->lhs()->variant();
+                if (var == DDOT || var == KEYWORD_VAL)
+                    coords[currArr->GetDimSize() - 1 - idx] = -1;
+                else
+                    coords[currArr->GetDimSize() - 1 - idx] = 0;
+            }
+            else
+                coords[currArr->GetDimSize() - 1 - idx] = -1;
+            idx++;
+            list = list->rhs();
+        }
+    }
+    else // full
+        std::fill(coords.begin(), coords.end(), -1);
+}
+
+map<DIST::Array*, vector<long>> fillRemoteInParallel(Statement *loop)
+{
+    map<DIST::Array*, vector<long>> toRet;
+    if (!loop->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement *st = loop->lexPrev();
+    if (st->variant() == DVM_PARALLEL_ON_DIR)
+    {       
+        map<pair<SgExpression*, string>, Expression*> remotes;
+        fillRemoteFromComment(new Statement(st), remotes, false, DVM_PARALLEL_ON_DIR);
+
+        for (auto &newRem : remotes)
+        {
+            auto key = make_pair(string(newRem.first.first->symbol()->identifier()), newRem.first.second);                
+            DIST::Array *currArr = getArrayFromDeclarated(declaratedInStmt(newRem.first.first->symbol()), key.first);
+            newRem.first.first->addAttribute(ARRAY_REF, currArr, sizeof(DIST::Array));                
+            if (toRet.find(currArr) != toRet.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            vector<long> coords(currArr->GetDimSize());
+            SgExpression *list = newRem.second->GetOriginal();
+            fillFromList(list, coords, currArr);
+
+            toRet[currArr] = coords;
+        }        
+    }
+
+    return toRet;
 }
 
 vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleRemotes(SgFile *file, const int regId, vector<ParallelRegion*> &regions)
@@ -691,28 +747,7 @@ vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleR
 
                     vector<long> coords(currArr->GetDimSize());
                     SgExpression *list = array.second->GetOriginal();
-
-                    if (list)
-                    {
-                        int idx = 0;
-                        while (list)
-                        {
-                            if (list->lhs())
-                            {
-                                const int var = list->lhs()->variant();
-                                if (var == DDOT || var == KEYWORD_VAL)
-                                    coords[currArr->GetDimSize() - 1 - idx] = -1;
-                                else
-                                    coords[currArr->GetDimSize() - 1 - idx] = 0;
-                            }
-                            else
-                                coords[currArr->GetDimSize() - 1 - idx] = -1;
-                            idx++;
-                            list = list->rhs();
-                        }
-                    }
-                    else // full
-                        std::fill(coords.begin(), coords.end(), -1);
+                    fillFromList(list, coords, currArr);
 
                     retVal.push_back(std::make_tuple(currArr, coords, std::make_pair(st->lexNext()->fileName(), st->lexNext()->lineNumber())));
                 }

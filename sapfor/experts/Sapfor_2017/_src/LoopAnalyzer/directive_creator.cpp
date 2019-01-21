@@ -455,7 +455,8 @@ static bool ifRuleNull(const DistrVariant *currVar)
 
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
-                                  LoopGraph *current, const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
+                                  LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
+                                  const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
 {    
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
@@ -465,7 +466,24 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
     for (int z = 0; z < redistrDirs.first.size(); ++z)
     {
         if (ifRuleNull(redistributeRules[z].second))
-            return needToSkip;
+        {
+            SgStatement *startSt = current->loop->GetOriginal();
+            SgStatement *cp = startSt->controlParent();
+            while (cp)
+            {                
+                if (cp->variant() == FOR_NODE)
+                {
+                    const int line = cp->lineNumber();
+                    
+                    auto itL = loopGraph.find(line);
+                    if (itL == loopGraph.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (itL->second->directiveForLoop != NULL || itL->second->directive != NULL)
+                        return needToSkip;                    
+                }
+                cp = cp->controlParent();
+            }            
+        }
     }
 
     needToSkip = false;
@@ -872,6 +890,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                        DIST::Arrays<int> &allArrays, 
                                        const vector<LoopGraph*> &loopGraph,
+                                       const map<int, LoopGraph*> &mapLoopsByFile,
                                        const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                        const vector<AlignRule> &alignRules,
                                        vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
@@ -883,7 +902,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *loop = loopGraph[i];
-        currProcessing.second = loop->loop;
+        currProcessing.second = loop->loop->lineNumber();
 
         if (loop->directive && 
             (loop->hasLimitsToParallel() == false) && 
@@ -912,11 +931,11 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
                         if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages);
                     }
                 }
                 else
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages);
                 
                 if (needToContinue)
                     continue;
@@ -933,7 +952,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         else //TODO: add checker for indexing in this loop
         {
             if (loopGraph[i]->children.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, 
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, 
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }

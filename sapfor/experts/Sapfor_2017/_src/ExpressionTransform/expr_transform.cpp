@@ -37,6 +37,7 @@ using std::make_pair;
 using std::queue;
 
 #define PRINT_PROF_INFO 0
+#define PRINT_PROF_INFO_TIME 0
 /*
  * Contains original SgExpressions.
  * map <string, ...> key is a file, where replacements take place
@@ -858,6 +859,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+                //TODO вообще-то подставлять нельзя только переменные, а индексы массивов можно, но стоиот ли?
                 b->adjustGenAndKill(cfi);
                 break;
             case POINTER_ASSIGN_STAT:
@@ -893,25 +895,25 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif
-        __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
+        __spf_print(PRINT_PROF_INFO_TIME, "New substitution iteration\n");
         double time = omp_get_wtime();
 
         wereReplacements = false;
         visitedStatements.clear();
 
-        __spf_print(PRINT_PROF_INFO, " clear vis %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         ClearCFGInsAndOutsDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO, " clear CFG %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-        __spf_print(PRINT_PROF_INFO, " fill %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         CorrectInDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO, " correct %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -920,11 +922,11 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
-        __spf_print(PRINT_PROF_INFO, " replace %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", omp_get_wtime() - time);
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs, const string &filename)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
 
@@ -933,6 +935,7 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey,
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
     /* Showtime */
 //    showDefsOfGraph(CGraph);
+//    debugStructure(CGraph, filename);
 }
 
 static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -1105,7 +1108,7 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
         ExpandExpressions(CGraph, inDefs);
         __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
-        BuildUnfilteredReachingDefinitions(CGraph, inDefs);
+        BuildUnfilteredReachingDefinitions(CGraph, inDefs, filename);
     }
 
     for (auto &stmt : *curFileReplacements)

@@ -12,6 +12,7 @@
 #ifdef __SPF 
 SgFile *current_file;    //current file
 int current_file_id;     //number of current file 
+extern std::pair<std::string, int> currProcessing;
 #endif
 
 using std::map;
@@ -891,7 +892,7 @@ void FileStructure(SgFile *file)
     for (stat = stat->lexNext(); stat; stat = stat->lexNext())
     {
 #if __SPF
-		currProcessing.second = stat;
+		currProcessing.second = stat->lineNumber();
 #endif		
         if (stat->variant() == INTERFACE_STMT || stat->variant() == INTERFACE_ASSIGNMENT || stat->variant() == INTERFACE_OPERATOR)
         {
@@ -923,7 +924,7 @@ void doCallGraph(SgFile *file)
 	for (stat = stat->lexNext(); stat; stat = end_of_unit->lexNext())
 	{
 #if __SPF
-		currProcessing.second = stat;
+		currProcessing.second = stat->lineNumber();
 #endif
 		end_of_unit = ProgramUnit(stat);
 	}

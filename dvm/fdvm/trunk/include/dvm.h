@@ -2171,7 +2171,3 @@ public:
 };
 
 extern Options options;
-
-#if __SPF
-extern std::pair<SgFile*, SgStatement*> currProcessing;
-#endif

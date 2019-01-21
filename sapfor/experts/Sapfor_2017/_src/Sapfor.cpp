@@ -273,7 +273,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
     }
 }
 
-pair<SgFile*, SgStatement*> currProcessing;
+pair<string, int> currProcessing; // file and line
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
     if (PASSES_DONE_INIT == false)
@@ -322,7 +322,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         current_file = file;
         updateStatsExprs(current_file_id, file->filename());
     }
-    currProcessing.first = NULL; currProcessing.second = NULL;
+    currProcessing.first = ""; currProcessing.second = -1;
 
     for (int i = n - 1; i >= 0; --i)
     {
@@ -337,7 +337,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
-        currProcessing.first = file; currProcessing.second = NULL;
+        currProcessing.first = file->filename(); currProcessing.second = NULL;
 
         const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
@@ -410,7 +410,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
-            auto itFound = loopGraph.find(file_name);
+            auto loopsByFile = getObjectForFileFromMap(file_name, loopGraph);
+            map<int, LoopGraph*> mapLoopsByFile;
+            createMapLoopGraph(loopsByFile, mapLoopsByFile);
 
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
@@ -426,7 +428,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
-                selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, itFound->second, currentVar,
+                selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, currentVar,
                                                   dataDirectives.alignRules, toInsert, parallelRegions[z]->GetId(), arrayLinksByFuncCalls,
                                                   depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
 
@@ -758,7 +760,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
-    currProcessing.first = NULL; currProcessing.second = NULL;
+    currProcessing.first = ""; currProcessing.second = -1;
     if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)

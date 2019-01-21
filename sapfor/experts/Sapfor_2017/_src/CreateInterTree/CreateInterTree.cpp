@@ -260,7 +260,8 @@ static void insertTree(SpfInterval* interval)
         else
         {
             SgStatement* currentSt = interval->begin;
-            while (!isSgExecutableStatement(currentSt)) currentSt = currentSt->lexNext();
+            while (!isSgExecutableStatement(currentSt) || isSPF_stat(currentSt) || isDVM_stat(currentSt))
+                currentSt = currentSt->lexNext();
 
             if (currentSt->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexPrev()->variant() != DVM_ENDINTERVAL_DIR)
             {

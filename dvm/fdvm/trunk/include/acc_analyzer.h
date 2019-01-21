@@ -883,6 +883,7 @@ public:
     void clearDefs() { in_defs.clear(); out_defs.clear(); e_in.clear(); e_out.clear(); }
     void clearDefsPointers() { in_defs_p.clear(); out_defs_p.clear(); }
     void addVarToGen(SymbolKey var, SgExpression* value, SgStatement *defSt);
+    void addVarUnknownToGen(SymbolKey var);
     void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);

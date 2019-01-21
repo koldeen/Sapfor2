@@ -260,7 +260,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasIndirectChildLoops(lowestParentGraph, messages))
         return -1;
 
-    //Номера подиклов, которые стоит попробовать вытащить в отдельный цикл
+    //Номера подциклов, которые стоит попробовать вытащить в отдельный цикл
     vector<int> loopNums(lowestParentGraph->children.size());
     for (int i = 0; i < lowestParentGraph->children.size(); ++i)
         loopNums[i] = i;

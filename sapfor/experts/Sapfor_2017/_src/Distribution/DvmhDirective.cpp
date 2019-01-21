@@ -579,6 +579,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 directive += it->first.second + ")";
                                 
                 SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), *it->second);
+
+                DIST::Array *currArray = allArrays.GetArrayByName(it->first.second);
+                tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
                 p->setLhs(tmp);
 
                 if (k != remoteAccess.size() - 1)

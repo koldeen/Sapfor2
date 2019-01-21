@@ -207,7 +207,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
         while (st != NULL && st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 

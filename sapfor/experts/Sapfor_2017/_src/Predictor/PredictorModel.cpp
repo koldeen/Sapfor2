@@ -7,10 +7,8 @@
 #include <set>
 
 #ifdef _MSC_VER
-/*Windows*/
 #include <io.h>
 #else
-/*Unix*/
 #include <sys/types.h>
 #include <dirent.h>
 #endif
@@ -381,140 +379,9 @@ double Model_Single_Rem(const pair<DIST::Array*, vector<long>> &dirRem)
     f.call_time = 0.00000100;		// call time
     f.ret_time = 0.00000100;		// return time
     setVectorCallRet(&f);
-    f.crtrbp();    
-
-    /*{
-        FuncCall f;
-        f.func_id = loadrb_;
-        loadrb_Info* tmp_params = new loadrb_Info;
-        f.call_params = (void *)tmp_params; // point to parameters
-
-        tmp_params->ID = RID;
-        tmp_params->RenewSign = 0;
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-
-        f.loadrb();
-    }
-
-    {
-        FuncCall f;
-        f.func_id = waitrb_;
-        waitrb_Info* tmp_params = new waitrb_Info;
-        f.call_params = (void *)tmp_params; // point to parameters
-
-        tmp_params->ID = RID;
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-
-        f.waitrb();
-    }*/
+    f.crtrbp();
     return f.ret_time + f.call_time;
 }
-
-/*
-int Model_rem(remote *rem)
-{
-    int i;
-    long RID;
-
-    RemoteTime = RemoteTime + 0.000010;
-    return 0;
-
-    //	printf("  model rem %s\n", rem->v->name);
-    {
-        FuncCall f;
-        f.func_id = crtrbp_;
-        crtrbp_Info* tmp_params = new crtrbp_Info;
-
-        f.call_params = (void *)tmp_params; // point to parameters
-
-
-        tmp_params->ID = 0xf00000 + rem->v->addr;//для различия
-        tmp_params->RemArrayHeader = 0x100000 + rem->v->addr;
-        tmp_params->StaticSign = 0; //may be not always
-        tmp_params->PSRef = 0;
-        tmp_params->IsLocal = 0; // нет такого параметра в RTS
-        tmp_params->CoordArray; //это координаты рассылаемого элемента
-
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-        f.crtrbp();
-    }
-
-
-    //	 если remote относится к циклу	
-    {
-        FuncCall f;
-        f.func_id = crtrbl_;
-        crtrbl_Info* tmp_params = new crtrbl_Info;
-        f.call_params = (void *)tmp_params; // point to parameters
-
-        tmp_params->BufferHeader = 0xf00000 + rem->v->addr;//для различия
-        RID = tmp_params->BufferHeader;
-        addr++; //надо отказываться от этого параметра
-        tmp_params->RemArrayHeader = 0x100000 + rem->v->addr;
-
-        tmp_params->AxisArray.resize(rem->v->rank);
-        tmp_params->CoeffArray.resize(rem->v->rank);
-        tmp_params->ConstArray.resize(rem->v->rank);
-        for (i = 0; i < rem->v->rank; i++)
-        {
-            tmp_params->AxisArray[i] = rem->axis[i];
-            tmp_params->CoeffArray[i] = rem->coef[i];
-            tmp_params->ConstArray[i] = rem->cons[i];
-        }
-
-        tmp_params->LoopRef = rem->loop_addr_ref; //may be always equal lastLR:
-        tmp_params->StaticSign = 0; //may be not always
-
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-
-        f.crtrbl();
-    }
-
-    {
-        FuncCall f;
-        f.func_id = loadrb_;
-        loadrb_Info* tmp_params = new loadrb_Info;
-        f.call_params = (void *)tmp_params; // point to parameters
-
-        tmp_params->ID = RID;
-        tmp_params->RenewSign = 1; //may be always
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-
-        f.loadrb();
-    }
-
-    {
-        FuncCall f;
-        f.func_id = waitrb_;
-        waitrb_Info* tmp_params = new waitrb_Info;
-        f.call_params = (void *)tmp_params; // point to parameters
-
-        tmp_params->ID = RID;
-
-        f.call_time = 0.00000100;		// call time
-        f.ret_time = 0.00000100;		// return time
-        setVectorCallRet(&f);
-
-        f.waitrb();
-    }
-
-    return 0;
-}*/
 
 static int findPosInParallel(vector<string> &parallel, const string &find)
 {
@@ -535,9 +402,9 @@ static bool shadowExist(vector<pair<pair<string, string>, vector<pair<int, int>>
 }
 
 //==============
-static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printOut = NULL)
+static int Model_par(LoopGraph *loop, ParallelDirective *directive, const set<DIST::Array*> &allArrays, FILE *printOut = NULL)
 {
-    long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1;
+    long LR = -1, RID = -1, RIDG = -1, SHG = -1, SHG1 = -1, SHG2 = -1, REMID = -1;
     string debug = "";
 
     //TODO: count of reduction elems
@@ -620,10 +487,6 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         setVectorCallRet(&f);
 
         f.crtpl();
-
-        //TODO!!!
-        /*for (i = 0; i < rem_few.size(); i++)
-            rem_few[i].loop_addr_ref = LR;*/
     }
 
     // TODO: add CORNER
@@ -924,12 +787,87 @@ static int Model_par(LoopGraph *loop, ParallelDirective *directive, FILE *printO
         f.across();
     }
 
-    if (directive->remoteAccess.size())
-    {
-        //TODO:
-        /*for (i = 0; i < rem_few.size(); i++)
-            Model_rem(&rem_few[i]);
-        rem_few.resize(0);*/
+    // vector<int> -> -1 == full, 0  == one elem
+    map<DIST::Array*, vector<long>> remoteAccess = fillRemoteInParallel(loop->loop);
+    if (remoteAccess.size())
+    {        
+        auto arraysInDir = fillArraysFromDir(loop->loop);
+        for (auto &rem : remoteAccess)
+        {
+            DIST::Array *remArray = rem.first;            
+
+            {
+                FuncCall f;
+                f.func_id = crtrbl_;
+                crtrbl_Info* tmp_params = new crtrbl_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
+
+                tmp_params->BufferHeader = (remIds++);//для различия
+                REMID = tmp_params->BufferHeader;
+                tmp_params->RemArrayHeader = getId(remArray, mapArrayAddrs, arrayAddr);
+
+                const int rank = remArray->GetDimSize();
+                tmp_params->AxisArray.resize(rank);
+                tmp_params->CoeffArray.resize(rank);
+                tmp_params->ConstArray.resize(rank);
+
+                for (int i = 0; i < rank; ++i)
+                {
+                    if (rem.second[i] == 0)
+                    {
+                        tmp_params->AxisArray[rank - 1 - i] = 0;
+                        tmp_params->CoeffArray[rank - 1 - i] = 0;
+                        tmp_params->ConstArray[rank - 1 - i] = 0;
+                    }
+                    else //if (rem.second[i] == 1)
+                    {
+                        tmp_params->AxisArray[rank - 1 - i] = -1;
+                        tmp_params->CoeffArray[rank - 1 - i] = -1;
+                        tmp_params->ConstArray[rank - 1 - i] = -1;
+                    }                    
+                }
+
+                tmp_params->LoopRef = LR; //may be always equal lastLR:
+                tmp_params->StaticSign = 0; //may be not always
+
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
+
+                f.crtrbl();
+            }
+
+            {
+                FuncCall f;
+                f.func_id = loadrb_;
+                loadrb_Info* tmp_params = new loadrb_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
+
+                tmp_params->ID = REMID;
+                tmp_params->RenewSign = 1; //may be always
+
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
+
+                f.loadrb();
+            }
+
+            {
+                FuncCall f;
+                f.func_id = waitrb_;
+                waitrb_Info* tmp_params = new waitrb_Info;
+                f.call_params = (void *)tmp_params; // point to parameters
+
+                tmp_params->ID = REMID;
+
+                f.call_time = 0.00000100;		// call time
+                f.ret_time = 0.00000100;		// return time
+                setVectorCallRet(&f);
+
+                f.waitrb();
+            }
+        }
     }
 
 
@@ -1116,7 +1054,7 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
     {
         //TStart and TByte in mkS, 
         ps = new PS(mach_ETHERNET, 1, 7.0, 0.001, procNum); //0.001 == 1Gb/s
-        //ps = new PS(mach_MYRINET, 4, 0.0, 0.0, procNum); //fastest communications
+        //ps = new PS(mach_ETHERNET, 1, 0.0, 0.0, procNum); //fastest communications
 
         //set configuration of PS
         ps->setTopology(allTolopogies[topIdx]);
@@ -1190,7 +1128,7 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
             else
             {
                 CurrInterval = new Interval(0);
-                Model_par(dir.first, dir.second);
+                Model_par(dir.first, dir.second, allArrays);
                 CurrInterval->CalcIdleAndImbalance();
                 CurrInterval->Integrate();
 
