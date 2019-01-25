@@ -942,6 +942,14 @@ int SPF_LoopFission(int winHandler, int *options, short *projName, short *folder
     return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                            int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(INSERT_INTER_TREE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {

@@ -26,6 +26,7 @@ extern "C" { __declspec(dllexport) int SPF_LoopEndDoConverterPass(int winHandler
 extern "C" { __declspec(dllexport) int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats); }
 extern "C" { __declspec(dllexport) int SPF_LoopFission(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_PrivateExpansion(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 
 extern "C" { __declspec(dllexport) void SPF_deleteAllAllocatedData(); }
 extern "C" { __declspec(dllexport) int  SPF_SetDistributionFlagToArray(char *key, int flag); }

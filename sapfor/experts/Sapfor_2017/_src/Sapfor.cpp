@@ -215,6 +215,10 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
     {
         restoreCorrectedModuleProcNames(file);
+        if (keepSpfDirs)
+            revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
+        else
+            __spf_print(1, "   ignore SPF REVERT\n");
 
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";

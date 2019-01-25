@@ -8514,7 +8514,7 @@ void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *e
   st_counter->addComment(Indirect_ProcedureComment(stmt->lineNumber())); 
   SgExpression *argument_list = FillerActualArgumentList(paramList,narg);  
   eFunc[0] = HandlerFunc (sf_counter, narg, argument_list);  // counter function
-  eFunc[1] = HandlerFunc (sf_filler,  narg, &argument_list->copy()); // filler function
+  eFunc[1] = HandlerFunc (sf_filler,  narg, argument_list ? &argument_list->copy() : NULL); // filler function
   return;
 }
 
