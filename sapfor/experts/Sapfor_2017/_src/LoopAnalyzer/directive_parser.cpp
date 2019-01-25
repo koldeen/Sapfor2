@@ -46,6 +46,27 @@ bool isSPF_NoInline(Statement *stIn)
     return false;
 }
 
+int isSPF_OP(Statement *stIn, const int type, const int op)
+{
+    int count = 0;
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ type }))
+        {
+            SgExpression *exprList = data->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs()->variant() == op)
+                    ++count;
+
+                exprList = exprList->rhs();
+            }
+        }
+    }
+    return count;
+}
+
 static map<SgSymbol*, Symbol*> dictCreated;
 
 static inline string getData(SgExpression *symb, string*) { return OriginalSymbol(symb->symbol())->identifier(); }
@@ -353,6 +374,33 @@ void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<st
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
         fillShadowAcrossFromComment(ACROSS_OP, new Statement(data), acrossInfo);
+}
+
+void fillFissionFromComment(Statement *stIn, vector<string> &vars)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            if (exprList)
+            {
+                if (exprList->lhs()->variant() == SPF_FISSION_OP)
+                {
+                    SgExpression *list = exprList->lhs()->lhs();
+                    while (list)
+                    {
+                        if (list->lhs()->variant() == VAR_REF)
+                            vars.push_back(list->lhs()->symbol()->identifier());
+
+                        list = list->rhs();
+                    }
+                }
+                // exprList = exprList->rhs();
+            }
+        }
+    }
 }
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)

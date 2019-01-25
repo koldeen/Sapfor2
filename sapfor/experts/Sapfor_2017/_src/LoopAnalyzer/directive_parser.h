@@ -9,6 +9,7 @@
 #include "../Distribution/DvmhDirective.h"
 
 bool isSPF_NoInline(Statement *stPrev);
+int isSPF_OP(Statement *st, const int type, const int op);
 
 template<typename fillType>
 void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);
@@ -30,3 +31,5 @@ void fillRemoteFromComment(Statement *st, std::map<std::pair<fillType, std::stri
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &acrossInfo);
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive);
+
+void fillFissionFromComment(Statement *stIn, std::vector<std::string> &vars);
