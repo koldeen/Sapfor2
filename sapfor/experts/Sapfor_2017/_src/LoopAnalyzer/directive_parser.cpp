@@ -46,7 +46,7 @@ bool isSPF_NoInline(Statement *stIn)
     return false;
 }
 
-int isSPF_OP(Statement *stIn, const int type, const int op)
+int countSPF_OP(Statement *stIn, const int type, const int op)
 {
     int count = 0;
     if (stIn)
@@ -65,6 +65,18 @@ int isSPF_OP(Statement *stIn, const int type, const int op)
         }
     }
     return count;
+}
+
+bool isSPF_OP(Statement *stIn, const int op)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        SgExpression *exprList = st->expr(0);
+        if (exprList && exprList->lhs()->variant() == op)
+            return true;
+    }
+    return false;
 }
 
 static map<SgSymbol*, Symbol*> dictCreated;
@@ -376,7 +388,7 @@ void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<st
         fillShadowAcrossFromComment(ACROSS_OP, new Statement(data), acrossInfo);
 }
 
-void fillFissionFromComment(Statement *stIn, vector<string> &vars)
+void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &vars)
 {
     if (stIn)
     {
@@ -386,7 +398,7 @@ void fillFissionFromComment(Statement *stIn, vector<string> &vars)
             SgExpression *exprList = st->expr(0);
             if (exprList)
             {
-                if (exprList->lhs()->variant() == SPF_FISSION_OP)
+                if (exprList->lhs() && (exprList->lhs()->variant() == SPF_FISSION_OP || exprList->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP))
                 {
                     SgExpression *list = exprList->lhs()->lhs();
                     while (list)
