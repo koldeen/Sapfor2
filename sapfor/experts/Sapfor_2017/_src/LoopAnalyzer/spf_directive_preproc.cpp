@@ -882,6 +882,22 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
             retVal = false;
         }
 
+        if (vars.size())
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (vars.size() > forSt->isPerfectLoopNest())
+            {
+                __spf_print(1, "expected %d nested loops on line %d but got %d on line %d\n",
+                            vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "expected %d nested loops line %d but got %d", vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1043));
+
+                retVal = false;
+            }
+        }
+
         for (int i = 0; i < vars.size(); ++i) {
             if (st->variant() != FOR_NODE)
             {
@@ -892,6 +908,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
+                break;
             }
             else
             {
