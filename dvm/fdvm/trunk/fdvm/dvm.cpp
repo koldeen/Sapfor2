@@ -3228,7 +3228,7 @@ EXEC_PART_:
               //  call dvmh_shadow_renew( BoundGroupRef)              
               doCallAfter(ShadowRenew_H(new SgVarRefExp(stmt->symbol()) ));  
            
-            doAssignStmtAfter(StartBound(new SgVarRefExp(stmt->symbol())));        
+            doCallAfter(StartBound(new SgVarRefExp(stmt->symbol())));        
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;//setting stmt on  inserted statement 
             break;
@@ -3237,7 +3237,7 @@ EXEC_PART_:
             if(inparloop)
               err("The directive is inside the range of PARALLEL loop", 98,stmt);  
             LINE_NUMBER_AFTER(stmt,stmt); //for tracing set on global variable of LibDVM  
-            doAssignStmtAfter(WaitBound(new SgVarRefExp(stmt->symbol()))); 
+            doCallAfter(WaitBound(new SgVarRefExp(stmt->symbol()))); 
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;//setting stmt on  inserted statement 
             break;
@@ -8190,7 +8190,7 @@ void ShadowList (SgExpression *el, SgStatement *st, SgExpression *gref)
         } else
             ileft=iright= doShadSizeArrayM1(ar,NULL);
  
-        doAssignStmtAfter(InsertArrayBound(gref, head, ileft, iright, corner));
+        doCallAfter(InsertArrayBound(gref, head, ileft, iright, corner));
          
      } else  //interface of RTS2
      {
@@ -8388,7 +8388,7 @@ void ShadowComp (SgExpression *ear, SgStatement *st, int ilh)
            iright = doShadSizeArrays(ear->lhs(), ar, st, NULL);
         } else
            ileft=iright= doShadSizeArrayM1(ar, NULL);
-        doAssignStmtAfter(AddBoundShadow(head, ileft, iright));
+        doCallAfter(AddBoundShadow(head, ileft, iright));
   
      } else    //interface of RTS2
         if(ear->lhs()){

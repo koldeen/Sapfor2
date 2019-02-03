@@ -9,7 +9,7 @@
 #include "acc_data.h"
 #include "calls.h"
 
-#ifdef __SPF 
+#ifdef __SPF
 SgFile *current_file;    //current file
 int current_file_id;     //number of current file 
 extern std::pair<std::string, int> currProcessing;

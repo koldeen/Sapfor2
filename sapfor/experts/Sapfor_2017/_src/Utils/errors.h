@@ -52,6 +52,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
 //   41 "parallel region '%s' has line included in another region"
 //   42 "distributed array in common block %s must have declaration in main unit"
+//   43 "bad directive expression"
+//   44 "Only pure procedures were supported"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

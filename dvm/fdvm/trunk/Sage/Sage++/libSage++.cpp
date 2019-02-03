@@ -1977,7 +1977,7 @@ void  SgStatement::setControlParent(SgStatement *s)
      }
 }
 
-void  SgStatement::setExpression (int i, SgExpression &e)
+void SgStatement::setExpression (int i, SgExpression &e)
 {
   switch (i)
     {
@@ -1994,7 +1994,35 @@ void  SgStatement::setExpression (int i, SgExpression &e)
       Message("A bif node can only have 3 expressions (0,1,2)",BIF_LINE(thebif));
     }
 }
- 
+
+void SgStatement::setExpression(int i, SgExpression *e)
+{
+    switch (i)
+    {
+    case 0:
+        if (e)
+            BIF_LL1(thebif) = e->thellnd;
+        else
+            BIF_LL1(thebif) = NULL;
+        break;
+    case 1:
+        if (e)
+            BIF_LL2(thebif) = e->thellnd;
+        else
+            BIF_LL2(thebif) = NULL;
+        break;
+    case 2:
+        if (e)
+            BIF_LL3(thebif) = e->thellnd;
+        else
+            BIF_LL3(thebif) = NULL;
+        break;
+    default:
+        Message("A bif node can only have 3 expressions (0,1,2)", BIF_LINE(thebif));
+    }
+}
+
+
 SgStatement* SgStatement::nextInChildList()
 {
   PTR_BLOB blob;

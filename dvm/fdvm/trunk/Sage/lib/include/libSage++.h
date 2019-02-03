@@ -160,6 +160,7 @@ public:
     inline void setId(int n);         // cannot change the id info
     inline void setVariant(int n);    // change the type of the statement
     void setExpression(int i, SgExpression &e); // change the i-th expression
+    void setExpression(int i, SgExpression *e); // change the i-th expression
     inline void setLabel(SgLabel &l); // change the label
     inline void setSymbol(SgSymbol &s); // change the symbol
 

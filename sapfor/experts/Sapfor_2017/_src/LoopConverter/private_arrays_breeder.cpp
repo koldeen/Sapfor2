@@ -409,7 +409,7 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
         LoopGraph *loop = loopPair.second;
         auto attrsTr = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_TRANSFORM_DIR });
         auto attrsPriv = getAttributes<SgStatement*, SgStatement*>(loop->loop->GetOriginal(), set<int>{ SPF_ANALYSIS_DIR });
-
+        
         set<SgSymbol*> privates;
         set<SgSymbol*> arrayPrivates;
         for (auto &spf : attrsPriv)
@@ -434,23 +434,44 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
             for (auto attr : attrsTr)
             {
                 SgExpression *list = attr->expr(0);
-                if (list->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP)
+                vector<SgExpression*> newL;
+
+                while (list)
                 {
-                    if (list->lhs()->lhs() == NULL)
+                    if (list->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP)
                     {
-                        for (auto &privArr : arrayPrivates)
-                            breedArray(loop, privArr, -1);
+                        if (list->lhs()->lhs() == NULL)
+                        {
+                            for (auto &privArr : arrayPrivates)
+                                breedArray(loop, privArr, -1);
+                        }
+                        else
+                        {
+                            SgExprListExp *listExp = isSgExprListExp(list->lhs()->lhs());
+                            checkNull(listExp, convertFileName(__FILE__).c_str(), __LINE__);
+                            const int deep = listExp->length();
+
+                            for (auto &privArr : arrayPrivates)
+                                breedArray(loop, privArr, deep);
+                        }
                     }
                     else
+                        newL.push_back(list);
+                    list = list->rhs();
+                }
+                SgExpression *ex = NULL;
+                SgExpression *p = NULL;
+                for (int z = 0; z < newL.size(); ++z)
+                {
+                    if (z == 0)
+                        p = ex = newL[z];
+                    else
                     {
-                        SgExprListExp *listExp = isSgExprListExp(list->lhs()->lhs());
-                        checkNull(listExp, convertFileName(__FILE__).c_str(), __LINE__);
-                        const int deep = listExp->length();
-
-                        for (auto &privArr : arrayPrivates)
-                            breedArray(loop, privArr, deep);
+                        ex->setRhs(newL[z]);
+                        ex = ex->rhs();
                     }
                 }
+                attr->setExpression(0, p);
             }
             return 0;
         }

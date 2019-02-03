@@ -1733,48 +1733,58 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 }
             }
             
+            // TODO: add messages!
             for (auto &loopLine : loopWithOutArrays)
             {
                 if (sortedLoopGraph[loopLine]->withoutDistributedArrays && loopLine > 0)
                 {
                     //TODO: enable linear writes to non distr arrays for CONSISTENT
                     bool hasWritesToArray = false;
-                    bool hasReduction = false;
                     //TODO: add IPA for non pure
                     bool hasNonPureProcedures = false;
 
                     auto loopRef = sortedLoopGraph[loopLine];
                     SgStatement *loopSt = loopRef->loop;
 
+                    map<string, set<string>> reductions;
+                    map<string, set<tuple<string, string, int>>> reductionsLoc;
+                    set<string> privates;
                     for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
                     {
-                        map<string, set<string>> reductions;
-                        map<string, set<tuple<string, string, int>>> reductionsLoc;
-
-                        fillReductionsFromComment(new Statement(data), reductions);
-                        fillReductionsFromComment(new Statement(data), reductionsLoc);
-
-                        hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
-                        if (hasReduction)
-                            break;
+                        Statement *dataSt = new Statement(data);
+                        fillReductionsFromComment(dataSt, reductions);
+                        fillReductionsFromComment(dataSt, reductionsLoc);
+                        fillPrivatesFromComment(dataSt, privates);
+                    }
+                    for (auto &red : reductions)
+                        privates.insert(red.second.begin(), red.second.end());
+                    for (auto &red : reductionsLoc)
+                    {
+                        for (auto &elem : red.second)
+                        {
+                            privates.insert(get<0>(elem));
+                            privates.insert(get<1>(elem));
+                        }
                     }
 
-                    for (SgStatement *start = loopSt->lexNext(); 
-                         start != loopSt->lastNodeOfStmt() && !hasNonPureProcedures;
-                         start = start->lexNext())
+                    for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
                     {
                         if (start->variant() == ASSIGN_STAT)
                             if (start->expr(0)->variant() == ARRAY_REF)
-                                hasWritesToArray = true;
+                                if (privates.find(start->expr(0)->symbol()->identifier()) != privates.end())
+                                    hasWritesToArray = true;
 
                         if (start->variant() == PROC_STAT)
                         {
                             if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                            {
                                 hasNonPureProcedures = true;
+                                messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
+                            }
                         }
                     }
 
-                    if ((hasReduction || (!hasReduction && !hasWritesToArray)) && !hasNonPureProcedures)
+                    if (!hasWritesToArray && !hasNonPureProcedures)
                     {
                         if (!addToDistributionGraph(loopRef, funcName))
                             loopRef->withoutDistributedArrays = false;

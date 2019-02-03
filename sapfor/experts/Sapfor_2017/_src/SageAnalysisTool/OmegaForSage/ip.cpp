@@ -46,10 +46,10 @@ extern "C" void removeFromCollection(void *pointer);
 #ifndef FALSE
 #  define FALSE 0
 #endif
-#define nVars (problemPtr->_nVars)
-#define nEQ (problemPtr->_numEQs)
-#define nGEQ (problemPtr->_numGEQs)
-#define nSUB (problemPtr->_numSUBs)
+#define nVars (problemPtr->getVarsN())
+#define nEQ (problemPtr->getNumEqs())
+#define nGEQ (problemPtr->getNumGEqs())
+#define nSUB (problemPtr->getNumSUBs())
 #define SUBs (problemPtr->_SUBs)
 #define GEQs (problemPtr->_GEQs)
 #define EQs (problemPtr->_EQs)
@@ -60,8 +60,13 @@ extern "C" void removeFromCollection(void *pointer);
 #define variable(i) orgVariable(problemPtr->_var[i])
 #define orgVariable(i) (i == 0 ? "1" : (i < 0?wildName[-i]: (*problemPtr->_getVarName)(i,problemPtr->_getVarNameArgs)))
 #define doTrace (trace && TRACE)
-#define doDelete(e,nV) {if (DEBUG) {fprintf(outputFile,"Deleting %d (last:%d): ",e,nGEQ-1); printGEQ(&GEQs[e]);fprintf(outputFile,"\n");}; if (e < nGEQ-1) eqnncpy (&GEQs[e], &GEQs[nGEQ - 1],(nV)); (nGEQ)--;}
-#define doDeleteExtra(e,nV) {if (DEBUG) {fprintf(outputFile,"Deleting %d: ",e); printGEQextra(&GEQs[e]);fprintf(outputFile,"\n");}; if (e < nGEQ-1) eqnncpy (&GEQs[e], &GEQs[nGEQ - 1],(nV)); (nGEQ)--;}
+#define doDelete(e,nV) {if (DEBUG) {fprintf(outputFile,"Deleting %d (last:%d): ",e,nGEQ-1); printGEQ(&GEQs[e]);fprintf(outputFile,"\n");}; \
+                        if (e < nGEQ-1) eqnncpy (&GEQs[e], &GEQs[nGEQ - 1],(nV)); \
+                        (problemPtr->addNumGEqs(-1));}
+
+#define doDeleteExtra(e,nV) {if (DEBUG) {fprintf(outputFile,"Deleting %d: ",e); printGEQextra(&GEQs[e]);fprintf(outputFile,"\n");}; \
+                             if (e < nGEQ-1) eqnncpy (&GEQs[e], &GEQs[nGEQ - 1],(nV)); \
+                             (problemPtr->addNumGEqs(-1));}
 #define isRed(e) (desiredResult == SIMPLIFY && (e)->color)
 
 
@@ -151,48 +156,48 @@ int checkIfSingleVar(Eqn e, int i)
 void initializeVariables(Problem *p)
 {
     int i;
-    for (i = p->_nVars; i > 0; i--)
+    for (i = p->getVarsN(); i > 0; i--)
         p->forwardingAddress[i] = p->_var[i] = i;
     p->variablesInitialized = 1;
 }
 
 void initializeProblem(Problem *p)
-{
-    p->_nVars = 0;
+{    
     p->hashVersion = hashVersion;
     p->variablesInitialized = 0;
     p->variablesFreed = 0;
     p->_safeVars = 0;
-    p->_numEQs = 0;
-    p->_numGEQs = 0;
-    p->_numSUBs = 0;
+    p->_init(0, 0, 0, 0);
 }
 
 void problemcpy(Problem *p1, Problem *p2)
 {
-    int e, i;
-    p1->_nVars = p2->_nVars;
+    int e, i;    
     p1->hashVersion = p2->hashVersion;
     p1->variablesInitialized = p2->variablesInitialized;
     p1->variablesFreed = p2->variablesFreed;
     p1->_safeVars = p2->_safeVars;
-    p1->_numEQs = p2->_numEQs;
-    p1->_numSUBs = p2->_numSUBs;
-    for (e = p2->_numEQs - 1; e >= 0; e--)
-        eqnncpy(&(p1->_EQs[e]), &(p2->_EQs[e]), p2->_nVars);
-    p1->_numGEQs = p2->_numGEQs;
-    for (e = p2->_numGEQs - 1; e >= 0; e--)
-        eqnncpy(&(p1->_GEQs[e]), &(p2->_GEQs[e]), p2->_nVars);
-    for (e = p2->_numSUBs - 1; e >= 0; e--)
-        eqnncpy(&(p1->_SUBs[e]), &(p2->_SUBs[e]), p2->_nVars);
-    for (i = 0; i <= p2->_nVars; i++)
+    p1->_init(p2->getNumEqs(), p2->getNumGEqs(), p2->getNumSUBs(), p2->getVarsN());
+
+    for (e = p2->getNumEqs() - 1; e >= 0; e--)
+        eqnncpy(&(p1->_EQs[e]), &(p2->_EQs[e]), p2->getVarsN());
+
+    for (e = p2->getNumGEqs() - 1; e >= 0; e--)
+        eqnncpy(&(p1->_GEQs[e]), &(p2->_GEQs[e]), p2->getVarsN());
+
+    for (e = p2->getNumSUBs() - 1; e >= 0; e--)
+        eqnncpy(&(p1->_SUBs[e]), &(p2->_SUBs[e]), p2->getVarsN());
+
+    p1->_var.resize(p2->getVarsN() + 1);
+        
+    for (i = 0; i <= p2->getVarsN(); i++)
         p1->_var[i] = p2->_var[i];
+
+    p1->forwardingAddress.resize(maxVars + 2);
     for (i = 0; i <= maxVars; i++)
         p1->forwardingAddress[i] = p2->forwardingAddress[i];
     p1->_getVarName = p2->_getVarName;
     p1->_getVarNameArgs = p2->_getVarNameArgs;
-
-
 }
 
 
@@ -672,7 +677,8 @@ static int addNewWildcard(Problem *problemPtr)
 {
     int e;
     int i = ++safeVars;
-    nVars++;
+    problemPtr->addToVarsN(1);
+    //nVars++;
     if (nVars != i) {
         for (e = nGEQ - 1; e >= 0; e--) {
             if (GEQs[e].coef[i] != 0)
@@ -752,14 +758,17 @@ negateGEQ(Problem * problemPtr, int e)
 static int verifyProblem(Problem *problemPtr)
 {
     int result, e, anyColor;
-    Problem *tmpProblem;
-    tmpProblem = mallocProblem;
-#ifdef _WIN32
-    addToCollection(__LINE__, __FILE__, tmpProblem, 1);
-#endif
-    problemcpy(tmpProblem, problemPtr);
-    tmpProblem->_safeVars = 0;
-    tmpProblem->_numSUBs = 0;
+    Problem tmpProblem;
+    /*tmpProblem = mallocProblem;
+    if (tmpProblem == NULL)
+    {
+        printf("ERROR!!\n");
+    }
+    tmpProblem->_init();*/
+
+    problemcpy(&tmpProblem, problemPtr);
+    tmpProblem._safeVars = 0;
+    tmpProblem.setNumSUBs(0);
     anyColor = 0;
     for (e = nGEQ - 1; e >= 0; e--)
         anyColor |= GEQs[e].color;
@@ -777,12 +786,9 @@ static int verifyProblem(Problem *problemPtr)
         printProblem(problemPtr);
     };
 
-    result = solve(tmpProblem, UNKNOWN);
+    result = solve(&tmpProblem, UNKNOWN);
     originalProblem = noProblem;
-#ifdef _WIN32
-    removeFromCollection(tmpProblem);
-#endif
-    free(tmpProblem);
+    //free(tmpProblem);
     if (DBUG) {
         if (result)
             fprintf(outputFile, "verified problem\n");
@@ -941,7 +947,12 @@ int eliminateRedundant(Problem *problemPtr, bool expensive)
                                         printGEQ(&(GEQs[e3]));
                                         fprintf(outputFile, "\n\n");
                                     };
-                                    eqncpy(&EQs[nEQ++], &GEQs[e3]);
+                                    //eqncpy(&EQs[nEQ++], &GEQs[e3]);
+                                    const int numEQ = nEQ;
+                                    problemPtr->addNumEqs(1);
+                                    eqncpy(&EQs[numEQ], &GEQs[e3]);
+                                    
+
                                     assert(nEQ <= maxEQs);
                                     addingEqualityConstraint(problemPtr, nEQ - 1);
                                     isDead[e3] = 1;
@@ -960,13 +971,16 @@ int eliminateRedundant(Problem *problemPtr, bool expensive)
     if (!expensive)
         return (1);
     {
-        Problem *tmpProblem;
+        Problem tmpProblem;
         int oldTrace = trace;
         trace = 0;
-        tmpProblem = mallocProblem;
-#ifdef _WIN32
-        addToCollection(__LINE__, __FILE__, tmpProblem, 1);
-#endif
+        /*tmpProblem = mallocProblem;
+        if (tmpProblem == NULL)
+        {
+            printf("ERROR!!\n");
+        }
+        tmpProblem->_init();*/
+
         conservative++;
         for (e = nGEQ - 1; e >= 0; e--) {
             if (DEBUG) {
@@ -974,18 +988,15 @@ int eliminateRedundant(Problem *problemPtr, bool expensive)
                 printGEQ(&(GEQs[e]));
                 fprintf(outputFile, "\n");
             };
-            problemcpy(tmpProblem, problemPtr);
-            negateGEQ(tmpProblem, e);
-            tmpProblem->_safeVars = 0;
-            tmpProblem->variablesFreed = 0;
-            if (!solve(tmpProblem, FALSE))
+            problemcpy(&tmpProblem, problemPtr);
+            negateGEQ(&tmpProblem, e);
+            tmpProblem._safeVars = 0;
+            tmpProblem.variablesFreed = 0;
+            if (!solve(&tmpProblem, FALSE))
                 doDelete(e, nVars);
         };
         trace = oldTrace;
-#ifdef _WIN32
-        removeFromCollection(tmpProblem);
-#endif
-        free(tmpProblem);
+        //free(tmpProblem);
         conservative--;
     };
 #if reduceWithSubstitutions
@@ -1069,7 +1080,8 @@ int smoothWeirdEquations(Problem *problemPtr)
                     }
                 if (GEQs[e3].coef[0] < 9997) {
                     result++;
-                    nGEQ++;
+                    problemPtr->addNumGEqs(1);
+                    //nGEQ++;
                     if (DBUG) {
                         fprintf(outputFile, "Smoothing wierd equations; adding:\n");
                         printGEQ(&GEQs[e3]);
@@ -1101,8 +1113,12 @@ coalesce(Problem * problemPtr)
         if (GEQs[e].color)
             for (e2 = e + 1; e2 < nGEQ; e2++)
                 if (GEQs[e].key == -GEQs[e2].key
-                    && GEQs[e].coef[0] == -GEQs[e2].coef[0]) {
-                    eqncpy(&EQs[nEQ++], &GEQs[e]);
+                    && GEQs[e].coef[0] == -GEQs[e2].coef[0]) 
+                {
+                    const int numEQ = nEQ;
+                    problemPtr->addNumEqs(1);
+                    eqncpy(&EQs[numEQ], &GEQs[e]);
+                    
                     assert(nEQ <= maxEQs);
                     isDead[e] = 1;
                     isDead[e2] = 1;
@@ -1221,14 +1237,17 @@ void eliminateRed(Problem *problemPtr, bool eliminateAll)
 #endif
 
     {
-        Problem *tmpProblem;
+        Problem tmpProblem;
         int oldTrace = trace;
         trace = 0;
         conservative++;
-        tmpProblem = mallocProblem;
-#ifdef _WIN32
-        addToCollection(__LINE__, __FILE__, tmpProblem, 1);
-#endif
+        /*tmpProblem = mallocProblem;
+        if (tmpProblem == NULL)
+        {
+            printf("ERROR!!\n");
+        }
+        tmpProblem->_init();*/
+
         for (e = nGEQ - 1; e >= 0; e--)
             if (GEQs[e].color) {
                 if (DBUG) {
@@ -1236,12 +1255,12 @@ void eliminateRed(Problem *problemPtr, bool eliminateAll)
                     printGEQ(&(GEQs[e]));
                     fprintf(outputFile, "\n");
                 };
-                problemcpy(tmpProblem, problemPtr);
-                negateGEQ(tmpProblem, e);
-                tmpProblem->_safeVars = 0;
-                tmpProblem->variablesFreed = 0;
-                tmpProblem->_numSUBs = 0;
-                if (!solve(tmpProblem, FALSE)) {
+                problemcpy(&tmpProblem, problemPtr);
+                negateGEQ(&tmpProblem, e);
+                tmpProblem._safeVars = 0;
+                tmpProblem.variablesFreed = 0;
+                tmpProblem.setNumSUBs(0);
+                if (!solve(&tmpProblem, FALSE)) {
                     if (DBUG)
                         fprintf(outputFile, "it is redundant\n");
                     doDelete(e, nVars);
@@ -1258,10 +1277,8 @@ void eliminateRed(Problem *problemPtr, bool eliminateAll)
             };
         trace = oldTrace;
         conservative--;
-#ifdef _WIN32
-        removeFromCollection(tmpProblem);
-#endif
-        free(tmpProblem);
+
+        //free(tmpProblem);
     };
     /* simplifyProblem(problemPtr); */
 #if reduceWithSubstitutions
@@ -1325,7 +1342,7 @@ void chainUnprotect(Problem *problemPtr)
 void
 resurrectSubs(Problem * problemPtr)
 {
-    if (problemPtr->_numSUBs > 0 && !pleaseNoEqualitiesInSimplifiedProblems) {
+    if (problemPtr->getNumSUBs() > 0 && !pleaseNoEqualitiesInSimplifiedProblems) {
         int i, e, n, m;
         if (DBUG) {
             fprintf(outputFile,
@@ -1351,20 +1368,28 @@ resurrectSubs(Problem * problemPtr)
                 problemPtr->_safeVars--;
             };
 
-        m = problemPtr->_numSUBs;
+        m = problemPtr->getNumSUBs();
         n = max(nVars, problemPtr->_safeVars + m);
-        for (e = nGEQ - 1; e >= 0; e--) {
-            if (singleVarGEQ(GEQs[e], nVars)) {
+        for (e = nGEQ - 1; e >= 0; e--) 
+        {
+            if (singleVarGEQ(GEQs[e], nVars)) 
+            {
                 i = abs(GEQs[e].key);
                 if (i >= problemPtr->_safeVars + 1)
                     GEQs[e].key += (GEQs[e].key > 0 ? m : -m);
             }
-            else {
+            else 
+            {
                 GEQs[e].touched = TRUE;
                 GEQs[e].key = 0;
             }
-        };
-        for (i = nVars; i >= problemPtr->_safeVars + 1; i--) {
+        }
+
+        const int tmpNV = nVars;
+        problemPtr->addToVarsN(m);
+
+        for (i = tmpNV; i >= problemPtr->_safeVars + 1; i--)
+        {
             problemPtr->_var[i + m] = problemPtr->_var[i];
             for (e = nGEQ - 1; e >= 0; e--)
                 GEQs[e].coef[i + m] = GEQs[e].coef[i];
@@ -1372,32 +1397,41 @@ resurrectSubs(Problem * problemPtr)
                 EQs[e].coef[i + m] = EQs[e].coef[i];
             for (e = nSUB - 1; e >= 0; e--)
                 SUBs[e].coef[i + m] = SUBs[e].coef[i];
-        };
-        for (i = problemPtr->_safeVars + m;
-            i >= problemPtr->_safeVars + 1;
-            i--) {
+        }
+        
+        for (i = problemPtr->_safeVars + m; i >= problemPtr->_safeVars + 1; i--) 
+        {
             for (e = nGEQ - 1; e >= 0; e--)
                 GEQs[e].coef[i] = 0;
             for (e = nEQ - 1; e >= 0; e--)
                 EQs[e].coef[i] = 0;
             for (e = nSUB - 1; e >= 0; e--)
                 SUBs[e].coef[i] = 0;
-        };
-        nVars += m;
-        for (e = nSUB - 1; e >= 0; e--) {
+        }        
+        //nVars += m;
+
+        for (e = nSUB - 1; e >= 0; e--) 
+        {
             problemPtr->_var[problemPtr->_safeVars + 1 + e] = SUBs[e].key;
-            eqncpy(&(EQs[nEQ]), &(SUBs[e]));
-            EQs[nEQ].coef[problemPtr->_safeVars + 1 + e] = -1;
-            if (DBUG) {
+
+            const int numEQ = nEQ;
+            problemPtr->addNumEqs(1);
+
+            eqncpy(&(EQs[numEQ]), &(SUBs[e]));
+            EQs[numEQ].coef[problemPtr->_safeVars + 1 + e] = -1;
+            if (DBUG) 
+            {
                 fprintf(outputFile, "brought back: ");
-                printEQ(&EQs[nEQ]);
+                printEQ(&EQs[numEQ]);
                 fprintf(outputFile, "\n");
-            };
-            nEQ++;
+            }            
+            //nEQ++;
             assert(nEQ <= maxEQs);
-        };
+        }
         problemPtr->_safeVars += m;
-        nSUB = 0;
+        //nSUB = 0;
+
+        problemPtr->setNumSUBs(0);
         for (i = problemPtr->_safeVars + 1; i <= nVars; i++) {
             for (e = nGEQ - 1; e >= 0; e--)
                 if (GEQs[e].color && GEQs[e].coef[i]) {
@@ -1596,21 +1630,26 @@ void addingEqualityConstraint(Problem *problemPtr, int e)
 {
     int e2, i, j;
 
-    if (originalProblem != noProblem && originalProblem != problemPtr && !conservative) {
-        e2 = originalProblem->_numEQs++;
+    if (originalProblem != noProblem && originalProblem != problemPtr && !conservative) 
+    {
+        //e2 = originalProblem->_numEQs++;
+        e2 = originalProblem->getNumEqs();
+        originalProblem->addNumEqs(1);
+
         if (DBUG)
             fprintf(outputFile,
                 "adding equality constraint %d to outer problem\n",
                 e2);
-        eqnnzero(&originalProblem->_EQs[e2], originalProblem->_nVars);
+        eqnnzero(&originalProblem->_EQs[e2], originalProblem->getVarsN());
         for (i = nVars; i >= 1; i--) {
-            for (j = originalProblem->_nVars; j >= 1; j--)
+            for (j = originalProblem->getVarsN(); j >= 1; j--)
                 if (originalProblem->_var[j] == problemPtr->_var[i])
                     break;
             if (j <= 0) {
                 if (DBUG)
                     fprintf(outputFile, "retracting\n");
-                originalProblem->_numEQs--;
+                //originalProblem->_numEQs--;
+                originalProblem->addNumEqs(-1);
                 return;
             };
             originalProblem->_EQs[e2].coef[j] = EQs[e].coef[i];
@@ -1657,7 +1696,10 @@ void substitute(Problem * problemPtr, Eqn sub, int i, int c)
             SUBs[e].coef[i] = 0;
 
         if (i <= problemPtr->_safeVars && problemPtr->_var[i] >= 0) {
-            register Eqn eqn = &(SUBs[nSUB++]);
+            //register Eqn eqn = &(SUBs[nSUB++]);
+            problemPtr->addNumSUBs(1);
+            register Eqn eqn = &(SUBs[nSUB - 1]);            
+
             for (k = nVars; k >= 0; k--)
                 eqn->coef[k] = 0;
             eqn->key = problemPtr->_var[i];
@@ -1681,7 +1723,10 @@ void substitute(Problem * problemPtr, Eqn sub, int i, int c)
             SUBs[e].coef[i] = 0;
         };
         if (i <= problemPtr->_safeVars && problemPtr->_var[i] >= 0) {
-            register Eqn eqn = &(SUBs[nSUB++]);
+            //register Eqn eqn = &(SUBs[nSUB++]);
+            problemPtr->addNumSUBs(1);
+            register Eqn eqn = &(SUBs[nSUB - 1]);            
+
             for (k = nVars; k >= 1; k--)
                 eqn->coef[k] = 0;
             eqn->coef[0] = c;
@@ -1745,7 +1790,10 @@ void substitute(Problem * problemPtr, Eqn sub, int i, int c)
             fprintf(outputFile, "---\n\n");
         if (i <= problemPtr->_safeVars && problemPtr->_var[i] >= 0) {
             register Eqn eqn;
-            eqn = &(SUBs[nSUB++]);
+            //eqn = &(SUBs[nSUB++]);
+            problemPtr->addNumSUBs(1);
+            eqn = &(SUBs[nSUB - 1]);            
+
             c = -c;
             for (k = nVars; k >= 0; k--)
                 eqn->coef[k] = c * (sub->coef[k]);
@@ -1891,7 +1939,8 @@ void deleteVariable(Problem *problemPtr, int i)
     };
     if (i <= safeVars)
         safeVars--;
-    nVars--;
+    problemPtr->addToVarsN(-1);
+    //nVars--;
 }
 
 static void convertEQtoGEQs(Problem * problemPtr, int eq)
@@ -1899,14 +1948,23 @@ static void convertEQtoGEQs(Problem * problemPtr, int eq)
     int i;
     if (DBUG)
         fprintf(outputFile, "Converting Eq to GEQs\n");
-    eqncpy(&GEQs[nGEQ], &EQs[eq]);
-    GEQs[nGEQ].touched = 1;
-    nGEQ++;
-    eqncpy(&GEQs[nGEQ], &EQs[eq]);
-    GEQs[nGEQ].touched = 1;
+
+    int numGE = nGEQ;
+    problemPtr->addNumGEqs(1);
+
+    eqncpy(&GEQs[numGE], &EQs[eq]);
+    GEQs[numGE].touched = 1;
+    //nGEQ++;
+    
+    numGE = nGEQ;
+    problemPtr->addNumGEqs(1);
+
+    eqncpy(&GEQs[numGE], &EQs[eq]);
+    GEQs[numGE].touched = 1;
     for (i = 0; i <= nVars; i++)
-        GEQs[nGEQ].coef[i] = -GEQs[nGEQ].coef[i];
-    nGEQ++;
+        GEQs[numGE].coef[i] = -GEQs[numGE].coef[i];
+    //nGEQ++;
+    
     if (DBUG)
         printProblem(problemPtr);
 }
@@ -2044,7 +2102,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
             };
             eqn->coef[0] = eqn->coef[0] / g;
             eqn->coef[i] = 1;
-            nEQ--;
+            //nEQ--;
+            problemPtr->addNumEqs(-1);
             doElimination(problemPtr, e, i);
             continue;
         }
@@ -2056,7 +2115,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
                     fprintf(outputFile, "\nequations have no solution \n");
                 return (FALSE);
             };
-            nEQ--;
+            //nEQ--;
+            problemPtr->addNumEqs(-1);
             continue;
         };
         /* i == position of last non-zero coef */
@@ -2066,7 +2126,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
         if (g < 0)
             g = -g;
         if (g == 1) {
-            nEQ--;
+            //nEQ--;
+            problemPtr->addNumEqs(-1);
             doElimination(problemPtr, e, i);
         }
         else {
@@ -2163,7 +2224,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
                 goto normalizeEQ;
             };
 
-            if (g2 > 1 && !inApproximateMode) {
+            if (g2 > 1 && !inApproximateMode) 
+            {
                 if (DEBUG)
                     fprintf(outputFile, "adding equation to handle safe variable \n");
                 if (DEBUG)
@@ -2171,7 +2233,9 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
                 if (DEBUG)
                     fprintf(outputFile, "\n----\n");
                 i = addNewWildcard(problemPtr);
-                nEQ++;
+                //nEQ++;
+                problemPtr->addNumEqs(1);
+
                 assert(nEQ <= maxEQs);
                 eqnzero(&EQs[e + 1]);
                 eqnncpy(&EQs[e + 1], eqn, safeVars);
@@ -2211,7 +2275,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
                         break;
 
             if (i > sv) {
-                nEQ--;
+                //nEQ--;
+                problemPtr->addNumEqs(-1);
                 doElimination(problemPtr, e, i);
                 if (g2 > 1 && TRACE) {
                     fprintf(outputFile, "result of non-exact elimination:\n");
@@ -2257,7 +2322,8 @@ static int solveEQ(Problem *problemPtr, int desiredResult)
 
 
     };
-    nEQ = 0;
+    //nEQ = 0;
+    problemPtr->setNumEqs(0);
     return (UNKNOWN);
 }
 
@@ -2384,14 +2450,16 @@ solveGEQstart:
                 return (FALSE);
             };
             if (desiredResult == SIMPLIFY) {
-                nGEQ = 0;
+                //nGEQ = 0;
+                problemPtr->setNumGEqs(0);
                 if (safeVars == 1) {
 
                     if (lowerBound == upperBound && !uColor && !lColor) {
                         EQs[0].coef[0] = -lowerBound;
                         EQs[0].coef[1] = 1;
                         EQs[0].color = 0;
-                        nEQ = 1;
+                        //nEQ = 1;
+                        problemPtr->setNumEqs(1);
                         return (solve(problemPtr, desiredResult));
                     }
                     else {
@@ -2401,27 +2469,34 @@ solveGEQstart:
                             GEQs[0].key = 1;
                             GEQs[0].color = lColor;
                             GEQs[0].touched = 0;
-                            nGEQ = 1;
-                        };
-                        if (upperBound < posInfinity) {
-                            GEQs[nGEQ].coef[0] = upperBound;
-                            GEQs[nGEQ].coef[1] = -1;
-                            GEQs[nGEQ].key = -1;
-                            GEQs[nGEQ].color = uColor;
-                            GEQs[nGEQ].touched = 0;
-                            nGEQ++;
-                        };
-                    };
+                            //nGEQ = 1;
+                            problemPtr->setNumGEqs(1);
+                        }
+
+                        if (upperBound < posInfinity) 
+                        {
+                            const int numGE = nGEQ;
+                            problemPtr->addNumGEqs(1);
+
+                            GEQs[numGE].coef[0] = upperBound;
+                            GEQs[numGE].coef[1] = -1;
+                            GEQs[numGE].key = -1;
+                            GEQs[numGE].color = uColor;
+                            GEQs[numGE].touched = 0;
+                            //nGEQ++;                            
+                        }
+                    }
                 }
                 else
-                    nVars = 0;
+                    problemPtr->setVarsN(0);
                 problemReduced(problemPtr);
                 return (FALSE);
             };
             if (originalProblem != noProblem && !lColor && !uColor && !conservative && lowerBound == upperBound) {
                 EQs[0].coef[0] = -lowerBound;
                 EQs[0].coef[1] = 1;
-                nEQ = 1;
+                //nEQ = 1;
+                problemPtr->setNumEqs(1);
                 addingEqualityConstraint(problemPtr, 0);
             };
             return (TRUE);
@@ -2616,21 +2691,25 @@ solveGEQstart:
                             };
                             return (FALSE);
                         };
-                        if (GEQs[e2].coef[0] == -cTerm
-                            && !GEQs[e2].color && !GEQs[e].color) {
+                        if (GEQs[e2].coef[0] == -cTerm && !GEQs[e2].color && !GEQs[e].color) 
+                        {
                             /*
                              * if (!addIt && 0) { int i; for (i = safeVars + 1; i <= nVars; i++) if (GEQs[e].coef[i] ==
                              * 1 || GEQs[e].coef[i] == -1) addIt = 1; };
                              */
-                            eqncpy(&EQs[nEQ], &GEQs[e]);
+                            const int numEQ = nEQ;
+                            problemPtr->addNumEqs(1);
+
+                            eqncpy(&EQs[numEQ], &GEQs[e]);
                             if (!GEQs[e2].color)
-                                addingEqualityConstraint(problemPtr, nEQ);
+                                addingEqualityConstraint(problemPtr, numEQ);
                             assert(!GEQs[e2].color);
                             assert(!GEQs[e].color);
-                            nEQ++;
+                            //nEQ++;
+                            
                             assert(nEQ <= maxEQs);
-                        };
-                    };
+                        }
+                    }
 
                     e2 = fastLookup[maxKeys + eKey];
                     if (e2 < e && GEQs[e2].key == eKey) {
@@ -2666,12 +2745,16 @@ solveGEQstart:
 
             if (!coupledSubscripts) {
                 if (safeVars == 0)
-                    nGEQ = 0;
+                {
+                    //nGEQ = 0;
+                    problemPtr->setNumGEqs(0);
+                }
                 else
                     for (e = nGEQ - 1; e >= 0; e--)
                         if (GEQs[e].key > safeVars || -safeVars > GEQs[e].key)
                             doDelete(e, nV);
-                nVars = safeVars;
+                problemPtr->setVarsN(safeVars);
+                //nVars = safeVars;
                 if (desiredResult == SIMPLIFY) {
                     problemReduced(problemPtr);
                     return (FALSE);
@@ -2686,7 +2769,8 @@ solveGEQstart:
 
             if (nGEQ == 0) {
                 if (desiredResult == SIMPLIFY) {
-                    nVars = safeVars;
+                    problemPtr->setVarsN(safeVars);
+                    //nVars = safeVars;
                     problemReduced(problemPtr);
                     return (FALSE);
                 };
@@ -2877,7 +2961,8 @@ solveGEQstart:
                     fprintf(outputFile, "No swap needed\n");
                     printProblem(problemPtr);
                 };
-                nVars--;
+                problemPtr->addToVarsN(-1);
+                //nVars--;
                 nV = nVars;
 
                 if (exact) {
@@ -2979,7 +3064,8 @@ solveGEQstart:
                                         };
                                     };
                             };
-                            nGEQ = 0;
+                            //nGEQ = 0;
+                            problemPtr->setNumGEqs(0);
                             if (DEBUG)
                                 fprintf(outputFile,
                                     " therefore, %c%d <= %c%s%c <= %d%c\n",
@@ -2994,7 +3080,8 @@ solveGEQstart:
                                 if (upperBound == lowerBound
                                     && !(ub_color | lb_color)
                                     && !pleaseNoEqualitiesInSimplifiedProblems) {
-                                    nEQ++;
+                                    //nEQ++;
+                                    problemPtr->addNumEqs(1);
                                     EQs[0].coef[1] = -1;
                                     EQs[0].coef[0] = upperBound;
                                     EQs[0].color = ub_color | lb_color;
@@ -3008,17 +3095,24 @@ solveGEQstart:
                                     GEQs[0].color = ub_color;
                                     GEQs[0].key = -1;
                                     GEQs[0].touched = 0;
-                                    nGEQ++;
-                                };
-                                if (lowerBound != negInfinity) {
-                                    GEQs[nGEQ].coef[1] = 1;
-                                    GEQs[nGEQ].coef[0] = -lowerBound;
-                                    GEQs[nGEQ].color = lb_color;
-                                    GEQs[nGEQ].key = 1;
-                                    GEQs[nGEQ].touched = 0;
-                                    nGEQ++;
-                                };
-                            };
+                                    //nGEQ++;
+                                    problemPtr->addNumGEqs(1);
+                                }
+
+                                if (lowerBound != negInfinity) 
+                                {
+                                    const int numGE = nGEQ;
+                                    problemPtr->addNumGEqs(1);
+
+                                    GEQs[numGE].coef[1] = 1;
+                                    GEQs[numGE].coef[0] = -lowerBound;
+                                    GEQs[numGE].color = lb_color;
+                                    GEQs[numGE].key = 1;
+                                    GEQs[numGE].touched = 0;
+                                    //nGEQ++;                                    
+                                }
+                            }
+
                             if (desiredResult == SIMPLIFY) {
                                 problemReduced(problemPtr);
                                 return (FALSE);
@@ -3028,13 +3122,16 @@ solveGEQstart:
                                     (desiredResult != SIMPLIFY ||
                                     (!lb_color && !ub_color))
                                     && originalProblem != noProblem && lowerBound == upperBound) {
-                                    for (i = originalProblem->_nVars; i >= 0; i--)
+                                    for (i = originalProblem->getVarsN(); i >= 0; i--)
                                         if (originalProblem->_var[i] == problemPtr->_var[1])
                                             break;
                                     if (i == 0)
                                         break;
-                                    e = originalProblem->_numEQs++;
-                                    eqnnzero(&originalProblem->_EQs[e], originalProblem->_nVars);
+                                    //e = originalProblem->_numEQs++;
+                                    e = originalProblem->getNumEqs();
+                                    problemPtr->addNumEqs(1);
+
+                                    eqnnzero(&originalProblem->_EQs[e], originalProblem->getVarsN());
                                     originalProblem->_EQs[e].coef[i] = -1;
                                     originalProblem->_EQs[e].coef[0] = upperBound;
                                     if (DEBUG) {
@@ -3090,7 +3187,11 @@ solveGEQstart:
                                         if (GEQs[Le].key != -GEQs[Ue].key) {
                                             int Uc = -GEQs[Ue].coef[i];
                                             if (numDead == 0)
-                                                e2 = nGEQ++;
+                                            {
+                                                //e2 = nGEQ++;
+                                                e2 = nGEQ;
+                                                problemPtr->addNumGEqs(1);
+                                            }
                                             else
                                                 e2 = deadEqns[--numDead];
                                             assert(e2 < maxGEQs);
@@ -3217,10 +3318,20 @@ solveGEQstart:
 
                         };
                     iS->variablesInitialized = rS->variablesInitialized = 1;
-                    iS->_nVars = rS->_nVars = nVars;
-                    iS->_numGEQs = rS->_numGEQs = e2;
-                    iS->_numEQs = rS->_numEQs = 0;
-                    iS->_numSUBs = rS->_numSUBs = nSUB;
+                    iS->setVarsN(nVars);
+                    rS->setVarsN(nVars);
+                    //iS->_numGEQs = rS->_numGEQs = e2;
+                    //iS->_numEQs = rS->_numEQs = 0;
+                    //iS->_numSUBs = rS->_numSUBs = nSUB;
+                    iS->setNumGEqs(e2);
+                    rS->setNumGEqs(e2);
+
+                    iS->setNumEqs(0);
+                    rS->setNumEqs(0);
+
+                    iS->setNumSUBs(nSUB);
+                    rS->setNumSUBs(nSUB);
+
                     iS->_safeVars = rS->_safeVars = safeVars;
                     {
                         int t;
@@ -3233,7 +3344,8 @@ solveGEQstart:
                             eqnncpy(&(iS->_SUBs[e]), &(SUBs[e]), nVars);
                         };
                     };
-                    nVars++;
+                    problemPtr->addToVarsN(1);
+                    //nVars++;
                     nV = nVars;
                     if (desiredResult != TRUE) {
                         int t = trace;
@@ -3355,7 +3467,8 @@ solveGEQstart:
                                 EQs[0].color = black;
                                 eqnzero(&GEQs[e]);
                                 GEQs[e].touched = TRUE;
-                                nEQ = 1;
+                                //nEQ = 1;
+                                problemPtr->setNumEqs(1);
                                 for (c = maxIncr; c >= 0; c--) {
                                     if (DBUG)
                                         fprintf(outputFile, "trying next decrement of %d\n", maxIncr - c);
@@ -3378,7 +3491,8 @@ solveGEQstart:
                                     EQs[0].coef[0]--;
                                 };
                                 if (j + 1 < lowerBounds) {
-                                    nEQ = 0;
+                                    //nEQ = 0;
+                                    problemPtr->setNumEqs(0);
                                     eqncpy(&GEQs[e], &EQs[0]);
                                     GEQs[e].touched = 1;
                                     GEQs[e].color = black;
@@ -3589,7 +3703,8 @@ void unprotectVariable(Problem *problemPtr, int v)
     i = problemPtr->forwardingAddress[v];
     if (i < 0) {
         i = -1 - i;
-        nSUB--;
+        //nSUB--;
+        problemPtr->addNumSUBs(-1);
         if (i < nSUB) {
             eqncpy(&SUBs[i], &SUBs[nSUB]);
             problemPtr->forwardingAddress[SUBs[i].key] = -i - 1;
@@ -3605,8 +3720,8 @@ void unprotectVariable(Problem *problemPtr, int v)
 
         for (e2 = nSUB - 1; e2 >= 0; e2--)
             if (bringToLife[e2]) {
-
-                nVars++;
+                problemPtr->addToVarsN(1);
+                //nVars++;
                 safeVars++;
                 if (safeVars < nVars) {
                     for (e = nGEQ - 1; e >= 0; e--) {
@@ -3639,12 +3754,18 @@ void unprotectVariable(Problem *problemPtr, int v)
                 problemPtr->_var[safeVars] = SUBs[e2].key;
                 problemPtr->forwardingAddress[SUBs[e2].key] = safeVars;
 
-                eqncpy(&(EQs[nEQ]), &(SUBs[e2]));
-                EQs[nEQ++].coef[problemPtr->_safeVars] = -1;
+                const int numEQ = nEQ;
+                problemPtr->addNumEqs(1);
+
+                eqncpy(&(EQs[numEQ]), &(SUBs[e2]));
+                //EQs[nEQ++].coef[problemPtr->_safeVars] = -1;
+                EQs[numEQ].coef[problemPtr->_safeVars] = -1;                
+
                 assert(nEQ <= maxEQs);
                 if (e2 < nSUB - 1)
                     eqncpy(&(SUBs[e2]), &(SUBs[nSUB - 1]));
-                nSUB--;
+                //nSUB--;
+                problemPtr->addNumSUBs(-1);
             };
 
 
@@ -3692,7 +3813,10 @@ int constrainVariableSign(Problem *problemPtr, int color, int i, int sign)
         k = -1 - k;
 
         if (sign != 0) {
-            e = nGEQ++;
+            //e = nGEQ++;
+            e = nGEQ;
+            problemPtr->addNumGEqs(1);
+
             eqncpy(&GEQs[e], &SUBs[k]);
             for (j = 0; j <= nV; j++)
                 GEQs[e].coef[j] *= sign;
@@ -3701,7 +3825,10 @@ int constrainVariableSign(Problem *problemPtr, int color, int i, int sign)
             GEQs[e].color = color;
         }
         else {
-            e = nEQ++;
+            //e = nEQ++;
+            e = nEQ;
+            problemPtr->addNumEqs(1);
+
             assert(nEQ <= maxEQs);
             eqncpy(&EQs[e], &SUBs[k]);
             EQs[e].color = color;
@@ -3709,7 +3836,10 @@ int constrainVariableSign(Problem *problemPtr, int color, int i, int sign)
 
     }
     else if (sign != 0) {
-        e = nGEQ++;
+        //e = nGEQ++;
+        e = nGEQ;
+        problemPtr->addNumGEqs(1);
+
         eqnzero(&GEQs[e]);
         GEQs[e].coef[k] = sign;
         GEQs[e].coef[0] = -1;
@@ -3717,7 +3847,10 @@ int constrainVariableSign(Problem *problemPtr, int color, int i, int sign)
         GEQs[e].color = color;
     }
     else {
-        e = nEQ++;
+        //e = nEQ++;
+        e = nEQ;
+        problemPtr->addNumEqs(1);
+
         assert(nEQ <= maxEQs);
         eqnzero(&EQs[e]);
         EQs[e].coef[k] = 1;
@@ -3735,14 +3868,20 @@ void constrainVariableValue(Problem *problemPtr, int color, int i, int value)
     if (k < 0) {
         k = -1 - k;
 
-        e = nEQ++;
+        //e = nEQ++;
+        e = nEQ;
+        problemPtr->addNumEqs(1);
+
         assert(nEQ <= maxEQs);
         eqncpy(&EQs[e], &SUBs[k]);
         EQs[e].coef[0] -= value;
 
     }
     else {
-        e = nEQ++;
+        //e = nEQ++;
+        e = nEQ;
+        problemPtr->addNumEqs(1);
+
         eqnzero(&EQs[e]);
         EQs[e].coef[k] = 1;
         EQs[e].coef[0] = -value;

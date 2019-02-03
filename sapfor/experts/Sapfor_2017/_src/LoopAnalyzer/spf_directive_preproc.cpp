@@ -1143,8 +1143,8 @@ SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt)
 }
 
 void revertion_spf_dirs(SgFile *file,
-    map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
-    map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
+                        map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());
     for (auto &allStats : declaratedArraysSt)
@@ -1220,7 +1220,7 @@ void revertion_spf_dirs(SgFile *file,
                 {
                     toAdd = GetOneAttribute(sameAtt);
                     if (toAdd)
-                        st->insertStmtBefore(*toAdd);
+                        st->insertStmtBefore(*toAdd, *st->controlParent());
                 }
 
                 //check previosly directives SPF_PARALLEL
@@ -1231,7 +1231,7 @@ void revertion_spf_dirs(SgFile *file,
                     {
                         if (toAdd)
                             toAdd = GetOneAttribute(sameAtt);
-                        st->insertStmtBefore(*toAdd);
+                        st->insertStmtBefore(*toAdd, *st->controlParent());
                     }
                 }
 
@@ -1245,7 +1245,11 @@ void revertion_spf_dirs(SgFile *file,
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)
-                            st->insertStmtBefore(*toAdd);
+                        {                            
+                            if (elem->variant() == SPF_TRANSFORM_DIR && toAdd->expr(0) ||
+                                elem->variant() != SPF_TRANSFORM_DIR)
+                                st->insertStmtBefore(*toAdd, *st->controlParent());
+                        }
                     }
                 }
             }

@@ -208,8 +208,8 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
 
     if (countOfInderect != 0)
     {
-        messages.push_back(Messages(WARR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
-        __spf_print(1, "This loop has indirect child loops  and can not be splitted on line %d\n", parentGraph->lineNum);
+        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
+        __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
     }
     else
