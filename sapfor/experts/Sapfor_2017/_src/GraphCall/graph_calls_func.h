@@ -7,7 +7,6 @@
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../ParallelizationRegions/ParRegions.h"
-#include "../DynamicAnalysis/gCov_parser_func.h"
 
 namespace Distribution
 {

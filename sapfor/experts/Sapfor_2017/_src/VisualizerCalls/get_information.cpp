@@ -31,6 +31,7 @@
 #include "SendMessage.h"
 #include "../Predictor/PredictScheme.h"
 #include "../DynamicAnalysis/gcov_info.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 using std::string;
 using std::wstring;

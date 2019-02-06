@@ -9,3 +9,4 @@ void fillRegionLinesStep2(std::vector<ParallelRegion*> &regions, const std::map<
 int printParalleRegions(const char *fileName, std::vector<ParallelRegion*> &regions);
 bool buildGraphFromUserDirectives(const std::vector<Statement*> &userDvmAlignDirs, DIST::GraphCSR<int, double, attrType> &G, DIST::Arrays<int> &allArrays, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void clearRegionStaticData();
+void calculateLinesOfCode(std::vector<ParallelRegion*> &allRegions);

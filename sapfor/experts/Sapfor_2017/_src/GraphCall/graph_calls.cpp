@@ -16,6 +16,7 @@
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 using std::vector;
 using std::map;

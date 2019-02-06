@@ -1155,6 +1155,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
 
         checkCountOfIter(loopGraph, allFuncInfo, SPF_messages);
+        calculateLinesOfCode(parallelRegions);
         if (keepFiles)
         {
             printLoopGraph("_loopGraph_with_reg.txt", loopGraph, true);

@@ -28,6 +28,7 @@
 #include "../Utils/AstWrapper.h"
 
 #include "../LoopAnalyzer/directive_parser.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 using std::vector;
 using std::map;

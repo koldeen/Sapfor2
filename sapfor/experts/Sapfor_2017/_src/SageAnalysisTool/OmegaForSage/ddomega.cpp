@@ -349,9 +349,7 @@ void delta_init(delta_prob_desc *dpd, Problem *p,
         dpd->vars[v + r_first(&dpd->steps2)] = s2_vars[Ns2 - 1 - v];
     }
 
-    init_prob(p, delta_Nvars(dpd), r_length(&dpd->deltas),
-        delta_getVarName, dpd);
-
+    init_prob(p, delta_Nvars(dpd), r_length(&dpd->deltas), delta_getVarName, dpd);
     set_deltas(p, delta_color, &dpd->deltas, &dpd->access1s, &dpd->access2s);
 
 #if ! defined NDEBUG

@@ -37,6 +37,7 @@ extern int passDone;
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 #include "../ExpressionTransform/expr_transform.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
@@ -1195,6 +1196,31 @@ static void changeLoopWeight(double &currentWeight, const map<int, LoopGraph*> &
         currentWeight /= loopIt->second->countOfIters;
 }
 
+static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line)
+{
+    bool retVal = false;
+
+    if (ex == NULL)
+        return retVal;
+
+    if (ex->variant() == FUNC_CALL && !IsPureProcedureACC(ex->symbol()))
+    {
+        if (isIntrinsicFunctionName(ex->symbol()->identifier()) == 0)
+        {
+            retVal = true;
+            loopRef->hasNonPureProcedures = true;
+            messagesForFile.push_back(Messages(WARR, line, "Only pure procedures were supported", 1044));
+        }
+    }
+    bool retL = false, retR = false;
+    if (ex->lhs())
+        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line);
+    if (ex->rhs())
+        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line);;
+
+    return retVal || retL || retR;
+}
+
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
 void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                   vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
@@ -1613,7 +1639,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 tryToFindPrivateInAttributes(st, privatesVars);
                 fillNonDistrArraysAsPrivate(st, declaratedArrays, declaratedArraysSt, privatesVars);
 
-                if (isDVM_stat(st) == false)
+                if (isDVM_stat(st) == false && isSgExecutableStatement(st))
                 {
                     if (regime == REMOTE_ACC)
                     {
@@ -1770,18 +1796,25 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                     for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
                     {
                         if (start->variant() == ASSIGN_STAT)
+                        {
                             if (start->expr(0)->variant() == ARRAY_REF)
-                                if (privates.find(start->expr(0)->symbol()->identifier()) != privates.end())
+                                if (privates.find(start->expr(0)->symbol()->identifier()) == privates.end())
                                     hasWritesToArray = true;
-
-                        if (start->variant() == PROC_STAT)
+                        }
+                        
+                        if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
                         {
                             if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
                             {
                                 hasNonPureProcedures = true;
+                                loopRef->hasNonPureProcedures = true;
                                 messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
                             }
                         }
+                        
+                        for (int z = 1; z < 3; ++z)
+                            if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
+                                hasNonPureProcedures = true;
                     }
 
                     if (!hasWritesToArray && !hasNonPureProcedures)

@@ -41,12 +41,13 @@ private:
 
     void resizeEqs()
     {
+        //printf("%d %d %d -> %d\n", _numEQs, _numGEQs, _numSUBs, _nVars + 2);
         for (int z = 0; z < _numEQs; ++z)
-            _EQs[z].coef.resize(_nVars + 1);
+            _EQs[z].coef.resize(_nVars + 2);
         for (int z = 0; z < _numGEQs; ++z)
-            _GEQs[z].coef.resize(_nVars + 1);
+            _GEQs[z].coef.resize(_nVars + 2);
         for (int z = 0; z < _numSUBs; ++z)
-            _SUBs[z].coef.resize(_nVars + 1);
+            _SUBs[z].coef.resize(_nVars + 2);
     }
 public:
     _problem()
@@ -96,41 +97,47 @@ public:
     int getNumSUBs() const { return _numSUBs; }
     
     void setNumEqs(const int val) 
-    {
+    {        
         _numEQs = val; 
+        //printf("EQ %d -> %d\n", _numEQs, _nVars + 2);
         for (int z = 0; z < _numEQs; ++z)
-            _EQs[z].coef.resize(_nVars + 1);
+            _EQs[z].coef.resize(_nVars + 2);
     }
     void setNumGEqs(const int val)
-    {
+    {        
         _numGEQs = val;
+        //printf("GEQ %d -> %d\n", _numGEQs, _nVars + 2);
         for (int z = 0; z < _numGEQs; ++z)
-            _GEQs[z].coef.resize(_nVars + 1);
+            _GEQs[z].coef.resize(_nVars + 2);
     }
     void setNumSUBs(const int val) 
-    {
+    {        
         _numSUBs = val; 
+        //printf("SUB %d -> %d\n", _numSUBs, _nVars + 2);
         for (int z = 0; z < _numSUBs; ++z)
-            _SUBs[z].coef.resize(_nVars + 1);
+            _SUBs[z].coef.resize(_nVars + 2);
     }
 
     void addNumEqs(const int val) 
     {
         _numEQs += val;
+        //printf("EQ %d -> %d\n", _numEQs, _nVars + 2);
         for (int z = 0; z < _numEQs; ++z)
-            _EQs[z].coef.resize(_nVars + 1);
+            _EQs[z].coef.resize(_nVars + 2);
     }
     void addNumGEqs(const int val) 
     {
         _numGEQs += val;
+        //printf("GEQ %d -> %d\n", _numGEQs, _nVars + 2);
         for (int z = 0; z < _numGEQs; ++z)
-            _GEQs[z].coef.resize(_nVars + 1);
+            _GEQs[z].coef.resize(_nVars + 2);
     }
     void addNumSUBs(const int val) 
     {
         _numSUBs += val; 
+        //printf("SUB %d -> %d\n", _numSUBs, _nVars + 2);
         for (int z = 0; z < _numSUBs; ++z)
-            _SUBs[z].coef.resize(_nVars + 1);
+            _SUBs[z].coef.resize(_nVars + 2);
     }
 
     int _safeVars;
@@ -167,8 +174,8 @@ static void eqnncpy(_eqn *dst, const _eqn *src, const int s)
     dst->color = src->color;
     dst->key = src->key;
     dst->touched = src->touched;
-    dst->coef.resize(s + 1);
-    for (int z = 0; z < s + 1; ++z)
+    dst->coef.resize(s + 2);
+    for (int z = 0; z < s + 2; ++z)
         dst->coef[z] = src->coef[z];
 }
 
@@ -180,8 +187,8 @@ static void eqnnzero(_eqn *dst, const int s)
     dst->color = 0;
     dst->key = 0;
     dst->touched = 0;
-    dst->coef.resize(s + 1);
-    for (int z = 0; z < s + 1; ++z)    
+    dst->coef.resize(s + 2);
+    for (int z = 0; z < s + 2; ++z)    
         dst->coef[z] = 0;
 }
 
