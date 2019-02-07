@@ -3042,41 +3042,55 @@ int GetNumberOfArguments(bool isF, void* f)
     return pc->numberOfArgs();
 }
 
-SgExpression* GetProcedureArgument(bool isF, void* f, int i)
+SgExpression* GetProcedureArgument(bool isF, void *f, const int i)
 {
-    if (isF) {
+    SgExpression *arg = NULL;
+    if (isF)
+    {
         SgFunctionCallExp* fc = (SgFunctionCallExp*)f;
-        return fc->arg(i);
+        arg = fc->arg(i);
     }
-    SgCallStmt* pc = (SgCallStmt*)f;
-    return pc->arg(i);
+    else
+    {
+        SgCallStmt *pc = (SgCallStmt*)f;
+        arg = pc->arg(i);
+    }
+    return arg;
 }
 
-void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void* f, const char* name)
+void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt *header, void *f, const char* name)
 {   
-    if (!header) {
+    if (!header) 
+    {
         is_correct = "no header found";
         failed_proc_name = name;
         return;
     }
-    for (int i = 0; i < header->numberOfParameters(); i++) {
-        SgSymbol* arg = header->parameter(i);
-        if (arg->attributes() & (IN_BIT)) {
-            SgExpression* ar = GetProcedureArgument(isF, f, i);
+    
+    for (int i = 0; i < header->numberOfParameters(); ++i) 
+    {
+        int stored = SwitchFile(header->getFileId());
+        SgSymbol *arg = header->parameter(i);
+        SwitchFile(stored);
+
+        if (arg->attributes() & (IN_BIT)) 
+        {
+            SgExpression *ar = GetProcedureArgument(isF, f, i);
             addExprToUse(ar);
-        }
-        else if (arg->attributes() & (OUT_BIT)) {
-            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
-        }
-        else if (arg->attributes() & (INOUT_BIT)) {
+        }        
+        else if (arg->attributes() & (INOUT_BIT)) 
+        {
             addExprToUse(GetProcedureArgument(isF, f, i));
             AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
         }
-        else {
+        else if (arg->attributes() & (OUT_BIT))
+            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
+        else 
+        {
             is_correct = "no bitflag set for pure procedure";
-            return;
+            break;
         }
-    }
+    }    
 }
 
 bool AnalysedCallsList::isArgIn(int i, CArrayVarEntryInfo** p)
