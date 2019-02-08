@@ -396,7 +396,7 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
         if (st->variant() == SPF_TRANSFORM_DIR)
         {
             SgExpression *exprList = st->expr(0);
-            if (exprList)
+            while (exprList)
             {
                 if (exprList->lhs() && (exprList->lhs()->variant() == SPF_FISSION_OP || exprList->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP))
                 {
@@ -409,7 +409,7 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
                         list = list->rhs();
                     }
                 }
-                // exprList = exprList->rhs();
+                exprList = exprList->rhs();
             }
         }
     }

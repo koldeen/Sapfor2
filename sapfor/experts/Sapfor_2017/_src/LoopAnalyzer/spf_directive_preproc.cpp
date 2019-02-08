@@ -898,35 +898,21 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
             }
         }
 
-        for (int i = 0; i < vars.size(); ++i) {
-            if (st->variant() != FOR_NODE)
+        for (int i = 0; retVal && i < vars.size(); ++i)
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (forSt->doName()->identifier() != vars[i])
             {
-                __spf_print(1, "bad directive position: expected DO statement on line %d\n", st->lineNumber());
+                __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
+                            forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "bad directive position: expected DO statement");
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+                __spf_printToBuf(message, "bad directive expression: expected variable '%s' at %d position\n",
+                                    forSt->doName()->identifier(), i + 1);
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
 
                 retVal = false;
-                break;
             }
-            else
-            {
-                SgForStmt *forSt = (SgForStmt*)st;
-                if (forSt->doName()->identifier() != vars[i])
-                {
-                    __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
-                                forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
-
-                    string message;
-                    __spf_printToBuf(message, "bad directive expression: expected variable '%s' at %d position\n",
-                                     forSt->doName()->identifier(), i + 1);
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
-
-                    retVal = false;
-                }
-            }
-
             st = st->lexNext();
         }
     }
