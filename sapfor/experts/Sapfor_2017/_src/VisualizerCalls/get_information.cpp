@@ -50,6 +50,7 @@ static void setOptions(const int *options)
     keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
     parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
+    out_upper_case = 1;
 }
 
 static int strLen(const short *shString)

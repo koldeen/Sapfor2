@@ -187,7 +187,7 @@ static void moveStatements(SgForStmt *newLoop, vector<pair<SgStatement*,SgStatem
 
 static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &messages)
 {
-    /*SgStatement* st = parentGraph->loop->GetOriginal()->lexNext();
+    SgStatement* st = parentGraph->loop->GetOriginal()->lexNext();
     int directLoops = 0;
     while(st->variant() != CONTROL_END)
     {
@@ -197,16 +197,6 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
     }
        
     if(directLoops != parentGraph->children.size())
-    {
-        printf("Loop on line %d has indirect child loops and cannot be splitted\n", parentGraph->loop->GetOriginal()->lineNumber());
-        return true;
-    }*/
-
-    int countOfInderect = 0;
-    for (auto &chLoop : parentGraph->children)
-        countOfInderect += chLoop->children.size();
-
-    if (countOfInderect != 0)
     {
         messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);

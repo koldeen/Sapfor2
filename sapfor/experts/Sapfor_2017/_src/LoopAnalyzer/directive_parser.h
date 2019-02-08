@@ -30,3 +30,5 @@ void fillRemoteFromComment(Statement *st, std::map<std::pair<fillType, std::stri
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &acrossInfo);
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive);
+
+void fillFissionPrivatesExpansionFromComment(Statement *stIn, std::vector<std::string> &vars);

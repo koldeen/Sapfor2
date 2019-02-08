@@ -357,6 +357,33 @@ void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<st
         fillShadowAcrossFromComment(ACROSS_OP, new Statement(data), acrossInfo);
 }
 
+void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &vars)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs() && (exprList->lhs()->variant() == SPF_FISSION_OP || exprList->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP))
+                {
+                    SgExpression *list = exprList->lhs()->lhs();
+                    while (list)
+                    {
+                        if (list->lhs()->variant() == VAR_REF)
+                            vars.push_back(list->lhs()->symbol()->identifier());
+
+                        list = list->rhs();
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;

@@ -1330,11 +1330,14 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
 
         for (int i = 0; i < header->numberOfParameters(); ++i)
         {
-            if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
-                header->parameter(i)->setAttribute(OUT_BIT);
-            else
-                header->parameter(i)->setAttribute(IN_BIT);
-
+            int currAttr = header->parameter(i)->attributes();
+            if ((currAttr & OUT_BIT) == 0 && (currAttr & INOUT_BIT) == 0 && (currAttr & IN_BIT) == 0)
+            {
+                if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
+                    header->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    header->parameter(i)->setAttribute(IN_BIT);
+            }
             //TODO: test and replace from defUseVar() in defUse.cpp
             /*auto funcList = defUseByFunctions[header->symbol()->identifier()];
             auto toAdd = buildLists(funcList);

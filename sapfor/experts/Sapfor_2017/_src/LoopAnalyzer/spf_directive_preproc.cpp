@@ -860,6 +860,99 @@ static bool checkParallelRegions(SgStatement *st,
     return retVal;
 }
 
+static bool checkFissionPrivatesExpansion(SgStatement *st,
+                                          SgStatement *attributeStatement,
+                                          vector<Messages> &messagesForFile,
+                                          bool checkVars = false)
+{
+    bool retVal = true;
+    if (attributeStatement)
+    {
+        vector<string> vars;
+        fillFissionPrivatesExpansionFromComment(new Statement(attributeStatement), vars);
+
+        if (checkVars && !vars.size())
+        {
+            __spf_print(1, "bad directive expression: expected list of variables on line %d\n", attributeStatement->lineNumber());
+
+            string message;
+            __spf_printToBuf(message, "bad directive expression: expected list of variables");
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+
+            retVal = false;
+        }
+
+        if (vars.size())
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (vars.size() > forSt->isPerfectLoopNest())
+            {
+                __spf_print(1, "bad directive expression: expected %d nested loops on line %d but got %d on line %d\n",
+                            vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected %d nested loops line %d but got %d",
+                                 vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1043));
+
+                retVal = false;
+            }
+        }
+
+        for (int i = 0; retVal && i < vars.size(); ++i)
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (forSt->doName()->identifier() != vars[i])
+            {
+                __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
+                            forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected variable '%s' at %d position\n",
+                                    forSt->doName()->identifier(), i + 1);
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+
+                retVal = false;
+            }
+            st = st->lexNext();
+        }
+    }
+    return retVal;
+}
+
+static int countSPF_OP(Statement *stIn, const int type, const int op)
+{
+    int count = 0;
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ type }))
+        {
+            SgExpression *exprList = data->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs()->variant() == op)
+                    ++count;
+
+                exprList = exprList->rhs();
+            }
+        }
+    }
+    return count;
+}
+
+static bool isSPF_OP(Statement *stIn, const int op)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        SgExpression *exprList = st->expr(0);
+        if (exprList && exprList->lhs()->variant() == op)
+            return true;
+    }
+    return false;
+}
+
 static inline bool processStat(SgStatement *st, const string &currFile,
                                const map<string, CommonBlock> *commonBlocks,
                                vector<Messages> &messagesForFile)
@@ -947,6 +1040,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_TRANSFORM_DIR)
         {
+            int count;
             // !$SPF TRANSFORM
             // NOINLINE
             if (isSPF_NoInline(new Statement(st)))
@@ -958,6 +1052,28 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
                     retVal = false;
                 }
+            }
+            // FISSION
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
+            {
+                if (count > 1 || st->variant() != FOR_NODE)
+                {
+                    BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+                    retVal = false;
+                }
+                else
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile, true);
+            }
+            // PRIVATES_EXPANSION
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
+            {
+                if (count > 1 || st->variant() != FOR_NODE)
+                {
+                    BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+                    retVal = false;
+                }
+                else
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile);
             }
         }
     }
