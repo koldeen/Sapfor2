@@ -52,7 +52,7 @@ AlignAxis.o: $(PS)AlignAxis.cpp
 AMView.o: $(PS)AMView.cpp
 	$(CXX) $(CFLAGS) -c $(PS)AMView.cpp
 BGroup.o: $(PS)BGroup.cpp
-	$(CXX) $(CFLAGS) -c $(PS)BGroup.cpp
+	$(CXX) $(CFLAGS) -std=$(STD) -c $(PS)BGroup.cpp
 Block.o: $(PS)Block.cpp
 	$(CXX) $(CFLAGS) -c $(PS)Block.cpp
 CallParams.o: $(PS)CallParams.cpp

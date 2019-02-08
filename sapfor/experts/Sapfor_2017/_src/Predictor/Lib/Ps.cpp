@@ -22,7 +22,7 @@ long	currentPS_ID = 0;		// current PS ID
 //==== grigory_struct
 void ClustError (int num_error)
 {
-	printf("Error %d :");
+	printf("Error %d :", num_error);
 
 	switch (num_error)
 	{

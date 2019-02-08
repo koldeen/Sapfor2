@@ -22,6 +22,12 @@ using std::to_string;
 using std::tuple;
 using std::pair;
 
+void createMapOfFunc(const vector<FuncInfo*> &allFuncInfo, map<pair<string, int>, FuncInfo*> &mapFuncInfo)
+{
+    for (auto &func : allFuncInfo)
+        mapFuncInfo[make_pair(func->fileName, func->linesNum.first)] = func;
+}
+
 void createMapOfFunc(const vector<FuncInfo*> &allFuncInfo, map<string, FuncInfo*> &mapFuncInfo)
 {
     for (auto &func : allFuncInfo)

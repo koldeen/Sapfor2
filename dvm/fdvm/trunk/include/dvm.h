@@ -1498,23 +1498,22 @@ SgExpression *RealignArr (SgExpression *array_header,
                           int icoeff,  
                           int iconst,
                           int new_sign ); 
-SgExpression *StartBound(SgExpression *gref);
-SgExpression *WaitBound(SgExpression *gref);
-SgExpression *SendBound(SgExpression *gref);
-SgExpression *ReceiveBound(SgExpression *gref);
+SgStatement *StartBound(SgExpression *gref);
+SgStatement *WaitBound(SgExpression *gref);
+SgStatement *SendBound(SgExpression *gref);
+SgStatement *ReceiveBound(SgExpression *gref);
 SgExpression *DelBG(SgExpression *gref);
-SgExpression *BoundFirst(int iloopref,SgExpression *gref);
-SgExpression *BoundLast (int iloopref, SgExpression *gref);
+SgStatement *BoundFirst(int iloopref,SgExpression *gref);
+SgStatement *BoundLast (int iloopref, SgExpression *gref);
 SgExpression *CreateReductionGroup();
 SgExpression *ReductionVar(int num_red, SgExpression *red_array, int ntype, int length, SgExpression *loc_array, int loc_length, int sign);
 SgStatement *LoopReduction(int ilh, int num_red, SgExpression *red_array, int ntype, SgExpression *length, SgExpression *loc_array, SgExpression *loc_length);
-SgExpression *InsertRedVar(SgExpression *gref, int irv, int iplp);
+SgStatement *InsertRedVar(SgExpression *gref, int irv, int iplp);
 SgExpression *SaveRedVars(SgExpression *gref);
 SgStatement  *StartRed(SgExpression *gref);
 SgStatement  *WaitRed (SgExpression *gref);
 SgExpression *DelRG(SgExpression *gref);
-SgExpression * BeginParLoop (int iloopref, SgExpression *header, int rank, int iaxis,                             int nr, int iinp, int iout);
-//int CreateParLoop(int rank);
+SgStatement * BeginParLoop (int iloopref, SgExpression *header, int rank, int iaxis, int nr, int iinp, int iout);
 SgExpression *CreateParLoop(int rank);
 SgStatement  *EndParLoop(int iloopref);
 SgExpression *doLoop(int iloopref);
@@ -1523,7 +1522,7 @@ SgExpression *GetAddresMem(SgExpression * em);
 SgStatement *Addres(SgExpression * em);
 SgExpression *GetAddresDVM(SgExpression * em);
 void  CreateBoundGroup(SgExpression *gref);
-SgExpression *InsertArrayBound(SgExpression *gref, SgExpression *head,                                                int ileft, int iright, int corner) ;
+SgStatement *InsertArrayBound(SgExpression *gref, SgExpression *head, int ileft, int iright, int corner) ;
 SgExpression *TestIOProcessor();
 SgExpression *GetRank(int iref);
 SgExpression *GetSize(SgExpression *ref,int axis);
@@ -1588,7 +1587,7 @@ SgExpression *InsertIndBuf(SgSymbol *group, SgExpression *buf);
 SgExpression *CreateIndBuf(SgExpression *header,SgExpression *buffer,int st_sign,SgExpression *mehead,int iconst);
 SgExpression *LoadIndBuf(SgExpression *buf);
 SgExpression *WaitIndBuf(SgExpression *buf);
-SgExpression *InsertArrayBoundDep(SgExpression *gref, SgExpression *head,                                                      int ileft, int iright, int max, int ishsign);
+SgStatement *InsertArrayBoundDep(SgExpression *gref, SgExpression *head, int ileft, int iright, int max, int ishsign);
 SgExpression *GetProcSys(SgExpression *amref);
 SgExpression * GenBlock   (SgExpression *psref, SgExpression *amv, int iweight, int icount);
 SgExpression * WeightBlock(SgExpression *psref, SgExpression *amv, int iweight, int iwnumb, int icount);
@@ -1600,18 +1599,18 @@ SgStatement *D_ReadA(SgExpression *adr,int indel, int icount) ;
 SgExpression *LocIndType(int irv, int type);
 SgExpression *DVM_Receive(int iplp,SgExpression *mem,int t,int is);
 SgExpression *DVM_Send(int iplp,SgExpression *mem,int t,int is);
-SgExpression *InitAcross(int acrtype,SgExpression *oldg, SgExpression *newg);
+SgStatement *InitAcross(int acrtype,SgExpression *oldg, SgExpression *newg);
 SgStatement *D_FileLine(int num_line, SgStatement *stmt);
 SgStatement *D_DummyFileLine(int num_line, const char *fname);
-SgExpression *AddBound( );
-SgExpression *InsertArrayBoundSec(SgExpression *gref, SgExpression *head, int ilsec, int irsec, int iilowshs, int illowshs, int iihishs,int ilhishs, int max, int ishsign);
+SgStatement *AddBound( );
+SgStatement *InsertArrayBoundSec(SgExpression *gref, SgExpression *head, int ilsec, int irsec, int iilowshs, int illowshs, int iihishs,int ilhishs, int max, int ishsign);
 SgStatement *D_RegistrateArray(int rank, int type, SgExpression *headref,  SgExpression *size_array,SgExpression *arref);
 SgExpression *D_CreateDebRedGroup();
 SgStatement *D_InsRedVar(SgExpression *dgref,int num_red, SgExpression *red_array, int ntype, int length, SgExpression *loc_array, int loc_length, int locindtype);
 SgExpression *D_SaveRG(SgExpression *dgref);
 SgStatement *D_CalcRG(SgExpression *dgref);
 SgStatement *D_DelRG(SgExpression *dgref);
-SgExpression *AddBoundShadow(SgExpression *head,int ileft,int iright );
+SgStatement *AddBoundShadow(SgExpression *head,int ileft,int iright );
 SgExpression *CreateConsistArray(SgSymbol *cas, SgExpression *array_header, SgExpression *size_array, int rank,  int sign, int re_sign);
 SgExpression *FreeConsistent(SgExpression *header);
 SgExpression *StartConsistent(SgExpression *header,int iplp,int iaxis,int icoeff,int iconst,int re_sign);
@@ -2171,7 +2170,3 @@ public:
 };
 
 extern Options options;
-
-#if __SPF
-extern std::pair<SgFile*, SgStatement*> currProcessing;
-#endif

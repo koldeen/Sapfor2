@@ -537,8 +537,8 @@ findDirectionVector(Problem * prob, situation *sit,
             if (coupled) simplificationNeeded = 1;
         }
         else if (coupled && initialUnknownDirections == 1
-            && prob->_nVars + prob->_numSUBs == 2
-            && prob->_numEQs + prob->_numSUBs == 1)
+            && prob->getVarsN() + prob->getNumSUBs() == 2
+            && prob->getNumEqs() + prob->getNumSUBs() == 1)
         {
             dddirsetonly(d_info->direction,
                 queryVariableSigns(prob, j,
@@ -553,7 +553,7 @@ findDirectionVector(Problem * prob, situation *sit,
         }
         else {
             score = 2 * (u - l) + j;
-            if (prob->_nVars > 1 && prob->forwardingAddress[j] > 0)
+            if (prob->getVarsN() > 1 && prob->forwardingAddress[j] > 0)
                 score -= 3;
             if (score <= bestScore) {
                 u2 = u;
@@ -566,7 +566,7 @@ findDirectionVector(Problem * prob, situation *sit,
 
     if (u_info->unknownDirections == 0) {
         prob->_safeVars = 0;
-        prob->_numSUBs = 0;
+        prob->setNumSUBs(0);
         if (!simplificationNeeded || solve(prob, UNKNOWN))
             noteDependence(sit, d_info);
     }
@@ -587,8 +587,8 @@ findDirectionVector(Problem * prob, situation *sit,
             int oldUnknownDirection[maxCommonNest];
 
             if (u_info->unknownDirections == 2
-                && prob->_nVars == 1
-                && prob->_numSUBs == 1)
+                && prob->getVarsN() == 1
+                && prob->getNumSUBs() == 1)
             {
                 i = u_info->unknownDirection[0];
                 j = u_info->unknownDirection[1];

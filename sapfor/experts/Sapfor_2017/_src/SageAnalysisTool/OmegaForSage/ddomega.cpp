@@ -181,8 +181,8 @@ void delta_inv(delta_prob_desc *dpd, Problem *p)
 {
     int v;
 
-    assert(p->_nVars < maxVars);
-    assert(p->_nVars >= delta_Nvars(dpd));
+    assert(p->getVarsN() < maxVars);
+    assert(p->getVarsN() >= delta_Nvars(dpd));
     assert(p->_safeVars == r_length(&dpd->deltas));
     assert(r_length(&dpd->deltas) <= r_length(&dpd->access1s));
     assert(r_length(&dpd->deltas) <= r_length(&dpd->access2s));
@@ -227,7 +227,7 @@ void delta_inv(delta_prob_desc *dpd, Problem *p)
         assert(var_id_is_step_expr(dpd->vars[v + r_first(&dpd->steps2)]));
     }
 
-    for (v = 0; v < p->_numGEQs; v++) {
+    for (v = 0; v < p->getNumGEqs(); v++) {
         assert(p->_GEQs[v].touched);
     }
 }
@@ -349,9 +349,7 @@ void delta_init(delta_prob_desc *dpd, Problem *p,
         dpd->vars[v + r_first(&dpd->steps2)] = s2_vars[Ns2 - 1 - v];
     }
 
-    init_prob(p, delta_Nvars(dpd), r_length(&dpd->deltas),
-        delta_getVarName, dpd);
-
+    init_prob(p, delta_Nvars(dpd), r_length(&dpd->deltas), delta_getVarName, dpd);
     set_deltas(p, delta_color, &dpd->deltas, &dpd->access1s, &dpd->access2s);
 
 #if ! defined NDEBUG

@@ -1147,6 +1147,42 @@ void InsertSendInquire(SgExpression * eioc[])
  SET_DVM(imem);
 }
 
+int isDependence(SgExpression *e,SgExpression *eprev)
+{
+  if(!e || !eprev)
+    return 0;
+  if(ExpCompare(e, eprev))
+    return 1;
+  return (isDependence(e->lhs(),eprev) || isDependence(e->rhs(),eprev));
+}
+
+int ElementDependence(SgStatement *st_first, SgStatement *st, SgExpression *e)
+{
+  SgStatement *st_next = st_first;
+  for(;st_next != st; st_next=st_next->lexNext())
+     if(isDependence(e,st_next->expr(1)->lhs()->lhs()))   //st_next is dvm000(i)=getai(el), search for dependency between e and el
+       return 1;
+  return 0;
+}
+
+void SendList(SgStatement *st_first, SgExpression *iisize[], int imem, int j0, int nl)
+{
+  SgStatement *st;
+  int i,j;
+  if(j0==nl) return;
+  for(j = j0,st=st_first; j<nl; j++,st = st->lexNext())
+  {  
+     if( j!=j0 && (ElementDependence(st_first,st,st->expr(1)->lhs()->lhs()) || ElementDependence(st_first,st,iisize[j])))
+         break;
+  }
+  for(i=j0;i<j;i++)
+     doAssignStmtAfter(iisize[i]);
+ 
+  doCallAfter(SendMemory(j-j0,imem+j0,imem+nl+j0));
+ 
+  SendList(st,iisize,imem,j,nl);
+}
+
 # define MAXLISTLEN  1000
 
 void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgStatement *stmt)
@@ -1162,15 +1198,9 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
 
  imem = ndvm;
  j=0; 
- if(io_stat) {
-     doAssignStmtAfter(GetAddresMem(io_stat));
-     t = io_stat->symbol() ? Base_Type(io_stat->symbol()->type()) : SgTypeInt();//type of IOSTAT var
-     iisize[0] =  TypeLengthExpr(t); //new SgValueExp(TypeSize(t));
-     j++;
- }
  for (el=input_list;el;el=el->rhs()) {    
    ein = el->lhs();  // input list item
-   if(j> MAXLISTLEN)
+   if(j== MAXLISTLEN-2)
      err("Compiler bug (in InsertSendInputList)",0,stmt);
    if(isSgIOAccessExp(ein)) //implicit loop
    { if(!SpecialKindImplicitLoop(el->rhs(),ein,&j, iisize, iielem, iinumb, stmt))
@@ -1212,13 +1242,15 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
       j++;      
    }  
  }
-//SendList (st_save,io_stat,j,
- for(i=0;i<j;i++)
-    doAssignStmtAfter(iisize[i]);
- 
- icount = j;   //count of memory areas
- doCallAfter(SendMemory(icount,imem,imem+j));
-//
+ if(io_stat) {
+     doAssignStmtAfter(GetAddresMem(io_stat));
+     t = io_stat->symbol() ? Base_Type(io_stat->symbol()->type()) : SgTypeInt();//type of IOSTAT var
+     iisize[j] =  TypeLengthExpr(t); //new SgValueExp(TypeSize(t));
+     j++;
+ }
+
+ SendList(st_save->lexNext(),iisize,imem,0,j); 
+
  if(dvm_debug){
    for(i=0;i<j;i++)
      if(iinumb[i] != NULL){ // input list item is array
@@ -1228,7 +1260,7 @@ void InsertSendInputList(SgExpression * input_list, SgExpression * io_stat,SgSta
        InsertNewStatementAfter(D_ReadA(DVM000(imem+i),iel,iel+1),cur_st,cur_st->controlParent());
        SET_DVM(iel);
      } else
-      InsertNewStatementAfter(D_Read(DVM000(imem+i)),cur_st,cur_st->controlParent());
+       InsertNewStatementAfter(D_Read(DVM000(imem+i)),cur_st,cur_st->controlParent());
  }
  SET_DVM(imem);
 }

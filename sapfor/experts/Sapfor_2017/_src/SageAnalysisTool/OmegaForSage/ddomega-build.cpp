@@ -31,10 +31,10 @@ void init_prob(Problem *p, uint Nvars, uint Nprot,
 
     assert(!(Nvars > maxVars));
 
-    p->_nVars = Nvars;
+    p->setVarsN(Nvars);
     p->_safeVars = Nprot;
-    p->_numEQs = 0;
-    p->_numGEQs = 0;
+    p->setNumEqs(0);
+    p->setNumGEqs(0);
 
     p->_getVarName = getVarName;
     p->_getVarNameArgs = getVarNameArgs;
@@ -46,10 +46,11 @@ void init_prob(Problem *p, uint Nvars, uint Nprot,
 
 uint prob_add_EQ(Problem *p, int color)
 {
-    ++p->_numEQs;
-    assert(!(p->_numEQs > maxEQs));
-    p->_EQs[p->_numEQs - 1].color = color;
-    return p->_numEQs - 1;
+    //++p->_numEQs;
+    p->addNumEqs(1);
+    assert(!(p->getNumEqs() > maxEQs));
+    p->_EQs[p->getNumEqs() - 1].color = color;
+    return p->getNumEqs() - 1;
 }
 
 /* allocate a new _EQs with all co-efficients 0 */
@@ -57,9 +58,11 @@ uint prob_add_EQ(Problem *p, int color)
 uint prob_add_zero_EQ(Problem *p, int color)
 {
     uint c;
-    c = p->_numEQs++;
-    assert(!(p->_numEQs > maxEQs));
-    eqnnzero(&p->_EQs[c], p->_nVars);
+    //c = p->_numEQs++;
+    c = p->getNumEqs();
+    p->addNumEqs(1);
+    assert(!(p->getNumEqs() > maxEQs));
+    eqnnzero(&p->_EQs[c], p->getVarsN());
     p->_EQs[c].color = color;
 
     return c;
@@ -70,11 +73,11 @@ uint prob_add_zero_EQ(Problem *p, int color)
 
 uint prob_add_GEQ(Problem *p, int color)
 {
-    ++p->_numGEQs;
-    assert(!(p->_numGEQs > maxGEQs));
-    p->_GEQs[p->_numGEQs - 1].touched = 1;
-    p->_GEQs[p->_numGEQs - 1].color = color;
-    return p->_numGEQs - 1;
+    p->addNumGEqs(1);
+    assert(!(p->getNumGEqs() > maxGEQs));
+    p->_GEQs[p->getNumGEqs() - 1].touched = 1;
+    p->_GEQs[p->getNumGEqs() - 1].color = color;
+    return p->getNumGEqs() - 1;
 }
 
 /* allocate a new _GEQs with all co-efficients 0 */
@@ -82,9 +85,12 @@ uint prob_add_GEQ(Problem *p, int color)
 uint prob_add_zero_GEQ(Problem *p, int color)
 {
     uint c;
-    c = (p->_numGEQs)++;
-    assert(!(p->_numGEQs > maxGEQs));
-    eqnnzero(&p->_GEQs[c], p->_nVars);
+    //c = p->_numGEQs++;
+    c = p->getNumGEqs();
+    p->addNumGEqs(1);
+
+    assert(!(p->getNumGEqs() > maxGEQs));
+    eqnnzero(&p->_GEQs[c], p->getVarsN());
     p->_GEQs[c].touched = 1;
     p->_GEQs[c].color = color;
 
@@ -299,7 +305,7 @@ handle_nonunit_increments(Problem *p, range *indices, int *which_step, int color
            since we're adding gensym()*step */
 
         i2 = incr / 2;
-        for (v = 1; v <= p->_nVars; v++) {
+        for (v = 1; v <= p->getVarsN(); v++) {
             int tmp = intMod(p->_EQs[c].coef[v], incr);
             if (tmp > i2) tmp -= incr;
             p->_EQs[c].coef[v] = tmp;
@@ -591,13 +597,14 @@ equate_descr equate_subscripts(Problem *p, range *i1, range *i2, range *non_i,
             add_coefficients(&p->_EQs[c], i1, 1, sub_i_cur_affine(sub1));
             add_coefficients(&p->_EQs[c], i2, -1, sub_i_cur_affine(sub2));
 
-            for (i = p->_nVars; i > 0; i--)
+            for (i = p->getVarsN(); i > 0; i--)
                 if (p->_EQs[c].coef[i] != 0)
                     break;
             if (i == 0) {   /* linearity = 0 */
                 if (p->_EQs[c].coef[0] != 0)
                     return not_possible;   /* never equal */
-                p->_numEQs--;   /* always equal: don't add equation */
+                //p->_numEQs--;   /* always equal: don't add equation */
+                p->addNumEqs(-1);
             }
         }
         else {

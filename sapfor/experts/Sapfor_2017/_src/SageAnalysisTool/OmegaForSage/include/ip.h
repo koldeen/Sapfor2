@@ -12,8 +12,6 @@
 
 
 typedef int EqnKey;
-
-
 typedef struct _eqn 
 {
     /*_eqn()
@@ -29,15 +27,41 @@ typedef struct _eqn
     EqnKey  key;
     int     touched;
     int     color;
-    //std::vector<int> coef;
-    int coef[maxVars + 1];
+    std::vector<int> coef;
+    //int coef[maxVars + 1];
 } *Eqn;
 
 #define headerWords 3
 
 typedef struct _problem 
 {
+private:
+    int _nVars;
+    int _numEQs, _numGEQs, _numSUBs;
+
+    void resizeEqs()
+    {
+        //printf("%d %d %d -> %d\n", _numEQs, _numGEQs, _numSUBs, _nVars + 2);
+        for (int z = 0; z < _numEQs; ++z)
+            _EQs[z].coef.resize(_nVars + 2);
+        for (int z = 0; z < _numGEQs; ++z)
+            _GEQs[z].coef.resize(_nVars + 2);
+        for (int z = 0; z < _numSUBs; ++z)
+            _SUBs[z].coef.resize(_nVars + 2);
+    }
+public:
     _problem()
+    {
+        _numEQs = _numGEQs = 0;
+        _numSUBs = 1;
+        forwardingAddress.resize(maxVars + 2);
+        _var.resize(maxVars + 2);
+        _GEQs.resize(maxGEQs);
+        _EQs.resize(maxEQs);
+        _SUBs.resize(maxVars + 1);
+    }
+
+    void _init()
     {
         forwardingAddress.resize(maxVars + 2);
         _var.resize(maxVars + 2);
@@ -46,7 +70,77 @@ typedef struct _problem
         _SUBs.resize(maxVars + 1);
     }
 
-    int _nVars, _numEQs, _numGEQs, _safeVars,_numSUBs;
+    void _init(int eqs, int ges, int subs, int nvars)
+    {
+        _nVars = nvars;
+        _numEQs = eqs;
+        _numGEQs = ges;
+        _numSUBs = subs;
+        resizeEqs();
+    }
+
+
+    int getVarsN() const { return _nVars; }
+    void setVarsN(const int nvars)
+    {
+        _nVars = nvars;
+        resizeEqs();
+    }
+    void addToVarsN(const int nvars)
+    {
+        _nVars += nvars;
+        resizeEqs();
+    }
+
+    int getNumEqs() const { return _numEQs; }
+    int getNumGEqs() const { return _numGEQs; }
+    int getNumSUBs() const { return _numSUBs; }
+    
+    void setNumEqs(const int val) 
+    {        
+        _numEQs = val; 
+        //printf("EQ %d -> %d\n", _numEQs, _nVars + 2);
+        for (int z = 0; z < _numEQs; ++z)
+            _EQs[z].coef.resize(_nVars + 2);
+    }
+    void setNumGEqs(const int val)
+    {        
+        _numGEQs = val;
+        //printf("GEQ %d -> %d\n", _numGEQs, _nVars + 2);
+        for (int z = 0; z < _numGEQs; ++z)
+            _GEQs[z].coef.resize(_nVars + 2);
+    }
+    void setNumSUBs(const int val) 
+    {        
+        _numSUBs = val; 
+        //printf("SUB %d -> %d\n", _numSUBs, _nVars + 2);
+        for (int z = 0; z < _numSUBs; ++z)
+            _SUBs[z].coef.resize(_nVars + 2);
+    }
+
+    void addNumEqs(const int val) 
+    {
+        _numEQs += val;
+        //printf("EQ %d -> %d\n", _numEQs, _nVars + 2);
+        for (int z = 0; z < _numEQs; ++z)
+            _EQs[z].coef.resize(_nVars + 2);
+    }
+    void addNumGEqs(const int val) 
+    {
+        _numGEQs += val;
+        //printf("GEQ %d -> %d\n", _numGEQs, _nVars + 2);
+        for (int z = 0; z < _numGEQs; ++z)
+            _GEQs[z].coef.resize(_nVars + 2);
+    }
+    void addNumSUBs(const int val) 
+    {
+        _numSUBs += val; 
+        //printf("SUB %d -> %d\n", _numSUBs, _nVars + 2);
+        for (int z = 0; z < _numSUBs; ++z)
+            _SUBs[z].coef.resize(_nVars + 2);
+    }
+
+    int _safeVars;
     int hashVersion;
     int variablesInitialized;
     int variablesFreed;
@@ -73,10 +167,31 @@ typedef struct _problem
 #define red 1
 #define black 0
 
-#define eqnncpy(e1,e2,s) {int *p00,*q00,*r00; p00 = (int *)(e1); q00 = (int *)(e2); r00 = &p00[headerWords+1+s]; while(p00 < r00) *p00++ = *q00++; }
+//#define eqnncpy(e1,e2,s) {int *p00,*q00,*r00; p00 = (int *)(e1); q00 = (int *)(e2); r00 = &p00[headerWords+1+s]; while(p00 < r00) *p00++ = *q00++; }
+
+static void eqnncpy(_eqn *dst, const _eqn *src, const int s)
+{
+    dst->color = src->color;
+    dst->key = src->key;
+    dst->touched = src->touched;
+    dst->coef.resize(s + 2);
+    for (int z = 0; z < s + 2; ++z)
+        dst->coef[z] = src->coef[z];
+}
 
 #define eqncpy(e1,e2) eqnncpy(e1, e2, nVars)
-#define eqnnzero(e,s) { int *p00,*r00; p00 = (int *)(e); r00 = &p00[headerWords+1+(s)]; while(p00 < r00) *p00++ = 0;}
+//#define eqnnzero(e,s) { int *p00,*r00; p00 = (int *)(e); r00 = &p00[headerWords+1+(s)]; while(p00 < r00) *p00++ = 0;}
+
+static void eqnnzero(_eqn *dst, const int s)
+{
+    dst->color = 0;
+    dst->key = 0;
+    dst->touched = 0;
+    dst->coef.resize(s + 2);
+    for (int z = 0; z < s + 2; ++z)    
+        dst->coef[z] = 0;
+}
+
 #define eqnzero(e) eqnnzero(e,nVars)
 
 #define intDiv(a,b) ((1024 * b + a)/b - 1024)

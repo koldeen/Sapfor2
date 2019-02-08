@@ -1,11 +1,8 @@
 #pragma once
 #include <string>
 
-#if !__SPC
-#include "dvm.h"
-#endif
-
 enum typeMessage { WARR, ERROR, NOTE };
+extern std::pair<std::string, int> currProcessing; // file and line, default ["", -1]
 
 // GROUP:
 // 10xx - analysis
@@ -56,6 +53,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   41 "parallel region '%s' has line included in another region"
 //   42 "distributed array in common block %s must have declaration in main unit"
 //   43 "bad directive expression"
+//   44 "Only pure procedures were supported"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -143,9 +141,9 @@ static void printStackTrace() { };
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
 \
-    if (currProcessing.first && currProcessing.second)\
+    if (currProcessing.first != "" && currProcessing.second != -1)\
     { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second->lineNumber(), currProcessing.first->filename());\
+       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second, currProcessing.first.c_str());\
        addToGlobalBufferAndPrint(buf);\
     } \
     throw(-1);\

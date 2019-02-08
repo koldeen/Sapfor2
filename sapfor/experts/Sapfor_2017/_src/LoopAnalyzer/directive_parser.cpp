@@ -83,6 +83,7 @@ static map<SgSymbol*, Symbol*> dictCreated;
 
 static inline string getData(SgExpression *symb, string*) { return OriginalSymbol(symb->symbol())->identifier(); }
 static inline SgSymbol* getData(SgExpression *symb, SgSymbol**) { return OriginalSymbol(symb->symbol()); }
+static inline SgExpression* getData(SgExpression *symb, SgExpression**) { return symb; }
 
 static inline Symbol* getData(SgExpression *symb, Symbol**)
 {
@@ -380,6 +381,7 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
 
 template void fillRemoteFromComment(Statement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
 template void fillRemoteFromComment(Statement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<SgExpression*, string>, Expression*> &remote, bool isFull, int type);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {

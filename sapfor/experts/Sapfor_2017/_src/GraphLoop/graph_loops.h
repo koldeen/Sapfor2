@@ -42,6 +42,7 @@ public:
         hasWritesToNonDistribute = false;
         hasUnknownDistributedMap = false;
         hasDifferentAlignRules = false;
+        hasNonPureProcedures = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -78,7 +79,7 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasNonPureProcedures ||
                hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules;
     }
     
@@ -106,6 +107,8 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop", 3006));
         if (hasDifferentAlignRules)
             messages->push_back(Messages(NOTE, lineNum, "different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+        if (hasNonPureProcedures)
+            messages->push_back(Messages(NOTE, lineNum, "non pure procedures prevent parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -257,6 +260,8 @@ public:
     bool hasUnknownDistributedMap;
 
     bool hasDifferentAlignRules;
+
+    bool hasNonPureProcedures;
 
     std::vector<LoopGraph*> children;
     std::vector<LoopGraph*> funcChildren;

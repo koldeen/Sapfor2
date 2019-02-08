@@ -156,10 +156,10 @@ do_test_for_kill_via(dir_and_dist_info *dd, char *dd_as_string,
 
     /* PART 3: build problem */
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    assert(reads._numEQs == 0);
-    assert(reads._numGEQs == 0);
+    assert(reads.getNumEqs() == 0);
+    assert(reads.getNumGEqs() == 0);
     eqs = geqs = 0;
 #endif
 
@@ -212,13 +212,13 @@ do_test_for_kill_via(dir_and_dist_info *dd, char *dd_as_string,
     constrain_with_dd(&reads, &rpd.write2s, &rpd.write1s, &tmp_ddi, red);
 
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    for ( /* eqs as it is */; eqs < reads._numEQs; eqs++)
+    for ( /* eqs as it is */; eqs < reads.getNumEqs(); eqs++)
     {
         assert(reads._EQs[eqs].color == red);
     }
-    for ( /* geqs as it is */; geqs < reads._numGEQs; geqs++)
+    for ( /* geqs as it is */; geqs < reads.getNumGEqs(); geqs++)
     {
         assert(reads._GEQs[geqs].color == red);
     }
@@ -244,11 +244,11 @@ do_test_for_kill_via(dir_and_dist_info *dd, char *dd_as_string,
     /*     A(i) << C(k) */
     constrain_with_dd(&reads, &rpd.reads, &rpd.write1s, dd, black);
 
-#if ! defined NDEBUG
-    for (/* eqs as it is */; eqs < reads._numEQs; eqs++) {
+#if !defined NDEBUG
+    for (/* eqs as it is */; eqs < reads.getNumEqs(); eqs++) {
         assert(reads._EQs[eqs].color == black);
     }
-    for (/* geqs as it is */; geqs < reads._numGEQs; geqs++) {
+    for (/* geqs as it is */; geqs < reads.getNumGEqs(); geqs++) {
         assert(reads._GEQs[geqs].color == black);
     }
 #endif
@@ -555,7 +555,7 @@ quick_test_for_kill(dir_and_dist_info *dd, char *dd_as_string,
 #define MaxNameLen   254
 #define MaxSuffixLen 1
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
 static int var_id_is_step_expr(var_id n)
 {
     return n == 0;
@@ -565,8 +565,8 @@ void read_inv(read_prob_desc *rpd, Problem *p)
 {
     int v;
 
-    assert(p->_nVars < maxVars);
-    assert(p->_nVars >= read_Nvars(rpd));
+    assert(p->getVarsN() < maxVars);
+    assert(p->getVarsN() >= read_Nvars(rpd));
 
     assert(r_first(&rpd->nonloops) == 1);
     assert(r_last(&rpd->nonloops) + 1 == r_first(&rpd->reads));
@@ -609,7 +609,7 @@ void read_inv(read_prob_desc *rpd, Problem *p)
         assert(var_id_is_step_expr(rpd->vars[v + r_first(&rpd->w2steps)]));
     }
 
-    for (v = 0; v < p->_numGEQs; v++) {
+    for (v = 0; v < p->getNumGEqs(); v++) {
         assert(p->_GEQs[v].touched);
     }
 }

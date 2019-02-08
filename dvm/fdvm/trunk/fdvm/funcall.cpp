@@ -658,68 +658,65 @@ SgExpression *doLoop(int iloopref)
 }
 
 
-SgExpression * BeginParLoop (int iloopref,SgExpression *header, int rank, int iaxis,                             int nr, int iinp, int iout)
+SgStatement * BeginParLoop (int iloopref,SgExpression *header, int rank, int iaxis, int nr, int iinp, int iout)
 {
-//creating function call:
+//creating subroutine call:
 //   mappl(LoopRef, PatternRef, AxisArray[], CoefArray[], ConstArray[],
 //          LoopVarAdrArray[], LoopVarTypeArray[], InpInitIndexArray[], InpLastIndexArray[],
 //          InpStepArray[], 
 //          OutInitIndexArray[], OutLastIndexArray[], OutStepArray[])
   
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[BEGPLP]);
-  fmask[BEGPLP] = 1;
-  fe->addArg(*DVM000(iloopref));
-  fe->addArg(*header);
-  fe->addArg(*DVM000(iaxis));
-  fe->addArg(*DVM000(iaxis+nr));
-  fe->addArg(*DVM000(iaxis+2*nr));
-  fe->addArg(*DVM000(iinp));
-  fe->addArg(*DVM000(iinp+rank));
-  fe->addArg(*DVM000(iinp+2*rank));
-  fe->addArg(*DVM000(iinp+3*rank));
-  fe->addArg(*DVM000(iinp+4*rank));
-  fe->addArg(*DVM000(iout));
-  fe->addArg(*DVM000(iout+rank));
-  fe->addArg(*DVM000(iout+2*rank));
-  return(fe);
+  SgCallStmt *call= new SgCallStmt(*fdvm[BEGPLP]);
+  fmask[BEGPLP] = 2;
+  call->addArg(*DVM000(iloopref));
+  call->addArg(*header);
+  call->addArg(*DVM000(iaxis));
+  call->addArg(*DVM000(iaxis+nr));
+  call->addArg(*DVM000(iaxis+2*nr));
+  call->addArg(*DVM000(iinp));
+  call->addArg(*DVM000(iinp+rank));
+  call->addArg(*DVM000(iinp+2*rank));
+  call->addArg(*DVM000(iinp+3*rank));
+  call->addArg(*DVM000(iinp+4*rank));
+  call->addArg(*DVM000(iout));
+  call->addArg(*DVM000(iout+rank));
+  call->addArg(*DVM000(iout+2*rank));
+  return(call);
 }
 
 SgStatement *EndParLoop(int iloopref)
 {
 //generating Subroutine Call:
 //                           EndPL(LoopRef)
- 
-  SgCallStmt *call= new SgCallStmt(*fdvm[ENDPLP]);
-  fmask[ENDPLP] = 2;
+
+  SgCallStmt *call= new SgCallStmt(*fdvm[ENDPLP]); 
+  fmask[ENDPLP] = 2;                               
   call->addArg(*DVM000(iloopref));
   return(call);
 }
 
-SgExpression *BoundFirst(int iloopref, SgExpression *gref)
+SgStatement *BoundFirst(int iloopref, SgExpression *gref)
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                           exfrst(LoopRef,BoundGroupRef)
  
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[BFIRST]);
-  fmask[BFIRST] = 1;
-  fe->addArg(*DVM000(iloopref));
-  fe->addArg(gref->copy());
-  return(fe);
+  SgCallStmt *call= new SgCallStmt(*fdvm[BFIRST]); 
+  fmask[BFIRST] = 2;
+  call->addArg(*DVM000(iloopref));
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *BoundLast(int iloopref, SgExpression *gref)
+SgStatement *BoundLast(int iloopref, SgExpression *gref)
 {
-//generating Function Call:
+//generating Subroutine Call:
 //                           imlast(LoopRef,BoundGroupRef)
  
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[BLAST]);
-  fmask[BLAST] = 1;
-  fe->addArg(*DVM000(iloopref));
-  fe->addArg(gref->copy());
-  return(fe);
+  SgCallStmt *call= new SgCallStmt(*fdvm[BLAST]); 
+  fmask[BLAST] = 2;
+  call->addArg(*DVM000(iloopref));
+  call->addArg(gref->copy());
+  return(call);
 }
  
 /**************************************************************\
@@ -760,22 +757,20 @@ SgExpression *ReductionVar(int num_red, SgExpression *red_array, int ntype, int 
   return(fe);
 }
 
-SgExpression *InsertRedVar(SgExpression *gref, int irv, int iplp)
+SgStatement *InsertRedVar(SgExpression *gref, int irv, int iplp)
 {
-//creating function call:
+//creating subroutine call:
 //                       insred(RedGroupRef, RedVarRef, PSSpaceRef, RenewSign)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[INSRV]);
-  fmask[INSRV] = 1;
-  fe->addArg(gref->copy());
-  fe->addArg(*dvm_ref(irv));
-  //fe->addArg(*psref);
+  SgCallStmt *call = new SgCallStmt(*fdvm[INSRV]); 
+  fmask[INSRV] = 2;
+  call->addArg(gref->copy());
+  call->addArg(*dvm_ref(irv));
   if(iplp)
-    fe->addArg(*dvm_ref(iplp));
+    call->addArg(*dvm_ref(iplp));
   else
-    fe->addArg(*ConstRef(0));
-  fe->addArg(*ConstRef(0));
-  return(fe);
+    call->addArg(*ConstRef(0));
+  call->addArg(*ConstRef(0));
+  return(call);
 }
 
 SgExpression *LocIndType(int irv, int type)
@@ -867,138 +862,128 @@ void  CreateBoundGroup(SgExpression *gref)
   return;
 }
 
-SgExpression *InsertArrayBound(SgExpression *gref, SgExpression *head,                                                int ileft, int iright, int corner) 
+SgStatement *InsertArrayBound(SgExpression *gref, SgExpression *head, int ileft, int iright, int corner) 
 {
-//creating function call:
-//inssh(BounddGroupRef, ArrayHeader[], LeftBSize[], RightBSize[],CornerSign)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[DATOSHG]);
-  fmask[DATOSHG] = 1;
-  fe->addArg(gref->copy());
-  fe->addArg(*head);
-  fe->addArg(*DVM000(ileft));
-  fe->addArg(*DVM000(iright));
-  fe->addArg(*ConstRef(corner));
-  return(fe);
+//creating subroutine call:
+//                inssh(BounddGroupRef, ArrayHeader[], LeftBSize[], RightBSize[],CornerSign)
+  SgCallStmt *call = new SgCallStmt(*fdvm[DATOSHG]);
+  fmask[DATOSHG] = 2;
+  call->addArg(gref->copy());
+  call->addArg(*head);
+  call->addArg(*DVM000(ileft));
+  call->addArg(*DVM000(iright));
+  call->addArg(*ConstRef(corner));
+  return(call);
 }
 
-SgExpression *InsertArrayBoundDep(SgExpression *gref, SgExpression *head,                                                      int ileft, int iright, int max, int ishsign)
+SgStatement *InsertArrayBoundDep(SgExpression *gref, SgExpression *head, int ileft, int iright, int max, int ishsign)
 {
-//creating function call:
-//insshd(BounddGroupRef, ArrayHeader[], LeftBSize[], RightBSize[],MaxShadowCount,ShadowSignArray[])
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[INSSHD]);
-  fmask[INSSHD] = 1;
-  fe->addArg(gref->copy());
-  fe->addArg(*head);
-  fe->addArg(*DVM000(ileft));
-  fe->addArg(*DVM000(iright));
-  fe->addArg(*ConstRef(max));
-  fe->addArg(*DVM000(ishsign));
-  return(fe);
+//creating subroutine call:
+//             insshd(BounddGroupRef, ArrayHeader[], LeftBSize[], RightBSize[],MaxShadowCount,ShadowSignArray[])
+  SgCallStmt *call = new SgCallStmt(*fdvm[INSSHD]);
+  fmask[INSSHD] = 2;
+  call->addArg(gref->copy());
+  call->addArg(*head);
+  call->addArg(*DVM000(ileft));
+  call->addArg(*DVM000(iright));
+  call->addArg(*ConstRef(max));
+  call->addArg(*DVM000(ishsign));
+  return(call);
 }
 
-SgExpression *InsertArrayBoundSec(SgExpression *gref, SgExpression *head, int ilsec, int irsec, int iilowshs, int illowshs, int iihishs,int ilhishs, int max, int ishsign)
+SgStatement *InsertArrayBoundSec(SgExpression *gref, SgExpression *head, int ilsec, int irsec, int iilowshs, int illowshs, int iihishs,int ilhishs, int max, int ishsign)
 {
-//creating function call:
-//insshd(BounddGroupRef, ArrayHeader[], InitDimIndex[], LastDimIndex[],InitLowShdIndex[],
-//LastLowShdIndex[], InitHiShdIndex[], LastHiShdIndex[],LeftBSize[], RightBSize[],MaxShadowCount,ShadowSignArray[])
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[INCSHD]);
-  fmask[INCSHD] = 1;
-  fe->addArg(gref->copy());
-  fe->addArg(*head);
-  fe->addArg(*DVM000(ilsec));
-  fe->addArg(*DVM000(irsec));
-  fe->addArg(*DVM000(iilowshs));
-  fe->addArg(*DVM000(illowshs));
-  fe->addArg(*DVM000(iihishs));
-  fe->addArg(*DVM000(ilhishs));
-  fe->addArg(*ConstRef(max));
-  fe->addArg(*DVM000(ishsign));
-  return(fe);
+//creating subroutine call:
+//        incshd(BounddGroupRef, ArrayHeader[], InitDimIndex[], LastDimIndex[],InitLowShdIndex[],
+//               LastLowShdIndex[], InitHiShdIndex[], LastHiShdIndex[],LeftBSize[], RightBSize[],MaxShadowCount,ShadowSignArray[])
+  SgCallStmt *call = new SgCallStmt(*fdvm[INCSHD]);
+  fmask[INCSHD] = 2;
+  call->addArg(gref->copy());
+  call->addArg(*head);
+  call->addArg(*DVM000(ilsec));
+  call->addArg(*DVM000(irsec));
+  call->addArg(*DVM000(iilowshs));
+  call->addArg(*DVM000(illowshs));
+  call->addArg(*DVM000(iihishs));
+  call->addArg(*DVM000(ilhishs));
+  call->addArg(*ConstRef(max));
+  call->addArg(*DVM000(ishsign));
+  return(call);
 }
 
 
-SgExpression *AddBound( )
+SgStatement *AddBound( )
 {
-//creating function call:
+//creating subroutine call:
 //                        addbnd()
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[ADDBND]);
-  fmask[ADDBND] = 1;
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[ADDBND]);
+  fmask[ADDBND] = 2;
+  return(call);
 }
 
-SgExpression *AddBoundShadow(SgExpression *head,int ileft,int iright )
+SgStatement *AddBoundShadow(SgExpression *head,int ileft,int iright )
 {
-//creating function call:
+//creating subroutine call:
 //                        addshd( ArrayHeader[], LeftBSize[], RightBSize[])
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[ADDSHD]);
-  fmask[ADDSHD] = 1;
-  fe->addArg(*head);
-  fe->addArg(*DVM000(ileft));
-  fe->addArg(*DVM000(iright));
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[ADDSHD]);
+  fmask[ADDSHD] = 2;
+  call->addArg(*head);
+  call->addArg(*DVM000(ileft));
+  call->addArg(*DVM000(iright));
+  return(call);
 }
 
-SgExpression *StartBound(SgExpression *gref)
+SgStatement *StartBound(SgExpression *gref)
 {
-//creating function call:
-//                        Strtsh(BoundGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[STARTSH]);
-  fmask[STARTSH] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+//creating subroutine call:
+//                        strtsh(BoundGroupRef)
+  SgCallStmt *call = new SgCallStmt(*fdvm[STARTSH]);
+  fmask[STARTSH] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *WaitBound(SgExpression *gref)
+SgStatement *WaitBound(SgExpression *gref)
 {
-//creating function call:
-//                        Waitsh(BoundGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[WAITSH]);
-  fmask[WAITSH] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+//creating subroutine call:
+//                        waitsh(BoundGroupRef)
+  SgCallStmt *call = new SgCallStmt(*fdvm[WAITSH]);
+  fmask[WAITSH] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *SendBound(SgExpression *gref)
+SgStatement *SendBound(SgExpression *gref)
 {
-//creating function call:
+//creating subroutine call:
 //                        sendsh(BoundGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[SENDSH]);
-  fmask[SENDSH] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[SENDSH]);
+  fmask[SENDSH] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *ReceiveBound(SgExpression *gref)
+SgStatement *ReceiveBound(SgExpression *gref)
 {
-//creating function call:
+//creating subroutine call:
 //                        recvsh(BoundGroupRef)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[RECVSH]);
-  fmask[RECVSH] = 1;
-  fe->addArg(gref->copy());
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[RECVSH]);
+  fmask[RECVSH] = 2;
+  call->addArg(gref->copy());
+  return(call);
 }
 
-SgExpression *InitAcross(int acrtype,SgExpression *oldg, SgExpression *newg) 
+SgStatement *InitAcross(int acrtype,SgExpression *oldg, SgExpression *newg) 
 {
-//creating function call:
+//creating subroutine call:
 //               across(AcrossType,OldShadowGroupRef,NewShadowGroupRef,GroupNumber)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[ACROSS]);
-  fmask[ACROSS] = 1;
-  fe->addArg(*ConstRef(acrtype));
-  fe->addArg(*oldg);
-  fe->addArg(*newg);
-  fe->addArg(*new SgVarRefExp(Pipe));
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[ACROSS]);
+  fmask[ACROSS] = 2;
+  call->addArg(*ConstRef(acrtype));
+  call->addArg(*oldg);
+  call->addArg(*newg);
+  call->addArg(*new SgVarRefExp(Pipe));
+  return(call);
 }
 
 

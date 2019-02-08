@@ -31,6 +31,7 @@
 #include "SendMessage.h"
 #include "../Predictor/PredictScheme.h"
 #include "../DynamicAnalysis/gcov_info.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 using std::string;
 using std::wstring;
@@ -577,6 +578,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             SpfInterval *mainIterval = getMainInterval(project, intervals);
             const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
+            int procCount = 1;
             string topo = "";
             if (idxBest != -1 && mainIterval->exec_time != 0)
             {
@@ -585,12 +587,15 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
                 for (int z = 0; z < topologies[idxBest].size(); ++z)
                 {
                     topo += to_string(topologies[idxBest][z]);
+                    procCount *= topologies[idxBest][z];
                     if (z != topologies[idxBest].size() - 1)
                         topo += "x";
                 }
                 topo += "]";
             }
-            predictRes += "|" + to_string(speedUpBest) + topo;
+            char buf[256];
+            sprintf(buf, "%.2f", speedUpBest / procCount * 100.0);
+            predictRes += "|" + string(buf) + topo;
         }
         else
             predictRes += "|0";
@@ -936,6 +941,14 @@ int SPF_LoopFission(int winHandler, int *options, short *projName, short *folder
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                            int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(INSERT_INTER_TREE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
 int SPF_RemoveDvmDirectives(int winHandler, int *options, short *projName, short *folderName, short *&output, 
