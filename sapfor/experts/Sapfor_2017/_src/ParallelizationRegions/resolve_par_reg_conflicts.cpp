@@ -1324,75 +1324,78 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     // check array copying existing
                     for (auto &lines : fileLines.second)
                     {
-                        // check interval existing
-                        if (!lines.intervalBefore.first || !lines.intervalBefore.second || !lines.intervalAfter.first || !lines.intervalAfter.second)
+                        if (!lines.isImplicit())
                         {
-                            __spf_print(1, "parallel region '%s' has lines that does not have intervals on line %d\n",
-                                reg->GetName().c_str(), lines.lines.first);
-
-                            string message;
-                            __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
-                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3015));
-                            error = true;
-                        }
-                        // check arrays
-                        else
-                        {
-                            set<DIST::Array*> leftBefore;
-                            set<DIST::Array*> rightAfter;
-
-                            fillUsedArraysInExp(lines.intervalBefore, 0, leftBefore);
-                            fillUsedArraysInExp(lines.intervalAfter, 1, rightAfter);
-
-                            // check left and right sets if common array is used at this lines
-                            for (auto funcArrays : reg->GetUsedCommonArrays())
+                            // check interval existing
+                            if (!lines.intervalBefore.first || !lines.intervalBefore.second || !lines.intervalAfter.first || !lines.intervalAfter.second)
                             {
-                                if (funcArrays.first->fileName == fileLines.first)
-                                {
-                                    for (auto &arrayLines : funcArrays.second)
-                                    {
-                                        for (auto &lines2 : arrayLines.second)
-                                        {
-                                            if (lines == lines2)
-                                            {
-                                                if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
-                                                {
-                                                    __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
-                                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
+                                __spf_print(1, "parallel region '%s' has lines that does not have intervals on line %d\n",
+                                    reg->GetName().c_str(), lines.lines.first);
 
-                                                    string message;
-                                                    __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
-                                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                                                    getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
-                                                    error = true;
+                                string message;
+                                __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
+                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3015));
+                                error = true;
+                            }
+                            // check arrays
+                            else
+                            {
+                                set<DIST::Array*> leftBefore;
+                                set<DIST::Array*> rightAfter;
+
+                                fillUsedArraysInExp(lines.intervalBefore, 0, leftBefore);
+                                fillUsedArraysInExp(lines.intervalAfter, 1, rightAfter);
+
+                                // check left and right sets if common array is used at this lines
+                                for (auto funcArrays : reg->GetUsedCommonArrays())
+                                {
+                                    if (funcArrays.first->fileName == fileLines.first)
+                                    {
+                                        for (auto &arrayLines : funcArrays.second)
+                                        {
+                                            for (auto &lines2 : arrayLines.second)
+                                            {
+                                                if (lines == lines2)
+                                                {
+                                                    if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
+                                                    {
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
+
+                                                        string message;
+                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        error = true;
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            // check left and right sets if local array is used at this lines
-                            for (auto funcArrays : reg->GetUsedLocalArrays())
-                            {
-                                if (funcArrays.first->fileName == fileLines.first)
+                                // check left and right sets if local array is used at this lines
+                                for (auto funcArrays : reg->GetUsedLocalArrays())
                                 {
-                                    for (auto &arrayLines : funcArrays.second)
+                                    if (funcArrays.first->fileName == fileLines.first)
                                     {
-                                        for (auto &lines2 : arrayLines.second)
+                                        for (auto &arrayLines : funcArrays.second)
                                         {
-                                            if (lines == lines2)
+                                            for (auto &lines2 : arrayLines.second)
                                             {
-                                                if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
+                                                if (lines == lines2)
                                                 {
-                                                    __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
-                                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
+                                                    if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
+                                                    {
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%' in interval on line %d\n",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
 
-                                                    string message;
-                                                    __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
-                                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                                                    getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
-                                                    error = true;
+                                                        string message;
+                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%' in interval",
+                                                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        error = true;
+                                                    }
                                                 }
                                             }
                                         }
