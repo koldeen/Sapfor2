@@ -1299,14 +1299,14 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     int line = arrayLines.second[0].lines.first;
                     string commonBlockName = commonBlock->getName();
                     auto pos = commonBlockName.rfind("_r");
-                    if (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1)
+                    if (!arrayLines.second[0].isImplicit() && (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1))
                     {
                         __spf_print(1, "parallel region '%s' has common array '%s' that is not resolved on line %d\n",
-                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), line);
+                                    reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), line);
 
                         string message;
                         __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
-                            reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                         reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
                         getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 3014));
                         error = true;
                     }

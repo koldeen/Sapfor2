@@ -920,14 +920,6 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
     return retVal;
 }
 
-static bool checkPrivatesExpansion(SgStatement *st,
-                                   SgStatement *attributeStatement,
-                                   vector<Messages> &messagesForFile)
-{
-    bool retVal = false;
-    return retVal;
-}
-
 static inline bool processStat(SgStatement *st, const string &currFile,
                                const map<string, CommonBlock> *commonBlocks,
                                vector<Messages> &messagesForFile)
