@@ -46,39 +46,6 @@ bool isSPF_NoInline(Statement *stIn)
     return false;
 }
 
-int countSPF_OP(Statement *stIn, const int type, const int op)
-{
-    int count = 0;
-    if (stIn)
-    {
-        SgStatement *st = stIn->GetOriginal();
-        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ type }))
-        {
-            SgExpression *exprList = data->expr(0);
-            while (exprList)
-            {
-                if (exprList->lhs()->variant() == op)
-                    ++count;
-
-                exprList = exprList->rhs();
-            }
-        }
-    }
-    return count;
-}
-
-bool isSPF_OP(Statement *stIn, const int op)
-{
-    if (stIn)
-    {
-        SgStatement *st = stIn->GetOriginal();
-        SgExpression *exprList = st->expr(0);
-        if (exprList && exprList->lhs()->variant() == op)
-            return true;
-    }
-    return false;
-}
-
 static map<SgSymbol*, Symbol*> dictCreated;
 
 static inline string getData(SgExpression *symb, string*) { return OriginalSymbol(symb->symbol())->identifier(); }

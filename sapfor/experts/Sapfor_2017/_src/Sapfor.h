@@ -9,6 +9,7 @@ extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
 
 extern "C" int out_free_form;
+extern "C" int out_upper_case;
 
 enum passes {
     UNROLL_LOOPS, //ordinal == 0

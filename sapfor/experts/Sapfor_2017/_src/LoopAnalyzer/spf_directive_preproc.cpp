@@ -920,6 +920,39 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
     return retVal;
 }
 
+static int countSPF_OP(Statement *stIn, const int type, const int op)
+{
+    int count = 0;
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ type }))
+        {
+            SgExpression *exprList = data->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs()->variant() == op)
+                    ++count;
+
+                exprList = exprList->rhs();
+            }
+        }
+    }
+    return count;
+}
+
+static bool isSPF_OP(Statement *stIn, const int op)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        SgExpression *exprList = st->expr(0);
+        if (exprList && exprList->lhs()->variant() == op)
+            return true;
+    }
+    return false;
+}
+
 static inline bool processStat(SgStatement *st, const string &currFile,
                                const map<string, CommonBlock> *commonBlocks,
                                vector<Messages> &messagesForFile)

@@ -1670,6 +1670,7 @@ int main(int argc, char **argv)
         int numVar = 0;
 
         out_free_form = 0; // F90 style out
+        out_upper_case = 1;
         bool printText = false;
 
         for (int i = 0; i < argc; ++i)
