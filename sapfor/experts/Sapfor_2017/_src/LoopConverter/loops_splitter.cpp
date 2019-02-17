@@ -211,6 +211,7 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
     bool has = false;
     int countOfMessages = 10;
     int idxOfMessages = 0;
+
     for (depNode* node : parentDepGraph->getNodes())
     {
         if (node->typedep != ARRAYDEP)
@@ -265,6 +266,8 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     //Граф с зависимостями
     const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
+    if(!lowestParentGraph->hasLimitsToParallel())
+        return -1;
     //Коллекция с выражениями, которые проходили unparse
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))

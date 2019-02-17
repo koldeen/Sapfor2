@@ -1723,6 +1723,25 @@ void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
 
 std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > SgStatement::statsByLine;
 std::map<SgExpression*, SgStatement*> SgStatement::parentStatsForExpression;
+bool SgStatement::consistentCheckIsActivated = false;
+
+void SgStatement::checkConsistence()
+{
+#if __SPF
+    if (consistentCheckIsActivated && fileID != current_file_id && fileID != -1)
+    {
+        const int var = variant();
+        if (var < 950) // not SPF DIRS
+        {
+            unparsestdout();
+            char buf[512];
+            sprintf(buf, "Internal error at line %d and file libSage++.cpp, file id was inconsistent: current id = %d, was id = %d\n", __LINE__, current_file_id, fileID);
+            addToGlobalBufferAndPrint(buf);
+            throw(-1);
+        }
+    }
+#endif
+}
 
 void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate)
 {
@@ -1893,10 +1912,20 @@ SgStatement::~SgStatement()
 }
 
 void SgStatement::insertStmtAfter(SgStatement &s)
-{ insertBfndListIn(s.thebif,thebif,NULL); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    insertBfndListIn(s.thebif,thebif,NULL); 
+}
 
 void SgStatement::insertStmtAfter(SgStatement &s,SgStatement &cp)
-{ insertBfndListIn(s.thebif,thebif,cp.thebif); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    insertBfndListIn(s.thebif,thebif,cp.thebif); 
+}
   
 
 SgStatement::SgStatement(PTR_BFND bif)
@@ -1915,6 +1944,9 @@ SgStatement::SgStatement(PTR_BFND bif)
 
 SgExpression * SgStatement::expr(int i)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
   PTR_LLND ll;
   switch (i)
     {
@@ -1939,64 +1971,78 @@ SgExpression * SgStatement::expr(int i)
 
 SgLabel *SgStatement::label()
 {
-  PTR_LABEL lab;
-  SgLabel *pt = NULL;
-  lab = BIF_LABEL(thebif);
-  if (!lab)
-    {
-//      Message("The bif has no label",BIF_LINE(thebif));
-      return pt;
-    }
-  pt = GetMappingInTableForLabel(lab);
-  if (pt)
-    return pt;
-  else
-    {
-      pt = new SgLabel(lab);
-#ifdef __SPF   
-      addToCollection(__LINE__, __FILE__, pt, 1);
+#ifdef __SPF
+    checkConsistence();
 #endif
-    }  
-  return pt;
+    PTR_LABEL lab;
+    SgLabel *pt = NULL;
+    lab = BIF_LABEL(thebif);
+    if (!lab)
+    {
+        //      Message("The bif has no label",BIF_LINE(thebif));
+        return pt;
+    }
+    pt = GetMappingInTableForLabel(lab);
+    if (pt)
+        return pt;
+    else
+    {
+        pt = new SgLabel(lab);
+#ifdef __SPF   
+        addToCollection(__LINE__, __FILE__, pt, 1);
+#endif
+    }
+    return pt;
 }
 
 
 
 void  SgStatement::setControlParent(SgStatement &s)
-{ BIF_CP(thebif) = s.thebif; }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_CP(thebif) = s.thebif; 
+}
 
 void  SgStatement::setControlParent(SgStatement *s)
 {
-     if ( s != 0 )
-     {
-	  BIF_CP(thebif) = s->thebif;
-     }
-     else
-     {
-	  BIF_CP(thebif) = 0;
-     }
+#ifdef __SPF
+    checkConsistence();
+#endif
+    if (s != 0)
+        BIF_CP(thebif) = s->thebif;
+
+    else
+        BIF_CP(thebif) = 0;
 }
 
-void SgStatement::setExpression (int i, SgExpression &e)
+void SgStatement::setExpression(int i, SgExpression &e)
 {
-  switch (i)
+#ifdef __SPF
+    checkConsistence();
+#endif
+    switch (i)
     {
     case 0:
-      BIF_LL1(thebif) = e.thellnd;
-      break;
+        BIF_LL1(thebif) = e.thellnd;
+        break;
     case 1:
-      BIF_LL2(thebif) = e.thellnd ;
-      break;
+        BIF_LL2(thebif) = e.thellnd;
+        break;
     case 2:
-      BIF_LL3(thebif) = e.thellnd ;
-      break;
+        BIF_LL3(thebif) = e.thellnd;
+        break;
     default:
-      Message("A bif node can only have 3 expressions (0,1,2)",BIF_LINE(thebif));
+        Message("A bif node can only have 3 expressions (0, 1, 2)", BIF_LINE(thebif));
     }
 }
 
 void SgStatement::setExpression(int i, SgExpression *e)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     switch (i)
     {
     case 0:
@@ -2018,36 +2064,41 @@ void SgStatement::setExpression(int i, SgExpression *e)
             BIF_LL3(thebif) = NULL;
         break;
     default:
-        Message("A bif node can only have 3 expressions (0,1,2)", BIF_LINE(thebif));
+        Message("A bif node can only have 3 expressions (0, 1, 2)", BIF_LINE(thebif));
     }
 }
 
 
 SgStatement* SgStatement::nextInChildList()
 {
-  PTR_BLOB blob;
-  SgStatement *x;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    PTR_BLOB blob;
+    SgStatement *x;
 
-  if (BIF_CP(thebif))
+    if (BIF_CP(thebif))
     {
-      blob = lookForBifInBlobList(BIF_BLOB1(BIF_CP(thebif)), thebif);
-      if (!blob)
-        blob = lookForBifInBlobList(BIF_BLOB2(BIF_CP(thebif)), thebif);
-      if (blob)
-        blob = BLOB_NEXT(blob);
-      if (blob)
-        x = BfndMapping(BLOB_VALUE(blob));
-      else x = NULL;
+        blob = lookForBifInBlobList(BIF_BLOB1(BIF_CP(thebif)), thebif);
+        if (!blob)
+            blob = lookForBifInBlobList(BIF_BLOB2(BIF_CP(thebif)), thebif);
+        if (blob)
+            blob = BLOB_NEXT(blob);
+        if (blob)
+            x = BfndMapping(BLOB_VALUE(blob));
+        else x = NULL;
     }
-  else
-    x = NULL;
+    else
+        x = NULL;
 
-  return x;
-   
+    return x;
 }
 
 std::string SgStatement::sunparse()
 {    
+#ifdef __SPF
+    checkConsistence();
+#endif
     return std::string(unparse());
 }
 
@@ -2062,11 +2113,17 @@ int  SgStatement::numberOfComments()
 
 void SgStatement::addComment(const char *com)
 {
-  LibAddComment(thebif,com);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    LibAddComment(thebif,com);
 }
 
 void SgStatement::addComment(char *com)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     LibAddComment(thebif,com);
 }
  
@@ -2080,12 +2137,18 @@ int  SgStatement::hasAnnotations()
 
 int  SgStatement::IsSymbolInScope(SgSymbol &symb)
 {
- return  LibIsSymbolInScope(thebif,symb.thesymb);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return  LibIsSymbolInScope(thebif,symb.thesymb);
 }
 
 int  SgStatement::IsSymbolReferenced(SgSymbol &symb)   
 {
-  return LibIsSymbolReferenced(thebif,symb.thesymb);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return LibIsSymbolReferenced(thebif,symb.thesymb);
 }   
 
 SgExpression::~SgExpression()
@@ -4102,14 +4165,47 @@ SgCaseOptionStmt * isSgCaseOptionStmt (SgStatement *pt)
 // ******************** Leaf Executable Nodes ***********************
 
 
-SgExecutableStatement * isSgExecutableStatement (SgStatement *pt)
+SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
 {
-  if (!pt)
-    return NULL;
-  if (!isADeclBif(BIF_CODE(pt->thebif)))
-    return (SgExecutableStatement *) pt;
-  else
-    return NULL;
+    if (!pt)
+        return NULL;
+    if (!isADeclBif(BIF_CODE(pt->thebif)))
+        return (SgExecutableStatement *)pt;
+    else
+    {
+#if __SPF
+        const int var = pt->variant();
+        if (var == SPF_PARALLEL_DIR)
+            return (SgExecutableStatement *)pt;
+        if (var == SPF_ANALYSIS_DIR || var == SPF_PARALLEL_REG_DIR)
+            return isSgExecutableStatement(pt->lexNext());
+        if (var == SPF_END_PARALLEL_REG_DIR)
+            return isSgExecutableStatement(pt->lexPrev());
+        if (var == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *ex = pt->expr(0);
+            while (ex)
+            {
+                if (ex->lhs()->variant() == SPF_NOINLINE_OP)
+                    return NULL;
+                else if (ex->lhs()->variant() == SPF_FISSION_OP || ex->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP)
+                    return (SgExecutableStatement *)pt;
+
+                ex = ex->rhs();
+            }
+        }
+
+        if (var == DVM_PARALLEL_ON_DIR || var == ACC_REGION_DIR || var == ACC_END_REGION_DIR || var == DVM_EXIT_INTERVAL_DIR)
+            return (SgExecutableStatement *)pt;
+        if (var == DVM_INTERVAL_DIR)
+            return isSgExecutableStatement(pt->lexNext());
+        if (var == DVM_ENDINTERVAL_DIR)
+            return isSgExecutableStatement(pt->lexPrev());
+        if (var == DVM_BARRIER_DIR)
+            return (SgExecutableStatement *)pt;
+#endif
+        return NULL;
+    }
 }
 
 SgAssignStmt * isSgAssignStmt (SgStatement *pt)
@@ -6834,160 +6930,187 @@ void SgFile::addAttribute(void *a, int size)
 
 int SgStatement::numberOfAttributes()
 {
-  SgAttribute *first;
-  int nb = 0;
-  first = GetMappingInTableForBfndAttribute(thebif);
-  if (!first)
-    return 0;
-  while (first)
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
+    int nb = 0;
+    first = GetMappingInTableForBfndAttribute(thebif);
+    if (!first)
+        return 0;
+    while (first)
     {
-      first = first->getNext();
-      nb++;
+        first = first->getNext();
+        nb++;
     }
-  return nb;
+    return nb;
 }
 
 
 int SgStatement::numberOfAttributes(int type)
 {
-  SgAttribute *first;
-  int nb = 0;
-  first = GetMappingInTableForBfndAttribute(thebif);
-  if (!first)
-    return 0;
-  while (first)
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
+    int nb = 0;
+    first = GetMappingInTableForBfndAttribute(thebif);
+    if (!first)
+        return 0;
+    while (first)
     {
-      if (first->getAttributeType() == type)
-        nb++;
-      first = first->getNext();
+        if (first->getAttributeType() == type)
+            nb++;
+        first = first->getNext();
     }
-  return nb;
+    return nb;
 }
-
-
 
 SgAttribute *SgStatement::getAttribute(int i)
 {
-  SgAttribute *first;
-  int nb = 0;
-  first = GetMappingInTableForBfndAttribute(thebif);
-  if (!first)
-    return NULL;
-  while (first)
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
+    int nb = 0;
+    first = GetMappingInTableForBfndAttribute(thebif);
+    if (!first)
+        return NULL;
+    while (first)
     {
-      if (nb == i)
-        return first;
-      first = first->getNext();
-      nb++;
+        if (nb == i)
+            return first;
+        first = first->getNext();
+        nb++;
     }
-  return NULL;
+    return NULL;
 }
 
 
 SgAttribute *SgStatement::getAttribute(int i, int type)
 {
-  SgAttribute *first;
-  int nb = 0;
-  first = GetMappingInTableForBfndAttribute(thebif);
-  if (!first)
-    return NULL;
-  while (first)
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
+    int nb = 0;
+    first = GetMappingInTableForBfndAttribute(thebif);
+    if (!first)
+        return NULL;
+    while (first)
     {
-      if ((nb == i) && (first->getAttributeType() == type))
-        return first;
-      if (first->getAttributeType() == type)
-        nb++;
-      first = first->getNext();
+        if ((nb == i) && (first->getAttributeType() == type))
+            return first;
+        if (first->getAttributeType() == type)
+            nb++;
+        first = first->getNext();
     }
-  return NULL;
+    return NULL;
 }
 
 void *SgStatement::attributeValue(int i)
 {
-  SgAttribute *first;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
 
-  if ( (first = getAttribute(i)) != 0)
-    return first->getAttributeData();
-  else
-  return NULL;
+    if ((first = getAttribute(i)) != 0)
+        return first->getAttributeData();
+    else
+        return NULL;
 }
 
  
 void *SgStatement::attributeValue(int i, int type)
 {
-  SgAttribute *first;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
 
-  if ( (first = getAttribute(i,type)) != 0)
-    return first->getAttributeData();
-  else
-  return NULL;
+    if ((first = getAttribute(i, type)) != 0)
+        return first->getAttributeData();
+    else
+        return NULL;
 }
 
 int  SgStatement::attributeType(int i)
 {
-  SgAttribute *first;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    SgAttribute *first;
 
-  if ( (first = getAttribute(i)) != 0)
-    return first->getAttributeType();
-  else
-    return 0;
+    if ((first = getAttribute(i)) != 0)
+        return first->getAttributeType();
+    else
+        return 0;
 }
 
 
 void *SgStatement::deleteAttribute(int i)
 {
-  SgAttribute *tobedel, *before, *after;
-  void *data = NULL;
-
-  tobedel = getAttribute(i);
-  if (!tobedel) return NULL;
-  
-  if (i > 0)
-    {
-      before = getAttribute(i-1);
-      before->setNext(tobedel->getNext());
-      data = tobedel->getAttributeData();
-#ifdef __SPF   
-      removeFromCollection(tobedel);
+#ifdef __SPF
+    checkConsistence();
 #endif
-      delete tobedel;
-    } else
-      {
-        after = tobedel->getNext();
-        SetMappingInTableForBfndAttribute(thebif,after);
+    SgAttribute *tobedel, *before, *after;
+    void *data = NULL;
+
+    tobedel = getAttribute(i);
+    if (!tobedel) return NULL;
+
+    if (i > 0)
+    {
+        before = getAttribute(i - 1);
+        before->setNext(tobedel->getNext());
         data = tobedel->getAttributeData();
 #ifdef __SPF   
         removeFromCollection(tobedel);
 #endif
         delete tobedel;
-      }
-	
-  return data;
+    }
+    else
+    {
+        after = tobedel->getNext();
+        SetMappingInTableForBfndAttribute(thebif, after);
+        data = tobedel->getAttributeData();
+#ifdef __SPF   
+        removeFromCollection(tobedel);
+#endif
+        delete tobedel;
+    }
+
+    return data;
 }
 
 void SgStatement::addAttribute(int type, void *a, int size)
 {
-  SgAttribute *first, *last;
-  first = GetMappingInTableForBfndAttribute(thebif);
-  if (!first)
-    {
-      first = new SgAttribute(type,a,size, *this, CurrentFileNumber);
-#ifdef __SPF   
-      addToCollection(__LINE__, __FILE__, first, 1);
+#ifdef __SPF
+    checkConsistence();
 #endif
-      SetMappingInTableForBfndAttribute(thebif,first);
-    } else
-      {
+    SgAttribute *first, *last;
+    first = GetMappingInTableForBfndAttribute(thebif);
+    if (!first)
+    {
+        first = new SgAttribute(type, a, size, *this, CurrentFileNumber);
+#ifdef __SPF   
+        addToCollection(__LINE__, __FILE__, first, 1);
+#endif
+        SetMappingInTableForBfndAttribute(thebif, first);
+    }
+    else
+    {
         while (first->getNext())
-          {
+        {
             first = first->getNext();
-          }
-        last = new SgAttribute(type,a,size, *this, CurrentFileNumber);
+        }
+        last = new SgAttribute(type, a, size, *this, CurrentFileNumber);
 #ifdef __SPF   
         addToCollection(__LINE__, __FILE__, last, 1);
 #endif
         first->setNext(last);
-      }
+    }
 }
 
 
@@ -7014,13 +7137,12 @@ void SgStatement::addAttribute(SgAttribute *att)
 
 void SgStatement::addAttribute(int type)
 {
-  addAttribute(type, NULL, 0);
+    addAttribute(type, NULL, 0);
 }
-
 
 void SgStatement::addAttribute(void *a, int size)
 {
-  addAttribute(0, a, size);
+    addAttribute(0, a, size);
 }
 
 

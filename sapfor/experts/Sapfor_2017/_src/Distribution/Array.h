@@ -87,7 +87,7 @@ namespace Distribution
         SET<PAIR<STRING, int>> declPlaces;
 
         //TYPE: 0 - local, 1 - common, 2 - module, 3 - function parameter
-        // PAIR<NAME, TYPE>
+        // PAIR<TYPE, NAME>
         PAIR<arrayLocation, STRING> locationPos;
         VECTOR<VECTOR<PAIR<int, int>>> allShadowSpecs;
 

@@ -1192,3 +1192,4 @@ ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, Co
 void FillCFGSets(ControlFlowGraph*);
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*, DoLoopDataList*);
 AnalysedCallsList* GetCurrentProcedure();
+int SwitchFile(int file_id);

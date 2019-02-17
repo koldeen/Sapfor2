@@ -64,6 +64,7 @@ void processFileToPredict(SgFile *file, PredictorStats &predictorCounts)
             //
             break;
         case DVM_REDISTRIBUTE_DIR:
+        case DVM_REALIGN_DIR:
             predictorCounts.RedistributeCount++;
             break;
         case DVM_REMOTE_ACCESS_DIR:

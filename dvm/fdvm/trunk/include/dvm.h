@@ -839,7 +839,7 @@ SgExpression *CurrentAM();
 SgSymbol *TaskAMVSymbol(SgSymbol *s);
 SgSymbol * CreateRegistrationArraySymbol();
 SgSymbol *Rename(SgSymbol *ar, SgStatement *stmt);
-int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt);
+SgExpression *ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt, int &init);
 int DistrArrayAssign(SgStatement *stmt);
 int AssignDistrArray(SgStatement *stmt);
 SgSymbol *CheckSummaSymbol();
@@ -1791,6 +1791,9 @@ SgExpression *DvmhDerivedRhs(SgExpression *erhs);
 SgStatement *ShadowAdd(SgExpression *templ, int iaxis, SgExpression *derived_rhs, SgExpression *counter_func, SgExpression *filler_func, SgExpression *shadow_name, int nl, SgExpression *array_list);
 SgStatement *CreateDvmArrayHeader_2(SgSymbol *ar, SgExpression *array_header,  int rank,  SgExpression *shape_list);
 SgStatement *ForgetHeader(SgExpression *objref);
+SgExpression *DvmhArraySlice(int rank, SgExpression *slice_list);
+SgStatement *DvmhArrayCopy( SgExpression *array_header_right, int rank_right, SgExpression *slice_list_right, SgExpression *array_header_left, int rank_left, SgExpression *slice_list_left );
+SgStatement *DvmhArrayCopyWhole( SgExpression *array_header_right, SgExpression *array_header_left );
 
 /*  io.cpp      */
 void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);

@@ -17,6 +17,7 @@
 #include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
+#include "acc_analyzer.h"
 
 using std::vector;
 using std::map;
@@ -376,7 +377,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                 }
 
                 if (isWrite)
-                    currInfo.writeToArray.insert(arrayRef);
+                    currInfo.writeToArrays.insert(arrayRef);
+                currInfo.allUsedArrays.insert(arrayRef);
             }
         }
         else
@@ -1226,6 +1228,7 @@ static SgStatement* getStatByLine(string file, const int line, const map<string,
     if (itS == itF->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+    SwitchFile(itS->second->getFileId());
     return itS->second;
 }
 
@@ -1309,6 +1312,7 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
     {
         const int fileN = files.find(loop.first)->second;
         SgFile *currF = &(proj->file(fileN));
+        SwitchFile(fileN);
 
         auto itM = allMessages.find(loop.first);
         if (itM == allMessages.end())
@@ -1320,6 +1324,8 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
     for (int f = 0; f < proj->numberOfFiles(); ++f)
     {
         SgFile *currF = &(proj->file(f));
+        SwitchFile(f);
+
         auto itM = allMessages.find(currF->filename());
         if (itM == allMessages.end())
             itM = allMessages.insert(itM, make_pair(currF->filename(), vector<Messages>()));
@@ -1375,8 +1381,10 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     {
         map<int, SgStatement*> toAdd;
         SgFile *file = &(proj->file(i));
+        SwitchFile(i);
+
         SgStatement *st = file->firstStatement();
-        string currF = file->filename();
+        string currF = file->filename();        
         while (st)
         {
             if (st->lineNumber() != 0 && st->fileName() == currF)
@@ -1856,5 +1864,4 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
     }*/
 }
-
 #undef DEBUG

@@ -9320,7 +9320,7 @@ void CopyToBuffer(int rank,  int ibuf, SgExpression *rme)
       doAssignStmtAfter(& MM1.copy()); 
 
  if((head=HeaderRef(rme->symbol())) != NULL) // NULL if array is not distributed (error)
-   doAssignStmtAfter(ArrayCopy(head, from_init, from_init+i, from_init, DVM000(ibuf), to_init, to_init, to_init, 0));
+    doAssignStmtAfter(ArrayCopy(head, from_init, from_init+i, from_init, DVM000(ibuf), to_init, to_init, to_init, 0));
  if(dvm_debug)
     InsertNewStatementAfter(D_RmBuf(head,GetAddresMem(DVM000(ibuf)),i,from_init),cur_st,cur_st->controlParent());
 
@@ -12236,7 +12236,7 @@ void AsyncCopyWait(SgExpression * asc)
 
 int DistrArrayAssign(SgStatement *stmt)
 {SgExpression *le,*re,*headl,*headr;
- int to_init,rl,from_init,rr,dvm_ind;
+ int to_init,rl,from_init,rr,dvm_ind,left_whole,right_whole;
  SgSymbol *ar;
  SgType *typel,*typer;
   
@@ -12251,9 +12251,11 @@ int DistrArrayAssign(SgStatement *stmt)
      return(0);
    else
  // assignment statement of kind: <dvm_array_section> = <array_section>
-   { if(only_debug)
+   { 
+     if(only_debug)
        return(1);
-     
+     left_whole  = !le->lhs();
+     right_whole = !re->lhs();
      ChangeDistArrayRef(le->lhs());   //replacing dvm-array references in subscript list
      ChangeDistArrayRef(re->lhs());
      LINE_NUMBER_BEFORE(stmt,stmt);
@@ -12263,7 +12265,8 @@ int DistrArrayAssign(SgStatement *stmt)
      rl = Rank(ar);
      typel = ar->type()->baseType();
      headl = HeaderRef(ar);
-     to_init = ArraySection(le,ar,rl,stmt);
+     
+     SgExpression *left_section_list = ArraySection(le,ar,rl,stmt,to_init);
      ar = re->symbol();
      typer = ar->type()->baseType();
      if(!CompareTypes(typel,typer))
@@ -12282,10 +12285,18 @@ int DistrArrayAssign(SgStatement *stmt)
         dvm_ind = HeaderForNonDvmArray(ar,stmt);
         headr = DVM000(dvm_ind); 
      }
-     from_init = ArraySection(re,ar,rr,stmt);  
-     doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));
+     SgExpression *right_section_list  = ArraySection(re,ar,rr,stmt,from_init);  
+     if(INTERFACE_RTS2)
+     {  
+        if(left_whole && right_whole)  // whole-array = whole-array
+           doCallAfter(DvmhArrayCopyWhole(headr,headl));
+        else
+           doCallAfter(DvmhArrayCopy(headr,rr,right_section_list,headl,rl,left_section_list));
+     }
+     else
+        doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));
      if(dvm_ind)
-       doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
+        doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
      SET_DVM(to_init);    
      return(1);
    }
@@ -12293,6 +12304,8 @@ int DistrArrayAssign(SgStatement *stmt)
  // assignment statement of kind: <dvm_array_section> = <scalar_expression>
  if(only_debug)
      return(1);
+ if(INTERFACE_RTS2)
+     err("Illegal array copy statement in -Opl2 regim", 642, stmt);
 
  ChangeDistArrayRef(stmt->expr(0)->lhs());   //replacing dvm-array references in subscript list
  ChangeDistArrayRef(stmt->expr(1));
@@ -12303,8 +12316,8 @@ int DistrArrayAssign(SgStatement *stmt)
  rl = Rank(ar);
  headl = HeaderRef(ar);
  typel = ar->type()->baseType();
- to_init = ArraySection(le,ar,rl,stmt);
- headr = TypeFunction(typel,re,KINDFunction(new SgArrayRefExp(*baseMemory(ar->type()->baseType()))));  
+ headr = TypeFunction(typel,re,KINDFunction(new SgArrayRefExp(*baseMemory(ar->type()->baseType()))));
+ SgExpression *left_section_list  = ArraySection(le,ar,rl,stmt,to_init);  
  doAssignStmtAfter(ArrayCopy(headr, to_init, to_init, to_init, headl, to_init, to_init+rl, to_init+2*rl, -1));
  SET_DVM(to_init);
  return(1);
@@ -12312,7 +12325,7 @@ int DistrArrayAssign(SgStatement *stmt)
 
 int AssignDistrArray(SgStatement *stmt)
 {SgExpression *le,*re,*headl,*headr;
- int to_init,rl,from_init,rr,dvm_ind;
+ int to_init,rl,from_init,rr,dvm_ind,left_whole,right_whole;
  SgSymbol *ar;
  SgType *typel,*typer; 
     re = stmt->expr(1);
@@ -12325,6 +12338,8 @@ int AssignDistrArray(SgStatement *stmt)
  // assignment statement of kind: <array_section> = <dvm_array_section>
     if(only_debug)
        return(1);
+     left_whole  = !le->lhs();
+     right_whole = !re->lhs();
 
      ChangeDistArrayRef(stmt->expr(0)->lhs());   //replacing dvm-array references in subscript list
      ChangeDistArrayRef(stmt->expr(1)->lhs());
@@ -12346,7 +12361,7 @@ int AssignDistrArray(SgStatement *stmt)
    */
      dvm_ind = HeaderForNonDvmArray(ar,stmt);
      headl = DVM000(dvm_ind);
-     to_init = ArraySection(le,ar,rl,stmt);
+     SgExpression *left_section_list  = ArraySection(le,ar,rl,stmt,to_init);
      ar = re->symbol();
      typer = ar->type()->baseType();
      rr = Rank(ar);
@@ -12356,41 +12371,63 @@ int AssignDistrArray(SgStatement *stmt)
      if(!CompareTypes(typel,typer))
         err("Different types of left and right side",620,stmt);
 
-     from_init = ArraySection(re,ar,rr,stmt);
-     doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));   
+     SgExpression *right_section_list  = ArraySection(re,ar,rr,stmt,from_init);
+     if(INTERFACE_RTS2)
+     {  
+        if(left_whole && right_whole)  // whole-array = whole-array
+           doCallAfter(DvmhArrayCopyWhole(headr,headl));
+        else
+           doCallAfter(DvmhArrayCopy(headr,rr,right_section_list,headl,rl,left_section_list));
+     }
+     else
+        doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));   
 
      if(dvm_ind)
-       doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
+        doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
         
      SET_DVM(dvm_ind ? dvm_ind : to_init) ;   //SET_DVM(to_init);
      return(1);
 }
 
-int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt)
-{SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
- int init,i,j;
+SgExpression *ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt, int &init)
+{
+ SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
+ SgExpression *section_list = NULL;
+ int i,j;
  init = ndvm;
  if(!are->lhs()) { //MakeSection(are); // A => A(:,:, ...,:)
-   for(j=rank; j; j--)
-      doAssignStmtAfter(Calculate(new SgValueExp(-1)));
-   ndvm += 2*rank;
-   return(init);
+   if(INTERFACE_RTS2)
+      MakeSection(are);  // A => A(:,:, ...,:)
+   else {
+      for(j=rank; j; j--)
+         doAssignStmtAfter(Calculate(new SgValueExp(-1)));
+      ndvm += 2*rank;
+      return (section_list);//return(init);
+   }
  }
  if(!TestMaxDims(are->lhs(),ar,stmt)) return(0);
  for(el=are->lhs(),i=0; el; el=el->rhs(),i++)    
     Triplet(el->lhs(),ar,i, einit,elast,estep);
  if(i != rank){
     Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,stmt);
-    return(0);
+    //return (0);
  }
- 
- for(j=i; j; j--)
-      doAssignStmtAfter(Calculate(einit[j-1])); 
- for(j=i; j; j--)
-      doAssignStmtAfter(Calculate(elast[j-1])); 
- for(j=i; j; j--)
-      doAssignStmtAfter(estep[j-1]); 
- return(init);
+ if(INTERFACE_RTS2) 
+    for(j=0; j<i; j++) //reversing dimensions for LibDVM
+    {
+       section_list = AddElementToList(section_list, DvmType_Ref(estep[j]));
+       section_list = AddElementToList(section_list, DvmType_Ref(elast[j]));
+       section_list = AddElementToList(section_list, DvmType_Ref(einit[j]));
+    }
+ else {
+    for(j=i; j; j--)
+       doAssignStmtAfter(Calculate(einit[j-1])); 
+    for(j=i; j; j--)
+       doAssignStmtAfter(Calculate(elast[j-1])); 
+    for(j=i; j; j--)
+       doAssignStmtAfter(estep[j-1]);
+ }  
+ return (section_list); //return(init);
 }
 
 void AsynchronousCopy(SgStatement *stmt)
@@ -12480,9 +12517,9 @@ void Triplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit[],SgExpress
 {SgValueExp c1(1),c0(0);
 
   if(e->variant() != DDOT) { //is not triplet
-      einit[i] = &(*e-*Exprn(LowerBound(ar,i)));
+      einit[i] =  INTERFACE_RTS2 ? e : &(*e-*Exprn(LowerBound(ar,i)));
       elast[i] =  einit[i];
-      estep[i] = &c1.copy();
+      estep[i] =  &c1.copy();
       return;
   }
   // is triplet
@@ -12491,15 +12528,15 @@ void Triplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit[],SgExpress
       estep[i] = e->rhs();
       e  = e->lhs();    
   } else
-      estep[i] = &c1.copy();
+      estep[i] =  &c1.copy();
   if (!e->lhs()) 
-      einit[i] =  &c0.copy();
+      einit[i] =  INTERFACE_RTS2 ? ConstRef_F95(-2147483648) : &c0.copy();
   else
-      einit[i] =  &(*(e->lhs())-*Exprn(LowerBound(ar,i)));
+      einit[i] =  INTERFACE_RTS2 ? e->lhs() : &(*(e->lhs())-*Exprn(LowerBound(ar,i)));
   if (!e->rhs())
-      elast[i] =   &(*Exprn(UpperBound(ar,i))-*Exprn(LowerBound(ar,i)));
+      elast[i] =  INTERFACE_RTS2 ? ConstRef_F95(-2147483648) : &(*Exprn(UpperBound(ar,i))-*Exprn(LowerBound(ar,i)));
   else
-      elast[i] =  &(*(e->rhs())-*Exprn(LowerBound(ar,i)));   
+      elast[i] =  INTERFACE_RTS2 ? e->rhs() : &(*(e->rhs())-*Exprn(LowerBound(ar,i)));   
   
  return;
 }

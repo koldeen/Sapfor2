@@ -1628,6 +1628,7 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
 static SgProject* createProject(const char *proj_name)
 {
+    Statement::deactiveConsistentchecker();
     sortFilesBySize(proj_name);
     SgProject *project = new SgProject(proj_name);
     addNumberOfFileToAttribute(project);
@@ -1637,6 +1638,8 @@ static SgProject* createProject(const char *proj_name)
 
     for (int z = 0; z < project->numberOfFiles(); ++z)
         correctModuleProcNames(&(project->file(z)));
+
+    Statement::activeConsistentchecker();
     return project;
 }
 
@@ -1812,7 +1815,7 @@ int main(int argc, char **argv)
         int numVar = 0;
 
         out_free_form = 0; // F90 style out
-        out_upper_case = 1;
+        //out_upper_case = 1;
         bool printText = false;
 
         for (int i = 0; i < argc; ++i)
