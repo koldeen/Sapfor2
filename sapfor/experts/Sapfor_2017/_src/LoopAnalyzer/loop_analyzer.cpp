@@ -681,6 +681,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         break;
                     itLoop->second->hasIndirectAccess = true;
                 }
+                SgSymbol *symb = currExp->symbol();
+                if (symb->type()->variant() == T_ARRAY)
+                    notMappedDistributedArrays[symb->identifier()] = make_pair(symb, currentSt);
             }
             else
             {

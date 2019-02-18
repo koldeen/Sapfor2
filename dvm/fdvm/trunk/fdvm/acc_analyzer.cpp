@@ -3161,11 +3161,14 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         return;
     }
     */
-    if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
+    if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) 
+    {
         int stored_file_id = SwitchFile(c->file_id);
         c->graph->getPrivate(); //all sets actually
+        SgStatement *cp = c->header->controlParent();
         SwitchFile(stored_file_id);
-        if (proc && proc->header->variant() == PROC_HEDR && c->header->controlParent() == proc->header) {
+
+        if (proc && proc->header->variant() == PROC_HEDR && cp == proc->header) {
             VarSet* use_c = new VarSet();
             use_c->unite(c->graph->getUse(), false);
             for (VarItem* exp = use_c->getFirst(); exp != NULL; exp = use_c->getFirst()) {
@@ -3194,7 +3197,9 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
             return;
         }
     }
-    for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) {
+
+    for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) 
+    {
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
         CArrayVarEntryInfo* tp = NULL;
         if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i, &tp))
@@ -3203,6 +3208,7 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i, &tp))
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL, tp);
     }
+
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
         for (CommonVarSet* cu = c->graph->getCommonUse(); cu != NULL; cu = cu->next) {
             CommonVarInfo* v = cu->cvd;

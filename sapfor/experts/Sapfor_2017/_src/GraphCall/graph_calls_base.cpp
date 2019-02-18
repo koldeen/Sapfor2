@@ -296,9 +296,11 @@ string convertToString(const FuncInfo *currFunc)
     string result = "";
     if (currFunc)
     {
-        result += "|" + currFunc->funcName + "|" + to_string(currFunc->linesNum.first) +
+        result += "|" + currFunc->funcName + "|" + to_string(currFunc->linesNum.first) + 
+            " " + to_string(currFunc->linesNum.second) +
             " " + to_string(currFunc->detailCallsFrom.size()) +
-            " " + to_string(currFunc->needToInline) + " " + to_string(currFunc->doNotInline) + " " + to_string(currFunc->doNotAnalyze);
+            " " + to_string(currFunc->needToInline) + " " + to_string(currFunc->doNotInline) + 
+            " " + to_string(currFunc->doNotAnalyze) + " " + to_string((int)currFunc->isMain);
 
         for (int i = 0; i < currFunc->detailCallsFrom.size(); ++i)
             result += "|" + currFunc->detailCallsFrom[i].first + "|" + to_string(currFunc->detailCallsFrom[i].second);

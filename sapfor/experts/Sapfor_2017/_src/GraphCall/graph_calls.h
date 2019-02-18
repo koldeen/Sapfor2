@@ -105,7 +105,8 @@ struct FuncInfo
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
 
-    std::set<DIST::Array*> writeToArray;
+    std::set<DIST::Array*> writeToArrays;
+    std::set<DIST::Array*> allUsedArrays;
 
     bool doNotInline;
     bool doNotAnalyze;

@@ -286,6 +286,8 @@ public:
     ParallelRegion *region;
 
     Statement *loop;
+
+    std::set<DIST::Array*> usedArrays;
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);

@@ -38,22 +38,21 @@ static SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
 {
     SgStatement *result = NULL;
     if (exprs.size() == 3)
-    {
         result = new SgStatement(DVM_PARALLEL_ON_DIR, NULL, NULL, NULL, NULL, NULL);
-        for (int i = 0; i < 3; ++i)
-            if (exprs[i])
-                result->setExpression(i, *exprs[i]);
-    }
     else if (exprs.size() == 4)
-    {
         result = new SgStatement(DVM_REDISTRIBUTE_DIR, NULL, NULL, NULL, NULL, NULL);
-        for (int i = 0; i < 3; ++i)
-            if (exprs[i])
-                result->setExpression(i, *exprs[i]);
-    }
+    else if (exprs.size() == 5)
+        result = new SgStatement(DVM_REALIGN_DIR, NULL, NULL, NULL, NULL, NULL);
+    else if (exprs.size() == 6)
+        result = new SgStatement(DVM_DISTRIBUTE_DIR, NULL, NULL, NULL, NULL, NULL);
+    else if (exprs.size() == 7)
+        result = new SgStatement(HPF_TEMPLATE_STAT, NULL, NULL, NULL, NULL, NULL);
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     
+    for (int i = 0; i < 3; ++i)
+        if (exprs[i])
+            result->setExpression(i, *exprs[i]);
     return result;
 }
 
@@ -143,7 +142,11 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                         for (int i1 = 0; i1 < it->second.size(); ++i1)
                         {
                             SgStatement *dirToInsert = createStatFromExprs((it->second[i1]));
-                            st->insertStmtBefore(*dirToInsert, *(st->controlParent()));
+                            const int varSt = st->variant();
+                            if (varSt == PROC_HEDR || varSt == PROG_HEDR || varSt == FUNC_HEDR || varSt == MODULE_STMT)
+                                st->insertStmtAfter(*dirToInsert, *st);
+                            else
+                                st->insertStmtBefore(*dirToInsert, *(st->controlParent()));
                             if (st->comments())
                             {
                                 char *comms = st->comments();
@@ -967,30 +970,26 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                     }
                 }
 
-                string toInsert = "!DVM$ DYNAMIC ";
-                
+                string toInsert = "!DVM$ DYNAMIC ";                
                 vector<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
-                    if (array->GetLocation().first != 0) // not local
+                    if (extractDir)
                     {
-                        if (extractDir)
+                        if (dynamicArraysAdded.find(array->GetShortName()) != dynamicArraysAdded.end())
                         {
-                            if (dynamicArraysAdded.find(array->GetShortName()) != dynamicArraysAdded.end())
-                            {
-                                dynamicArraysAdded.erase(array->GetShortName());
-                                toInsertArrays.push_back(array->GetShortName());
-                            }
-                        }
-                        else
-                        {
-                            if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
-                            {
-                                dynamicArraysAdded.insert(array->GetShortName());
-                                toInsertArrays.push_back(array->GetShortName());
-                            }
+                            dynamicArraysAdded.erase(array->GetShortName());
+                            toInsertArrays.push_back(array->GetShortName());
                         }
                     }
+                    else
+                    {
+                        if (dynamicArraysAdded.find(array->GetShortName()) == dynamicArraysAdded.end())
+                        {
+                            dynamicArraysAdded.insert(array->GetShortName());
+                            toInsertArrays.push_back(array->GetShortName());
+                        }
+                    }                    
                 }
 
                 int z = 0;

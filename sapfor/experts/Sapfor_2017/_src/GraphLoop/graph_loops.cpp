@@ -380,6 +380,45 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
+static void findArrayRef(SgExpression *exp, set<DIST::Array*> &allUsedArrays)
+{
+    if (exp)
+    {
+        if (exp->variant() == ARRAY_REF)
+        {
+            DIST::Array *arrayRef = NULL;
+            SgSymbol *symbS = OriginalSymbol(exp->symbol());
+            const string symb = symbS->identifier();
+
+            if (symbS)
+                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb);
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            // only distributed arrays were added
+            if (arrayRef)
+                if (arrayRef->GetNonDistributeFlag() == false)
+                    allUsedArrays.insert(arrayRef);
+        }
+        else
+        {
+            findArrayRef(exp->lhs(), allUsedArrays);
+            findArrayRef(exp->rhs(), allUsedArrays);
+        }
+    }
+}
+
+//TODO: add IPO analysis
+static void findArrayRefs(LoopGraph *loop)
+{
+    for (SgStatement *st = loop->loop->lexNext(); st != loop->loop->lastNodeOfStmt(); st = st->lexNext())
+    {
+        if (isSgExecutableStatement(st))
+            for (int z = 0; z < 3; ++z)
+                findArrayRef(st->expr(z), loop->usedArrays);
+    }
+}
+
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
 {
     map<int, SpfInterval*> mapIntervals;
@@ -508,6 +547,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
 
                 newLoop->loop = new Statement(st);
                 newLoop->loopSymbol = st->symbol()->identifier();
+                findArrayRefs(newLoop);
 
                 SgStatement *lexPrev = st->lexPrev();
                 if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)

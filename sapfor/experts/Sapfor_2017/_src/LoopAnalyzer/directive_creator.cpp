@@ -375,6 +375,35 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
         }
     }
         
+    if (conflict)
+    {
+        int countOfBlockToNone = 0;
+        for (int z = 0; z < saveDistr.size(); ++z)
+        {
+            if (saveDistr[z] == false && currDist.second->distRule[z] == dist::BLOCK)
+                countOfBlockToNone++;
+        }
+
+        vector<int> idxCandidates;
+        for (int z = 0; z < currParDir->parallel.size(); ++z)
+        {
+            const string currLetter = currParDir->parallel[z];
+            for (int k = 0; k < currParDir->on.size(); ++k)
+            {
+                if (currParDir->on[k].first == currLetter)
+                {
+                    if (currDist.second->distRule[linkWithTempl[k]] == dist::NONE)
+                        idxCandidates.push_back(linkWithTempl[k]);                    
+                    break;
+                }
+            }
+        }
+
+        if (idxCandidates.size())
+            for (int k = 0; k < std::min(countOfBlockToNone, (int)idxCandidates.size()); ++k)
+                saveDistr[idxCandidates[k]] = true;        
+    }
+
     return !conflict;
 }
 
@@ -453,11 +482,112 @@ static bool ifRuleNull(const DistrVariant *currVar)
     return true;
 }
 
+//create realigns instead of full template redistribution
+static vector<vector<pair<string, vector<Expression*>>>> createRealignRules(LoopGraph *current, const int regId, SgFile *file, const string &templClone)
+{
+    vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
+
+    for (int num = 0; num < 2; ++num)
+    {
+        for (auto &elem : current->usedArrays)
+        {
+            const auto &rules = elem->GetAlignRulesWithTemplate(regId);
+            const auto &links = elem->GetLinksWithTemplate(regId);
+            const auto &templ = elem->GetTemplateArray(regId);
+            checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
+
+            vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
+            SgVarRefExp *ref = new SgVarRefExp(*findSymbolOrCreate(file, elem->GetShortName()));
+
+            realign[0] = new Expression(ref);
+            SgExprListExp *list = new SgExprListExp();
+            string base = "iEX";
+            for (int z = 0; z < elem->GetDimSize(); ++z)
+            {
+                if (z == 0)
+                    list->setLhs(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+                else
+                    list->append(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+            }
+
+            realign[1] = new Expression(list);
+            if (num == 0)
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templClone)));
+            else
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
+
+            vector<SgExpression*> templateRuleEx(templ->GetDimSize());
+            std::fill(templateRuleEx.begin(), templateRuleEx.end(), (SgExpression*)NULL);
+            for (int z = 0; z < elem->GetDimSize(); ++z)
+            {
+                if (links[z] != -1)
+                {
+                    SgExpression *toSet = NULL;
+                    auto symb = new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z)));
+                    if (rules[z] == make_pair(1, 0))
+                        toSet = symb;
+                    else if (rules[z].second == 0)
+                        toSet = &(*new SgValueExp(rules[z].first) * *symb);
+                    else if (rules[z].first == 1)
+                        toSet = &(*symb + *new SgValueExp(rules[z].second));
+                    else
+                        toSet = &(*new SgValueExp(rules[z].first) * *symb + *new SgValueExp(rules[z].second));
+                    templateRuleEx[links[z]] = toSet;
+                }
+            }
+
+            for (int z = 0; z < templateRuleEx.size(); ++z)
+            {
+                SgExpression *toSet = NULL;
+                if (templateRuleEx[z] == NULL)
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "*"));
+                else
+                    toSet = templateRuleEx[z];
+                ((SgArrayRefExp*)realign[2]->GetOriginal())->addSubscript(*toSet);
+
+            }
+
+            optimizedRules[num].push_back(make_pair("", realign));
+        }
+    }
+    return optimizedRules;
+}
+
+static int cloneCount = 0;
+static map<pair<string, string>, map<pair<DIST::Array*, vector<dist>>, string>> templateClones;
+static string createTemplateClone(DIST::Array *templ, const vector<dist> &redistr, SgFile *file, SgStatement *currLoop, bool &needToInsert)
+{
+    string ret = "dvmh_temp_r";
+    needToInsert = false;
+
+    string fileN = file->filename();
+    while (currLoop->variant() != PROC_HEDR && currLoop->variant() != PROG_HEDR && currLoop->variant() != FUNC_HEDR)
+    {
+        currLoop = currLoop->controlParent();
+        checkNull(currLoop, convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    string funcN = currLoop->symbol()->identifier();
+    pair<string, string> key = make_pair(fileN, funcN);
+    auto it = templateClones.find(key);
+    if (it == templateClones.end())
+        it = templateClones.insert(it, make_pair(key, map<pair<DIST::Array*, vector<dist>>, string>()));
+
+    pair<DIST::Array*, vector<dist>> arrayKey = make_pair(templ, redistr);
+    auto itA = it->second.find(arrayKey);
+    if (itA == it->second.end())
+    {
+        itA = it->second.insert(itA, make_pair(arrayKey, ret + std::to_string(cloneCount++)));
+        needToInsert = true;
+    }
+
+    return itA->second;
+}
+
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
-                                  const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
-{    
+                                  ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
+{
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
     
@@ -514,15 +644,69 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         }
         redistSt[0] = new Expression(new SgExpression(EXPR_LIST, ref, NULL, NULL));
         redistSt[1] = new Expression(pointer);
-
-        toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
+        //OLD var - full redistribution
+        /*toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
         toInsert.push_back(make_pair(current->lineNumAfterLoop, make_pair(redist, redistSt)));
-                
         __spf_print(1, "WARN: added redistribute for loop on line %d by array '%s' can significantly reduce performance\n", current->lineNum, distribution[idx].first->GetShortName().c_str());
 
         char buf[512];
         sprintf(buf, "Added redistribute for loop by array '%s' can significantly reduce performance", distribution[idx].first->GetShortName().c_str());
-        messages.push_back(Messages(WARR, current->lineNum, buf, 3009));
+        messages.push_back(Messages(WARR, current->lineNum, buf, 3009));*/
+
+        // New var - realign
+        bool needToInsert = false;
+        const auto redistrRule = redistributeRules[z].second->distRule;
+        string newTemplate = createTemplateClone(distribution[idx].first, redistrRule, file, current->loop->GetOriginal(), needToInsert);
+
+        vector<vector<pair<string, vector<Expression*>>>> toRealign = createRealignRules(current, regionId, file, newTemplate);
+        for (auto &rule : toRealign[0])
+            toInsert.push_back(make_pair(current->lineNum, rule));
+        for (auto &rule : toRealign[1])
+            toInsert.push_back(make_pair(current->lineNumAfterLoop, rule));
+        currParDir->cloneOfTemplate = newTemplate;
+
+        if (needToInsert)
+        {
+            vector<Expression*> cloneDistr(6);
+            vector<Expression*> templCreate(7);
+
+            std::fill(cloneDistr.begin(), cloneDistr.end(), (Expression*)NULL);
+            std::fill(templCreate.begin(), templCreate.end(), (Expression*)NULL);
+
+            SgVarRefExp *clone = new SgVarRefExp(*findSymbolOrCreate(file, newTemplate));
+            SgExprListExp *listDist = new SgExprListExp();
+            for (int z = 0; z < redistrRule.size(); ++z)
+            {
+                SgVarRefExp *toSet;
+                if (redistrRule[z] == BLOCK)
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "BLOCK"));
+                else
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "*"));
+                if (z == 0)
+                    listDist->setLhs(toSet);
+                else
+                    listDist->append(*toSet);
+            }
+            cloneDistr[0] = new Expression(clone);
+            cloneDistr[1] = new Expression(listDist);
+            
+            SgArrayRefExp *cloneWithDims = new SgArrayRefExp(*findSymbolOrCreate(file, newTemplate));
+            for (auto &elem : distribution[idx].first->GetSizes())
+                cloneWithDims->addSubscript(SgDDotOp(*new SgValueExp(elem.first), *new SgValueExp(elem.second)));
+            templCreate[0] = new Expression(cloneWithDims);
+
+            SgStatement *stF = current->loop->GetOriginal();
+            while (stF->variant() != PROC_HEDR && stF->variant() != PROG_HEDR && stF->variant() != FUNC_HEDR)
+            {
+                stF = stF->controlParent();
+                checkNull(stF, convertFileName(__FILE__).c_str(), __LINE__);
+            }
+                        
+            while ((!isSgExecutableStatement(stF->lexNext()) || stF->fileName() != string(file->filename()) || isSPF_stat(stF->lexNext())) && !isDVM_stat(stF->lexNext()))
+                stF = stF->lexNext();            
+            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", templCreate)));
+            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", cloneDistr)));
+        }
     }
     current->setNewRedistributeRules(redistributeRules);
 
@@ -1032,6 +1216,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             {
                 bool topCheck = isOnlyTopPerfect(loop, distribution);
                 ParallelDirective *parDirective = loop->directive;
+                parDirective->cloneOfTemplate = "";
                 /*if (topCheck == false)
                 {  //try to unite loops and recheck
                     bool result = createNestedLoops(loop, depInfoForLoopGraph, messages);

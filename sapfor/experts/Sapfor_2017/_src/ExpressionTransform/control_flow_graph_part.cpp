@@ -120,16 +120,26 @@ bool argIsReplaceable(int i, AnalysedCallsList *callData)
     // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
     if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
         return false;
+
+    int stored = SwitchFile(callData->file_id);
     SgProcHedrStmt *header = isSgProcHedrStmt(callData->header);
+    SgSymbol *currPar = NULL;
+    if (header)
+        currPar = header->parameter(i);
+    SwitchFile(stored);
+
     if (header == NULL)
         return false;
     if (header->parameter(i) == NULL)
         return false;
-    int attr = header->parameter(i)->attributes();
+    
+    int attr = currPar->attributes();
+    bool isArgOut = callData->isArgOut(i, NULL);
+    bool isArgIn = callData->isArgIn(i, NULL);
 
-    if (callData->isArgOut(i, NULL) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+    if ((attr & (OUT_BIT)) || (attr & (INOUT_BIT)) || isArgOut) //argument modified inside procedure
         return false;
-    else if (!(callData->isArgIn(i, NULL) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+    else if (!((attr & (IN_BIT)) || isArgIn)) // no information, assume that argument is "inout"
         return false;
     else
         return true;

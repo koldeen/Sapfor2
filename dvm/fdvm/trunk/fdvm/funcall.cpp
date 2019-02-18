@@ -3381,6 +3381,7 @@ SgExpression *RegistrateLoop_GPU(int irgn,int iplp,int flag_first,int flag_last)
   return(fe);
 }
 */
+//------------------------- Parallel loop --------------------------------------------------
 
 SgExpression *LoopCreate_H(int irgn,int iplp)
 { // generating function call: loop_create(DvmhRegionRef, dvm_loop_ref(InDvmLoop))
@@ -3779,6 +3780,47 @@ SgStatement *UpdateDVMArrayOnHost(SgSymbol *s)
   return(call);
 }
 */
+
+//--------- Array Copy ----------------------------------------------------------------
+
+SgExpression *DvmhArraySlice(int rank, SgExpression *slice_list)
+{
+ // generating function call: 
+ //        DvmType dvmh_array_slice_C(DvmType rank, /* DvmType start, DvmType end, DvmType step */...)
+
+  SgFunctionCallExp *fe = new SgFunctionCallExp(*fdvm[ARRAY_SLICE]);
+  fmask[ARRAY_SLICE] = 1;
+  fe->addArg(*ConstRef_F95(rank));
+  AddListToList(fe->lhs(), slice_list); //fe->lhs()->setRhs(slice_list); 
+  return(fe);
+}
+
+SgStatement *DvmhArrayCopy( SgExpression *array_header_right, int rank_right, SgExpression *slice_list_right, SgExpression *array_header_left, int rank_left, SgExpression *slice_list_left )
+{
+ // generating subroutine call: 
+ // dvmh_array_copy (const DvmType srcDvmDesc[], DvmType *pSrcSliceHelper, DvmType dstDvmDesc[], DvmType *pDstSliceHelper)
+  
+  SgCallStmt *call = new SgCallStmt(*fdvm[COPY_ARRAY]);
+  fmask[COPY_ARRAY] = 2;
+  call->addArg(*array_header_right);
+  call->addArg(*DvmhArraySlice(rank_right, slice_list_right));
+  call->addArg(*array_header_left);
+  call->addArg(*DvmhArraySlice(rank_left,  slice_list_left));
+  return(call);
+}
+
+SgStatement *DvmhArrayCopyWhole( SgExpression *array_header_right, SgExpression *array_header_left )
+{
+ // generating subroutine call: 
+ //                      dvmh_array_copy_whole(const DvmType srcDvmDesc[], DvmType dstDvmDesc[])
+  
+  SgCallStmt *call = new SgCallStmt(*fdvm[COPY_WHOLE]);
+  fmask[COPY_WHOLE] = 2;
+  call->addArg(*array_header_right);
+  call->addArg(*array_header_left);
+  return(call);
+}
+
 // -------- Distributed array creation ------------------------------------------------
 
 SgStatement *DvmhArrayCreate(SgSymbol *das, SgExpression *array_header, int rank, SgExpression *arglist)
