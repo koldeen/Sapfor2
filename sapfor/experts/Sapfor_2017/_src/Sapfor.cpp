@@ -1272,8 +1272,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         for (auto array : declaratedArrays)
         {
-            if (array.second.first->GetRgionsName().size() == 0)
+            if (array.second.first->GetRegionsName().size() == 0)
                 array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+            else if (array.second.first->GetRegionsName().size() == 1)
+            {
+                string test = *array.second.first->GetRegionsName().begin();
+                convertToLower(test);
+                if (test == "default" && parallelRegions.size() > 1)
+                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+            }
         }
     }
     else if (curr_regime == GCOV_PARSER)

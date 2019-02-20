@@ -439,7 +439,7 @@ namespace Distribution
 
         const STRING& GetArrayUniqKey() const { return uniqKey; }
 
-        const SET<STRING>& GetRgionsName() const { return containsInRegions; }
+        const SET<STRING>& GetRegionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
 
         void SetMappedDim(const int dim)
