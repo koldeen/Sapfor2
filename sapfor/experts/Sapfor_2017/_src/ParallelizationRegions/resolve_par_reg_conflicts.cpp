@@ -1401,15 +1401,6 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);
 
-    map<DIST::Array*, set<ParallelRegion*>> regionsByLocalArray;
-    for (auto &region : regions)
-    {
-        auto localArrays = region->GetUsedLocalArrays();
-        for (auto &funcArrays : localArrays)
-            for (auto &arrLines : funcArrays.second)
-                regionsByLocalArray[arrLines.first].insert(region);
-    }
-
     for (auto &region : regions)
     {
         __spf_print(1, "[%s]: create local arrays\n", region->GetName().c_str()); // DEBUG
@@ -1419,11 +1410,7 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
         {
             for (auto &arrayLines : funcArrays.second)
             {
-                auto arrayRegions = regionsByLocalArray.find(arrayLines.first);
-                if (arrayRegions == regionsByLocalArray.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (arrayRegions->second.size() > 1)
+                if (arrayLines.first->GetRegionsName().size() > 1)
                 {
                     auto place = *arrayLines.first->GetDeclInfo().begin();
                     auto origCopy = copyArray(place, arrayLines.first, string("_l") + to_string(region->GetId()));

@@ -375,5 +375,6 @@ private:
 };
 
 ParallelRegion* getRegionById(const std::vector<ParallelRegion*> &regions, const int regionId);
+ParallelRegion* getRegionByName(const std::vector<ParallelRegion*> &regions, const std::string &regionName);
 ParallelRegion* getRegionByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);
 std::set<ParallelRegion*> getAllRegionsByLine(const std::vector<ParallelRegion*> &regions, const std::string &file, const int line);

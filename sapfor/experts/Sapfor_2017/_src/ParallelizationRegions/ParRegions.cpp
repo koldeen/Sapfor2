@@ -335,6 +335,19 @@ ParallelRegion* getRegionById(const vector<ParallelRegion*> &regions, const int 
     return NULL;
 }
 
+ParallelRegion* getRegionByName(const vector<ParallelRegion*> &regions, const string &regionName)
+{
+    string test = regionName;
+    convertToLower(test);
+
+    for (auto &region : regions)
+        if (region->GetName() == test)
+            return region;
+
+    return NULL;
+}
+
+
 ParallelRegion* getRegionByLine(const vector<ParallelRegion*> &regions, const string &file, const int line)
 {
     if (regions.size() == 1 && regions[0]->GetName() == "DEFAULT") // only default
