@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <algorithm>
 
 #define maxVars 50
 #define maxGEQs 150
@@ -175,8 +176,10 @@ static void eqnncpy(_eqn *dst, const _eqn *src, const int s)
     dst->key = src->key;
     dst->touched = src->touched;
     dst->coef.resize(s + 2);
-    for (int z = 0; z < s + 2; ++z)
+    for (int z = 0; z < src->coef.size(); ++z)
         dst->coef[z] = src->coef[z];
+    for (int z = src->coef.size(); z < s + 2; ++z)
+        dst->coef[z] = 0;
 }
 
 #define eqncpy(e1,e2) eqnncpy(e1, e2, nVars)

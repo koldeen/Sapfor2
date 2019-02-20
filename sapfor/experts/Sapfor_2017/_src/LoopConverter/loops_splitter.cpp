@@ -266,12 +266,24 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     //Граф с зависимостями
     const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
-    if(!lowestParentGraph->hasLimitsToParallel())
+    if (lowestParentGraph->hasLimitsToParallel())
+    {
+        messages.push_back(Messages(ERROR, loopGraph->lineNum,
+                            "This loop has limits to parallel (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")",
+                            2010));
+        __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
+    }
     //Коллекция с выражениями, которые проходили unparse
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
+    {
+        messages.push_back(Messages(ERROR, loopGraph->lineNum, 
+                           "This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")", 
+                           2010));
+        __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
+    }
     while (setupSplitBorders(lowestParentGraph, loopNums, borders, lowestParentDepGraph, collection) && borders.size() > 0)
         moveStatements(createNewLoop(loopGraph), borders);
 

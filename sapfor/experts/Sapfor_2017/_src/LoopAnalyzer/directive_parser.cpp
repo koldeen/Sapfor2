@@ -314,6 +314,9 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
             else if (type == DVM_PARALLEL_ON_DIR)
                 exprList = st->expr(1);            
 
+            if (exprList)
+                exprList->unparsestdout();
+
             while (exprList)
             {
                 if (exprList->lhs()->variant() == REMOTE_ACCESS_OP || type == DVM_REMOTE_ACCESS_DIR)
@@ -328,12 +331,22 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
                     {
                         fillType arrayName, *dummy = NULL;
                         arrayName = getData(list->lhs(), dummy);
+                        
+                        char *str;
+                        if (list->lhs()->lhs())
+                            str = list->lhs()->lhs()->unparse();
+                        else
+                            str = "";
 
-                        const char *str = list->lhs()->lhs()->unparse();
                         if (isFull)
                             remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs())));
                         else
-                            remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs()->lhs())));
+                        {
+                            if (list->lhs()->lhs())
+                                remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs()->lhs())));
+                            else
+                                remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(new SgExprListExp())));
+                        }
                         list = list->rhs();
                     }
                 }

@@ -453,11 +453,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = NULL;
-
+                        
             //clear shadow specs
-            for (auto &array : declaratedArrays)
-                array.second.first->ClearShadowSpecs();
-            
+            if (extract)
+            {
+                for (auto &array : declaratedArrays)
+                    array.second.first->ClearShadowSpecs();
+            }
+
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
@@ -955,6 +958,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateFuncInfo("_funcInfo.txt", allFuncInfo);
             saveIntervals("_intervals_united.txt", intervals);
         }
+        updateLoopIoAndStopsByFuncCalls(loopGraph, allFuncInfo);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1262,6 +1266,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
+
+
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
@@ -1414,8 +1420,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         for (auto array : declaratedArrays)
         {
-            if (array.second.first->GetRgionsName().size() == 0)
+            if (array.second.first->GetRegionsName().size() == 0)
                 array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+            else if (array.second.first->GetRegionsName().size() == 1)
+            {
+                string test = *array.second.first->GetRegionsName().begin();
+                convertToLower(test);
+                if (test == "default" && parallelRegions.size() > 1)
+                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+            }
         }
     }
     else if (curr_regime == GCOV_PARSER)

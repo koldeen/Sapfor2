@@ -947,6 +947,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
         if (firstExec)
             controlParFristExec = firstExec->controlParent();
 
+        vector<SgStatement*> toDel;
         for (; st != lastNode; st = st->lexNext())
         {
             if (st->variant() == CONTAINS_STMT)
@@ -961,6 +962,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     if (completeInit)
                     {
                         SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                        toAdd->setFileId(controlParFristExec->getFileId());
+                        toAdd->setProject(controlParFristExec->getProject());
+                        
                         firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
 
                         toMove.push_back(make_pair(st, toAdd));
@@ -974,9 +978,11 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             if (st->variant() == ASSIGN_STAT)
             {
                 vector<SgStatement*> conv;
-
+                
                 if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                {
                     conv = convertFromSumToLoop(st, file, messagesForFile);
+                }
                 else
                 {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
@@ -992,13 +998,16 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
                 if (conv.size() != 0)
                 {
+                    auto currFile = st->getFileId();
+                    auto currProj = st->getProject();
+
                     st->insertStmtBefore(*(conv[0]), *st->controlParent());
                     for (int i = 1; i < conv.size(); ++i)
-                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1]));
+                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1])->controlParent());                    
 
                     //TODO: need to check
                     if (conv.size() == 1)
-                        toMove.push_back(make_pair(st, conv[0]));
+                        toMove.push_back(make_pair(st, conv[0]));                    
 
                     for (int i = 0; i < conv.size(); ++i)
                     {
@@ -1009,22 +1018,39 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                             {
                                 st1->setlineNumber(getNextNegativeLineNumber());
                                 st1->setLocalLineNumber(st->lineNumber());
+                                st1->setFileId(currFile);
+                                st1->setProject(currProj);
                             }
                             end->setlineNumber(getNextNegativeLineNumber());
                             end->setLocalLineNumber(st->lineNumber());
+                            end->setFileId(currFile);
+                            end->setProject(currProj);
                         }
                         else
                         {
                             conv[i]->setlineNumber(getNextNegativeLineNumber());
                             conv[i]->setLocalLineNumber(st->lineNumber());
+                            conv[i]->setFileId(currFile);
+                            conv[i]->setProject(currProj);
                         }
                     }
+
+                    if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                        toDel.push_back(st);
                 }
             }
         }
 
         for (auto &move : toMove)
+        {
             move.first->addAttribute(ASSIGN_STAT, move.second, sizeof(SgStatement*));
+            char *comments = move.first->comments();
+            if (comments)
+                move.second->setComments(comments);
+        }
+
+        for (auto &del : toDel)
+            del->deleteStmt();
     }
 }
 
@@ -1118,9 +1144,23 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
 
                         data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
 
-                        for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())                        
-                            if (st_loc->variant() == FOR_NODE)
-                                newDeclarations.insert(st_loc->symbol());
+                        if (data->variant() == FOR_NODE)
+                        {
+                            for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                if (st_loc->variant() == FOR_NODE)
+                                    newDeclarations.insert(st_loc->symbol());
+                        }
+                        else if (data->variant() == ASSIGN_STAT)
+                        {
+                            data->unparsestdout();
+                            data->lexNext()->unparsestdout();
+                            if (data->lexNext()->variant() == FOR_NODE)
+                            {
+                                for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                    if (st_loc->variant() == FOR_NODE)
+                                        newDeclarations.insert(st_loc->symbol());
+                            }
+                        }
                     }
                 }
             }

@@ -651,6 +651,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         findContainsFunctions(st, containsFunctions);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+        hasThisIds(st, currInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
+        hasThisIds(st, currInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
         currInfo->isMain = (st->variant() == PROG_HEDR);
 
         for(auto &item : commonBlocks)
@@ -782,6 +784,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             {
                 string entryName = st->symbol()->identifier();
                 FuncInfo *entryInfo = new FuncInfo(entryName, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+                hasThisIds(st, entryInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
+                hasThisIds(st, entryInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
+
                 if (!dontFillFuncParam)
                     fillFuncParams(entryInfo, commonBlocks, st);
 

@@ -4325,8 +4325,11 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh);  // or 2
       SgExpression *array_header = HeaderRef(das);
       das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-      if(!DEFERRED_SHAPE_TEMPLATE(das))
+      if(!DEFERRED_SHAPE_TEMPLATE(das)) {
          doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
+         if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
+            doCallStmt(ScopeInsert(array_header));
+      }
  }      
   else
  {
@@ -4334,7 +4337,9 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh); 
       SgExpression *array_header = HeaderRef(das);
       SgExpression *shadow_list = DeclaredShadowWidths(das);
-      doCallStmt(DvmhArrayCreate(das,array_header,rank,ListUnion(shape_list,shadow_list)));        
+      doCallStmt(DvmhArrayCreate(das,array_header,rank,ListUnion(shape_list,shadow_list)));
+      if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
+         doCallStmt(ScopeInsert(array_header));        
   }
 }
 
@@ -4409,7 +4414,7 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
   if(ndis && rank && rank != ndis)
       Error ("Rank of  array %s  is not equal to the length of the dist_format_list", das->identifier(), 110,stdis);
 
-  if((ia & SAVE_BIT) || saveall )
+  if((ia & SAVE_BIT) || saveall || IN_MODULE)
      sign = 1;
   else
      sign = 0; 
@@ -4897,6 +4902,8 @@ void    GenAlignArray(align *node, align *root, int nr, SgExpression *align_rule
   if(INTERFACE_RTS2) { //interface of RTS2
 
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(doDvmShapeList(als,node->align_stmt),DeclaredShadowWidths(als))));
+    if(!HAS_SAVE_ATTR(als) && !IN_MODULE) 
+      doCallStmt(ScopeInsert(array_header));
     if(!(ia & POSTPONE_BIT) && align_rule_list)
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
     where = savest;
@@ -4907,7 +4914,7 @@ void    GenAlignArray(align *node, align *root, int nr, SgExpression *align_rule
   size_array = doSizeArray(als, node->align_stmt );
   ileft = ndvm;
   iright= BoundSizeArrays(als);
-  if((ia & SAVE_BIT) || saveall)
+  if((ia & SAVE_BIT) || saveall || IN_MODULE)
      sign = 1;
   else
      sign = 0;  
@@ -5374,15 +5381,16 @@ void   ALLOCATEf90DistArray(SgSymbol *p, SgExpression *desc, SgStatement *stdis,
   if(idisars == -1) //interface of RTS2
   {
     SgExpression *shadow_list = DeclaredShadowWidths(p);
-    doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,shadow_list)));            
+    doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,shadow_list)));
+    //doCallStmt(ScopeInsert(array_header));            
     if(!(ia & POSTPONE_BIT))  //distr_rule_list!=NULL
       doCallStmt(DvmhDistribute(p,rank,distr_rule_list)); // distribute dvm-array 
     SET_DVM(ifst);
     return;   
   } 
 
- // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
- //CrtAMV creates current Abstract_Machine view  
+ // dvm000(i) = crtamv(AMRef, rank, SizeArray, StaticSign)
+ // crtamv function creates current Abstract_Machine view  
   if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT))
     sign = 1;
   else
@@ -5458,7 +5466,8 @@ void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpress
   size_array = doSizeAllocArray(p,desc,stmt,(INTERFACE_RTS2 ? RTS2:RTS1)); 
   if( INTERFACE_RTS2 ) // interface of RTS2
   {
-      doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(p))));            
+      doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(p)))); 
+      //doCallStmt(ScopeInsert(array_header));           
       return;    
   }
                        //interface of RTS1
@@ -5644,6 +5653,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
     else if(!IS_POINTER(als))
       size_array = doDvmShapeList(als,node->align_stmt);  
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(als))));
+    //doCallStmt(ScopeInsert(array_header));
     align_rule_list = root ? doAlignRules(node->symb,node->align_stmt,0,nr) : NULL;
     if( root && align_rule_list)     //!(ia & POSTPONE_BIT) 
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
@@ -5829,7 +5839,10 @@ void Template_Create(SgStatement *stmt)
          SgExpression *size_array = doSizeAllocArray(s, el->lhs(), stmt, (INTERFACE_RTS2 ? RTS2 : RTS1));
          cur_st = stmt;
          if(INTERFACE_RTS2)
+         {
             doCallAfter(DvmhTemplateCreate(s,HeaderRef(s),rank,size_array));
+            //doCallAfter(ScopeInsert(HeaderRef(s)));
+         }
          else
          {
             doAssignTo_After(DVM000(INDEX(s)),CreateAMView(size_array, rank, 1));

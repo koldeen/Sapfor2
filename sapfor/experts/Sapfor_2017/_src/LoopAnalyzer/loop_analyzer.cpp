@@ -2442,6 +2442,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             vector<string> regNames;
             for (auto &reg : currRegs)
                 regNames.push_back(reg->GetName());
+            if (regNames.size() == 0)
+                regNames.push_back("default");
 
             //TODO: need to add IPO analysis for R/WR state for calls and functions
             //TODO: improve WR analysis

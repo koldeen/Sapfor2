@@ -108,6 +108,9 @@ struct FuncInfo
     std::set<DIST::Array*> writeToArrays;
     std::set<DIST::Array*> allUsedArrays;
 
+    std::vector<int> linesOfIO;
+    std::vector<int> linesOfStop;
+
     bool doNotInline;
     bool doNotAnalyze;
     bool needToInline;

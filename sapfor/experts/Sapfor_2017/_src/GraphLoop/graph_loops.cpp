@@ -225,7 +225,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
     return has;
 }
 
-static inline bool hasThisIds(SgStatement *loop, vector<int> &lines, const set<int> &IDs)
+bool hasThisIds(SgStatement *loop, vector<int> &lines, const set<int> &IDs)
 {
     bool has = false;
     SgStatement *end = loop->lastNodeOfStmt();
@@ -234,6 +234,9 @@ static inline bool hasThisIds(SgStatement *loop, vector<int> &lines, const set<i
     while (curr != end)
     {
         const int var = curr->variant();
+        if (var == CONTAINS_STMT || var == ENTRY_STAT)
+            break;
+
         if (IDs.find(var) != IDs.end())
         {
             has = true;
@@ -581,7 +584,8 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
             else if (currLoop && (st->variant() == PROC_STAT || st->variant() == FUNC_STAT))
             {
                 string pureNameOfCallFunc = removeString("call", st->symbol()->identifier());
-                currLoop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
+                for (auto &loop : parentLoops)
+                    loop->calls.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
             }
             else if (currLoop)
             {
@@ -589,8 +593,10 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 {
                     set<string> funcCalls;
                     findFuncCalls(st->expr(i), funcCalls);
-                    for (auto k = funcCalls.begin(); k != funcCalls.end(); ++k)
-                        currLoop->calls.push_back(make_pair(*k, st->lineNumber()));
+
+                    for (auto &loop : parentLoops)
+                        for (auto k = funcCalls.begin(); k != funcCalls.end(); ++k)
+                            loop->calls.push_back(make_pair(*k, st->lineNumber()));
                 }
             }
             st = st->lexNext();

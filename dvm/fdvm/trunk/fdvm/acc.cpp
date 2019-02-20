@@ -6313,6 +6313,14 @@ int fromModule(SgExpression *e)
    return 0;
 }
 
+int fromUsesList(SgExpression *e)
+{
+   if(!e) return 1;
+   SgSymbol *s = e->symbol();
+   if(s && !isInUsesList(s)) return 0;
+   return fromUsesList(e->lhs()) && fromUsesList(e->rhs());
+}
+
 SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
 {
     SgSymbol *soff;
@@ -6325,7 +6333,7 @@ SgSymbol *ArraySymbolInHostHandler(SgSymbol *ar, SgStatement *scope)
     for (i = 0; i < rank; i++)
     {
         edim = ((SgArrayType *)(ar->type()))->sizeInDim(i);
-        if( !fromModule(edim) )
+        if( !fromUsesList(edim) && !fromModule(edim) )
            edim = CalculateArrayBound(edim, ar, 1); 
         ((SgArrayType *)(soff->type()))->addRange(edim->copy());
     }

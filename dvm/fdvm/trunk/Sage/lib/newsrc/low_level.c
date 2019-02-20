@@ -1240,10 +1240,26 @@ int isBlankString(char *str)
 
 }
 
+/* this function converts a letter to uppercase except char strings (text inside quotes) */
+char to_upper_case (char c, int *quote)
+{ 
+    if(c == '\'' || c == '\"')
+    {
+       if(*quote == c)
+          *quote = 0;
+       else if(*quote==0)
+          *quote = c;
+       return c;
+    }
+    if(islower(c) && *quote==0)
+       return toupper(c);
+    return c;        
+}
+
 char* filter(char *s)
 {
     char c;
-    int i = 1;
+    int i = 1, quote = 0;
 
     // 14.10.2016 Kolganov. Switch constant buffer to dynamic
     int temp_size = 1024;
@@ -1316,7 +1332,7 @@ char* filter(char *s)
     while (c != '\0')
     {
         c = s[i];
-        temp[buf_i] = out_upper_case && (!commentline || DVM || SPF || OMP) && islower(c) ? toupper(c) : c;
+        temp[buf_i] = out_upper_case && (!commentline || DVM || SPF || OMP) ? to_upper_case(c,&quote) : c;
         if (c == '\n')
         {
             if (buf_i + 1 > temp_size)
