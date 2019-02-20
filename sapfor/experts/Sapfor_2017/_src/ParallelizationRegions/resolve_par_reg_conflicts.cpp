@@ -1220,46 +1220,44 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
         }
 
         // check local arrays
-        map<DIST::Array*, set<ParallelRegion*>> regionsByArray;
         for (auto &reg : regions)
         {
-            auto localArrays = reg->GetUsedLocalArrays();
-            for (auto &funcArrays : localArrays)
-                for (auto &arrLines : funcArrays.second)
-                    regionsByArray[arrLines.first].insert(reg);
-        }
-
-        for (auto &regsByArr : regionsByArray)
-        {
-            if (regsByArr.second.size() > 1)
+            for (auto &funcArrays : reg->GetUsedLocalArrays())
             {
-                string regions = "";
-                for (auto &reg : regsByArr.second)
-                    regions += "'" + reg->GetName() + "' ";
-                __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
-
-                string message;
-                __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), regsByArr.first->GetShortName().c_str());
-
-                auto lines = (*regsByArr.second.begin())->GetAllLines();
-                bool ok = false;
-                for (auto &linePair : lines)
+                for (auto &arrayLines : funcArrays.second)
                 {
-                    for (auto &line : linePair.second)
+                    auto regsByArr = arrayLines.first->GetRegionsName();
+                    if (regsByArr.size() > 1)
                     {
-                        if (line.stats.first && line.stats.second)
+                        string regions = "";
+                        for (auto &reg : regsByArr)
+                            regions += "'" + reg + "' ";
+                        __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), arrayLines.first->GetShortName().c_str());
+
+                        string message;
+                        __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), arrayLines.first->GetShortName().c_str());
+
+                        auto lines = reg->GetAllLines();
+                        bool ok = false;
+                        for (auto &linePair : lines)
                         {
-                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
-                            error = true;
-                            ok = true;
-                            break;
+                            for (auto &line : linePair.second)
+                            {
+                                if (line.stats.first && line.stats.second)
+                                {
+                                    getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
+                                    error = true;
+                                    ok = true;
+                                    break;
+                                }
+                            }
+                            if (ok)
+                                break;
                         }
+                        if (ok == false)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
-                    if (ok)
-                        break;
                 }
-                if (ok == false)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
 
