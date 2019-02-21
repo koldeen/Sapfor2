@@ -5666,6 +5666,12 @@ PTR_BFND LibWhereIsSymbDeclare(symb)
   
   for (temp = scopeof; temp ; temp=BIF_NEXT(temp))
     {
+#if __SPF
+      //SKIP SPF dirs
+      //for details see dvm_tag.h
+      if (scopeof->variant >= 950 && scopeof->variant <= 958)
+          continue;
+#endif
       if (LibIsSymbolInExpression(BIF_LL1(temp), symb))
         return temp;
       if (LibIsSymbolInExpression(BIF_LL2(temp), symb))

@@ -643,7 +643,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             if (start->variant() == VAR_DECL ||
                 start->variant() == VAR_DECL_90 ||
                 start->variant() == ALLOCATABLE_STMT ||
-                start->variant() == DIM_STAT)
+                start->variant() == DIM_STAT || 
+                start->variant() == COMM_STAT)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -694,6 +695,10 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
 
         for (int i = 0; i < inDecl.size(); ++i)
             if (inDecl[i]->variant() == DIM_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == COMM_STAT)
                 return inDecl[i];
 
         for (int i = 0; i < inDecl.size(); ++i)
