@@ -2255,7 +2255,6 @@ static void findArrayRefs(SgExpression *ex,
 
                 if (!isExecutable)
                     itNew->second.first->AddDeclInfo(make_pair(declSt->fileName(), declSt->lineNumber()));
-                itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
                 
                 if (isExecutable)
                     itNew->second.second->AddAccessInfo(make_pair(declSt->lineNumber(), isWrite ? 1 : 0), declSt->fileName());
@@ -2438,19 +2437,22 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
-            vector<string> regNames;
-            for (auto &reg : currRegs)
-                regNames.push_back(reg->GetName());
-            if (regNames.size() == 0)
-                regNames.push_back("default");
+            if (!isSPF_stat(st))
+            {
+                set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                vector<string> regNames;
+                for (auto &reg : currRegs)
+                    regNames.push_back(reg->GetName());
+                if (regNames.size() == 0)
+                    regNames.push_back("default");
 
-            //TODO: need to add IPO analysis for R/WR state for calls and functions
-            //TODO: improve WR analysis
-            for (int i = 0; i < 3; ++i)
-                findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
-                              isSgExecutableStatement(st) ? true : false, st, currFunctionName,
-                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                //TODO: need to add IPO analysis for R/WR state for calls and functions
+                //TODO: improve WR analysis
+                for (int i = 0; i < 3; ++i)
+                    findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                  isSgExecutableStatement(st) ? true : false, st, currFunctionName,
+                                  (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+            }
             st = st->lexNext();
         }
     }
