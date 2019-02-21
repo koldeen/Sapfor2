@@ -406,10 +406,10 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                                 {
                                     start = st;
 
-                                    start->unparsestdout(); // DEBUG
-                                    end->unparsestdout(); // DEBUG
-                                    __spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
-                                    for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
+                                    //start->unparsestdout(); // DEBUG
+                                    //end->unparsestdout(); // DEBUG
+                                    //__spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
+                                    //for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
 
                                     Statement *intervalStart = new Statement(start);
                                     Statement *intervalEnd = new Statement(end);
@@ -432,10 +432,10 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                                 {
                                     end = st;
 
-                                    start->unparsestdout(); // DEBUG
-                                    end->unparsestdout(); // DEBUG
-                                    __spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
-                                    for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
+                                    //start->unparsestdout(); // DEBUG
+                                    //end->unparsestdout(); // DEBUG
+                                    //__spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
+                                    //for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
 
                                     Statement *intervalStart = new Statement(start);
                                     Statement *intervalEnd = new Statement(end);
