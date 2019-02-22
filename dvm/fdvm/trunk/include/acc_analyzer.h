@@ -786,22 +786,22 @@ class CBasicBlock
     std::string visunparse;
 #ifdef __SPF
     bool varIsPointer(SgSymbol* symbol);
-    void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right);
-    void processPointerAssignment(SgSymbol *symbol, SgExpression *right);
+    void processAssignThroughPointer(SgSymbol *symbol, SgExpression *right, SgStatement *st);
+    void processPointerAssignment(SgSymbol *symbol, SgExpression *right, SgStatement *st);
     void processReadStat(SgStatement* readSt);
     std::map <SymbolKey, std::set<SgExpression*>> gen_p;
     std::set <SymbolKey> kill_p;
     std::map <SymbolKey, std::set<ExpressionValue*>> in_defs_p;
     std::map <SymbolKey, std::set<ExpressionValue*>> out_defs_p;
 
-    std::map <SymbolKey, SgExpression*> gen;
+    std::map <SymbolKey, ExpressionValue*> gen;
     std::set <SymbolKey> kill;
     std::map <SymbolKey, std::set<ExpressionValue*>> in_defs;
     std::map <SymbolKey, std::set<ExpressionValue*>> out_defs;
 
-    std::set <SgExpression*> e_gen;
-    std::set <SgExpression*> e_in;
-    std::set <SgExpression*> e_out;
+    std::set <ExpressionValue*> e_gen;
+    std::set <ExpressionValue*> e_in;
+    std::set <ExpressionValue*> e_out;
 #endif
 
 public:
@@ -880,9 +880,9 @@ public:
     AnalysedCallsList* getProc() { return proc; }
     void clearGenKill() { gen.clear(); kill.clear(); e_gen.clear(); }
     void clearGenKillPointers() { gen_p.clear(); kill_p.clear(); }
-    void clearDefs() { in_defs.clear(); out_defs.clear(); }
+    void clearDefs() { in_defs.clear(); out_defs.clear(); e_in.clear(); e_out.clear(); }
     void clearDefsPointers() { in_defs_p.clear(); out_defs_p.clear(); }
-    void addVarToGen(SymbolKey var, SgExpression* value);
+    void addVarToGen(SymbolKey var, SgExpression* value, SgStatement *defSt);
     void addVarToKill(const SymbolKey &key);
     void checkFuncAndProcCalls(ControlFlowItem* cfi);
     void adjustGenAndKill(ControlFlowItem* cfi);
@@ -890,9 +890,10 @@ public:
     std::set<SymbolKey>* getOutVars();
     void correctInDefsSimple();
     bool correctInDefsIterative();
+    bool expressionIsAvailable(ExpressionValue* expValue);
     const std::map<SymbolKey, std::set<SgExpression*>> getReachedDefinitions(SgStatement* stmt);
     void initializeOut();
-    void initializeEOut(std::set<SgExpression*>& allEDefs);
+    void initializeEOut(std::set<ExpressionValue*>& allEDefs);
     bool updateEDefs();
 
     inline std::map<SymbolKey, std::set<SgExpression*>>* getGenP() { return &gen_p; }
@@ -901,15 +902,15 @@ public:
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getInDefsP() { return &in_defs_p; }
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getOutDefsP() { return &out_defs_p; }
 
-    inline std::map<SymbolKey, SgExpression*>* getGen() { return &gen; }
+    inline std::map<SymbolKey, ExpressionValue*>* getGen() { return &gen; }
     inline std::set<SymbolKey>* getKill() { return &kill; }
     inline void setInDefs(std::map<SymbolKey, std::set<ExpressionValue*>>* inDefs) { in_defs = *inDefs; }
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getInDefs() { return &in_defs; }
     inline std::map<SymbolKey, std::set<ExpressionValue*>>* getOutDefs() { return &out_defs; }
 
-    inline std::set<SgExpression*>* getEGen() { return &e_gen; }
-    inline std::set<SgExpression*>* getEIn() { return &e_in; }
-    inline std::set<SgExpression*>* getEOut() { return &e_out; }
+    inline std::set<ExpressionValue*>* getEGen() { return &e_gen; }
+    inline std::set<ExpressionValue*>* getEIn() { return &e_in; }
+    inline std::set<ExpressionValue*>* getEOut() { return &e_out; }
 
 #endif
 };

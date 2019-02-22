@@ -98,7 +98,7 @@ static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
     return ret;
 }
 
-static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList)
+static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList, bool includeWrite = true)
 {
     if (curr->variant() == GOTO_NODE)
     {
@@ -115,7 +115,7 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
         SgExpression *lb = ((SgComputedGotoStmt*)curr)->labelList();
         insertLabels(lb, labelsList, curr->lineNumber());
     }
-    else if (curr->variant() == PRINT_STAT)
+    else if (curr->variant() == PRINT_STAT && includeWrite)
     {
         SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
         SgExpression *spec = ioStat->specList();
@@ -132,7 +132,7 @@ static inline void processLables(SgStatement *curr, map<int, vector<int>> &label
             }
         }
     }
-    else if (curr->variant() == WRITE_STAT)
+    else if (curr->variant() == WRITE_STAT && includeWrite)
     {
         SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
         SgExpression *spec = ioStat->specList();
@@ -301,11 +301,11 @@ static inline int calculateLoopIters(SgExpression *start, SgExpression *end, SgE
         return 0;
 }
 
-void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef)
+void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool includeWrite = true)
 {
     SgStatement *last = st->lastNodeOfStmt();
     for ( ; st != last; st = st->lexNext())
-        processLables(st, labelsRef);
+        processLables(st, labelsRef, includeWrite);
 }
 
 static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
@@ -377,7 +377,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
+void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const map<int, double> &statisticTimes, vector<Messages> &messages)
 {
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
@@ -448,6 +448,11 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph)
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, FORMAT_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } );
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
+                auto itTime = statisticTimes.find(newLoop->lineNum);
+                if (itTime != statisticTimes.end())
+                    newLoop->executionTimeInSec = itTime->second;
+                else if (statisticTimes.size())
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, "can not find execution time in statistic"));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

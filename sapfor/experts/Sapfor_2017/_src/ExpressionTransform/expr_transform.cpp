@@ -548,10 +548,11 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
     if (founded != b->getGen()->end())
-        if (!valueWithFunctionCall(founded->second))
-            if (!valueWithRecursion(founded->first, founded->second))
-                if(!valueWithArrayReference(founded->second))
-                    exp = founded->second;
+        if (!valueWithFunctionCall(founded->second->getExp()))
+            if (!valueWithRecursion(founded->first, founded->second->getExp()))
+                if(!valueWithArrayReference(founded->second->getExp()))
+                    if(b->expressionIsAvailable(founded->second))
+                        exp = founded->second->getExp();
 
 
     if (exp == NULL)
@@ -559,24 +560,18 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         //second, check defs from previous blocks
         auto founded_inDefs = b->getInDefs()->find(SymbolKey(var->symbol()));
         if (founded_inDefs != b->getInDefs()->end())
+        {
             //if smth is founded_inDefs, it has single value
             //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = (*(founded_inDefs->second.begin()))->getExp();
-
-        //we have to check if this value was killed inside block
-        if (exp != NULL)
-        {
-            for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
-            {
-                if (symbolInExpression(*it, exp))
-                {
-                    exp = NULL;
-                    break;
-                }
-            }
+            ExpressionValue *expVal = *(founded_inDefs->second.begin());
+            //we have to check if this value was killed inside block
+            if(b->expressionIsAvailable(expVal))
+                exp = expVal->getExp();
         }
     }
+
     return exp;
+
 }
 
 static void createLinksToCopy(SgExpression *exOrig, SgExpression *exCopy)

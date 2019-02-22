@@ -103,6 +103,7 @@ public:
 };
 
 const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
+SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value);
 void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);

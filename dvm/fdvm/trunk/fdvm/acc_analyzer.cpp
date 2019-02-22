@@ -156,7 +156,8 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
-static map<SgStatement*, ControlFlowGraph*> CFG_cache;
+//TODO: it does not work
+//static map<SgStatement*, tuple<ControlFlowGraph*, CallData*, CommonData*>> CFG_cache;
 
 
 static bool isIntrinsicFunctionNameACC(char* name)
@@ -333,11 +334,12 @@ void Private_Vars_Analyzer(SgStatement* start)
     std::fstream fs;
     fs.open("graph.txt", std::fstream::out);
     fs << CGraph->GetVisualGraph(&calls);
-    fs.close();
-    */
+    fs.close();*/    
 
     currentProcedure->graph->getPrivate();
-    //calls.printControlFlows();
+#if ACCAN_DEBUG
+    calls.printControlFlows();
+#endif
     //stage 2: data flow analysis
     FillCFGSets(CGraph);
     //stage 3: fulfilling loop data
@@ -774,17 +776,24 @@ ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, Ca
     }
 
     ControlFlowGraph *cfgRet = NULL;
-    if (CFG_cache.find(start) != CFG_cache.end())
-        return CFG_cache[start];
-
+    /*
+#if __SPF
+    auto itF = CFG_cache.find(start);
+    if (itF != CFG_cache.end())
+    {
+        calls = std::get<1>(itF->second);
+        commons = std::get<2>(itF->second);
+        return std::get<0>(itF->second);
+    }
+#endif*/
     doLoops l;
-    ControlFlowItem* funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
+    ControlFlowItem *funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
     fillLabelJumps(funcGraph);
     setLeaders(funcGraph);
 
     
     cfgRet = new ControlFlowGraph(false, main, funcGraph, NULL);
-    CFG_cache[start] = cfgRet;
+    //CFG_cache[start] = std::make_tuple(cfgRet, calls, commons);
     return cfgRet;
 }
 

@@ -1,3 +1,3 @@
 #pragma once
 
-#define VERSION "924"
+static const char *VERSION = "935";

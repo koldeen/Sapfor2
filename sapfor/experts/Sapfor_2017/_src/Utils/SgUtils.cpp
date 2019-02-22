@@ -252,7 +252,8 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                         if (prev && 
                             (prev->variant() == DVM_PARALLEL_ON_DIR || 
                              prev->variant() == SPF_ANALYSIS_DIR || 
-                             prev->variant() == SPF_TRANSFORM_DIR))
+                             prev->variant() == SPF_TRANSFORM_DIR ||
+                             prev->variant() == DVM_INTERVAL_DIR))
                         {
                             locSt = prev;
                             change = true;
@@ -1076,7 +1077,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         int pos;
 
         auto founded = funcToFuncInfo.find(((SgProgHedrStmt*)start)->nameWithContains());
-        start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
+        start->addAttribute(PROC_CALL, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
         if (header && start->variant() != PROG_HEDR)
