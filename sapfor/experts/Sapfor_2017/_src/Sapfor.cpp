@@ -716,7 +716,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == GCOV_PARSER)
             parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
         else if (curr_regime == CREATE_PARALLEL_REGIONS)
-            perform_time(file, file->firstStatement(), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
+            createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             auto founded = loopGraph.find(file->filename());

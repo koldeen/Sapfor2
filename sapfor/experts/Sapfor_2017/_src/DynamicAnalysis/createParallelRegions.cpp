@@ -35,44 +35,45 @@ struct Region {
     }
 };
 
-bool performFuncTime(SgFile *file, std::map<std::string, std::vector<FuncInfo>> &funcInfo, std::map<std::string, int> &countFunc)
+void performFuncTime(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &funcInfo, std::map<std::string, int> &countFunc)
 {
     int count = 0;
     for (auto str : funcInfo) 
     {
+        count = 0;
         for (auto info : str.second) 
-            count += (info.callsTo).size();
+            count += (info->callsTo).size();
 
         if (countFunc.find(str.first) != countFunc.end())
-            countFunc[str.first] = +count;
+            countFunc[str.first] += count;
         else
             countFunc.insert_or_assign(str.first, count);
     }
 }
 
-int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, 
-    std::vector<FuncInfo>> &funcInfo, int rec_level)
+float performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, 
+    std::map<std::string, int> &calls, int rec_level)
 {
     SgStatement* stmt = src;
     Gcov_info info = gCovInfo[stmt->lineNumber()];
-    int count = 0;
+    float count = 0.0;
 
     switch (stmt->variant()) 
     {  
-        case PROC_CALL:
+        case PROC_STAT:
+        if (rec_level <= 1)
         {
-            std::map<std::string, int> calls;
-            performFuncTime(file, funcInfo, calls);
-
-            SgCallStmt *call = (SgCallStmt*)src;
+            SgCallStmt *call = (SgCallStmt*) src;
             SgStatement *tmp = call->name()->body();
-          
-            while (tmp->variant() != RETURN_STAT)
+            
+            while (tmp && tmp->variant() != RETURN_STAT)
             {
-                count += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
+                count += performTime(file, tmp, gCovInfo, calls, rec_level + 1);
                 tmp = tmp->lexNext();
             }
-            count = (float)count / calls[call->name()->identifier];
+
+            std::cout << calls[(std::string)call->name()->identifier()];
+            count = (float)count / calls[call->name()->identifier()];
             
             break;
         }
@@ -85,18 +86,18 @@ int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovIn
             int t = 0;
             while (tmp->variant() != CONTROL_END)
             {
-                t += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
+                t += performTime(file, tmp, gCovInfo, calls, rec_level + 1);
                 tmp = tmp->lexNext();
             }
-            count += (info.getBranches()[0].getPercent()) * t;
+            count += (info.getBranches()[0].getPercent()) * 0.01 * t;
             t = 0;
             tmp = ifSt->falseBody();
             while (tmp && tmp->variant() != CONTROL_END)
             {
-                t += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
+                t += performTime(file, tmp, gCovInfo, calls, rec_level + 1);
                 tmp = tmp->lexNext();
             }
-            count += (info.getBranches()[1].getPercent()) * t;
+            count += (info.getBranches()[1].getPercent()) * 0.01 * t;
             break;
         }
         case WHILE_NODE:
@@ -105,7 +106,7 @@ int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovIn
             SgStatement* tmp = whileSt->body();
             while (tmp->variant() != CONTROL_END)
             {
-                count += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
+                count += performTime(file, tmp, gCovInfo, calls, rec_level + 1);
                 tmp = tmp->lexNext();
             }
             break;
@@ -116,28 +117,57 @@ int performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovIn
             SgStatement* tmp = forSt->body();
             while (tmp->variant() != CONTROL_END)
             {
-                count += performTime(file, tmp, gCovInfo, funcInfo, rec_level + 1);
+                count += performTime(file, tmp, gCovInfo, calls, rec_level + 1);
                 tmp = tmp->lexNext();
             }
             break;
         }
+        case ADD_OP:
+        case MULT_OP:
+        case DIV_OP:
+        case SUB_OP:
+        case ASSGN_OP:
+        case ASSIGN_STAT:
+            count += 0.0000000005 * info.getExecutedCount();
+            break;
+        case WRITE_STAT:
+        case READ_STAT:
+            count += 0.0000000015 * info.getExecutedCount();
+            break;
         default:
-            count += info.getExecutedCount();
+            break;
     }
 
     return count;
 }
 
 void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, std::map<int, Gcov_info> &gCovInfo, 
-    std::map<std::string, std::vector<FuncInfo>> &funcInfo)
+    std::map<std::string, std::vector<FuncInfo*>> &funcInfo)
 {
     int constant = 0;
     // понять, чему это равно
 
+    std::map<std::string, int> calls;
+    performFuncTime(file, funcInfo, calls);
+
+    float count = 0.0;
+    SgStatement *st = file->firstStatement();
+    SgStatement *lastNode = st->lastNodeOfStmt();
+
+    while (st != lastNode)
+    {
+        count += performTime(file, st, gCovInfo, calls, 0);
+        st = st->lexNext();
+       
+    }
+
+    __spf_print(1, "  time of performing is %f \n", count);
+
+    /*
     std::map<int, int> perfTime;
     std::vector<Region> regions;
 
-    int time = 0;
+    float time = 0.0;
     bool wasChanged = true;
 
     for (const Interval* inter : fileIntervals)
@@ -174,6 +204,7 @@ void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, 
             }
         }
     }
+    */
 
 
     // заполнить программу директивами
