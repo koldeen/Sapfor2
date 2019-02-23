@@ -805,6 +805,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         for (int i = 0; i < numberOfArgs; ++i)
         {
             arg = args->lhs();
+
             if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
             {
                 SgExpression* newExp = valueOfVar(arg, b);
@@ -833,7 +834,6 @@ bool replaceVarsInBlock(CBasicBlock* b)
     for (ControlFlowItem* cfi = b->getStart(); cfi != b->getEnd()->getNext(); cfi = cfi->getNext())
     {
         st = cfi->getStatement();
-
         if(cfi->getFunctionCall())
         {
             wereReplacements |= replaceCallArguments(cfi, b);
@@ -933,6 +933,7 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey,
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
+
     /* Showtime */
 //    showDefsOfGraph(CGraph);
 //    debugStructure(CGraph, filename);
@@ -1102,10 +1103,10 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();
-
         replaceConstants(filename, st);
 
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
+
         ExpandExpressions(CGraph, inDefs);
         __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
         BuildUnfilteredReachingDefinitions(CGraph, inDefs, filename);

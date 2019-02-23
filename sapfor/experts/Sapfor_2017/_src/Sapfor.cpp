@@ -477,9 +477,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
 
                 const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
+                const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
                 const vector<string> alignRules = dataDirectives.GenAlignsRules();
 
-                insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, alignRules, loopGraph,
+                insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, distrRulesSt, alignRules, loopGraph,
                                          allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getObjectForFileFromMap(file_name, SPF_messages),
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
@@ -1244,8 +1245,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         const vector<int> &currentVariant = currReg->GetCurrentVariant();
                         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
                         const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
+                        const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
 
-                        insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, allArrays, extract, currReg->GetId(), includedToThisFile);
+                        insertTempalteDeclarationToMainFile(file, dataDirectives, templateDeclInIncludes, distrRules, distrRulesSt, allArrays, extract, currReg->GetId(), includedToThisFile);
                     }
                     break;
                 }

@@ -1568,7 +1568,7 @@ SgProject::SgProject(const char * proj_file_name)
     {
         fprintf(stderr, "%s   ", proj_file_name);
 #if __SPF
-        throw -99;
+        throw -98;
 #else
         Message("Cannot open project", 0);
         exit(1);

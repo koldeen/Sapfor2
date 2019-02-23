@@ -1033,7 +1033,7 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
 {
     set<string> privates;
     SgStatement *end = mod->lastNodeOfStmt();
-    while (end != mod)
+    while (mod != end && mod->lineNumber() > 0)
     {
         if (mod->variant() == USE_STMT)
         {

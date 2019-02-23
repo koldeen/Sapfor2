@@ -332,6 +332,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("tand"));
     intrinsicF.insert(string("tanh"));
     intrinsicF.insert(string("trailz"));
+    intrinsicF.insert(string("trim"));    
     intrinsicF.insert(string("xor"));
     intrinsicF.insert(string("wtime"));
     intrinsicF.insert(string("zabs"));
@@ -341,6 +342,30 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("zsin"));
     intrinsicF.insert(string("zsqrt"));
     intrinsicF.insert(string("ztan"));
+
+    //TODO: add all OMP functions
+    intrinsicF.insert(string("omp_get_wtime"));
+    intrinsicF.insert(string("omp_get_num_threads"));
+    intrinsicF.insert(string("omp_destroy_lock"));
+    intrinsicF.insert(string("omp_destroy_nest_lock"));
+    intrinsicF.insert(string("omp_get_dynamic"));
+    intrinsicF.insert(string("omp_get_max_threads"));
+    intrinsicF.insert(string("omp_get_nested"));
+    intrinsicF.insert(string("omp_get_num_procs"));
+    intrinsicF.insert(string("omp_get_thread_num"));
+    intrinsicF.insert(string("omp_init_lock"));
+    intrinsicF.insert(string("omp_get_wtick"));
+    intrinsicF.insert(string("omp_in_parallel"));
+    intrinsicF.insert(string("omp_init_nest_lock"));
+    intrinsicF.insert(string("omp_set_dynamic"));
+    intrinsicF.insert(string("omp_set_lock"));
+    intrinsicF.insert(string("omp_set_nest_lock"));
+    intrinsicF.insert(string("omp_set_nested"));
+    intrinsicF.insert(string("omp_set_num_threads"));
+    intrinsicF.insert(string("omp_test_lock"));
+    intrinsicF.insert(string("omp_test_nest_lock"));
+    intrinsicF.insert(string("omp_unset_lock"));
+    intrinsicF.insert(string("omp_unset_nest_lock"));    
 }
 
 int isIntrinsicFunctionName(char *name)

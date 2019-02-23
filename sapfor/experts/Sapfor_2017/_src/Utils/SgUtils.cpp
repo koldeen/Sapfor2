@@ -352,8 +352,9 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     {
         if (symb->identifier() == toFind)
         {
-            if (symb->scope() == scope && symb->type()->equivalentToType(type))
-                return symb;
+            if (symb->scope() == scope)
+                if (symb->type() && symb->type()->equivalentToType(type))
+                    return symb;
         }
         symb = symb->next();
     }
