@@ -2203,9 +2203,10 @@ static void findArrayRefs(SgExpression *ex,
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<DIST::arrayLocType, string> arrayLocation;
-                if (symb != ex->symbol())
+                SgStatement *scope = symb->scope();
+
+                if (symb != ex->symbol() || (scope && scope->variant() == MODULE_STMT))
                 {
-                    SgStatement *scope = symb->scope();
                     if (scope)
                         arrayLocation = make_pair(DIST::l_MODULE, scope->symbol()->identifier());
                     else //TODO: find module name with another way

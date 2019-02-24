@@ -927,6 +927,7 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
     return outData;
 }
 
+template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
