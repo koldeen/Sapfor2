@@ -512,9 +512,9 @@ static vector<vector<pair<string, vector<Expression*>>>> createRealignRules(Loop
 
             realign[1] = new Expression(list);
             if (num == 0)
-                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templClone)));
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templClone, new SgArrayType(*SgTypeInt()))));
             else
-                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templ->GetShortName(), new SgArrayType(*SgTypeInt()))));
 
             vector<SgExpression*> templateRuleEx(templ->GetDimSize());
             std::fill(templateRuleEx.begin(), templateRuleEx.end(), (SgExpression*)NULL);
@@ -690,7 +690,7 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
             cloneDistr[0] = new Expression(clone);
             cloneDistr[1] = new Expression(listDist);
             
-            SgArrayRefExp *cloneWithDims = new SgArrayRefExp(*findSymbolOrCreate(file, newTemplate));
+            SgArrayRefExp *cloneWithDims = new SgArrayRefExp(*findSymbolOrCreate(file, newTemplate, new SgArrayType(*SgTypeInt())));
             for (auto &elem : distribution[idx].first->GetSizes())
                 cloneWithDims->addSubscript(SgDDotOp(*new SgValueExp(elem.first), *new SgValueExp(elem.second)));
             templCreate[0] = new Expression(cloneWithDims);

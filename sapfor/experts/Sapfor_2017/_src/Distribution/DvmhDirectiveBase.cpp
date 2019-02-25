@@ -487,6 +487,23 @@ vector<string> DataDirective::GenRule(const vector<int> &rules) const
     return retVal;
 }
 
+vector<vector<dist>> DataDirective::GenRule(const vector<int> &rules, int) const
+{
+    vector<vector<dist>> retVal;
+    if (distrRules.size() < rules.size())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    for (int i = 0; i < rules.size(); ++i)
+    {
+        if (rules[i] < distrRules[i].second.size())
+            retVal.push_back(distrRules[i].second[rules[i]].distRule);
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    return retVal;
+}
+
 vector<string> DataDirective::GenAlignsRules() const
 {
     vector<string> retVal;

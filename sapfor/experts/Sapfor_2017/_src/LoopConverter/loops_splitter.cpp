@@ -55,7 +55,7 @@ static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStat
                                   depGraph* parentDepGraph, map<SgExpression*, string> &collection)
 {
     openDependencies.clear();
-    for(depNode* node : parentDepGraph->getNodes())
+    for(depNode* node : parentDepGraph->getNodes()) {
         if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout))
         {
             bool hasDependency = false;
@@ -81,19 +81,7 @@ static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStat
                     openDependencies.insert(outLine);
             }
         }
-}
-
-static void initialSinceTillSetup(int loopNum, LoopGraph* parentGraph, SgStatement*& since, SgStatement*& till)
-{
-    since = parentGraph->children[loopNum]->loop->GetOriginal();
-    till = since->lastNodeOfStmt()->lexNext();
-    if(loopNum == 0) //если это первый цикл, захватим с ним проие операторы перед ним.
-        since = parentGraph->loop->GetOriginal()->lexNext();
-
-    //till выставим на следующий цикл или на конец родительского цикла.
-    while(till->variant() != FOR_NODE && till->variant() != CONTROL_END)
-        till = till->lastNodeOfStmt()->lexNext();
-
+    }
 }
 
 static bool dependencyAlreadyEnclosed(int lineNum, vector<pair<SgStatement*, SgStatement*>>& borders)
@@ -104,7 +92,8 @@ static bool dependencyAlreadyEnclosed(int lineNum, vector<pair<SgStatement*, SgS
     return false;
 }
 
-void expandCopyBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pair<SgStatement*, SgStatement*>>& borders, set<int> openDependencies)
+void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders,
+                       set<int> openDependencies)
 {
     for(int lineNumOfDependecy : openDependencies)
     {
@@ -112,56 +101,86 @@ void expandCopyBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pai
             continue;
 
         SgStatement *since = NULL, *till = NULL;
-        auto loopNumIt = loopNums.begin();
-        for(; loopNumIt != loopNums.end(); loopNumIt++)
-        {
-            since = till = NULL;
-            initialSinceTillSetup(*loopNumIt, parentGraph, since, till);
-            if(lineInsideBorder(lineNumOfDependecy, make_pair(since, till)))
+        since = globalSince;
+
+        for(since = globalSince; since != globalTill; since = since->lexNext()) {
+
+            if(since->lineNumber() == lineNumOfDependecy) {
+                till = since->lastNodeOfStmt()->lexNext();
                 break;
+            }
         }
-        if(since == NULL || till == NULL) //зависимости вне цикла? ну уж нет.
+
+        if(since == globalTill) //зависимости вне вне основного цикла? ну уж нет.
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        loopNums.erase(loopNumIt);
         borders.push_back(make_pair(since, till));
     }
 }
 
-static bool setupSplitBorders(LoopGraph* parentGraph, vector<int>& loopNums, vector<pair<SgStatement*, SgStatement*>>& borders, 
+static void glueBorders(vector<pair<SgStatement*, SgStatement*>>& borders) {
+    for(auto it1 = borders.begin(); it1 != borders.end(); ++it1) {
+        for(auto it2 = borders.begin(); it2 != borders.end();) {
+            if(it1 == it2) {
+                ++it2;
+                continue;
+            }
+
+            if(it1->second == it2->first) {
+                it1->second = it2->second;
+                it2 = borders.erase(it2);
+            }
+            else if(it1->first == it2->second) {
+                it1->first = it2->first;
+                it2 = borders.erase(it2);
+            }
+            else
+                ++it2;
+        }
+    }
+}
+
+static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
+                              vector<pair<SgStatement*, SgStatement*>>& borders,
                               depGraph* parentDepGraph, map<SgExpression*, string>& collection)
 {
-    if(loopNums.size() <= 1) //остался один подцикл, оставим его на месте и прекратим разделение
-        return false;
+    //Каким-то образом, мы вырезали всё из цикла и хотем продолжать.
+    if(globalSince == globalTill)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
 
     borders.clear();
-    auto loopNumIt = loopNums.begin();
     SgStatement *since, *till;
 
-    if(parentDepGraph == NULL) //Нет зависимостей, можно взять очередной цикл из loopNums.
-    {
+    since = globalSince;
+    till = since->lastNodeOfStmt()->lexNext();
 
-        initialSinceTillSetup(*loopNumIt, parentGraph, since, till);
-        loopNums.erase(loopNumIt);
+    /*
+     * since-till может быть одним одним операторм, захватить тогда больше?
+     */
+
+    if(parentDepGraph == NULL) //Нет зависимостей, можно взять изначальный фрагмент без измененений
+    {
         borders.push_back(make_pair(since, till));
         return true;
     }
 
-
-    initialSinceTillSetup(*loopNumIt, parentGraph, since, till);
     borders.push_back(make_pair(since, till));
-    loopNums.erase(loopNumIt);
 
     set<int> openDependencies;
     setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
     while(openDependencies.size() > 0)
     {
-        expandCopyBorders(parentGraph, loopNums, borders, openDependencies);
+        expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
     }
 
-    if(loopNums.size() == 0) //В попытке удовлетворить зависимости, мы захватили все оставшиея подциклы.
+    glueBorders(borders);
+
+    //Если вырежем опять, исходный цикл останется пустым
+    if(borders.size() == 1 && borders[0].first == globalSince && borders[0].second == globalTill)
         return false;
+
     return true;
 
 }
@@ -251,22 +270,12 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasIndirectChildLoops(lowestParentGraph, messages))
         return -1;
 
-    //Номера подциклов, которые стоит попробовать вытащить в отдельный цикл
-    vector<int> loopNums(lowestParentGraph->children.size());
-    for (int i = 0; i < lowestParentGraph->children.size(); ++i)
-        loopNums[i] = i;
-
-    if (loopNums.size() <= 1)
-    {
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        return -1;
-    }
     //Вектор пар since-till, новые циклы будут формироваться из фрагментов с since включительно, по till не включительно
     vector<pair<SgStatement*, SgStatement*>> borders;
     //Граф с зависимостями
     const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
-    if (lowestParentGraph->hasLimitsToParallel())
+    if (lowestParentGraph->hasLimitsToSplit())
     {
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
                             "This loop has limits to parallel (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")",
@@ -284,8 +293,20 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
         __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }
-    while (setupSplitBorders(lowestParentGraph, loopNums, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+
+
+    SgStatement *globalSince, *globalTill;
+    globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
+    globalTill = lowestParentGraph->loop->GetOriginal()->lastNodeOfStmt()->lexNext();
+
+    //Сам процесс разделения
+    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)  {
         moveStatements(createNewLoop(loopGraph), borders);
+        globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
+    }
+
+    //Исходный цикл остался с пустым телом
+    loopGraph->loop->deleteStmt();
 
     return 0;
 }

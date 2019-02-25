@@ -481,8 +481,8 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         || assign->expr(1)->rhs()->variant() != ARRAY_REF || assign->expr(1)->lhs()->variant() != ARRAY_REF)
         return result;
 
-    SgArrayRefExp *leftPart = (SgArrayRefExp*) assign->expr(1)->rhs();
-    SgArrayRefExp *rightPart = (SgArrayRefExp*) assign->expr(1)->lhs();
+    SgArrayRefExp *leftPart = (SgArrayRefExp*) assign->expr(1)->lhs();
+    SgArrayRefExp *rightPart = (SgArrayRefExp*) assign->expr(1)->rhs();
     SgArrayRefExp *assignPart = (SgArrayRefExp*)assign->expr(0);
 
     SgForStmt *retVal = NULL;
@@ -537,7 +537,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
 
     vector<tuple<SgExpression*, SgExpression*, SgExpression*>> leftSections, rightSections, assignSections;
 
-    SgExpression *ex = subsL;
+    SgExpression *ex = subsL;    
     for (int i = 0; i < leftSubs; ++i)
     {
         tuple<SgExpression*, SgExpression*, SgExpression*> bounds = leftBound[lIdx];
@@ -684,7 +684,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
-
+    retVal->unparsestdout();
     return result;
 }
 
@@ -986,7 +986,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                 else
                 {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
-                        conv = convertFromStmtToLoop(st, file, messagesForFile);
+                        ;// conv = convertFromStmtToLoop(st, file, messagesForFile);
                     else
                     {
                         if (st->expr(1)->variant() == WHERE_NODE)

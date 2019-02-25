@@ -1033,7 +1033,7 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
 {
     set<string> privates;
     SgStatement *end = mod->lastNodeOfStmt();
-    while (end != mod)
+    while (mod != end && mod->lineNumber() > 0)
     {
         if (mod->variant() == USE_STMT)
         {
@@ -2203,9 +2203,10 @@ static void findArrayRefs(SgExpression *ex,
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<DIST::arrayLocType, string> arrayLocation;
-                if (symb != ex->symbol())
+                SgStatement *scope = symb->scope();
+
+                if (symb != ex->symbol() || (scope && scope->variant() == MODULE_STMT))
                 {
-                    SgStatement *scope = symb->scope();
                     if (scope)
                         arrayLocation = make_pair(DIST::l_MODULE, scope->symbol()->identifier());
                     else //TODO: find module name with another way

@@ -79,7 +79,8 @@ void preprocess_allocates(SgFile *file);
 // insert_directive.cpp
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                          std::map<std::string, std::string> templateDeclInIncludes,
-                                         const std::vector<std::string> &distrRules, const DIST::Arrays<int> &allArrays,
+                                         const std::vector<std::string> &distrRules, const std::vector<std::vector<dist>> &distrRulesSt, 
+                                         const DIST::Arrays<int> &allArrays,
                                          const bool extractDir, const int regionId,
                                          const std::set<std::string> &includedToThisFile);
 
@@ -88,6 +89,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const std::vector
 
 void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDirective &dataDir,
                               const std::set<std::string> &distrArrays, const std::vector<std::string> &distrRules,
+                              const std::vector<std::vector<dist>> &distrRulesSt,
                               const std::vector<std::string> &alignRules, 
                               const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
                               const DIST::Arrays<int> &allArrays,

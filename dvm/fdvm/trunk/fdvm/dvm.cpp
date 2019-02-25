@@ -970,18 +970,15 @@ SgSymbol *TaskHPsArraySymbol(SgSymbol *s)
 
 SgSymbol * CreateRegistrationArraySymbol()
 {
- char *name;
  SgSymbol *sn;
  SgArrayType *typearray;
- //SgValueExp M100(100);
- name = new char[80];
- sprintf(name,"deb000dvm"); 
+ char *ident = cur_func->symbol()->identifier(); //Module identifier
+ char *name = new char[10+strlen(ident)];
+ sprintf(name,"deb_%s_dvm",ident); 
  typearray = new SgArrayType(*SgTypeInt());
- //typearray-> addRange(M100);
  sn = new SgVariableSymb(name, *typearray, *cur_func);
  return(sn);
 }
-
 
 void CreateCoeffs(coeffs* scoef,SgSymbol *ar)
 {int i,r,i0;

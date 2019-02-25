@@ -83,6 +83,11 @@ public:
                hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules;
     }
     
+    bool hasLimitsToSplit() const
+    {
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops;
+    }
+
     void addConflictMessages(std::vector<Messages> *messages)
     {
         if (hasUnknownArrayDep)

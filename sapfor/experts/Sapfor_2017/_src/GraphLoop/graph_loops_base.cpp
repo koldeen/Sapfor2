@@ -885,3 +885,8 @@ void updateLoopIoAndStopsByFuncCalls(map<string, vector<LoopGraph*>> &loopGraph,
     for (auto &byFile : loopGraph)
         updateLoopIoAndStopsByFuncCalls(byFile.second, mapFunc);    
 }
+
+void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, DIST::GraphCSR<int, double, attrType> &graph)
+{
+
+}

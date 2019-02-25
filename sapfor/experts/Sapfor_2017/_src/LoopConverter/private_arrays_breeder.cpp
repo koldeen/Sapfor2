@@ -267,7 +267,7 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     for(int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        dimensions[i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
+        dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
         curLoop = curLoop->children[0];
     }
 
@@ -336,8 +336,8 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
     for(int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        dimensions[i] = curLoop->calculatedCountOfIters;
-        indexes[i] = loopStmt->doName();
+        dimensions[depthOfBreed - 1 - i] = curLoop->calculatedCountOfIters;
+        indexes[depthOfBreed - 1 - i] = loopStmt->doName();
 
         if(curLoop->children.size() == 1)
             curLoop = curLoop->children[0];
@@ -347,7 +347,7 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
             return;
         }
     }
-    std::reverse(indexes.begin(), indexes.end());
+
 
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
     SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
@@ -426,7 +426,7 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
             __spf_printToBuf(str, "Can not do PRIVATE EXPANSION for this loop - privates not found");
 
             //messages.push_back(Messages(NOTE, loop->lineNum, str, 2008));
-            __spf_print(1, "%s on line %d\n", str.c_str(), loop->lineNum);            
+            __spf_print(1, "%s on line %d\n", str.c_str(), loop->lineNum);
         }
         else
         {
@@ -471,7 +471,7 @@ int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgS
                     }
                 }
                 attr->setExpression(0, p);
-            }            
+            }
         }
     }
 
