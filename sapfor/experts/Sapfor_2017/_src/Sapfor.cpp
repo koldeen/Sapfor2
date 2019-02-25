@@ -78,6 +78,15 @@ SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
+static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
+{
+    auto it = funcMap.find(funcName);
+    if (it == funcMap.end())
+        return NULL;
+
+    return it->second;
+}
+
 void deleteAllAllocatedData(bool enable)
 {
     if (enable)
@@ -1645,6 +1654,9 @@ static int checkArgumentsDeclaration()
 {
     int error = false;
 
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
     for (int i = 0; i < project->numberOfFiles(); ++i)
     {
         SgFile *file = &(project->file(i));
@@ -1672,29 +1684,33 @@ static int checkArgumentsDeclaration()
                             //__spf_print(1, "%s\n", symb->identifier()); // DEBUG
                             if (!decl)
                             {
-                                __spf_print(1, "argument '%s' of function '%s' in file '%s' does not have declaration statement on line %d\n",
-                                            symb->identifier(), st->symbol()->identifier(), file->filename(), st->lineNumber());
+                                FuncInfo *func = getFuncInfo(funcMap, st->symbol()->identifier());
+                                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
 
-                                string message;
-                                __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' does not have declaration statement",
-                                                 symb->identifier(), st->symbol()->identifier(), file->filename());
-                                getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
-                            }
-                            // check if declaration states in parallel region
-                            else
-                            {
-                                ParallelRegion *reg = getRegionByLine(parallelRegions, file->filename(), decl->lineNumber());
-
-                                if (reg)
+                                if (func->isInRegion())
                                 {
-                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s' on line %d\n",
-                                                symb->identifier(), st->symbol()->identifier(), file->filename(), reg->GetName().c_str(), st->lineNumber());
+                                    string regs;
+                                    for (auto it = func->callRegions.begin(); it != func->callRegions.end(); ++it)
+                                        regs += " " + *it;
+
+                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s' on line %d\n",
+                                                symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str(), st->lineNumber());
 
                                     string message;
-                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s'",
-                                                     symb->identifier(), st->symbol()->identifier(), file->filename(), reg->GetName().c_str());
+                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s'",
+                                                     symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str());
                                     getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1046));
                                     error = true;
+                                }
+                                else
+                                {
+                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' does not have declaration statement on line %d\n",
+                                                symb->identifier(), st->symbol()->identifier(), file->filename(), st->lineNumber());
+
+                                    string message;
+                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' does not have declaration statement",
+                                                     symb->identifier(), st->symbol()->identifier(), file->filename());
+                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
                                 }
                             }
                         }
