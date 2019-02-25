@@ -286,7 +286,6 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<SgExpression*> remotes;
-
     string leftPartOfAssign = "";
     if (st->variant() == ASSIGN_STAT)
         leftPartOfAssign = string(st->expr(0)->unparse());
@@ -364,10 +363,12 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             }
             else
             {
+                const int cpV = toInsert->controlParent()->variant();                
                 //dont convert to a(:,:,:) before assign operators
-                if (lvlUp == 0 && toInsert->variant() == ASSIGN_STAT)
+                if (lvlUp == 0 && 
+                    ((toInsert->variant() == ASSIGN_STAT) || (toInsert->variant() != FOR_NODE && (cpV == FUNC_HEDR || cpV == PROC_HEDR || cpV == PROG_HEDR))))
                     ;
-                else
+                else 
                 {
                     for (auto &elem : allSubs)
                         converToDDOT(elem);

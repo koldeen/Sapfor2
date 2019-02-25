@@ -133,4 +133,6 @@
 #define SPF_NOINLINE_OP                  953     /* SAPFOR */
 #define SPF_PARALLEL_REG_DIR             954     /* SAPFOR */
 #define SPF_END_PARALLEL_REG_DIR         955     /* SAPFOR */
-#define SPF_REGION_NAME                  956     /* SAPFOR */ 
+#define SPF_REGION_NAME                  956     /* SAPFOR */
+#define SPF_PRIVATES_EXPANSION_OP        957     /* SAPFOR */
+#define SPF_FISSION_OP                   958     /* SAPFOR */ 

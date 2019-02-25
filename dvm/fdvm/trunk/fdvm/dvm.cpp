@@ -1,4 +1,4 @@
-
+ 
 /*********************************************************************/
 /*                   Fortran DVM  V.5    2011   (DVM+OpenMP+ACC)     */
 /*********************************************************************/ 
@@ -76,6 +76,7 @@ extern SgStatement *parallel_dir;
 extern int iacross;
 
 extern "C" int out_free_form;
+extern "C" int out_upper_case;
 extern "C" PTR_SYMB last_file_symbol;
 
 Options options;
@@ -251,6 +252,8 @@ int main(int argc, char *argv[]){
             options.setOn(RTC);  //for NVRTC compilation and execution
         else if (!strcmp(argv[0], "-ffo"))
             out_free_form = 1;
+        else if (!strcmp(argv[0], "-upcase"))
+            out_upper_case = 1;
         else if (!strcmp(argv[0], "-lgstd"))
         {
             (void)fprintf(stderr, "Illegal option -lgstd \n");
@@ -967,18 +970,15 @@ SgSymbol *TaskHPsArraySymbol(SgSymbol *s)
 
 SgSymbol * CreateRegistrationArraySymbol()
 {
- char *name;
  SgSymbol *sn;
  SgArrayType *typearray;
- //SgValueExp M100(100);
- name = new char[80];
- sprintf(name,"deb000dvm"); 
+ char *ident = cur_func->symbol()->identifier(); //Module identifier
+ char *name = new char[10+strlen(ident)];
+ sprintf(name,"deb_%s_dvm",ident); 
  typearray = new SgArrayType(*SgTypeInt());
- //typearray-> addRange(M100);
  sn = new SgVariableSymb(name, *typearray, *cur_func);
  return(sn);
 }
-
 
 void CreateCoeffs(coeffs* scoef,SgSymbol *ar)
 {int i,r,i0;
@@ -2888,25 +2888,13 @@ EXEC_PART_:
               break;
             }
             if(HPF_program && !inparloop){
-               first_time = 1;
-               SearchDistArrayRef(stmt->expr(0),stmt);
-               cur_st = stmt;
+              first_time = 1;
+              SearchDistArrayRef(stmt->expr(0),stmt);
+              cur_st = stmt;
             }
-	    if(dvm_debug) {
-              SgStatement *stif,*st1;
-              
-              st1=stmt->lexPrev();   
-              DebugVarArrayRef(stmt->expr(0),stmt);
-              st1 = st1->lexNext() ;
-              if( st1 != stmt){
-                //LINE_NUMBER_BEFORE(stmt,st1);
-                if(dbg_if_regim){
-                  InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),st1);  
-		  TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-	        }
-                LINE_NUMBER_BEFORE(stmt,st1);
-              }	
-            } else          
+	    if(dvm_debug)
+              DebugExpression(stmt->expr(0),stmt); 
+            else          
               ChangeDistArrayRef(stmt->expr(0));
 
             if((dvm_debug || perf_analysis) && stmt->variant()==ARITHIF_NODE ) 
@@ -2921,9 +2909,9 @@ EXEC_PART_:
               break;
             }
             if(HPF_program && !inparloop){
-               first_time = 1;
-               SearchDistArrayRef(stmt->expr(0),stmt);
-               cur_st = stmt;
+              first_time = 1;
+              SearchDistArrayRef(stmt->expr(0),stmt);
+              cur_st = stmt;
             }
             ChangeDistArrayRef(stmt->expr(0));
             break; 
@@ -2934,8 +2922,8 @@ EXEC_PART_:
               break;
             }
             if( !stmt->lineNumber()) {//inserted statement
-               stmt = stmt->lexNext();
-               break; 
+              stmt = stmt->lexNext();
+              break; 
             } 
             if(HPF_program) {
               if(!inparloop){ //outside the range of parallel loop
@@ -2946,48 +2934,18 @@ EXEC_PART_:
               } else         //inside the range of parallel loop
                 IsLIFReductionOp(stmt, indep_st->expr(0) ? indep_st->expr(0)->lhs() : indep_st->expr(0));                                           //look for reduction operator
             }
-          /*  if(dvm_debug) {
-              SgStatement *stif, *stmt1;
-              ReplaceContext(stmt);
-              if(dbg_if_regim)
-                InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt);
-	      //InsertNewStatementBefore(stif= new SgStatement(IF_NODE),stmt);
-              LINE_NUMBER_BEFORE(stmt,stmt);             
-                
-
-              DebugVarArrayRef(stmt->expr(0),stmt);
-
-              if(dbg_if_regim){
-		stmt1 = stif->lexNext()->lexNext(); //END IF
-                //InsertNewStatementBefore(stif= new SgStatement(IF_NODE),stmt);
-		//stmt->insertStmtBefore(* new SgStatement(CONTROL_END), *stif);
-		TransferBlockIntoIfConstr(stif,stmt1,stmt);
-              }
-
-           */
 	    if(dvm_debug) {
-              SgStatement *stif,*st1;
               ReplaceContext(stmt);
-              st1=stmt->lexPrev();   
-              DebugVarArrayRef(stmt->expr(0),stmt);
-              st1 = st1->lexNext() ;
-              if( st1 != stmt){
-                if(dbg_if_regim){
-                  InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),st1);  
-		  TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-	        }
-                LINE_NUMBER_BEFORE(stmt,st1);
-              }	
-
-            } else
-            {  ChangeDistArrayRef(stmt->expr(0));
-               if(perf_analysis && IsGoToStatement(stmt->lexNext()))
-                 ReplaceContext(stmt);
+              DebugExpression(stmt->expr(0),stmt);	
+            } else {
+              ChangeDistArrayRef(stmt->expr(0));
+              if(perf_analysis && IsGoToStatement(stmt->lexNext()))
+                ReplaceContext(stmt);
             }
             continue; // to next statement
 
 
-    case FORALL_STAT:          // FORALL statement
+       case FORALL_STAT:          // FORALL statement
             {SgSymbol *do_var; 
 	    SgExpression *el,*ei,*etriplet,*ec;
             el=stmt->expr(0); //list of loop indexes
@@ -3007,7 +2965,7 @@ EXEC_PART_:
             stmt=stmt->lexNext();//  statement that is a part of FORALL statement         
             break;
             // continue; 
-     case GOTO_NODE:          // GO TO
+       case GOTO_NODE:          // GO TO
             if(inasynchr){ //inside the range  of ASYNCHRONOUS construct
 	      pstmt = addToStmtList(pstmt, stmt); // add to list of extracted statements
               break;
@@ -3028,20 +2986,8 @@ EXEC_PART_:
                cur_st = stmt;
             }
             if(dvm_debug) {
-              SgStatement *stif = NULL;
-
               ReplaceContext(stmt);
-
-              if(dbg_if_regim)
-                InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt);
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-                //InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              DebugVarArrayRef(stmt->expr(1),stmt);
-
-              if(dbg_if_regim)
-		TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-
+              DebugExpression(stmt->expr(1),stmt);
             } else 
             {  ChangeDistArrayRef(stmt->expr(1));
                if (perf_analysis ) 
@@ -3136,35 +3082,10 @@ EXEC_PART_:
 
                        
             if(dvm_debug) { 
-              SgStatement *where_st, *stcur,  *after_st = NULL, *stmt1, *stparent;
+              SgStatement *where_st, *stmt1, *stparent;
               where_st=stmt->lexNext();  
               ReplaceContext(stmt);
-              if(dbg_if_regim)                        
-                after_st=ReplaceStmt_By_IfThenConstr(stmt, DebugIfCondition());
-
-              LINE_NUMBER_STL_BEFORE(stcur,stmt,stmt); 
-                //InsertNewStatementBefore((stcur=D_Lnumb(stmt->lineNumber())),stmt);
-
-	      /*    LINE_NUMBER_STL_BEFORE(stcur,stmt,stmt);             
-                //InsertNewStatementBefore((stcur=D_Lnumb(stmt->lineNumber())),stmt);
-              ReplaceStmt_By_IfThenConstr(stcur, DebugIfCondition());
-              TransferStmtAfter(stmt,stcur);
-              */
-
-              DebugVarArrayRef_Left(stmt->expr(0),stmt,stcur);   // left part
-              DebugVarArrayRef(stmt->expr(1),stmt);   // right part 
-
-              if(dbg_if_regim){
-                stmt1 = stmt->lexNext();
-                if(stmt1->variant() != CONTROL_END) {
-                  TransferStmtAfter(stmt1,after_st);
-                  ReplaceStmt_By_IfThenConstr(stmt1, DebugIfCondition());
-                  while( stmt->lexNext()->variant() != CONTROL_END ) 
-                      TransferStmtAfter(stmt->lexNext(),stmt1);
-                }
-                TransferStmtAfter(stmt,after_st);
-                cur_st = stmt1->lexNext();
-              }
+              DebugAssignStatement(stmt);
 
               if(own_exe && !in_on) { //declaring omitted block
                  where_st = where_st->lexPrev();
@@ -3181,42 +3102,28 @@ EXEC_PART_:
           }
             break;
 
-       case PROC_STAT:  {           // CALL
-            SgExpression * el;
+       case PROC_STAT:             // CALL            
             if(inasynchr){ //inside the range  of ASYNCHRONOUS construct
-	      pstmt = addToStmtList(pstmt, stmt); // add to list of extracted statements
-              break;
+	       pstmt = addToStmtList(pstmt, stmt); // add to list of extracted statements
+               break;
             }
             if( !stmt->lineNumber()) //inserted debug statement
-                break; 
+               break; 
             if(HPF_program && !inparloop){
                ReplaceContext(stmt);
                first_time = 1;
                SearchDistArrayRef(stmt->expr(0),stmt);
                cur_st = stmt;
             }
-            if(dvm_debug) {
-              SgStatement *after_st = NULL;
-
-              ReplaceContext(stmt);
-
-              if(dbg_if_regim)                        
-                after_st=ReplaceStmt_By_IfThenConstr(stmt, DebugIfCondition());
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-                //InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              // looking through the arguments list
-              for(el=stmt->expr(0); el; el=el->rhs())            
-                DebugArg_VarArrayRef(el,stmt);   // argument
-
-              if(dbg_if_regim)  
-                TransferStmtAfter(stmt,after_st);
-
-            } else
-            // looking through the arguments list
-              for(el=stmt->expr(0); el; el=el->rhs())            
-                ChangeArg_DistArrayRef(el);   // argument
-            }
+            if(dvm_debug){ 
+               ReplaceContext(stmt);
+               DebugExpression(NULL,stmt);
+            } else {
+               // looking through the arguments list
+               SgExpression * el;
+               for(el=stmt->expr(0); el; el=el->rhs())            
+                  ChangeArg_DistArrayRef(el);   // argument
+            }            
             break;
        case ALLOCATE_STMT: 
             ALLOCATEf90_arrays(stmt,distr);
@@ -3318,7 +3225,7 @@ EXEC_PART_:
               //  call dvmh_shadow_renew( BoundGroupRef)              
               doCallAfter(ShadowRenew_H(new SgVarRefExp(stmt->symbol()) ));  
            
-            doAssignStmtAfter(StartBound(new SgVarRefExp(stmt->symbol())));        
+            doCallAfter(StartBound(new SgVarRefExp(stmt->symbol())));        
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;//setting stmt on  inserted statement 
             break;
@@ -3327,7 +3234,7 @@ EXEC_PART_:
             if(inparloop)
               err("The directive is inside the range of PARALLEL loop", 98,stmt);  
             LINE_NUMBER_AFTER(stmt,stmt); //for tracing set on global variable of LibDVM  
-            doAssignStmtAfter(WaitBound(new SgVarRefExp(stmt->symbol()))); 
+            doCallAfter(WaitBound(new SgVarRefExp(stmt->symbol()))); 
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;//setting stmt on  inserted statement 
             break;
@@ -3336,7 +3243,7 @@ EXEC_PART_:
             if(inparloop)
               err("The directive is inside the range of PARALLEL loop", 98,stmt);  
             LINE_NUMBER_AFTER(stmt,stmt); //for tracing set on global variable of LibDVM  
-            doAssignStmtAfter(StartRed(new SgVarRefExp(stmt->symbol())));        
+            doCallAfter(StartRed(new SgVarRefExp(stmt->symbol())));        
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;//setting stmt on  inserted statement 
             break;
@@ -3346,14 +3253,14 @@ EXEC_PART_:
             if(inparloop)
               err("The directive is inside the range of PARALLEL loop", 98,stmt);  
             LINE_NUMBER_AFTER(stmt,stmt); //for tracing set on global variable of LibDVM  
-            doAssignStmtAfter(WaitRed(rg)); 
+            doCallAfter(WaitRed(rg)); 
             if(dvm_debug)             
-              doAssignStmtAfter( D_CalcRG(DebReductionGroup( rg->symbol())));
+              doCallAfter( D_CalcRG(DebReductionGroup( rg->symbol())));
             
             doCallAfter(DeleteObject_H(rg)); 
             doAssignTo_After(rg, new SgValueExp(0));
             if(debug_regim)
-              doAssignStmtAfter( D_DelRG(DebReductionGroup( rg->symbol())));              
+              doCallAfter( D_DelRG(DebReductionGroup( rg->symbol())));              
 	   }
               //Extract_Stmt(stmt); // extracting DVM-directive
             wait_list = addToStmtList(wait_list, stmt); 
@@ -3614,18 +3521,12 @@ EXEC_PART_:
 	    // (begin of user interval)
             
             LINE_NUMBER_AFTER(stmt,stmt);
-                 //ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-                 //doAssignStmtAfter(Value(stmt->expr(0))); 
-                 // InsertNewStatementAfter(St_Binter(ind,ind+1), cur_st,cur_st->controlParent()); 
             InsertNewStatementAfter(St_Binter(OpenInterval(stmt),Value_F95(stmt->expr(0))), cur_st,cur_st->controlParent());       
-                 //FREE_DVM(2);
-            /*Extract_Stmt(stmt);         
-            stmt = cur_st; */
           }
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt); 
-            stmt = cur_st; 
-            break;
+          pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
+          stmt = cur_st;
+          break;
+
       case DVM_ENDINTERVAL_DIR:
           if (perf_analysis > 1){
             //generating call to 'einter' function of performance analizer
@@ -3638,10 +3539,6 @@ EXEC_PART_:
             if(St_frag && St_frag->begin_st &&  (St_frag->begin_st->controlParent() != stmt->controlParent()))
                 err("Misplaced directive",103,stmt); //interval must be a block
 	    LINE_NUMBER_AFTER(stmt,stmt);
-                 //ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-                 //doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-                 //InsertNewStatementAfter(St_Einter(ind,ind+1), cur_st, stmt->controlParent()); 
-                 //FREE_DVM(2);
             InsertNewStatementAfter(St_Einter(INTERVAL_NUMBER,INTERVAL_LINE), cur_st, stmt->controlParent());
             CloseInterval();
             Extract_Stmt(stmt); // extracting DVM-directive           
@@ -3650,40 +3547,25 @@ EXEC_PART_:
           else
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
-            break;
+          break;
 
       case DVM_EXIT_INTERVAL_DIR:
           if (perf_analysis > 1){
-            //generating call to 'einter' function of performance analizer
-	    // (exit from user interval)
+            //generating calls to 'einter' function of performance analizer
+	    // (exit from user intervals)
             
             if(!St_frag){
               err("Misplaced directive",103,stmt);
               break;
             }
-            interval_list *current_interval = St_frag;
-            SgExpression *el;                                 
-	    LINE_NUMBER_AFTER(stmt,stmt);
-            for(el=stmt->expr(0); el; el=el->rhs())
-            {               
-              if(ExpCompare(el->lhs(),current_interval->begin_st->expr(0)))
-              {
-                InsertNewStatementAfter(St_Einter(current_interval->No,current_interval->begin_st->lineNumber()), cur_st, stmt->controlParent());            
-                current_interval = current_interval->prev; 
-              }
-              else
-              {
-                err("Illegal interval number", 635, stmt);
-                break;
-              }
-            }
+            ExitInterval(stmt);
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;
           }
           else
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
-            break;
+          break;
 
        case DVM_MAP_DIR:
 	 {  int ind;
@@ -4440,8 +4322,11 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh);  // or 2
       SgExpression *array_header = HeaderRef(das);
       das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-      if(!DEFERRED_SHAPE_TEMPLATE(das))
+      if(!DEFERRED_SHAPE_TEMPLATE(das)) {
          doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
+         if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
+            doCallStmt(ScopeInsert(array_header));
+      }
  }      
   else
  {
@@ -4449,7 +4334,9 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh); 
       SgExpression *array_header = HeaderRef(das);
       SgExpression *shadow_list = DeclaredShadowWidths(das);
-      doCallStmt(DvmhArrayCreate(das,array_header,rank,ListUnion(shape_list,shadow_list)));        
+      doCallStmt(DvmhArrayCreate(das,array_header,rank,ListUnion(shape_list,shadow_list)));
+      if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
+         doCallStmt(ScopeInsert(array_header));        
   }
 }
 
@@ -4524,7 +4411,7 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
   if(ndis && rank && rank != ndis)
       Error ("Rank of  array %s  is not equal to the length of the dist_format_list", das->identifier(), 110,stdis);
 
-  if((ia & SAVE_BIT) || saveall )
+  if((ia & SAVE_BIT) || saveall || IN_MODULE)
      sign = 1;
   else
      sign = 0; 
@@ -5012,6 +4899,8 @@ void    GenAlignArray(align *node, align *root, int nr, SgExpression *align_rule
   if(INTERFACE_RTS2) { //interface of RTS2
 
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(doDvmShapeList(als,node->align_stmt),DeclaredShadowWidths(als))));
+    if(!HAS_SAVE_ATTR(als) && !IN_MODULE) 
+      doCallStmt(ScopeInsert(array_header));
     if(!(ia & POSTPONE_BIT) && align_rule_list)
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
     where = savest;
@@ -5022,7 +4911,7 @@ void    GenAlignArray(align *node, align *root, int nr, SgExpression *align_rule
   size_array = doSizeArray(als, node->align_stmt );
   ileft = ndvm;
   iright= BoundSizeArrays(als);
-  if((ia & SAVE_BIT) || saveall)
+  if((ia & SAVE_BIT) || saveall || IN_MODULE)
      sign = 1;
   else
      sign = 0;  
@@ -5489,15 +5378,16 @@ void   ALLOCATEf90DistArray(SgSymbol *p, SgExpression *desc, SgStatement *stdis,
   if(idisars == -1) //interface of RTS2
   {
     SgExpression *shadow_list = DeclaredShadowWidths(p);
-    doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,shadow_list)));            
+    doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,shadow_list)));
+    //doCallStmt(ScopeInsert(array_header));            
     if(!(ia & POSTPONE_BIT))  //distr_rule_list!=NULL
       doCallStmt(DvmhDistribute(p,rank,distr_rule_list)); // distribute dvm-array 
     SET_DVM(ifst);
     return;   
   } 
 
- // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
- //CrtAMV creates current Abstract_Machine view  
+ // dvm000(i) = crtamv(AMRef, rank, SizeArray, StaticSign)
+ // crtamv function creates current Abstract_Machine view  
   if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT))
     sign = 1;
   else
@@ -5573,7 +5463,8 @@ void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpress
   size_array = doSizeAllocArray(p,desc,stmt,(INTERFACE_RTS2 ? RTS2:RTS1)); 
   if( INTERFACE_RTS2 ) // interface of RTS2
   {
-      doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(p))));            
+      doCallStmt(DvmhArrayCreate(p,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(p)))); 
+      //doCallStmt(ScopeInsert(array_header));           
       return;    
   }
                        //interface of RTS1
@@ -5759,6 +5650,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
     else if(!IS_POINTER(als))
       size_array = doDvmShapeList(als,node->align_stmt);  
     doCallStmt(DvmhArrayCreate(als,array_header,rank,ListUnion(size_array,DeclaredShadowWidths(als))));
+    //doCallStmt(ScopeInsert(array_header));
     align_rule_list = root ? doAlignRules(node->symb,node->align_stmt,0,nr) : NULL;
     if( root && align_rule_list)     //!(ia & POSTPONE_BIT) 
       doCallStmt(DvmhAlign(als,root->symb,nr,align_rule_list));
@@ -5944,7 +5836,10 @@ void Template_Create(SgStatement *stmt)
          SgExpression *size_array = doSizeAllocArray(s, el->lhs(), stmt, (INTERFACE_RTS2 ? RTS2 : RTS1));
          cur_st = stmt;
          if(INTERFACE_RTS2)
+         {
             doCallAfter(DvmhTemplateCreate(s,HeaderRef(s),rank,size_array));
+            //doCallAfter(ScopeInsert(HeaderRef(s)));
+         }
          else
          {
             doAssignTo_After(DVM000(INDEX(s)),CreateAMView(size_array, rank, 1));
@@ -8305,7 +8200,7 @@ void ShadowList (SgExpression *el, SgStatement *st, SgExpression *gref)
         } else
             ileft=iright= doShadSizeArrayM1(ar,NULL);
  
-        doAssignStmtAfter(InsertArrayBound(gref, head, ileft, iright, corner));
+        doCallAfter(InsertArrayBound(gref, head, ileft, iright, corner));
          
      } else  //interface of RTS2
      {
@@ -8503,7 +8398,7 @@ void ShadowComp (SgExpression *ear, SgStatement *st, int ilh)
            iright = doShadSizeArrays(ear->lhs(), ar, st, NULL);
         } else
            ileft=iright= doShadSizeArrayM1(ar, NULL);
-        doAssignStmtAfter(AddBoundShadow(head, ileft, iright));
+        doCallAfter(AddBoundShadow(head, ileft, iright));
   
      } else    //interface of RTS2
         if(ear->lhs()){
@@ -8629,7 +8524,7 @@ void DerivedSpecification(SgExpression *edrv, SgStatement *stmt, SgExpression *e
   st_counter->addComment(Indirect_ProcedureComment(stmt->lineNumber())); 
   SgExpression *argument_list = FillerActualArgumentList(paramList,narg);  
   eFunc[0] = HandlerFunc (sf_counter, narg, argument_list);  // counter function
-  eFunc[1] = HandlerFunc (sf_filler,  narg, &argument_list->copy()); // filler function
+  eFunc[1] = HandlerFunc (sf_filler,  narg, argument_list ? &argument_list->copy() : NULL); // filler function
   return;
 }
 
@@ -9435,7 +9330,7 @@ void CopyToBuffer(int rank,  int ibuf, SgExpression *rme)
       doAssignStmtAfter(& MM1.copy()); 
 
  if((head=HeaderRef(rme->symbol())) != NULL) // NULL if array is not distributed (error)
-   doAssignStmtAfter(ArrayCopy(head, from_init, from_init+i, from_init, DVM000(ibuf), to_init, to_init, to_init, 0));
+    doAssignStmtAfter(ArrayCopy(head, from_init, from_init+i, from_init, DVM000(ibuf), to_init, to_init, to_init, 0));
  if(dvm_debug)
     InsertNewStatementAfter(D_RmBuf(head,GetAddresMem(DVM000(ibuf)),i,from_init),cur_st,cur_st->controlParent());
 
@@ -10488,18 +10383,8 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
        case IF_NODE:               // IF... THEN
        case WHILE_NODE:            // DO WHILE (...)
 	    /*case ELSEIF_NODE:           // ELSE IF...*/ 
-	    if(dvm_debug){
-              SgStatement *stif = NULL;
-              if(dbg_if_regim)
-                InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt);
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-                //InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              DebugVarArrayRef(stmt->expr(0),stmt);
-
-              if(dbg_if_regim)
-		TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-            }
+	    if(dvm_debug)
+              DebugExpression(stmt->expr(0),stmt);
             if((dvm_debug || perf_analysis) && stmt->variant()==ARITHIF_NODE ) 
               goto_list = addToStmtList(goto_list, stmt);            
             break;
@@ -10509,29 +10394,17 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
                stmt = stmt->lexNext();
                break; 
             } 
-
             if(dvm_debug){
-              SgStatement *stif = NULL;
-
               if(HPF_program && inparloop)
                 IsLIFReductionOp(stmt, indep_st->expr(0) ? indep_st->expr(0)->lhs() : indep_st->expr(0));                                           //look for reduction operator
               ReplaceContext(stmt);
-
-             if(dbg_if_regim)
-                InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt);
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-                //InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              DebugVarArrayRef(stmt->expr(0),stmt);
-
-              if(dbg_if_regim)
-                TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
+              DebugExpression(stmt->expr(0),stmt);
 	    }
             else if(perf_analysis && IsGoToStatement(stmt->lexNext()))
               ReplaceContext(stmt);
 
             continue; // to next statement
-      case FORALL_STAT:          // FORALL statement
+       case FORALL_STAT:          // FORALL statement
             stmt=stmt->lexNext();//  statement that is a part of FORALL statement         
             break;
 
@@ -10541,20 +10414,9 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
             break;
        case COMGOTO_NODE:          // Computed GO TO
             if(dvm_debug){
-              SgStatement *stif = NULL;
-
               ReplaceContext(stmt);
-
-              if(dbg_if_regim)
-                InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt);
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-	        // InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              DebugVarArrayRef(stmt->expr(1),stmt);
-
-             if(dbg_if_regim)
-		TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-            } else if(perf_analysis)
+              DebugExpression(stmt->expr(1),stmt);
+             } else if(perf_analysis)
               ReplaceContext(stmt);
             if( dvm_debug || perf_analysis ) 
               goto_list = addToStmtList(goto_list, stmt);          
@@ -10591,25 +10453,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
               if(HPF_program && inparloop)
                 IsReductionOp(stmt,indep_st->expr(0) ? indep_st->expr(0)->lhs() : indep_st->expr(0));                                               //look for reduction operator
               ReplaceContext(stmt);
-
-              if(dbg_if_regim)                        
-                after_st=ReplaceStmt_By_IfThenConstr(stmt, DebugIfCondition());
-
-              LINE_NUMBER_STL_BEFORE(stcur,stmt,stmt);
-                //InsertNewStatementBefore((stcur=D_Lnumb(stmt->lineNumber())),stmt);
-              DebugVarArrayRef_Left(stmt->expr(0),stmt,stcur);   // left part
-              DebugVarArrayRef(stmt->expr(1),stmt);   // right part
-
-              if(dbg_if_regim){
-                stmt1 = stmt->lexNext();
-                if(stmt1->variant() != CONTROL_END) {
-                  TransferStmtAfter(stmt1,after_st);
-                  ReplaceStmt_By_IfThenConstr(stmt1, DebugIfCondition());
-                  while( stmt->lexNext()->variant() != CONTROL_END ) 
-                      TransferStmtAfter(stmt->lexNext(),stmt1);
-                }
-                TransferStmtAfter(stmt,after_st);                
-              }
+              DebugAssignStatement(stmt);
 
               if(own_exe) //"owner executes" rule
                 InsertNewStatementAfter(D_Skpbl(),cur_st,cur_st->controlParent()); 
@@ -10623,33 +10467,12 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
             break;
 
        case PROC_STAT:             // CALL
-            {SgExpression * el;
             if(!stmt->lineNumber())  //inserted debug statement
               break;
             if(dvm_debug){
-              SgStatement *after_st = NULL;
-
               ReplaceContext(stmt);
-
-             if(dbg_if_regim)                        
-                after_st=ReplaceStmt_By_IfThenConstr(stmt, DebugIfCondition());
-
-              LINE_NUMBER_BEFORE(stmt,stmt);
-                //InsertNewStatementBefore(D_Lnumb(stmt->lineNumber()),stmt);
-              // looking through the arguments list
-              for(el=stmt->expr(0); el; el=el->rhs())            
-                DebugArg_VarArrayRef(el,stmt);   // argument
-	      /*  } else {
-                if(debug_regim)
-                   for(el=stmt->expr(0); el; el=el->rhs())  
-                      RegistrateArg(el);  // looking for argument A(P),
-		                               // add it to list heap_point
-	      */
-              if(dbg_if_regim)    
-                TransferStmtAfter(stmt,after_st);   
-
+              DebugExpression(NULL,stmt);
             }    
-            }
             break;
 
        case ALLOCATE_STMT:
@@ -10699,15 +10522,12 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 	     }
 
 	     else if(perf_analysis && perf_analysis != 2) {
-               int ind;
                inparloop = 1;
                
                //generating call to 'bploop' function of performance analizer
 	       // (begin of parallel interval)
                LINE_NUMBER_AFTER(stmt,stmt);
-               ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-               InsertNewStatementAfter(St_Bploop(ind), cur_st,stmt->controlParent());
-               FREE_DVM(1);
+               InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st,stmt->controlParent());
              
                if(perf_analysis == 4)
                  SkipParLoopNest(stmt); 
@@ -10740,17 +10560,13 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 	     }
 
 	     else if(perf_analysis && perf_analysis != 2) {
-               int ind;
                inparloop = 1;
                par_do = stmt->lexNext();// first DO statement of parallel loop
                indep_st = stmt; 
                //generating call to 'bploop' function of performance analizer
 	       // (begin of parallel interval)
                LINE_NUMBER_AFTER(stmt,stmt);
-               ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-               InsertNewStatementAfter(St_Bploop(ind), cur_st,stmt->controlParent());
-               FREE_DVM(1);            
-                //if(perf_analysis == 4)
+               InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st,stmt->controlParent());            
                SkipIndepLoopNest(stmt);         
              } 
              else {// dvm_debug == 0 && perf_analysis == 0 or 2, i.e. standard mode 
@@ -10770,7 +10586,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
               doCallAfter(DeleteObject_H(rg)); 
               doAssignTo_After(rg, new SgValueExp(0)); 	   
                   //Extract_Stmt(stmt); // extracting DVM-directive  
-              doAssignStmtAfter( D_DelRG(DebReductionGroup( rg->symbol())));               
+              doCallAfter( D_DelRG(DebReductionGroup( rg->symbol())));               
             }
             wait_list = addToStmtList(wait_list, stmt); 
             pstmt = addToStmtList(pstmt, stmt); 
@@ -10807,18 +10623,12 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
 	    // (begin of user interval)
             
             LINE_NUMBER_AFTER(stmt,stmt);
-                       //ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-                       //doAssignStmtAfter(Value(stmt->expr(0))); 
-                       //InsertNewStatementAfter(St_Binter(ind,ind+1), cur_st,cur_st->controlParent()); 
-                       //FREE_DVM(2);
             InsertNewStatementAfter(St_Binter(OpenInterval(stmt),Value_F95(stmt->expr(0))), cur_st,cur_st->controlParent()); 
-            /*Extract_Stmt(stmt);           
-            stmt = cur_st; */
           }
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt);  
-            stmt = cur_st;
-            break;
+          pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
+          stmt = cur_st; 
+          break;
+
       case DVM_ENDINTERVAL_DIR:
           if (perf_analysis > 1){
             //generating call to 'einter' function of performance analizer
@@ -10831,19 +10641,32 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
             if(St_frag && St_frag->begin_st &&  (St_frag->begin_st->controlParent() != stmt->controlParent()))
                 err("Misplaced directive",103,stmt); //interval must be a block
 	    LINE_NUMBER_AFTER(stmt,stmt);
-                    //ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-                    //doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-                    //InsertNewStatementAfter(St_Einter(ind,ind+1), cur_st, stmt->controlParent()); 
-                    // FREE_DVM(2);
             InsertNewStatementAfter(St_Einter(INTERVAL_NUMBER,INTERVAL_LINE), cur_st, stmt->controlParent());
             CloseInterval();
             Extract_Stmt(stmt); // extracting DVM-directive           
             stmt = cur_st;
           }
           else
-            //including the DVM  directive to list
-            pstmt = addToStmtList(pstmt, stmt);  
+            pstmt = addToStmtList(pstmt, stmt); //including the DVM  directive to list 
+          break;
+
+      case DVM_EXIT_INTERVAL_DIR:
+          if (perf_analysis > 1){
+            //generating calls to 'einter' function of performance analizer
+	    // (exit from user intervals)
+            
+            if(!St_frag){
+              err("Misplaced directive",103,stmt);
+              break;
+            }
+            ExitInterval(stmt);
+            Extract_Stmt(stmt); // extracting DVM-directive           
+            stmt = cur_st;
+          }
+          else
+            pstmt = addToStmtList(pstmt, stmt);  //including the DVM  directive to list
             break;
+
        case DVM_OWN_DIR: 
             if(dvm_debug && stmt->lexNext()->variant() == ASSIGN_STAT) 
                own_exe = 1;
@@ -11017,7 +10840,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
            //  call dvmh_delete_object(RedGroupRef)     // dvm000(i) = delobj(RedGroupRef)
            doCallAfter(DeleteObject_H(redgref));
            if(idebrg)
-              doAssignStmtAfter( D_DelRG(DVM000(idebrg)));   
+              doCallAfter( D_DelRG(DVM000(idebrg)));   
          } 
        } else  if(perf_analysis == 4)
          SeqLoopEndInParLoop(end_stmt,stmt);
@@ -11025,11 +10848,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
        if(perf_analysis && perf_analysis != 2) {
          // generating call eloop(...) - end of parallel interval
          //(performance analyzer function)
-         int ind;
-         ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-         doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-         InsertNewStatementAfter(St_Enloop(ind,ind+1),cur_st,cur_st->controlParent());
-         FREE_DVM(2);
+         InsertNewStatementAfter(St_Enloop(INTERVAL_NUMBER,INTERVAL_LINE),cur_st,cur_st->controlParent());
          CloseInterval();
          if(perf_analysis != 4)
            OverLoopAnalyse(func);
@@ -11089,237 +10908,6 @@ void VarDVM(SgStatement * func )
  typearray =new SgArrayType(*SgTypeInt()); //typearray-> addRange(N);
  dvmbuf = new SgVariableSymb("dvm000", *typearray, *func);
  }
-
-void  DebugVarArrayRef(SgExpression *e,SgStatement *stmt)
-{  SgSymbol *ar;
-  //int ind;
-  SgExpression *el, *ehead, *rme, *ea;
-  //int *h;
-
-  if(!e)
-    return;
-
-  if(isSgVarRefExp(e)) {
-    if(isDoVar(e->symbol())) //do variable is not traced
-        return;
-    if(level_debug == 4)
-   if(e->symbol()->variant()==VARIABLE_NAME && VarType(e->symbol())) //&& e->symbol()->type()->variant() != T_STRING  && e->symbol()->type()->variant() != T_DERIVED_TYPE)
-       InsertNewStatementBefore(D_LoadVar(e,VarType(e->symbol()), ConstRef(0),e),stmt);
-     return;
-  }
-
-  if(isSgArrayRefExp(e)) {     // array element, array section, whole array
-    ea = & (e->copy()); 
-    for(el=e->lhs(); el; el=el->rhs())
-       DebugVarArrayRef(el->lhs(),stmt);
-
-    if(isSgArrayType(e->type())) // array section, whole array
-      return;
-
-    ar = e -> symbol();
-    if(HEADER(ar)) { //distributed array reference
-      //ind = *h;  
-         if((rme=isRemAccessRef(e))){ //is remote data
-            rem_var * rv;
-            rv = (rem_var *)rme->attributeValue(0,REMOTE_VARIABLE);
-            if((rv->ncolon == 0) && (rv->amv == -1 )) 
-              ehead = ConstRef(0);
-            else
-              ehead = GetAddresDVM((rv->amv != 1 ) ? DVM000(rv->index) : HeaderRefInd(ar,rv->index ));
-        } else
-              ehead = GetAddresDVM(HeaderRefInd(ar,1));
-	 // ea = & (e->copy());  
-       DistArrayRef(e,0,stmt);
-       if(level_debug == 4 || level_debug == 2)
-         if(ar->variant()==VARIABLE_NAME && VarType(ar)){
-           if(hpf_ind)
-             InsertNewStatementBefore(D_LoadVar(e,VarType(ar), HPF000(hpf_ind), ea),stmt);
-           else
-             InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ehead, ea),stmt);
-         }
-    } 
-    else 
-      if(level_debug == 4 || level_debug == 2 && IS_DVM_ARRAY(ar)) 
-        if(ar->variant()==VARIABLE_NAME && VarType(ar)){
-             //InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ConstRef(0), ea),stmt);
-          ehead = GetAddresMem(FirstArrayElement(ar));
-          InsertNewStatementBefore(D_LoadVar(e,VarType(ar), ehead, ea),stmt);
-	}
-    return; 
-  }
- 
-  if(isSgFunctionCallExp(e)) {
-                        //if(!e->lhs())
-                        //argument list is absent
-    ReplaceFuncCall(e);
-    for(el=e->lhs(); el; el=el->rhs())
-      DebugArg_VarArrayRef(el,stmt);
-    return;
-  } 
-  if(isSgRecordRefExp(e) && !only_debug){
-     ChangeDistArrayRef(e);
-     return;
-  }
-  DebugVarArrayRef(e->lhs(),stmt); 
-  DebugVarArrayRef(e->rhs(),stmt); 
-  return;
-}
-
-
-
-void  DebugVarArrayRef_Left(SgExpression *e,SgStatement *stmt,SgStatement *stcur)
-{ SgExpression *el,*ea;
-  SgSymbol *ar;
- 
-  if(isSgVarRefExp(e)) {  //variable
-    if(isDoVar(e->symbol())) //do variable is not traced
-        return;
-    if(level_debug > 2)
-      /*if(e->symbol()->type()->variant() != T_STRING &&  e->symbol()->type()->variant() != T_COMPLEX &&  e->symbol()->type()->variant() != T_DCOMPLEX) { */
-      //if(e->symbol()->type()->variant() != T_STRING) {
-      //variant of scalar variable reference, that has type T_STRING, is  ARRAY_REF 
-      if(e->symbol()->variant()==VARIABLE_NAME && VarType(e->symbol())) {
-	//InsertNewStatementBefore(D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), e),stmt); /*28.03.03*/
-        InsertNewStatementAfter(D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), e),stcur,stmt->controlParent());
-        InsertNewStatementAfter (D_StorVar(),stmt,stmt->controlParent());
-        InsertNewStatementAfter (Addres(e),stmt,stmt->controlParent()); 
-    }                                     //inserting before and after assignment statement
-    
-    //stmt->insertStmtAfter (*D_StorVar(e,VarType(e->symbol()), new SgValueExp(0))); 
-    //InsertNewStatementBefore(D_StorVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt);
-     return;
-  }
- 
-  if(isSgArrayRefExp(e)) {  // array element, array section, whole array
-    ea = &e->copy();
-    for(el=e->lhs(); el; el=el->rhs()) //looking through the subscript list
-       DebugVarArrayRef(el->lhs(),stmt);
-    if(isSgArrayType(e->type())) // array section, whole array
-      return;   
-    ar = e->symbol(); //array symbol
-    if(HEADER(ar)) {
-      //ea = &e->copy();
-      DistArrayRef(e,1,stmt); // 1 - modified variable
-      /*if(ar->variant()==VARIABLE_NAME && e->type()->variant() != T_STRING &&  e->type()->variant() != T_COMPLEX &&  e->type()->variant() != T_DCOMPLEX){*/
-      //!!! variant of scalar variable reference, that has type T_STRING, is  ARRAY_REF 
-      if(ar->variant()==VARIABLE_NAME  && VarType(ar)) {
-      InsertNewStatementAfter(D_PrStorVar(e,VarType(ar),GetAddresDVM(HeaderRefInd(ar,1)), ea),stcur,stmt->controlParent());
-      InsertNewStatementAfter(D_StorVar(),stmt,stmt->controlParent());
-      }                                  //inserting before and after assignment statement
-    }
-    else
-      if(level_debug > 2 || level_debug > 0 && IS_DVM_ARRAY(ar)) 
-        if(ar->variant()==VARIABLE_NAME && VarType(ar)) {
-          InsertNewStatementAfter(D_PrStorVar(e,VarType(ar),GetAddresMem(FirstArrayElement(ar)), ea),stcur,stmt->controlParent());
-          InsertNewStatementAfter(D_StorVar(),stmt,stmt->controlParent());
-        }                                 //inserting before and after assignment statement
-      
-  
-    return;
-  }
-   
- if(e->variant()==ARRAY_OP){ //substring
-      DebugVarArrayRef(e->lhs()->lhs(),stmt);
-      DebugVarArrayRef(e->rhs(),stmt);
-      return;
-  }   
- if(!only_debug) ChangeDistArrayRef_Left(e);        
-  return;
-}
-
-void CheckVarArrayRef(SgExpression *e, SgStatement *stmt, SgExpression *epr)
-{
-  if(isSgVarRefExp(e) || isSgArrayRefExp(e) ) {  //variable
-
-      if(e->symbol()->type()->variant() != T_STRING) {
-        InsertNewStatementAfter(D_PrStorVar(e,VarType(e->symbol()), ConstRef(0), epr),stmt,stmt->controlParent());
-        InsertNewStatementAfter (D_StorVar(),cur_st,stmt->controlParent());
-
-        //InsertNewStatementAfter (Addres(e),stmt,stmt->controlParent()); 
-    }                                     //inserting before and after assignment statement
-    
-     return;
-  }
-  //f(isSgArrayRefExp(e))  return;
-  return;
-}
-
-void  DebugArg_VarArrayRef(SgExpression *ele,SgStatement *stmt)
-{  SgSymbol *ar;
-  SgExpression *el, *e;
- e = ele->lhs();
- if(!e)
-    return;
- if(isSgKeywordArgExp(e))
-   e = e->rhs();
-  if(isSgVarRefExp(e)) {
-    if(isDoVar(e->symbol())) //do variable is not traced
-        return;
-    if(e->symbol()->variant()!=VARIABLE_NAME) //argument is function name
-      return;
-  //if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
-  //      return;  
-  //  InsertNewStatementBefore(D_InOutVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt); 
-  //  InsertNewStatementAfter (D_InOutVar(e,VarType(e->symbol()), new SgValueExp(0)),stmt,stmt->controlParent()); 
-    
-  return;
-   } 
-  if(e->variant()==ARRAY_OP){ //substring
-      DebugVarArrayRef(e->lhs()->lhs(),stmt);
-      DebugVarArrayRef(e->rhs(),stmt);
-  }
- if(isSgArrayRefExp(e)) {
-   if(!(e->lhs())) // argument is whole array (array name)
-       return;
-   el=e->lhs()->lhs();  //first subscript of argument
-   //testing: is first subscript of ArrayRef a POINTER 
-   if((isSgVarRefExp(el) || isSgArrayRefExp(el)) && IS_POINTER(el->symbol())){
-     DebugVarArrayRef(el->lhs(),stmt);
-     if(!only_debug) {   
-      if(!strcmp(e->symbol()->identifier(),"heap") || (e->symbol()->attributes() & HEAP_BIT))
-          is_heap_ref = 1;
-        else
-          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt); 
-        if(e->lhs()->rhs())  //there are other subscripts
-          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt);
-        if(HEADER(e->symbol()))
-          Error("Illegal POINTER reference: '%s'", el->symbol()->identifier(),138,stmt);
-
-        e->setSymbol(*heapdvm); //replace ArrayRef: A(P)=>HEAP00(P) or A(P(I))=>HEAP00(P(I))
-            //ele->setLhs(PointerHeaderRef(el,1));  
-                          //replace  ArrayRef by PointerRef: A(P)=>P(1) orA(P(I))=>P(1,I)  
-     }
-  /*
-     else  {  //only_debug 
-      if(!strcmp(e->symbol()->identifier(),"heap") || (e->symbol()->attributes() & HEAP_BIT))
-         heap_point = HeapList(heap_point,e->symbol(),el->symbol());
-     }    
-   */
-     return;
-   }    
-
-   for(el=e->lhs(); el; el=el->rhs())
-       DebugVarArrayRef(el->lhs(),stmt);
-   ar = e->symbol();
-   if(HEADER(ar)) {
-      DistArrayRef(e,0,stmt);
-     // if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
-     //   return; 
-     //!!! insert test for remote data as in DebugVarArrayRef 
-    //  InsertNewStatementBefore(D_InOutVar(e,VarType(ar), HeaderRef(ar)),stmt);
-    //  InsertNewStatementAfter (D_InOutVar(e,VarType(ar), HeaderRef(ar)),stmt,stmt->controlParent()); 
-   }
-     // else { 
-     //  if((stmt->variant() == LOGIF_NODE) || (stmt->variant() == IF_NODE) || (stmt->variant() == ELSEIF_NODE) || (stmt->variant() == ARITHIF_NODE))
-     //     return;  
-     // InsertNewStatementBefore(D_InOutVar(e,VarType(ar), new SgValueExp(0)),stmt); 
-     // InsertNewStatementAfter (D_InOutVar(e,VarType(ar), new SgValueExp(0)),stmt,stmt->controlParent());
-     // }   
-   return;
- } 
-  DebugVarArrayRef(e,stmt);
-  return;
-}
 
 void  RegistrateArg(SgExpression *ele)
 { 
@@ -12486,13 +12074,13 @@ void EndReduction_Task_Region(SgStatement *stmt)
          ReductionVarsStart(task_red_list);
 
         if(irgts) {
-         // generating assign statement:
-         //  dvm000(i) = StartR(RedGroupRef)
-         doAssignStmtAfter(StartRed(redgrefts));
+         // generating call statement:
+         //  call strtrd(RedGroupRef)
+         doCallAfter(StartRed(redgrefts));
 
-         // generating assign statement:
-         //  dvm000(i) = WaitR(RedGroupRef)
-         doAssignStmtAfter(WaitRed(redgrefts));
+         // generating call statement:
+         //  call waitrd(RedGroupRef)
+         doCallAfter(WaitRed(redgrefts));
          /*ReductionVarsWait(red_list);*/
 	       //if(idebrg){
                // if(dvm_debug)
@@ -12658,7 +12246,7 @@ void AsyncCopyWait(SgExpression * asc)
 
 int DistrArrayAssign(SgStatement *stmt)
 {SgExpression *le,*re,*headl,*headr;
- int to_init,rl,from_init,rr,dvm_ind;
+ int to_init,rl,from_init,rr,dvm_ind,left_whole,right_whole;
  SgSymbol *ar;
  SgType *typel,*typer;
   
@@ -12673,9 +12261,11 @@ int DistrArrayAssign(SgStatement *stmt)
      return(0);
    else
  // assignment statement of kind: <dvm_array_section> = <array_section>
-   { if(only_debug)
+   { 
+     if(only_debug)
        return(1);
-     
+     left_whole  = !le->lhs();
+     right_whole = !re->lhs();
      ChangeDistArrayRef(le->lhs());   //replacing dvm-array references in subscript list
      ChangeDistArrayRef(re->lhs());
      LINE_NUMBER_BEFORE(stmt,stmt);
@@ -12685,7 +12275,8 @@ int DistrArrayAssign(SgStatement *stmt)
      rl = Rank(ar);
      typel = ar->type()->baseType();
      headl = HeaderRef(ar);
-     to_init = ArraySection(le,ar,rl,stmt);
+     
+     SgExpression *left_section_list = ArraySection(le,ar,rl,stmt,to_init);
      ar = re->symbol();
      typer = ar->type()->baseType();
      if(!CompareTypes(typel,typer))
@@ -12704,10 +12295,18 @@ int DistrArrayAssign(SgStatement *stmt)
         dvm_ind = HeaderForNonDvmArray(ar,stmt);
         headr = DVM000(dvm_ind); 
      }
-     from_init = ArraySection(re,ar,rr,stmt);  
-     doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));
+     SgExpression *right_section_list  = ArraySection(re,ar,rr,stmt,from_init);  
+     if(INTERFACE_RTS2)
+     {  
+        if(left_whole && right_whole)  // whole-array = whole-array
+           doCallAfter(DvmhArrayCopyWhole(headr,headl));
+        else
+           doCallAfter(DvmhArrayCopy(headr,rr,right_section_list,headl,rl,left_section_list));
+     }
+     else
+        doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));
      if(dvm_ind)
-       doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
+        doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
      SET_DVM(to_init);    
      return(1);
    }
@@ -12715,6 +12314,8 @@ int DistrArrayAssign(SgStatement *stmt)
  // assignment statement of kind: <dvm_array_section> = <scalar_expression>
  if(only_debug)
      return(1);
+ if(INTERFACE_RTS2)
+     err("Illegal array copy statement in -Opl2 regim", 642, stmt);
 
  ChangeDistArrayRef(stmt->expr(0)->lhs());   //replacing dvm-array references in subscript list
  ChangeDistArrayRef(stmt->expr(1));
@@ -12725,8 +12326,8 @@ int DistrArrayAssign(SgStatement *stmt)
  rl = Rank(ar);
  headl = HeaderRef(ar);
  typel = ar->type()->baseType();
- to_init = ArraySection(le,ar,rl,stmt);
- headr = TypeFunction(typel,re,KINDFunction(new SgArrayRefExp(*baseMemory(ar->type()->baseType()))));  
+ headr = TypeFunction(typel,re,KINDFunction(new SgArrayRefExp(*baseMemory(ar->type()->baseType()))));
+ SgExpression *left_section_list  = ArraySection(le,ar,rl,stmt,to_init);  
  doAssignStmtAfter(ArrayCopy(headr, to_init, to_init, to_init, headl, to_init, to_init+rl, to_init+2*rl, -1));
  SET_DVM(to_init);
  return(1);
@@ -12734,7 +12335,7 @@ int DistrArrayAssign(SgStatement *stmt)
 
 int AssignDistrArray(SgStatement *stmt)
 {SgExpression *le,*re,*headl,*headr;
- int to_init,rl,from_init,rr,dvm_ind;
+ int to_init,rl,from_init,rr,dvm_ind,left_whole,right_whole;
  SgSymbol *ar;
  SgType *typel,*typer; 
     re = stmt->expr(1);
@@ -12747,6 +12348,8 @@ int AssignDistrArray(SgStatement *stmt)
  // assignment statement of kind: <array_section> = <dvm_array_section>
     if(only_debug)
        return(1);
+     left_whole  = !le->lhs();
+     right_whole = !re->lhs();
 
      ChangeDistArrayRef(stmt->expr(0)->lhs());   //replacing dvm-array references in subscript list
      ChangeDistArrayRef(stmt->expr(1)->lhs());
@@ -12768,7 +12371,7 @@ int AssignDistrArray(SgStatement *stmt)
    */
      dvm_ind = HeaderForNonDvmArray(ar,stmt);
      headl = DVM000(dvm_ind);
-     to_init = ArraySection(le,ar,rl,stmt);
+     SgExpression *left_section_list  = ArraySection(le,ar,rl,stmt,to_init);
      ar = re->symbol();
      typer = ar->type()->baseType();
      rr = Rank(ar);
@@ -12778,41 +12381,63 @@ int AssignDistrArray(SgStatement *stmt)
      if(!CompareTypes(typel,typer))
         err("Different types of left and right side",620,stmt);
 
-     from_init = ArraySection(re,ar,rr,stmt);
-     doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));   
+     SgExpression *right_section_list  = ArraySection(re,ar,rr,stmt,from_init);
+     if(INTERFACE_RTS2)
+     {  
+        if(left_whole && right_whole)  // whole-array = whole-array
+           doCallAfter(DvmhArrayCopyWhole(headr,headl));
+        else
+           doCallAfter(DvmhArrayCopy(headr,rr,right_section_list,headl,rl,left_section_list));
+     }
+     else
+        doAssignStmtAfter(ArrayCopy(headr, from_init, from_init+rr, from_init+2*rr, headl, to_init, to_init+rl, to_init+2*rl, 0));   
 
      if(dvm_ind)
-       doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
+        doCallAfter(DeleteObject_H(DVM000(dvm_ind)));
         
      SET_DVM(dvm_ind ? dvm_ind : to_init) ;   //SET_DVM(to_init);
      return(1);
 }
 
-int ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt)
-{SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
- int init,i,j;
+SgExpression *ArraySection(SgExpression *are, SgSymbol *ar, int rank, SgStatement *stmt, int &init)
+{
+ SgExpression *el,*einit[MAX_DIMS],*elast[MAX_DIMS],*estep[MAX_DIMS];
+ SgExpression *section_list = NULL;
+ int i,j;
  init = ndvm;
  if(!are->lhs()) { //MakeSection(are); // A => A(:,:, ...,:)
-   for(j=rank; j; j--)
-      doAssignStmtAfter(Calculate(new SgValueExp(-1)));
-   ndvm += 2*rank;
-   return(init);
+   if(INTERFACE_RTS2)
+      MakeSection(are);  // A => A(:,:, ...,:)
+   else {
+      for(j=rank; j; j--)
+         doAssignStmtAfter(Calculate(new SgValueExp(-1)));
+      ndvm += 2*rank;
+      return (section_list);//return(init);
+   }
  }
  if(!TestMaxDims(are->lhs(),ar,stmt)) return(0);
  for(el=are->lhs(),i=0; el; el=el->rhs(),i++)    
     Triplet(el->lhs(),ar,i, einit,elast,estep);
  if(i != rank){
     Error("Wrong number of subscripts specified for '%s'",ar->identifier(),140 ,stmt);
-    return(0);
+    //return (0);
  }
- 
- for(j=i; j; j--)
-      doAssignStmtAfter(Calculate(einit[j-1])); 
- for(j=i; j; j--)
-      doAssignStmtAfter(Calculate(elast[j-1])); 
- for(j=i; j; j--)
-      doAssignStmtAfter(estep[j-1]); 
- return(init);
+ if(INTERFACE_RTS2) 
+    for(j=0; j<i; j++) //reversing dimensions for LibDVM
+    {
+       section_list = AddElementToList(section_list, DvmType_Ref(estep[j]));
+       section_list = AddElementToList(section_list, DvmType_Ref(elast[j]));
+       section_list = AddElementToList(section_list, DvmType_Ref(einit[j]));
+    }
+ else {
+    for(j=i; j; j--)
+       doAssignStmtAfter(Calculate(einit[j-1])); 
+    for(j=i; j; j--)
+       doAssignStmtAfter(Calculate(elast[j-1])); 
+    for(j=i; j; j--)
+       doAssignStmtAfter(estep[j-1]);
+ }  
+ return (section_list); //return(init);
 }
 
 void AsynchronousCopy(SgStatement *stmt)
@@ -12902,9 +12527,9 @@ void Triplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit[],SgExpress
 {SgValueExp c1(1),c0(0);
 
   if(e->variant() != DDOT) { //is not triplet
-      einit[i] = &(*e-*Exprn(LowerBound(ar,i)));
+      einit[i] =  INTERFACE_RTS2 ? e : &(*e-*Exprn(LowerBound(ar,i)));
       elast[i] =  einit[i];
-      estep[i] = &c1.copy();
+      estep[i] =  &c1.copy();
       return;
   }
   // is triplet
@@ -12913,15 +12538,15 @@ void Triplet(SgExpression *e,SgSymbol *ar,int i, SgExpression *einit[],SgExpress
       estep[i] = e->rhs();
       e  = e->lhs();    
   } else
-      estep[i] = &c1.copy();
+      estep[i] =  &c1.copy();
   if (!e->lhs()) 
-      einit[i] =  &c0.copy();
+      einit[i] =  INTERFACE_RTS2 ? ConstRef_F95(-2147483648) : &c0.copy();
   else
-      einit[i] =  &(*(e->lhs())-*Exprn(LowerBound(ar,i)));
+      einit[i] =  INTERFACE_RTS2 ? e->lhs() : &(*(e->lhs())-*Exprn(LowerBound(ar,i)));
   if (!e->rhs())
-      elast[i] =   &(*Exprn(UpperBound(ar,i))-*Exprn(LowerBound(ar,i)));
+      elast[i] =  INTERFACE_RTS2 ? ConstRef_F95(-2147483648) : &(*Exprn(UpperBound(ar,i))-*Exprn(LowerBound(ar,i)));
   else
-      elast[i] =  &(*(e->rhs())-*Exprn(LowerBound(ar,i)));   
+      elast[i] =  INTERFACE_RTS2 ? e->rhs() : &(*(e->rhs())-*Exprn(LowerBound(ar,i)));   
   
  return;
 }

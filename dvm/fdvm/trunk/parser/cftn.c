@@ -486,6 +486,8 @@ int main(int argc, char *argv[])
         }
         else if (!strcmp(argv[0], "-ffo"))
             ;
+        else if (!strcmp(argv[0], "-upcase"))
+            ;
         else if (!strcmp(argv[0], "-lgstd"))
             ftn_std = 1;
         //else if (!strcmp(argv[0],"-ta"))

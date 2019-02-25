@@ -75,8 +75,13 @@ transform_spec_list:  transform_spec
 
 transform_spec: needkeyword SPF_NOINLINE
                 { $$ = make_llnd(fi,SPF_NOINLINE_OP,LLNULL,LLNULL,SMNULL);}
+              | needkeyword SPF_FISSION LEFTPAR loop_var_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_FISSION_OP,$4,LLNULL,SMNULL);}
+              | needkeyword SPF_PRIVATES_EXPANSION 
+                { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,LLNULL,LLNULL,SMNULL);}
+              | needkeyword SPF_PRIVATES_EXPANSION LEFTPAR loop_var_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,$4,LLNULL,SMNULL);}
               ;
-
 region_name: name
            { $$ = make_parallel_region($1);}
            ;   

@@ -252,7 +252,8 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                         if (prev && 
                             (prev->variant() == DVM_PARALLEL_ON_DIR || 
                              prev->variant() == SPF_ANALYSIS_DIR || 
-                             prev->variant() == SPF_TRANSFORM_DIR))
+                             prev->variant() == SPF_TRANSFORM_DIR ||
+                             prev->variant() == DVM_INTERVAL_DIR))
                         {
                             locSt = prev;
                             change = true;
@@ -351,8 +352,9 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     {
         if (symb->identifier() == toFind)
         {
-            if (symb->scope() == scope && symb->type()->equivalentToType(type))
-                return symb;
+            if (symb->scope() == scope)
+                if (symb->type() && symb->type()->equivalentToType(type))
+                    return symb;
         }
         symb = symb->next();
     }
@@ -642,7 +644,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             if (start->variant() == VAR_DECL ||
                 start->variant() == VAR_DECL_90 ||
                 start->variant() == ALLOCATABLE_STMT ||
-                start->variant() == DIM_STAT)
+                start->variant() == DIM_STAT || 
+                start->variant() == COMM_STAT)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -696,6 +699,10 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
                 return inDecl[i];
 
         for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == COMM_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
             return inDecl[i];
 
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -732,7 +739,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= 950 && var <= 956)
+    if (var >= 950 && var <= 958)
         ret = true;
     return ret;
 }
@@ -920,10 +927,12 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
     return outData;
 }
 
+template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgExpression *st, const set<int> dataType);
+template const vector<DIST::Array*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<int*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<FuncInfo*> getAttributes(SgStatement *st, const set<int> dataType);
 
@@ -1075,7 +1084,7 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
         int pos;
 
         auto founded = funcToFuncInfo.find(((SgProgHedrStmt*)start)->nameWithContains());
-        start->addAttribute(SPF_FUNC_INFO_ATTRIBUTE, (void*)founded->second, sizeof(FuncInfo));
+        start->addAttribute(PROC_CALL, (void*)founded->second, sizeof(FuncInfo));
 
         SgProgHedrStmt *header = isSgProgHedrStmt(start);
         if (header && start->variant() != PROG_HEDR)
@@ -1328,11 +1337,14 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
 
         for (int i = 0; i < header->numberOfParameters(); ++i)
         {
-            if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
-                header->parameter(i)->setAttribute(OUT_BIT);
-            else
-                header->parameter(i)->setAttribute(IN_BIT);
-
+            int currAttr = header->parameter(i)->attributes();
+            if ((currAttr & OUT_BIT) == 0 && (currAttr & INOUT_BIT) == 0 && (currAttr & IN_BIT) == 0)
+            {
+                if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
+                    header->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    header->parameter(i)->setAttribute(IN_BIT);
+            }
             //TODO: test and replace from defUseVar() in defUse.cpp
             /*auto funcList = defUseByFunctions[header->symbol()->identifier()];
             auto toAdd = buildLists(funcList);
@@ -1609,4 +1621,39 @@ bool ifSymbolExists(SgFile *file, const string &symbName)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return false;
+}
+
+const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)
+{
+    for (auto &commonBlockPair : commonBlocks)
+        for (auto &variable : commonBlockPair.second.getVariables())
+            if (variable.getName() == array->GetShortName() && variable.getType() == ARRAY && array->GetLocation().first == DIST::l_COMMON)
+                return &commonBlockPair.second;
+
+    return NULL;
+}
+
+static void fillArraysFromDirsRec(SgExpression *ex, vector<DIST::Array*> &toAdd)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            auto attributes = getAttributes<SgExpression*, DIST::Array*>(ex, { ARRAY_REF });
+            toAdd.insert(toAdd.end(), attributes.begin(), attributes.end());
+        }
+
+        if (ex->lhs())
+            fillArraysFromDirsRec(ex->lhs(), toAdd);
+        if (ex->rhs())
+            fillArraysFromDirsRec(ex->rhs(), toAdd);
+    }
+}
+
+vector<DIST::Array*> fillArraysFromDir(Statement *st)
+{
+    vector<DIST::Array*> retVal;
+    for (int z = 0; z < 3; ++z)
+        fillArraysFromDirsRec(st->GetOriginal()->lexPrev()->expr(z), retVal);
+    return retVal;
 }

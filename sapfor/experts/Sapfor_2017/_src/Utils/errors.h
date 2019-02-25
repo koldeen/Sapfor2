@@ -1,11 +1,8 @@
 #pragma once
 #include <string>
 
-#if !__SPC
-#include "dvm.h"
-#endif
-
 enum typeMessage { WARR, ERROR, NOTE };
+extern std::pair<std::string, int> currProcessing; // file and line, default ["", -1]
 
 // GROUP:
 // 10xx - analysis
@@ -53,7 +50,10 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   38 "An equivalence operator at line %d is not supported yet"
 //   39 "Variabled '%s' and '%s' in one storage association (common block '%s') have different types" 
 //   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
-//   41 "parallel region '%s' has line included in another region in current file"
+//   41 "parallel region '%s' has line included in another region"
+//   42 "distributed array in common block %s must have declaration in main unit"
+//   43 "bad directive expression"
+//   44 "Only pure procedures were supported"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -63,6 +63,9 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   05 "loops on lines %d and %d were combined"
 //   06 "substitute statement function with name '%s'"
 //   07 "Internal error during unparsing process has occurred"
+//   08 "Can not do PRIVATE EXPANSION for this loop - privates not found"
+//   09 "Can not split this loop because of dependecy: %s"
+//   10 "This loop has indirect child loops  and can not be splitted\n"
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -77,7 +80,10 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
 //   11 "Arrays have different align rules in this loop according to their write accesses"
 //   12 "parallel regions %shave common function '%s'"
-//   13 "parallel regions %shave local array '%s'"
+//   13 "parallel regions %shave local array '%s' that is not resolved"
+//   14 "parallel region '%s' has common array '%s' that is not resolved"
+//   15 "parallel region '%s' does not have copying of common array '%'"
+//   16  "Can not find execution time for this loop, try to get times statistic"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -85,7 +91,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 struct Messages
 {
 public:
-    explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
+    //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
     explicit Messages(const typeMessage type, const int line, const std::string &value_, const int group) : type(type), line(line), group(group)
     {
         value = value_;
@@ -132,9 +138,9 @@ static void printStackTrace() { };
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
 \
-    if (currProcessing.first && currProcessing.second)\
+    if (currProcessing.first != "" && currProcessing.second != -1)\
     { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second->lineNumber(), currProcessing.first->filename());\
+       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second, currProcessing.first.c_str());\
        addToGlobalBufferAndPrint(buf);\
     } \
     throw(-1);\

@@ -436,10 +436,8 @@ int IndependentLoop(SgStatement *stmt)
   LINE_NUMBER_AFTER(stmt,stmt);
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
- {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
+  {
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
   }
   ins_st1 = cur_st;
 
@@ -569,10 +567,8 @@ int IndependentLoop_Debug(SgStatement *stmt)
   LINE_NUMBER_AFTER(stmt,stmt);
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
- {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
+  {
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
   }
   ins_st1 = cur_st;
 
@@ -719,7 +715,7 @@ void INDLoopBegin()
 //              InpStepArray[], 
 //              OutInitIndexArray[], OutLastIndexArray[], OutStepArray[])
   
-  doAssignStmtAfter( BeginParLoop (iplp, HeaderRef(spat), nIND, iaxis, nr, iarg+3*nIND, iarg));
+  doCallAfter( BeginParLoop (iplp, HeaderRef(spat), nIND, iaxis, nr, iarg+3*nIND, iarg));
  
   if(redgref) 
     ReductionListIND2(redgref);
@@ -868,7 +864,7 @@ void ReductionListIND1()
        doAssignStmtAfter(ReductionVar(num_red,evc,ntype,ilen, loc_var, ilen+1,sign));
      er->ind = irv;
      if(debug_regim) {
-       doAssignStmtAfter(D_InsRedVar(DVM000(idebrg),num_red,evc,ntype,ilen, loc_var, ilen+1,locindtype));
+       doCallAfter(D_InsRedVar(DVM000(idebrg),num_red,evc,ntype,ilen, loc_var, ilen+1,locindtype));
      }
   }   
      return;
@@ -879,7 +875,7 @@ void ReductionListIND2(SgExpression *gref)
 //looking through the reduction list
   if(only_debug) return;
   for(er = redl; er; er=er->next) 
-     doAssignStmtAfter(InsertRedVar(gref,er->ind,(only_debug ? 0 : iplp)));
+     doCallAfter(InsertRedVar(gref,er->ind,(only_debug ? 0 : iplp)));
 }
 
 void ReductionListIND_Err()
@@ -1148,12 +1144,12 @@ void  RemoteVariableListIND()
      end_st = if_st->lexNext(); //END IF statement 
     //generating IF(dvm000(ikind).EQ.2) THEN {corner = 0} ELSE {corner = 1} ENDIF
      cur_st = doIfThenConstrForIND(DVM000(ikind), 2, 1, 1, if_st, if_st);
-     doAssignStmtAfter(InsertArrayBound(shgref, head, ishw, ishw+rank, 0)); 
+     doCallAfter(InsertArrayBound(shgref, head, ishw, ishw+rank, 0)); 
                                            //inserting shadow in group with FullShadowSign=0
      //icorn = ndvm++;
      //doAssignTo_After(DVM000(icorn),new SgValueExp(0)); //corner = 0     
      cur_st = cur_st->lexNext(); // ELSE
-     doAssignStmtAfter(InsertArrayBound(shgref, head, ishw, ishw+rank, 1)); 
+     doCallAfter(InsertArrayBound(shgref, head, ishw, ishw+rank, 1)); 
                                            //inserting shadow in groupwith FullShadowSign=1
      //doAssignTo_After(DVM000(icorn),new SgValueExp(1)); //corner = 1
      //IF(dvm000(ishg).EQ.0) THEN ...ENDIF
@@ -1180,10 +1176,8 @@ void  RemoteVariableListIND()
   if_st =  doIfThenConstrForIND(shgref, 0, 0, 0, cur_st, cp1);
   end_st = if_st->lexNext(); //END IF statement
   cur_st = if_st;
-  doAssignStmtAfter(StartBound(shgref));  // starting exchange of shadow edges
-  FREE_DVM(1);
-  doAssignStmtAfter(WaitBound (shgref));// waiting completion of shadow edges exchange
-  FREE_DVM(1);
+  doCallAfter(StartBound(shgref));  // starting exchange of shadow edges
+  doCallAfter(WaitBound (shgref));// waiting completion of shadow edges exchange
   //IF(dvm000(ibg).NE.0) THEN {executing REMOTE group} ENDIF
   //   hpf000(ibg)
   if_st =  doIfThenConstrForIND(bgref, 0, 0, 0, end_st, cp1);

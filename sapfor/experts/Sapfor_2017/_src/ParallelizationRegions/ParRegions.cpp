@@ -207,7 +207,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
         while (st != NULL && st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 
@@ -695,4 +695,18 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
     }
 
     return false;
+}
+
+void calculateLinesOfCode(vector<ParallelRegion*> &allRegions)
+{
+    for (auto &elem : allRegions)
+    {
+        auto allLines = elem->GetAllLines();
+        int lineCounter = 0;
+        for (auto &line : allLines)
+            for (auto &lineV : line.second)
+                lineCounter += (lineV.lines.second - lineV.lines.first);
+
+        __spf_print(1, "Count of lines in region '%s' = %d\n", elem->GetName().c_str(), lineCounter);
+    }
 }

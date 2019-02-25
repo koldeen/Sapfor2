@@ -23,12 +23,14 @@ int staticPrivateAnalysis = 0;
 int keepDvmDirectives = 0;
 int keepFiles = 0;
 int keepSpfDirs = 0;
+int predictOn = 0;
 //int consoleMode = 0; moved to utils.cpp
 int genAllVars = 0; //generate ALL distribution variants
 int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 int parallizeFreeLoops = 0; // parallize free loops without arrays with DIST status
 int automaticDeprecateArrays = 0; // automatic change DIST status to NON_DIST of Array
+long long intervals_threshold = 0; //Threshold for intervals
 
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph
@@ -99,7 +101,8 @@ std::vector<ParallelRegion*> subs_parallelRegions;
 std::map<std::string, PredictorStats> allPredictorStats;
 
 //for DVM INTERVALS
-std::map<std::string, std::vector<Interval*>> intervals; // file -> intervals
+std::map<std::string, std::vector<SpfInterval*>> intervals; // file -> intervals
+std::vector<std::vector<long>> topologies; // current topologies
 //
 
 //for GCOV_PARSER

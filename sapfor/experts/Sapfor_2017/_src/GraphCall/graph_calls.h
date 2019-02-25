@@ -91,7 +91,7 @@ struct FuncInfo
 
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
-    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // SgStatement for PROC_STAT and SgExpression for FUNC_CALL
+    std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // <pointer, SG_VAR> SgStatement for PROC_STAT and SgExpression for FUNC_CALL
     std::vector<FuncParam> actualParams;
     std::map<std::string, std::set<std::string>> commonBlocks;
 
@@ -105,7 +105,11 @@ struct FuncInfo
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
 
-    std::set<DIST::Array*> writeToArray;
+    std::set<DIST::Array*> writeToArrays;
+    std::set<DIST::Array*> allUsedArrays;
+
+    std::vector<int> linesOfIO;
+    std::vector<int> linesOfStop;
 
     bool usesIO; // same for IO usage as stated below
     bool isPure; // does this func or funcs called from this have common block[s]

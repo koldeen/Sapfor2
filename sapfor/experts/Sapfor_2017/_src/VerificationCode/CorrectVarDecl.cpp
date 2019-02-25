@@ -17,6 +17,7 @@
 using std::vector;
 using std::string;
 using std::map;
+using std::pair;
 using std::set;
 
 void VarDeclCorrecter(SgFile *file)
@@ -127,13 +128,179 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
     }
 }
 
+static void fillUseStatement(SgStatement *st,
+                             set<string> &useMod,
+                             map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
+                             map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUseOnly)
+{
+    if (st->variant() == USE_STMT)
+    {
+        SgExpression *ex = st->expr(0);
+        string modName = st->symbol()->identifier();
+        useMod.insert(modName);
+
+        if (ex)
+        {
+            SgExpression *start = ex;
+            bool only = false;
+            if (ex->variant() == ONLY_NODE)
+            {
+                start = ex->lhs();
+                only = true;
+            }
+
+            for (auto exI = start; exI; exI = exI->rhs())
+            {
+                if (exI->lhs()->variant() == RENAME_NODE)
+                {
+                    SgSymbol *left = NULL, *right = NULL;
+                    if (exI->lhs()->lhs()->symbol())
+                        left = exI->lhs()->lhs()->symbol();
+                    if (exI->lhs()->rhs() && exI->lhs()->rhs()->symbol())
+                        right = exI->lhs()->rhs()->symbol();
+                    if (only)
+                        modByUseOnly[modName].push_back(std::make_pair(left, right));
+                    else
+                        modByUse[modName].push_back(std::make_pair(left, right));
+                }
+            }
+        }
+    }
+}
+
+struct ModuleInfo
+{
+    set<string> useMod;
+    map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUse;
+    map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUseOnly;
+    set<string> functions;
+};
+
+static void fillInfo(SgStatement *mod, map<string, ModuleInfo> &modsInfo)
+{
+    ModuleInfo currInfo;
+    for (SgStatement *st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
+    {
+        fillUseStatement(st, currInfo.useMod, currInfo.modByUse, currInfo.modByUseOnly);
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+            break;
+    }
+    modsInfo[mod->symbol()->identifier()] = currInfo;
+}
+
+static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<string, ModuleInfo> &modsInfo, SgStatement *cp)
+{
+    //string funcName = procS->identifier();
+    auto itUse = modsInfo.find(cp->symbol()->identifier());
+    if (itUse == modsInfo.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    const ModuleInfo &info = itUse->second;
+    string callInMod = "";
+    string byUseName = "";
+    for (auto &elem : info.modByUse)
+    {
+        if (callInMod != "")
+            break;
+        string fromMod = elem.first;
+        for (auto &k : elem.second)
+        {
+            if (k.first->identifier() == funcName)
+            {
+                callInMod = fromMod;
+                byUseName = k.second->identifier();
+                break;
+            }
+        }
+    }
+
+    for (auto &elem : info.modByUseOnly)
+    {
+        if (callInMod != "")
+            break;
+        string fromMod = elem.first;
+        for (auto &k : elem.second)
+        {
+            if (k.first->identifier() == funcName)
+            {
+                callInMod = fromMod;
+                byUseName = k.second->identifier();
+                break;
+            }
+        }
+    }
+
+    if (callInMod == "")
+    {
+        set<pair<string, string>> filter;
+        for (auto &mods : info.useMod)
+        {
+            auto it = modsInfo.find(mods);
+            if (it == modsInfo.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            auto funcs = it->second.functions;
+            for (auto &func : funcs)
+            {
+                if (func == funcName)
+                    if (info.modByUseOnly.find(mods) == info.modByUseOnly.end())
+                        filter.insert(make_pair(mods, func));
+            }
+        }
+
+        if (filter.size() == 1)
+            callInMod = (*filter.begin()).first;
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    string newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
+
+    char *lastName = new char[256];
+    addToCollection(__LINE__, __FILE__, lastName, 2);
+    sprintf(lastName, "%s", curr->identifier());
+    curr->addAttribute(VARIABLE_NAME, lastName, sizeof(char*));
+    curr->changeName(newName.c_str());
+}
+
+static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *cp, const map<string, ModuleInfo> &modsInfo)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            if (!isIntrinsicFunctionName(ex->symbol()->identifier()))
+            {
+                SgSymbol *procS = OriginalSymbol(ex->symbol());
+                if (cp->variant() != MODULE_STMT)
+                {
+                    if (ex->symbol() != procS)
+                    {
+                        //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), st->symbol()->identifier(), procS->identifier());
+                        ex->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
+                        ex->setSymbol(*procS);
+                    }
+                }
+                else
+                    changeNameOfModuleFunc(procS->identifier(), ex->symbol(), modsInfo, cp);
+            }
+        }
+
+        correctModuleProcNamesEx(ex->lhs(), cp, modsInfo);
+        correctModuleProcNamesEx(ex->rhs(), cp, modsInfo);
+    }
+}
+
 void correctModuleProcNames(SgFile *file)
 {
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
         
+    map<string, ModuleInfo> modsInfo;
     for (auto &mod : modules)
     {
+        fillInfo(mod, modsInfo);
         const string modName = mod->symbol()->identifier();
         for (SgStatement *st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
         {
@@ -142,8 +309,10 @@ void correctModuleProcNames(SgFile *file)
                 char *lastName = new char[256];
                 addToCollection(__LINE__, __FILE__, lastName, 2);
                 sprintf(lastName, "%s", st->symbol()->identifier());
-                st->symbol()->changeName((modName + "_" + st->symbol()->identifier()).c_str());
-                st->symbol()->addAttribute(VARIABLE_NAME, lastName, sizeof(sizeof(char) * 256));
+                modsInfo[modName].functions.insert(lastName);
+
+                st->symbol()->changeName((modName + "::" + st->symbol()->identifier()).c_str());
+                st->symbol()->addAttribute(VARIABLE_NAME, lastName, sizeof(char*));
             }
         }
     }
@@ -154,24 +323,57 @@ void correctModuleProcNames(SgFile *file)
     for (int z = 0; z < file->numberOfFunctions(); ++z)
     {
         SgStatement *func = file->functions(z);
-        if (func->controlParent()->variant() == MODULE_STMT)
-            continue;
-
         for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
         {
             if (isSgExecutableStatement(st))
             {
+                SgStatement *cp = st->controlParent();
+                while (cp->variant() != MODULE_STMT && cp->variant() != PROG_HEDR && cp->variant() != GLOBAL)
+                    cp = cp->controlParent();
+
                 if (st->variant() == PROC_STAT)
                 {
-                    SgSymbol *procS = st->symbol();
-                    if (procS->moduleSymbol())
+                    if (!isIntrinsicFunctionName(st->symbol()->identifier()))
                     {
-                        st->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
-                        st->setSymbol(*procS->moduleSymbol());                        
+                        SgSymbol *procS = OriginalSymbol(st->symbol());
+                        if (cp->variant() != MODULE_STMT)
+                        {
+                            if (st->symbol() != procS)
+                            {
+                                //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), st->symbol()->identifier(), procS->identifier());
+                                st->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
+                                st->setSymbol(*procS);
+                            }
+                        }
+                        else
+                            changeNameOfModuleFunc(procS->identifier(), st->symbol(), modsInfo, cp);
                     }
                 }
+                else
+                    for (int z = 0; z < 3; ++z)
+                        correctModuleProcNamesEx(st->expr(z), cp, modsInfo);
             }
         }
+    }
+}
+
+static void restoreInFunc(SgExpression *ex)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            const vector<char*> attrs = getAttributes<SgSymbol*, char*>(ex->symbol(), set<int>({ VARIABLE_NAME }));
+            if (attrs.size() > 0)
+            {
+                if (attrs.size() != 1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                ex->symbol()->changeName(attrs[0]);
+            }
+        }
+
+        restoreInFunc(ex->lhs());
+        restoreInFunc(ex->rhs());
     }
 }
 
@@ -194,6 +396,30 @@ void restoreCorrectedModuleProcNames(SgFile *file)
                 if (attrs.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 st->symbol()->changeName(attrs[0]);
+            }
+        }
+    }
+
+    for (int z = 0; z < file->numberOfFunctions(); ++z)
+    {
+        SgStatement *func = file->functions(z);
+        for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+            {
+                if (st->variant() == PROC_STAT)
+                {
+                    const vector<char*> attrs = getAttributes<SgSymbol*, char*>(st->symbol(), set<int>({ VARIABLE_NAME }));
+                    if (attrs.size() > 0)
+                    {
+                        if (attrs.size() != 1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        st->symbol()->changeName(attrs[0]);
+                    }
+                }
+                else
+                    for (int z = 0; z < 3; ++z)
+                        restoreInFunc(st->expr(z));
             }
         }
     }

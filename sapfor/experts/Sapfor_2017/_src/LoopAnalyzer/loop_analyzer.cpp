@@ -37,6 +37,7 @@ extern int passDone;
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
 
 #include "../ExpressionTransform/expr_transform.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
@@ -575,36 +576,38 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
                             for (int z = 0; z < loopT->GetDimSize(); ++z)
                                 if (loop->directiveForLoop->on[z].first != "*")
                                     dimToMap = z;
-                            if (dimToMap == -1)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                            if (loopT != templ)
+                            if (dimToMap != -1)
                             {
-                                DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
-                                if (templ != loopTempl)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
-                                if (loopAlignCoefs[dimToMap] == -1)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                                else
-                                    dimToMap = loopAlignCoefs[dimToMap];
-                            }
-
-                            if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
-                            {
-                                bool found = false;
-
-                                for (int l = 0; l < alignCoefs.size(); ++l)
+                                if (loopT != templ)
                                 {
-                                    if (alignCoefs[l] == dimToMap)
-                                        found = true;
-                                }
-                                ok = found;
+                                    DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
+                                    if (templ != loopTempl)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                if (!ok)
-                                    addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                    auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
+                                    if (loopAlignCoefs[dimToMap] == -1)
+                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    else
+                                        dimToMap = loopAlignCoefs[dimToMap];
+                                }
+
+                                if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
+                                {
+                                    bool found = false;
+
+                                    for (int l = 0; l < alignCoefs.size(); ++l)
+                                    {
+                                        if (alignCoefs[l] == dimToMap)
+                                            found = true;
+                                    }
+                                    ok = found;
+
+                                    if (!ok)
+                                        addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                }
                             }
+                            else
+                                ;//printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                         }
                     }
 
@@ -678,6 +681,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         break;
                     itLoop->second->hasIndirectAccess = true;
                 }
+                SgSymbol *symb = currExp->symbol();
+                if (symb->type()->variant() == T_ARRAY)
+                    notMappedDistributedArrays[symb->identifier()] = make_pair(symb, currentSt);
             }
             else
             {
@@ -1027,7 +1033,7 @@ static set<string> getPrivatesFromModule(SgStatement *mod,
 {
     set<string> privates;
     SgStatement *end = mod->lastNodeOfStmt();
-    while (end != mod)
+    while (mod != end && mod->lineNumber() > 0)
     {
         if (mod->variant() == USE_STMT)
         {
@@ -1193,6 +1199,31 @@ static void changeLoopWeight(double &currentWeight, const map<int, LoopGraph*> &
         currentWeight /= loopIt->second->countOfIters;
 }
 
+static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line)
+{
+    bool retVal = false;
+
+    if (ex == NULL)
+        return retVal;
+
+    if (ex->variant() == FUNC_CALL && !IsPureProcedureACC(ex->symbol()))
+    {
+        if (isIntrinsicFunctionName(ex->symbol()->identifier()) == 0)
+        {
+            retVal = true;
+            loopRef->hasNonPureProcedures = true;
+            messagesForFile.push_back(Messages(WARR, line, "Only pure procedures were supported", 1044));
+        }
+    }
+    bool retL = false, retR = false;
+    if (ex->lhs())
+        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line);
+    if (ex->rhs())
+        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line);;
+
+    return retVal || retL || retR;
+}
+
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
 void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                   vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
@@ -1292,7 +1323,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -1611,7 +1642,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 tryToFindPrivateInAttributes(st, privatesVars);
                 fillNonDistrArraysAsPrivate(st, declaratedArrays, declaratedArraysSt, privatesVars);
 
-                if (isDVM_stat(st) == false)
+                if (isDVM_stat(st) == false && isSgExecutableStatement(st))
                 {
                     if (regime == REMOTE_ACC)
                     {
@@ -1731,48 +1762,65 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
                 }
             }
             
+            // TODO: add messages!
             for (auto &loopLine : loopWithOutArrays)
             {
                 if (sortedLoopGraph[loopLine]->withoutDistributedArrays && loopLine > 0)
                 {
                     //TODO: enable linear writes to non distr arrays for CONSISTENT
                     bool hasWritesToArray = false;
-                    bool hasReduction = false;
                     //TODO: add IPA for non pure
                     bool hasNonPureProcedures = false;
 
                     auto loopRef = sortedLoopGraph[loopLine];
                     SgStatement *loopSt = loopRef->loop;
 
+                    map<string, set<string>> reductions;
+                    map<string, set<tuple<string, string, int>>> reductionsLoc;
+                    set<string> privates;
                     for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
                     {
-                        map<string, set<string>> reductions;
-                        map<string, set<tuple<string, string, int>>> reductionsLoc;
-
-                        fillReductionsFromComment(new Statement(data), reductions);
-                        fillReductionsFromComment(new Statement(data), reductionsLoc);
-
-                        hasReduction = (reductions.size() != 0) || (reductionsLoc.size() != 0);
-                        if (hasReduction)
-                            break;
+                        Statement *dataSt = new Statement(data);
+                        fillReductionsFromComment(dataSt, reductions);
+                        fillReductionsFromComment(dataSt, reductionsLoc);
+                        fillPrivatesFromComment(dataSt, privates);
                     }
-
-                    for (SgStatement *start = loopSt->lexNext(); 
-                         start != loopSt->lastNodeOfStmt() && !hasNonPureProcedures;
-                         start = start->lexNext())
+                    for (auto &red : reductions)
+                        privates.insert(red.second.begin(), red.second.end());
+                    for (auto &red : reductionsLoc)
                     {
-                        if (start->variant() == ASSIGN_STAT)
-                            if (start->expr(0)->variant() == ARRAY_REF)
-                                hasWritesToArray = true;
-
-                        if (start->variant() == PROC_STAT)
+                        for (auto &elem : red.second)
                         {
-                            if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
-                                hasNonPureProcedures = true;
+                            privates.insert(get<0>(elem));
+                            privates.insert(get<1>(elem));
                         }
                     }
 
-                    if ((hasReduction || (!hasReduction && !hasWritesToArray)) && !hasNonPureProcedures)
+                    for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
+                    {
+                        if (start->variant() == ASSIGN_STAT)
+                        {
+                            if (start->expr(0)->variant() == ARRAY_REF)
+                                if (privates.find(start->expr(0)->symbol()->identifier()) == privates.end())
+                                    hasWritesToArray = true;
+                        }
+                        
+                        if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
+                        {
+                            if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                            {
+                                hasNonPureProcedures = true;
+                                loopRef->hasNonPureProcedures = true;
+                                messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
+                            }
+                        }
+                        
+                        for (int z = 1; z < 3; ++z)
+                            if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
+                                hasNonPureProcedures = true;
+                    }
+
+                    if (!hasWritesToArray && !hasNonPureProcedures)
                     {
                         if (!addToDistributionGraph(loopRef, funcName))
                             loopRef->withoutDistributedArrays = false;
@@ -1873,7 +1921,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG
             if (passDone == 2)
                 throw boost::thread_interrupted();
@@ -2155,9 +2203,10 @@ static void findArrayRefs(SgExpression *ex,
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<DIST::arrayLocType, string> arrayLocation;
-                if (symb != ex->symbol())
+                SgStatement *scope = symb->scope();
+
+                if (symb != ex->symbol() || (scope && scope->variant() == MODULE_STMT))
                 {
-                    SgStatement *scope = symb->scope();
                     if (scope)
                         arrayLocation = make_pair(DIST::l_MODULE, scope->symbol()->identifier());
                     else //TODO: find module name with another way
@@ -2207,7 +2256,6 @@ static void findArrayRefs(SgExpression *ex,
 
                 if (!isExecutable)
                     itNew->second.first->AddDeclInfo(make_pair(declSt->fileName(), declSt->lineNumber()));
-                itNew->second.first->AddDeclInfo(make_pair(decl->fileName(), decl->lineNumber()));
                 
                 if (isExecutable)
                     itNew->second.second->AddAccessInfo(make_pair(declSt->lineNumber(), isWrite ? 1 : 0), declSt->fileName());
@@ -2386,21 +2434,26 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
-            vector<string> regNames;
-            for (auto &reg : currRegs)
-                regNames.push_back(reg->GetName());
+            if (!isSPF_stat(st))
+            {
+                set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                vector<string> regNames;
+                for (auto &reg : currRegs)
+                    regNames.push_back(reg->GetName());
+                if (regNames.size() == 0)
+                    regNames.push_back("default");
 
-            //TODO: need to add IPO analysis for R/WR state for calls and functions
-            //TODO: improve WR analysis
-            for (int i = 0; i < 3; ++i)
-                findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
-                              isSgExecutableStatement(st) ? true : false, st, currFunctionName,
-                              (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                //TODO: need to add IPO analysis for R/WR state for calls and functions
+                //TODO: improve WR analysis
+                for (int i = 0; i < 3; ++i)
+                    findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                  isSgExecutableStatement(st) ? true : false, st, currFunctionName,
+                                  (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+            }
             st = st->lexNext();
         }
     }

@@ -38,10 +38,13 @@ public:
     std::vector<AlignRule> alignRules;
     std::vector<std::pair<DIST::Array*, std::vector<DistrVariant>>> distrRules;
 public:
+    std::vector<std::pair<DIST::Array*, std::vector<DistrVariant>>> GetDistrRules() const { return distrRules; }
     void createDirstributionVariants(const std::vector<DIST::Array*> &arraysToDist);
     std::vector<std::string> GenRule(const std::vector<int> &rules) const;
     std::vector<std::string> GenAlignsRules() const;
+    std::vector<AlignRule> GenAlignsRules(void*) { return alignRules; }
     std::vector<Statement*> GenRule(File *file, const std::vector<int> &rules, const int variant) const; 
+    std::vector<std::vector<dist>> GenRule(const std::vector<int> &rules, int) const;
     std::vector<Statement*> GenAlignsRules(File *file, const int variant) const;
     void UpdateLinks(const std::map<DIST::Array*, DIST::Array*> &oldNewArrays)
     {
@@ -68,6 +71,7 @@ public:
     std::vector<std::string> parallel;
     std::vector<std::pair<std::string, std::pair<int, int>>> on; //todo change to tuple //todo description/clear name
     DIST::Array *arrayRef; // template
+    std::string cloneOfTemplate; // if loop has realigns before 
     DIST::Array *arrayRef2;// main array in loop
 
     std::set<Symbol*> privates;

@@ -37,6 +37,7 @@ using std::make_pair;
 using std::queue;
 
 #define PRINT_PROF_INFO 0
+#define PRINT_PROF_INFO_TIME 0
 /*
  * Contains original SgExpressions.
  * map <string, ...> key is a file, where replacements take place
@@ -203,7 +204,7 @@ SgExpression* ReplaceParameter(SgExpression *e)
                 {
                     int num = sub->valueInteger();
                     SgExpression *value = getFromConstructor(constructor->lhs(), num);
-                    if (value && value->lhs() == NULL && value->rhs() == NULL)
+                    if (value && ((value->lhs() == NULL && value->rhs() == NULL) || value->variant() == MINUS_OP))
                         return (ReplaceParameter(&(value->copy())));
                 }
             }
@@ -219,7 +220,6 @@ SgExpression* ReplaceConstant(SgExpression *e)
 {
     SgExpression *er;
     er = ReplaceParameter(&(e->copy()));
-
     if (er->isInteger())
         return (new SgValueExp(er->valueInteger()));
     else
@@ -551,10 +551,11 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
     //first, check previous defs within block
     auto founded = b->getGen()->find(SymbolKey(var->symbol()));
     if (founded != b->getGen()->end())
-        if (!valueWithFunctionCall(founded->second))
-            if (!valueWithRecursion(founded->first, founded->second))
-                if(!valueWithArrayReference(founded->second))
-                    exp = founded->second;
+        if (!valueWithFunctionCall(founded->second->getExp()))
+            if (!valueWithRecursion(founded->first, founded->second->getExp()))
+                if(!valueWithArrayReference(founded->second->getExp()))
+                    if(b->expressionIsAvailable(founded->second))
+                        exp = founded->second->getExp();
 
 
     if (exp == NULL)
@@ -562,24 +563,18 @@ SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
         //second, check defs from previous blocks
         auto founded_inDefs = b->getInDefs()->find(SymbolKey(var->symbol()));
         if (founded_inDefs != b->getInDefs()->end())
+        {
             //if smth is founded_inDefs, it has single value
             //thanks to CorrectInDefs(ControlFlowGraph*) function
-            exp = (*(founded_inDefs->second.begin()))->getExp();
-
-        //we have to check if this value was killed inside block
-        if (exp != NULL)
-        {
-            for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
-            {
-                if (symbolInExpression(*it, exp))
-                {
-                    exp = NULL;
-                    break;
-                }
-            }
+            ExpressionValue *expVal = *(founded_inDefs->second.begin());
+            //we have to check if this value was killed inside block
+            if(b->expressionIsAvailable(expVal))
+                exp = expVal->getExp();
         }
     }
+
     return exp;
+
 }
 
 static void createLinksToCopy(SgExpression *exOrig, SgExpression *exCopy)
@@ -812,6 +807,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
         for (int i = 0; i < numberOfArgs; ++i)
         {
             arg = args->lhs();
+
             if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
             {
                 SgExpression* newExp = valueOfVar(arg, b);
@@ -840,7 +836,6 @@ bool replaceVarsInBlock(CBasicBlock* b)
     for (ControlFlowItem* cfi = b->getStart(); cfi != b->getEnd()->getNext(); cfi = cfi->getNext())
     {
         st = cfi->getStatement();
-
         if(cfi->getFunctionCall())
         {
             wereReplacements |= replaceCallArguments(cfi, b);
@@ -866,6 +861,7 @@ bool replaceVarsInBlock(CBasicBlock* b)
                 b->adjustGenAndKill(cfi);
                 break;
             case READ_STAT:
+                //TODO вообще-то подставлять нельзя только переменные, а индексы массивов можно, но стоиот ли?
                 b->adjustGenAndKill(cfi);
                 break;
             case POINTER_ASSIGN_STAT:
@@ -901,25 +897,25 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif
-        __spf_print(PRINT_PROF_INFO, "New substitution iteration\n");
+        __spf_print(PRINT_PROF_INFO_TIME, "New substitution iteration\n");
         double time = omp_get_wtime();
 
         wereReplacements = false;
         visitedStatements.clear();
 
-        __spf_print(PRINT_PROF_INFO, " clear vis %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         ClearCFGInsAndOutsDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO, " clear CFG %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-        __spf_print(PRINT_PROF_INFO, " fill %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         CorrectInDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO, " correct %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", omp_get_wtime() - time);
         time = omp_get_wtime();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -928,19 +924,21 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
-        __spf_print(PRINT_PROF_INFO, " replace %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", omp_get_wtime() - time);
     }
 }
 
-void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs)
+void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionValue*>> &inDefs, const string &filename)
 {
     __spf_print(PRINT_PROF_INFO, "Building unfiltered reaching definitions\n");
 
     visitedStatements.clear();
     ClearCFGInsAndOutsDefs(CGraph);
     FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
+
     /* Showtime */
 //    showDefsOfGraph(CGraph);
+//    debugStructure(CGraph, filename);
 }
 
 static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
@@ -1107,13 +1105,13 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();
-
         replaceConstants(filename, st);
 
         ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
+
         ExpandExpressions(CGraph, inDefs);
         __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
-        BuildUnfilteredReachingDefinitions(CGraph, inDefs);
+        BuildUnfilteredReachingDefinitions(CGraph, inDefs, filename);
     }
 
     for (auto &stmt : *curFileReplacements)

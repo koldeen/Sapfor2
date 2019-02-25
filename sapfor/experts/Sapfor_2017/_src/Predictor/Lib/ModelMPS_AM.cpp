@@ -882,21 +882,13 @@ void FuncCall::setelw()
 				for (j = st, Wsum=0., Wmax=0.; j < jmax; j++) {
 //					cout<<"loadweight"<<"["<<j<<"]="<<params->LoadWeight[j]<<"\n";
 					Wsum += params->LoadWeight[j];
-#ifdef _MSC_VER 
 					Wmax = max(Wmax, params->LoadWeight[j]);
-#else
-					Wmax = _MAX(Wmax, params->LoadWeight[j]);
-#endif
 				}
 
 				// Calculate Whigh (maximal calculated weight)
 
 				Wlow = Wsum / (double) AxisSize;    // initial low edge
-#ifdef _MSC_VER 
 				Whigh = min(Wsum, Wlow+Wmax);		// initial high edge
-#else
-				Whigh = _MIN(Wsum, Wlow+Wmax);		// initial high edge
-#endif
 
 				while ((Whigh - Wlow) > setelw_precision) {
 

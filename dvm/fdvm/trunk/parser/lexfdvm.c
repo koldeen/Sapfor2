@@ -428,6 +428,7 @@ struct Keylist keys[] = {
 	{"external", EXTERNAL},
         {"files",FILES},
 	{"find", FIND},
+        {"fission",SPF_FISSION},
         {"firstprivate", OMPDVM_FIRSTPRIVATE},/*OMP*/
         {"forall", FORALL},
 	{"format", FORMAT},
@@ -513,6 +514,7 @@ struct Keylist keys[] = {
 /*        {"port", PORT},*/
 /*       {"post", POST}, */
 	{"print", PRINT},
+        {"privates_expansion",SPF_PRIVATES_EXPANSION},
         {"private", PRIVATE}, 
 /*!!!        {"probe", PROBE}, */
 /*!!!        {"procedure", PROCEDURE},*/
@@ -1690,11 +1692,11 @@ crunch()
 					break;
 				}
 				if (*i == quote)
-				{  if (i < lastch && i[1] == quote) {
-                                                if(quote == '\'') *++j = *i;/* extracting second " */           
+				{  if (i < lastch && i[1] == quote) { 
+                                                *++j = *i;          
 						++i;
-                                  }
-					else
+                                   }
+				   else
 						break;
 				}		
 				*++j = *i;

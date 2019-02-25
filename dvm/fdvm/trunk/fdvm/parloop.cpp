@@ -73,12 +73,8 @@ int ParallelLoop(SgStatement *stmt)
 
 //generating call to 'bploop' function of performance analizer (begin of parallel interval)
   if(perf_analysis && perf_analysis != 2)
-  {
-     int ind = ndvm;
-     doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-     InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-     FREE_DVM(1);
-  }
+     InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
+
   //par_st = cur_st;
 
 //renewing loop-header's variables (used in start-expr, end-expr, step-expr)
@@ -242,14 +238,14 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
        // call dvmh_destroy_array(...)  
           ACC_UnregisterDvmBuffers();
        if(parloop_by_handler != 2 || (parloop_by_handler==2 && WhatInterface(parallel_dir) != 2))   
-       // generating assign statement:
-       //  dvm000(i) = EndPL(LoopRef)
-          doAssignStmtAfter(EndParLoop(iplp));
+       // generating call statement:
+       //  call endpl(LoopRef)
+          doCallAfter(EndParLoop(iplp));
 
        // generating statements for ACROSS:
        if(iacross){
-          doAssignStmtAfter(SendBound(DVM000(iacross)));
-          doAssignStmtAfter(WaitBound(DVM000(iacross)));
+          doCallAfter(SendBound(DVM000(iacross)));
+          doCallAfter(WaitBound(DVM000(iacross)));
           doCallAfter(DeleteObject_H (DVM000(iacross)));
        }
        // actualizing of reduction variables
@@ -257,21 +253,21 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
           ReductionVarsStart(red_list);
      
        if(irg) {//there is synchronous REDUCTION clause in PARALLEL
-          // generating assign statement:
-          //  dvm000(i) = StartR(RedGroupRef)
-          doAssignStmtAfter(StartRed(redgref));
+          // generating call statement:
+          //  call strtrd(RedGroupRef)
+          doCallAfter(StartRed(redgref));
 
-          // generating assign statement:
-          //  dvm000(i) = WaitR(RedGroupRef)
-          doAssignStmtAfter(WaitRed(redgref));
+          // generating call statement:
+          //  call waitrd(RedGroupRef)
+          doCallAfter(WaitRed(redgref));
 
           if(IN_COMPUTE_REGION || parloop_by_handler)       /*ACC*/   
              ACC_ReductionVarsAreActual();
            
 	  if(idebrg){
              if(dvm_debug)
-               doAssignStmtAfter( D_CalcRG(DVM000(idebrg)));
-             doAssignStmtAfter( D_DelRG (DVM000(idebrg)));
+               doCallAfter( D_CalcRG(DVM000(idebrg)));
+             doCallAfter( D_DelRG (DVM000(idebrg)));
           }
           // generating statement:
           //  call dvmh_delete_object(RedGroupRef)     //dvm000(i) = delobj(RedGroupRef)
@@ -303,11 +299,7 @@ void EndOfParallelLoopNest(SgStatement *stmt, SgStatement *end_stmt, SgStatement
         // generating call eloop(...) - end of parallel interval
         // (performance analyzer function)
        if(perf_analysis && perf_analysis != 2) {
-         int ind;
-         ind = ndvm; doAssignStmtAfter(new SgValueExp(INTERVAL_NUMBER));
-         doAssignStmtAfter(new SgValueExp(INTERVAL_LINE));
-         InsertNewStatementAfter(St_Enloop(ind,ind+1),cur_st,cur_st->controlParent());
-         FREE_DVM(2);
+         InsertNewStatementAfter(St_Enloop(INTERVAL_NUMBER,INTERVAL_LINE),cur_st,cur_st->controlParent());
          CloseInterval();
          if(perf_analysis != 4)
            OverLoopAnalyse(func);
@@ -454,6 +446,7 @@ int WhatInterface(SgStatement *stmt)
            case ACC_CUDA_BLOCK_OP:
            case SHADOW_RENEW_OP:
            case SHADOW_COMP_OP:
+           case ACROSS_OP:
                 break;
            case REDUCTION_OP:
                 if(TestReductionClause(e))
@@ -471,7 +464,7 @@ int areIllegalClauses(SgStatement *stmt)
 { SgExpression *el;
 
   for(el=stmt->expr(1); el; el=el->rhs()) 
-    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP)
+    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP && el->lhs()->variant() != ACROSS_OP)
       return 1;
   return 0;                 
 }          
@@ -648,7 +641,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
         }
          // generating assign statement:
          //  dvm000(i) = strtsh(BoundGroupRef)
-        doAssignStmtAfter(StartBound(DVM000(isg)));
+        doCallAfter(StartBound(DVM000(isg)));
      }
 
      if(clause[SHADOW_START_])      //sh_start
@@ -661,20 +654,20 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
         }
         // generating assign statement:
         //   dvm000(i) = exfrst(LoopRef,BounGroupRef)
-        doAssignStmtAfter(BoundFirst(iplp,sh_start));
+        doCallAfter(BoundFirst(iplp,sh_start));
      }
 
      if(clause[SHADOW_WAIT_])        //sh_wait
      // generating assign statement:
      //   dvm000(i) = imlast(LoopRef,BounGroupRef)
-        doAssignStmtAfter(BoundLast(iplp,new SgVarRefExp(clause[SHADOW_WAIT_]->symbol())));
+        doCallAfter(BoundLast(iplp,new SgVarRefExp(clause[SHADOW_WAIT_]->symbol())));
 
      if(clause[SHADOW_COMPUTE_])
      {
         if( (clause[SHADOW_COMPUTE_]->lhs()))
 	   ShadowComp(clause[SHADOW_COMPUTE_]->lhs(),stmt,0);
         else 
-           doAssignStmtAfter(AddBound());             
+           doCallAfter(AddBound());             
      }
      if(clause[REMOTE_ACCESS_])
      {
@@ -741,14 +734,14 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
            iacross = ndvm++;// index for ShadowGroupRef
            //looking through the dependent_array_list
            if(DepList(e->lhs(), stmt, DVM000(iacross),ANTIDEP)){
-              doAssignStmtAfter(StartBound(DVM000(iacross)));
-              doAssignStmtAfter(WaitBound(DVM000(iacross)));
+              doCallAfter(StartBound(DVM000(iacross)));
+              doCallAfter(WaitBound(DVM000(iacross)));
               doAssignStmtAfter(DeleteObject(DVM000(iacross)));
               SET_DVM(iacross+1); 
            }
            if(DepList(e->lhs(), stmt, DVM000(iacross),FLOWDEP)){
-              doAssignStmtAfter(ReceiveBound(DVM000(iacross)));
-              doAssignStmtAfter(WaitBound(DVM000(iacross)));
+              doCallAfter(ReceiveBound(DVM000(iacross)));
+              doCallAfter(WaitBound(DVM000(iacross)));
               SET_DVM(iacross+1);
            } else {
               if (iacross == -1)
@@ -803,7 +796,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
   if(isg) {
          // generating assign statement:
          //  dvm000(i) = waitsh(BoundGroupRef)
-         doAssignStmtAfter(WaitBound(DVM000(isg)));
+         doCallAfter(WaitBound(DVM000(isg)));
           }
      
 // generating assign statement:
@@ -813,7 +806,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
 //              InpStepArray[], 
 //              OutInitIndexArray[], OutLastIndexArray[], OutStepArray[])
   
-  doAssignStmtAfter( BeginParLoop (iplp, head, nloop, iaxis, nr, iinp, iout));
+  doCallAfter( BeginParLoop (iplp, head, nloop, iaxis, nr, iinp, iout));
 
   if(redgref) {
     if(!irg) {
@@ -855,13 +848,13 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
        // generating call statement ( in and out compute region):
        //  call dvmh_shadow_renew( BoundGroupRef)              
          doCallAfter(ShadowRenew_H (DVM000(iacrg+2) ));   
-       doAssignStmtAfter(InitAcross(0,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),DVM000(iacrg)));
+       doCallAfter(InitAcross(0,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),DVM000(iacrg)));
        if(IN_COMPUTE_REGION || parloop_by_handler)
        { oldGroup = ag[2] ? DVM000(iacrg+5) : ConstRef(0); /*ACC*/
          newGroup = DVM000(iacrg+3);                       /*ACC*/
        }
      if(ag[1]) {                                        
-       doAssignStmtAfter(InitAcross(1,  ConstRef(0),  DVM000(iacrg+1)));
+       doCallAfter(InitAcross(1,  ConstRef(0),  DVM000(iacrg+1)));
        if(IN_COMPUTE_REGION || parloop_by_handler)
        { oldGroup2 =  ConstRef(0);                         /*ACC*/
          newGroup2 =  DVM000(iacrg+4);                      /*ACC*/
@@ -878,7 +871,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
        //  call dvmh_shadow_renew( BoundGroupRef)              
          doCallAfter(ShadowRenew_H (DVM000(iacrg+2) ));   
 
-       doAssignStmtAfter(InitAcross(1,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),DVM000(iacrg+1)));
+       doCallAfter(InitAcross(1,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),DVM000(iacrg+1)));
        if(IN_COMPUTE_REGION || parloop_by_handler)        
        { oldGroup = ag[2] ? DVM000(iacrg+5) : ConstRef(0); /*ACC*/
          newGroup = DVM000(iacrg+4);                       /*ACC*/
@@ -890,8 +883,8 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
        // generating call statement ( in and out compute region):
        //  call dvmh_shadow_renew( BoundGroupRef)              
          doCallAfter(ShadowRenew_H (DVM000(iacrg+2) ));   
-       doAssignStmtAfter(StartBound(DVM000(iacrg+2)));
-       doAssignStmtAfter(WaitBound (DVM000(iacrg+2)));
+       doCallAfter(StartBound(DVM000(iacrg+2)));
+       doCallAfter(WaitBound (DVM000(iacrg+2)));
        if(IN_COMPUTE_REGION || parloop_by_handler)        
        { oldGroup = DVM000(iacrg+5);                      /*ACC*/
          newGroup = ConstRef(0);                          /*ACC*/
@@ -908,7 +901,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
        // generating call statement ( in and out compute region):
        //  call dvmh_shadow_renew( BoundGroupRef)              
          doCallAfter(ShadowRenew_H (DVM000(iacrg+2) ));   
-       doAssignStmtAfter(InitAcross(0,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),(ag[0] ? DVM000(iacrg) : ConstRef(0))));        
+       doCallAfter(InitAcross(0,(ag[2] ? DVM000(iacrg+2) : ConstRef(0)),(ag[0] ? DVM000(iacrg) : ConstRef(0))));        
        if(IN_COMPUTE_REGION || parloop_by_handler)      
        { oldGroup = ag[2] ? DVM000(iacrg+5) : ConstRef(0); /*ACC*/
          newGroup = ag[0] ? DVM000(iacrg+3) : ConstRef(0); /*ACC*/
@@ -1128,18 +1121,18 @@ int RecurList (SgExpression *el, SgStatement *st, SgExpression *gref, int *ag, i
      }
 
      if(!esec)
-     { doAssignStmtAfter(InsertArrayBoundDep(gref, head, ileft, ileft+rank, 1, ileft+2*rank));
+     { doCallAfter(InsertArrayBoundDep(gref, head, ileft, ileft+rank, 1, ileft+2*rank));
        if( (IN_COMPUTE_REGION || parloop_by_handler) && GROUP_INDEX(gref) )  /*ACC*/
-          doAssignStmtAfter(InsertArrayBoundDep(gref_acc, head, ileft, ileft+rank, 1, ileft+2*rank));
+          doCallAfter(InsertArrayBoundDep(gref_acc, head, ileft, ileft+rank, 1, ileft+2*rank));
      }
      else {
        if(!Recurrences(ear->lhs(),lrec,rrec,MAX_DIMS))
           err("Recurrence list is not specified", 261, st);
        for(esc=esec; esc; esc=esc->rhs()) {
           doSectionIndex(esc->lhs(), ear->symbol(), st, idv, ileft, lrec, rrec);
-          doAssignStmtAfter(InsertArrayBoundSec(gref, head, idv[0],idv[1],idv[2], idv[3],idv[4], idv[5], 1, ileft+2*rank));  
+          doCallAfter(InsertArrayBoundSec(gref, head, idv[0],idv[1],idv[2], idv[3],idv[4], idv[5], 1, ileft+2*rank));  
           if( (IN_COMPUTE_REGION || parloop_by_handler) && GROUP_INDEX(gref) )  /*ACC*/
-            doAssignStmtAfter(InsertArrayBoundSec(gref_acc, head, idv[0],idv[1],idv[2], idv[3],idv[4], idv[5], 1, ileft+2*rank));    
+            doCallAfter(InsertArrayBoundSec(gref_acc, head, idv[0],idv[1],idv[2], idv[3],idv[4], idv[5], 1, ileft+2*rank));    
        }
 
      }     
@@ -1360,9 +1353,9 @@ int DepList (SgExpression *el, SgStatement *st, SgExpression *gref, int dep)
      if(nel == 1)
        CreateBoundGroup(gref);
      if(dep == ANTIDEP)
-       doAssignStmtAfter(InsertArrayBound(gref, head, ileft, ileft+rank, corner));  
+       doCallAfter(InsertArrayBound(gref, head, ileft, ileft+rank, corner));  
      else 
-       doAssignStmtAfter(InsertArrayBoundDep(gref, head, ileft, ileft+rank,(corner ? rank : 1), ileft+2*rank));       
+       doCallAfter(InsertArrayBoundDep(gref, head, ileft, ileft+rank,(corner ? rank : 1), ileft+2*rank));       
   }
   return(nel);
 }
@@ -1681,7 +1674,7 @@ void ReductionList  (SgExpression *el,SgExpression *gref, SgStatement *st, SgSta
      }
      if(debug_regim && st->variant()!=DVM_TASK_REGION_DIR) {
        debgref = idebrg ? DVM000(idebrg) : DebReductionGroup(gref->symbol());
-       doAssignStmtAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
+       doCallAfter(D_InsRedVar(debgref,num_red,ev,ntype,ilen, loc_var, ilen+1,locindtype));
      }
      last1 = cur_st;
      if(stmt1 != stmt2) 
@@ -1692,7 +1685,7 @@ void ReductionList  (SgExpression *el,SgExpression *gref, SgStatement *st, SgSta
          doAssignStmtAfter(new SgVarRefExp(TASK_SYMBOL(st->symbol())));
        }
        irf = (st->variant()==DVM_TASK_REGION_DIR) ? itsk : iplp;
-       doAssignStmtAfter(InsertRedVar(gref,irv,irf));
+       doCallAfter(InsertRedVar(gref,irv,irf));
      }
      last = cur_st;
   }   
@@ -1823,7 +1816,7 @@ void    InsertReductions_H(SgExpression *red_op_list, int ilh)
 
     last = NULL;
     if (!irg && IN_COMPUTE_REGION)
-        err("Asynchronous reduction not implemented yet for GPU", 596, parallel_dir);
+        err("Asynchronous reduction is not implemented yet for GPU", 596, parallel_dir);
     //looking through the reduction_op_list
     for (er = red_op_list; er; er = er->rhs())
     {
@@ -1837,7 +1830,7 @@ void    InsertReductions_H(SgExpression *red_op_list, int ilh)
             ev = ered->rhs()->lhs(); // reduction variable reference        
             loc_var = ered->rhs()->rhs()->lhs();        //location array reference
             if (loc_var->lhs())  // array element reference, it must be array name
-                Error("Wrong operand of MAXLOC/MINLOC: %s", loc_var->symbol()->identifier(), 149, dvm_parallel_dir);
+                Error("Wrong operand of MAXLOC/MINLOC: %s", loc_var->symbol()->identifier(), 149, parallel_dir);
             en = ered->rhs()->rhs()->rhs()->lhs(); // number of elements in location array
             loc_el_num = LocElemNumber(en);
             loc_type = loc_var->symbol()->type();
@@ -1849,12 +1842,12 @@ void    InsertReductions_H(SgExpression *red_op_list, int ilh)
             if (isSgArrayRefExp(ev) && !ev->lhs() && !HEADER(ev->symbol())) // whole one-dimensional array
                 ;
             else
-                Error("Reduction variable %s is array (array element), not implemented yet", ev->symbol()->identifier(), 597, dvm_parallel_dir);
+                Error("Reduction variable %s is array (array element), not implemented yet", ev->symbol()->identifier(), 597, parallel_dir);
             type = type->baseType();
         }
 
         //if((nr =TestType(type)) == 5 || nr == 6)  // COMPLEX or DCOMPLEX
-        //   Error("Illegal type of reduction variable %s, not implemented yet for GPU",ev->symbol()->identifier(),592,dvm_parallel_dir);
+        //   Error("Illegal type of reduction variable %s, not implemented yet for GPU",ev->symbol()->identifier(),592,parallel_dir);
 
         InsertNewStatementAfter(LoopInsertReduction_H(ilh, irv), cur_st, cur_st->controlParent());
 
@@ -2101,11 +2094,9 @@ int ParallelLoop_Debug(SgStatement *stmt)
   redgref = NULL; red_list = NULL; irg = 0; idebrg = 0; mred =0;
   LINE_NUMBER_AFTER(stmt,stmt);
  //generating call to 'bploop' function of performance analizer (begin of parallel interval)
-  if(perf_analysis && perf_analysis != 2) {
-    ind = ndvm; doAssignStmtAfter(new SgValueExp(OpenInterval(stmt)));
-    InsertNewStatementAfter(St_Bploop(ind), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
-    FREE_DVM(1);
-  }
+  if(perf_analysis && perf_analysis != 2) 
+    InsertNewStatementAfter(St_Bploop(OpenInterval(stmt)), cur_st, stmt->controlParent()); //inserting after function call 'lnumb'
+  
   iplp = 0;
   ndo = i = nloop = 0;
   // looking through the do_variables list

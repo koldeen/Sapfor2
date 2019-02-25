@@ -156,7 +156,8 @@ static const IntrinsicSubroutineData intrinsicData[] = {
     {"isnan", 1, { {1, NULL, INTRINSIC_IN } } }
 };
 
-static map<SgStatement*, ControlFlowGraph*> CFG_cache;
+//TODO: it does not work
+//static map<SgStatement*, tuple<ControlFlowGraph*, CallData*, CommonData*>> CFG_cache;
 
 
 static bool isIntrinsicFunctionNameACC(char* name)
@@ -333,11 +334,12 @@ void Private_Vars_Analyzer(SgStatement* start)
     std::fstream fs;
     fs.open("graph.txt", std::fstream::out);
     fs << CGraph->GetVisualGraph(&calls);
-    fs.close();
-    */
+    fs.close();*/    
 
     currentProcedure->graph->getPrivate();
-    //calls.printControlFlows();
+#if ACCAN_DEBUG
+    calls.printControlFlows();
+#endif
     //stage 2: data flow analysis
     FillCFGSets(CGraph);
     //stage 3: fulfilling loop data
@@ -774,17 +776,24 @@ ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, Ca
     }
 
     ControlFlowGraph *cfgRet = NULL;
-    if (CFG_cache.find(start) != CFG_cache.end())
-        return CFG_cache[start];
-
+    /*
+#if __SPF
+    auto itF = CFG_cache.find(start);
+    if (itF != CFG_cache.end())
+    {
+        calls = std::get<1>(itF->second);
+        commons = std::get<2>(itF->second);
+        return std::get<0>(itF->second);
+    }
+#endif*/
     doLoops l;
-    ControlFlowItem* funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
+    ControlFlowItem *funcGraph = getControlFlowList(start, start->lastNodeOfStmt(), NULL, NULL, &l, calls, commons);
     fillLabelJumps(funcGraph);
     setLeaders(funcGraph);
 
     
     cfgRet = new ControlFlowGraph(false, main, funcGraph, NULL);
-    CFG_cache[start] = cfgRet;
+    //CFG_cache[start] = std::make_tuple(cfgRet, calls, commons);
     return cfgRet;
 }
 
@@ -1686,8 +1695,11 @@ static ControlFlowItem* processOneStatement(SgStatement** stmt, ControlFlowItem*
             SgExpression* lh = new SgVarRefExp(fst->symbol());
             SgStatement* fa = new SgAssignStmt(*lh, *fst->start());
             bool needs_goto = true;
+#if !__SPF
+            // create goto edge if can not calculate count of loop's iterations
             if (fst->start()->variant() == INT_VAL && fst->end()->variant() == INT_VAL && fst->start()->valueInteger() < fst->end()->valueInteger())
                 needs_goto = false;
+#endif
             //fa->setLabel(*(*stmt)->label());
             ControlFlowItem* last;
             ControlFlowItem* emptyAfterDo = new ControlFlowItem(currentProcedure);
@@ -3030,41 +3042,55 @@ int GetNumberOfArguments(bool isF, void* f)
     return pc->numberOfArgs();
 }
 
-SgExpression* GetProcedureArgument(bool isF, void* f, int i)
+SgExpression* GetProcedureArgument(bool isF, void *f, const int i)
 {
-    if (isF) {
+    SgExpression *arg = NULL;
+    if (isF)
+    {
         SgFunctionCallExp* fc = (SgFunctionCallExp*)f;
-        return fc->arg(i);
+        arg = fc->arg(i);
     }
-    SgCallStmt* pc = (SgCallStmt*)f;
-    return pc->arg(i);
+    else
+    {
+        SgCallStmt *pc = (SgCallStmt*)f;
+        arg = pc->arg(i);
+    }
+    return arg;
 }
 
-void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt* header, void* f, const char* name)
+void CBasicBlock::ProcessProcedureHeader(bool isF, SgProcHedrStmt *header, void *f, const char* name)
 {   
-    if (!header) {
+    if (!header) 
+    {
         is_correct = "no header found";
         failed_proc_name = name;
         return;
     }
-    for (int i = 0; i < header->numberOfParameters(); i++) {
-        SgSymbol* arg = header->parameter(i);
-        if (arg->attributes() & (IN_BIT)) {
-            SgExpression* ar = GetProcedureArgument(isF, f, i);
+    
+    for (int i = 0; i < header->numberOfParameters(); ++i) 
+    {
+        int stored = SwitchFile(header->getFileId());
+        SgSymbol *arg = header->parameter(i);
+        SwitchFile(stored);
+
+        if (arg->attributes() & (IN_BIT)) 
+        {
+            SgExpression *ar = GetProcedureArgument(isF, f, i);
             addExprToUse(ar);
-        }
-        else if (arg->attributes() & (OUT_BIT)) {
-            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
-        }
-        else if (arg->attributes() & (INOUT_BIT)) {
+        }        
+        else if (arg->attributes() & (INOUT_BIT)) 
+        {
             addExprToUse(GetProcedureArgument(isF, f, i));
             AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
         }
-        else {
+        else if (arg->attributes() & (OUT_BIT))
+            AddOneExpressionToDef(GetProcedureArgument(isF, f, i), NULL, NULL);
+        else 
+        {
             is_correct = "no bitflag set for pure procedure";
-            return;
+            break;
         }
-    }
+    }    
 }
 
 bool AnalysedCallsList::isArgIn(int i, CArrayVarEntryInfo** p)
@@ -3135,11 +3161,14 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         return;
     }
     */
-    if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
+    if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) 
+    {
         int stored_file_id = SwitchFile(c->file_id);
         c->graph->getPrivate(); //all sets actually
+        SgStatement *cp = c->header->controlParent();
         SwitchFile(stored_file_id);
-        if (proc && proc->header->variant() == PROC_HEDR && c->header->controlParent() == proc->header) {
+
+        if (proc && proc->header->variant() == PROC_HEDR && cp == proc->header) {
             VarSet* use_c = new VarSet();
             use_c->unite(c->graph->getUse(), false);
             for (VarItem* exp = use_c->getFirst(); exp != NULL; exp = use_c->getFirst()) {
@@ -3168,7 +3197,9 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
             return;
         }
     }
-    for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) {
+
+    for (int i = 0; i < GetNumberOfArguments(isFun, call); i++) 
+    {
         SgExpression* ar = GetProcedureArgument(isFun, call, i);
         CArrayVarEntryInfo* tp = NULL;
         if (c == (AnalysedCallsList*)(-1) || c == (AnalysedCallsList*)(-2) || c == NULL || c->graph == NULL || c->isArgIn(i, &tp))
@@ -3177,6 +3208,7 @@ void CBasicBlock::ProcessUserProcedure(bool isFun, void* call, AnalysedCallsList
         if (c == (AnalysedCallsList*)(-1) || c == NULL || c->graph == NULL || c->isArgOut(i, &tp))
             AddOneExpressionToDef(GetProcedureArgument(isFun, call, i), NULL, tp);
     }
+
     if (c != (AnalysedCallsList*)(-1) && c != (AnalysedCallsList*)(-2) && c != NULL && c->graph != NULL) {
         for (CommonVarSet* cu = c->graph->getCommonUse(); cu != NULL; cu = cu->next) {
             CommonVarInfo* v = cu->cvd;

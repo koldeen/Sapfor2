@@ -42,6 +42,7 @@ public:
         hasWritesToNonDistribute = false;
         hasUnknownDistributedMap = false;
         hasDifferentAlignRules = false;
+        hasNonPureProcedures = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;
@@ -54,7 +55,7 @@ public:
         userDvmDirective = NULL;
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
-        executionTimeInSec = 0.0;
+        executionTimeInSec = -1.0;
     }
 
     ~LoopGraph()
@@ -78,10 +79,15 @@ public:
 
     bool hasLimitsToParallel() const
     {
-        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || 
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasPrints || (hasConflicts.size() != 0) || hasStops || hasNonPureProcedures ||
                hasUnknownArrayAssigns || hasNonRectangularBounds || hasIndirectAccess || hasWritesToNonDistribute || hasDifferentAlignRules;
     }
     
+    bool hasLimitsToSplit() const
+    {
+        return hasUnknownArrayDep || hasUnknownScalarDep || hasGoto || hasStops;
+    }
+
     void addConflictMessages(std::vector<Messages> *messages)
     {
         if (hasUnknownArrayDep)
@@ -106,6 +112,8 @@ public:
             messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop", 3006));
         if (hasDifferentAlignRules)
             messages->push_back(Messages(NOTE, lineNum, "different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+        if (hasNonPureProcedures)
+            messages->push_back(Messages(NOTE, lineNum, "non pure procedures prevent parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -260,11 +268,14 @@ public:
 
     bool hasDifferentAlignRules;
 
+    bool hasNonPureProcedures;
+
     std::vector<LoopGraph*> children;
     std::vector<LoopGraph*> funcChildren;
     LoopGraph *parent;
     LoopGraph *funcParent;
 
+    // PAIR<FUNC_NAME, LINE>
     std::vector<std::pair<std::string, int>> calls;
     
     // agregated read and write operations by arrays
@@ -283,6 +294,8 @@ public:
     ParallelRegion *region;
 
     Statement *loop;
+
+    std::set<DIST::Array*> usedArrays;
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
@@ -296,3 +309,4 @@ void checkCountOfIter(std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
 void getRealArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array*> &realArrayRefs, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void createMapLoopGraph(const std::vector<LoopGraph*> &loops, std::map<int, LoopGraph*> &mapGraph);
+void updateLoopIoAndStopsByFuncCalls(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);

@@ -741,7 +741,8 @@ long DArray::GetMapDim(long arrDim, int & dir)
 
 	if(arrDim<=0)
 	{
-		printf("arrDim<=0\n");
+
+        printf("arrDim<=0\n");
 		dir=1; // not sure in it
 		return 0; // not much sure in it
 	}

@@ -326,7 +326,6 @@ public:
                userDvmRealignDirs.size() != 0 ||
                userDvmRedistrDirs.size() != 0;
     }
-
 private:
     int regionId;
     //name in program

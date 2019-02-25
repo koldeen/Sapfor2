@@ -808,3 +808,85 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<stri
     for (auto &loop : interprocCoefs)
         loop.first->countOfIterNested *= loop.second;
 }
+
+static void updateLoopIoAndStopsByFuncCalls(vector<LoopGraph*> &loopGraph, map<string, FuncInfo*> mapFunc)
+{
+    for (auto &loop : loopGraph)
+    {
+        vector<pair<pair<string, int>, set<string>>> funNames;
+        for (auto &call : loop->calls)
+        {
+            string currF = call.first;
+            set<string> recCalls;
+            recCalls.insert(currF);
+            bool changed = true;
+
+            while (changed)
+            {
+                changed = false;
+                set<string> local = recCalls;
+                for (auto &elem : local)
+                {
+                    auto itF = mapFunc.find(elem);
+                    if (itF != mapFunc.end())
+                    {
+                        for (auto &toAdd : itF->second->callsFrom)
+                        {
+                            if (recCalls.find(toAdd) == recCalls.end())
+                            {
+                                recCalls.insert(toAdd);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+            funNames.push_back(make_pair(call, recCalls));
+        }
+        
+        if (funNames.size())
+        {
+            for (auto &calls : funNames)
+            {
+                const int lineInLoop = calls.first.second;
+                for (auto &call : calls.second)
+                {
+                    auto itF = mapFunc.find(call);
+                    if (itF != mapFunc.end())
+                    {
+                        if (itF->second->linesOfIO.size() != 0)
+                        {
+                            loop->hasPrints = true;
+                            auto it = std::find(loop->linesOfIO.begin(), loop->linesOfIO.end(), lineInLoop);
+                            if (it == loop->linesOfIO.end())
+                                loop->linesOfIO.push_back(calls.first.second);
+                        }
+                        if (itF->second->linesOfStop.size() != 0)
+                        {
+                            loop->hasStops = true;
+                            auto it = std::find(loop->linesOfStop.begin(), loop->linesOfStop.end(), lineInLoop);
+                            if (it == loop->linesOfStop.end())
+                                loop->linesOfStop.push_back(calls.first.second);
+                        }
+                    }
+                }
+            }
+        }
+
+        updateLoopIoAndStopsByFuncCalls(loop->children, mapFunc);
+    }
+}
+
+void updateLoopIoAndStopsByFuncCalls(map<string, vector<LoopGraph*>> &loopGraph, const map<string, vector<FuncInfo*>> &allFuncInfo)
+{
+    map<string, FuncInfo*> mapFunc;
+    createMapOfFunc(allFuncInfo, mapFunc);
+
+    for (auto &byFile : loopGraph)
+        updateLoopIoAndStopsByFuncCalls(byFile.second, mapFunc);    
+}
+
+void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, DIST::GraphCSR<int, double, attrType> &graph)
+{
+
+}

@@ -22,7 +22,7 @@ long	currentPS_ID = 0;		// current PS ID
 //==== grigory_struct
 void ClustError (int num_error)
 {
-	printf("Error %d :");
+	printf("Error %d :", num_error);
 
 	switch (num_error)
 	{
@@ -891,7 +891,7 @@ PS::PS(const char *option_file)
 			dbl.push_back(1.0);
 		weight_list.push(dbl);
 	}
-#endif+
+#endif
 
 	/* //====//
 //grig add-on
