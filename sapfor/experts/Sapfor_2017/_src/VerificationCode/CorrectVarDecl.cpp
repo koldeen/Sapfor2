@@ -14,6 +14,8 @@
 #include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
+#include "../GraphCall/graph_calls_func.h"
+
 using std::vector;
 using std::string;
 using std::map;
@@ -423,4 +425,96 @@ void restoreCorrectedModuleProcNames(SgFile *file)
             }
         }
     }
+}
+
+template<typename objT>
+static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
+{
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, make_pair(fileName, objT()));
+    return it->second;
+}
+
+static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
+{
+    auto it = funcMap.find(funcName);
+    if (it == funcMap.end())
+        return NULL;
+
+    return it->second;
+}
+
+int checkArgumentsDeclaration(SgProject *project, map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
+{
+    int error = false;
+
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    for (int i = 0; i < project->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(project->file(i));
+
+        if (SgFile::switchToFile(file->filename()) != -1)
+        {
+            for (int j = 0; j < file->numberOfFunctions(); ++j)
+            {
+                SgStatement *st = file->functions(j);
+                SgStatement *lastNode = st->lastNodeOfStmt();
+
+                if (st->variant() != PROG_HEDR)
+                {
+                    SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
+
+                    for (int k = 0; k < procFuncHedr->numberOfParameters(); ++k)
+                    {
+                        SgSymbol *symb = procFuncHedr->parameter(k);
+
+                        if (symb)
+                        {
+                            vector<SgStatement*> allDecls;
+                            SgStatement *decl = declaratedInStmt(symb, &allDecls);
+
+                            if (!decl)
+                            {
+                                FuncInfo *func = getFuncInfo(funcMap, st->symbol()->identifier());
+                                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+
+                                if (func->isInRegion())
+                                {
+                                    string regs;
+                                    for (auto it = func->callRegions.begin(); it != func->callRegions.end(); ++it)
+                                        regs += " " + *it;
+
+                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s' on line %d\n",
+                                                symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str(), st->lineNumber());
+
+                                    string message;
+                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s'",
+                                                     symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str());
+                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1046));
+                                    error = true;
+                                }
+                                else
+                                {
+                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' does not have declaration statement on line %d\n",
+                                                symb->identifier(), st->symbol()->identifier(), file->filename(), st->lineNumber());
+
+                                    string message;
+                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' does not have declaration statement",
+                                                     symb->identifier(), st->symbol()->identifier(), file->filename());
+                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    return error;
 }

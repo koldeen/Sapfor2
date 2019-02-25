@@ -20,3 +20,4 @@ int VerifyFile(SgFile *file);
 void fixUseOnlyStmt(SgFile *file, const std::vector<ParallelRegion*> &regs);
 void correctModuleProcNames(SgFile *file);
 void restoreCorrectedModuleProcNames(SgFile *file);
+int checkArgumentsDeclaration(SgProject *project, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);

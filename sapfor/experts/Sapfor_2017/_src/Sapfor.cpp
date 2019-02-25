@@ -32,6 +32,7 @@
 #include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
 #include "LoopAnalyzer/loop_analyzer.h"
+#include "VerificationCode/verifications.h"
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
@@ -77,15 +78,6 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
-
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
-}
 
 void deleteAllAllocatedData(bool enable)
 {
@@ -1650,80 +1642,6 @@ static void findFunctionsToInclude(bool needToAddErrors)
         throw -5;
 }
 
-static int checkArgumentsDeclaration()
-{
-    int error = false;
-
-    map<string, FuncInfo*> funcMap;
-    createMapOfFunc(allFuncInfo, funcMap);
-
-    for (int i = 0; i < project->numberOfFiles(); ++i)
-    {
-        SgFile *file = &(project->file(i));
-
-        if (SgFile::switchToFile(file->filename()) != -1)
-        {
-            for (int j = 0; j < file->numberOfFunctions(); ++j)
-            {
-                SgStatement *st = file->functions(j);
-                SgStatement *lastNode = st->lastNodeOfStmt();
-
-                if (st->variant() != PROG_HEDR)
-                {
-                    SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
-
-                    for (int k = 0; k < procFuncHedr->numberOfParameters(); ++k)
-                    {
-                        SgSymbol *symb = procFuncHedr->parameter(k);
-
-                        if (symb)
-                        {
-                            vector<SgStatement*> allDecls;
-                            SgStatement *decl = declaratedInStmt(symb, &allDecls);
-
-                            if (!decl)
-                            {
-                                FuncInfo *func = getFuncInfo(funcMap, st->symbol()->identifier());
-                                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
-
-                                if (func->isInRegion())
-                                {
-                                    string regs;
-                                    for (auto it = func->callRegions.begin(); it != func->callRegions.end(); ++it)
-                                        regs += " " + *it;
-
-                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s' on line %d\n",
-                                                symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str(), st->lineNumber());
-
-                                    string message;
-                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s'",
-                                                     symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str());
-                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1046));
-                                    error = true;
-                                }
-                                else
-                                {
-                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' does not have declaration statement on line %d\n",
-                                                symb->identifier(), st->symbol()->identifier(), file->filename(), st->lineNumber());
-
-                                    string message;
-                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' does not have declaration statement",
-                                                     symb->identifier(), st->symbol()->identifier(), file->filename());
-                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    }
-
-    return error;
-}
-
 static SgProject* createProject(const char *proj_name)
 {
     Statement::deactiveConsistentchecker();
@@ -1870,7 +1788,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case CHECK_ARGS_DECL:
-        checkArgumentsDeclaration();
+        checkArgumentsDeclaration(project, allFuncInfo, SPF_messages);
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
