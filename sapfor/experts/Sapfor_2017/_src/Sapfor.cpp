@@ -1667,8 +1667,7 @@ static int checkArgumentsDeclaration()
             {
                 SgStatement *st = file->functions(j);
                 SgStatement *lastNode = st->lastNodeOfStmt();
-                //__spf_print(1, "file '%s' func '%s' line %d\n", file->filename(), st->symbol()->identifier(), st->lineNumber()); // DEBUG
-                //st->unparsestdout(); // DEBUG
+
                 if (st->variant() != PROG_HEDR)
                 {
                     SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
@@ -1681,7 +1680,7 @@ static int checkArgumentsDeclaration()
                         {
                             vector<SgStatement*> allDecls;
                             SgStatement *decl = declaratedInStmt(symb, &allDecls);
-                            //__spf_print(1, "%s\n", symb->identifier()); // DEBUG
+
                             if (!decl)
                             {
                                 FuncInfo *func = getFuncInfo(funcMap, st->symbol()->identifier());

@@ -609,12 +609,16 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
     bool ret = false;
     if (declLst)
     {
-        if (declLst->symbol())
-            if (declLst->symbol()->identifier() == toFind)
-                return true;
-
         if (declLst->lhs())
-            ret = ret || findSymbol(declLst->lhs(), toFind);
+        {
+            if (declLst->lhs()->variant() == EXPR_LIST)
+                ret = ret || findSymbol(declLst->lhs(), toFind);
+            else if (declLst->lhs()->symbol())
+            {
+                if (declLst->lhs()->symbol()->identifier() == toFind)
+                    return true;
+            }
+        }
 
         if (declLst->rhs())
             ret = ret || findSymbol(declLst->rhs(), toFind);
@@ -657,14 +661,14 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             start = start->lexNext();
         }
     }
-    
+    /*
     if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
         if (lowLevelDecl)
             inDecl.push_back(lowLevelDecl);
     }
-
+    */
     if (inDecl.size() == 0)
     {
         __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
