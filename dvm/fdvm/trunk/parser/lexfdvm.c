@@ -1692,11 +1692,11 @@ crunch()
 					break;
 				}
 				if (*i == quote)
-				{  if (i < lastch && i[1] == quote) {
-                                                if(quote == '\'') *++j = *i;/* extracting second " */           
+				{  if (i < lastch && i[1] == quote) { 
+                                                *++j = *i;          
 						++i;
-                                  }
-					else
+                                   }
+				   else
 						break;
 				}		
 				*++j = *i;

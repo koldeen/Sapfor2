@@ -69,7 +69,7 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 
 static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
 {
-    string unp = newExp == NULL ? "" : newExp->unparse();
+    string unp = newExp == NULL ? "(unknown value)" : newExp->unparse();
     auto alloc = allocated.find(unp);
 
     ExpressionValue* newExpVal = NULL;
@@ -90,6 +90,12 @@ void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *d
     e_gen.insert(expVal);
     gen.insert(make_pair(var, expVal));
     saveDefinitionStatement(var, expVal, defSt);
+}
+
+void CBasicBlock::addVarUnknownToGen(SymbolKey var) {
+    addVarToKill(var);
+    gen.insert(make_pair(var, allocateExpressionValue(NULL)));
+
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -114,16 +120,26 @@ bool argIsReplaceable(int i, AnalysedCallsList *callData)
     // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
     if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
         return false;
+
+    int stored = SwitchFile(callData->file_id);
     SgProcHedrStmt *header = isSgProcHedrStmt(callData->header);
+    SgSymbol *currPar = NULL;
+    if (header)
+        currPar = header->parameter(i);
+    SwitchFile(stored);
+
     if (header == NULL)
         return false;
     if (header->parameter(i) == NULL)
         return false;
-    int attr = header->parameter(i)->attributes();
+    
+    int attr = currPar->attributes();
+    bool isArgOut = callData->isArgOut(i, NULL);
+    bool isArgIn = callData->isArgIn(i, NULL);
 
-    if (callData->isArgOut(i, NULL) || (attr & (OUT_BIT)) || (attr & (INOUT_BIT))) //argument modified inside procedure
+    if ((attr & (OUT_BIT)) || (attr & (INOUT_BIT)) || isArgOut) //argument modified inside procedure
         return false;
-    else if (!(callData->isArgIn(i, NULL) || (attr & (IN_BIT)))) // no information, assume that argument is "inout"
+    else if (!((attr & (IN_BIT)) || isArgIn)) // no information, assume that argument is "inout"
         return false;
     else
         return true;
@@ -142,7 +158,8 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
         {
             SgExpression *arg = callStmt->arg(i);
             if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarToKill(arg->symbol());
+                addVarUnknownToGen(arg->symbol());
+//                addVarToKill(arg->symbol());
         }
         varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
     }
@@ -152,14 +169,16 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
         {
             SgExpression *arg = funcCall->arg(i);
             if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarToKill(arg->symbol());
+                addVarUnknownToGen(arg->symbol());
+//                addVarToKill(arg->symbol());
         }
         varsToKill = overseerPtr->killedVars(funcCall->symbol()->identifier());
     }
 
     if (varsToKill)
         for (auto var : *varsToKill)
-            addVarToKill(var);
+            addVarUnknownToGen(var);
+//            addVarToKill(var);
 
 }
 
@@ -194,7 +213,8 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     if (found_inDefs != in_defs.end())
     {
         for (auto& value : found_inDefs->second)
-                addVarToKill(value->getExp()->symbol());
+            addVarUnknownToGen(value->getExp()->symbol());
+//            addVarToKill(value->getExp()->symbol());
     }
 }
 
@@ -473,10 +493,7 @@ void showDefs(map<SymbolKey, set<ExpressionValue*>> *defs)
             printf("--- %s = ", it->first.getVarName().c_str());
         for (auto iter = it->second.begin(); iter != it->second.end(); ++iter)
         {
-            if((*iter)->getExp())
-                printf("%s", (*iter)->getUnparsed().c_str());
-            else
-                printf("empty value");
+            printf("%s", (*iter)->getUnparsed().c_str());
             if (iter != it->second.end())
                 printf(", ");
         }
@@ -502,9 +519,9 @@ void showDefs(map<SymbolKey, ExpressionValue*> *defs)
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
         if(it->first.isPointer())
-            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->getUnparsed().c_str());
+            printf("--- %s => %s", it->first.getVarName().c_str(), it->second->getUnparsed().c_str());
         else
-            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->getUnparsed().c_str());
+            printf("--- %s = %s", it->first.getVarName().c_str(), it->second->getUnparsed().c_str());
         printf("\n");
     }
     printf("\n");
@@ -516,9 +533,9 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
     for (auto it = defs->begin(); it != defs->end(); ++it)
     {
         if(it->first.isPointer())
-            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
+            printf("--- %s => %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined" : it->second->unparse());
         else
-            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined (input)" : it->second->unparse());
+            printf("--- %s = %s", it->first.getVarName().c_str(), it->second == NULL ? "value is undefined" : it->second->unparse());
         printf("\n");
     }
     printf("\n");
@@ -538,15 +555,76 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
     printf("\n");
 }
 
+void debugStructure(ControlFlowGraph *CGraph, const string &filename)
+{
+    CBasicBlock *b = CGraph->getFirst();
+    printf("strict digraph {\n");
+    while (b != NULL)
+    {
+        printf("\"%s_%d\" [shape = box, label = \"%s_%d\n", b->getProc()->funName, b->getNum(), b->getProc()->funName, b->getNum());
+
+        bool printed = false;
+        ControlFlowItem *cfi = b->getStart();
+        ControlFlowItem *till = b->getEnd()->getNext();
+        while (cfi != till)
+        {
+            if (cfi->getStatement())
+            {
+                printed = true;
+                printf("%d ", cfi->getStatement()->lineNumber());
+                printf("%s\n", cfi->getStatement()->unparse());
+            }
+            else if(cfi->getOriginalStatement())
+            {
+                SgStatement *origSt = cfi->getOriginalStatement();
+                if(origSt->variant() == IF_NODE)
+                {
+                    printed = true;
+                    printf("%d ", origSt->lineNumber());
+                    printf("If:   (%s)\n", ((SgIfStmt*) origSt)->conditional()->unparse());
+                }
+
+            }
+            cfi = cfi->getNext();
+        }
+        if (!printed)
+        {
+            SgStatement* origStmt = NULL;
+            cfi = b->getStart();
+            while (cfi != till)
+            {
+                if ((origStmt = cfi->getOriginalStatement()) != NULL)
+                {
+                    printed = true;
+                    printf("Original: %s\n", origStmt->unparse());
+                }
+                cfi = cfi->getNext();
+            }
+        }
+
+        printf("\"];\n");
+
+        for (BasicBlockItem *prev = b->getPrev(); prev != NULL; prev = prev->next)
+            printf("\"%s_%d\" -> \"%s_%d\";\n", prev->block->getProc()->funName, prev->block->getNum(), b->getProc()->funName, b->getNum());
+        printf("\n");
+
+        b = b->getLexNext();
+    }
+    printf("}\n");
+}
+
+
 void showDefsOfGraph(ControlFlowGraph *CGraph)
 {
     CBasicBlock *b = CGraph->getFirst();
     while (b != NULL)
     {
-        printf("Block %d, prev: ", b->getNum());
+
+        printf("\n\nBlock %d, prev: ", b->getNum());
         for (BasicBlockItem *prev = b->getPrev(); prev != NULL; prev = prev->next)
             printf("%d, ", prev->block->getNum());
         printf("\n");
+
         bool printed = false;
         ControlFlowItem *cfi = b->getStart();
         ControlFlowItem *till = b->getEnd()->getNext();
@@ -723,8 +801,9 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
     PreparePointers(CGraph);
 
     b = CGraph->getFirst();
-
+#if PRINT_PROF_INFO
     double time = omp_get_wtime();
+#endif
     set<ExpressionValue*> availableExpressions;
     while (b != NULL)
     {
@@ -747,8 +826,10 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
         b->initializeEOut(availableExpressions);
         b = b->getLexNext();
     }
+#if PRINT_PROF_INFO
     __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", omp_get_wtime() - time);
     time = omp_get_wtime();
+#endif
     if (inDefs != NULL)
         CGraph->getFirst()->setInDefs(inDefs);
 
@@ -766,7 +847,9 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
         b = CGraph->getFirst();
         while (b != NULL)
         {
+#if PRINT_PROF_INFO
             double locT = omp_get_wtime();
+#endif
             /*Updating IN*/
             for (BasicBlockItem *prev = b->getPrev(); prev != NULL; prev = prev->next)
             {
@@ -778,21 +861,24 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
                 mergeDefs(b->getInDefs(), prev->block->getOutDefs(), NULL);
 
             }
+#if PRINT_PROF_INFO
             timeMerge += (omp_get_wtime() - locT);
-
             locT = omp_get_wtime();
+#endif
             /*Updating OUT, true, if OUT has been changed*/
             setsChanged |= addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
+#if PRINT_PROF_INFO
             timeAdd += (omp_get_wtime() - locT);
-
+#endif
             b = b->getLexNext();
         }
     }
+#if PRINT_PROF_INFO
     __spf_print(PRINT_PROF_INFO, "   block 2 %f\n", omp_get_wtime() - time);
-    __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n", 
+    __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n",
                 timeMerge, countIn1, min1, max1, min2, max2, countMerge, countSet1, countSet2);
     __spf_print(PRINT_PROF_INFO, "     add %f\n", timeAdd);
-
+#endif
     setsChanged = true;
     while (setsChanged)
     {

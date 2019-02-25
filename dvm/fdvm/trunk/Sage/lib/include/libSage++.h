@@ -123,6 +123,7 @@ private:
     SgProject *project;
     bool unparseIgnore;
 
+    static bool consistentCheckIsActivated;
     // fileID -> [ map<FileName, line>, SgSt*]
     static std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > statsByLine;
     static void updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate);
@@ -130,6 +131,7 @@ private:
     static void updateStatsByExpression();
     static void updateStatsByExpression(SgStatement *where, SgExpression *what);
 
+    void checkConsistence();
 public:
     PTR_BFND thebif;
     SgStatement(int variant);
@@ -160,6 +162,7 @@ public:
     inline void setId(int n);         // cannot change the id info
     inline void setVariant(int n);    // change the type of the statement
     void setExpression(int i, SgExpression &e); // change the i-th expression
+    void setExpression(int i, SgExpression *e); // change the i-th expression
     inline void setLabel(SgLabel &l); // change the label
     inline void setSymbol(SgSymbol &s); // change the symbol
 
@@ -287,6 +290,8 @@ public:
 
     static SgStatement* getStatmentByExpression(SgExpression*);
     static void cleanParentStatsForExprs() { parentStatsForExpression.clear(); }
+    static void activeConsistentchecker() { consistentCheckIsActivated = true; }
+    static void deactiveConsistentchecker() { consistentCheckIsActivated = false; }
 };
 
 class  SgExpression
@@ -3185,13 +3190,21 @@ inline int SgStatement::hasSymbol()
 }
 
 inline SgSymbol * SgStatement::symbol()
-{ return SymbMapping(BIF_SYMB(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return SymbMapping(BIF_SYMB(thebif)); 
+}
 
 inline char * SgStatement::fileName()
 { return BIF_FILE_NAME(thebif)->name; }
 
 inline void SgStatement::setFileName(char *newFile)
 {    
+#ifdef __SPF
+    checkConsistence();
+#endif
     BIF_FILE_NAME(thebif)->name = newFile;
 }
 
@@ -3218,86 +3231,183 @@ inline void SgStatement::setVariant(int n)
 { BIF_CODE(thebif) = n; }
 
 inline void  SgStatement::setLabel(SgLabel &l) 
-{ BIF_LABEL(thebif) = l.thelabel; }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_LABEL(thebif) = l.thelabel; 
+}
 
 inline void  SgStatement::setSymbol(SgSymbol &s)
-{ BIF_SYMB(thebif) =  s.thesymb; }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_SYMB(thebif) =  s.thesymb; 
+}
 
 
 inline SgStatement * SgStatement::lexNext()
-{ return BfndMapping(BIF_NEXT(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(BIF_NEXT(thebif)); 
+}
 
 inline SgStatement * SgStatement::lexPrev()
-{ return BfndMapping(getNodeBefore(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(getNodeBefore(thebif)); 
+}
 
 
 inline SgStatement * SgStatement::controlParent()
-{ 
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
     if (this->variant() != GLOBAL)
-    {
         return BfndMapping(BIF_CP(thebif));
-    }
     else
-    {
         return 0;
-    }
 }
 
 inline int SgStatement::numberOfChildrenList1()
-{ return (blobListLength(BIF_BLOB1(thebif)));}
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return (blobListLength(BIF_BLOB1(thebif)));
+}
 
 inline int SgStatement::numberOfChildrenList2()
-{ return (blobListLength(BIF_BLOB2(thebif))); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return (blobListLength(BIF_BLOB2(thebif))); 
+}
 
 inline SgStatement * SgStatement::childList1(int i)
-{ return BfndMapping(childfInBlobList(BIF_BLOB1(thebif),i)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(childfInBlobList(BIF_BLOB1(thebif),i)); 
+}
 
 inline SgStatement * SgStatement::childList2(int i)
-{ return BfndMapping(childfInBlobList(BIF_BLOB2(thebif),i)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(childfInBlobList(BIF_BLOB2(thebif),i)); 
+}
 
 
 inline void  SgStatement::setLexNext(SgStatement &s)
-{ BIF_NEXT(thebif) = s.thebif; }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_NEXT(thebif) = s.thebif; 
+}
 
 inline SgStatement * SgStatement::lastDeclaration()
-{ return BfndMapping(LiblastDeclaration(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(LiblastDeclaration(thebif)); 
+}
 
 
 inline SgStatement * SgStatement::lastExecutable()
 {
-  PTR_BFND last;
-  last = getLastNodeOfStmt(thebif);
-  last = getNodeBefore(last);
-  return BfndMapping(last);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    PTR_BFND last;
+    last = getLastNodeOfStmt(thebif);
+    last = getNodeBefore(last);
+    return BfndMapping(last);
 }
 
 inline SgStatement *SgStatement::lastNodeOfStmt()
-{ return BfndMapping(getLastNodeOfStmt(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(getLastNodeOfStmt(thebif)); 
+}
 
 inline SgStatement *SgStatement::nodeBefore()
-{ return BfndMapping(getNodeBefore(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(getNodeBefore(thebif)); 
+}
 
 inline void SgStatement::insertStmtBefore(SgStatement &s)
-{ insertBfndBeforeIn(s.thebif,thebif,NULL); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    insertBfndBeforeIn(s.thebif,thebif,NULL); 
+}
 
 inline void SgStatement::insertStmtBefore(SgStatement &s,SgStatement &cp )
-{ insertBfndBeforeIn(s.thebif,thebif,cp.thebif); }
+{ 
+#ifdef __SPF
+    checkConsistence();
+#endif
+    insertBfndBeforeIn(s.thebif,thebif,cp.thebif); 
+}
 
 
 inline SgStatement * SgStatement::extractStmt()
-{ return BfndMapping(LibextractStmt(thebif)); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(LibextractStmt(thebif)); 
+}
 
 inline SgStatement *SgStatement::extractStmtBody()
-{ return BfndMapping(LibextractStmtBody(thebif)); }
+{ 
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return BfndMapping(LibextractStmtBody(thebif)); 
+}
 
 inline void  SgStatement::replaceWithStmt(SgStatement &s)
-{ LibreplaceWithStmt(thebif,s.thebif); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    LibreplaceWithStmt(thebif,s.thebif); 
+}
 
 inline void  SgStatement::deleteStmt()
-{ LibdeleteStmt(thebif); }
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    LibdeleteStmt(thebif); 
+}
 
 inline int SgStatement::isIncludedInStmt(SgStatement &s)
-{return isInStmt(thebif, s.thebif);}
+{
+#ifdef __SPF
+    checkConsistence();
+#endif
+    return isInStmt(thebif, s.thebif);
+}
 
 inline SgStatement &SgStatement::copy()
 {
@@ -3306,6 +3416,9 @@ inline SgStatement &SgStatement::copy()
 
 inline SgStatement *SgStatement::copyPtr()
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     SgStatement *copy = BfndMapping(duplicateStmtsNoExtract(thebif));
 
 #ifdef __SPF
@@ -3322,6 +3435,9 @@ inline SgStatement & SgStatement::copyOne()
 
 inline SgStatement * SgStatement::copyOnePtr()
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
      SgStatement *new_stmt = BfndMapping(duplicateOneStmt(thebif));
 
      /* Hackery to make sure the control parent propagates correctly.
@@ -3343,6 +3459,9 @@ inline SgStatement *SgStatement::copyBlockPtr()
 
 inline SgStatement* SgStatement::copyBlockPtr(int saveLabelId)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     SgStatement *new_stmt = BfndMapping(duplicateStmtsBlock(thebif, saveLabelId));
 #ifdef __SPF
     new_stmt->setProject(project);
@@ -3358,37 +3477,52 @@ inline void SgStatement::replaceSymbByExp(SgSymbol &symb, SgExpression &exp)
 
 inline void SgStatement::replaceSymbBySymb(SgSymbol &symb,SgSymbol &newsymb )
 {
-  replaceSymbInStmts(thebif, getLastNodeOfStmt(thebif), symb.thesymb, newsymb.thesymb);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    replaceSymbInStmts(thebif, getLastNodeOfStmt(thebif), symb.thesymb, newsymb.thesymb);
 }
 
 inline void SgStatement::replaceSymbBySymbSameName(SgSymbol &symb,SgSymbol &newsymb)
 {
-  replaceSymbInStmtsSameName(thebif, getLastNodeOfStmt(thebif), symb.thesymb, newsymb.thesymb);
+#ifdef __SPF
+    checkConsistence();
+#endif
+    replaceSymbInStmtsSameName(thebif, getLastNodeOfStmt(thebif), symb.thesymb, newsymb.thesymb);
 }
 
 inline void SgStatement::replaceTypeInStmt(SgType &old, SgType &newtype)
 {// do redundant work by should be ok go twice in member function 
+#ifdef __SPF
+    checkConsistence();
+#endif
   if (BIF_SYMB(thebif))
     replaceTypeUsedInStmt(BIF_SYMB(thebif),thebif,old.thetype,newtype.thetype);
   else
     replaceTypeUsedInStmt(NULL,thebif,old.thetype,newtype.thetype);
 }
 
-inline void
-SgStatement::setComments(char *comments)
+inline void SgStatement::setComments(char *comments)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
      LibSetAllComments (thebif, comments);
 }
 
-inline void
-SgStatement::setComments(const char *comments)
+inline void SgStatement::setComments(const char *comments)
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     LibSetAllComments(thebif, comments);
 }
 
-inline void
-SgStatement::delComments()
+inline void SgStatement::delComments()
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
     LibDelAllComments(thebif);
 }
 
@@ -3401,6 +3535,9 @@ inline SgStatement *SgStatement::getScopeForDeclare()
 //Kataev 07.03.2013
 inline char* SgStatement::unparse()
 {
+#ifdef __SPF
+    checkConsistence();
+#endif
 	return UnparseBif_Char(thebif, 2); //2 - fortran language 
 }
 
@@ -3423,12 +3560,18 @@ inline char* SgStatement::comments()
 
 inline void SgStatement::addDeclSpec(int type)
 {
-  BIF_DECL_SPECS(thebif) = BIF_DECL_SPECS(thebif) | type;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_DECL_SPECS(thebif) = BIF_DECL_SPECS(thebif) | type;
 }  
 
 inline void SgStatement::clearDeclSpec()
 {
-  BIF_DECL_SPECS(thebif) = 0;
+#ifdef __SPF
+    checkConsistence();
+#endif
+    BIF_DECL_SPECS(thebif) = 0;
 }        
 
 inline int SgStatement::isFriend()

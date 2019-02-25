@@ -28,6 +28,8 @@
 
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../CreateInterTree/CreateInterTree.h"
+#include "../Predictor/PredictScheme.h"
 
 using std::map;
 using std::pair;
@@ -352,8 +354,9 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     {
         if (symb->identifier() == toFind)
         {
-            if (symb->scope() == scope && symb->type()->equivalentToType(type))
-                return symb;
+            if (symb->scope() == scope)
+                if (symb->type() && symb->type()->equivalentToType(type))
+                    return symb;
         }
         symb = symb->next();
     }
@@ -608,12 +611,16 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
     bool ret = false;
     if (declLst)
     {
-        if (declLst->symbol())
-            if (declLst->symbol()->identifier() == toFind)
-                return true;
-
         if (declLst->lhs())
-            ret = ret || findSymbol(declLst->lhs(), toFind);
+        {
+            if (declLst->lhs()->variant() == EXPR_LIST || declLst->lhs()->variant() == ASSGN_OP)
+                ret = ret || findSymbol(declLst->lhs(), toFind);
+            else if (declLst->lhs()->symbol())
+            {
+                if (declLst->lhs()->symbol()->identifier() == toFind)
+                    return true;
+            }
+        }
 
         if (declLst->rhs())
             ret = ret || findSymbol(declLst->rhs(), toFind);
@@ -622,11 +629,10 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 }
 
 extern map<string, vector<Messages>> SPF_messages;
-SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
+SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, bool printInternal)
 {
     //need to call this function for MODULE symbols!
     toFind = OriginalSymbol(toFind);
-
     vector<SgStatement*> inDecl;
     SgStatement *start = toFind->scope();
 
@@ -643,7 +649,10 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             if (start->variant() == VAR_DECL ||
                 start->variant() == VAR_DECL_90 ||
                 start->variant() == ALLOCATABLE_STMT ||
-                start->variant() == DIM_STAT)
+                start->variant() == DIM_STAT || 
+                start->variant() == COMM_STAT || 
+                start->variant() == HPF_TEMPLATE_STAT || 
+                start->variant() == DVM_VAR_DECL)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -655,27 +664,30 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             start = start->lexNext();
         }
     }
-    
-    if (inDecl.size() == 0)
+
+    /*if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
         if (lowLevelDecl)
             inDecl.push_back(lowLevelDecl);
-    }
+    }*/
 
     if (inDecl.size() == 0)
     {
-        __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
+        if (printInternal)
+        {
+            __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
 
-        auto itM = SPF_messages.find(start->fileName());
-        if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
+            auto itM = SPF_messages.find(start->fileName());
+            if (itM == SPF_messages.end())
+                itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-        char buf[256];
-        sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf, 1017));
-
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            char buf[256];
+            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        return NULL;
     }
 
     if (allDecls)
@@ -694,6 +706,18 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
 
         for (int i = 0; i < inDecl.size(); ++i)
             if (inDecl[i]->variant() == DIM_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == COMM_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == HPF_TEMPLATE_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == DVM_VAR_DECL)
                 return inDecl[i];
 
         for (int i = 0; i < inDecl.size(); ++i)
@@ -733,7 +757,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= 950 && var <= 956)
+    if (var >= 950 && var <= 958)
         ret = true;
     return ret;
 }
@@ -921,6 +945,7 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
     return outData;
 }
 
+template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
@@ -1330,11 +1355,14 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
 
         for (int i = 0; i < header->numberOfParameters(); ++i)
         {
-            if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
-                header->parameter(i)->setAttribute(OUT_BIT);
-            else
-                header->parameter(i)->setAttribute(IN_BIT);
-
+            int currAttr = header->parameter(i)->attributes();
+            if ((currAttr & OUT_BIT) == 0 && (currAttr & INOUT_BIT) == 0 && (currAttr & IN_BIT) == 0)
+            {
+                if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
+                    header->parameter(i)->setAttribute(OUT_BIT);
+                else
+                    header->parameter(i)->setAttribute(IN_BIT);
+            }
             //TODO: test and replace from defUseVar() in defUse.cpp
             /*auto funcList = defUseByFunctions[header->symbol()->identifier()];
             auto toAdd = buildLists(funcList);
@@ -1640,10 +1668,26 @@ static void fillArraysFromDirsRec(SgExpression *ex, vector<DIST::Array*> &toAdd)
     }
 }
 
-vector<DIST::Array*> fillArraysFromDir(Statement *loopSt)
+vector<DIST::Array*> fillArraysFromDir(Statement *st)
 {
     vector<DIST::Array*> retVal;
     for (int z = 0; z < 3; ++z)
-        fillArraysFromDirsRec(loopSt->GetOriginal()->lexPrev()->expr(z), retVal);
+        fillArraysFromDirsRec(st->GetOriginal()->lexPrev()->expr(z), retVal);
     return retVal;
 }
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
+{
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, std::make_pair(fileName, objT()));
+    return it->second;
+}
+
+template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
+template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
+template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
+template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
+template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
+template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

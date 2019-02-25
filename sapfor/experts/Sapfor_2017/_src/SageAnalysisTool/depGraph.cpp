@@ -17,6 +17,7 @@ extern int passDone;
 #endif
 
 #include "../GraphCall/graph_calls.h"
+#include "../Utils/errors.h"
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -65,7 +66,7 @@ extern Set* loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymb
 ///////////////////////////////////////////////////////////////////////////////////////
 // declaration for defuse and reaching definition (defUse.C)
 ///////////////////////////////////////////////////////////////////////////////////////
-extern void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs);
+extern void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile);
 extern Set *makeGenSet(SgStatement *func, SgStatement *stmt);
 extern Set *makeKillSet(SgStatement *func, SgStatement *stmt);
 extern int symbRefEqual(void *e1, void *e2);
@@ -268,6 +269,77 @@ void depNode::displayDep() const
     }
 }
 
+std::string depNode::displayDepToStr() const
+{
+    std::string out = "";
+
+    SgExpression *ex1, *ex2;
+    int i;
+    ddnature nature;
+    ex1 = varin;
+    ex2 = varout;
+
+
+    if (!typedep)
+    {
+        out += "UNKNOWN DATA DEPENDENCE";
+        return out;
+    }
+
+    if (typedep == ARRAYDEP)
+    {
+        nature = (ddnature)kinddep;        
+        switch (nature)
+        {
+        case ddflow:
+            out += "FLOW dependence between ";
+            break;
+        case ddanti:
+            out += "ANTI dependence between ";            
+            break;
+        case ddoutput:
+            out += "OUTPUT dependence between ";
+            break;
+        case ddreduce:
+            out += "REDUCE dependence between ";
+            break;
+        }
+        out += string(ex1->unparse());
+        out += " (line (" + std::to_string(stmtin->lineNumber()) + ") and ";
+        out += string(ex2->unparse());        
+        out += " (line " + std::to_string(stmtout->lineNumber()) + ") with vector (";
+
+        for (i = 1; i <= lenghtvect; i++)
+        {
+            if (knowndist[i])
+                out += std::to_string(distance[i]);                
+            else
+            {
+                if (distance[i] & DEPZERO)
+                    out += "0";                
+                if (distance[i] & DEPGREATER)
+                    out += "+";
+                if (distance[i] & DEPLESS)
+                    out += "-";
+            }
+
+            if (i < lenghtvect)
+                out += ", ";
+        }
+        out += ")";
+    }
+    else
+    {
+        out += "This is a Scalar Dep on ";
+        out += string(ex1->unparse());
+        
+        if (typedep == PRIVATEDEP)
+            out += " and variable can be PRIVATE";
+        if (typedep == REDUCTIONDEP)
+            out += " and variable can be REDUCTION with kind " + std::to_string((int)kinddep);
+    }
+    return out;
+}
 ///////////////////////////////////////////////////////////////////////////////////////
 // Here are the methods of depGraph
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -1255,7 +1327,7 @@ extern int toBeCalledByOmegaTest(int tdep, int kdep, int *dist, int *kdist, int 
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // f is a function statement; file the file;
-void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<string, FuncInfo*> &allFuncs)
+void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile)
 {
     if (!f || !file)
     {
@@ -1264,7 +1336,7 @@ void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<st
     }
     // convert the loops to be enddo loops; should help later????
     convertContLoopToEnddo(f);
-    initDefUseTable(f, allFuncs);
+    initDefUseTable(f, allFuncs, messagesForFile);
     //  Not Needed Yet;
     //iterativeForwardFlowAnalysis(file,f,makeGenSet,makeKillSet,symbRefEqual,NULL,myPrint);
 

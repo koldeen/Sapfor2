@@ -69,119 +69,152 @@ void DelRemAccess(long ID)
 
 //--------------------------------------------------------------------------------------------------
 
+static double fillRemoteCost(_RemAccessInfo *tmp, _DArrayInfo *ArrFrom, Block &RemBlock)
+{
+    /*DAF_tmp = new (_DArrayFlag);
+    DAF_tmp->ProcessTimeStamp = (double *)malloc(MPSProcCount() * sizeof(double));*/
+
+    CommCost *remCost = new CommCost(currentVM);
+    for (int i = 0; i < MPSProcCount(); ++i)
+        remCost->CopyUpdateDistr(ArrFrom->DArray_Obj, RemBlock, i);
+
+    double ret = remCost->GetCost();
+
+    /*tmp->StartRemoteTimes = (double *)malloc(MPSProcCount() * sizeof(double));
+    tmp->EndRemoteTimes = (double *)malloc(MPSProcCount() * sizeof(double));
+    for (int i = 0; i < MPSProcCount(); ++i)
+        tmp->EndRemoteTimes[currentVM->map(i)] = DAF_tmp->ProcessTimeStamp[currentVM->map(i)]; // time of communication
+
+    free(DAF_tmp->ProcessTimeStamp);
+    delete DAF_tmp;
+    DAF_tmp = NULL;*/
+
+    return ret;
+}
+
 void FuncCall::crtrbp()
 {
-	crtrbp_Info* params=(crtrbp_Info*) call_params;
-    _RemAccessInfo* tmp=AddRemAccess(params->ID);
-	if (params->PSRef == 0)
-		tmp->RemAccess_Obj = new RemAccessBuf(currentVM);
-	else {
-		_PSInfo*    ps = GetPSByIndex(params->PSRef);
-		tmp->RemAccess_Obj = new RemAccessBuf(ps->VM_Obj);
-	}
+    crtrbp_Info *params = (crtrbp_Info*)call_params;
+    _RemAccessInfo *tmp = AddRemAccess(params->ID);
+    if (params->PSRef == 0)
+        tmp->RemAccess_Obj = new RemAccessBuf(currentVM);
+    else
+    {
+        _PSInfo *ps = GetPSByIndex(params->PSRef);
+        tmp->RemAccess_Obj = new RemAccessBuf(ps->VM_Obj);
+    }
+    _DArrayInfo *ArrFrom = GetDArrayByIndex(params->RemArrayHeader);
+
+    vector<LS> blockIni;
+    for (int z = 0; z < params->CoordArray.size(); ++z)
+    {
+        if (params->CoordArray[z] == -1)
+            blockIni.push_back(LS(0, ArrFrom->DArray_Obj->GetSize(z + 1) - 1, 1));
+        else
+            blockIni.push_back(LS(0, 1, 1));
+    }
+    
+    Block RemBlock(blockIni);
+    ret_time += fillRemoteCost(tmp, ArrFrom, RemBlock);
 }
 
 void FuncCall::crtrbl()
 {
-	int i,j;
-	CommCost *remCost = new CommCost(currentVM);	
-	vector<long> FromInitIndexArray;
-	vector<long> FromLastIndexArray;
-	vector<long> FromStepIndexArray;
-	vector<long> proc_indexes;
-	vector <LS> blockIni;
+    int i, j;
+    CommCost *remCost = new CommCost(currentVM);
+    vector<long> FromInitIndexArray;
+    vector<long> FromLastIndexArray;
+    vector<long> FromStepIndexArray;
+    vector<long> proc_indexes;
+    vector <LS> blockIni;
 
-	crtrbl_Info* params=(crtrbl_Info*) call_params;
-    _RemAccessInfo* tmp=AddRemAccess(params->BufferHeader);
-    _DArrayInfo* ArrFrom=GetDArrayByIndex(params->RemArrayHeader);
+    crtrbl_Info* params = (crtrbl_Info*)call_params;
+    _RemAccessInfo* tmp = AddRemAccess(params->BufferHeader);
+    _DArrayInfo* ArrFrom = GetDArrayByIndex(params->RemArrayHeader);
 
-//	printf("Create Remote block %x %x\n",params->RemArrayHeader, params->LoopRef);
+    //	printf("Create Remote block %x %x\n",params->RemArrayHeader, params->LoopRef);
 
-	LoopBlock** ProcBlock=(LoopBlock**)calloc(MPSProcCount(),sizeof(LoopBlock*));
-	assert(ProcBlock != NULL);
+    LoopBlock** ProcBlock = (LoopBlock**)calloc(MPSProcCount(), sizeof(LoopBlock*));
+    assert(ProcBlock != NULL);
 
-	proc_indexes.resize(0);
-	//построение витков на каждом процессоре
-	for(i=0;i<MPSProcCount();i++)  
-	{
-		ProcBlock[i]=new LoopBlock(ParLoopInfo.ParLoop_Obj, i,1);
-		if(!ProcBlock[i]->empty())
-			proc_indexes.push_back(i);
-	}
-/*
-	for(i=0;i<MPSProcCount();i++)  
-	{
-		printf("Proc[%d] Block=",i);
-		for(j=0;j<ProcBlock[i]->LSDim.size();j++)
-			printf(" %d..%d",ProcBlock[i]->LSDim[j].Lower,ProcBlock[i]->LSDim[j].Upper);
-		printf("\n");
-	}
+    proc_indexes.resize(0);
+    //построение витков на каждом процессоре
+    for (i = 0; i < MPSProcCount(); i++)
+    {
+        ProcBlock[i] = new LoopBlock(ParLoopInfo.ParLoop_Obj, i, 1);
+        if (!ProcBlock[i]->empty())
+            proc_indexes.push_back(i);
+    }
+    /*
+        for(i=0;i<MPSProcCount();i++)
+        {
+            printf("Proc[%d] Block=",i);
+            for(j=0;j<ProcBlock[i]->LSDim.size();j++)
+                printf(" %d..%d",ProcBlock[i]->LSDim[j].Lower,ProcBlock[i]->LSDim[j].Upper);
+            printf("\n");
+        }
 
-	printf("Array size=");
-	for(j=0;j<ArrFrom->DArray_Obj->Rank();j++)
-		printf(" %d",ArrFrom->DArray_Obj->GetSize(j+1));
-	printf("\n");
-*/
-	FromInitIndexArray.resize(params->AxisArray.size());
-	FromLastIndexArray.resize(params->AxisArray.size());
-	FromStepIndexArray.resize(params->AxisArray.size());
-	for(j=0;j<params->AxisArray.size();j++)
-	{
-		if(params->AxisArray[j]==-1)
-		{
-			FromInitIndexArray[j]=0;
-			FromLastIndexArray[j]=ArrFrom->DArray_Obj->GetSize(j+1)-1;
-			FromStepIndexArray[j]=1;
-		}
-		else
-		{
-			if(params->CoeffArray[j]==0)
-			{
-				FromInitIndexArray[j]=params->ConstArray[j];
-				FromLastIndexArray[j]=params->ConstArray[j];
-				FromStepIndexArray[j]=1;
-			}
-			else
-			{
-				//dont know yet
-			}
+        printf("Array size=");
+        for(j=0;j<ArrFrom->DArray_Obj->Rank();j++)
+            printf(" %d",ArrFrom->DArray_Obj->GetSize(j+1));
+        printf("\n");
+    */
+    FromInitIndexArray.resize(params->AxisArray.size());
+    FromLastIndexArray.resize(params->AxisArray.size());
+    FromStepIndexArray.resize(params->AxisArray.size());
+    for (j = 0; j < params->AxisArray.size(); j++)
+    {
+        if (params->AxisArray[j] == -1)
+        {
+            FromInitIndexArray[j] = 0;
+            FromLastIndexArray[j] = ArrFrom->DArray_Obj->GetSize(j + 1) - 1;
+            FromStepIndexArray[j] = 1;
+        }
+        else
+        {
+            if (params->CoeffArray[j] == 0)
+            {
+                FromInitIndexArray[j] = params->ConstArray[j];
+                FromLastIndexArray[j] = params->ConstArray[j];
+                FromStepIndexArray[j] = 1;
+            }
+            else
+            {
+                //dont know yet
+            }
+        }
+    }
+    /*
+        printf("Remote block =");
+        for(j=0;j<params->AxisArray.size();j++)
+            printf(" %d..%d(st=%d)",FromInitIndexArray[j],FromLastIndexArray[j],FromStepIndexArray[j]);
+        printf("  Transfer to procs =");
+        for(j=0;j<proc_indexes.size();j++)
+            printf(" %d",proc_indexes[j]);
+        printf("\n");
+    */
+    for (j = 0; j < FromInitIndexArray.size(); j++)
+        blockIni.push_back(LS(FromInitIndexArray[j], FromLastIndexArray[j], FromStepIndexArray[j]));
+    Block RemBlock(blockIni);
 
+    for (i = 0; i < proc_indexes.size(); i++)
+        remCost->CopyUpdateDistr(ArrFrom->DArray_Obj, RemBlock, proc_indexes[i]);
 
-		}
-	}
-/*
-	printf("Remote block =");
-	for(j=0;j<params->AxisArray.size();j++)
-		printf(" %d..%d(st=%d)",FromInitIndexArray[j],FromLastIndexArray[j],FromStepIndexArray[j]);
-	printf("  Transfer to procs =");
-	for(j=0;j<proc_indexes.size();j++)
-		printf(" %d",proc_indexes[j]);
-	printf("\n");
-*/
-	for(j=0;j<FromInitIndexArray.size();j++)
-		blockIni.push_back(LS(FromInitIndexArray[j], FromLastIndexArray[j], FromStepIndexArray[j]));
-	Block RemBlock(blockIni);
-	
-	for(i=0;i<proc_indexes.size();i++)
-		remCost->CopyUpdateDistr(ArrFrom->DArray_Obj, RemBlock, proc_indexes[i]);
+    DAF_tmp = new (_DArrayFlag);
+    DAF_tmp->ProcessTimeStamp = (double *)malloc(MPSProcCount() * sizeof(double));
 
-	DAF_tmp = new (_DArrayFlag);
-	DAF_tmp->ProcessTimeStamp=(double *)malloc(MPSProcCount()*sizeof(double));
+    remCost->GetCost();
 
-	remCost->GetCost();
+    tmp->StartRemoteTimes = (double *)malloc(MPSProcCount() * sizeof(double));
+    tmp->EndRemoteTimes = (double *)malloc(MPSProcCount() * sizeof(double));
+    for (i = 0; i < MPSProcCount(); i++)
+        tmp->EndRemoteTimes[currentVM->map(i)] = DAF_tmp->ProcessTimeStamp[currentVM->map(i)]; // time of communication
 
-	tmp->StartRemoteTimes=(double *)malloc(MPSProcCount()*sizeof(double));
-	tmp->EndRemoteTimes=(double *)malloc(MPSProcCount()*sizeof(double));
-	for (i=0; i < MPSProcCount(); i++) 
-		tmp->EndRemoteTimes[currentVM->map(i)] = DAF_tmp->ProcessTimeStamp[currentVM->map(i)]; // time of communication
+    free(DAF_tmp->ProcessTimeStamp);
+    delete DAF_tmp;
+    DAF_tmp = NULL;
 
-
-	free(DAF_tmp->ProcessTimeStamp);
-	delete DAF_tmp;
-	DAF_tmp=NULL;
-
-	++CurrInterval->num_op_remote; // почему-то так сделано в Анализаторе производительности
-
+    ++CurrInterval->num_op_remote; // почему-то так сделано в Анализаторе производительности
 }
 
 void FuncCall::loadrb()

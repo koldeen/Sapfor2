@@ -25,15 +25,14 @@ std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
-                  std::vector<ParallelRegion*> regions,
-                  std::map<std::tuple<int, std::string, std::string>, 
-                  DIST::Array*> &createdArrays,
+                  std::vector<ParallelRegion*> &regions,
+                  std::map<std::tuple<int, std::string, std::string>, DIST::Array*> &createdArrays,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
                   const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
                   const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
-                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, bool skipDeps,
                   std::vector<LoopGraph*> *loopGraph = NULL);
 void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
                          const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
@@ -47,6 +46,7 @@ void selectParallelDirectiveForVariant(SgFile *file,
                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                        DIST::Arrays<int> &allArrays,
                                        const std::vector<LoopGraph*> &loopGraph,
+                                       const std::map<int, LoopGraph*> &mapLoopGraph,
                                        const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
                                        const std::vector<AlignRule> &alignRules,
                                        std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>> &toInsert,
@@ -78,7 +78,8 @@ void preprocess_allocates(SgFile *file);
 // insert_directive.cpp
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
                                          std::map<std::string, std::string> templateDeclInIncludes,
-                                         const std::vector<std::string> &distrRules, const DIST::Arrays<int> &allArrays,
+                                         const std::vector<std::string> &distrRules, const std::vector<std::vector<dist>> &distrRulesSt, 
+                                         const DIST::Arrays<int> &allArrays,
                                          const bool extractDir, const int regionId,
                                          const std::set<std::string> &includedToThisFile);
 
@@ -87,6 +88,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const std::vector
 
 void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDirective &dataDir,
                               const std::set<std::string> &distrArrays, const std::vector<std::string> &distrRules,
+                              const std::vector<std::vector<dist>> &distrRulesSt,
                               const std::vector<std::string> &alignRules, 
                               const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
                               const DIST::Arrays<int> &allArrays,

@@ -50,6 +50,7 @@ static map<SgSymbol*, Symbol*> dictCreated;
 
 static inline string getData(SgExpression *symb, string*) { return OriginalSymbol(symb->symbol())->identifier(); }
 static inline SgSymbol* getData(SgExpression *symb, SgSymbol**) { return OriginalSymbol(symb->symbol()); }
+static inline SgExpression* getData(SgExpression *symb, SgExpression**) { return symb; }
 
 static inline Symbol* getData(SgExpression *symb, Symbol**)
 {
@@ -305,33 +306,53 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
     if (stIn)
     {
         SgStatement *st = stIn->GetOriginal();
-        if (st->variant() ==  type)
+        if (st->variant() == type)
         {
             SgExpression *exprList = NULL;
-            if (type == SPF_PARALLEL_DIR)
+            if (type == SPF_PARALLEL_DIR || type == DVM_REMOTE_ACCESS_DIR)
                 exprList = st->expr(0);
             else if (type == DVM_PARALLEL_ON_DIR)
-                exprList = st->expr(1);
+                exprList = st->expr(1);            
+
+            if (exprList)
+                exprList->unparsestdout();
 
             while (exprList)
             {
-                if (exprList->lhs()->variant() == REMOTE_ACCESS_OP)
+                if (exprList->lhs()->variant() == REMOTE_ACCESS_OP || type == DVM_REMOTE_ACCESS_DIR)
                 {
-                    //recExpressionPrint(exprList);
-                    SgExpression *list = exprList->lhs()->lhs();
+                    SgExpression *list;
+                    if (type == DVM_REMOTE_ACCESS_DIR)
+                        list = exprList;
+                    else
+                        list = exprList->lhs()->lhs();
+
                     while (list)
                     {
                         fillType arrayName, *dummy = NULL;
                         arrayName = getData(list->lhs(), dummy);
+                        
+                        char *str;
+                        if (list->lhs()->lhs())
+                            str = list->lhs()->lhs()->unparse();
+                        else
+                            str = "";
 
-                        const char *str = list->lhs()->lhs()->unparse();
                         if (isFull)
                             remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs())));
                         else
-                            remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs()->lhs())));
+                        {
+                            if (list->lhs()->lhs())
+                                remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(list->lhs()->lhs())));
+                            else
+                                remote.insert(make_pair(make_pair(arrayName, string(str)), new Expression(new SgExprListExp())));
+                        }
                         list = list->rhs();
                     }
                 }
+
+                if (type == DVM_REMOTE_ACCESS_DIR)
+                    break;
                 exprList = exprList->rhs();
             }
         }
@@ -340,12 +361,40 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
 
 template void fillRemoteFromComment(Statement *st, map<pair<string, string>, Expression*> &remote, bool isFull, int type);
 template void fillRemoteFromComment(Statement *st, map<pair<SgSymbol*, string>, Expression*> &remote, bool isFull, int type);
+template void fillRemoteFromComment(Statement *st, map<pair<SgExpression*, string>, Expression*> &remote, bool isFull, int type);
 
 void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, vector<pair<pair<string, string>, vector<pair<int, int>>>> &acrossInfo)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
         fillShadowAcrossFromComment(ACROSS_OP, new Statement(data), acrossInfo);
+}
+
+void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &vars)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs() && (exprList->lhs()->variant() == SPF_FISSION_OP || exprList->lhs()->variant() == SPF_PRIVATES_EXPANSION_OP))
+                {
+                    SgExpression *list = exprList->lhs()->lhs();
+                    while (list)
+                    {
+                        if (list->lhs()->variant() == VAR_REF)
+                            vars.push_back(list->lhs()->symbol()->identifier());
+
+                        list = list->rhs();
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
 }
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)

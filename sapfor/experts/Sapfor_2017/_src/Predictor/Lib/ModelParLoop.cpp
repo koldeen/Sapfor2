@@ -163,7 +163,7 @@ void FuncCall::dopl()
 
 
 //	printf("DOPL %f\n",call_time);
-	if(mode)
+	if (mode)
 	{
 		printf("DOPL      ");
 		for(i=0;i<MPSProcCount(); i++)
@@ -184,18 +184,18 @@ void FuncCall::dopl()
 		ProcBlock[i]=new LoopBlock(ParLoopInfo.ParLoop_Obj, i,1);
   
 
-
-	printf("start DOPL\n");
-	for(i=0;i<MPSProcCount();i++)  
-	{
-		int k;
-
-		printf("DOPL proc[%d]= ",i);
-		for(k=0; k<ProcBlock[i]->LSDim.size(); k++)
-			printf("%d %d  ",ProcBlock[i]->LSDim[k].Lower,ProcBlock[i]->LSDim[k].Upper);
-		printf("\n");
-	}
-
+    if (mode)
+    {
+        printf("start DOPL\n");
+        for (i = 0; i < MPSProcCount(); i++)
+        {
+            int k;
+            printf("DOPL proc[%d]= ", i);
+            for (k = 0; k < ProcBlock[i]->LSDim.size(); k++)
+                printf("%d %d  ", ProcBlock[i]->LSDim[k].Lower, ProcBlock[i]->LSDim[k].Upper);
+            printf("\n");
+        }
+    }
 
 	//====
 	if(ParLoopInfo.across && tmp_params->ReturnVar==1) 

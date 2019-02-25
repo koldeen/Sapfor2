@@ -9,6 +9,7 @@ extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
 
 extern "C" int out_free_form;
+extern "C" int out_upper_case;
 
 enum passes {
     UNROLL_LOOPS, //ordinal == 0
@@ -18,6 +19,7 @@ enum passes {
     REVERSE_CREATED_NESTED_LOOPS,
     UNPARSE_FILE,
 
+    LOOP_ANALYZER_DATA_DIST_S0,
     LOOP_ANALYZER_DATA_DIST_S1,
     LOOP_ANALYZER_DATA_DIST_S2,
     LOOP_ANALYZER_COMP_DIST,
@@ -45,6 +47,7 @@ enum passes {
     CORRECT_VAR_DECL,
     PREPROC_ALLOCATES,
     CHECK_FUNC_TO_INCLUDE,
+    CHECK_ARGS_DECL,
 
     FIND_FUNC_TO_INCLUDE,
     ONLY_ARRAY_GRAPH,
@@ -63,6 +66,7 @@ enum passes {
     INSERT_INCLUDES,
     REMOVE_DVM_DIRS,
     REMOVE_DVM_DIRS_TO_COMMENTS,
+    REMOVE_DVM_INTERVALS,
     VERIFY_DVM_DIRS,
 
     SUBST_EXPR,
@@ -83,6 +87,8 @@ enum passes {
 
     FILL_COMMON_BLOCKS,
     PREDICT_SCHEME,
+    CALCULATE_STATS_SCHEME,
+
     DEF_USE_STAGE1,
     DEF_USE_STAGE2,
     REVERT_SPF_DIRS,
@@ -131,6 +137,7 @@ static void setPassValues()
     passNames[UNROLL_LOOPS] = "UNROLL_LOOPS";
     passNames[CONVERT_TO_ENDDO] = "CONVERT_TO_ENDDO";
     passNames[CORRECT_CODE_STYLE] = "CORRECT_CODE_STYLE";
+    passNames[LOOP_ANALYZER_DATA_DIST_S0] = "LOOP_ANALYZER_DATA_DIST_S0";
     passNames[LOOP_ANALYZER_DATA_DIST_S1] = "LOOP_ANALYZER_DATA_DIST_S1";
     passNames[LOOP_ANALYZER_DATA_DIST_S2] = "LOOP_ANALYZER_DATA_DIST_S2";
     passNames[LOOP_ANALYZER_COMP_DIST] = "LOOP_ANALYZER_COMP_DIST";
@@ -169,6 +176,7 @@ static void setPassValues()
     passNames[CREATE_TEMPLATE_LINKS] = "CREATE_TEMPLATE_LINKS";
     passNames[CODE_CHECKER_PASSES] = "CODE_CHECKER_PASSES";
     passNames[CHECK_FUNC_TO_INCLUDE] = "CHECK_FUNC_TO_INCLUDE";
+    passNames[CHECK_ARGS_DECL] = "CHECK_ARGS_DECL";
     passNames[GET_ALL_ARRAY_DECL] = "GET_ALL_ARRAY_DECL";
     passNames[INSERT_SHADOW_DIRS] = "INSERT_SHADOW_DIRS";
     passNames[EXTRACT_SHADOW_DIRS] = "EXTRACT_SHADOW_DIRS";
@@ -205,5 +213,8 @@ static void setPassValues()
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
     passNames[CREATE_PARALLEL_REGIONS] = "CREATE_PARALLEL_REGIONS";
+    passNames[CALCULATE_STATS_SCHEME] = "CALCULATE_STATS_SCHEME";
+    passNames[REMOVE_DVM_INTERVALS] = "REMOVE_DVM_INTERVALS";
 }
+
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

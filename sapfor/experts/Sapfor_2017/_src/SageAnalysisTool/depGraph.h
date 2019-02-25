@@ -30,6 +30,7 @@ public:
   depNode(SgStatement *sin,SgStatement *sout, SgExpression *vin, SgExpression *vout, int tdep, int kdep, int *dist, int *kdist, int le);
   ~depNode();
   void displayDep() const;
+  std::string displayDepToStr() const;
   std::string createDepMessagebetweenArrays() const;
 };
 

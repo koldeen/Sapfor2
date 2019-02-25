@@ -76,6 +76,7 @@ extern char* Tool_Unparse_Type();
 extern void BufferAllocate();
 
 int out_free_form;
+int out_upper_case;
 PTR_SYMB last_file_symbol;
 
 static int CountNullBifNext = 0; /* for internal debugging */
@@ -1239,10 +1240,26 @@ int isBlankString(char *str)
 
 }
 
+/* this function converts a letter to uppercase except char strings (text inside quotes) */
+char to_upper_case (char c, int *quote)
+{ 
+    if(c == '\'' || c == '\"')
+    {
+       if(*quote == c)
+          *quote = 0;
+       else if(*quote==0)
+          *quote = c;
+       return c;
+    }
+    if(islower(c) && *quote==0)
+       return toupper(c);
+    return c;        
+}
+
 char* filter(char *s)
 {
     char c;
-    int i = 1;
+    int i = 1, quote = 0;
 
     // 14.10.2016 Kolganov. Switch constant buffer to dynamic
     int temp_size = 1024;
@@ -1315,7 +1332,7 @@ char* filter(char *s)
     while (c != '\0')
     {
         c = s[i];
-        temp[buf_i] = c;
+        temp[buf_i] = out_upper_case && (!commentline || DVM || SPF || OMP) ? to_upper_case(c,&quote) : c;
         if (c == '\n')
         {
             if (buf_i + 1 > temp_size)
@@ -5649,6 +5666,12 @@ PTR_BFND LibWhereIsSymbDeclare(symb)
   
   for (temp = scopeof; temp ; temp=BIF_NEXT(temp))
     {
+#if __SPF
+      //SKIP SPF dirs
+      //for details see dvm_tag.h
+      if (scopeof->variant >= 950 && scopeof->variant <= 958)
+          continue;
+#endif
       if (LibIsSymbolInExpression(BIF_LL1(temp), symb))
         return temp;
       if (LibIsSymbolInExpression(BIF_LL2(temp), symb))
@@ -8019,7 +8042,7 @@ int isTypeEquivalent(type1, type2)
   if (TYPE_CODE(type1) != TYPE_CODE(type2))
       return 0;
 
-  if (isAtomicType(TYPE_CODE(type1)))
+  if (isAtomicType(TYPE_CODE(type1)) && !TYPE_RANGES(type1) && !TYPE_RANGES(type2) && !TYPE_KIND_LEN(type1) && !TYPE_KIND_LEN(type2))
      return(1);
 
   if (hasTypeBaseType(TYPE_CODE(type1)) && hasTypeBaseType(TYPE_CODE(type2))) 
@@ -8724,9 +8747,10 @@ PTR_SYMB duplicateSymbolAcrossFiles(symb, where)
 /*podd 20.03.07*/
 
 void updateExpression(exp, symb, newsymb)
-PTR_LLND exp;
+ PTR_LLND exp;
  PTR_SYMB symb, newsymb;
-{PTR_SYMB param,newparam;
+{
+  PTR_SYMB param,newparam;
   param    = SYMB_FUNC_PARAM (symb);
   newparam = SYMB_FUNC_PARAM (newsymb);
   while(param)
@@ -8740,24 +8764,109 @@ PTR_LLND exp;
 /*podd 06.06.06*/
 void updateTypeAndSymbolInStmts(PTR_BFND stmt, PTR_BFND last, PTR_SYMB oldsymb, PTR_SYMB newsymb)
 {
-    PTR_TYPE type, new;
+   PTR_TYPE type, new;
 
-    type = SYMB_TYPE(oldsymb);
-    new = duplicateTypeAcrossFiles(type);
-    SYMB_TYPE(newsymb) = new;
-    replaceTypeInStmts(stmt, last, type, new);
-    replaceSymbInStmts(stmt, last, oldsymb, newsymb);
+   type = SYMB_TYPE(oldsymb);
+   new = duplicateTypeAcrossFiles(type);
+   SYMB_TYPE(newsymb) = new;
+   replaceTypeInStmts(stmt, last, type, new);
+   replaceSymbInStmts(stmt, last, oldsymb, newsymb);
 }
 
+/*podd 26.02.19*/
+void replaceSymbByNameInExpression(PTR_LLND exprold, PTR_SYMB new)
+{  
+   if(!exprold)
+      return;
+   if (hasNodeASymb(NODE_CODE(exprold)))
+   {    
+      if ( !strcmp(SYMB_IDENT(NODE_SYMB(exprold)), new->ident) )
+         NODE_SYMB(exprold) = new; 
+   }
+   replaceSymbByNameInExpression(NODE_OPERAND0(exprold), new);
+   replaceSymbByNameInExpression(NODE_OPERAND1(exprold), new);
+}
+
+/*podd 26.02.19*/
+void replaceSymbByNameInConstantValues(PTR_SYMB first_const_name, PTR_SYMB new)
+{
+   PTR_SYMB s;
+   for (s=first_const_name; s; s = SYMB_LIST(s))
+   {   
+      replaceSymbByNameInExpression (SYMB_VAL(s),new); 
+   }
+}
+/*podd 26.02.19*/
+void updateConstantSymbolsInParameterValues(PTR_SYMB first_const_name)
+{
+   PTR_SYMB symb, prev_symb;
+   for (symb=first_const_name; symb; symb = SYMB_LIST(symb))
+   {  
+      replaceSymbByNameInConstantValues(first_const_name,symb);
+   }
+   
+   symb=first_const_name;
+   while (symb)
+   {
+      prev_symb = symb;
+      symb = SYMB_LIST(symb);
+      SYMB_LIST(prev_symb) = SMNULL;  
+   }   
+}
+
+/*podd 26.02.19*/
+void replaceSymbInType(PTR_TYPE type, PTR_SYMB newsymb)
+{  
+  if (!type)
+    return;
+  
+  if (!isATypeNode(NODE_CODE(type)))
+  {
+      Message("duplicateTypeAcrossFiles; Not a type node",0);
+      return ;
+  }
+
+  if (isAtomicType(TYPE_CODE(type)))
+  {
+     replaceSymbByNameInExpression(TYPE_RANGES(type),newsymb);
+     replaceSymbByNameInExpression(TYPE_KIND_LEN(type),newsymb);
+  }
+
+  if (hasTypeBaseType(TYPE_CODE(type))) 
+     replaceSymbInType(TYPE_BASE(type), newsymb);
+   
+
+  if ( TYPE_CODE(type) == T_ARRAY)
+     replaceSymbByNameInExpression(TYPE_RANGES(type),newsymb);
+}
+
+/*podd 26.02.19*/
+void replaceSymbInTypeOfSymbols(PTR_SYMB newsymb,PTR_SYMB first_new)
+{
+   PTR_SYMB symb;
+   for( symb=first_new; symb; symb = SYMB_NEXT(symb) )
+      replaceSymbInType(SYMB_TYPE(symb),newsymb);
+}
+
+/*podd 26.02.19*/
+void updatesSymbolsInTypeExpressions(PTR_BFND new_stmt)
+{
+   PTR_SYMB symb, first_new;
+   first_new= BIF_SYMB(new_stmt);
+   for( symb=first_new; symb; symb = SYMB_NEXT(symb)) 
+      replaceSymbInTypeOfSymbols(symb,first_new);
+}
 
 void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND new_stmt, PTR_BFND where)
 {
-    PTR_SYMB oldsymb, param, newsymb, until;
+    PTR_SYMB oldsymb, param, newsymb, until, const_list, first_const_name;
     PTR_BFND last;
     PTR_TYPE type;
-    /*int isparam;*/
+    
     if (!stmt)
         return;
+    const_list = first_const_name = SMNULL; /* to make a list of constant names  */
+
     last = getLastNodeOfStmt(stmt);
 
     if (BIF_NEXT(last) && BIF_CODE(BIF_NEXT(last)) != COMMENT_STAT)
@@ -8769,50 +8878,38 @@ void updateTypesAndSymbolsInBodyOfRoutine(PTR_SYMB symb, PTR_BFND stmt, PTR_BFND
     for (oldsymb = SYMB_NEXT(symb); oldsymb && oldsymb != until; oldsymb = SYMB_NEXT(oldsymb))
     {
         if (SYMB_SCOPE(oldsymb) == stmt)
-        {              /*
-                        isparam = 0;
-                        while (param)
-                          {
-                            if (param == oldsymb )
-                              {
-                                isparam = 1;
-                                break;
-                              }
-                            param  = SYMB_NEXT_DECL (param );
-                          }
-                        if (! isparam)
-                       */
-
+        {              
             if (SYMB_TEMPLATE_DUMMY1(oldsymb) != IO)  /*is not a dummy parameter */
             {
                 newsymb = duplicateSymbolOfRoutine(oldsymb, where);
-                //newsymb = duplicateSymbolAcrossFiles(oldsymb, where);
+                if(SYMB_CODE(newsymb)==CONST_NAME) 
+                {
+                    if(first_const_name == SMNULL)
+                    {
+                       first_const_name = const_list = newsymb;
+                       newsymb->id_list = SMNULL;
+                    }
+                    const_list->id_list = newsymb;
+                    newsymb->id_list = SMNULL;
+                    const_list = newsymb;
+                }
+
                 SYMB_SCOPE(newsymb) = new_stmt;
                 updateTypeAndSymbolInStmts(new_stmt, getLastNodeOfStmt(new_stmt), oldsymb, newsymb);
             }
         }
     }
+    updateConstantSymbolsInParameterValues(first_const_name); /*podd 26.02.19*/
+    updatesSymbolsInTypeExpressions(new_stmt);                /*podd 26.02.19*/
 
-    param = SYMB_FUNC_PARAM(new_stmt->entry.Template.symbol);
-    while (param)
-    {
-        type = param->type;
-        param = SYMB_NEXT_DECL(param);
-
-        if (isAtomicType(TYPE_CODE(type)) || TYPE_CODE(type) == T_ARRAY)
-        {
-            if (TYPE_RANGES(type))
-                updateExpression(TYPE_RANGES(type), symb, new_stmt->entry.Template.symbol);
-        }
-    }
 }
 
 PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
 {
-    PTR_SYMB  newsymb;
+    PTR_SYMB newsymb;
     PTR_BFND body, newbody, last, before, cp;
     PTR_SYMB ptsymb, ptref;
-    // PTR_TYPE type,newt;
+    
     if (!symb)
         return NULL;
 
@@ -8821,6 +8918,7 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
         Message("duplicateSymbolAcrossFiles; Not a symbol node", 0);
         return NULL;
     }
+    
     newsymb = duplicateSymbolLevel1(symb);
     newsymb->dovar = 1;
     symb->dovar = 1;
@@ -8833,12 +8931,11 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
     case FUNCTION_NAME:
     case PROCEDURE_NAME:
     case PROGRAM_NAME:
-        /* find the body in the right file????*/
+
         body = getBodyOfSymb(symb);
         if (body && (cp = BIF_CP(body)) && cp->variant != INTERFACE_STMT && cp->variant != INTERFACE_ASSIGNMENT && cp->variant != INTERFACE_OPERATOR) /*20.04.17*/
         {
             before = getNodeBefore(body);
-            //cp = BIF_CP(body);
             last = getLastNodeOfStmt(body);
             newbody = duplicateStmtsNoExtract(body);
             if (where)
@@ -8852,7 +8949,7 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
             SYMB_FUNC_HEDR(newsymb) = newbody;
             last = getLastNodeOfStmt(newbody);
             updateTypeAndSymbolInStmts(newbody, last, symb, newsymb);
-
+            
             /* we have to propagate change in the param list in the new body */
             ptsymb = SYMB_FUNC_PARAM(newsymb);
             ptref = SYMB_FUNC_PARAM(symb);
@@ -8866,9 +8963,10 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
             }
             /* update the all the symbol and type used in the statement */
             updateTypesAndSymbolsInBodyOfRoutine(symb, body, newbody, where);
-            /*          printf(">>>>>>>>>>>>>>>>>>>>>>\n");
-                      UnparseProgram(stdout);
-                      printf("<<<<<<<<<<<<<<<<<<<<<<\n");*/
+
+                        /*          printf(">>>>>>>>>>>>>>>>>>>>>>\n");
+                                    UnparseProgram(stdout);
+                                    printf("<<<<<<<<<<<<<<<<<<<<<<\n");     */
         }
         break;
     }

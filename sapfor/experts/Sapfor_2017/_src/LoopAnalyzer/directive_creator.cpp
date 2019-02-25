@@ -375,6 +375,35 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
         }
     }
         
+    if (conflict)
+    {
+        int countOfBlockToNone = 0;
+        for (int z = 0; z < saveDistr.size(); ++z)
+        {
+            if (saveDistr[z] == false && currDist.second->distRule[z] == dist::BLOCK)
+                countOfBlockToNone++;
+        }
+
+        vector<int> idxCandidates;
+        for (int z = 0; z < currParDir->parallel.size(); ++z)
+        {
+            const string currLetter = currParDir->parallel[z];
+            for (int k = 0; k < currParDir->on.size(); ++k)
+            {
+                if (currParDir->on[k].first == currLetter)
+                {
+                    if (currDist.second->distRule[linkWithTempl[k]] == dist::NONE)
+                        idxCandidates.push_back(linkWithTempl[k]);                    
+                    break;
+                }
+            }
+        }
+
+        if (idxCandidates.size())
+            for (int k = 0; k < std::min(countOfBlockToNone, (int)idxCandidates.size()); ++k)
+                saveDistr[idxCandidates[k]] = true;        
+    }
+
     return !conflict;
 }
 
@@ -453,10 +482,140 @@ static bool ifRuleNull(const DistrVariant *currVar)
     return true;
 }
 
+static DIST::Array* getRealArrayRef(DIST::Array *in, const int regId, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    set<DIST::Array*> out;
+    getRealArrayRefs(in, in, out, arrayLinksByFuncCalls);
+
+    set<vector<pair<int, int>>> rules;
+    set<vector<int>> links;
+    set<DIST::Array*> templ;
+    for (auto &array : out)
+    {
+        rules.insert(array->GetAlignRulesWithTemplate(regId));
+        links.insert(array->GetLinksWithTemplate(regId));
+        templ.insert(array->GetTemplateArray(regId));
+    }
+
+    if (templ.size() != 1 || links.size() != 1 || rules.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return *out.begin();
+}
+
+//create realigns instead of full template redistribution
+static vector<vector<pair<string, vector<Expression*>>>> 
+    createRealignRules(LoopGraph *current, const int regId, SgFile *file, const string &templClone, 
+                       const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
+
+    for (int num = 0; num < 2; ++num)
+    {
+        for (auto &elem : current->usedArrays)
+        {
+            if (elem->GetNonDistributeFlag())
+                continue;
+
+            auto realRef = getRealArrayRef(elem, regId, arrayLinksByFuncCalls);
+            const auto &rules = realRef->GetAlignRulesWithTemplate(regId);
+            const auto &links = realRef->GetLinksWithTemplate(regId);
+            const auto &templ = realRef->GetTemplateArray(regId);            
+            checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
+            
+            vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
+            SgVarRefExp *ref = new SgVarRefExp(*findSymbolOrCreate(file, elem->GetShortName()));
+
+            realign[0] = new Expression(ref);
+            SgExprListExp *list = new SgExprListExp();
+            string base = "iEX";
+            for (int z = 0; z < elem->GetDimSize(); ++z)
+            {
+                if (z == 0)
+                    list->setLhs(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+                else
+                    list->append(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+            }
+
+            realign[1] = new Expression(list);
+            if (num == 0)
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templClone, new SgArrayType(*SgTypeInt()))));
+            else
+                realign[2] = new Expression(new SgArrayRefExp(*findSymbolOrCreate(file, templ->GetShortName(), new SgArrayType(*SgTypeInt()))));
+
+            vector<SgExpression*> templateRuleEx(templ->GetDimSize());
+            std::fill(templateRuleEx.begin(), templateRuleEx.end(), (SgExpression*)NULL);
+            for (int z = 0; z < elem->GetDimSize(); ++z)
+            {
+                if (links[z] != -1)
+                {
+                    SgExpression *toSet = NULL;
+                    auto symb = new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z)));
+                    if (rules[z] == make_pair(1, 0))
+                        toSet = symb;
+                    else if (rules[z].second == 0)
+                        toSet = &(*new SgValueExp(rules[z].first) * *symb);
+                    else if (rules[z].first == 1)
+                        toSet = &(*symb + *new SgValueExp(rules[z].second));
+                    else
+                        toSet = &(*new SgValueExp(rules[z].first) * *symb + *new SgValueExp(rules[z].second));
+                    templateRuleEx[links[z]] = toSet;
+                }
+            }
+
+            for (int z = 0; z < templateRuleEx.size(); ++z)
+            {
+                SgExpression *toSet = NULL;
+                if (templateRuleEx[z] == NULL)
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "*"));
+                else
+                    toSet = templateRuleEx[z];
+                ((SgArrayRefExp*)realign[2]->GetOriginal())->addSubscript(*toSet);
+
+            }
+
+            optimizedRules[num].push_back(make_pair("", realign));
+        }
+    }
+    return optimizedRules;
+}
+
+static int cloneCount = 0;
+static map<pair<string, string>, map<pair<DIST::Array*, vector<dist>>, string>> templateClones;
+static string createTemplateClone(DIST::Array *templ, const vector<dist> &redistr, SgFile *file, SgStatement *currLoop, bool &needToInsert)
+{
+    string ret = "dvmh_temp_r";
+    needToInsert = false;
+
+    string fileN = file->filename();
+    while (currLoop->variant() != PROC_HEDR && currLoop->variant() != PROG_HEDR && currLoop->variant() != FUNC_HEDR)
+    {
+        currLoop = currLoop->controlParent();
+        checkNull(currLoop, convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    string funcN = currLoop->symbol()->identifier();
+    pair<string, string> key = make_pair(fileN, funcN);
+    auto it = templateClones.find(key);
+    if (it == templateClones.end())
+        it = templateClones.insert(it, make_pair(key, map<pair<DIST::Array*, vector<dist>>, string>()));
+
+    pair<DIST::Array*, vector<dist>> arrayKey = make_pair(templ, redistr);
+    auto itA = it->second.find(arrayKey);
+    if (itA == it->second.end())
+    {
+        itA = it->second.insert(itA, make_pair(arrayKey, ret + std::to_string(cloneCount++)));
+        needToInsert = true;
+    }
+
+    return itA->second;
+}
+
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
-                                  LoopGraph *current, const ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
-{    
+                                  LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
+                                  ParallelDirective *currParDir, const int regionId, vector<Messages> &messages,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
     
@@ -465,7 +624,24 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
     for (int z = 0; z < redistrDirs.first.size(); ++z)
     {
         if (ifRuleNull(redistributeRules[z].second))
-            return needToSkip;
+        {
+            SgStatement *startSt = current->loop->GetOriginal();
+            SgStatement *cp = startSt->controlParent();
+            while (cp)
+            {                
+                if (cp->variant() == FOR_NODE)
+                {
+                    const int line = cp->lineNumber();
+                    
+                    auto itL = loopGraph.find(line);
+                    if (itL == loopGraph.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (itL->second->directiveForLoop != NULL || itL->second->directive != NULL)
+                        return needToSkip;                    
+                }
+                cp = cp->controlParent();
+            }            
+        }
     }
 
     needToSkip = false;
@@ -496,15 +672,73 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         }
         redistSt[0] = new Expression(new SgExpression(EXPR_LIST, ref, NULL, NULL));
         redistSt[1] = new Expression(pointer);
-
-        toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
+        //OLD var - full redistribution
+        /*toInsert.push_back(make_pair(current->lineNum, redistrDirs.second[z]));
         toInsert.push_back(make_pair(current->lineNumAfterLoop, make_pair(redist, redistSt)));
-                
         __spf_print(1, "WARN: added redistribute for loop on line %d by array '%s' can significantly reduce performance\n", current->lineNum, distribution[idx].first->GetShortName().c_str());
 
         char buf[512];
         sprintf(buf, "Added redistribute for loop by array '%s' can significantly reduce performance", distribution[idx].first->GetShortName().c_str());
-        messages.push_back(Messages(WARR, current->lineNum, buf, 3009));
+        messages.push_back(Messages(WARR, current->lineNum, buf, 3009));*/
+
+        // New var - realign
+        bool needToInsert = false;
+        const auto redistrRule = redistributeRules[z].second->distRule;
+        string newTemplate = createTemplateClone(distribution[idx].first, redistrRule, file, current->loop->GetOriginal(), needToInsert);
+
+        vector<vector<pair<string, vector<Expression*>>>> toRealign = createRealignRules(current, regionId, file, newTemplate, arrayLinksByFuncCalls);
+        for (auto &rule : toRealign[0])
+            toInsert.push_back(make_pair(current->lineNum, rule));
+        for (auto &rule : toRealign[1])
+            toInsert.push_back(make_pair(current->lineNumAfterLoop, rule));
+
+        if (toRealign[0].size())
+            currParDir->cloneOfTemplate = newTemplate;
+        else
+            needToInsert = false;
+
+        if (needToInsert)
+        {
+            vector<Expression*> cloneDistr(6);
+            vector<Expression*> templCreate(7);
+
+            std::fill(cloneDistr.begin(), cloneDistr.end(), (Expression*)NULL);
+            std::fill(templCreate.begin(), templCreate.end(), (Expression*)NULL);
+
+            SgVarRefExp *clone = new SgVarRefExp(*findSymbolOrCreate(file, newTemplate));
+            SgExprListExp *listDist = new SgExprListExp();
+            for (int z = 0; z < redistrRule.size(); ++z)
+            {
+                SgVarRefExp *toSet;
+                if (redistrRule[z] == BLOCK)
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "BLOCK"));
+                else
+                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "*"));
+                if (z == 0)
+                    listDist->setLhs(toSet);
+                else
+                    listDist->append(*toSet);
+            }
+            cloneDistr[0] = new Expression(clone);
+            cloneDistr[1] = new Expression(listDist);
+            
+            SgArrayRefExp *cloneWithDims = new SgArrayRefExp(*findSymbolOrCreate(file, newTemplate, new SgArrayType(*SgTypeInt())));
+            for (auto &elem : distribution[idx].first->GetSizes())
+                cloneWithDims->addSubscript(SgDDotOp(*new SgValueExp(elem.first), *new SgValueExp(elem.second)));
+            templCreate[0] = new Expression(cloneWithDims);
+
+            SgStatement *stF = current->loop->GetOriginal();
+            while (stF->variant() != PROC_HEDR && stF->variant() != PROG_HEDR && stF->variant() != FUNC_HEDR)
+            {
+                stF = stF->controlParent();
+                checkNull(stF, convertFileName(__FILE__).c_str(), __LINE__);
+            }
+                        
+            while ((!isSgExecutableStatement(stF->lexNext()) || stF->fileName() != string(file->filename()) || isSPF_stat(stF->lexNext())) && !isDVM_stat(stF->lexNext()))
+                stF = stF->lexNext();            
+            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", templCreate)));
+            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", cloneDistr)));
+        }
     }
     current->setNewRedistributeRules(redistributeRules);
 
@@ -522,63 +756,17 @@ static void constructRules(vector<pair<DIST::Array*, const DistrVariant*>>& outR
     }
 }
 
-static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &rightValues,
-                             const map<DIST::Array*, vector<bool>> &dimsNotMatch)
-{
-    if (ex)
-    {
-        if (ex->variant() == ARRAY_REF)
-        {
-            const std::string name = ex->symbol()->identifier();
-            for (auto &elem : dimsNotMatch)
-            {
-                if (elem.first->GetShortName() == name)
-                {
-                    int idx = 0;
-                    for (auto expr = ex->lhs(); expr; expr = expr->rhs(), ++idx)
-                    {
-                        if (elem.second[idx])
-                        {
-                            int err, val;
-                            err = CalculateInteger(expr->lhs(), val);
-                            if (err == 0)
-                            {
-                                if (rightValues[elem.first][idx].first)
-                                {
-                                    rightValues[elem.first][idx].second.first = std::min(rightValues[elem.first][idx].second.first, val);
-                                    rightValues[elem.first][idx].second.second = std::max(rightValues[elem.first][idx].second.second, val);
-                                }
-                                else
-                                {
-                                    rightValues[elem.first][idx].first = true;
-                                    rightValues[elem.first][idx].second = make_pair(val, val);
-                                }
-
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-
-        analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
-        analyzeRightPart(ex->rhs(), rightValues, dimsNotMatch);
-    }
-}
-
-
-static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, int>>>> &arrays, const int regId,
-    const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-    DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
+static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> &arrays, const int regId,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                  DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays)
 {
     bool changed = true;
     while (changed)
     {
         changed = false;
-        for (auto &elem : arrays)
+        for (auto &arrayElem: arrays)
         {
-            auto array = elem.first;
+            auto array = arrayElem.first;
             if (array->GetTemplateArray(regId) == NULL)
             {
                 vector<tuple<DIST::Array*, int, pair<int, int>>> templRule =
@@ -609,13 +797,117 @@ static void propagateTemplateInfo(map<DIST::Array*, vector<pair<bool, pair<int, 
     }
 }
 
-static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updateOn,
+static bool splitToBase(SgExpression *ex, pair<SgExpression*, int> &splited)
+{
+    bool res = true;
+    if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF || ex->variant() == MULT_OP)
+        splited = make_pair(ex, 0);
+    else
+    {
+        if (ex->variant() == SUBT_OP || ex->variant() == ADD_OP)
+        {
+            int minus = (ex->variant() == ADD_OP) ? 1 : -1;
+            if (ex->rhs())
+            {
+                int err, val;
+                err = CalculateInteger(ex->rhs(), val);
+                if (err == 0)
+                    splited = make_pair(ex->lhs(), minus * val);
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+        else
+            return false;
+    }
+    return res;
+}
+
+
+static void analyzeRightPart(SgExpression *ex, map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> &rightValues,
+                             const map<DIST::Array*, vector<bool>> &dimsNotMatch)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF)
+        {
+            const std::string name = ex->symbol()->identifier();
+            for (auto &elem : dimsNotMatch)
+            {
+                if (elem.first->GetShortName() == name)
+                {
+                    int idx = 0;
+                    for (auto expr = ex->lhs(); expr; expr = expr->rhs(), ++idx)
+                    {
+                        if (elem.second[idx])
+                        {
+                            int err, val;
+                            err = CalculateInteger(expr->lhs(), val);
+                            if (err == 0)
+                            {
+                                if (rightValues[elem.first][idx].first)
+                                {
+                                    auto it = rightValues[elem.first][idx].second.find("");
+                                    if (it == rightValues[elem.first][idx].second.end())
+                                        rightValues[elem.first][idx].second[""] = make_pair(val, val);
+                                    else
+                                    {
+                                        it->second.first = std::min(it->second.first, val);
+                                        it->second.second = std::max(it->second.second, val);
+                                    }
+                                }
+                                else
+                                {
+                                    rightValues[elem.first][idx].first = true;
+                                    rightValues[elem.first][idx].second[""] = make_pair(val, val);
+                                }
+                            }
+                            else
+                            {
+                                pair<SgExpression*, int> splited;
+                                bool result = splitToBase(expr->lhs(), splited);
+                                if (result)
+                                {
+                                    if (rightValues[elem.first][idx].first)
+                                    {
+                                        auto key = string(splited.first->unparse());
+                                        auto itS = rightValues[elem.first][idx].second.find(key);
+                                        if (itS == rightValues[elem.first][idx].second.end())
+                                            itS = rightValues[elem.first][idx].second.insert(itS, make_pair(key, make_pair(splited.second, splited.second)));
+                                        else
+                                        {
+                                            itS->second.first = std::min(itS->second.first, splited.second);
+                                            itS->second.second = std::max(itS->second.second, splited.second);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        rightValues[elem.first][idx].first = true;
+                                        rightValues[elem.first][idx].second[string(splited.first->unparse())] = make_pair(splited.second, splited.second);                                     
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
+        analyzeRightPart(ex->rhs(), rightValues, dimsNotMatch);
+    }
+}
+
+static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &updateOn,
                                   const map<DIST::Array*, vector<bool>> &dimsNotMatch,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                   DIST::GraphCSR<int, double, attrType> &reducedG, 
                                   const DIST::Arrays<int> &allArrays, const int regId,
                                   ParallelDirective *parDirective,
-                                  map<DIST::Array*, vector<pair<bool, int>>> &values, 
+                                  map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
                                   bool fromRead = false)
 {
     bool ret = true;
@@ -635,7 +927,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
         if (isAllRulesEqual(allRules))
             rule = allRules[0];
         else
-            return false;// printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            return false;
 
         findAndReplaceDimentions(rule, allArrays);
 
@@ -645,8 +937,17 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
             {
                 const int idx = get<1>(rule[i]);
                 const auto &currRule = get<2>(rule[i]);
+                //TODO: use rule
+                string mapTo = "";
+                if (values[elem.first][i].second.first != "")
+                {
+                    mapTo = values[elem.first][i].second.first;
+                    if (values[elem.first][i].second.second != 0)
+                        mapTo += " + " + std::to_string(values[elem.first][i].second.second);
+                }
+                else
+                    mapTo = std::to_string(values[elem.first][i].second.second);
 
-                const int mapTo = currRule.first * values[elem.first][i].second + currRule.second;
                 if (updateOn[idx].first)
                 {
                     if (updateOn[idx].second != mapTo && !fromRead) // DIFFERENT VALUES TO MAP
@@ -658,7 +959,6 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
         }
     }
 
-    //try to resolve from write operations
     for (int i = 0; i < updateOn.size(); ++i)
     {
         if (updateOn[i].first)
@@ -667,7 +967,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             else
             {
-                parDirective->on[i].first = std::to_string(updateOn[i].second);
+                parDirective->on[i].first = updateOn[i].second;
                 parDirective->on[i].second = make_pair(1, 0);
                 resolved = true;
             }
@@ -677,7 +977,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, int>> &updat
     return ret;
 }
 
-//TODO: calculate not only consts
+//TODO: 
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
@@ -685,18 +985,19 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 {
     bool resolved = false;
 
-    map<DIST::Array*, vector<pair<bool, int>>> values;
-    map<DIST::Array*, vector<pair<bool, pair<int, int>>>> rightValues;
+    map<DIST::Array*, vector<pair<bool, pair<string, int>>>> leftValues;
+    map<DIST::Array*, vector<pair<bool, map<string, pair<int, int>>>>> rightValues;
 
     for (auto &elem : dimsNotMatch)
     {
-        values[elem.first] = vector<pair<bool, int>>(elem.second.size());
-        std::fill(values[elem.first].begin(), values[elem.first].end(), make_pair(false, 0));
+        leftValues[elem.first] = vector<pair<bool, pair<string, int>>>(elem.second.size());
+        std::fill(leftValues[elem.first].begin(), leftValues[elem.first].end(), make_pair(false, make_pair("", 0)));
 
-        rightValues[elem.first] = vector<pair<bool, pair<int, int>>>(elem.second.size());
-        std::fill(rightValues[elem.first].begin(), rightValues[elem.first].end(), make_pair(false, make_pair(0, 0)));
+        rightValues[elem.first] = vector<pair<bool, map<string, pair<int, int>>>>(elem.second.size());
+        std::fill(rightValues[elem.first].begin(), rightValues[elem.first].end(), make_pair(false, map<string, pair<int, int>>()));
     }
 
+    string base = "";
     for (auto st = loop; st != loop->lastNodeOfStmt(); st = st->lexNext())
     {
         if (st->variant() == ASSIGN_STAT)
@@ -718,16 +1019,35 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                                 err = CalculateInteger(ex->lhs(), val);
                                 if (err == 0)
                                 {
-                                    if (values[elem.first][idx].first)
+                                    if (leftValues[elem.first][idx].first)
                                     {
-                                        if (values[elem.first][idx].second != val) // CONFLICT WRITES
+                                        if (leftValues[elem.first][idx].second.first != "") // has non zero base expression
+                                            return false;
+                                        if (leftValues[elem.first][idx].second.second != val) // has conflict writes
                                             return false;
                                     }
                                     else
-                                        values[elem.first][idx] = make_pair(true, val);                                    
+                                        leftValues[elem.first][idx] = make_pair(true, make_pair("", val));
                                 }
                                 else // WRITE OP can not recognized
-                                    return false;
+                                {
+                                    pair<SgExpression*, int> splited;
+                                    bool result = splitToBase(ex->lhs(), splited);
+                                    if (result == false)
+                                        return false;
+                                    if (leftValues[elem.first][idx].first)
+                                    {
+                                        // has conflict writes
+                                        if (leftValues[elem.first][idx].second.first != string(splited.first->unparse()) ||
+                                            leftValues[elem.first][idx].second.second != splited.second)
+                                            return false;
+                                    }
+                                    else
+                                    {
+                                        base = string(splited.first->unparse());
+                                        leftValues[elem.first][idx] = make_pair(true, make_pair(base, splited.second));                                        
+                                    }
+                                }
                             }
                         }
                         break;
@@ -748,14 +1068,32 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     for (auto &elem : dimsNotMatch)
     {
         for (int idx = 0; idx < elem.second.size(); ++idx)
-            if (elem.second[idx] && (!values[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
+            if (elem.second[idx] && (!leftValues[elem.first][idx].first && !rightValues[elem.first][idx].first)) // NOT INFO FOUND
                 return false;
     }
 
     //check multiplied Arrays to BLOCK distr of template
     for (auto &elem : dimsNotMatch)
     {
-        const DIST::Array *templ = elem.first->GetTemplateArray(regId);
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        set<DIST::Array*> templates;
+        set<vector<int>> links;
+        for (auto &realR : realRefs)
+        {
+            templates.insert(realR->GetTemplateArray(regId));
+            links.insert(realR->GetLinksWithTemplate(regId));
+        }
+
+        DIST::Array *templ = NULL;
+        vector<int> alignLinks;
+        if (templates.size() == 1 && links.size() == 1)
+        {
+            templ = *templates.begin();
+            alignLinks = *links.begin();
+        }
+
         if (!templ)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -773,8 +1111,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
             if (!var)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            auto &alignLinks = elem.first->GetLinksWithTemplate(regId);
+                        
             const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
             for (int z = 0; z < templ->GetDimSize(); ++z)
             {
@@ -783,7 +1120,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                     if (var->distRule[z] == BLOCK)
                     {
                         //check all accesses to write
-                        for (auto &left : values)
+                        for (auto &left : leftValues)
                             for (auto &toCheck : left.second)
                                 if (toCheck.first)
                                     return false;
@@ -794,25 +1131,52 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         }
     }
 
-    vector<pair<bool, int>> updateOn(parDirective->on.size());
-    std::fill(updateOn.begin(), updateOn.end(), make_pair(false, 0));
+    vector<pair<bool, string>> updateOn(parDirective->on.size());
+    std::fill(updateOn.begin(), updateOn.end(), make_pair(false, ""));
 
     //try to resolve from write operations
-    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values);
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues);
     if (!ok)
         return false;
+    else
+    {
+        //shift right splited values
+        if (base != "")
+        {
+            for (auto &right : rightValues)
+            {
+                auto itL = leftValues.find(right.first);
+                if (itL == leftValues.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                for (int z = 0; z < right.second.size(); ++z)
+                {
+                    if (right.second[z].first)
+                    {
+                        auto itB = right.second[z].second.find(base);
+                        if (itB != right.second[z].second.end())
+                        {
+                            itB->second.first -= itL->second[z].second.second;
+                            itB->second.second -= itL->second[z].second.second;
+                        }
+                    }
+                }
+            }
+        }
+    }
   
     //try to resolve from read operations
     if (!resolved)
     {
-        map<DIST::Array*, vector<pair<bool, int>>> values2;
+        return false;
+        /*map<DIST::Array*, vector<pair<bool, pair<SgExpression*, int>>>> values2;
         for (auto &elem : rightValues)
             for (auto &vElem : elem.second)
                 values2[elem.first].push_back(make_pair(vElem.first, vElem.second.first));
         
         ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, true);
         if (!ok)
-            return false;
+            return false;*/
     }   
     
     if (resolved)
@@ -827,14 +1191,14 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
             {
                 if (shadows.first.first == shortName)
                 {
-                    const auto &leftPartVal = values[elem.first];
+                    const auto &leftPartVal = leftValues[elem.first];
                     for (int i = 0; i < leftPartVal.size(); ++i)
                     {
                         if (leftPartVal[i].first || elem.second[i].first)
                         {
                             int foundVal = 0;
                             if (leftPartVal[i].first)
-                                foundVal = leftPartVal[i].second;
+                                foundVal = leftPartVal[i].second.second;
                             else
                             {
                                 auto rules = elem.first->GetAlignRulesWithTemplate(regId);
@@ -843,20 +1207,27 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                                 const auto &currRule = rules[i];
-                                foundVal = std::stoi(parDirective->on[links[i]].first) + currRule.second;
+                                if (base == "")
+                                    foundVal = std::stoi(parDirective->on[links[i]].first) + currRule.second;
+                                else
+                                    foundVal = currRule.second;
                             }
 
-                            auto shadowElem = elem.second[i].second;
-                            shadowElem.first -= foundVal;
-                            shadowElem.second -= foundVal;
+                            auto itSh = elem.second[i].second.find(base);
+                            if (itSh != elem.second[i].second.end())
+                            {
+                                auto shadowElem = itSh->second;
+                                shadowElem.first -= foundVal;
+                                shadowElem.second -= foundVal;
 
-                            if (shadowElem.first > 0)
-                                shadowElem.first = 0;
-                            if (shadowElem.second < 0)
-                                shadowElem.second = 0;
+                                if (shadowElem.first > 0)
+                                    shadowElem.first = 0;
+                                if (shadowElem.second < 0)
+                                    shadowElem.second = 0;
 
-                            shadows.second[i].first = std::max(shadows.second[i].first, abs(shadowElem.first));
-                            shadows.second[i].second = std::max(shadows.second[i].second, shadowElem.second);
+                                shadows.second[i].first = std::max(shadows.second[i].first, abs(shadowElem.first));
+                                shadows.second[i].second = std::max(shadows.second[i].second, shadowElem.second);
+                            }
                         }
                     }
                     break;
@@ -867,11 +1238,11 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
     return resolved;
 }
-
 void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg, 
                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                        DIST::Arrays<int> &allArrays, 
                                        const vector<LoopGraph*> &loopGraph,
+                                       const map<int, LoopGraph*> &mapLoopsByFile,
                                        const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                        const vector<AlignRule> &alignRules,
                                        vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
@@ -883,7 +1254,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *loop = loopGraph[i];
-        currProcessing.second = loop->loop;
+        currProcessing.second = loop->loop->lineNumber();
 
         if (loop->directive && 
             (loop->hasLimitsToParallel() == false) && 
@@ -894,6 +1265,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             {
                 bool topCheck = isOnlyTopPerfect(loop, distribution);
                 ParallelDirective *parDirective = loop->directive;
+                parDirective->cloneOfTemplate = "";
                 /*if (topCheck == false)
                 {  //try to unite loops and recheck
                     bool result = createNestedLoops(loop, depInfoForLoopGraph, messages);
@@ -912,11 +1284,11 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
                         if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
                     }
                 }
                 else
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, parDirective, regionId, messages);
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
                 
                 if (needToContinue)
                     continue;
@@ -933,7 +1305,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         else //TODO: add checker for indexing in this loop
         {
             if (loopGraph[i]->children.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, 
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, 
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }
