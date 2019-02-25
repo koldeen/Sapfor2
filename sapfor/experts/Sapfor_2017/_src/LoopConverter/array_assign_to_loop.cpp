@@ -481,7 +481,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
     if (assign->expr(0) == NULL || assign->expr(1) == NULL)
         return result;
 
-    if (!assign->expr(1)->lhs() == NULL || assign->expr(1)->rhs() == NULL)
+    if (assign->expr(1)->lhs() == NULL || assign->expr(1)->rhs() == NULL)
         return result;
         
     if (assign->expr(0)->variant() != ARRAY_REF ||
@@ -581,6 +581,10 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
             rightSections.push_back(bounds);
         ex = ex->rhs();
     }
+
+    //fill default
+    if (rightSubs == 0)
+        rightSections = rightBound;
 
     ex = subsA;
     for (int i = 0; i < assignSubs; ++i)
@@ -752,8 +756,9 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
             }
         }
 
-        __spf_print(1, "%s", string(retVal->unparse()).c_str());
     }
+
+    __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
     result.push_back(retVal);
 
