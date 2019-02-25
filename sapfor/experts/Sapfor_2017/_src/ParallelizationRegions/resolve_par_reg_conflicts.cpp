@@ -20,6 +20,20 @@ using std::string;
 using std::to_string;
 using std::make_pair;
 
+static inline int getRegionExplicitLine(SgStatement *startR)
+{
+    checkNull(startR, convertFileName(__FILE__).c_str(), __LINE__);
+
+    const string saveName = current_file->filename();
+    startR->switchToFile();
+
+    SgStatement *regSt = startR->lexPrev();
+    checkNull(regSt, convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgFile::switchToFile(saveName);
+    return regSt->lineNumber();
+}
+
 static int getIntervalNumber(const int fileId, const int lineNumber, const int regionId)
 {
     int fileMask = 0xFF;
@@ -1205,7 +1219,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     {
                         if (line.stats.first && line.stats.second)
                         {
-                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3012));
+                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3012));
                             error = true;
                             ok = true;
                             break;
@@ -1245,7 +1259,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             {
                                 if (line.stats.first && line.stats.second)
                                 {
-                                    getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
+                                    getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3013));
                                     error = true;
                                     ok = true;
                                     break;
@@ -1285,7 +1299,8 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                         string message;
                         __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
                                          reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                        getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, lines.first, message, 3014));
+                        
+                        getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(arrayLines.second[0].stats.first), message, 3014));
                         error = true;
                     }
                 }
@@ -1312,7 +1327,8 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
 
                                 string message;
                                 __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
-                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3015));
+
+                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(lines.stats.first), message, 3015));
                                 error = true;
                             }
                             // check arrays
