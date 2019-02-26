@@ -25,15 +25,14 @@ std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
-                  std::vector<ParallelRegion*> regions,
-                  std::map<std::tuple<int, std::string, std::string>, 
-                  DIST::Array*> &createdArrays,
+                  std::vector<ParallelRegion*> &regions,
+                  std::map<std::tuple<int, std::string, std::string>, DIST::Array*> &createdArrays,
                   std::vector<Messages> &messagesForFile,
                   REGIME regime,
                   const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
                   const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
-                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
+                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, bool skipDeps,
                   std::vector<LoopGraph*> *loopGraph = NULL);
 void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
                          const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 

@@ -611,12 +611,16 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
     bool ret = false;
     if (declLst)
     {
-        if (declLst->symbol())
-            if (declLst->symbol()->identifier() == toFind)
-                return true;
-
         if (declLst->lhs())
-            ret = ret || findSymbol(declLst->lhs(), toFind);
+        {
+            if (declLst->lhs()->variant() == EXPR_LIST || declLst->lhs()->variant() == ASSGN_OP)
+                ret = ret || findSymbol(declLst->lhs(), toFind);
+            else if (declLst->lhs()->symbol())
+            {
+                if (declLst->lhs()->symbol()->identifier() == toFind)
+                    return true;
+            }
+        }
 
         if (declLst->rhs())
             ret = ret || findSymbol(declLst->rhs(), toFind);
@@ -625,11 +629,10 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 }
 
 extern map<string, vector<Messages>> SPF_messages;
-SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
+SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, bool printInternal)
 {
     //need to call this function for MODULE symbols!
     toFind = OriginalSymbol(toFind);
-
     vector<SgStatement*> inDecl;
     SgStatement *start = toFind->scope();
 
@@ -660,26 +663,29 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
         }
     }
     
-    if (inDecl.size() == 0)
+    /*if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
         if (lowLevelDecl)
             inDecl.push_back(lowLevelDecl);
-    }
+    }*/
 
     if (inDecl.size() == 0)
     {
-        __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
+        if (printInternal)
+        {
+            __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
 
-        auto itM = SPF_messages.find(start->fileName());
-        if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
+            auto itM = SPF_messages.find(start->fileName());
+            if (itM == SPF_messages.end())
+                itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-        char buf[256];
-        sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf, 1017));
-
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            char buf[256];
+            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        return NULL;
     }
 
     if (allDecls)

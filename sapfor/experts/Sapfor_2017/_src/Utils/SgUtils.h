@@ -6,7 +6,7 @@
 #include "../GraphCall/graph_calls.h"
 #include "../DynamicAnalysis/gcov_info.h"
 
-SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL);
+SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDecls = NULL, bool printInternal = true);
 
 #include "DefUseList.h"
 #include "CommonBlock.h"

@@ -345,6 +345,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(DEBUG_LVL1, "  it is not implemented yet\n");
             throw(-1);
         }
+        else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
+        {
+            vector<Messages> tmp;
+            loopAnalyzer(file, parallelRegions, createdArrays, tmp, DATA_DISTR,
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, true, &(loopGraph.find(file_name)->second));
+        }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
         {
             try
@@ -355,7 +361,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
                              allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
-                             &(loopGraph.find(file_name)->second));
+                             false, &(loopGraph.find(file_name)->second));
             }
             catch (...)
             {
@@ -367,7 +373,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
-                         &(itFound->second));
+                         false, &(itFound->second));
 
             currProcessing.second = NULL;
             UniteNestedDirectives(itFound->second);
@@ -548,7 +554,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
-                         &(loopGraph.find(file_name)->second));
+                         false, &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
@@ -1252,6 +1258,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             printDefUseSets("_defUseList.txt", defUseByFunctions);
     }
+    else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
+    {
+        //restore
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            parallelRegions[z]->GetAllArraysToModify().cleanData();
+            parallelRegions[z]->GetGraphToModify().cleanData();
+            parallelRegions[z]->GetReducedGraphToModify().cleanData();
+        }
+        createdArrays.clear();
+    }
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
     {
         for (int z = 0; z < parallelRegions.size(); ++z)
@@ -1261,8 +1278,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
-
-
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
