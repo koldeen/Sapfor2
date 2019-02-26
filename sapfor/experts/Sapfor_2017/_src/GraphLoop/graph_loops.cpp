@@ -30,10 +30,13 @@
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
 
+#include "../GraphCall/graph_calls_func.h"
+
 using std::vector;
 using std::map;
 using std::set;
 using std::string;
+using std::wstring;
 using std::pair;
 
 #define DEBUG 0
@@ -231,7 +234,11 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
     return has;
 }
 
-bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &messagesForFile)
+bool checkRegionEntries(SgStatement *begin,
+                        SgStatement *end,
+                        const map<string, FuncInfo*> &funcMap,
+                        const vector<ParallelRegion*> &parallelRegions,
+                        map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;
 
@@ -242,6 +249,7 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
     while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
         st = st->controlParent();
 
+    // check GOTO
     map<int, vector<int>> labelsRef;
     findAllRefsToLables(st, labelsRef);
 
@@ -251,14 +259,40 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
 
     if (linesOfExtGoTo.size())
     {
-        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), begin->lineNumber());
+        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO on line %d\n", regIdent->identifier(), begin->lineNumber());
 
-        string message;
-        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
-        messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+        wstring message;
+        __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
+        getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
     }
+
+    // check ENTRY
+    auto oldFile = current_file->filename();
+    for (auto &funcPair : funcMap)
+    {
+        auto func = funcPair.second;
+        if (SgFile::switchToFile(func->fileName) != -1)
+        {
+            SgStatement *funcSt = func->funcPointer->GetOriginal();
+            ParallelRegion *reg = NULL;
+            if (funcSt->variant() == ENTRY_STAT && func->callsTo.size() && (reg = getRegionByLine(parallelRegions, func->fileName, funcSt->lineNumber())))
+            {
+                __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
+
+                wstring message;
+                __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
+                getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
+
+                noError = false;
+            }
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return noError;
 }
@@ -538,7 +572,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Can not find execution time in statistic", 3016));                
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Can not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

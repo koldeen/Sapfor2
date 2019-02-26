@@ -144,7 +144,7 @@ static inline void printDvmActiveDirsErrors()
         for (auto &code : err.second)
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
-            currMessages.push_back(Messages(ERROR, code, "Active DVM directives are not supported yet", 1020));
+            currMessages.push_back(Messages(ERROR, code, L"Active DVM directives are not supported yet", 1020));
         }
     }
 }
@@ -154,7 +154,7 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "WARR: line %d: %s\n", line, message);
 
-    currM.push_back(Messages(WARR, line, message, group));
+    currM.push_back(Messages(WARR, line, to_wstring(message), group));
 }
 
 extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
@@ -162,7 +162,7 @@ extern "C" void printLowLevelNote(const char *fileName, const int line, const ch
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "NOTE: line %d: %s\n", line, message);
 
-    currM.push_back(Messages(NOTE, line, message, group));
+    currM.push_back(Messages(NOTE, line, to_wstring(message), group));
 }
 
 static bool isDone(const int curr_regime)
@@ -222,7 +222,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
-            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
             throw(-1);
         }
 
@@ -254,7 +254,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             else
             {
                 __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, "Internal error during unparsing process has occurred", 2007));
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
                 throw(-1);
             }
         }
@@ -383,7 +383,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = allFuncInfo.find(file_name);
             if (it == allFuncInfo.end())
-                functionAnalyzer(file, allFuncInfo);
+                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
@@ -729,14 +729,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
-                functionAnalyzer(file, subs_allFuncInfo, true);
+            {
+                vector<LoopGraph*> tmp;
+                functionAnalyzer(file, subs_allFuncInfo, tmp, true);
+            }
 
             fillRegionLines(file, subs_parallelRegions);
         }
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
+            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
         else if (curr_regime == CREATE_PARALLEL_REGIONS)
             createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
@@ -819,8 +822,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (error)
                 {
-                    string message;
-                    __spf_printToBuf(message, "Can not build align graph from user's DVM directives in this region");
+                    wstring message;
+                    __spf_printToLongBuf(message, L"Can not build align graph from user's DVM directives in this region");
+
                     for (auto &lines : currReg->GetAllLines())
                     {
                         const auto &vecLines = lines.second;
@@ -907,8 +911,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (parallelRegions[z]->GetId() == 0) // DEFAULT
                 {
-                    char buf[256];
-                    sprintf(buf, "  Can not find arrays or free loops for distribution in this project");
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this project");
 
                     for (auto &funcByFile : allFuncInfo)
                     {
@@ -917,21 +921,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             auto stat = func->funcPointer->GetOriginal();
                             if (stat->variant() == PROG_HEDR)
-                                fileM.push_back(Messages(ERROR, stat->lineNumber(), buf, 3010));
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufw, 3010));
                         }
                     }
                 }
                 else
                 {
-                    char buf[256];
-                    sprintf(buf, "  Can not find arrays or free loops for distribution in this region");
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this region");
 
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
                         for (auto &lines : linesByFile.second)
                             if (!lines.isImplicit())
-                                fileM.push_back(Messages(ERROR, lines.lines.first, buf, 3010));
+                                fileM.push_back(Messages(ERROR, lines.lines.first, bufw, 3010));
                     }
                 }
                 idxToDel.insert(z);
@@ -1143,8 +1147,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             vector<Messages> &currMessages = getObjectForFileFromMap(place.first.c_str(), SPF_messages);
                             __spf_print(1, "  ERROR: distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
 
-                            string message;
-                            __spf_printToBuf(message, "distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
+                            wstring message;
+                            __spf_printToLongBuf(message, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
+                                                 to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
                             currMessages.push_back(Messages(ERROR, place.second, message, 1042));
                         }
                         internalExit = 1;
@@ -1190,7 +1195,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
 
-        bool noError = checkRegions(parallelRegions, SPF_messages);
+        bool noError = checkRegions(parallelRegions, allFuncInfo, SPF_messages);
         if (!noError)
             internalExit = 1;
 
@@ -1287,6 +1292,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
 
+        for (int z = 0; z < parallelRegions.size(); ++z)        
+            filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
+        propagateArrayFlags(arrayLinksByFuncCalls);
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
@@ -1401,8 +1409,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     allSingleRemotes.insert(allSingleRemotes.end(), fountRem.begin(), fountRem.end());
                 }
                 int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);
-                if (err != 0)
-                    internalExit = err;
+                /*if (err != 0)
+                    internalExit = err;*/
             }
 
             vector<SpfInterval*> tmp = { mainIterval };

@@ -682,9 +682,9 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             if (itM == SPF_messages.end())
                 itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-            char buf[256];
-            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufw, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         return NULL;
@@ -1081,7 +1081,8 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
-    functionAnalyzer(file, curFileFuncInfo);
+    vector<LoopGraph*> tmpL;
+    functionAnalyzer(file, curFileFuncInfo, tmpL);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);

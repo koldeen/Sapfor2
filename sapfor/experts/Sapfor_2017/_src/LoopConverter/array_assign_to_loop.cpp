@@ -1262,7 +1262,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
 
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
         {            
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
             {
                 if (reversed)
@@ -1319,7 +1319,7 @@ void restoreAssignsFromLoop(SgFile *file)
         vector<pair<SgStatement*, SgStatement*>> toMove;
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;

@@ -16,6 +16,7 @@
 
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
+#include "../Utils/SgUtils.h"
 #include "../GraphLoop/graph_loops.h"
 
 using std::vector;
@@ -57,10 +58,12 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         sprintf(buf, "More information is required about sizes of array '%s', decl line %d, decl file %s\n", array->GetShortName().c_str(), declL, declF.c_str());
                         addToGlobalBufferAndPrint(buf);
                         arraysWithErrors.insert(array->GetShortName());
+                        
+                        std::wstring bufw;                        
+                        __spf_printToLongBuf(bufw, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
 
-                        vector<Messages> &currM = allMessages[declF];
-                        sprintf(buf, "More information is required about sizes of array '%s'", array->GetShortName().c_str());
-                        currM.push_back(Messages(ERROR, declL, buf, 1012));
+                        auto currM = getObjectForFileFromMap(declF.c_str(), allMessages);
+                        currM.push_back(Messages(ERROR, declL, bufw, 1012));
                     }
                 }
                 ok = false;

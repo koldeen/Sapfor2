@@ -11,13 +11,13 @@
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
-#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
 #include "../GraphCall/graph_calls_func.h"
 
 using std::vector;
 using std::string;
+using std::wstring;
 using std::map;
 using std::pair;
 using std::set;
@@ -427,24 +427,6 @@ void restoreCorrectedModuleProcNames(SgFile *file)
     }
 }
 
-template<typename objT>
-static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
-{
-    auto it = mapObject.find(fileName);
-    if (it == mapObject.end())
-        it = mapObject.insert(it, make_pair(fileName, objT()));
-    return it->second;
-}
-
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
-}
-
 bool checkArgumentsDeclaration(SgProject *project,
                                const map<string, vector<FuncInfo*>> &allFuncInfo,
                                const vector<ParallelRegion*> &regions, 
@@ -485,8 +467,8 @@ bool checkArgumentsDeclaration(SgProject *project,
 
                                 __spf_print(1, "function's argument '%s' does not have declaration statement on line %d\n", symb->identifier(), st->lineNumber());
 
-                                string message;
-                                __spf_printToBuf(message, "function's argument '%s' does not have declaration statement", symb->identifier());
+                                wstring message;
+                                __spf_printToLongBuf(message, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
 
                                 if (func->isInRegion())
                                 {
