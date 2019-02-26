@@ -300,7 +300,7 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
 
         string message;
         __spf_printToBuf(message, "can not convert array assign to loop");
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message, 2001));
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
     {
@@ -614,7 +614,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
 
         string message;
         __spf_printToBuf(message, "can not convert array assign to loop");
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), message, 2001));
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
     {
@@ -1138,7 +1138,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                 }
             }
 
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
 
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
