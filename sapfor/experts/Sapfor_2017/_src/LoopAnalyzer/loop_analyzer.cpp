@@ -1225,14 +1225,13 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
 }
 
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
-void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
+void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                   vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
                   const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                  vector<LoopGraph*> *loopGraph)
+                  bool skipDeps, vector<LoopGraph*> *loopGraph)
 {
-
     currMessages = &messagesForFile;
     currRegime = regime;
 
@@ -1690,11 +1689,15 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
 #if _WIN32 && NDEBUG
                 createNeededException();
 #endif
+
+                if (!skipDeps)
+                {
 #ifdef _WIN32
-                string fName = file->functions(i)->symbol()->identifier();
-                sendMessage_2lvl(wstring(L"обработка цикла ") + std::to_wstring(idx) + L"/" + std::to_wstring(convertedLoopInfo.size()));
+                    string fName = file->functions(i)->symbol()->identifier();
+                    sendMessage_2lvl(wstring(L"обработка цикла ") + std::to_wstring(idx) + L"/" + std::to_wstring(convertedLoopInfo.size()));
 #endif
-                tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                    tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                }
             }
 
             vector<LoopGraph*> tmpLoops;
@@ -1733,103 +1736,106 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> regions, map<tuple<int, 
             for (auto &toDel : tmpLoops)
                 delete toDel;
 
-            for (auto &loopLine : loopWithOutArrays)
+            if (!skipDeps)
             {
-                if (loopLine > 0)
-                {
-                    tryToFindDependencies(sortedLoopGraph[loopLine], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
-                    sortedLoopGraph[loopLine]->withoutDistributedArrays = true;
-                }
-            }
 
-            //only top loop may be parallel
-            for (auto &loopLine : loopWithOutArrays)
-            {
-                auto loopRef = sortedLoopGraph[loopLine];
-                loopRef->setWithOutDistrFlagToFalse();
-
-                SgForStmt *forSt = (SgForStmt*)(loopRef->loop);
-                SgStatement *cp = forSt->controlParent();
-                while (cp)
+                for (auto &loopLine : loopWithOutArrays)
                 {
-                    if (cp->variant() == FOR_NODE)
+                    if (loopLine > 0)
                     {
-                        auto cpLoopRef = sortedLoopGraph[cp->lineNumber()];
-                        if (!cpLoopRef->hasLimitsToParallel())
-                            cpLoopRef->setWithOutDistrFlagToFalse();
+                        tryToFindDependencies(sortedLoopGraph[loopLine], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                        sortedLoopGraph[loopLine]->withoutDistributedArrays = true;
                     }
-                    cp = cp->controlParent();
                 }
-            }
-            
-            // TODO: add messages!
-            for (auto &loopLine : loopWithOutArrays)
-            {
-                if (sortedLoopGraph[loopLine]->withoutDistributedArrays && loopLine > 0)
-                {
-                    //TODO: enable linear writes to non distr arrays for CONSISTENT
-                    bool hasWritesToArray = false;
-                    //TODO: add IPA for non pure
-                    bool hasNonPureProcedures = false;
 
+                //only top loop may be parallel
+                for (auto &loopLine : loopWithOutArrays)
+                {
                     auto loopRef = sortedLoopGraph[loopLine];
-                    SgStatement *loopSt = loopRef->loop;
+                    loopRef->setWithOutDistrFlagToFalse();
 
-                    map<string, set<string>> reductions;
-                    map<string, set<tuple<string, string, int>>> reductionsLoc;
-                    set<string> privates;
-                    for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
+                    SgForStmt *forSt = (SgForStmt*)(loopRef->loop);
+                    SgStatement *cp = forSt->controlParent();
+                    while (cp)
                     {
-                        Statement *dataSt = new Statement(data);
-                        fillReductionsFromComment(dataSt, reductions);
-                        fillReductionsFromComment(dataSt, reductionsLoc);
-                        fillPrivatesFromComment(dataSt, privates);
-                    }
-                    for (auto &red : reductions)
-                        privates.insert(red.second.begin(), red.second.end());
-                    for (auto &red : reductionsLoc)
-                    {
-                        for (auto &elem : red.second)
+                        if (cp->variant() == FOR_NODE)
                         {
-                            privates.insert(get<0>(elem));
-                            privates.insert(get<1>(elem));
+                            auto cpLoopRef = sortedLoopGraph[cp->lineNumber()];
+                            if (!cpLoopRef->hasLimitsToParallel())
+                                cpLoopRef->setWithOutDistrFlagToFalse();
                         }
+                        cp = cp->controlParent();
                     }
+                }
 
-                    for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
+                // TODO: add messages!
+                for (auto &loopLine : loopWithOutArrays)
+                {
+                    if (sortedLoopGraph[loopLine]->withoutDistributedArrays && loopLine > 0)
                     {
-                        if (start->variant() == ASSIGN_STAT)
+                        //TODO: enable linear writes to non distr arrays for CONSISTENT
+                        bool hasWritesToArray = false;
+                        //TODO: add IPA for non pure
+                        bool hasNonPureProcedures = false;
+
+                        auto loopRef = sortedLoopGraph[loopLine];
+                        SgStatement *loopSt = loopRef->loop;
+
+                        map<string, set<string>> reductions;
+                        map<string, set<tuple<string, string, int>>> reductionsLoc;
+                        set<string> privates;
+                        for (auto &data : getAttributes<SgStatement*, SgStatement*>(loopSt, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR }))
                         {
-                            if (start->expr(0)->variant() == ARRAY_REF)
-                                if (privates.find(start->expr(0)->symbol()->identifier()) == privates.end())
-                                    hasWritesToArray = true;
+                            Statement *dataSt = new Statement(data);
+                            fillReductionsFromComment(dataSt, reductions);
+                            fillReductionsFromComment(dataSt, reductionsLoc);
+                            fillPrivatesFromComment(dataSt, privates);
                         }
-                        
-                        if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
+                        for (auto &red : reductions)
+                            privates.insert(red.second.begin(), red.second.end());
+                        for (auto &red : reductionsLoc)
                         {
-                            if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                            for (auto &elem : red.second)
                             {
-                                hasNonPureProcedures = true;
-                                loopRef->hasNonPureProcedures = true;
-                                messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
+                                privates.insert(get<0>(elem));
+                                privates.insert(get<1>(elem));
                             }
                         }
-                        
-                        for (int z = 1; z < 3; ++z)
-                            if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
-                                hasNonPureProcedures = true;
-                    }
 
-                    if (!hasWritesToArray && !hasNonPureProcedures)
-                    {
-                        if (!addToDistributionGraph(loopRef, funcName))
+                        for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
+                        {
+                            if (start->variant() == ASSIGN_STAT)
+                            {
+                                if (start->expr(0)->variant() == ARRAY_REF)
+                                    if (privates.find(start->expr(0)->symbol()->identifier()) == privates.end())
+                                        hasWritesToArray = true;
+                            }
+
+                            if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
+                            {
+                                if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                                {
+                                    hasNonPureProcedures = true;
+                                    loopRef->hasNonPureProcedures = true;
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
+                                }
+                            }
+
+                            for (int z = 1; z < 3; ++z)
+                                if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
+                                    hasNonPureProcedures = true;
+                        }
+
+                        if (!hasWritesToArray && !hasNonPureProcedures)
+                        {
+                            if (!addToDistributionGraph(loopRef, funcName))
+                                loopRef->withoutDistributedArrays = false;
+                        }
+                        else
                             loopRef->withoutDistributedArrays = false;
                     }
-                    else
-                        loopRef->withoutDistributedArrays = false;
                 }
             }
-
 #ifdef _WIN32
             sendMessage_2lvl(L"");
 #endif
