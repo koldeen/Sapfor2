@@ -7,7 +7,6 @@
 #include "graph_calls.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../ParallelizationRegions/ParRegions.h"
-#include "../DynamicAnalysis/gCov_parser_func.h"
 
 namespace Distribution
 {
@@ -25,6 +24,8 @@ void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<F
                                             const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
+void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::pair<std::string, int>, FuncInfo*> &mapFuncInfo);
+
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF

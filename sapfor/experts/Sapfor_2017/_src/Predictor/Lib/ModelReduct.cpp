@@ -8,7 +8,7 @@
 #include "Vm.h"
 
 using namespace std;
-
+extern int mode;
 extern ofstream prot;
 
 extern _DArrayInfo	*	GetDArrayByIndex(long ID);
@@ -247,17 +247,20 @@ void FuncCall::waitrd()
 
     RED->time_end=RED->time_start+red_time;
 
-    for (i=0; i<MPSProcCount(); i++) {
+    for (i = 0; i < MPSProcCount(); i++) 
+    {
         curr_pt = CurrProcTime(currentVM->map(i));
-		printf("red.proc[%d] %f -> %f\n",i, curr_pt, RED->time_end);
-			if(curr_pt < RED->time_end) {
-				AddTime(__Reduct_overlap, currentVM->map(i), (curr_pt - RED->time_start));
-				AddTime(__Wait_reduct,currentVM->map(i), (RED->time_end - curr_pt));
-			} else {
-//				AddTime(__Reduct_overlap,currentVM->map(i), (RED->time_end - RED->time_start));
-				AddTime(__Reduct_overlap, currentVM->map(i), (curr_pt - RED->time_start));
-			}
-	}
+        if (mode)
+            printf("red.proc[%d] %f -> %f\n", i, curr_pt, RED->time_end);
+        if (curr_pt < RED->time_end) {
+            AddTime(__Reduct_overlap, currentVM->map(i), (curr_pt - RED->time_start));
+            AddTime(__Wait_reduct, currentVM->map(i), (RED->time_end - curr_pt));
+        }
+        else {
+            //				AddTime(__Reduct_overlap,currentVM->map(i), (RED->time_end - RED->time_start));
+            AddTime(__Reduct_overlap, currentVM->map(i), (curr_pt - RED->time_start));
+        }
+    }
      
     DelReduct(params->ID);
 }

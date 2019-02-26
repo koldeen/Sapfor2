@@ -242,7 +242,12 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
         SgSymbol *symbForPar;
         if (arrayRef->isTemplate())
-            symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
+        {
+            if (cloneOfTemplate == "")
+                symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
+            else
+                symbForPar = findSymbolOrCreate(file, cloneOfTemplate, typeArrayInt, scope);
+        }
         else
             symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
 
@@ -372,6 +377,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
                     SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope)));
+                    newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
                     for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
                         newArrayRef->addSubscript(*elem);
 
@@ -577,6 +584,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 directive += it->first.second + ")";
                                 
                 SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), *it->second);
+
+                DIST::Array *currArray = allArrays.GetArrayByName(it->first.second);
+                tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
+
                 p->setLhs(tmp);
 
                 if (k != remoteAccess.size() - 1)

@@ -46,7 +46,7 @@ typedef struct {
 
 #define zap_Nvars(zpd)     (r_last(&(zpd)->steps2))
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
 static int is_step_expr(var_id n)
 {
     return n == 0;
@@ -56,8 +56,8 @@ static void zap_inv(zap_prob_desc *zpd, Problem *p)
 {
     int v;
 
-    assert(p->_nVars < maxVars);
-    assert(p->_nVars >= zap_Nvars(zpd));
+    assert(p->getVarsN() < maxVars);
+    assert(p->getVarsN() >= zap_Nvars(zpd));
     assert(p->_safeVars == r_length(&zpd->nonloops));
     assert(r_first(&zpd->nonloops) == 1);
     assert(r_last(&zpd->nonloops) + 1 == r_first(&zpd->access1s));
@@ -90,7 +90,7 @@ static void zap_inv(zap_prob_desc *zpd, Problem *p)
         assert(is_step_expr(zpd->vars[v + r_first(&zpd->steps2)]));
     }
 
-    for (v = 0; v < p->_numGEQs; v++) {
+    for (v = 0; v < p->getNumGEqs(); v++) {
         assert(p->_GEQs[v].touched);
     }
 }
@@ -233,7 +233,7 @@ static char *geq_as_string(Problem *p, int geq)
 static int find_reds(Problem *p, int reds[])
 {
     int i, n_reds = 0;
-    for (i = 0; i < p->_numGEQs; i++) {
+    for (i = 0; i < p->getNumGEqs(); i++) {
         if (p->_GEQs[i].color == red) {
             reds[n_reds++] = i;
         }
@@ -426,7 +426,7 @@ build_zap_problem(dd_current dd, Problem *p, zap_prob_desc *zpd)
             fprintf(debug2, "Got red equations:\n");
             printRedEquations(p);
         }
-        if (p->_nVars != p->_safeVars)
+        if (p->getVarsN() != p->_safeVars)
         {
             if (omegaPrintResult == 1 || printing_zap_gists) {
                 fprintf(debug2, "Can't handle splintered problems yet\n");

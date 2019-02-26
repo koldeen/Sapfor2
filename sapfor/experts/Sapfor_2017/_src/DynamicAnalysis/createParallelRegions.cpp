@@ -141,7 +141,7 @@ float performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCov
     return count;
 }
 
-void createParallelRegions(SgFile *file, std::vector<Interval*> &fileIntervals, std::map<int, Gcov_info> &gCovInfo, 
+void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileIntervals, std::map<int, Gcov_info> &gCovInfo, 
     std::map<std::string, std::vector<FuncInfo*>> &funcInfo)
 {
     int constant = 0;

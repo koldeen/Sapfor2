@@ -1,11 +1,8 @@
 #pragma once
 #include <string>
 
-#if !__SPC
-#include "dvm.h"
-#endif
-
 enum typeMessage { WARR, ERROR, NOTE };
+extern std::pair<std::string, int> currProcessing; // file and line, default ["", -1]
 
 // GROUP:
 // 10xx - analysis
@@ -43,8 +40,8 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer
 //   30 lowlevel notes from private analyzer
-//   31 "variable '%s' was declarated on line %d"
-//   32 "variable '%s' was declarated in common - block '%s'"
+//   31 "wrong parallel region identifier: variable '%s' was declarated on line %d"
+//   32 "wrong parallel region identifier: variable '%s' was declarated in common block '%s'"
 //   33 "parallel region '%s' is included in file '%s'"
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"
@@ -54,6 +51,12 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   39 "Variabled '%s' and '%s' in one storage association (common block '%s') have different types" 
 //   40 "First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'"
 //   41 "parallel region '%s' has line included in another region"
+//   42 "distributed array in common block %s must have declaration in main unit"
+//   43 "bad directive expression"
+//   44 "Only pure procedures were supported"
+//   45 "function's argument '%s' does not have declaration statement"
+//   46 "mismatch of count formal and actual parameters "
+//   47 "inconsistent array use"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -63,6 +66,9 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   05 "loops on lines %d and %d were combined"
 //   06 "substitute statement function with name '%s'"
 //   07 "Internal error during unparsing process has occurred"
+//   08 "Can not do PRIVATE EXPANSION for this loop - privates not found"
+//   09 "Can not split this loop because of dependecy: %s"
+//   10 "This loop has indirect child loops  and can not be splitted\n"
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -76,10 +82,14 @@ enum typeMessage { WARR, ERROR, NOTE };
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
 //   11 "Arrays have different align rules in this loop according to their write accesses"
-//   12 "parallel regions %shave common function '%s'"
-//   13 "parallel regions %shave local array '%s' that is not resolved"
-//   14 "parallel region '%s' has common array '%s' that is not resolved"
-//   15 "parallel region '%s' does not have copying of common array '%'"
+//   12 "parallel regions %shave common function '%s' which is used inside them"
+//   13 "parallel regions %shave local array '%s' which is used inside them"
+//   14 "parallel region '%s' has common array '%s' which is used inside and outside region"
+//   15 "parallel region '%s' does not have DVM interval for fragment"
+//   16 "expected only assign operands in DVM interval"
+//   17 "parallel region '%s' does not have copying of array '%s' in DVM interval"
+//   18 "parallel region '%s' does not have copying of common array '%s' in DVM interval"
+//   19  "Can not find execution time for this loop, try to get times statistic"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -87,7 +97,7 @@ enum typeMessage { WARR, ERROR, NOTE };
 struct Messages
 {
 public:
-    explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
+    //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
     explicit Messages(const typeMessage type, const int line, const std::string &value_, const int group) : type(type), line(line), group(group)
     {
         value = value_;
@@ -134,9 +144,9 @@ static void printStackTrace() { };
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
 \
-    if (currProcessing.first && currProcessing.second)\
+    if (currProcessing.first != "" && currProcessing.second != -1)\
     { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second->lineNumber(), currProcessing.first->filename());\
+       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second, currProcessing.first.c_str());\
        addToGlobalBufferAndPrint(buf);\
     } \
     throw(-1);\

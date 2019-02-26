@@ -4,9 +4,10 @@
 #include <iostream>
 #include "BGroup.h"
 
+#include "../../Utils/utils.h"
+#include "../../Utils/errors.h"
 
 using namespace std;
-
 extern ofstream prot; 
 
 
@@ -54,8 +55,8 @@ void BoundGroup::AddBound(DArray *ADArray, const vector<long>& BLeftBSizeArray,
 	else if (amPtr != ADArray->AM_Dis) {
 		// arrays is align on different AMView
 		prot << "Wrong call AddBound: arrays is align on different AMView" << endl;
-		cerr << "Wrong call AddBound: arrays is align on different AMView" << endl;
-		exit(1);
+        __spf_print(1, "Wrong call AddBound: arrays is align on different AMView\n");
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);		
 	}
 
 #ifdef P_DEBUG
@@ -80,14 +81,15 @@ void BoundGroup::AddBound(DArray *ADArray, const vector<long>& BLeftBSizeArray,
 	if (!ADArray->IsAlign()) {
 		// Array is'n align on any AMView
 		prot << "Wrong call AddBound: Array is'n align on any AMView" << endl;
-		exit(1);
+        __spf_print(1, "Wrong call AddBound: Array is'n align on any AMView\n");
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 	}
 
 	for (i = 0; i < daRank; i++) {
-		if (ALeftBSizeArray[i] < 0 || ARightBSizeArray[i] < 0) {
-			printf("Wrong call AddBound  ALeftBSizeArray[i]=%d ARightBSizeArray[i]=%d\n",ALeftBSizeArray[i], ARightBSizeArray[i]);
+		if (ALeftBSizeArray[i] < 0 || ARightBSizeArray[i] < 0) {			
 			prot << "Wrong call AddBound" << endl;
-			exit(1); 
+            __spf_print(1, "Wrong call AddBound  ALeftBSizeArray[i]=%d ARightBSizeArray[i]=%d\n", ALeftBSizeArray[i], ARightBSizeArray[i]);
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 		}
 	}
 
@@ -97,9 +99,9 @@ void BoundGroup::AddBound(DArray *ADArray, const vector<long>& BLeftBSizeArray,
 
 //		prot << "proc=" << proc << ", empty=" << b.empty() << ", IsBoundIn=" << b.IsBoundIn(ALeftBSizeArray, ARightBSizeArray) << endl;
 		if (!b.empty() && !b.IsBoundIn(ALeftBSizeArray, ARightBSizeArray)) {
-			prot << "Fatal error: Local array size is less then shadow width." << endl;
-			cerr << "Fatal error: Local array size is less then shadow width." << endl; 
-			exit(1);
+			prot << "Fatal error: Local array size is less then shadow width." << endl;			
+            __spf_print(1, "Fatal error: Local array size is less then shadow width.");
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 		}
 	}
 

@@ -102,10 +102,10 @@ int test_for_coverage(a_access write_acc, a_access read_acc,
 
     /* PART 3: build problem */
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    assert(reads._numEQs == 0);
-    assert(reads._numGEQs == 0);
+    assert(reads.getNumEqs() == 0);
+    assert(reads.getNumGEqs() == 0);
     eqs = geqs = 0;
 #endif
 
@@ -161,12 +161,12 @@ int test_for_coverage(a_access write_acc, a_access read_acc,
     /*     A(i) << B(j) */
     constrain_with_dd(&reads, &rpd.reads, &rpd.write1s, dd, red);
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    for (; eqs < reads._numEQs; eqs++) {
+    for (; eqs < reads.getNumEqs(); eqs++) {
         assert(reads._EQs[eqs].color == red);
     }
-    for (; geqs < reads._numGEQs; geqs++) {
+    for (; geqs < reads.getNumGEqs(); geqs++) {
         assert(reads._GEQs[geqs].color == red);
     }
 #endif
@@ -179,10 +179,10 @@ int test_for_coverage(a_access write_acc, a_access read_acc,
 #if ! defined NDEBUG
     read_inv(&rpd, &reads);
 
-    for (; eqs < reads._numEQs; eqs++) {
+    for (; eqs < reads.getNumEqs(); eqs++) {
         assert(reads._EQs[eqs].color == black);
     }
-    for (; geqs < reads._numGEQs; geqs++) {
+    for (; geqs < reads.getNumGEqs(); geqs++) {
         assert(reads._GEQs[geqs].color == black);
     }
 #endif
@@ -300,10 +300,10 @@ int test_for_termination(a_access read_acc, a_access write_acc,
 
     /* PART 3: build problem */
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    assert(reads._numEQs == 0);
-    assert(reads._numGEQs == 0);
+    assert(reads.getNumEqs() == 0);
+    assert(reads.getNumGEqs() == 0);
     eqs = geqs = 0;
 #endif
 
@@ -361,12 +361,12 @@ int test_for_termination(a_access read_acc, a_access write_acc,
     /*     A(i) << B(j) */
     constrain_with_dd(&reads, &rpd.write1s, &rpd.reads, dd, red);
 
-#if ! defined NDEBUG
+#if !defined NDEBUG
     read_inv(&rpd, &reads);
-    for (; eqs < reads._numEQs; eqs++) {
+    for (; eqs < reads.getNumEqs(); eqs++) {
         assert(reads._EQs[eqs].color == red);
     }
-    for (; geqs < reads._numGEQs; geqs++) {
+    for (; geqs < reads.getNumGEqs(); geqs++) {
         assert(reads._GEQs[geqs].color == red);
     }
 #endif
@@ -379,10 +379,10 @@ int test_for_termination(a_access read_acc, a_access write_acc,
 #if ! defined NDEBUG
     read_inv(&rpd, &reads);
 
-    for (; eqs < reads._numEQs; eqs++) {
+    for (; eqs < reads.getNumEqs(); eqs++) {
         assert(reads._EQs[eqs].color == black);
     }
-    for (; geqs < reads._numGEQs; geqs++) {
+    for (; geqs < reads.getNumGEqs(); geqs++) {
         assert(reads._GEQs[geqs].color == black);
     }
 #endif

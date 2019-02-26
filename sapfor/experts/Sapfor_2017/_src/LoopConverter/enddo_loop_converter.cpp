@@ -264,7 +264,7 @@ static void fillEndOfLoop(SgStatement *st, map<SgForStmt*, SgLabel*> &endOfLoops
     SgStatement *lastNode = st->lastNodeOfStmt();
     while (st && st != lastNode)
     {
-        currProcessing.second = st;
+        currProcessing.second = st->lineNumber();
         if (st->variant() == CONTAINS_STMT)
             break;
 

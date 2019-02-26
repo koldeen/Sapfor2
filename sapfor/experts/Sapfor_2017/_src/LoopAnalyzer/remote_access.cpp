@@ -363,10 +363,10 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
             }
             else
             {
-                const int cpV = toInsert->controlParent()->variant();
+                const int cpV = toInsert->controlParent()->variant();                
                 //dont convert to a(:,:,:) before assign operators
                 if (lvlUp == 0 && 
-                    (toInsert->variant() != FOR_NODE && (cpV == FUNC_HEDR || cpV == PROC_HEDR || cpV == PROG_HEDR)))
+                    ((toInsert->variant() == ASSIGN_STAT) || (toInsert->variant() != FOR_NODE && (cpV == FUNC_HEDR || cpV == PROC_HEDR || cpV == PROG_HEDR))))
                     ;
                 else 
                 {

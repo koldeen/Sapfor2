@@ -16,6 +16,8 @@
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
+#include "../DynamicAnalysis/gCov_parser_func.h"
+#include "acc_analyzer.h"
 
 using std::vector;
 using std::map;
@@ -296,7 +298,7 @@ void doMacroExpand(SgFile *file, vector<Messages> &messages)
         set<string> macroNames;
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -375,7 +377,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                 }
 
                 if (isWrite)
-                    currInfo.writeToArray.insert(arrayRef);
+                    currInfo.writeToArrays.insert(arrayRef);
+                currInfo.allUsedArrays.insert(arrayRef);
             }
         }
         else
@@ -648,6 +651,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         findContainsFunctions(st, containsFunctions);
 
         FuncInfo *currInfo = new FuncInfo(currFunc, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+        hasThisIds(st, currInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
+        hasThisIds(st, currInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
         currInfo->isMain = (st->variant() == PROG_HEDR);
 
         for(auto &item : commonBlocks)
@@ -698,7 +703,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         set<string> macroNames;
         while (st != lastNode)
         {
-            currProcessing.second = st;
+            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 
@@ -779,6 +784,9 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             {
                 string entryName = st->symbol()->identifier();
                 FuncInfo *entryInfo = new FuncInfo(entryName, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
+                hasThisIds(st, entryInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
+                hasThisIds(st, entryInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
+
                 if (!dontFillFuncParam)
                     fillFuncParams(entryInfo, commonBlocks, st);
 
@@ -1049,7 +1057,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray == NULL)
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                if (mainArray->GetDimSize() != inFunction->GetDimSize())
+                                if (mainArray->GetDimSize() != inFunction->GetDimSize() && 
+                                    !(inFunction->GetNonDistributeFlag() && !mainArray->GetNonDistributeFlag()))
                                 {
                                     char buf[256];
                                     sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
@@ -1225,6 +1234,7 @@ static SgStatement* getStatByLine(string file, const int line, const map<string,
     if (itS == itF->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+    SwitchFile(itS->second->getFileId());
     return itS->second;
 }
 
@@ -1308,6 +1318,7 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
     {
         const int fileN = files.find(loop.first)->second;
         SgFile *currF = &(proj->file(fileN));
+        SwitchFile(fileN);
 
         auto itM = allMessages.find(loop.first);
         if (itM == allMessages.end())
@@ -1319,6 +1330,8 @@ static void findInsertedFuncLoopGraph(const map<string, vector<LoopGraph*>> &loo
     for (int f = 0; f < proj->numberOfFiles(); ++f)
     {
         SgFile *currF = &(proj->file(f));
+        SwitchFile(f);
+
         auto itM = allMessages.find(currF->filename());
         if (itM == allMessages.end())
             itM = allMessages.insert(itM, make_pair(currF->filename(), vector<Messages>()));
@@ -1374,8 +1387,10 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
     {
         map<int, SgStatement*> toAdd;
         SgFile *file = &(proj->file(i));
+        SwitchFile(i);
+
         SgStatement *st = file->firstStatement();
-        string currF = file->filename();
+        string currF = file->filename();        
         while (st)
         {
             if (st->lineNumber() != 0 && st->fileName() == currF)
@@ -1788,6 +1803,18 @@ static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>
     return globalChange;
 }
 
+void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    bool change = true;
+    while (change)
+    {
+        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
+        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
+
+        change = changeD || changeU;
+    }
+}
+
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
 {
@@ -1803,17 +1830,10 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         }
     }
 
-    bool change = true;
-    while (change)
-    {
-        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
-        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
-
-        change = changeD || changeU;
-    }
+    propagateArrayFlags(arrayLinksByFuncCalls);
 
     //propagate distr state
-    change = true;
+    bool change = true;
     while (change)
     {
         change = false;
@@ -1835,6 +1855,24 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     createMapOfFunc(allFuncInfo, funcByName);
 
     propagateWritesToArrays(funcByName);
-}
 
+    //debug dump
+    /*for (auto &elem : declaratedArrays)
+    {
+        auto array = elem.second.first;
+        auto flag = array->GetNonDistributeFlagVal();
+        // int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
+        string flagS = "";
+        if (flag == DIST::DISTR)
+            flagS = "DISTR";
+        else if (flag == DIST::NO_DISTR)
+            flagS = "NO_DISTR";
+        else if (flag == DIST::SPF_PRIV)
+            flagS = "SPF_PRIV";
+        else if (flag == DIST::IO_PRIV)
+            flagS = "IO_PRIV";
+
+        printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
+    }*/
+}
 #undef DEBUG

@@ -28,14 +28,138 @@ PARSER_BASE_DIR = $(REPO_FDVM_BASE)parser/
 
 INLINER_BASE_DIR = $(REPO_FDVM_BASE)InlineExpansion/
 
-all: $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
+all: $(LIBDIR)/libPred.a $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(BINDIR)/Parser $(BINDIR)/Inliner $(BINDIR)/Sapfor
 
+#Make Predictor
+PS=$(REPO_SPF_BASE)Predictor/Lib/
+PRED_OBJ_C=adler32.o  compress.o crc32.o deflate.o gzio.o infblock.o infcodes.o inffast.o inflate.o inftrees.o infutil.o \
+	       trees.o uncompr.o zutil.o
+PRED_SOURCE_C=$(PS)adler32.c $(PS)compress.c $(PS)crc32.c $(PS)deflate.c $(PS)gzio.c $(PS)infblock.c $(PS)infcodes.c $(PS)inffast.c \
+			  $(PS)inflate.c $(PS)inftrees.c $(PS)infutil.c $(PS)trees.c $(PS)uncompr.c $(PS)zutil.c
+		   
+PRED_OBJ_CPP=AlignAxis.o AMView.o BGroup.o Block.o CallParams.o CommCost.o DArray.o DimBound.o DistAxis.o Event.o FuncCall.o \
+			 Interval.o IntervalTemplate.o LoopBlock.o LoopLS.o Ls.o ModelDArray.o ModelInterval.o ModelIO.o ModelMPS_AM.o ModelParLoop.o \
+			 ModelReduct.o ModelRegular.o ModelRemAccess.o ModelShadow.o ParLoop.o ParseString.o Processor.o Ps.o RedGroup.o RedVar.o \
+			 RemAccessBuf.o Space.o TraceLine.o Vm.o intersection.o predictor.o 
+PRED_SOURCE_CPP=$(PS)AlignAxis.cpp $(PS)AMView.cpp $(PS)BGroup.cpp $(PS)Block.cpp $(PS)CallParams.cpp $(PS)CommCost.cpp $(PS)DArray.cpp \
+				$(PS)DimBound.cpp $(PS)DistAxis.cpp $(PS)Event.cpp $(PS)FuncCall.cpp $(PS)Interval.cpp $(PS)IntervalTemplate.cpp $(PS)LoopBlock.cpp \
+				$(PS)LoopLS.cpp $(PS)Ls.cpp $(PS)ModelDArray.cpp $(PS)ModelInterval.cpp $(PS)ModelIO.cpp $(PS)ModelMPS_AM.cpp $(PS)ModelParLoop.cpp \
+				$(PS)ModelReduct.cpp $(PS)ModelRegular.cpp $(PS)ModelRemAccess.cpp $(PS)ModelShadow.cpp $(PS)ParLoop.cpp $(PS)ParseString.cpp \
+				$(PS)Processor.cpp $(PS)Ps.cpp $(PS)RedGroup.cpp $(PS)RedVar.cpp $(PS)RemAccessBuf.cpp $(PS)Space.cpp $(PS)TraceLine.cpp $(PS)Vm.cpp \
+				$(PS)intersection.cpp $(PS)predictor.cpp 
+AlignAxis.o: $(PS)AlignAxis.cpp
+	$(CXX) $(CFLAGS) -c $(PS)AlignAxis.cpp
+AMView.o: $(PS)AMView.cpp
+	$(CXX) $(CFLAGS) -c $(PS)AMView.cpp
+BGroup.o: $(PS)BGroup.cpp
+	$(CXX) $(CFLAGS) -std=$(STD) -c $(PS)BGroup.cpp
+Block.o: $(PS)Block.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Block.cpp
+CallParams.o: $(PS)CallParams.cpp
+	$(CXX) $(CFLAGS) -c $(PS)CallParams.cpp
+CommCost.o: $(PS)CommCost.cpp
+	$(CXX) $(CFLAGS) -c $(PS)CommCost.cpp
+DArray.o: $(PS)DArray.cpp
+	$(CXX) $(CFLAGS) -c $(PS)DArray.cpp
+DimBound.o: $(PS)DimBound.cpp
+	$(CXX) $(CFLAGS) -c $(PS)DimBound.cpp
+DistAxis.o: $(PS)DistAxis.cpp
+	$(CXX) $(CFLAGS) -c $(PS)DistAxis.cpp
+Event.o: $(PS)Event.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Event.cpp
+FuncCall.o: $(PS)FuncCall.cpp
+	$(CXX) $(CFLAGS) -c $(PS)FuncCall.cpp
+Interval.o: $(PS)Interval.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Interval.cpp
+IntervalTemplate.o: $(PS)IntervalTemplate.cpp
+	$(CXX) $(CFLAGS) -c $(PS)IntervalTemplate.cpp
+LoopBlock.o: $(PS)LoopBlock.cpp
+	$(CXX) $(CFLAGS) -c $(PS)LoopBlock.cpp
+LoopLS.o: $(PS)LoopLS.cpp
+	$(CXX) $(CFLAGS) -c $(PS)LoopLS.cpp
+Ls.o: $(PS)Ls.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Ls.cpp
+ModelDArray.o: $(PS)ModelDArray.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelDArray.cpp
+ModelInterval.o: $(PS)ModelInterval.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelInterval.cpp
+ModelIO.o: $(PS)ModelIO.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelIO.cpp
+ModelMPS_AM.o: $(PS)ModelMPS_AM.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelMPS_AM.cpp
+ModelParLoop.o: $(PS)ModelParLoop.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelParLoop.cpp
+ModelReduct.o: $(PS)ModelReduct.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelReduct.cpp
+ModelRegular.o: $(PS)ModelRegular.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelRegular.cpp
+ModelRemAccess.o: $(PS)ModelRemAccess.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelRemAccess.cpp
+ModelShadow.o: $(PS)ModelShadow.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ModelShadow.cpp
+ParLoop.o: $(PS)ParLoop.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ParLoop.cpp
+ParseString.o: $(PS)ParseString.cpp
+	$(CXX) $(CFLAGS) -c $(PS)ParseString.cpp
+Processor.o: $(PS)Processor.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Processor.cpp
+Ps.o: $(PS)Ps.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Ps.cpp
+RedGroup.o: $(PS)RedGroup.cpp
+	$(CXX) $(CFLAGS) -c $(PS)RedGroup.cpp
+RedVar.o: $(PS)RedVar.cpp
+	$(CXX) $(CFLAGS) -c $(PS)RedVar.cpp
+RemAccessBuf.o: $(PS)RemAccessBuf.cpp
+	$(CXX) $(CFLAGS) -c $(PS)RemAccessBuf.cpp
+Space.o: $(PS)Space.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Space.cpp
+TraceLine.o: $(PS)TraceLine.cpp
+	$(CXX) $(CFLAGS) -c $(PS)TraceLine.cpp	
+Vm.o: $(PS)Vm.cpp
+	$(CXX) $(CFLAGS) -c $(PS)Vm.cpp	
+intersection.o: $(PS)intersection.cpp
+	$(CXX) $(CFLAGS) -c $(PS)intersection.cpp	
+predictor.o: $(PS)predictor.cpp
+	$(CXX) $(CFLAGS) -c $(PS)predictor.cpp	
+	
+adler32.o:	$(PS)adler32.c
+	$(CC) $(CFLAGS) -c $(PS)adler32.c
+compress.o:	$(PS)compress.c
+	$(CC) $(CFLAGS) -c $(PS)compress.c
+crc32.o:	$(PS)crc32.c
+	$(CC) $(CFLAGS) -c $(PS)crc32.c
+deflate.o:	$(PS)deflate.c
+	$(CC) $(CFLAGS) -c $(PS)deflate.c
+gzio.o:	$(PS)gzio.c
+	$(CC) $(CFLAGS) -c $(PS)gzio.c
+infblock.o:	$(PS)infblock.c
+	$(CC) $(CFLAGS) -c $(PS)infblock.c
+infcodes.o:	$(PS)infcodes.c
+	$(CC) $(CFLAGS) -c $(PS)infcodes.c
+inffast.o:	$(PS)inffast.c
+	$(CC) $(CFLAGS) -c $(PS)inffast.c
+inflate.o:	$(PS)inflate.c
+	$(CC) $(CFLAGS) -c $(PS)inflate.c
+inftrees.o:	$(PS)inftrees.c
+	$(CC) $(CFLAGS) -c $(PS)inftrees.c
+infutil.o:	$(PS)infutil.c
+	$(CC) $(CFLAGS) -c $(PS)infutil.c
+trees.o:	$(PS)trees.c
+	$(CC) $(CFLAGS) -c $(PS)trees.c
+uncompr.o:	$(PS)uncompr.c
+	$(CC) $(CFLAGS) -c $(PS)uncompr.c
+zutil.o:	$(PS)zutil.c
+	$(CC) $(CFLAGS) -c $(PS)zutil.c
+	
+$(LIBDIR)/libPred.a: $(PRED_OBJ_C) $(PRED_OBJ_CPP)
+	ar qc $(LIBDIR)/libPred.a $(PRED_OBJ_C) $(PRED_OBJ_CPP)
+	
 #Make SAGE++
 libSage++.o: $(SAGE_SRC_DIR)libSage++.cpp $(LIB_INCL)/macro.h $(LIB_INCL)/bif_node.def $(LIB_INCL)/type.def $(LIB_INCL)/symb.def $(LIB_INCL)/libSage++.h
 	$(CXX) $(CFLAGS)  -c $(SAGE_SRC_DIR)libSage++.cpp -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 $(LIBDIR)/libSage++.a: libSage++.o
 	ar qc $(LIBDIR)/libSage++.a libSage++.o
-	
+
 #Make SAGE newsrc
 low_level.o: $(SAGE_SRC_NEW)low_level.c $(LIB_INCL)/macro.h $(LIB_INCL)/bif_node.def $(LIB_INCL)/type.def  $(LIB_INCL)/symb.def 
 	$(CC) $(CFLAGS) -c -DSYS5  $(SAGE_SRC_NEW)low_level.c -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
@@ -137,6 +261,7 @@ inliner.o: $(INLINER_BASE_DIR)inliner.cpp $(INLINER_BASE_DIR)inline.h
 hlp.o: $(INLINER_BASE_DIR)hlp.cpp $(INLINER_BASE_DIR)inline.h
 	$(CXX) $(CFLAGS) -std=$(STD)  -c $(INLINER_BASE_DIR)hlp.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 
+	
 #Make Sapfor
 SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o IncludeChecker.o LoopChecker.o ParRegions.o \
              enddo_loop_converter.o array_assign_to_loop.o allocations_prepoc.o directive_creator.o insert_directive.o loop_analyzer.o spf_directive_preproc.o \
@@ -147,10 +272,10 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
 			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o CreateInterTree.o gcov_info.o gCov_parser.o \
-			 graph_calls_base.o directive_creator_base.o
+			 graph_calls_base.o directive_creator_base.o PredictorModel.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
-	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
+	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
 
 gcov_info.o: $(REPO_SPF_BASE)DynamicAnalysis/gcov_info.cpp $(REPO_SPF_BASE)DynamicAnalysis/gcov_info.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DynamicAnalysis/gcov_info.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
@@ -237,6 +362,8 @@ graph_loops_base.o: $(REPO_SPF_BASE)GraphLoop/graph_loops_base.cpp $(REPO_SPF_BA
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphLoop/graph_loops_base.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 PredictScheme.o: $(REPO_SPF_BASE)Predictor/PredictScheme.cpp $(REPO_SPF_BASE)Predictor/PredictScheme.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Predictor/PredictScheme.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+PredictorModel.o: $(REPO_SPF_BASE)Predictor/PredictorModel.cpp $(REPO_SPF_BASE)Predictor/PredictorModel.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Predictor/PredictorModel.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 graph_calls.o: $(REPO_SPF_BASE)GraphCall/graph_calls.cpp $(REPO_SPF_BASE)GraphLoop/graph_loops.h $(REPO_SPF_BASE)GraphCall/graph_calls.h $(REPO_SPF_BASE)LoopAnalyzer/directive_parser.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)GraphCall/graph_calls.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 graph_calls_base.o: $(REPO_SPF_BASE)GraphCall/graph_calls_base.cpp $(REPO_SPF_BASE)GraphCall/graph_calls_func.h

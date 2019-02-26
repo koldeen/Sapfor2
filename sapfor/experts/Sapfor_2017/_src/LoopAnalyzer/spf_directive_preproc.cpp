@@ -18,6 +18,7 @@
 #include "../Utils/errors.h"
 #include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../GraphLoop/graph_loops_func.h"
 
 using std::string;
 using std::vector;
@@ -710,10 +711,12 @@ static bool checkParallelRegions(SgStatement *st,
                         {
                             if (!strcmp(exp->lhs()->symbol()->identifier(), identSymbol->identifier()))
                             {
-                                __spf_print(1, "variable '%s' was declarated on line %d on line %d\n", identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
+                                __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
+                                            identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
                                 string message;
-                                __spf_printToBuf(message, "variable '%s' was declarated on line %d", identSymbol->identifier(), iterator->lineNumber());
+                                __spf_printToBuf(message, "wrong parallel region identifier: variable '%s' was declarated on line %d",
+                                                 identSymbol->identifier(), iterator->lineNumber());
                                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
                                 retVal = false;
@@ -734,10 +737,12 @@ static bool checkParallelRegions(SgStatement *st,
                     {
                         if (variable.getName() == identSymbol->identifier())
                         {
-                            __spf_print(1, "variable '%s' was declarated in common-block '%s' on line %d\n", identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
+                            __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated in common block '%s' on line %d\n",
+                                        identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
                             string message;
-                            __spf_printToBuf(message, "variable '%s' was declarated in common-block '%s'", identSymbol->identifier(), commonBlockPair.first.c_str());
+                            __spf_printToBuf(message, "wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
+                                             identSymbol->identifier(), commonBlockPair.first.c_str());
                             messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
 
                             retVal = false;
@@ -756,10 +761,12 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n", identSymbol->identifier(), st->lineNumber());
+                    __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n",
+                                identSymbol->identifier(), st->lineNumber());
 
                     string message;
-                    __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'", identSymbol->identifier());
+                    __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
+                                     identSymbol->identifier());
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                     retVal = false;
@@ -771,11 +778,11 @@ static bool checkParallelRegions(SgStatement *st,
 
                     if (iterator->controlParent() != st->controlParent())
                     {
-                        __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
+                        __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
                                     identSymbol->identifier(), st->lineNumber());
 
                         string message;
-                        __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
+                        __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
                                          identSymbol->identifier());
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
@@ -788,14 +795,18 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found && retVal)
             {
-                __spf_print(1, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
+                __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "bad directive expression: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
+                __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
             }
+
+            // check region entries
+            if (retVal)
+                retVal = checkRegionEntries(st, iterator, messagesForFile);
         }
         else
         {
@@ -811,10 +822,10 @@ static bool checkParallelRegions(SgStatement *st,
                 if (var == SPF_END_PARALLEL_REG_DIR)
                 {
                     // intersection
-                    __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+                    __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
 
                     string message;
-                    __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
+                    __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                     retVal = false;
@@ -826,10 +837,10 @@ static bool checkParallelRegions(SgStatement *st,
 
                     if (iterator->controlParent() != st->controlParent())
                     {
-                        __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
+                        __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
 
                         string message;
-                        __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' at the same scope");
+                        __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope");
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                         retVal = false;
@@ -841,10 +852,10 @@ static bool checkParallelRegions(SgStatement *st,
 
             if (!found && retVal)
             {
-                __spf_print(1, "bad directive expression: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
+                __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "bad directive expression: expected 'SPF PARALLEL_REG_DIR'");
+                __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR'");
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
@@ -858,6 +869,99 @@ static bool checkParallelRegions(SgStatement *st,
     }
 
     return retVal;
+}
+
+static bool checkFissionPrivatesExpansion(SgStatement *st,
+                                          SgStatement *attributeStatement,
+                                          vector<Messages> &messagesForFile,
+                                          bool checkVars = false)
+{
+    bool retVal = true;
+    if (attributeStatement)
+    {
+        vector<string> vars;
+        fillFissionPrivatesExpansionFromComment(new Statement(attributeStatement), vars);
+
+        if (checkVars && !vars.size())
+        {
+            __spf_print(1, "bad directive expression: expected list of variables on line %d\n", attributeStatement->lineNumber());
+
+            string message;
+            __spf_printToBuf(message, "bad directive expression: expected list of variables");
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+
+            retVal = false;
+        }
+
+        if (vars.size())
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (vars.size() > forSt->isPerfectLoopNest())
+            {
+                __spf_print(1, "bad directive expression: expected %d nested loops on line %d but got %d on line %d\n",
+                            vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected %d nested loops line %d but got %d",
+                                 vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1043));
+
+                retVal = false;
+            }
+        }
+
+        for (int i = 0; retVal && i < vars.size(); ++i)
+        {
+            SgForStmt *forSt = (SgForStmt*)st;
+            if (forSt->doName()->identifier() != vars[i])
+            {
+                __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
+                            forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "bad directive expression: expected variable '%s' at %d position\n",
+                                    forSt->doName()->identifier(), i + 1);
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+
+                retVal = false;
+            }
+            st = st->lexNext();
+        }
+    }
+    return retVal;
+}
+
+static int countSPF_OP(Statement *stIn, const int type, const int op)
+{
+    int count = 0;
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ type }))
+        {
+            SgExpression *exprList = data->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs()->variant() == op)
+                    ++count;
+
+                exprList = exprList->rhs();
+            }
+        }
+    }
+    return count;
+}
+
+static bool isSPF_OP(Statement *stIn, const int op)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        SgExpression *exprList = st->expr(0);
+        if (exprList && exprList->lhs()->variant() == op)
+            return true;
+    }
+    return false;
 }
 
 static inline bool processStat(SgStatement *st, const string &currFile,
@@ -947,6 +1051,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         }
         else if (type == SPF_TRANSFORM_DIR)
         {
+            int count;
             // !$SPF TRANSFORM
             // NOINLINE
             if (isSPF_NoInline(new Statement(st)))
@@ -958,6 +1063,28 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
                     retVal = false;
                 }
+            }
+            // FISSION
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
+            {
+                if (count > 1 || st->variant() != FOR_NODE)
+                {
+                    BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+                    retVal = false;
+                }
+                else
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile, true);
+            }
+            // PRIVATES_EXPANSION
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
+            {
+                if (count > 1 || st->variant() != FOR_NODE)
+                {
+                    BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+                    retVal = false;
+                }
+                else
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile);
             }
         }
     }
@@ -1143,11 +1270,10 @@ SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt)
 }
 
 void revertion_spf_dirs(SgFile *file,
-    map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
-    map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
+                        map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
+                        map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());
-
     for (auto &allStats : declaratedArraysSt)
     {
         if (allStats.first->fileName() == fileName)
@@ -1221,7 +1347,7 @@ void revertion_spf_dirs(SgFile *file,
                 {
                     toAdd = GetOneAttribute(sameAtt);
                     if (toAdd)
-                        st->insertStmtBefore(*toAdd);
+                        st->insertStmtBefore(*toAdd, *st->controlParent());
                 }
 
                 //check previosly directives SPF_PARALLEL
@@ -1232,7 +1358,7 @@ void revertion_spf_dirs(SgFile *file,
                     {
                         if (toAdd)
                             toAdd = GetOneAttribute(sameAtt);
-                        st->insertStmtBefore(*toAdd);
+                        st->insertStmtBefore(*toAdd, *st->controlParent());
                     }
                 }
 
@@ -1246,7 +1372,11 @@ void revertion_spf_dirs(SgFile *file,
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)
-                            st->insertStmtBefore(*toAdd);
+                        {                            
+                            if (elem->variant() == SPF_TRANSFORM_DIR && toAdd->expr(0) ||
+                                elem->variant() != SPF_TRANSFORM_DIR)
+                                st->insertStmtBefore(*toAdd, *st->controlParent());
+                        }
                     }
                 }
             }
