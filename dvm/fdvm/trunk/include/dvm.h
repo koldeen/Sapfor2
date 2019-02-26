@@ -1485,14 +1485,14 @@ void RTLInit ();
 void RTLExit (SgStatement *st);
 SgExpression * CreateAMView(SgExpression *size_array, int rank, int sign);
 SgExpression * DistributeAM (SgExpression *amv, SgExpression *psref,int count, int idisars, int iparam); 
-SgExpression *RedistributeAM(SgExpression *ref, SgExpression *psref, int count, int idisars,int sign); 
+SgStatement *RedistributeAM(SgExpression *ref, SgExpression *psref, int count, int idisars,int sign); 
 SgExpression *CreateDistArray(SgSymbol *das, SgExpression *array_header,                             SgExpression *size_array, int rank, int ileft, int iright, int sign, int re_sign) ;
 SgExpression *AlignArray (SgExpression *array_handle,
                           SgExpression *template_handle,
                           int iaxis, 
                           int icoeff,  
                           int iconst); 
-SgExpression *RealignArr (SgExpression *array_header,
+SgStatement *RealignArr (SgExpression *array_header,
                           SgExpression *pattern_ref,
                           int iaxis, 
                           int icoeff,  
