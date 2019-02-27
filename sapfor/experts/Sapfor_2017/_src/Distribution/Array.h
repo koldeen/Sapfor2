@@ -446,6 +446,13 @@ namespace Distribution
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
         
         const MAP<STRING, SET<int>>& GetUsagePlaces() const { return usagePlaces; }
+        const SET<int> GetUsagePlaces(const STRING &fileName) const
+        {
+            auto it = usagePlaces.find(fileName);
+            if (it == usagePlaces.end())
+                return SET<int>();
+            return it->second;
+        }
         void AddUsagePlace(const STRING &fileName, int lineNumber)
         {
             auto it = usagePlaces.find(fileName);

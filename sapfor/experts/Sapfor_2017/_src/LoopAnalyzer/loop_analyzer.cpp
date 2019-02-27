@@ -2240,14 +2240,16 @@ static void findArrayRefs(SgExpression *ex,
                     auto sizesExpr = getArraySizes(sizes, symb, decl);
                     arrayToAdd->SetSizes(sizes);
                     arrayToAdd->SetSizesExpr(sizesExpr);
-                    arrayToAdd->AddUsagePlace(decl->fileName(), st->lineNumber());
+                    if (isSgExecutableStatement(st))
+                        arrayToAdd->AddUsagePlace(decl->fileName(), st->lineNumber());
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 else
                 {
                     for (auto &reg : inRegion)
                         itNew->second.first->SetRegionPlace(reg);
-                    itNew->second.first->AddUsagePlace(decl->fileName(), st->lineNumber());
+                    if (isSgExecutableStatement(st))
+                        itNew->second.first->AddUsagePlace(decl->fileName(), st->lineNumber());
                 }
                 
                 const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
