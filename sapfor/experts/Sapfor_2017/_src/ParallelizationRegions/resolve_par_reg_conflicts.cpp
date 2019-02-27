@@ -1232,7 +1232,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
-
+        /*
         // check local arrays
         for (auto &reg : regions)
         {
@@ -1274,7 +1274,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                 }
             }
         }
-
+        */
         // check common arrays
         for (auto &reg : regions)
         {
