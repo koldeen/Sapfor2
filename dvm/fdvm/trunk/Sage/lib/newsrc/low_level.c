@@ -8044,8 +8044,7 @@ int isTypeEquivalent(type1, type2)
 
   if (isAtomicType(TYPE_CODE(type1)) && !TYPE_RANGES(type1) && !TYPE_RANGES(type2) && !TYPE_KIND_LEN(type1) && !TYPE_KIND_LEN(type2))
      return(1);
-  else
-     return 0;
+
   if (hasTypeBaseType(TYPE_CODE(type1)) && hasTypeBaseType(TYPE_CODE(type2))) 
      {
        if (TYPE_BASE(type1))
