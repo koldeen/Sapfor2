@@ -9,7 +9,7 @@
 #include "resolve_par_reg_conflicts.h"
 
 #include "../Utils/SgUtils.h"
-#include "../Utils/Utils.h"
+#include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
 
 using std::map;
