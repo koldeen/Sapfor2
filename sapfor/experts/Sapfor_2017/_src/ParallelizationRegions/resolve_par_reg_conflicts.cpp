@@ -1238,40 +1238,79 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
         {
             for (auto &funcArrays : reg->GetUsedLocalArrays())
             {
-                for (auto &arrayLines : funcArrays.second)
+                if (SgFile::switchToFile(funcArrays.first->fileName) != -1)
                 {
-                    auto regsByArr = arrayLines.first->GetRegionsName();
-                    if (regsByArr.size() > 1)
+                    for (auto &arrayLines : funcArrays.second)
                     {
-                        string regions = "";
-                        for (auto &reg : regsByArr)
-                            regions += "'" + reg + "' ";
-                        __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), arrayLines.first->GetShortName().c_str());
+                        auto regsByArr = arrayLines.first->GetRegionsName();
+                        bool notResolved = false;
 
-                        string message;
-                        __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), arrayLines.first->GetShortName().c_str());
-
-                        auto lines = reg->GetAllLines();
-                        bool ok = false;
-                        for (auto &linePair : lines)
+                        if (regsByArr.size() > 1)
                         {
-                            for (auto &line : linePair.second)
+                            // check if array is used only in region and its related interval
+                            if (regsByArr.size() == 2 && regsByArr.find("default") != regsByArr.end())
                             {
-                                if (line.stats.first && line.stats.second)
+                                auto array = arrayLines.first;
+                                for (auto &line : array->GetUsagePlaces(funcArrays.first->fileName))
                                 {
-                                    getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3013));
-                                    error = true;
-                                    ok = true;
-                                    break;
+                                    auto inRegs = getAllRegionsByLine(regions, funcArrays.first->fileName, line);
+                                    if (!inRegs.size())
+                                    {
+                                        bool inInterval = false;
+                                        for (auto &regLines : arrayLines.second)
+                                        {
+                                            // check interval existing
+                                            if (regLines.intervalBefore.first && regLines.intervalBefore.second && regLines.intervalAfter.first && regLines.intervalAfter.second)
+                                            {
+                                                if (line > regLines.intervalBefore.first->lineNumber() && line < regLines.intervalAfter.second->lineNumber())
+                                                    inInterval = true;
+                                            }
+                                        }
+
+                                        if (!inInterval)
+                                            notResolved = true;
+                                    }
                                 }
                             }
-                            if (ok)
-                                break;
+                            else
+                                notResolved = true;
                         }
-                        if (ok == false)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        if (notResolved)
+                        {
+
+                            string regions = "";
+                            for (auto &reg : regsByArr)
+                                regions += "'" + reg + "' ";
+                            __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), arrayLines.first->GetShortName().c_str());
+
+                            string message;
+                            __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), arrayLines.first->GetShortName().c_str());
+
+                            auto lines = reg->GetAllLines();
+                            bool ok = false;
+                            for (auto &linePair : lines)
+                            {
+                                for (auto &line : linePair.second)
+                                {
+                                    if (line.stats.first && line.stats.second)
+                                    {
+                                        getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3013));
+                                        error = true;
+                                        ok = true;
+                                        break;
+                                    }
+                                }
+                                if (ok)
+                                    break;
+                            }
+                            if (ok == false)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
                     }
                 }
+                else
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             }
         }
 

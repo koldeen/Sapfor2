@@ -2178,6 +2178,7 @@ static inline int getSizeOfType(SgType *t)
 }
 
 static void findArrayRefs(SgExpression *ex,
+                          SgStatement *st,
                           const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
@@ -2239,12 +2240,16 @@ static void findArrayRefs(SgExpression *ex,
                     auto sizesExpr = getArraySizes(sizes, symb, decl);
                     arrayToAdd->SetSizes(sizes);
                     arrayToAdd->SetSizesExpr(sizesExpr);
+                    if (isSgExecutableStatement(st))
+                        arrayToAdd->AddUsagePlace(decl->fileName(), st->lineNumber());
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
                 else
                 {
                     for (auto &reg : inRegion)
                         itNew->second.first->SetRegionPlace(reg);
+                    if (isSgExecutableStatement(st))
+                        itNew->second.first->AddUsagePlace(decl->fileName(), st->lineNumber());
                 }
                 
                 const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
@@ -2281,8 +2286,8 @@ static void findArrayRefs(SgExpression *ex,
         }
     }
 
-    findArrayRefs(ex->lhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
-    findArrayRefs(ex->rhs(), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
+    findArrayRefs(ex->lhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
+    findArrayRefs(ex->rhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, declSt, currFunctionName, isWrite, inRegion, funcParNames);
 }
 
 static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
@@ -2456,7 +2461,7 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 //TODO: need to add IPO analysis for R/WR state for calls and functions
                 //TODO: improve WR analysis
                 for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                   isSgExecutableStatement(st) ? true : false, st, currFunctionName,
                                   (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
             }
