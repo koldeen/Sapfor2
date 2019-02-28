@@ -18,6 +18,7 @@
 #include "../Utils/errors.h"
 #include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../GraphLoop/graph_loops_func.h"
 
 using std::string;
 using std::vector;
@@ -796,6 +797,9 @@ static bool checkParallelRegions(SgStatement *st,
 
                 retVal = false;
             }
+
+            // check region entries
+            retVal = retVal || checkRegionEntries(st, messagesForFile);
         }
         else
         {
