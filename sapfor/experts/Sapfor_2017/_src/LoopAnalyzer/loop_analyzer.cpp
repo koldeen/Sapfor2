@@ -2238,19 +2238,13 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                     vector<pair<int, int>> sizes;
                     auto sizesExpr = getArraySizes(sizes, symb, decl);
                     arrayToAdd->SetSizes(sizes);
-                    arrayToAdd->SetSizesExpr(sizesExpr);
-                    if (isSgExecutableStatement(st))
-                        arrayToAdd->AddUsagePlace(st->fileName(), st->lineNumber());
+                    arrayToAdd->SetSizesExpr(sizesExpr);                    
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
                 }
-                else
-                {
-                    for (auto &reg : inRegion)
-                        itNew->second.first->SetRegionPlace(reg);
-                    if (isSgExecutableStatement(st))
-                        itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
-                }
-                
+
+                for (auto &reg : inRegion)
+                    itNew->second.first->SetRegionPlace(reg);
+
                 const auto oldVal = itNew->second.first->GetNonDistributeFlagVal();
                 if (oldVal == DIST::DISTR || oldVal == DIST::NO_DISTR)
                 {
@@ -2268,7 +2262,10 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                     itNew->second.first->AddDeclInfo(make_pair(st->fileName(), st->lineNumber()));
                 
                 if (isExecutable)
+                {
                     itNew->second.second->AddAccessInfo(make_pair(st->lineNumber(), isWrite ? 1 : 0), st->fileName());
+                    itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
+                }
                 
                 auto itDecl = declaratedArraysSt.find(decl);
                 if (itDecl == declaratedArraysSt.end())

@@ -1802,6 +1802,18 @@ static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>
     return globalChange;
 }
 
+void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    bool change = true;
+    while (change)
+    {
+        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
+        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
+
+        change = changeD || changeU;
+    }
+}
+
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
 {
@@ -1817,17 +1829,10 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         }
     }
 
-    bool change = true;
-    while (change)
-    {
-        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
-        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
-
-        change = changeD || changeU;
-    }
+    propagateArrayFlags(arrayLinksByFuncCalls);
 
     //propagate distr state
-    change = true;
+    bool change = true;
     while (change)
     {
         change = false;
