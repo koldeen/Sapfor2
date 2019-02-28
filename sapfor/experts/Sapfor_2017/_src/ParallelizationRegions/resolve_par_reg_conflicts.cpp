@@ -1361,11 +1361,11 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             // check interval existing
                             if (!lines.intervalBefore.first || !lines.intervalBefore.second || !lines.intervalAfter.first || !lines.intervalAfter.second)
                             {
-                                __spf_print(1, "parallel region '%s' has lines that does not have intervals on line %d\n",
+                                __spf_print(1, "parallel region '%s' does not have interval for fragment on line %d\n",
                                             reg->GetName().c_str(), lines.lines.first);
 
                                 string message;
-                                __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
+                                __spf_printToBuf(message, "parallel region '%s' does not have interval for fragment", reg->GetName().c_str());
 
                                 getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(lines.stats.first), message, 3015));
                                 error = true;

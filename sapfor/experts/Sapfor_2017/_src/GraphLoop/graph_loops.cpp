@@ -227,6 +227,7 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
 bool checkRegionEntries(SgStatement *st, vector<Messages> &messagesForFile)
 {
     bool noError = true;
+
     SgStatement *reg = st;
     SgSymbol *regIdent = st->symbol();
 
@@ -247,7 +248,7 @@ bool checkRegionEntries(SgStatement *st, vector<Messages> &messagesForFile)
 
         string message;
         __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
-        messagesForFile.push_back(Messages(ERROR, reg->lineNumber(), message, 1031));
+        messagesForFile.push_back(Messages(ERROR, reg->lineNumber(), message, 1047));
 
         noError = false;
     }
