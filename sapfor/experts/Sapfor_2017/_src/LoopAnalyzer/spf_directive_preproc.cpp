@@ -805,7 +805,8 @@ static bool checkParallelRegions(SgStatement *st,
             }
 
             // check region entries
-            retVal = retVal || checkRegionEntries(st, messagesForFile);
+            if (retVal)
+                retVal = checkRegionEntries(st, interator, messagesForFile);
         }
         else
         {

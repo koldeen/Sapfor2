@@ -13,4 +13,4 @@ std::map<LoopGraph*, ParallelDirective*> findAllDirectives(SgFile *file, const s
 std::vector<std::tuple<DIST::Array*, std::vector<long>, std::pair<std::string, int>>> findAllSingleRemotes(SgFile *file, const int regId, std::vector<ParallelRegion*> &regions);
 std::map<DIST::Array*, std::vector<long>> fillRemoteInParallel(Statement *st);
 bool hasThisIds(SgStatement *loop, std::vector<int> &lines, const std::set<int> &IDs);
-bool checkRegionEntries(SgStatement *st, std::vector<Messages> &messagesForFile);
+bool checkRegionEntries(SgStatement *begin, SgStatement *end, std::vector<Messages> &messagesForFile);

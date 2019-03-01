@@ -224,12 +224,12 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
     return has;
 }
 
-bool checkRegionEntries(SgStatement *st, vector<Messages> &messagesForFile)
+bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &messagesForFile)
 {
     bool noError = true;
 
-    SgStatement *reg = st;
-    SgSymbol *regIdent = st->symbol();
+    SgStatement *st = begin;
+    SgSymbol *regIdent = begin->symbol();
 
     // get func statement
     while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
@@ -240,15 +240,15 @@ bool checkRegionEntries(SgStatement *st, vector<Messages> &messagesForFile)
 
     vector<int> linesOfIntGoTo;
     vector<int> linesOfExtGoTo;
-    hasGoto(st, st->lastNodeOfStmt(), linesOfIntGoTo, linesOfExtGoTo, labelsRef);
+    hasGoto(begin, end, linesOfIntGoTo, linesOfExtGoTo, labelsRef);
 
-    if (linesOfIntGoTo.size())
+    if (linesOfExtGoTo.size())
     {
-        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), reg->lineNumber());
+        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), begin->lineNumber());
 
         string message;
         __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
-        messagesForFile.push_back(Messages(ERROR, reg->lineNumber(), message, 1047));
+        messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
     }
