@@ -213,11 +213,18 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
     // if loop has labels with extern goto
     for (auto it = inFragLabels.begin(); it != inFragLabels.end(); ++it)
     {
-        if (gotoLabels.find(it->first) == gotoLabels.end() && labelsRef.find(it->first) != labelsRef.end())
+        auto labRef = labelsRef.find(it->first);
+
+        if (labRef != labelsRef.end())
         {
-            has = true;
-            for (int z = 0; z < it->second.size(); ++z)
-                linesOfExtGoTo.push_back(it->second[z]);
+            for (auto &line : labRef->second)
+            {
+                if (!(line > begin->lineNumber() && line <= end->lineNumber()))
+                {
+                    has = true;
+                    linesOfExtGoTo.push_back(line);
+                }
+            }
         }
     }
         
