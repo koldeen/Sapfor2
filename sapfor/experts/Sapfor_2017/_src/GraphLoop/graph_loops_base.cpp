@@ -131,7 +131,8 @@ static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foun
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
     {
         DIST::Array *arrayN = it->first;
-        vector<ArrayOp> &currWrites = it->second;
+        vector<ArrayOp> currWrites = it->second;
+
         auto itRead = currLoop->readOps.find(arrayN);
         if (itRead != currLoop->readOps.end())
         {
