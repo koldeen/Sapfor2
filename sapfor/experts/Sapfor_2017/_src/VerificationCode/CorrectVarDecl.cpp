@@ -445,7 +445,10 @@ static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string
     return it->second;
 }
 
-int checkArgumentsDeclaration(SgProject *project, map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
+int checkArgumentsDeclaration(SgProject *project,
+                              const map<string, vector<FuncInfo*>> &allFuncInfo,
+                              const vector<ParallelRegion*> &regions, 
+                              map<string, vector<Messages>> &SPF_messages)
 {
     int error = false;
 
@@ -484,14 +487,14 @@ int checkArgumentsDeclaration(SgProject *project, map<string, vector<FuncInfo*>>
                                 {
                                     string regs;
                                     for (auto it = func->callRegions.begin(); it != func->callRegions.end(); ++it)
-                                        regs += " " + *it;
+                                        regs += " '" + getRegionById(regions, *it)->GetName() + '\'';
 
-                                    __spf_print(1, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s' on line %d\n",
-                                                symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str(), st->lineNumber());
+                                    __spf_print(1, "argument '%s' of function '%s' which is called in regions%s in file '%s' has no declaration statement on line %d\n",
+                                                symb->identifier(), st->symbol()->identifier(), regs.c_str(), file->filename(), st->lineNumber());
 
                                     string message;
-                                    __spf_printToBuf(message, "argument '%s' of function '%s' in file '%s' has no declaration statement in regions'%s'",
-                                                     symb->identifier(), st->symbol()->identifier(), file->filename(), regs.c_str());
+                                    __spf_printToBuf(message, "argument '%s' of function '%s' which is called in regions%s in file '%s' has no declaration statement",
+                                                     symb->identifier(), st->symbol()->identifier(), regs.c_str(), file->filename());
                                     getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1046));
                                     error = true;
                                 }

@@ -55,7 +55,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   43 "bad directive expression"
 //   44 "Only pure procedures were supported"
 //   45 "argument '%s' of function '%s' in file '%s' does not have declaration statement"
-//   46 "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s'"
+//   46 "argument '%s' of function '%s' which is called in regions%s in file '%s' has no declaration statement"
 //   47 "inconsistent array use"
 
 // 20xx TRANSFORM GROUP

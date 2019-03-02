@@ -1663,7 +1663,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case CHECK_ARGS_DECL:
-        checkArgumentsDeclaration(project, allFuncInfo, SPF_messages);
+        checkArgumentsDeclaration(project, allFuncInfo, parallelRegions, SPF_messages);
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);

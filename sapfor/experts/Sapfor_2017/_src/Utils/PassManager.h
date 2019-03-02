@@ -136,7 +136,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ CORRECT_VAR_DECL, PREPROC_SPF }) << list({ LOOP_GRAPH, CALL_GRAPH, CALL_GRAPH2 });
 
-    list({ PREPROC_SPF, CALL_GRAPH2 }) <= Pass(FILL_PAR_REGIONS_LINES) <= list({ CHECK_FUNC_TO_INCLUDE, FIND_FUNC_TO_INCLUDE, });
+    list({ PREPROC_SPF, CALL_GRAPH2 }) <= Pass(FILL_PAR_REGIONS_LINES) <= list({ CHECK_FUNC_TO_INCLUDE, FIND_FUNC_TO_INCLUDE, CHECK_ARGS_DECL });
 
     list({ PREPROC_SPF, CALL_GRAPH2, FILL_PAR_REGIONS_LINES }) <= Pass(FILL_PAR_REGIONS) <= Pass(RESOLVE_PAR_REGIONS);
 
