@@ -473,8 +473,7 @@ int checkArgumentsDeclaration(SgProject *project, map<string, vector<FuncInfo*>>
 
                         if (symb)
                         {
-                            vector<SgStatement*> allDecls;
-                            SgStatement *decl = declaratedInStmt(symb, &allDecls);
+                            SgStatement *decl = declaratedInStmt(symb, NULL, false);
 
                             if (!decl)
                             {
