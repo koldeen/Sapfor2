@@ -445,12 +445,12 @@ static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string
     return it->second;
 }
 
-int checkArgumentsDeclaration(SgProject *project,
-                              const map<string, vector<FuncInfo*>> &allFuncInfo,
-                              const vector<ParallelRegion*> &regions, 
-                              map<string, vector<Messages>> &SPF_messages)
+bool checkArgumentsDeclaration(SgProject *project,
+                               const map<string, vector<FuncInfo*>> &allFuncInfo,
+                               const vector<ParallelRegion*> &regions, 
+                               map<string, vector<Messages>> &SPF_messages)
 {
-    int error = false;
+    bool error = false;
 
     map<string, FuncInfo*> funcMap;
     createMapOfFunc(allFuncInfo, funcMap);

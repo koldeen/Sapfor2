@@ -1186,6 +1186,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 internalExit = 1;
         }
     }
+    else if (curr_regime == CHECK_ARGS_DECL)
+    {
+        bool error = checkArgumentsDeclaration(&project, allFuncInfo, parallelRegions, SPF_messages);;
+        if (error)
+            internalExit = 1;
+    }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
         bool error = resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
@@ -1661,9 +1667,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         break;
     case CHECK_FUNC_TO_INCLUDE:
         findFunctionsToInclude(true);
-        break;
-    case CHECK_ARGS_DECL:
-        checkArgumentsDeclaration(project, allFuncInfo, parallelRegions, SPF_messages);
         break;
     case RESOLVE_PAR_REGIONS:
         runAnalysis(*project, curr_regime, false);
