@@ -1260,6 +1260,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
     {
+        checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
+
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {

@@ -1043,7 +1043,25 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     //check multiplied Arrays to BLOCK distr of template
     for (auto &elem : dimsNotMatch)
     {
-        const DIST::Array *templ = elem.first->GetTemplateArray(regId);
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+
+        set<DIST::Array*> templates;
+        set<vector<int>> links;
+        for (auto &realR : realRefs)
+        {
+            templates.insert(realR->GetTemplateArray(regId));
+            links.insert(realR->GetLinksWithTemplate(regId));
+        }
+
+        DIST::Array *templ = NULL;
+        vector<int> alignLinks;
+        if (templates.size() == 1 && links.size() == 1)
+        {
+            templ = *templates.begin();
+            alignLinks = *links.begin();
+        }
+
         if (!templ)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -1061,8 +1079,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
             if (!var)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-            auto &alignLinks = elem.first->GetLinksWithTemplate(regId);
+                        
             const set<int> alingLinksSet(alignLinks.begin(), alignLinks.end());
             for (int z = 0; z < templ->GetDimSize(); ++z)
             {

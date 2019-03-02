@@ -9,8 +9,6 @@
 #include "../Distribution/DvmhDirective.h"
 
 bool isSPF_NoInline(Statement *stPrev);
-int countSPF_OP(Statement *st, const int type, const int op);
-bool isSPF_OP(Statement *st, const int op);
 
 template<typename fillType>
 void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);

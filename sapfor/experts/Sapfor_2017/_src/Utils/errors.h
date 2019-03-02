@@ -56,6 +56,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   44 "Only pure procedures were supported"
 //   45 "argument '%s' of function '%s' in file '%s' does not have declaration statement"
 //   46 "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s'"
+//   47 "inconsistent array use"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"

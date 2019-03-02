@@ -497,6 +497,14 @@ namespace Distribution
                 return depracateToDistribute[dim];
         }
         
+        bool isAllDeprecated() const
+        {
+            bool ret = true;
+            for (int z = 0; z < dimSize; ++z)
+                ret = ret && depracateToDistribute[z];
+            return ret;
+        }
+
         int GetTypeSize() const { return typeSize; }
 
         ~Array() 
