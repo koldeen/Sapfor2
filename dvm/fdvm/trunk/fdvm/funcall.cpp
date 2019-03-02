@@ -376,20 +376,19 @@ SgExpression * DistributeAM (SgExpression *amv, SgExpression *psref, int count, 
   return(fe);
 }
 
-SgExpression *RedistributeAM(SgExpression *ref, SgExpression *psref, int count, int idisars,int sign) {
-// creating function call:
-//      RDisAM(AMViewRef,PSRef, ParamCount,AxisArray, DistrParamArray, NewSign)
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[RDISAM]); // RDisAM function call
-  fmask[RDISAM] = 1;
-  fe->addArg( ref->copy());
-  fe->addArg( * psref );  // PSRef 
+SgStatement *RedistributeAM(SgExpression *ref, SgExpression *psref, int count, int idisars,int sign) {
+// creating subroutine call:
+//      redis(AMViewRef,PSRef, ParamCount,AxisArray, DistrParamArray, NewSign)
+  SgCallStmt *call = new SgCallStmt(*fdvm[RDISAM]);        
+  fmask[RDISAM] = 2;
+  call->addArg( ref->copy());
+  call->addArg( * psref );  // PSRef 
   /*fe->addArg( * ConstRef(0)); */ // current PSRef
-  fe->addArg( * ConstRef (count));
-  fe->addArg( * DVM000(idisars));
-  fe->addArg( * DVM000(idisars+count));
-  fe->addArg( * ConstRef(sign));
-  return(fe);
+  call->addArg( * ConstRef (count));
+  call->addArg( * DVM000(idisars));
+  call->addArg( * DVM000(idisars+count));
+  call->addArg( * ConstRef(sign));
+  return(call);
 }
 
 SgExpression *GetAMView(SgExpression *headref)
@@ -515,25 +514,24 @@ SgExpression *AlignArray (SgExpression *array_handle,
   return(fe);
 } 
 
-SgExpression *RealignArr (SgExpression *array_header,
+SgStatement *RealignArr (SgExpression *array_header,
                           SgExpression *pattern_ref,
                           int iaxis, 
                           int icoeff,  
                           int iconst,
                           int new_sign ) 
-//creating function call:
-// RAlgnDA (ArrayHeader, PatternRef, AxisArray, CoeffArray, ConstArray, NewSign)
+//creating subroutine call:
+// realn (ArrayHeader, PatternRef, AxisArray, CoeffArray, ConstArray, NewSign)
 {
-  SgFunctionCallExp *fe;
-  fe = new SgFunctionCallExp(*fdvm[REALGN]); // RAlgnDA function call
-  fmask[REALGN] = 1;
-  fe->addArg( array_header->copy());
-  fe->addArg( pattern_ref->copy());
-  fe->addArg( *dvm_ref(iaxis));
-  fe->addArg( *dvm_ref(icoeff));
-  fe->addArg( *dvm_ref(iconst));
-  fe->addArg( *ConstRef(new_sign));
-  return(fe);
+  SgCallStmt *call = new SgCallStmt(*fdvm[REALGN]);
+  fmask[REALGN] = 2;
+  call->addArg( array_header->copy());
+  call->addArg( pattern_ref->copy());
+  call->addArg( *dvm_ref(iaxis));
+  call->addArg( *dvm_ref(icoeff));
+  call->addArg( *dvm_ref(iconst));
+  call->addArg( *ConstRef(new_sign));
+  return(call);
 }
 
 /**************************************************************\
@@ -3853,6 +3851,7 @@ SgStatement *DvmhTemplateCreate(SgSymbol *das, SgExpression *array_header, int r
  //    dvmh_template_create(DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pSpaceLow, const DvmType *pSpaceHigh */...);
   SgCallStmt *call = new SgCallStmt(*fdvm[CREATE_TEMPLATE]);
   fmask[CREATE_TEMPLATE] = 2;
+  loc_distr = 1;
 
   call->addArg(*array_header);    //(*HeaderRef(das));
   call->addArg(*ConstRef(rank)); //Rank

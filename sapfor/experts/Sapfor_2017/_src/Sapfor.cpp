@@ -51,6 +51,7 @@
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "Utils/utils.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -133,15 +134,6 @@ void deleteAllAllocatedData(bool enable)
         deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
-}
-
-template<typename objT>
-static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
-{
-    auto it = mapObject.find(fileName);
-    if (it == mapObject.end())
-        it = mapObject.insert(it, make_pair(fileName, objT()));
-    return it->second;
 }
 
 static inline void printDvmActiveDirsErrors()
@@ -354,6 +346,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(DEBUG_LVL1, "  it is not implemented yet\n");
             throw(-1);
         }
+        else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
+        {
+            vector<Messages> tmp;
+            loopAnalyzer(file, parallelRegions, createdArrays, tmp, DATA_DISTR,
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, true, &(loopGraph.find(file_name)->second));
+        }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
         {
             try
@@ -364,7 +362,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
                              allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
-                             &(loopGraph.find(file_name)->second));
+                             false, &(loopGraph.find(file_name)->second));
             }
             catch (...)
             {
@@ -376,7 +374,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
-                         &(itFound->second));
+                         false, &(itFound->second));
 
             currProcessing.second = NULL;
             UniteNestedDirectives(itFound->second);
@@ -557,7 +555,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
-                         &(loopGraph.find(file_name)->second));
+                         false, &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE2)
@@ -1170,6 +1168,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == FILL_PAR_REGIONS)
     {
+        fillRegionIntervals(parallelRegions);
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
 
@@ -1260,6 +1259,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             printDefUseSets("_defUseList.txt", defUseByFunctions);
     }
+    else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
+    {
+        checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
+
+        //restore
+        for (int z = 0; z < parallelRegions.size(); ++z)
+        {
+            parallelRegions[z]->GetAllArraysToModify().cleanData();
+            parallelRegions[z]->GetGraphToModify().cleanData();
+            parallelRegions[z]->GetReducedGraphToModify().cleanData();
+        }
+        createdArrays.clear();
+    }
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1)
     {
         for (int z = 0; z < parallelRegions.size(); ++z)
@@ -1269,149 +1281,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(1, "STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
             printf("STAT: par reg %s: requests %d, miss %d, V = %d, E = %d\n", currReg->GetName().c_str(), graph.getCountOfReq(), graph.getCountOfMiss(), graph.GetNumberOfV(), graph.GetNumberOfE());
         }
-
-
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
-        if (parallelRegions.size())
-        {
-            map<string, FuncInfo*> funcMap;
-            createMapOfFunc(allFuncInfo, funcMap);
-
-            // check functions
-            for (auto &nameFunc : funcMap)
-            {
-                auto func = nameFunc.second;
-                if (func->callRegions.size() > 1)
-                {
-                    string regions = "";
-                    for (auto &regId : func->callRegions)
-                    {
-                        auto reg = getRegionById(parallelRegions, regId);
-                        if (!reg && regId)
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        if (regId)
-                            regions += "'" + reg->GetName() + "' ";
-                        else
-                            regions += "'DEFAULT' ";
-                    }
-                    __spf_print(1, "parallel regions %shave common function '%s'\n", regions.c_str(), nameFunc.first.c_str());
-
-                    string message;
-                    __spf_printToBuf(message, "parallel regions %shave common function '%s'", regions.c_str(), nameFunc.first.c_str());
-
-                    ParallelRegion *reg = NULL;
-                    for (auto &regId : func->callRegions)
-                    {
-                        if (regId)
-                        {
-                            reg = getRegionById(parallelRegions, regId);
-                            break;
-                        }
-                    }
-
-                    if (!reg)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                    auto lines = reg->GetAllLines();
-                    bool ok = false;
-                    for (auto &linePair : lines)
-                    {
-                        for (auto &line : linePair.second)
-                        {
-                            if (line.stats.first && line.stats.second)
-                            {
-                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3012));
-                                internalExit = 1;
-                                ok = true;
-                                break;
-                            }
-                        }
-                        if (ok)
-                            break;
-                    }
-                    if (ok == false)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-            }
-
-            // check local arrays
-            map<DIST::Array*, set<ParallelRegion*>> regionsByArray;
-            for (auto &reg : parallelRegions)
-            {
-                auto localArrays = reg->GetUsedLocalArrays();
-                for (auto &funcArrays : localArrays)
-                    for (auto &arrLines : funcArrays.second)
-                        regionsByArray[arrLines.first].insert(reg);
-            }
-
-            for (auto &regsByArr : regionsByArray)
-            {
-                if (regsByArr.second.size() > 1)
-                {
-                    string regions = "";
-                    for (auto &reg : regsByArr.second)
-                        regions += "'" + reg->GetName() + "' ";
-                    __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), regsByArr.first->GetShortName().c_str());
-
-                    string message;
-                    __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), regsByArr.first->GetShortName().c_str());
-
-                    auto lines = (*regsByArr.second.begin())->GetAllLines();
-                    bool ok = false;
-                    for (auto &linePair : lines)
-                    {
-                        for (auto &line : linePair.second)
-                        {
-                            if (line.stats.first && line.stats.second)
-                            {
-                                getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, line.lines.first, message, 3013));
-                                internalExit = 1;
-                                ok = true;
-                                break;
-                            }
-                        }
-                        if (ok)
-                            break;
-                    }
-                    if (ok == false)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-            }
-
-            // check common arrays
-            for (auto &reg : parallelRegions)
-            {
-                for (auto &funcArrays : reg->GetUsedCommonArrays())
-                {
-                    for (auto &arrayLines : funcArrays.second)
-                    {
-                        auto commonBlock = isArrayInCommon(commonBlocks, arrayLines.first);
-                        checkNull(commonBlock, convertFileName(__FILE__).c_str(), __LINE__);
-                        if (!arrayLines.second.size())
-                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                        // check common block name and variables count
-                        int line = arrayLines.second[0].lines.first;
-                        string commonBlockName = commonBlock->getName();
-                        auto pos = commonBlockName.rfind("_r");
-                        if (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1)
-                        {
-                            __spf_print(1, "parallel region '%s' has common array '%s' that is not resolved on line %d\n",
-                                        reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), line);
-
-                            string message;
-                            __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
-                                             reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                            getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 3014));
-                        }
-
-                        // check array copying existing
-                        
-                    }
-                }
-            }
-        }
+        bool error = checkRegionsResolving(parallelRegions, allFuncInfo, commonBlocks, SPF_messages);
+        if (error)
+            internalExit = 1;
     }
     else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
     {

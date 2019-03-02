@@ -28,6 +28,8 @@
 
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../CreateInterTree/CreateInterTree.h"
+#include "../Predictor/PredictScheme.h"
 
 using std::map;
 using std::pair;
@@ -611,7 +613,7 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
     {
         if (declLst->lhs())
         {
-            if (declLst->lhs()->variant() == EXPR_LIST)
+            if (declLst->lhs()->variant() == EXPR_LIST || declLst->lhs()->variant() == ASSGN_OP)
                 ret = ret || findSymbol(declLst->lhs(), toFind);
             else if (declLst->lhs()->symbol())
             {
@@ -627,11 +629,10 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
 }
 
 extern map<string, vector<Messages>> SPF_messages;
-SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
+SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, bool printInternal)
 {
     //need to call this function for MODULE symbols!
     toFind = OriginalSymbol(toFind);
-
     vector<SgStatement*> inDecl;
     SgStatement *start = toFind->scope();
 
@@ -661,27 +662,30 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls)
             start = start->lexNext();
         }
     }
-    /*
-    if (inDecl.size() == 0)
+
+    /*if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
         if (lowLevelDecl)
             inDecl.push_back(lowLevelDecl);
-    }
-    */
+    }*/
+
     if (inDecl.size() == 0)
     {
-        __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
+        if (printInternal)
+        {
+            __spf_print(1, "can not find declaration for symbol '%s'\n", toFind->identifier());
 
-        auto itM = SPF_messages.find(start->fileName());
-        if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
+            auto itM = SPF_messages.find(start->fileName());
+            if (itM == SPF_messages.end())
+                itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-        char buf[256];
-        sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-        itM->second.push_back(Messages(ERROR, start->lineNumber(), buf, 1017));
-
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            char buf[256];
+            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        return NULL;
     }
 
     if (allDecls)
@@ -1661,3 +1665,19 @@ vector<DIST::Array*> fillArraysFromDir(Statement *st)
         fillArraysFromDirsRec(st->GetOriginal()->lexPrev()->expr(z), retVal);
     return retVal;
 }
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
+{
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, std::make_pair(fileName, objT()));
+    return it->second;
+}
+
+template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
+template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
+template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
+template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
+template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
+template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

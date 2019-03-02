@@ -284,6 +284,10 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                                 }
                             }
 
+                            // inconsistent -> may be remote will add later...
+                            if (minShift == 9999999 && maxShift == -9999999)
+                                minShift = maxShift = 0;
+
                             if (minShift == maxShift)
                             {
                                 if (minShift == 0)

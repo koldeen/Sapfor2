@@ -131,7 +131,8 @@ static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foun
     for (auto it = currLoop->writeOps.begin(); it != currLoop->writeOps.end(); ++it)
     {
         DIST::Array *arrayN = it->first;
-        vector<ArrayOp> &currWrites = it->second;
+        vector<ArrayOp> currWrites = it->second;
+
         auto itRead = currLoop->readOps.find(arrayN);
         if (itRead != currLoop->readOps.end())
         {
@@ -884,6 +885,98 @@ void updateLoopIoAndStopsByFuncCalls(map<string, vector<LoopGraph*>> &loopGraph,
 
     for (auto &byFile : loopGraph)
         updateLoopIoAndStopsByFuncCalls(byFile.second, mapFunc);    
+}
+
+static void checkArraysMapping(vector<LoopGraph*> &loopList, map<DIST::Array*, vector<int>> flagUse, vector<Messages> &messages, const int topLine, set<DIST::Array*> &checked);
+static void fillFromLoop(LoopGraph *loop, map<DIST::Array*, vector<int>> flagUse, vector<Messages> &messages, const int topLine, set<DIST::Array*> &checked)
+{
+    for (auto &write_op : loop->writeOps)
+    {
+        DIST::Array *array = write_op.first;
+        if (flagUse.find(array) == flagUse.end())
+        {
+            vector<int> tmp(array->GetDimSize());
+            std::fill(tmp.begin(), tmp.end(), 0);
+            flagUse[array] = tmp;
+            checked.insert(array);
+        }
+
+        for (int dim = 0; dim < write_op.second.size(); ++dim)
+        {
+            for (auto &coef : write_op.second[dim].coefficients)
+            {
+                if (coef.first.first != 0)
+                {
+                    flagUse[array][dim]++;
+                    break;
+                }
+            }
+        }
+    }
+    checkArraysMapping(loop->children, flagUse, messages, topLine, checked);
+}
+
+static void checkArraysMapping(vector<LoopGraph*> &loopList, map<DIST::Array*, vector<int>> flagUse, 
+                               vector<Messages> &messages, const int topLine, set<DIST::Array*> &checked)
+{
+    if (loopList.size() > 0)
+    {
+        for (auto &loop : loopList)
+            fillFromLoop(loop, flagUse, messages, topLine, checked);
+    }
+    else
+    {
+        for (auto &elem : flagUse)
+        {
+            for (int z = 0; z < elem.second.size(); ++z)
+            {
+                if (elem.second[z] > 1)
+                {
+                    if (!elem.first->IsDimDepracated(z))
+                    {
+                        char buf[1024];
+                        sprintf(buf, "Array '%s' can not be distributed due to different writes to %d dimension, this dimension will deprecated",
+                            elem.first->GetShortName().c_str(), z + 1);
+
+                        messages.push_back(Messages(ERROR, topLine, buf, 1047));
+                        elem.first->DeprecateDimension(z);                        
+                    }
+                }
+            }
+        }
+    }
+}
+
+//TODO: need to improve interproc analysis
+void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<Messages>> &SPF_messages, 
+                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    set<DIST::Array*> checked;
+    for (auto &loopByFile : loopGraph)
+    {
+        auto &messages = getObjectForFileFromMap(loopByFile.first.c_str(), SPF_messages);
+        for (auto &loop : loopByFile.second)
+        {
+            if (loop->children.size() > 0)
+            {
+                map<DIST::Array*, vector<int>> flagUse;
+                fillFromLoop(loop, flagUse, messages, loop->lineNum, checked);
+            }
+        }
+    }
+
+    for (auto &elem : checked)
+    {
+        if (elem->isAllDeprecated())
+        {
+            char buf[1024];
+            sprintf(buf, "Array '%s' can not be distributed due to all dimensions will deprecated", elem->GetShortName().c_str());
+            for (auto &decl : elem->GetDeclInfo())
+                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, buf, 1047));
+            elem->SetNonDistributeFlag(DIST::SPF_PRIV);
+        }
+    }
+    propagateArrayFlags(arrayLinksByFuncCalls);
 }
 
 void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, DIST::GraphCSR<int, double, attrType> &graph)

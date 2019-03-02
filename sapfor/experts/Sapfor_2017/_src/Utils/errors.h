@@ -56,6 +56,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   44 "Only pure procedures were supported"
 //   45 "argument '%s' of function '%s' in file '%s' does not have declaration statement"
 //   46 "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s'"
+//   47 "inconsistent array use"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -84,8 +85,11 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   12 "parallel regions %shave common function '%s'"
 //   13 "parallel regions %shave local array '%s' that is not resolved"
 //   14 "parallel region '%s' has common array '%s' that is not resolved"
-//   15 "parallel region '%s' does not have copying of common array '%'"
-//   16  "Can not find execution time for this loop, try to get times statistic"
+//   15 "parallel region '%s' has lines that does not have intervals"
+//   16 "expected only assign operands in interval"
+//   17 "parallel region '%s' does not have copying of array '%' in interval"
+//   18 "parallel region '%s' does not have copying of common array '%'"
+//   19  "Can not find execution time for this loop, try to get times statistic"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
