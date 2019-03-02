@@ -1193,10 +1193,10 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     else
                         outText += "'DEFAULT' ";
                 }
-                __spf_print(1, "parallel regions %shave common function '%s'\n", outText.c_str(), nameFunc.first.c_str());
+                __spf_print(1, "parallel regions %shave common function '%s' which is used inside this regions\n", outText.c_str(), nameFunc.first.c_str());
 
                 string message;
-                __spf_printToBuf(message, "parallel regions %shave common function '%s'", outText.c_str(), nameFunc.first.c_str());
+                __spf_printToBuf(message, "parallel regions %shave common function '%s' which is used inside this regions", outText.c_str(), nameFunc.first.c_str());
 
                 ParallelRegion *reg = NULL;
                 for (auto &regId : func->callRegions)
@@ -1282,10 +1282,12 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             string regions = "";
                             for (auto &reg : regsByArr)
                                 regions += "'" + reg + "' ";
-                            __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), arrayLines.first->GetShortName().c_str());
+                            __spf_print(1, "parallel regions %shave local array '%s' which is used inside this regions\n",
+                                        regions.c_str(), arrayLines.first->GetShortName().c_str());
 
                             string message;
-                            __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), arrayLines.first->GetShortName().c_str());
+                            __spf_printToBuf(message, "parallel regions %shave local array '%s' which is used inside this regions",
+                                             regions.c_str(), arrayLines.first->GetShortName().c_str());
 
                             auto lines = reg->GetAllLines();
                             bool ok = false;
@@ -1332,11 +1334,11 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     auto pos = commonBlockName.rfind("_r");
                     if (!arrayLines.second[0].isImplicit() && (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1))
                     {
-                        __spf_print(1, "parallel region '%s' has common array '%s' that is not resolved on lines %d-%d\n",
+                        __spf_print(1, "parallel region '%s' has common array '%s' which is used inside and outside region on lines %d-%d\n",
                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.first, lines.second);
 
                         string message;
-                        __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
+                        __spf_printToBuf(message, "parallel region '%s' has common array '%s' which is used inside and outside region",
                                          reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
                         
                         getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(arrayLines.second[0].stats.first), message, 3014));
@@ -1398,7 +1400,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                                         string message;
                                                         __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%s' in interval",
                                                                          reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3018));
                                                         error = true;
                                                     }
                                                 }
