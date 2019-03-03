@@ -32,7 +32,6 @@
 #include "Utils/SgUtils.h"
 #include "LoopConverter/enddo_loop_converter.h"
 #include "LoopAnalyzer/loop_analyzer.h"
-#include "VerificationCode/verifications.h"
 
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
