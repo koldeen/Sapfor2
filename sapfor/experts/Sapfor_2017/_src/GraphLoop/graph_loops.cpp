@@ -165,24 +165,23 @@ static SgStatement *getLoopControlParent(SgStatement *inSt)
     return cp;
 }
 
-static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vector<int> &linesOfExtGoTo, const map<int, vector<int>> &labelsRef)
+static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &linesOfIntGoTo, vector<int> &linesOfExtGoTo, const map<int, vector<int>> &labelsRef)
 {
     bool has = false;
-    SgStatement *end = loop->lastNodeOfStmt();
-    SgStatement *curr = loop->lexNext();
+    SgStatement *curr = begin->lexNext();
     map<int, vector<int>> gotoLabels;
-    map<int, vector<int>> inForLabels;
+    map<int, vector<int>> inFragLabels;
 
     while (curr != end)
     {
         if (curr->hasLabel())
-            inForLabels[curr->label()->getLabNumber()].push_back(curr->lineNumber());
+            inFragLabels[curr->label()->getLabNumber()].push_back(curr->lineNumber());
 
         for (int i = 0; i < 3; ++i)
         {
             if (curr->expr(i))
             {
-                if (recVariantFind(curr->expr(i), EXIT_STMT) && getLoopControlParent(curr) == loop)
+                if (recVariantFind(curr->expr(i), EXIT_STMT) && getLoopControlParent(curr) == begin)
                 {
                     linesOfIntGoTo.push_back(curr->lineNumber());
                     has = true;
@@ -192,7 +191,7 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
 
         processLables(curr, gotoLabels);
 
-        if (curr->variant() == EXIT_STMT && getLoopControlParent(curr) == loop)
+        if (curr->variant() == EXIT_STMT && getLoopControlParent(curr) == begin)
         {
             linesOfIntGoTo.push_back(curr->lineNumber());
             has = true;
@@ -200,10 +199,10 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
         curr = curr->lexNext();
     }
 
-    // if loop has not labels from goto 
+    // if loop has no labels from goto 
     for (auto it = gotoLabels.begin(); it != gotoLabels.end(); ++it)
     {
-        if (inForLabels.find(it->first) == inForLabels.end())
+        if (inFragLabels.find(it->first) == inFragLabels.end())
         {
             has = true;
             for (int z = 0; z < it->second.size(); ++z)
@@ -212,17 +211,56 @@ static inline bool hasGoto(SgStatement *loop, vector<int> &linesOfIntGoTo, vecto
     }
         
     // if loop has labels with extern goto
-    for (auto it = inForLabels.begin(); it != inForLabels.end(); ++it)
+    for (auto it = inFragLabels.begin(); it != inFragLabels.end(); ++it)
     {
-        if (gotoLabels.find(it->first) == gotoLabels.end() && labelsRef.find(it->first) != labelsRef.end())
+        auto labRef = labelsRef.find(it->first);
+
+        if (labRef != labelsRef.end())
         {
-            has = true;
-            for (int z = 0; z < it->second.size(); ++z)
-                linesOfExtGoTo.push_back(it->second[z]);
+            for (auto &line : labRef->second)
+            {
+                if (!(line > begin->lineNumber() && line <= end->lineNumber()))
+                {
+                    has = true;
+                    linesOfExtGoTo.push_back(line);
+                }
+            }
         }
     }
         
     return has;
+}
+
+bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &messagesForFile)
+{
+    bool noError = true;
+
+    SgStatement *st = begin;
+    SgSymbol *regIdent = begin->symbol();
+
+    // get func statement
+    while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
+        st = st->controlParent();
+
+    map<int, vector<int>> labelsRef;
+    findAllRefsToLables(st, labelsRef);
+
+    vector<int> linesOfIntGoTo;
+    vector<int> linesOfExtGoTo;
+    hasGoto(begin, end, linesOfIntGoTo, linesOfExtGoTo, labelsRef);
+
+    if (linesOfExtGoTo.size())
+    {
+        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), begin->lineNumber());
+
+        string message;
+        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
+        messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+
+        noError = false;
+    }
+
+    return noError;
 }
 
 bool hasThisIds(SgStatement *loop, vector<int> &lines, const set<int> &IDs)
@@ -492,7 +530,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
 
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
-                newLoop->hasGoto = hasGoto(st, newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
+                newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
