@@ -482,8 +482,31 @@ static bool ifRuleNull(const DistrVariant *currVar)
     return true;
 }
 
+static DIST::Array* getRealArrayRef(DIST::Array *in, const int regId, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    set<DIST::Array*> out;
+    getRealArrayRefs(in, in, out, arrayLinksByFuncCalls);
+
+    set<vector<pair<int, int>>> rules;
+    set<vector<int>> links;
+    set<DIST::Array*> templ;
+    for (auto &array : out)
+    {
+        rules.insert(array->GetAlignRulesWithTemplate(regId));
+        links.insert(array->GetLinksWithTemplate(regId));
+        templ.insert(array->GetTemplateArray(regId));
+    }
+
+    if (templ.size() != 1 || links.size() != 1 || rules.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return *out.begin();
+}
+
 //create realigns instead of full template redistribution
-static vector<vector<pair<string, vector<Expression*>>>> createRealignRules(LoopGraph *current, const int regId, SgFile *file, const string &templClone)
+static vector<vector<pair<string, vector<Expression*>>>> 
+    createRealignRules(LoopGraph *current, const int regId, SgFile *file, const string &templClone, 
+                       const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
 
@@ -491,11 +514,12 @@ static vector<vector<pair<string, vector<Expression*>>>> createRealignRules(Loop
     {
         for (auto &elem : current->usedArrays)
         {
-            const auto &rules = elem->GetAlignRulesWithTemplate(regId);
-            const auto &links = elem->GetLinksWithTemplate(regId);
-            const auto &templ = elem->GetTemplateArray(regId);
+            auto realRef = getRealArrayRef(elem, regId, arrayLinksByFuncCalls);
+            const auto &rules = realRef->GetAlignRulesWithTemplate(regId);
+            const auto &links = realRef->GetLinksWithTemplate(regId);
+            const auto &templ = realRef->GetTemplateArray(regId);            
             checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
-
+            
             vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
             SgVarRefExp *ref = new SgVarRefExp(*findSymbolOrCreate(file, elem->GetShortName()));
 
@@ -586,7 +610,8 @@ static string createTemplateClone(DIST::Array *templ, const vector<dist> &redist
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
-                                  ParallelDirective *currParDir, const int regionId, vector<Messages> &messages)
+                                  ParallelDirective *currParDir, const int regionId, vector<Messages> &messages,
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<pair<DIST::Array*, DistrVariant*>> redistributeRules;
     const pair<vector<int>, vector<pair<string, vector<Expression*>>>> &redistrDirs = genRedistributeDirective(file, distribution, current, currParDir, regionId, redistributeRules);
@@ -658,7 +683,7 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         const auto redistrRule = redistributeRules[z].second->distRule;
         string newTemplate = createTemplateClone(distribution[idx].first, redistrRule, file, current->loop->GetOriginal(), needToInsert);
 
-        vector<vector<pair<string, vector<Expression*>>>> toRealign = createRealignRules(current, regionId, file, newTemplate);
+        vector<vector<pair<string, vector<Expression*>>>> toRealign = createRealignRules(current, regionId, file, newTemplate, arrayLinksByFuncCalls);
         for (auto &rule : toRealign[0])
             toInsert.push_back(make_pair(current->lineNum, rule));
         for (auto &rule : toRealign[1])
@@ -1252,11 +1277,11 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
                         if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
-                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages);
+                            needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
                     }
                 }
                 else
-                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages);
+                    needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
                 
                 if (needToContinue)
                     continue;

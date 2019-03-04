@@ -37,7 +37,7 @@ using std::string;
 
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
-extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs);
+extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile);
 extern int staticPrivateAnalysis;
 
 static const set<string> *currentNonDistrArrays = NULL;
@@ -159,7 +159,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         if (funcWasInit.find(func) == funcWasInit.end())
         {
             funcWasInit.insert(func);
-            initializeDepAnalysisForFunction(file, func, allFuncs);
+            initializeDepAnalysisForFunction(file, func, allFuncs, *currMessages);
         }
 
         currentNonDistrArrays = &nonDistrArrays;
