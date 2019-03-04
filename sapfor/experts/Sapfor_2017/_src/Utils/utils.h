@@ -66,3 +66,5 @@ std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, cons
 #ifdef _WIN32
 void printStackTrace();
 #endif
+
+FuncInfo* getFuncInfo(const std::map<std::string, FuncInfo*> &funcMap, const std::string &funcName);
