@@ -19,8 +19,6 @@
 #include <locale>
 #include <algorithm>
 
-#include "../GraphCall/graph_calls.h"
-
 #include "utils.h"
 #include "errors.h"
 #include "version.h"
@@ -710,13 +708,4 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
 
         return retVal;
     }
-}
-
-inline FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
 }

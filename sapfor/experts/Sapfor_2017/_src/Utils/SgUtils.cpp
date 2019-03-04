@@ -1686,3 +1686,12 @@ template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map
 template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
 template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);
+
+FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
+{
+    auto it = funcMap.find(funcName);
+    if (it == funcMap.end())
+        return NULL;
+
+    return it->second;
+}
