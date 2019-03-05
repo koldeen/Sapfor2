@@ -514,6 +514,9 @@ static vector<vector<pair<string, vector<Expression*>>>>
     {
         for (auto &elem : current->usedArrays)
         {
+            if (elem->GetNonDistributeFlag())
+                continue;
+
             auto realRef = getRealArrayRef(elem, regId, arrayLinksByFuncCalls);
             const auto &rules = realRef->GetAlignRulesWithTemplate(regId);
             const auto &links = realRef->GetLinksWithTemplate(regId);
@@ -688,7 +691,11 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
             toInsert.push_back(make_pair(current->lineNum, rule));
         for (auto &rule : toRealign[1])
             toInsert.push_back(make_pair(current->lineNumAfterLoop, rule));
-        currParDir->cloneOfTemplate = newTemplate;
+
+        if (toRealign[0].size())
+            currParDir->cloneOfTemplate = newTemplate;
+        else
+            needToInsert = false;
 
         if (needToInsert)
         {
