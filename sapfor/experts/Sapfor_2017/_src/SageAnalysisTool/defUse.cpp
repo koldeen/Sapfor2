@@ -6,6 +6,7 @@
 #include <string>
 
 #include "../GraphCall/graph_calls.h"
+#include "../Utils/errors.h"
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -70,31 +71,31 @@ static inline bool isVarRef(SgExpression *ex)
 }
 
 static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL, 
-                    const map<string, FuncInfo*> &funcs);
+                    const map<string, FuncInfo*> &funcs, vector<Messages> &messagesForFile, const int currLine);
 
 static void fillUse(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL,
-                    const map<string, FuncInfo*> &funcs)
+                    const map<string, FuncInfo*> &funcs, vector<Messages> &messagesForFile, const int currLine)
 {
     if (ex)
     {
         if (isVarRef(ex))
         {
             useL.push_back(ex);
-            fillUse(ex->lhs(), useL, defL, funcs);
-            fillUse(ex->rhs(), useL, defL, funcs);
+            fillUse(ex->lhs(), useL, defL, funcs, messagesForFile, currLine);
+            fillUse(ex->rhs(), useL, defL, funcs, messagesForFile, currLine);
         }
         else if (ex->variant() == FUNC_CALL)
-            fillDef(ex, useL, defL, funcs);
+            fillDef(ex, useL, defL, funcs, messagesForFile, currLine);
         else
         {
-            fillUse(ex->lhs(), useL, defL, funcs);
-            fillUse(ex->rhs(), useL, defL, funcs);
+            fillUse(ex->lhs(), useL, defL, funcs, messagesForFile, currLine);
+            fillUse(ex->rhs(), useL, defL, funcs, messagesForFile, currLine);
         }
     }
 }
 
 static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpression*> &defL,
-                    const map<string, FuncInfo*> &funcs)
+                    const map<string, FuncInfo*> &funcs, vector<Messages> &messagesForFile, const int currLine)
 {
     if (ex)
     {
@@ -109,7 +110,12 @@ static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpr
             {
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != call->numberOfArgs())
+                {
+                    char buf[256];
+                    sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                    messagesForFile.push_back(Messages(ERROR, currLine, buf, 1046));
                     throw -991;
+                }
             }
             
             for (int z = 0; z < call->numberOfArgs(); ++z)
@@ -130,14 +136,14 @@ static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpr
                     useL.push_back(arg);
                 }
 
-                fillUse(arg->lhs(), useL, defL, funcs);
-                fillUse(arg->rhs(), useL, defL, funcs);
+                fillUse(arg->lhs(), useL, defL, funcs, messagesForFile, currLine);
+                fillUse(arg->rhs(), useL, defL, funcs, messagesForFile, currLine);
             }
         }
         else
         {
-            fillUse(ex->lhs(), useL, defL, funcs);
-            fillUse(ex->rhs(), useL, defL, funcs);
+            fillUse(ex->lhs(), useL, defL, funcs, messagesForFile, currLine);
+            fillUse(ex->rhs(), useL, defL, funcs, messagesForFile, currLine);
         }
     }
 }
@@ -163,7 +169,7 @@ SgExpression* makeList(const std::vector<SgExpression*> &vec)
 }
 
 static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, SgExpression **use, 
-                      const map<string, FuncInfo*> &allFuncs)
+                      const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile)
 {
     SgExpression *expr1, *expr2;
     SgExpression *temp, *pt, *pt1;
@@ -238,7 +244,12 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                 {
                     currInfo = it->second;
                     if (currInfo->funcParams.countOfPars != fc->numberOfArgs())
+                    {
+                        char buf[256];
+                        sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                        messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), buf, 1046));
                         throw -991;
+                    }
                 }
 
                 pt = fc->args();
@@ -256,7 +267,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     {
                         vector<SgExpression*> defL;
                         vector<SgExpression*> useL;
-                        fillDef(fc, useL, defL, allFuncs);
+                        fillDef(fc, useL, defL, allFuncs, messagesForFile, stmt->lineNumber());
                         if (defL.size())
                         {
                             SgExpression *list = makeList(defL);
@@ -478,7 +489,12 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
             {
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != callStat->numberOfArgs())
+                {
+                    char buf[256];
+                    sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                    messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), buf, 1046));
                     throw -991;
+                }
             }
 
             for (int z = 0; z < callStat->numberOfArgs(); ++z)
@@ -496,8 +512,8 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     useL.push_back(arg);
                 }
                 
-                fillUse(arg->lhs(), useL, defL, allFuncs);
-                fillUse(arg->rhs(), useL, defL, allFuncs);
+                fillUse(arg->lhs(), useL, defL, allFuncs, messagesForFile, callStat->lineNumber());
+                fillUse(arg->rhs(), useL, defL, allFuncs, messagesForFile, callStat->lineNumber());
             }
 
             *use = makeList(useL);
@@ -537,7 +553,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
 }
 
 
-void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs)
+void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile)
 {
     SgStatement *last, *first, *lastfunc, *temp;
     SgExpression *def, *use, *pt;
@@ -574,7 +590,7 @@ void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs)
     {
         if (isSgExecutableStatement(temp))
         {
-            defUseVar(temp, func, &def, &use, allFuncs);
+            defUseVar(temp, func, &def, &use, allFuncs, messagesForFile);
             temp->addAttribute(USEDLIST_ATTRIBUTE, (void*)use, 0);
             temp->addAttribute(DEFINEDLIST_ATTRIBUTE, (void*)def, 0);
         }

@@ -1057,7 +1057,8 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray == NULL)
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                                if (mainArray->GetDimSize() != inFunction->GetDimSize())
+                                if (mainArray->GetDimSize() != inFunction->GetDimSize() && 
+                                    !(inFunction->GetNonDistributeFlag() && !mainArray->GetNonDistributeFlag()))
                                 {
                                     char buf[256];
                                     sprintf(buf, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 

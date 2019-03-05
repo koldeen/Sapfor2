@@ -627,6 +627,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
             removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
+        else if (curr_regime == REMOVE_DVM_INTERVALS)
+        {
+            vector<SgStatement*> toDel;
+            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            {
+                if (st->variant() == DVM_INTERVAL_DIR)
+                    toDel.push_back(st);
+                else if (st->variant() == DVM_ENDINTERVAL_DIR)
+                    toDel.push_back(st);
+                else if (st->variant() == DVM_EXIT_INTERVAL_DIR)
+                    toDel.push_back(st);
+            }
+            //TODO: move comments
+            for (auto &elem : toDel)
+                elem->deleteStmt();
+        }
         else if (curr_regime == SUBST_EXPR)
         {
             expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo, subs_parallelRegions);
@@ -1649,6 +1665,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PRIVATE_ARRAYS_BREEDING:
     case LOOPS_SPLITTER:
     case INSERT_INTER_TREE:
+    case REMOVE_DVM_INTERVALS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
