@@ -11,7 +11,6 @@
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
-#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
 #include "../GraphCall/graph_calls_func.h"
