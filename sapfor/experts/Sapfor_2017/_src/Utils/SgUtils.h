@@ -57,5 +57,3 @@ template<typename objT>
 objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);
 
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
-
-FuncInfo* getFuncInfo(const std::map<std::string, FuncInfo*> &funcMap, const std::string &funcName);
