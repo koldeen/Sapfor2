@@ -258,10 +258,10 @@ bool checkRegionEntries(SgStatement *begin,
 
     if (linesOfExtGoTo.size())
     {
-        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), begin->lineNumber());
+        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO on line %d\n", regIdent->identifier(), begin->lineNumber());
 
         string message;
-        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
+        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", regIdent->identifier());
         getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
@@ -278,10 +278,10 @@ bool checkRegionEntries(SgStatement *begin,
             ParallelRegion *reg = NULL;
             if (funcSt->variant() == ENTRY_STAT && func->callsTo.size() && (reg = getRegionByLine(parallelRegions, func->fileName, funcSt->lineNumber())))
             {
-                __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
+                __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
 
                 string message;
-                __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", reg->GetName().c_str());
+                __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", reg->GetName().c_str());
                 getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
 
                 noError = false;
