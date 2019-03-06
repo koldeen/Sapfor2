@@ -30,6 +30,8 @@
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
 
+#include "../GraphCall/graph_calls_func.h"
+
 using std::vector;
 using std::map;
 using std::set;
@@ -231,7 +233,11 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
     return has;
 }
 
-bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &messagesForFile)
+bool checkRegionEntries(SgStatement *begin,
+                        SgStatement *end,
+                        const map<string, FuncInfo*> &funcMap,
+                        const vector<ParallelRegion*> &parallelRegions,
+                        map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;
 
@@ -242,6 +248,7 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
     while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
         st = st->controlParent();
 
+    // check GOTO
     map<int, vector<int>> labelsRef;
     findAllRefsToLables(st, labelsRef);
 
@@ -255,10 +262,36 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
 
         string message;
         __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
-        messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+        getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
     }
+
+    // check ENTRY
+    auto oldFile = current_file->filename();
+    for (auto &funcPair : funcMap)
+    {
+        auto func = funcPair.second;
+        if (SgFile::switchToFile(func->fileName) != -1)
+        {
+            SgStatement *funcSt = func->funcPointer->GetOriginal();
+            ParallelRegion *reg = NULL;
+            if (funcSt->variant() == ENTRY_STAT && func->callsTo.size() && (reg = getRegionByLine(parallelRegions, func->fileName, funcSt->lineNumber())))
+            {
+                __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
+
+                string message;
+                __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", reg->GetName().c_str());
+                getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
+
+                noError = false;
+            }
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return noError;
 }

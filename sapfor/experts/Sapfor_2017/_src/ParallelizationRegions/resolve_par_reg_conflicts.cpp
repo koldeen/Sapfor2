@@ -11,6 +11,7 @@
 #include "../Utils/SgUtils.h"
 #include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../GraphLoop/graph_loops_func.h"
 
 using std::map;
 using std::pair;
@@ -450,11 +451,15 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                     }
                 }
             }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
 }
 
-bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
+bool checkRegions(const vector<ParallelRegion*> &regions,
+                  const map<string, vector<FuncInfo*>> &allFuncInfo,
+                  map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;
 
@@ -519,6 +524,29 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                     }
                 }
             }
+        }
+    }
+
+    // check if there are several entries in each fragment
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            if (SgFile::switchToFile(fileLines.first) != -1)
+            {
+                for (auto &lines : fileLines.second)
+                {
+                    if (!lines.isImplicit())
+                    {
+                        noError = noError && checkRegionEntries(lines.stats.first->GetOriginal()->lexPrev(), lines.stats.second->GetOriginal()->lexNext(), funcMap, regions, SPF_messages);
+                    }
+                }
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
 

@@ -1187,7 +1187,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         fillRegionFunctions(parallelRegions, allFuncInfo);
         fillRegionArrays(parallelRegions, allFuncInfo, commonBlocks);
 
-        bool noError = checkRegions(parallelRegions, SPF_messages);
+        bool noError = checkRegions(parallelRegions, allFuncInfo, SPF_messages);
         if (!noError)
             internalExit = 1;
 
