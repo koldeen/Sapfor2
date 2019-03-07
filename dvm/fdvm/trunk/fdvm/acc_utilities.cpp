@@ -132,6 +132,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("cmplx"));
     intrinsicF.insert(string("char"));
     intrinsicF.insert(string("ctan"));
+    intrinsicF.insert(string("cpu_time"));
     intrinsicF.insert(string("dim"));
     intrinsicF.insert(string("ddim"));
     intrinsicF.insert(string("dble"));

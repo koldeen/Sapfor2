@@ -1081,7 +1081,8 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
-    functionAnalyzer(file, curFileFuncInfo);
+    vector<LoopGraph*> tmpL;
+    functionAnalyzer(file, curFileFuncInfo, tmpL);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);

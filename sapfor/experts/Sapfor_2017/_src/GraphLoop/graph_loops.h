@@ -309,3 +309,4 @@ void getAllArrayRefs(DIST::Array *addTo, DIST::Array *curr, std::set<DIST::Array
 void createMapLoopGraph(const std::vector<LoopGraph*> &loops, std::map<int, LoopGraph*> &mapGraph);
 void updateLoopIoAndStopsByFuncCalls(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 void checkArraysMapping(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<Messages>> &SPF_messages, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void filterArrayInCSRGraph(std::map<std::string, std::vector<LoopGraph*>> &loopGraph, std::map<std::string, std::vector<FuncInfo*>> &allFuncs, ParallelRegion *reg, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, std::map<std::string, std::vector<Messages>> &messages);

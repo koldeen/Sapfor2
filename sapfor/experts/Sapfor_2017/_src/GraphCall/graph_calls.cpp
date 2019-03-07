@@ -374,11 +374,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                     // Through all indexes
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
+                    currInfo.allUsedArrays.insert(arrayRef);
                 }
-
-                if (isWrite)
-                    currInfo.writeToArrays.insert(arrayRef);
-                currInfo.allUsedArrays.insert(arrayRef);
             }
         }
         else
@@ -598,8 +595,11 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
     }
 }
 
-void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam)
+void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, vector<LoopGraph*> &loops, bool dontFillFuncParam)
 {
+    map<int, LoopGraph*> mapLoopGraph;
+    createMapLoopGraph(loops, mapLoopGraph);
+
     int funcNum = file->numberOfFunctions();
     __spf_print(DEBUG, "functions num in file = %d\n", funcNum);
     vector<SgStatement*> containsFunctions;
@@ -800,10 +800,22 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             }
 
             if (isSgExecutableStatement(st))
+            {
                 for (auto &proc : entryProcs)
                     if (proc->isParamUsedAsIndex.size())
                         for (int i = 0; i < 3; i++)
                             findArrayRef(st->expr(i), *proc, st->variant() == ASSIGN_STAT && i == 0);
+
+                if (st->variant() == FOR_NODE)
+                {
+                    auto itL = mapLoopGraph.find(st->lineNumber());
+                    if (itL != mapLoopGraph.end())
+                    {
+                        for (auto &proc : entryProcs)
+                            proc->loopsInFunc.push_back(itL->second);
+                    }
+                }
+            }
 
             st = st->lexNext();
         }
@@ -1156,12 +1168,12 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
         if (idx != -1)
         {
             char buf[256];
-            sprintf(buf, "Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array, in parameter num %d", 
+            sprintf(buf, "Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
                           func->funcName.c_str(), loop->lineNumber(), idx);
             if (needToAddErrors)
             {
                 messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
-                __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array, in parameter num %d\n", 
+                __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array inside this call, in parameter num %d\n", 
                                 func->funcName.c_str(), loop->lineNumber(), idx);
             }
 
@@ -1815,6 +1827,47 @@ void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksB
     }
 }
 
+static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    //change to real refs
+    for (auto &func : funcByName)
+    {
+        set<DIST::Array*> curr = func.second->allUsedArrays;
+        set<DIST::Array*> newRefs;
+        for (auto &array : curr)
+            getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
+        func.second->allUsedArrays.clear();
+        for (auto &newArray : newRefs)
+            if (newArray->GetNonDistributeFlag() == false)
+                func.second->allUsedArrays.insert(newArray);
+    }
+
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &func : funcByName)
+        {
+            for (auto &callsFrom : func.second->callsFrom)
+            {
+                auto itF = funcByName.find(callsFrom);
+                if (itF != funcByName.end())
+                {
+                    for (auto &usedArray : itF->second->allUsedArrays)
+                    {
+                        auto itA = func.second->allUsedArrays.find(usedArray);
+                        if (itA == func.second->allUsedArrays.end())
+                        {
+                            changed = true;
+                            func.second->allUsedArrays.insert(usedArray);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                              const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
 {
@@ -1855,6 +1908,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     createMapOfFunc(allFuncInfo, funcByName);
 
     propagateWritesToArrays(funcByName);
+    aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
 
     //debug dump
     /*for (auto &elem : declaratedArrays)

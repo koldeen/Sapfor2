@@ -382,7 +382,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = allFuncInfo.find(file_name);
             if (it == allFuncInfo.end())
-                functionAnalyzer(file, allFuncInfo);
+                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
@@ -728,7 +728,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
-                functionAnalyzer(file, subs_allFuncInfo, true);
+            {
+                vector<LoopGraph*> tmp;
+                functionAnalyzer(file, subs_allFuncInfo, tmp, true);
+            }
 
             fillRegionLines(file, subs_parallelRegions);
         }
@@ -1284,6 +1287,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
 
+        for (int z = 0; z < parallelRegions.size(); ++z)        
+            filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
+        propagateArrayFlags(arrayLinksByFuncCalls);
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
@@ -1398,8 +1404,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     allSingleRemotes.insert(allSingleRemotes.end(), fountRem.begin(), fountRem.end());
                 }
                 int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);
-                if (err != 0)
-                    internalExit = err;
+                /*if (err != 0)
+                    internalExit = err;*/
             }
 
             vector<SpfInterval*> tmp = { mainIterval };

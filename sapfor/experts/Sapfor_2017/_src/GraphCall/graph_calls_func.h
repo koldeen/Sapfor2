@@ -29,7 +29,7 @@ void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::pa
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF
-void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam = false);
+void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<LoopGraph*> &loops, bool dontFillFuncParam = false);
 int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &files, const char *fileName,
                            std::map<std::string, std::vector<FuncInfo*>> &funcByFile, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
                            std::map<std::string, std::vector<Messages>> &allMessages, bool needToAddErrors,
