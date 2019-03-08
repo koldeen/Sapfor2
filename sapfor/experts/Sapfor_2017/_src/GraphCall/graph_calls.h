@@ -6,6 +6,7 @@
 #include "../Utils/AstWrapper.h"
 #include "../Utils/utils.h"
 #include "../LoopAnalyzer/shadow.h"
+#include "../GraphLoop/graph_loops.h"
 
 static const char* paramNames[] = 
 { "NONE_T", "ARRAY_T", "SCALAR_INT_T", "SCALAR_FLOAT_T", "SCALAR_DOUBLE_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "UNKNOWN_T" };
@@ -104,9 +105,8 @@ struct FuncInfo
 
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
-
-    std::set<DIST::Array*> writeToArrays;
-    std::set<DIST::Array*> allUsedArrays;
+    std::set<DIST::Array*> allUsedArrays; // real array refs
+    std::vector<LoopGraph*> loopsInFunc;
 
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;

@@ -711,18 +711,9 @@ static void fillInterprocLinks(const map<string, FuncInfo*> &mapFunc, vector<Loo
                 if (it != mapFunc.end())
                 {
                     FuncInfo *currF = it->second;
-                    const pair<int, int> &linesBound = currF->linesNum;
-                    //XXX
-                    const vector<LoopGraph*> &loopsFromFile = allLoops.find(currF->fileName)->second;
-                    for (auto &loopInFile : loopsFromFile)
-                    {
-                        if (linesBound.first < loopInFile->lineNum && loopInFile->lineNum < linesBound.second)
-                        {
-                            loop->funcChildren.push_back(loopInFile);
-                            if (loopInFile->funcParent == NULL)
-                                loopInFile->funcParent = loop;
-                        }
-                    }
+
+                    for (auto &loopInFunc : currF->loopsInFunc)
+                        loop->funcChildren.push_back(loopInFunc);                    
                 }
             }
         }
@@ -979,7 +970,174 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
     propagateArrayFlags(arrayLinksByFuncCalls);
 }
 
-void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, DIST::GraphCSR<int, double, attrType> &graph)
+static bool isMapped(const vector<ArrayOp> &allOps)
 {
+    bool mapped = false;
+    for (auto &ops : allOps)
+    {
+        for (auto &coefs : ops.coefficients)
+        {
+            if (coefs.first.first != 0)
+            {
+                mapped = true;
+                break;
+            }
+        }
+        if (mapped)
+            break;
+    }
 
+    return mapped;
+}
+
+static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, FuncInfo*> &mapFuncInfo, const ParallelRegion *reg, 
+                                  const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, const map<DIST::Array*, int> &trees,
+                                  map<string, vector<Messages>> &messages)
+{
+    for (auto &loop : loops)
+    {
+        if (loop->region == reg)
+        {
+            if (loop->calls.size())
+            {
+                bool bounds = loop->hasGoto || loop->hasPrints || loop->hasStops || loop->hasUnknownArrayAssigns ||
+                              loop->hasNonRectangularBounds || loop->hasIndirectAccess || loop->hasWritesToNonDistribute || loop->hasDifferentAlignRules;
+
+                if (bounds == false )
+                {
+                    if (loop->usedArrays.size())
+                    {
+                        set<DIST::Array*> realRefs;
+                        for (auto &array : loop->usedArrays)
+                            getRealArrayRefs(array, array, realRefs, arrayLinksByFuncCalls);
+
+                        set<DIST::Array*> wasMapped;
+                        for (auto &read : loop->readOps)
+                        {
+                            set<DIST::Array*> readRefs;
+                            getRealArrayRefs(read.first, read.first, readRefs, arrayLinksByFuncCalls);
+
+                            if (isMapped(read.second.first))
+                                wasMapped.insert(readRefs.begin(), readRefs.end());
+                        }
+
+                        for (auto &write : loop->writeOps)
+                        {
+                            set<DIST::Array*> writeRefs;
+                            getRealArrayRefs(write.first, write.first, writeRefs, arrayLinksByFuncCalls);
+
+                            if (isMapped(write.second))
+                                wasMapped.insert(writeRefs.begin(), writeRefs.end());
+                        }
+
+                        if (wasMapped.size() == 0)
+                            filterArrayInCSRGraph(loop->children, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
+                        else
+                        {
+                            set<DIST::Array*> deprecated;
+                            int treeNum = -1;
+                            map<int, int> treeNumCount;
+                            //filter by graph loop's arrays
+                            //TODO
+                            for (auto &array : realRefs)
+                            {
+                                auto itA = trees.find(array);
+                                if (itA == trees.end() || itA->second < 0)
+                                {
+                                    char buf[1024];
+                                    sprintf(buf, "Array '%s' can not be distributed", array->GetShortName().c_str());
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                    deprecated.insert(array);
+                                    array->SetNonDistributeFlag(DIST::SPF_PRIV);
+                                }
+                                else
+                                {
+                                    if (treeNumCount.find(itA->second) == treeNumCount.end())
+                                        treeNumCount[itA->second] = 1;
+                                    else
+                                        treeNumCount[itA->second]++;
+                                }
+                            }
+
+                            if (treeNumCount.size() == 0)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                            auto itT = treeNumCount.begin();
+                            treeNum = itT->first;
+                            int countT = itT->second;
+                            itT++;
+                            for (; itT != treeNumCount.end(); itT++)
+                            {
+                                if (itT->second > countT)
+                                {
+                                    countT = itT->second;
+                                    treeNum = itT->first;
+                                }
+                            }
+                            
+                            for (auto &array : realRefs)
+                            {
+                                auto itA = trees.find(array);
+                                if (itA->second != treeNum)
+                                {
+                                    char buf[1024];
+                                    sprintf(buf, "Array '%s' can not be distributed", array->GetShortName().c_str());
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                    deprecated.insert(array);
+                                    array->SetNonDistributeFlag(DIST::SPF_PRIV);
+                                }
+                            }
+
+                            set<DIST::Array*> inCalls;
+                            for (auto &call : loop->calls)
+                            {
+                                auto itF = mapFuncInfo.find(call.first);
+                                if (itF != mapFuncInfo.end())
+                                    inCalls.insert(itF->second->allUsedArrays.begin(), itF->second->allUsedArrays.end());
+                            }
+
+                            for (auto &inCall : inCalls)
+                            {
+                                if (realRefs.find(inCall) == realRefs.end() && deprecated.find(inCall) == deprecated.end())
+                                {
+                                    bool needToDeprecated = false;
+                                    if (trees.find(inCall) == trees.end())
+                                        needToDeprecated = true;
+                                    else
+                                    {
+                                        if (trees.find(inCall)->second != treeNum)
+                                            needToDeprecated = true;
+                                    }
+                                    if (needToDeprecated)
+                                    {
+                                        char buf[1024];
+                                        sprintf(buf, "Array '%s' can not be distributed", inCall->GetShortName().c_str());
+                                        getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                        deprecated.insert(inCall);
+                                        inCall->SetNonDistributeFlag(DIST::SPF_PRIV);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                    filterArrayInCSRGraph(loop->children, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
+            }
+        }
+    }
+}
+
+void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<string, vector<FuncInfo*>> &allFuncs, 
+                           ParallelRegion *reg, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                           map<string, vector<Messages>> &messages)
+{
+    map<string, FuncInfo*> mapFuncInfo;
+    map<DIST::Array*, int> trees;
+    reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
+
+    createMapOfFunc(allFuncs, mapFuncInfo);
+
+    for (auto &byFile : loopGraph)
+        filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
 }
