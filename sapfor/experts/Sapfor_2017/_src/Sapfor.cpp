@@ -50,7 +50,7 @@
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
-#include "DvmhRegions/DvmhRegionInsertor.h"
+#include "DvmhRegions/DvmhRegionInserter.h"
 
 //#include "DEAR/dep_analyzer.h"
 

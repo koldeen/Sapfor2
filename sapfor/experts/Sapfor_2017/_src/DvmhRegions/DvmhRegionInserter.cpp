@@ -5,7 +5,7 @@
  *      Author: vladislav
  */
 
-#include "DvmhRegionInsertor.h"
+#include "DvmhRegionInserter.h"
 
 using namespace std;
 
@@ -151,19 +151,13 @@ std::vector<LoopGraph *>  DvmhRegionInsertor::updateLoopGraph()
 	return loopGraph;
 }
 
-/*
-	TODO:
-	1. Искать только распределенные массивы: getArrayFromDeclarated
-	2. Брать оригинальный символ originalSymb..
-	3. Получить место определения
-*/
 
 static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) {
 	set<SgSymbol *> result;
 
 	if (exp)
 	{
-		if (exp->variant() == ARRAY_REF) // TODO: check of destributed ref through getArrayFromDeclarated
+		if (exp->variant() == ARRAY_REF) 
 			result.insert(exp->symbol());
 
 		set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
@@ -197,6 +191,7 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
 
 	return result;
 }
+
 
 /*
 	1. Объединять идущие строго подряд регионы
@@ -250,7 +245,7 @@ void DvmhRegionInsertor::insertActualDirectives() {
 		SgStatement *lastNode = st->lastNodeOfStmt();
 		while (st && st != lastNode)
 		{
-			if (isSgExecutableStatement(st) == NULL) {
+			if (!isSgExecutableStatement(st)) {
 				st = st->lexNext();
 				continue;
 			}
@@ -263,21 +258,9 @@ void DvmhRegionInsertor::insertActualDirectives() {
 			DvmhRegion* region = getContainingRegion(st);
 			const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
 			//const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
-			set<SgSymbol*> usedSymbols = getUsedSymbols(st);
 
 			std::vector<SgSymbol*> toActualise;
 			for (auto& var : vars) {
-				bool found = false;
-				for (auto& symbol : usedSymbols) {
-					if (var.first.getVarName() == symbol->identifier()) {
-						found = true;
-						break;
-					}
-				}
-
-				if (!found) // skip unused symbols
-					continue;
-
 				SgSymbol *symbol = (SgSymbol *)var.first.getSymbol();
 				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
 					continue;
@@ -331,32 +314,28 @@ void DvmhRegionInsertor::insertActualDirectives() {
 							printInternalError(saveName, st->lineNumber());
 					}
 					if (symbolDeclaredInSequentPart)
-						region->needActualisation.push_back(symbol);
+						region->addToActualisation(symbol);
 				}
 				else {
 					// Searching for defenition in region
-					bool symbolDeclaredInRegion = false;
 					for (auto& defenition : var.second) {
 						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
 						if (containingRegion) {
-							symbolDeclaredInRegion = true;
-							break;
+							containingRegion->addToActualisationAfter(symbol);
 						}
 					}
-					if (symbolDeclaredInRegion)
-						toActualise.push_back(symbol);
 				}
 			}
-
-			insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
 
 			st = st->lexNext();
 		}
 	}
 
 	for (auto& region : regions) {
-		if (region.loops.size() > 0)
+		if (region.loops.size() > 0) {
 			insertActualDirectiveBefore(region.getFirstSt()->lexPrev()->lexPrev(), region.needActualisation, ACC_ACTUAL_DIR);
+			insertActualDirectiveBefore(region.getLastSt()->lexNext()->lexNext(), region.needActualisationAfter, ACC_GET_ACTUAL_DIR);
+		}
 		else
 			printf("Warning, empty region.\n");
 	}
@@ -408,16 +387,30 @@ void DvmhRegionInsertor::mergeRegions()
 		if (areNeighbours(regionPrev, region)) // logic of intermediate derectives here, in perspective they can be accumulated and moved
 		{
 			regionPrev = region;
-			for (auto& loop : region.loops)
+			for (auto& loop : region.loops) {
 				newRegion.loops.push_back(loop);
+				for (auto s : region.needActualisation) {
+					newRegion.addToActualisation(s);
+				}
+				for (auto s : region.needActualisationAfter) {
+					newRegion.addToActualisationAfter(s);
+				}
+			}
 		}
 		else
 		{
 			isFirst = true;
 			newRegions.push_back(newRegion);
 			newRegion = DvmhRegion();
-			for (auto& loop : region.loops)
+			for (auto& loop : region.loops) {
 				newRegion.loops.push_back(loop);
+				for (auto s : region.needActualisation) {
+					newRegion.addToActualisation(s);
+				}
+				for (auto s : region.needActualisationAfter) {
+					newRegion.addToActualisationAfter(s);
+				}
+			}
 		}
 	}
 	newRegions.push_back(newRegion);

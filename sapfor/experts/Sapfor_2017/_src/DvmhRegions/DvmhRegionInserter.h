@@ -34,11 +34,34 @@ struct DvmhRegion {
 	std::vector<LoopGraph *> loops;
 
 	std::vector<SgSymbol*> needActualisation;
+	std::vector<SgSymbol*> needActualisationAfter;
 	DvmhRegion();
 	DvmhRegion(LoopGraph *loopNode);
 	bool isInRegion(SgStatement *);
 	SgStatement* getFirstSt();
 	SgStatement* getLastSt();
+
+	bool addToActualisation(SgSymbol* s) {
+		for (auto present : needActualisation) {
+			if (s == present) {
+				return false;
+			}
+		}
+
+		needActualisation.push_back(s);
+		return true;
+	}
+
+	bool addToActualisationAfter(SgSymbol* s) {
+		for (auto present : needActualisationAfter) {
+			if (s == present) {
+				return false;
+			}
+		}
+
+		needActualisationAfter.push_back(s);
+		return true;
+	}
 };
 
 class DvmhRegionInsertor {
