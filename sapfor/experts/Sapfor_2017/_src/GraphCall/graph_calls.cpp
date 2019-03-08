@@ -100,6 +100,10 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
                 currParams->parametersT[i] = SCALAR_CHAR_T;
             else if (type->equivalentToType(SgTypeBool()))
                 currParams->parametersT[i] = SCALAR_BOOL_T;
+            else if (type->equivalentToType(new SgType(T_COMPLEX)))
+                currParams->parametersT[i] = SCALAR_CMPLX_FLOAT_T;
+            else if (type->equivalentToType(new SgType(T_DCOMPLEX)))
+                currParams->parametersT[i] = SCALAR_CMPLX_DOUBLE_T;
             else
                 currParams->parametersT[i] = UNKNOWN_T;
         }
