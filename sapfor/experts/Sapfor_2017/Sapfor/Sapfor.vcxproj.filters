@@ -504,6 +504,9 @@
     <ClCompile Include="..\_src\GraphCall\graph_calls_base.cpp">
       <Filter>Файлы исходного кода\GraphCall</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\DynamicAnalysis\createParallelRegions.cpp">
+      <Filter>Файлы исходного кода</Filter>
+    </ClCompile>
     <ClCompile Include="..\_src\LoopAnalyzer\directive_creator_base.cpp">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
     </ClCompile>
@@ -1015,6 +1018,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\Predictor\PredictorModel.h">
       <Filter>Файлы исходного кода\Predictor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\DynamicAnalysis\createParallelRegions.h">
+      <Filter>Заголовочные файлы</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\LoopAnalyzer\directive_creator.h">
       <Filter>Файлы исходного кода\LoopAnalyzer</Filter>
