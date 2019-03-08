@@ -1556,6 +1556,37 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
         }
     }
 
+    // creating new common-blocks for main program unit
+    for (auto &funcPair : funcMap)
+    {
+        auto func = funcPair.second;
+        if (func->isMain)
+        {
+            if (SgFile::switchToFile(func->fileName) != -1)
+            {
+                auto it = insertedCommonBlocks.find(func);
+                if (it == insertedCommonBlocks.end())
+                    it = insertedCommonBlocks.insert(it, make_pair(func, set<DIST::Array*>()));
+
+                for (auto &arrayBlock : allUsedCommonArrays)
+                {
+                    auto varsOnPos = getArraySynonyms(arrayBlock.first);
+                    auto itt = it->second.find(arrayBlock.first);
+                    // insert only one of all array synonyms
+                    if (itt == it->second.end() && arrayBlock.first->GetShortName() == varsOnPos[0]->getName())
+                    {
+                        // need to insert common-block
+                        insertCommonBlock(func, arrayBlock.first);
+                        it->second.insert(arrayBlock.first);
+                    }
+                }
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            break;
+        }
+    }
+
     __spf_print(1, "create functions\n"); // DEBUG
 
     // creating new functions

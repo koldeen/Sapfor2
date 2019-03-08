@@ -968,6 +968,14 @@ int SPF_RemoveDvmDirectivesToComments(int winHandler, int *options, short *projN
     return simpleTransformPass(REMOVE_DVM_DIRS_TO_COMMENTS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_RemoveDvmIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output, 
+                           int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(REMOVE_DVM_INTERVALS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 extern set<string> filesToInclude;
 int SPF_InsertIncludesPass(int winHandler, int *options, short *projName, short *folderName, char *filesToInclude, 
                            short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)

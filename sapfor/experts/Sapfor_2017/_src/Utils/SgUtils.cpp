@@ -651,7 +651,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
                 start->variant() == ALLOCATABLE_STMT ||
                 start->variant() == DIM_STAT || 
                 start->variant() == COMM_STAT || 
-                start->variant() == HPF_TEMPLATE_STAT)
+                start->variant() == HPF_TEMPLATE_STAT || 
+                start->variant() == DVM_VAR_DECL)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -713,6 +714,10 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
 
         for (int i = 0; i < inDecl.size(); ++i)
             if (inDecl[i]->variant() == HPF_TEMPLATE_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == DVM_VAR_DECL)
                 return inDecl[i];
 
         for (int i = 0; i < inDecl.size(); ++i)
@@ -1076,7 +1081,8 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
-    functionAnalyzer(file, curFileFuncInfo);
+    vector<LoopGraph*> tmpL;
+    functionAnalyzer(file, curFileFuncInfo, tmpL);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);

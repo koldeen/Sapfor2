@@ -179,6 +179,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     var == DVM_REMOTE_ACCESS_DIR ||
                     var == DVM_SHADOW_DIR ||
                     var == DVM_INHERIT_DIR ||
+                    var == DVM_DYNAMIC_DIR ||
                     (var == USE_STMT && st->lineNumber() < 0))
                 {
                     toDel.push_back(st);
@@ -908,7 +909,9 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         set<string> &dynamicArraysAdded = dynamicArraysByFile[fin_name][modName];
         set<string> &alignArrays = alignArraysByFile[fin_name][modName];
 
-        pair<SgStatement*, SgStatement*> inheritDir; // PAIR<dir, insertBefore>
+        // PAIR<dir, insertBefore>
+        pair<SgStatement*, SgStatement*> inheritDir = make_pair((SgStatement*)NULL, (SgStatement*)NULL);
+
         while (st != lastNode)
         {
             if (st == NULL)
@@ -1197,12 +1200,12 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         if (inheritDir.second)
         {
             if (extractDir == false)
-                inheritDir.second->insertStmtBefore(*inheritDir.first, *inheritDir.second->controlParent());
-            else
             {
-                SgStatement *toDel = inheritDir.second->lexPrev();
-                if (isDVM_stat(toDel))
-                    toDel->deleteStmt();
+                inheritDir.second->insertStmtBefore(*inheritDir.first, *inheritDir.second->controlParent());
+
+                SgStatement *dynamicDir = new SgStatement(DVM_DYNAMIC_DIR);
+                dynamicDir->setExpression(0, inheritDir.first->expr(0)->copy());
+                inheritDir.second->insertStmtBefore(*dynamicDir, *inheritDir.second->controlParent());
             }
         }
     }

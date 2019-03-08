@@ -382,7 +382,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = allFuncInfo.find(file_name);
             if (it == allFuncInfo.end())
-                functionAnalyzer(file, allFuncInfo);
+                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
@@ -627,6 +627,22 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             doDependenceAnalysisOnTheFullFile(file, 1, 1, 1);
         else if (curr_regime == REMOVE_DVM_DIRS || curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
             removeDvmDirectives(file, curr_regime  == REMOVE_DVM_DIRS_TO_COMMENTS);
+        else if (curr_regime == REMOVE_DVM_INTERVALS)
+        {
+            vector<SgStatement*> toDel;
+            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            {
+                if (st->variant() == DVM_INTERVAL_DIR)
+                    toDel.push_back(st);
+                else if (st->variant() == DVM_ENDINTERVAL_DIR)
+                    toDel.push_back(st);
+                else if (st->variant() == DVM_EXIT_INTERVAL_DIR)
+                    toDel.push_back(st);
+            }
+            //TODO: move comments
+            for (auto &elem : toDel)
+                elem->deleteStmt();
+        }
         else if (curr_regime == SUBST_EXPR)
         {
             expressionAnalyzer(file, defUseByFunctions, commonBlocks, temporaryAllFuncInfo, subs_parallelRegions);
@@ -712,7 +728,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = subs_allFuncInfo.find(file_name);
             if (it == subs_allFuncInfo.end())
-                functionAnalyzer(file, subs_allFuncInfo, true);
+            {
+                vector<LoopGraph*> tmp;
+                functionAnalyzer(file, subs_allFuncInfo, tmp, true);
+            }
 
             fillRegionLines(file, subs_parallelRegions);
         }
@@ -1268,6 +1287,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
 
+        for (int z = 0; z < parallelRegions.size(); ++z)        
+            filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
+        propagateArrayFlags(arrayLinksByFuncCalls);
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
@@ -1382,8 +1404,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     allSingleRemotes.insert(allSingleRemotes.end(), fountRem.begin(), fountRem.end());
                 }
                 int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);
-                if (err != 0)
-                    internalExit = err;
+                /*if (err != 0)
+                    internalExit = err;*/
             }
 
             vector<SpfInterval*> tmp = { mainIterval };
@@ -1649,6 +1671,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PRIVATE_ARRAYS_BREEDING:
     case LOOPS_SPLITTER:
     case INSERT_INTER_TREE:
+    case REMOVE_DVM_INTERVALS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:

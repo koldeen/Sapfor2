@@ -1080,83 +1080,89 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
         for (int i = 0; i < rootProcCount; ++i)
             procElapsedTime[i] = 0.0;
 
-        for (auto &elem : distVar)
-        {
-            DIST::Array *array = elem.first;
-            const DistrVariant *var = elem.second;
-            auto sizes = array->GetSizes();
-            int countBlock = 0;
-            for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
-            {
-                if (var->distRule[z] == dist::BLOCK)
-                {
-                    MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
-                    dim++;
-                }
-            }
-        }
-
-        for (auto &var : distVar)
-            Model_distr(var.first, var.second);
-        for (auto &array : allArrays)
-            if (!array->isTemplate() && !array->isLoopArray())
-                Model_align(array, reg->GetId());
-
         for (auto &dir : dirsToPredict)
         {
             if (dir.first->executionTimeInSec == -1.0)
             {
                 addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
-                continue;
                 errCode = -1;
+                continue;                
             }
 
             auto itByFile = mapOfIntervals.find(dir.first->fileName);
             if (itByFile == mapOfIntervals.end())
             {
                 addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
-                continue;
                 errCode = -1;
+                continue;                
             }
             auto itInterval = itByFile->second.find(dir.first->lineNum);
             if (itInterval == itByFile->second.end())
             {
                 addTimeMessage(messagesByFile, dir.first->fileName, dir.first->lineNum);
-                continue;
                 errCode = -1;
+                continue;                
             }
-            else
+            //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());            
+        }
+
+        if (errCode != -1)
+        {
+            for (auto &elem : distVar)
             {
+                DIST::Array *array = elem.first;
+                const DistrVariant *var = elem.second;
+                auto sizes = array->GetSizes();
+                int countBlock = 0;
+                for (int z = 0, dim = 0; z < var->distRule.size(); ++z)
+                {
+                    if (var->distRule[z] == dist::BLOCK)
+                    {
+                        MinSizesOfAM[dim] = std::max(MinSizesOfAM[dim], (long)(sizes[z].second - sizes[z].first + 1));
+                        dim++;
+                    }
+                }
+            }
+
+            for (auto &var : distVar)
+                Model_distr(var.first, var.second);
+            for (auto &array : allArrays)
+                if (!array->isTemplate() && !array->isLoopArray())
+                    Model_align(array, reg->GetId());
+
+            for (auto &dir : dirsToPredict)
+            {
+                auto itByFile = mapOfIntervals.find(dir.first->fileName);
+                auto itInterval = itByFile->second.find(dir.first->lineNum);                
                 CurrInterval = new Interval(0);
                 Model_par(dir.first, dir.second, allArrays);
                 CurrInterval->CalcIdleAndImbalance();
                 CurrInterval->Integrate();
 
                 itInterval->second->predictedTimes[topIdx] = CurrInterval->GetExecTime() * itInterval->second->exec_count;
-                delete CurrInterval;
+                delete CurrInterval;                
+                //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());            
             }
-            //printf("loop %d exec time = %f\n", dir.first->lineNum, CurrInterval->GetExecTime());            
+
+            for (auto &singleRem : allSingleRemotes)
+            {
+                pair<string, int> place = get<2>(singleRem);
+                DIST::Array *array = get<0>(singleRem);
+                auto coords = get<1>(singleRem);
+
+                auto itFile = intervalsBySt.find(place.first);
+                if (itFile == intervalsBySt.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                auto nearestInt = findNearestDown(itFile->second, SgStatement::getStatementByFileAndLine(place.first, place.second));
+
+                CurrInterval = new Interval(0);
+                auto tmpPair = make_pair(array, coords);
+                double singleRemTime = Model_Single_Rem(tmpPair);
+                delete CurrInterval;
+
+                nearestInt->predictedRemoteTimes[topIdx] = singleRemTime * nearestInt->exec_count;
+            }
         }
-
-        for (auto &singleRem : allSingleRemotes)
-        {
-            pair<string, int> place = get<2>(singleRem);
-            DIST::Array *array = get<0>(singleRem);
-            auto coords = get<1>(singleRem);
-
-            auto itFile = intervalsBySt.find(place.first);
-            if (itFile == intervalsBySt.end())
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            auto nearestInt = findNearestDown(itFile->second, SgStatement::getStatementByFileAndLine(place.first, place.second));
-
-            CurrInterval = new Interval(0);
-            auto tmpPair = make_pair(array, coords);
-            double singleRemTime = Model_Single_Rem(tmpPair);
-            delete CurrInterval;
-
-            nearestInt->predictedRemoteTimes[topIdx] = singleRemTime * nearestInt->exec_count;
-        }
-
         delete rootVM;
         delete ps;
 

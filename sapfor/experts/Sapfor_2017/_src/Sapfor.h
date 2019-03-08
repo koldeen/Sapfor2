@@ -66,6 +66,7 @@ enum passes {
     INSERT_INCLUDES,
     REMOVE_DVM_DIRS,
     REMOVE_DVM_DIRS_TO_COMMENTS,
+    REMOVE_DVM_INTERVALS,
     VERIFY_DVM_DIRS,
 
     SUBST_EXPR,
@@ -211,6 +212,7 @@ static void setPassValues()
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";
     passNames[CALCULATE_STATS_SCHEME] = "CALCULATE_STATS_SCHEME";
+    passNames[REMOVE_DVM_INTERVALS] = "REMOVE_DVM_INTERVALS";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);
