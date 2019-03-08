@@ -11,7 +11,6 @@
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
-#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
 
 #include "../GraphCall/graph_calls_func.h"
@@ -425,24 +424,6 @@ void restoreCorrectedModuleProcNames(SgFile *file)
             }
         }
     }
-}
-
-template<typename objT>
-static objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
-{
-    auto it = mapObject.find(fileName);
-    if (it == mapObject.end())
-        it = mapObject.insert(it, make_pair(fileName, objT()));
-    return it->second;
-}
-
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
 }
 
 bool checkArgumentsDeclaration(SgProject *project,
