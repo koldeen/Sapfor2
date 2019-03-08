@@ -739,7 +739,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, file_name, getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
+            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
         else if (curr_regime == CREATE_PARALLEL_REGIONS)
             createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)

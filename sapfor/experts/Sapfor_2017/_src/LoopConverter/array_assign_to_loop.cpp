@@ -785,11 +785,11 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
                     st->insertStmtBefore(*(conv[0]), *st->controlParent());
                     for (int i = 1; i < conv.size(); ++i)
-                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1])->controlParent());                    
+                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1])->controlParent());
 
                     //TODO: need to check
                     if (conv.size() == 1)
-                        toMove.push_back(make_pair(st, conv[0]));                    
+                        toMove.push_back(make_pair(st, conv[0]));
 
                     for (int i = 0; i < conv.size(); ++i)
                     {
