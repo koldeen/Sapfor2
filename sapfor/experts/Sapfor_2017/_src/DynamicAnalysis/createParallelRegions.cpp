@@ -47,7 +47,7 @@ void performFuncTime(SgFile *file, std::map<std::string, std::vector<FuncInfo*>>
         if (countFunc.find(str.first) != countFunc.end())
             countFunc[str.first] += count;
         else
-            countFunc.insert_or_assign(str.first, count);
+            countFunc[str.first] = count;
     }
 }
 
