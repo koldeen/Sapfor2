@@ -13,12 +13,12 @@
 #include "dvm.h"
 #include "../Sapfor.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../GraphCall/graph_calls_func.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
 #include "../Utils/SgUtils.h"
 #include "../Utils/errors.h"
 #include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
-#include "../GraphLoop/graph_loops_func.h"
 
 using std::string;
 using std::vector;
@@ -804,9 +804,9 @@ static bool checkParallelRegions(SgStatement *st,
                 retVal = false;
             }
 
-            // check region entries
-            if (retVal)
-                retVal = checkRegionEntries(st, iterator, messagesForFile);
+            // check region entries moved to FILL_PAR_REGIONS pass
+            //if (retVal)
+            //    retVal = checkRegionEntries(st, iterator, messagesForFile);
         }
         else
         {
