@@ -911,8 +911,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (parallelRegions[z]->GetId() == 0) // DEFAULT
                 {
-                    wchar_t buf[256];
-                    swprintf(buf, L"Can not find arrays or free loops for distribution in this project");
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this project");
 
                     for (auto &funcByFile : allFuncInfo)
                     {
@@ -921,21 +921,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             auto stat = func->funcPointer->GetOriginal();
                             if (stat->variant() == PROG_HEDR)
-                                fileM.push_back(Messages(ERROR, stat->lineNumber(), buf, 3010));
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufw, 3010));
                         }
                     }
                 }
                 else
                 {
-                    wchar_t buf[256];
-                    swprintf(buf, L"Can not find arrays or free loops for distribution in this region");
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this region");
 
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
                         for (auto &lines : linesByFile.second)
                             if (!lines.isImplicit())
-                                fileM.push_back(Messages(ERROR, lines.lines.first, buf, 3010));
+                                fileM.push_back(Messages(ERROR, lines.lines.first, bufw, 3010));
                     }
                 }
                 idxToDel.insert(z);

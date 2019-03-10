@@ -874,12 +874,12 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
     if (countInCall != countInDef)
     {
-        wchar_t buf[256];
-        swprintf(buf, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
+        std::wstring bufw;
+        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
 
         if (needToAddErrors)
         {
-            messages.push_back(Messages(NOTE, line, buf, 1013));
+            messages.push_back(Messages(NOTE, line, bufw, 1013));
             __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
         }
         result = false;
@@ -897,12 +897,12 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                 proj->file(numFileForDef);
                 if (callType->equivalentToType(defParam->type()) == false)
                 {
-                    wchar_t buf[256];
-                    swprintf(buf, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
 
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, buf, 1013));
+                        messages.push_back(Messages(NOTE, line, bufw, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
                     }
                     result = false;
@@ -916,12 +916,12 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
                 if (callArrayRef->numberOfSubscripts() > 0)
                 {
-                    wchar_t buf[256];
-                    swprintf(buf, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
 
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, buf, 1013));
+                        messages.push_back(Messages(NOTE, line, bufw, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
@@ -1012,20 +1012,20 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 {
                                     if (loop)
                                     {
-                                        wchar_t buf[256];
-                                        swprintf(buf, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
-                                                 to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
+                                        std::wstring bufw;
+                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
 
-                                        messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
                                     else
                                     {
-                                        wchar_t buf[256];
-                                        swprintf(buf, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
-                                                 to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
+                                        std::wstring bufw;
+                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
 
-                                        messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
                                 }
@@ -1056,15 +1056,15 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     inFunction->DeprecateAllDims();
                                     inFunction->SetNonDistributeFlag(DIST::NO_DISTR);
 
-                                    wchar_t buf[256];
+                                    std::wstring bufw;
                                     if (inFunction->GetDimSize() == 1)
-                                        swprintf(buf, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
-                                                 to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+                                        __spf_printToLongBuf(bufw, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
+                                                             to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
                                     else
-                                        swprintf(buf, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
-                                                 inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+                                        __spf_printToLongBuf(bufw, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
+                                                             inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
 
-                                    messages.push_back(Messages(NOTE, statLine, buf, 1040));
+                                    messages.push_back(Messages(NOTE, statLine, bufw, 1040));
                                 }
                             }
                         }
@@ -1081,11 +1081,11 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray->GetDimSize() != inFunction->GetDimSize() && 
                                     !(inFunction->GetNonDistributeFlag() && !mainArray->GetNonDistributeFlag()))
                                 {
-                                    wchar_t buf[256];
-                                    swprintf(buf, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
+                                    std::wstring bufw;
+                                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
                                              to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
 
-                                    messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                    messages.push_back(Messages(ERROR, statLine, bufw, 1013));
                                     __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'\n", 
                                                     func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
                                     ret = true;
@@ -1093,11 +1093,11 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                             }
                             else
                             {
-                                wchar_t buf[256];
-                                swprintf(buf, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
-                                         to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
+                                std::wstring bufw;
+                                __spf_printToLongBuf(bufw, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
+                                                     to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
 
-                                messages.push_back(Messages(ERROR, statLine, buf, 1013));
+                                messages.push_back(Messages(ERROR, statLine, bufw, 1013));
                                 __spf_print(1, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
                                 ret = true;
                             }
@@ -1177,12 +1177,12 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
 
         if (idx != -1)
         {
-            wchar_t buf[256];
-            swprintf(buf, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
-                          to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
+                                 to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
             if (needToAddErrors)
             {
-                messages.push_back(Messages(ERROR, funcOnLine, buf, 1013));
+                messages.push_back(Messages(ERROR, funcOnLine, bufw, 1013));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array inside this call, in parameter num %d\n", 
                                 func->funcName.c_str(), loop->lineNumber(), idx);
             }
@@ -1556,9 +1556,9 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
                 const string &chain = printChainRec(currentChainCalls);
                 __spf_print(1, "For function on line %d found recursive chain calls: %s\n", currentChainCalls[0]->linesNum.first, chain.c_str());
 
-                wchar_t buf[512];
-                swprintf(buf, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
-                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, buf, 1014));
+                std::wstring bufw;
+                __spf_printToLongBuf(bufw, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
+                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufw, 1014));
                 break;
             }
         }

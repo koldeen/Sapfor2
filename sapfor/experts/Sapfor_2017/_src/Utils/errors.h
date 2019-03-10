@@ -170,6 +170,7 @@ static void printStackTrace() { };
    } \
 } while (0)
 
+#ifdef _WIN32
 #define allocAndPrintLong(buf, format, ...) do { \
    const int bufLen = 32 * 1024 * 1024;\
    buf = new wchar_t[bufLen];\
@@ -180,6 +181,18 @@ static void printStackTrace() { };
         printInternalError(__FILE__, __LINE__);\
    } \
 } while (0)
+#else
+#define allocAndPrintLong(buf, format, ...) do { \
+   const int bufLen = 32 * 1024 * 1024;\
+   buf = new wchar_t[bufLen];\
+   const int countW = swprintf(buf, bufLen, format, ##__VA_ARGS__);\
+   if (countW + 1 > bufLen) \
+   { \
+        delete []buf; \
+        printInternalError(__FILE__, __LINE__);\
+   } \
+} while (0)
+#endif
 
 #define __spf_printToBuf(outval, format, ...) do {\
     char *buf = NULL; \
