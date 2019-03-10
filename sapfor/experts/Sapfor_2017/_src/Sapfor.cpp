@@ -36,6 +36,7 @@
 #include "GraphCall/graph_calls_func.h"
 #include "GraphLoop/graph_loops_func.h"
 #include "DynamicAnalysis/gCov_parser_func.h"
+#include "DynamicAnalysis/createParallelRegions.h"
 
 #include "DirectiveAnalyzer/DirectiveAnalyzer.h"
 #include "VerificationCode/verifications.h"
@@ -739,6 +740,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
             parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
+        else if (curr_regime == CREATE_PARALLEL_REGIONS)
+            createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             set<SgSymbol*> tmp;

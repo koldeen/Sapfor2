@@ -141,15 +141,6 @@ static void insertStringDeclarations(SgStatement *insertPlace, DIST::Array *arra
     }
 }
 
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
-}
-
 static void createSetOfCalledFuncs(const string &funcName, const map<string, FuncInfo*> &funcMap, set<FuncInfo*> &callSet)
 {
     set<string> queue;
