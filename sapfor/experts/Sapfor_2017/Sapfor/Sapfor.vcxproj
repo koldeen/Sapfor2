@@ -309,6 +309,7 @@
     <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
+    <ClCompile Include="..\_src\ParallelizationRegions\extend_decrease_reg.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp" />
     <ClCompile Include="..\_src\Predictor\Lib\adler32.c" />
@@ -517,6 +518,7 @@
     <ClInclude Include="..\_src\LoopConverter\loops_splitter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />
+    <ClInclude Include="..\_src\ParallelizationRegions\extend_decrease_reg.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />

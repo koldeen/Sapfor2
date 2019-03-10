@@ -510,6 +510,9 @@
     <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInserter.cpp">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\ParallelizationRegions\extend_decrease_reg.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1021,6 +1024,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInserter.h">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\ParallelizationRegions\extend_decrease_reg.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
