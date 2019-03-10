@@ -8,8 +8,6 @@
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
 
-#include "../Utils/SgUtils.h"
-#include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 
