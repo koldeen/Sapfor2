@@ -91,29 +91,29 @@ public:
     void addConflictMessages(std::vector<Messages> *messages)
     {
         if (hasUnknownArrayDep)
-            messages->push_back(Messages(NOTE, lineNum, "unknown array dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"unknown array dependency prevents parallelization of this loop", 3006));
         if (hasUnknownScalarDep)
-            messages->push_back(Messages(NOTE, lineNum, "unknown scalar dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"unknown scalar dependency prevents parallelization of this loop", 3006));
         if (hasGoto)
-            messages->push_back(Messages(NOTE, lineNum, "internal/external goto operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"internal/external goto operations prevent parallelization of this loop", 3006));
         if (hasPrints)
-            messages->push_back(Messages(NOTE, lineNum, "IO operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"IO operations prevent parallelization of this loop", 3006));
         if (hasStops)
-            messages->push_back(Messages(NOTE, lineNum, "stop operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"stop operations prevent parallelization of this loop", 3006));
         if (hasConflicts.size() != 0)
-            messages->push_back(Messages(NOTE, lineNum, "conflict writes operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"conflict writes operations prevent parallelization of this loop", 3006));
         if (hasUnknownArrayAssigns)
-            messages->push_back(Messages(NOTE, lineNum, "unknown array reference for writes prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"unknown array reference for writes prevent parallelization of this loop", 3006));
         if (hasNonRectangularBounds)
-            messages->push_back(Messages(NOTE, lineNum, "non rectangular bounds prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"non rectangular bounds prevent parallelization of this loop", 3006));
         if (hasIndirectAccess)
-            messages->push_back(Messages(NOTE, lineNum, "indirect access by distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"indirect access by distributed array prevents parallelization of this loop", 3006));
         if (hasWritesToNonDistribute)
-            messages->push_back(Messages(NOTE, lineNum, "writes to non distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"writes to non distributed array prevents parallelization of this loop", 3006));
         if (hasDifferentAlignRules)
-            messages->push_back(Messages(NOTE, lineNum, "different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"different aligns between writes to distributed array prevents parallelization of this loop", 3006));
         if (hasNonPureProcedures)
-            messages->push_back(Messages(NOTE, lineNum, "non pure procedures prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, L"non pure procedures prevent parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)

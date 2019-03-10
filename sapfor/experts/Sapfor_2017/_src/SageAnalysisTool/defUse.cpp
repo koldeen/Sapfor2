@@ -111,8 +111,8 @@ static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpr
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != call->numberOfArgs())
                 {
-                    char buf[256];
-                    sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                    wchar_t buf[256];
+                    swprintf(buf, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
                     messagesForFile.push_back(Messages(ERROR, currLine, buf, 1046));
                     throw -991;
                 }
@@ -245,8 +245,8 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     currInfo = it->second;
                     if (currInfo->funcParams.countOfPars != fc->numberOfArgs())
                     {
-                        char buf[256];
-                        sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                        wchar_t buf[256];
+                        swprintf(buf, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
                         messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), buf, 1046));
                         throw -991;
                     }
@@ -490,8 +490,8 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != callStat->numberOfArgs())
                 {
-                    char buf[256];
-                    sprintf(buf, "Count of formal and actual parameters are not equal for function call '%s'", currInfo->funcName.c_str());
+                    wchar_t buf[256];
+                    swprintf(buf, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
                     messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), buf, 1046));
                     throw -991;
                 }

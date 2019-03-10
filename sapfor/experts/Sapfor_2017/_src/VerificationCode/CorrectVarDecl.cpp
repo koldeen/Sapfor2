@@ -17,6 +17,7 @@
 
 using std::vector;
 using std::string;
+using std::wstring;
 using std::map;
 using std::pair;
 using std::set;
@@ -466,8 +467,8 @@ bool checkArgumentsDeclaration(SgProject *project,
 
                                 __spf_print(1, "function's argument '%s' does not have declaration statement on line %d\n", symb->identifier(), st->lineNumber());
 
-                                string message;
-                                __spf_printToBuf(message, "function's argument '%s' does not have declaration statement", symb->identifier());
+                                wstring message;
+                                __spf_printToLongBuf(message, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
 
                                 if (func->isInRegion())
                                 {

@@ -217,7 +217,7 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
        
     if(directLoops != parentGraph->children.size())
     {
-        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
+        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"This loop has indirect child loops and can not be splitted", 2010));
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
     }
@@ -249,10 +249,12 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
                 {
                     idxOfMessages++;
                     string str;
-
                     __spf_printToBuf(str, "Can not split this loop because of dependecy: %s", node->displayDepToStr().c_str());
-                    messages.push_back(Messages(WARR, parentGraph->lineNum, str, 2009));
                     __spf_print(1, "%s on line %d\n", str.c_str(), parentGraph->lineNum);
+
+                    std::wstring strw;
+                    __spf_printToLongBuf(strw, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
+                    messages.push_back(Messages(WARR, parentGraph->lineNum, strw, 2009));                    
                 }
             }
         }
@@ -278,7 +280,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (lowestParentGraph->hasLimitsToSplit())
     {
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
-                            "This loop has limits to parallel (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")",
+                            L"This loop has limits to parallel (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             2010));
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
@@ -288,7 +290,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
         messages.push_back(Messages(ERROR, loopGraph->lineNum, 
-                           "This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")", 
+                           L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
                            2010));
         __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;

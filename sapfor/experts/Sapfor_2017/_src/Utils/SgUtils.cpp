@@ -682,8 +682,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             if (itM == SPF_messages.end())
                 itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-            char buf[256];
-            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
+            wchar_t buf[256];
+            swprintf(buf, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
             itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }

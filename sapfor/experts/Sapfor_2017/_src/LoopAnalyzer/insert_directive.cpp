@@ -25,6 +25,7 @@
 #include "../Sapfor.h"
 
 using std::string;
+using std::wstring;
 using std::vector;
 using std::map;
 using std::set;
@@ -133,10 +134,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
 
             if (st == NULL)
             {
-                string message;
-                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
-
+                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -916,10 +914,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         {
             if (st == NULL)
             {
-                string message;
-                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
-
+                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1238,10 +1233,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
         {
             if (st == NULL)
             {
-                string message;
-                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                messagesForFile.push_back(Messages(ERROR, 1, message, 3008));
-
+                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }

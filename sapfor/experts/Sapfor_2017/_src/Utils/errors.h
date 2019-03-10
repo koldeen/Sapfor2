@@ -98,7 +98,7 @@ struct Messages
 {
 public:
     //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
-    explicit Messages(const typeMessage type, const int line, const std::string &value_, const int group) : type(type), line(line), group(group)
+    explicit Messages(const typeMessage type, const int line, const std::wstring &value_, const int group) : type(type), line(line), group(group)
     {
         value = value_;
         //check for \n at the end
@@ -106,13 +106,13 @@ public:
             value.erase(value.begin() + value.size() - 1);
     }        
 
-    std::string toString()
+    std::wstring toString()
     {
-        std::string retVal = "|";
-        retVal += std::to_string((int)type) + " ";
-        retVal += std::to_string(line) + " ";
-        retVal += std::to_string(group);
-        retVal += "|" + value;
+        std::wstring retVal = L"|";
+        retVal += std::to_wstring((int)type) + L" ";
+        retVal += std::to_wstring(line) + L" ";
+        retVal += std::to_wstring(group);
+        retVal += L"|" + value;
         return retVal; 
     }
 
@@ -120,7 +120,7 @@ public:
     typeMessage type;
     int group;
     int line;
-    std::string value;
+    std::wstring value;
 };
 
 // from Utils.cpp
@@ -170,10 +170,28 @@ static void printStackTrace() { };
    } \
 } while (0)
 
+#define allocAndPrintLong(buf, format, ...) do { \
+   const int bufLen = 32 * 1024 * 1024;\
+   buf = new wchar_t[bufLen];\
+   const int countW = swprintf(buf, format, ##__VA_ARGS__);\
+   if (countW + 1 > bufLen) \
+   { \
+        delete []buf; \
+        printInternalError(__FILE__, __LINE__);\
+   } \
+} while (0)
+
 #define __spf_printToBuf(outval, format, ...) do {\
     char *buf = NULL; \
     allocAndPrint(buf, format, ##__VA_ARGS__); \
     outval = std::string(buf);\
+    delete []buf;\
+} while (0)
+
+#define __spf_printToLongBuf(outval, format, ...) do {\
+    wchar_t *buf = NULL; \
+    allocAndPrintLong(buf, format, ##__VA_ARGS__); \
+    outval = std::wstring(buf);\
     delete []buf;\
 } while (0)
 

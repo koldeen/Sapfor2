@@ -639,9 +639,9 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                 if (!statusOk)
                                 {
-                                    char buf[256];
-                                    sprintf(buf, "arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
-                                        array1->GetShortName().c_str(), array2->GetShortName().c_str());
+                                    wchar_t buf[256];
+                                    swprintf(buf, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
+                                             to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
                                     messages.push_back(Messages(WARR, loopInfo.first->lineNum, buf, 4011));
                                     sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
                                     break;

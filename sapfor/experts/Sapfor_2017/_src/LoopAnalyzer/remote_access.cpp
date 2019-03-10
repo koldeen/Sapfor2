@@ -482,8 +482,8 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
             string remoteExp(expr->unparse());
             __spf_print(1, "WARN: added remote access for array ref '%s' on line %d can significantly reduce performance\n", remoteExp.c_str(), line);
 
-            char buf[512];
-            sprintf(buf, "Added remote access for array ref '%s' can significantly reduce performance", remoteExp.c_str());
+            wchar_t buf[512];
+            swprintf(buf, L"Added remote access for array ref '%s' can significantly reduce performance", to_wstring(remoteExp).c_str());
             messages.push_back(Messages(WARR, line, buf, 3009));
         }
     }

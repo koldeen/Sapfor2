@@ -36,6 +36,7 @@ using std::vector;
 using std::map;
 using std::set;
 using std::string;
+using std::wstring;
 using std::pair;
 
 #define DEBUG 0
@@ -260,8 +261,8 @@ bool checkRegionEntries(SgStatement *begin,
     {
         __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO on line %d\n", regIdent->identifier(), begin->lineNumber());
 
-        string message;
-        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", regIdent->identifier());
+        wstring message;
+        __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
         getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
@@ -280,8 +281,8 @@ bool checkRegionEntries(SgStatement *begin,
             {
                 __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
 
-                string message;
-                __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", reg->GetName().c_str());
+                wstring message;
+                __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
                 getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
 
                 noError = false;
@@ -571,7 +572,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Can not find execution time in statistic", 3016));                
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Can not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 
