@@ -1,5 +1,5 @@
 #include "ParRegions_func.h"
-#include "extend_decrease_reg.h"
+#include "expand_extract_reg.h"
 
 using std::map;
 using std::pair;
@@ -43,13 +43,13 @@ static inline void removeSt(SgStatement *st)
     }
 }
 
-bool extendDecreaseReg(const string &fileName,
-                       const int startLine,
-                       const int endLine,
-                       const string &regName,
-                       const vector<ParallelRegion*> &regions,
-                       vector<Messages> &messagesForFile,
-                       const bool toDelete)
+bool expandExtractReg(const string &fileName,
+                      const int startLine,
+                      const int endLine,
+                      const string &regName,
+                      const vector<ParallelRegion*> &regions,
+                      vector<Messages> &messagesForFile,
+                      const bool toDelete)
 {
     bool error = false;
 
