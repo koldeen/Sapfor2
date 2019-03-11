@@ -31,18 +31,6 @@ static inline void insertParRegDirs(SgStatement *start, SgStatement *end, const 
     insertEndParReg(end);
 }
 
-static inline void removeSt(SgStatement *st)
-{
-    if (st)
-    {
-        SgStatement *prev = st->lexPrev();
-        SgStatement *next = st->lexNext();
-
-        if (prev)
-            prev->setLexNext(*next);
-    }
-}
-
 bool expandExtractReg(const string &fileName,
                       const int startLine,
                       const int endLine,
@@ -99,10 +87,10 @@ bool expandExtractReg(const string &fileName,
             {
                 if (!lines.isImplicit())
                 {
-                    if (startLine > lines.lines.first && startLine < lines.lines.second)
+                    if (startLine >= lines.lines.first && startLine <= lines.lines.second)
                         beginLines = &lines;
 
-                    if (endLine > lines.lines.first && endLine < lines.lines.second)
+                    if (endLine >= lines.lines.first && endLine <= lines.lines.second)
                         endLines = &lines;
 
                     if (startLine < lines.lines.first && endLine > lines.lines.second)
@@ -112,8 +100,8 @@ bool expandExtractReg(const string &fileName,
 
             for (auto &intLines : internalLines)
             {
-                removeSt(intLines->stats.first->lexPrev());
-                removeSt(intLines->stats.first->lexNext());
+                intLines->stats.first->lexPrev()->deleteStmt();
+                intLines->stats.second->lexNext()->deleteStmt();
             }
 
             bool localError = false;
@@ -121,12 +109,12 @@ bool expandExtractReg(const string &fileName,
 
             if (!toDelete)
             {
-                if (!beginLines)
+                if (beginLines && !endLines)
                 {
                     if (end->controlParent() == beginLines->stats.first->controlParent())
                     {
                         insertEndParReg(end);
-                        removeSt(beginLines->stats.second->lexNext());
+                        beginLines->stats.second->lexNext()->deleteStmt();
                     }
                     else
                     {
@@ -134,13 +122,12 @@ bool expandExtractReg(const string &fileName,
                         localError = true;
                     }
                 }
-
-                if (!endLines)
+                else if (endLines && !beginLines)
                 {
                     if (begin->controlParent() == endLines->stats.first->controlParent())
                     {
                         insertParRegDir(begin, regName);
-                        removeSt(endLines->stats.first->lexPrev());
+                        endLines->stats.first->lexPrev()->deleteStmt();
                     }
                     else
                     {
@@ -148,15 +135,17 @@ bool expandExtractReg(const string &fileName,
                         localError = true;
                     }
                 }
+                else if (!beginLines && !endLines)
+                    insertParRegDirs(begin, end, regName);
             }
             else
             {
-                if (!beginLines)
+                if (beginLines)
                 {
                     if (begin->controlParent() == beginLines->stats.first->controlParent())
                     {
                         insertEndParReg(begin->lexPrev());
-                        removeSt(beginLines->stats.second->lexNext());
+                        beginLines->stats.second->lexNext()->deleteStmt();
                     }
                     else
                     {
@@ -165,12 +154,12 @@ bool expandExtractReg(const string &fileName,
                     }
                 }
 
-                if (!endLines)
+                if (endLines)
                 {
                     if (end->controlParent() == endLines->stats.first->controlParent())
                     {
                         insertParRegDir(end, regName);
-                        removeSt(endLines->stats.first->lexPrev());
+                        endLines->stats.first->lexPrev()->deleteStmt();
                     }
                     else
                     {

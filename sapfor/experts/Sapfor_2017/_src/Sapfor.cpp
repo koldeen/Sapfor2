@@ -1219,11 +1219,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == EXPAND_EXTRACT_PAR_REGION)
     {
-        /*
-        bool error = extendDecreaseReg(current_file->filename, );
+        bool error;
+        error = expandExtractReg(current_file->filename(), 28, 30, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 34, 37, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 32, 42, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 32, 34, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 34, 42, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         if (error)
             internalExit = 1;
-        */
     }
     else if (curr_regime == LOOP_GRAPH)
     {
