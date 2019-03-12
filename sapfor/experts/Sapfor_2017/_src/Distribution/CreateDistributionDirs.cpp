@@ -111,7 +111,6 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         set<int> wasDone;
         reducedG.FindLinkWithMaxDim(vert, allArrays, result, wasDone);
 
-
         if ((distArray->IsDimMapped(i) || distArray->isLoopArray()) && !distArray->IsDimDepracated(i))
         {
             AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
@@ -405,54 +404,75 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
             distArrays.insert(dataDirectives.distrRules[i].first);
     }
 
-    set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
-
-    for (auto &array : arrays)
-    {        
-        if (distArrays.find((array)) == distArrays.end())
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
-
-            vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> rules(realArrayRefs.size());
-
-            int i = 0;
-            bool allNonDistr = true;
-            bool partlyNonDistr = false;
-            for (auto &arrays : realArrayRefs)
-            {
-                reducedG.GetAlignRuleWithTemplate(arrays, allArrays, rules[i], regionId);
-                bool nonDistr = arrays->GetNonDistributeFlag();
-                allNonDistr = allNonDistr && nonDistr;
-                partlyNonDistr = partlyNonDistr || nonDistr;
-                ++i;
-            }
-
-            if (allNonDistr)
-                continue;
-            if (partlyNonDistr)
-            {
-                __spf_print(1, "detected distributed and non distributed array links by function's calls for array %s\n", array->GetName().c_str());
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            }
-
-            if (isAllRulesEqual(rules))
-                createNewAlignRule(array, allArrays, rules[0], dataDirectives);
-            else
-                manyDistrRules.insert(make_pair(array, rules));
-        }
-    }
-    
-    if (manyDistrRules.size() > 0)
+    bool repeat = true;
+    int countRep = 0;
+    while (repeat)
     {
-        for (auto &array : manyDistrRules)
+        ++countRep;
+        repeat = false;
+        set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
+        for (auto &array : arrays)
         {
-            __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
-            for (auto &rule : array.second)
-                __spf_print(1, "  -> %s\n", printRule(rule).c_str());
-        }
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    }
+            if (distArrays.find((array)) == distArrays.end())
+            {
+                set<DIST::Array*> realArrayRefs;
+                getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
 
+                vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> rules(realArrayRefs.size());
+
+                int i = 0;
+                bool allNonDistr = true;
+                bool partlyNonDistr = false;
+                for (auto &arrays : realArrayRefs)
+                {
+                    int err = reducedG.GetAlignRuleWithTemplate(arrays, allArrays, rules[i], regionId);
+                    if (err == 101)
+                    {
+                        reducedG.cleanCacheLinks();
+                        dataDirectives.alignRules.clear();
+                        repeat = true;
+                        break;
+                    }
+                    bool nonDistr = arrays->GetNonDistributeFlag();
+                    allNonDistr = allNonDistr && nonDistr;
+                    partlyNonDistr = partlyNonDistr || nonDistr;
+                    ++i;
+                }
+
+                if (repeat)
+                    break;
+
+                if (allNonDistr)
+                    continue;
+                if (partlyNonDistr)
+                {
+                    __spf_print(1, "detected distributed and non distributed array links by function's calls for array %s\n", array->GetName().c_str());
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
+                if (isAllRulesEqual(rules))
+                    createNewAlignRule(array, allArrays, rules[0], dataDirectives);
+                else
+                    manyDistrRules.insert(make_pair(array, rules));
+            }
+        }
+
+        if (countRep > 500)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (repeat)
+            continue;
+
+        if (manyDistrRules.size() > 0)
+        {
+            for (auto &array : manyDistrRules)
+            {
+                __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
+                for (auto &rule : array.second)
+                    __spf_print(1, "  -> %s\n", printRule(rule).c_str());
+            }
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+    }
     return 0;
 }

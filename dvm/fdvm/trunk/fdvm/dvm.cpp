@@ -4323,11 +4323,8 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh);  // or 2
       SgExpression *array_header = HeaderRef(das);
       das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-      if(!DEFERRED_SHAPE_TEMPLATE(das)) {
+      if(!DEFERRED_SHAPE_TEMPLATE(das)) 
          doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
-         if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
-            doCallStmt(ScopeInsert(array_header));
-      }
  }      
   else
  {

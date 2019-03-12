@@ -1105,7 +1105,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         }
                     }
                 }
-
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
             }
