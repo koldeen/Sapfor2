@@ -1220,11 +1220,20 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == EXPAND_EXTRACT_PAR_REGION)
     {
         bool error;
-        error = expandExtractReg(current_file->filename(), 28, 30, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        // ERROR
+        //error = expandExtractReg(current_file->filename(), 27, 30, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 28, 29, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        error = expandExtractReg(current_file->filename(), 29, 30, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+
+        // OK
+        //error = expandExtractReg(current_file->filename(), 28, 30, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 29, 29, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 34, 37, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 32, 42, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 32, 34, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 34, 42, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 28, 51, "reg1", parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+
         if (error)
             internalExit = 1;
     }

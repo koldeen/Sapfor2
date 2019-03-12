@@ -46,10 +46,33 @@ bool expandExtractReg(const string &fileName,
         SgStatement *begin = SgStatement::getStatementByFileAndLine(fileName, startLine);
         SgStatement *end = SgStatement::getStatementByFileAndLine(fileName, endLine);
 
-        // TODO: check user lines
-        if (!(startLine < endLine && (begin->controlParent() == end->controlParent() || begin == end->controlParent())))
+        // check user lines
+        if (!(isSgExecutableStatement(begin) || begin->variant() == ENTRY_STAT))
         {
-            __spf_print(1, "bad lines position: expected lines with the same control parent on line %d\n", startLine);
+            __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", begin->lineNumber());
+            
+            string message;
+            __spf_printToBuf(message, "bad directive position: it can be placed only after all DATA statements");
+            messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+
+            error = false;
+        }
+
+        if (!(isSgExecutableStatement(end) || end->variant() == ENTRY_STAT))
+        {
+            __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", end->lineNumber());
+
+            string message;
+            __spf_printToBuf(message, "bad directive position: it can be placed only after all DATA statements");
+            messagesForFile.push_back(Messages(ERROR, end->lineNumber(), message, 1001));
+
+            error = false;
+        }
+
+        // TODO: испрвить неразличимость внутренних операторов и CONTROL_END
+        if (!(startLine <= endLine && (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())))
+        {
+            __spf_print(1, "bad lines %d-%d position: expected lines with the same scope\n", startLine, endLine);
 
             string message;
             __spf_printToBuf(message, "bad lines position: expected lines with the same control parent");
@@ -58,6 +81,7 @@ bool expandExtractReg(const string &fileName,
             error = true;
         }
 
+        // TODO: добавить проверку на фрагменты из разных ОР
         auto reg = getRegionByName(regions, regName);
 
         if (!reg)
