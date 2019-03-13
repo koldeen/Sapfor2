@@ -61,28 +61,34 @@ bool expandExtractReg(const string &fileName,
         auto endReg = getRegionByLine(regions, fileName, endLine);
 
         // check user lines
-        if (!(isSgExecutableStatement(begin) || begin->variant() == ENTRY_STAT))
-        {
-            __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", begin->lineNumber());
-            
-            string message;
-            __spf_printToBuf(message, "bad directive position: it can be placed only after all DATA statements");
-            messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
-
-            error = false;
-        }
+        // 2. запрещено располагать N1 и N2 в неисполняемых операторах
+        bool localError = false;
+        int errorLine;
 
         if (!(isSgExecutableStatement(end) || end->variant() == ENTRY_STAT))
         {
-            __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", end->lineNumber());
+            localError = true;
+            errorLine = endLine;
+        }
 
+        if (!(isSgExecutableStatement(begin) || begin->variant() == ENTRY_STAT))
+        {
+            localError = true;
+            errorLine = startLine;
+        }
+        
+        if (localError)
+        {
+            __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", errorLine);
+            
             string message;
             __spf_printToBuf(message, "bad directive position: it can be placed only after all DATA statements");
-            messagesForFile.push_back(Messages(ERROR, end->lineNumber(), message, 1001));
+            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
 
             error = false;
         }
 
+        // 1. N1 <= N2
         if (startLine > endLine)
         {
             __spf_print(1, "bad lines position: end line %d must be greater or equel begin line %d\n", endLine, startLine);
@@ -94,6 +100,7 @@ bool expandExtractReg(const string &fileName,
             error = false;
         }
 
+        // 2. запрещено располагать N1 и N2 во фрагментах разных ОР и неявных строках
         if (beginReg && endReg && beginReg != endReg)
         {
             __spf_print(1, "bad lines position: begin and end lines can not be placed at differect regions\n");
@@ -105,29 +112,33 @@ bool expandExtractReg(const string &fileName,
             error = false;
         }
 
-        if (checkIfLineIsImplicit(beginReg, fileName, startLine))
-        {
-            __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", startLine);
-
-            string message;
-            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at region implicit lines");
-            messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
-
-            error = false;
-        }
+        localError = false;
 
         if (checkIfLineIsImplicit(endReg, fileName, endLine))
         {
-            __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", endLine);
+            localError = true;
+            errorLine = endLine;
+        }
+
+        if (checkIfLineIsImplicit(beginReg, fileName, startLine))
+        {
+            localError = true;
+            errorLine = startLine;
+        }
+
+        if (localError)
+        {
+            __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", errorLine);
 
             string message;
             __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at region implicit lines");
-            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
 
             error = false;
         }
 
-        //const ParallelRegionLines *beginLines = NULL, *endLines = NULL;
+        // 3. при добавлении запрещено содержать внутри отрезка [N1,N2] фрагменты разных ОР
+        const ParallelRegionLines *beginLines = NULL, *endLines = NULL;
         map<const ParallelRegion*, vector<const ParallelRegionLines*>> internalLines;
 
         for (auto &reg : regions)
