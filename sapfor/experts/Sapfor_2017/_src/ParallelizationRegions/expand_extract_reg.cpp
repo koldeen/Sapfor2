@@ -57,13 +57,11 @@ bool expandExtractReg(const string &fileName,
     {
         SgStatement *begin = SgStatement::getStatementByFileAndLine(fileName, startLine);
         SgStatement *end = SgStatement::getStatementByFileAndLine(fileName, endLine);
-        auto beginReg = getRegionByLine(regions, fileName, startLine);
-        auto endReg = getRegionByLine(regions, fileName, endLine);
 
         // check user lines
         // 2. запрещено располагать N1 и N2 в неисполняемых операторах
-        bool localError = false;
         int errorLine;
+        bool localError = false;
 
         if (!(isSgExecutableStatement(end) || end->variant() == ENTRY_STAT))
         {
@@ -101,6 +99,9 @@ bool expandExtractReg(const string &fileName,
         }
 
         // 2. запрещено располагать N1 и N2 во фрагментах разных ОР и неявных строках
+        auto beginReg = getRegionByLine(regions, fileName, startLine);
+        auto endReg = getRegionByLine(regions, fileName, endLine);
+
         if (beginReg && endReg && beginReg != endReg)
         {
             __spf_print(1, "bad lines position: begin and end lines can not be placed at differect regions\n");
@@ -178,140 +179,124 @@ bool expandExtractReg(const string &fileName,
             error = false;
         }
 
-        // TODO: испрвить неразличимость внутренних операторов и CONTROL_END
-        if (!(startLine <= endLine && (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())))
+        // use cases
+        if (beginReg)
+            beginLines = beginReg->GetLines(fileName, startLine);
+
+        if (endReg)
+            endLines = endReg->GetLines(fileName, endLine);
+
+        // delete all internal fragments
+        for (auto &regLines : internalLines)
         {
-            __spf_print(1, "bad lines %d-%d position: expected lines with the same scope outside fragment\n", startLine, endLine);
+            for (auto &lines : regLines.second)
+            {
+                lines->stats.first->lexPrev()->deleteStmt();
+                lines->stats.second->lexNext()->deleteStmt();
+            }
+        }
+
+        localError = false;
+
+        if (beginLines && !endLines)
+        {
+            if (!toDelete)
+            {
+                if (end->controlParent() == beginLines->stats.first->controlParent())
+                {
+                    insertEndParReg(end);
+                    beginLines->stats.second->lexNext()->deleteStmt();
+                }
+                else
+                {
+                    errorLine = endLine;
+                    localError = true;
+                }
+            }
+            else
+            {
+                insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
+                beginLines->stats.second->lexNext()->deleteStmt();
+            }
+        }
+        else if (endLines && !beginLines)
+        {
+            if (!toDelete)
+            {
+                if (begin->controlParent() == endLines->stats.first->controlParent())
+                {
+                    insertParRegDir(begin, regName);
+                    endLines->stats.first->lexPrev()->deleteStmt();
+                }
+                else
+                {
+                    errorLine = startLine;
+                    localError = true;
+                }
+            }
+            else
+            {
+                insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), regName);
+                endLines->stats.first->lexPrev()->deleteStmt();
+            }
+        }
+        else if (!beginLines && !endLines)
+        {
+            if (!toDelete)
+            {
+                if (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())
+                    insertParRegDirs(begin, end, regName);
+                else
+                {
+                    __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);
+
+                    string message;
+                    __spf_printToBuf(message, "bad lines %d-%d position: expected lines with the same scope for creating region fragment");
+                    messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+
+                    error = false;
+                }
+            }
+        }
+        else if (beginLines && endLines && beginLines != endLines)
+        {
+            if (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())
+            {
+                if (!toDelete)
+                {
+                    beginLines->stats.second->lexNext()->deleteStmt();
+                    endLines->stats.first->lexPrev()->deleteStmt();
+                }
+                else
+                {
+                    beginLines->stats.first->lexPrev()->deleteStmt();
+                    endLines->stats.second->lexNext()->deleteStmt();
+                    insertParRegDirs(SgStatement::getStatementByFileAndLine(fileName, endLine + 1),
+                                     SgStatement::getStatementByFileAndLine(fileName, startLine -1),
+                                     endReg->GetName());
+                }
+            }
+            else
+            {
+                __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments\n", startLine, endLine);
+
+                string message;
+                __spf_printToBuf(message, "bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments");
+                messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+
+                error = false;
+            }
+        }
+
+        if (localError)
+        {
+            __spf_print(1, "bad lines position: expected lines with the same control parent on line %d\n", errorLine);
 
             string message;
-            __spf_printToBuf(message, "bad lines position: expected lines with the same scope outside fragment");
-            messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
+            __spf_printToBuf(message, "bad lines position: expected lines with the same control parent");
+            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
 
             error = true;
-        }
-
-        // TODO: добавить проверку на фрагменты из разных ОР
-        auto reg = getRegionByName(regions, regName);
-
-        if (!reg)
-        // can only add new region with user's fragment
-        {
-            if (!toDelete)
-                insertParRegDirs(begin, end, regName);
-            else
-            {
-                __spf_print(1, "bad user option: you can only create region '%s' with lines %d-%d on line %d\n", regName.c_str(), startLine, endLine, startLine);
-
-                string message;
-                __spf_printToBuf(message, "bad user option: you can only create region '%s' with lines %d-%d on line %d", regName.c_str(), startLine, endLine);
-                messagesForFile.push_back(Messages(ERROR, startLine, message, 100500));
-
-                error = true;
-            }
-        }
-        else
-        // can extend or decrease
-        {
-            const ParallelRegionLines *beginLines = NULL, *endLines = NULL;
-            vector<const ParallelRegionLines*> internalLines;
-            auto regLines = reg->GetLines(fileName);
-
-            for (auto &lines : *regLines)
-            {
-                if (!lines.isImplicit())
-                {
-                    if (startLine >= lines.lines.first && startLine <= lines.lines.second)
-                        beginLines = &lines;
-
-                    if (endLine >= lines.lines.first && endLine <= lines.lines.second)
-                        endLines = &lines;
-
-                    if (startLine < lines.lines.first && endLine > lines.lines.second)
-                        internalLines.push_back(&lines);
-                }
-            }
-
-            for (auto &intLines : internalLines)
-            {
-                intLines->stats.first->lexPrev()->deleteStmt();
-                intLines->stats.second->lexNext()->deleteStmt();
-            }
-
-            bool localError = false;
-            int errorLine;
-
-            if (!toDelete)
-            {
-                if (beginLines && !endLines)
-                {
-                    if (end->controlParent() == beginLines->stats.first->controlParent())
-                    {
-                        insertEndParReg(end);
-                        beginLines->stats.second->lexNext()->deleteStmt();
-                    }
-                    else
-                    {
-                        errorLine = endLine;
-                        localError = true;
-                    }
-                }
-                else if (endLines && !beginLines)
-                {
-                    if (begin->controlParent() == endLines->stats.first->controlParent())
-                    {
-                        insertParRegDir(begin, regName);
-                        endLines->stats.first->lexPrev()->deleteStmt();
-                    }
-                    else
-                    {
-                        errorLine = startLine;
-                        localError = true;
-                    }
-                }
-                else if (!beginLines && !endLines)
-                    insertParRegDirs(begin, end, regName);
-            }
-            else
-            {
-                if (beginLines)
-                {
-                    if (begin->controlParent() == beginLines->stats.first->controlParent())
-                    {
-                        insertEndParReg(begin->lexPrev());
-                        beginLines->stats.second->lexNext()->deleteStmt();
-                    }
-                    else
-                    {
-                        errorLine = startLine;
-                        localError = true;
-                    }
-                }
-
-                if (endLines)
-                {
-                    if (end->controlParent() == endLines->stats.first->controlParent())
-                    {
-                        insertParRegDir(end, regName);
-                        endLines->stats.first->lexPrev()->deleteStmt();
-                    }
-                    else
-                    {
-                        errorLine = endLine;
-                        localError = true;
-                    }
-                }
-            }
-
-            if (localError)
-            {
-                __spf_print(1, "bad lines position: expected lines with the same control parent on line %d\n", errorLine);
-
-                string message;
-                __spf_printToBuf(message, "bad lines position: expected lines with the same control parent");
-                messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
-
-                error = true;
-            }
         }
     }
     else
