@@ -31,6 +31,18 @@ static inline void insertParRegDirs(SgStatement *start, SgStatement *end, const 
     insertEndParReg(end);
 }
 
+static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileName, const int line)
+{
+    if (reg)
+    {
+        auto regLines = reg->GetLines(fileName, line);
+        if (regLines && regLines->isImplicit())
+            return true; // error
+    }
+
+    return false;
+}
+
 bool expandExtractReg(const string &fileName,
                       const int startLine,
                       const int endLine,
@@ -45,6 +57,8 @@ bool expandExtractReg(const string &fileName,
     {
         SgStatement *begin = SgStatement::getStatementByFileAndLine(fileName, startLine);
         SgStatement *end = SgStatement::getStatementByFileAndLine(fileName, endLine);
+        auto beginReg = getRegionByLine(regions, fileName, startLine);
+        auto endReg = getRegionByLine(regions, fileName, endLine);
 
         // check user lines
         if (!(isSgExecutableStatement(begin) || begin->variant() == ENTRY_STAT))
@@ -69,13 +83,57 @@ bool expandExtractReg(const string &fileName,
             error = false;
         }
 
+        if (startLine > endLine)
+        {
+            __spf_print(1, "bad lines position: end line %d must be greater or equel begin line %d\n", endLine, startLine);
+
+            string message;
+            __spf_printToBuf(message, "bad lines position: end line %d must be greater or equel begin line %d", endLine, startLine);
+            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+
+            error = false;
+        }
+
+        if (beginReg && endReg && beginReg != endReg)
+        {
+            __spf_print(1, "bad lines position: begin and end lines can not be placed at differect regions\n");
+
+            string message;
+            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at differect regions");
+            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+
+            error = false;
+        }
+
+        if (checkIfLineIsImplicit(beginReg, fileName, startLine))
+        {
+            __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", startLine);
+
+            string message;
+            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at region implicit lines");
+            messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
+
+            error = false;
+        }
+
+        if (checkIfLineIsImplicit(endReg, fileName, endLine))
+        {
+            __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", endLine);
+
+            string message;
+            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at region implicit lines");
+            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+
+            error = false;
+        }
+
         // TODO: испрвить неразличимость внутренних операторов и CONTROL_END
         if (!(startLine <= endLine && (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())))
         {
-            __spf_print(1, "bad lines %d-%d position: expected lines with the same scope\n", startLine, endLine);
+            __spf_print(1, "bad lines %d-%d position: expected lines with the same scope outside fragment\n", startLine, endLine);
 
             string message;
-            __spf_printToBuf(message, "bad lines position: expected lines with the same control parent");
+            __spf_printToBuf(message, "bad lines position: expected lines with the same scope outside fragment");
             messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
 
             error = true;
@@ -94,7 +152,7 @@ bool expandExtractReg(const string &fileName,
                 __spf_print(1, "bad user option: you can only create region '%s' with lines %d-%d on line %d\n", regName.c_str(), startLine, endLine, startLine);
 
                 string message;
-                __spf_printToBuf(message, "bad user option: you can only create region '%s' with lines %d-%d on line %d\n", regName.c_str(), startLine, endLine);
+                __spf_printToBuf(message, "bad user option: you can only create region '%s' with lines %d-%d on line %d", regName.c_str(), startLine, endLine);
                 messagesForFile.push_back(Messages(ERROR, startLine, message, 100500));
 
                 error = true;
