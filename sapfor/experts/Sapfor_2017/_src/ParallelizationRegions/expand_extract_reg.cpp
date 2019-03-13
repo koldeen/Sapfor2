@@ -127,6 +127,46 @@ bool expandExtractReg(const string &fileName,
             error = false;
         }
 
+        //const ParallelRegionLines *beginLines = NULL, *endLines = NULL;
+        map<const ParallelRegion*, vector<const ParallelRegionLines*>> internalLines;
+
+        for (auto &reg : regions)
+        {
+            auto regLines = reg->GetLines(fileName);
+
+            for (auto &lines : *regLines)
+            {
+                if (!lines.isImplicit())
+                {
+                    /*
+                    if (startLine >= lines.lines.first && startLine <= lines.lines.second)
+                        beginLines = &lines;
+
+                    if (endLine >= lines.lines.first && endLine <= lines.lines.second)
+                        endLines = &lines;
+                    */
+                    if (startLine < lines.lines.first && endLine > lines.lines.second)
+                    {
+                        auto it = internalLines.find(reg);
+                        if (it == internalLines.end())
+                            it = internalLines.insert(it, make_pair(reg, vector<const ParallelRegionLines*>()));
+                        it->second.push_back(&lines);
+                    }
+                }
+            }
+        }
+
+        if (!toDelete && internalLines.size() > 1)
+        {
+            __spf_print(1, "bad lines position on line %d: begin and end lines can not include fragments of different regions at extending operation\n", startLine);
+
+            string message;
+            __spf_printToBuf(message, "bad lines position: begin and end lines can not include fragments of different regions at extending operation");
+            messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
+
+            error = false;
+        }
+
         // TODO: испрвить неразличимость внутренних операторов и CONTROL_END
         if (!(startLine <= endLine && (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())))
         {
