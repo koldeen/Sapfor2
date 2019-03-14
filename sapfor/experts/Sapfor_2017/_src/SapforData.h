@@ -110,6 +110,11 @@ std::vector<std::vector<long>> topologies; // current topologies
 std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
 //
 
+//for SPF CHANGING
+std::tuple<std::string, int, int, int> inData; // file, startLine, endLine, del/add
+std::map<std::string, std::string> outData; // file -> new unparsed text
+//
+
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 

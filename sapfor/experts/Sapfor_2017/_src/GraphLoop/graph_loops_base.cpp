@@ -1136,6 +1136,17 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
 {
     map<string, FuncInfo*> mapFuncInfo;
     map<DIST::Array*, int> trees;
+ 
+    auto arrays = reg->GetAllArrays().GetArrays();
+    int count = 0;
+    for (auto &array : arrays)
+    {
+        if (!array->isLoopArray() && !array->isTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
+            count++;
+    }
+    if (count <= 1)
+        return;
+
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
 
     createMapOfFunc(allFuncs, mapFuncInfo);

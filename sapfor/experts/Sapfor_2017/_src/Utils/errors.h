@@ -90,6 +90,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   17 "parallel region '%s' does not have copying of array '%s' in DVM interval"
 //   18 "parallel region '%s' does not have copying of common array '%s' in DVM interval"
 //   19  "Can not find execution time for this loop, try to get times statistic"
+//   20  "detected distributed and non distributed array links by function's calls for array %s\n"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -104,7 +105,22 @@ public:
         //check for \n at the end
         if (value[value.size() - 1] == '\n')
             value.erase(value.begin() + value.size() - 1);
-    }        
+        //check for '.' at the end
+        if (value[value.size() - 1] != '.')
+            value += '.';
+        //check for capital letter
+        const wchar_t fS = value[0];
+        if (fS >= L'a' && fS <= L'z')
+            value[0] = L'A' + (value[0] - L'a');
+        if (fS >= L'à' && fS <= L'ÿ')
+            value[0] = L'À' + (value[0] - L'ÿ');
+        //TODO: convert to upper case for test between '___'
+    }
+
+    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group)
+    {
+        Messages(type, line, rus, group);
+    }
 
     std::wstring toString()
     {
