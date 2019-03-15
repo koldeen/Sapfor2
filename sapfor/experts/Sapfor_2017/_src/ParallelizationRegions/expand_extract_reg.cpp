@@ -46,7 +46,6 @@ static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileN
 bool expandExtractReg(const string &fileName,
                       const int startLine,
                       const int endLine,
-                      const string &regName,
                       const vector<ParallelRegion*> &regions,
                       vector<Messages> &messagesForFile,
                       const bool toDelete)
@@ -225,7 +224,7 @@ bool expandExtractReg(const string &fileName,
             {
                 if (begin->controlParent() == endLines->stats.first->controlParent())
                 {
-                    insertParRegDir(begin, regName);
+                    insertParRegDir(begin, endReg->GetName());
                     endLines->stats.first->lexPrev()->deleteStmt();
                 }
                 else
@@ -236,7 +235,7 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), regName);
+                insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
                 endLines->stats.first->lexPrev()->deleteStmt();
             }
         }
@@ -245,7 +244,7 @@ bool expandExtractReg(const string &fileName,
             if (!toDelete)
             {
                 if (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())
-                    insertParRegDirs(begin, end, regName);
+                    insertParRegDirs(begin, end, "reg" + to_string(regions.size()));
                 else
                 {
                     __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);
