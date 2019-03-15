@@ -976,6 +976,54 @@ int SPF_RemoveDvmIntervals(int winHandler, int *options, short *projName, short 
     return simpleTransformPass(REMOVE_DVM_INTERVALS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+extern tuple<string, int, int, int> inData;
+extern map<string, string> outData;
+int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                           int *&outputSize, short *&outputMessage, int *&outputMessageSize, 
+                           short *fileNameToMod, int *toModifyLines,
+                           int &size, int *&sizes, short *&newFilesNames, short *&newFiles)
+{
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retCode = 0;
+    try
+    {
+        int strL;
+        char *filerName;
+        ConvertShortToChar(fileNameToMod, strL, filerName);
+        std::get<0>(inData) = filerName;
+        std::get<1>(inData) = toModifyLines[0];
+        std::get<2>(inData) = toModifyLines[1];
+        std::get<3>(inData) = toModifyLines[2];
+
+        //PASSES_DONE[PASS_NAME] = 0;
+        //runPassesForVisualizer(projName, { PASS_NAME }, folderName);
+
+        //fill data
+
+    }
+    catch (int ex)
+    {
+        __spf_print(1, "catch code %d\n", ex);
+        if (ex == -99)
+            return -99;
+        else
+            retCode = -1;
+    }
+    catch (...)
+    {
+        retCode = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retCode;
+}
+
 extern set<string> filesToInclude;
 int SPF_InsertIncludesPass(int winHandler, int *options, short *projName, short *folderName, char *filesToInclude, 
                            short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)

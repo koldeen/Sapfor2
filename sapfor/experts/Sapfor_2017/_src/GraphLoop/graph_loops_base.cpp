@@ -17,6 +17,7 @@ using std::unordered_map;
 using std::tuple;
 using std::set;
 using std::string;
+using std::wstring;
 using std::pair;
 using std::make_pair;
 using std::get;
@@ -623,7 +624,7 @@ int printLoopGraph(const char *fileName, const map<string, vector<LoopGraph*>> &
 }
 
 
-static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessages, set<void*> &isNotOkey, set<string> &uniqMessages)
+static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessages, set<void*> &isNotOkey, set<wstring> &uniqMessages)
 {
     for (int i = 0; i < loops.size(); ++i)
     {
@@ -631,15 +632,16 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
         {            
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
-                char buf[256];
-                sprintf(buf, "Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", loops[i]->region->GetName().c_str());
+                std::wstring bufw;
+                __spf_printToLongBuf(bufw, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 
+                                     to_wstring(loops[i]->region->GetName()).c_str());
 
-                auto itM = uniqMessages.find(buf);
+                auto itM = uniqMessages.find(bufw);
                 if (itM == uniqMessages.end())
                 {
-                    uniqMessages.insert(itM, buf);
+                    uniqMessages.insert(itM, bufw);
 
-                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, buf, 1016));
+                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufw, 1016));
                     __spf_print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
                 }
                 isNotOkey.insert(loops[i]->region);
@@ -733,7 +735,7 @@ void checkCountOfIter(map<string, vector<LoopGraph*>> &loopGraph, const map<stri
 
     for (auto &loopsInFile : loopGraph)
     {
-        set<string> uniqMessages;
+        set<wstring> uniqMessages;
 
         auto itM = SPF_messages.find(loopsInFile.first);
         if (itM == SPF_messages.end())
@@ -925,11 +927,11 @@ static void checkArraysMapping(vector<LoopGraph*> &loopList, map<DIST::Array*, v
                 {
                     if (!elem.first->IsDimDepracated(z))
                     {
-                        char buf[1024];
-                        sprintf(buf, "Array '%s' can not be distributed due to different writes to %d dimension, this dimension will deprecated",
-                            elem.first->GetShortName().c_str(), z + 1);
+                        std::wstring bufw;
+                        __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to different writes to %d dimension, this dimension will deprecated",
+                                             to_wstring(elem.first->GetShortName()).c_str(), z + 1);
 
-                        messages.push_back(Messages(ERROR, topLine, buf, 1047));
+                        messages.push_back(Messages(ERROR, topLine, bufw, 1047));
                         elem.first->DeprecateDimension(z);                        
                     }
                 }
@@ -960,10 +962,10 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
     {
         if (elem->isAllDeprecated())
         {
-            char buf[1024];
-            sprintf(buf, "Array '%s' can not be distributed due to all dimensions will deprecated", elem->GetShortName().c_str());
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
             for (auto &decl : elem->GetDeclInfo())
-                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, buf, 1047));
+                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufw, 1047));
             elem->SetNonDistributeFlag(DIST::SPF_PRIV);
         }
     }
@@ -1044,9 +1046,9 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA == trees.end() || itA->second < 0)
                                 {
-                                    char buf[1024];
-                                    sprintf(buf, "Array '%s' can not be distributed", array->GetShortName().c_str());
-                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                    std::wstring bufw;
+                                    __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufw, 1047));
                                     deprecated.insert(array);
                                     array->SetNonDistributeFlag(DIST::SPF_PRIV);
                                 }
@@ -1060,7 +1062,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                             }
 
                             if (treeNumCount.size() == 0)
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                return;
 
                             auto itT = treeNumCount.begin();
                             treeNum = itT->first;
@@ -1080,9 +1082,9 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA->second != treeNum)
                                 {
-                                    char buf[1024];
-                                    sprintf(buf, "Array '%s' can not be distributed", array->GetShortName().c_str());
-                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                    std::wstring bufw;
+                                    __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufw, 1047));
                                     deprecated.insert(array);
                                     array->SetNonDistributeFlag(DIST::SPF_PRIV);
                                 }
@@ -1110,9 +1112,9 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                     }
                                     if (needToDeprecated)
                                     {
-                                        char buf[1024];
-                                        sprintf(buf, "Array '%s' can not be distributed", inCall->GetShortName().c_str());
-                                        getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, buf, 1047));
+                                        std::wstring bufw;
+                                        __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(inCall->GetShortName()).c_str());
+                                        getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufw, 1047));
                                         deprecated.insert(inCall);
                                         inCall->SetNonDistributeFlag(DIST::SPF_PRIV);
                                     }
@@ -1134,6 +1136,17 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
 {
     map<string, FuncInfo*> mapFuncInfo;
     map<DIST::Array*, int> trees;
+ 
+    auto arrays = reg->GetAllArrays().GetArrays();
+    int count = 0;
+    for (auto &array : arrays)
+    {
+        if (!array->isLoopArray() && !array->isTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
+            count++;
+    }
+    if (count <= 1)
+        return;
+
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
 
     createMapOfFunc(allFuncs, mapFuncInfo);

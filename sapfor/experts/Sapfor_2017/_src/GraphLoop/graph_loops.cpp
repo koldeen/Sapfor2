@@ -30,10 +30,13 @@
 #include "../LoopAnalyzer/directive_parser.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
 
+#include "../GraphCall/graph_calls_func.h"
+
 using std::vector;
 using std::map;
 using std::set;
 using std::string;
+using std::wstring;
 using std::pair;
 
 #define DEBUG 0
@@ -62,27 +65,33 @@ static bool recVariantFind(SgExpression *ex, const int var)
     return ret;
 }
 
-static bool recInderectFind(SgExpression *ex, bool wasArrayref)
+static void recInderectFind(SgExpression *ex, set<DIST::Array*> &usedArrays)
 {
-    bool ret = false;
     if (ex)
     {
         if (ex->variant() == ARRAY_REF)
         {
-            if (wasArrayref)
-                return true;
+            DIST::Array *arrayRef = NULL;
+            SgSymbol *symbS = OriginalSymbol(ex->symbol());
+            const string symb = symbS->identifier();
+
+            if (symbS)
+                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb);
             else
-                wasArrayref = true;
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            // only distributed arrays were added
+            if (arrayRef)
+                if (arrayRef->GetNonDistributeFlag() == false)
+                    usedArrays.insert(arrayRef);
         }
 
-        ret = ret || recInderectFind(ex->lhs(), wasArrayref);
-        ret = ret || recInderectFind(ex->rhs(), wasArrayref);
+        recInderectFind(ex->lhs(), usedArrays);        
+        recInderectFind(ex->rhs(), usedArrays);        
     }
-
-    return ret;
 }
 
-static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
+static bool recScalarSymbolFind(SgExpression *ex, const string &symb)
 {
     bool ret = false;
     if (ex)
@@ -94,8 +103,8 @@ static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
                     return true;
         }
 
-        ret = ret || recScalaraSymbolFind(ex->lhs(), symb);
-        ret = ret || recScalaraSymbolFind(ex->rhs(), symb);
+        ret = ret || recScalarSymbolFind(ex->lhs(), symb);
+        ret = ret || recScalarSymbolFind(ex->rhs(), symb);
     }
 
     return ret;
@@ -231,7 +240,11 @@ static inline bool hasGoto(SgStatement *begin, SgStatement *end, vector<int> &li
     return has;
 }
 
-bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &messagesForFile)
+bool checkRegionEntries(SgStatement *begin,
+                        SgStatement *end,
+                        const map<string, FuncInfo*> &funcMap,
+                        const vector<ParallelRegion*> &parallelRegions,
+                        map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;
 
@@ -242,6 +255,7 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
     while (st->variant() != PROG_HEDR && st->variant() != PROC_HEDR && st->variant() != FUNC_HEDR)
         st = st->controlParent();
 
+    // check GOTO
     map<int, vector<int>> labelsRef;
     findAllRefsToLables(st, labelsRef);
 
@@ -251,14 +265,40 @@ bool checkRegionEntries(SgStatement *begin, SgStatement *end, vector<Messages> &
 
     if (linesOfExtGoTo.size())
     {
-        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' on line %d\n", regIdent->identifier(), begin->lineNumber());
+        __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO on line %d\n", regIdent->identifier(), begin->lineNumber());
 
-        string message;
-        __spf_printToBuf(message, "wrong parallel region position: there are several entries in fragment '%s'", regIdent->identifier());
-        messagesForFile.push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+        wstring message;
+        __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
+        getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
 
         noError = false;
     }
+
+    // check ENTRY
+    auto oldFile = current_file->filename();
+    for (auto &funcPair : funcMap)
+    {
+        auto func = funcPair.second;
+        if (SgFile::switchToFile(func->fileName) != -1)
+        {
+            SgStatement *funcSt = func->funcPointer->GetOriginal();
+            ParallelRegion *reg = NULL;
+            if (funcSt->variant() == ENTRY_STAT && func->callsTo.size() && (reg = getRegionByLine(parallelRegions, func->fileName, funcSt->lineNumber())))
+            {
+                __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
+
+                wstring message;
+                __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
+                getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
+
+                noError = false;
+            }
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    if (SgFile::switchToFile(oldFile) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return noError;
 }
@@ -352,15 +392,28 @@ void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool
         processLables(st, labelsRef, includeWrite);
 }
 
-static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
+static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vector<Messages> &messages)
 {
     SgExpression *start = st->start();
     SgExpression *end = st->end();
     SgExpression *step = st->step();
 
-    bool has = recVariantFind(start, FUNC_CALL) || recVariantFind(end, FUNC_CALL) || recVariantFind(step, FUNC_CALL);
-    has = has || recInderectFind(start, false) || recInderectFind(end, false) || recInderectFind(step, false);
+    set<DIST::Array*> usedArrays;
+
+    bool has1 = recVariantFind(start, FUNC_CALL) || recVariantFind(end, FUNC_CALL) || recVariantFind(step, FUNC_CALL);
+    recInderectFind(start, usedArrays);
+    recInderectFind(end, usedArrays);
+    recInderectFind(step, usedArrays);
+    bool has = has1 || (usedArrays.size() > 0);
     
+    for (auto &array : usedArrays)
+    {
+        std::wstring bufw;
+        __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
+        messages.push_back(Messages(ERROR, st->lineNumber(), bufw, 1047));
+        array->SetNonDistributeFlag(DIST::SPF_PRIV);
+    }
+
     if (has == false)
     {
         for (auto &upLoop : parentLoops)
@@ -370,9 +423,9 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
             if (symb)
             {
                 const string strSymb = symb->identifier();
-                has = has || recScalaraSymbolFind(start, strSymb);
-                has = has || recScalaraSymbolFind(end, strSymb);
-                has = has || recScalaraSymbolFind(step, strSymb);
+                has = has || recScalarSymbolFind(start, strSymb);
+                has = has || recScalarSymbolFind(end, strSymb);
+                has = has || recScalarSymbolFind(step, strSymb);
 
                 if (has)
                     break;
@@ -533,12 +586,12 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
-                newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
+                newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
                 auto itTime = mapIntervals.find(newLoop->lineNum);
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, "Can not find execution time in statistic", 3016));                
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Can not find execution time in statistic", 3016));                
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

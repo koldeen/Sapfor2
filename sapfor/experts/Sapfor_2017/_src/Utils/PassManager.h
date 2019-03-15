@@ -166,6 +166,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ CALL_GRAPH2, REVERT_SUBST_EXPR }) <= Pass(PRIVATE_ARRAYS_BREEDING);
 
+    list({ CALL_GRAPH2, GCOV_PARSER }) <= Pass(CREATE_PARALLEL_REGIONS);
+
     list({ LOOP_ANALYZER_DATA_DIST_S1, REVERT_SUBST_EXPR }) <= Pass(LOOPS_SPLITTER);
 
     passesIgnoreStateDone.insert({ CREATE_PARALLEL_DIRS, INSERT_PARALLEL_DIRS, INSERT_SHADOW_DIRS, EXTRACT_PARALLEL_DIRS, PRIVATE_ANALYSIS_SPF,

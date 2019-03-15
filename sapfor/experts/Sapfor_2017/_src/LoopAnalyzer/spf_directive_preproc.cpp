@@ -13,14 +13,15 @@
 #include "dvm.h"
 #include "../Sapfor.h"
 #include "../GraphLoop/graph_loops.h"
+#include "../GraphCall/graph_calls_func.h"
 #include "../SageAnalysisTool/depInterfaceExt.h"
 #include "../Utils/SgUtils.h"
 #include "../Utils/errors.h"
 #include "directive_parser.h"
 #include "../ExpressionTransform/expr_transform.h"
-#include "../GraphLoop/graph_loops_func.h"
 
 using std::string;
+using std::wstring;
 using std::vector;
 using std::map;
 using std::set;
@@ -86,8 +87,8 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 
 #define BAD_POSITION(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
-   string message;\
-   __spf_printToBuf(message, "bad directive position, it can be placed only %s %s %s", PLACE, BEFORE_VAR, BEFORE_DO); \
+   wstring message;\
+   __spf_printToLongBuf(message, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, 1001)); \
 } while(0)
 
@@ -159,15 +160,15 @@ static bool checkPrivate(SgStatement *st,
                 if (!defCond && !useCond)
                 {
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not used in loop", privElem->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 else if (!defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not changed in loop", privElem->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
@@ -224,15 +225,15 @@ static bool checkReduction(SgStatement *st,
                 if (var == FOR_NODE && !defCond && !useCond)
                 {
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not used in loop", setElem->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
                 }
                 if (var == FOR_NODE && !defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "variable '%s' is not changed in loop", setElem->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
                     retVal = false;
                 }
@@ -285,8 +286,8 @@ static bool checkReduction(SgStatement *st,
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
 
-                    string message;
-                    __spf_printToBuf(message, "dimention of array '%s' is %d, but must be 1", arraySymbol->identifier(), dim);
+                    wstring message;
+                    __spf_printToLongBuf(message, L"dimention of array '%s' is %d, but must be 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1004));
 
                     retVal = false;
@@ -296,8 +297,8 @@ static bool checkReduction(SgStatement *st,
                 {
                     __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
 
-                    string message;
-                    __spf_printToBuf(message, "type of array '%s' but must be INTEGER", arraySymbol->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"type of array '%s' but must be INTEGER", to_wstring(arraySymbol->identifier()).c_str());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1005));
 
                     retVal = false;
@@ -307,8 +308,8 @@ static bool checkReduction(SgStatement *st,
             {
                 __spf_print(1, "type of variable '%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
 
-                string message;
-                __spf_printToBuf(message, "type of variable '%s' must be array", arraySymbol->identifier());
+                wstring message;
+                __spf_printToLongBuf(message, L"type of variable '%s' must be array", to_wstring(arraySymbol->identifier()).c_str());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
 
                 retVal = false;
@@ -349,9 +350,7 @@ static bool checkReduction(SgStatement *st,
                             // Expression can not be computed
                             __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
 
-                            string message;
-                            __spf_printToBuf(message, "array size can't be computed");
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1007));
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"array size can't be computed", 1007));
 
                             retVal = false;
                         }
@@ -360,8 +359,8 @@ static bool checkReduction(SgStatement *st,
                             __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n",
                                         arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
 
-                            string message;
-                            __spf_printToBuf(message, "size of array '%s' is %d, but you enter %d", arraySymbol->identifier(), size, count);
+                            wstring message;
+                            __spf_printToLongBuf(message, L"size of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
 
                             retVal = false;
@@ -406,8 +405,8 @@ static bool checkShadowAcross(SgStatement *st,
             if (arraySymbol->type()->variant() != T_ARRAY)
             {
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
+                wstring message;
+                __spf_printToLongBuf(message, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
@@ -417,8 +416,8 @@ static bool checkShadowAcross(SgStatement *st,
             if (!notPrivCond)
             {
                 __spf_print(1, "array '%s' on line %d is private\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
+                wstring message;
+                __spf_printToLongBuf(message, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                 retVal = false;
             }
@@ -434,8 +433,8 @@ static bool checkShadowAcross(SgStatement *st,
                 if (dim != arrayDisc.size())
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "dimention of array '%s' is %d, but you enter %d", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"dimention of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
                     retVal = false;
                 }
@@ -443,8 +442,8 @@ static bool checkShadowAcross(SgStatement *st,
             else
             {
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "variable '%s' is not array", arraySymbol->identifier());
+                wstring message;
+                __spf_printToLongBuf(message, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
                 retVal = false;
             }
@@ -453,10 +452,8 @@ static bool checkShadowAcross(SgStatement *st,
             {
                 if (array.first < 0 || array.second < 0)
                 {
-                    __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "only positive numbers are supported");
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1010));
+                    __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());                    
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"only positive numbers are supported", 1010));
                     retVal = false;
                 }
             }
@@ -554,8 +551,8 @@ static bool checkRemote(SgStatement *st,
                 if (!notPrivCond)
                 {
                     __spf_print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                    string message;
-                    __spf_printToBuf(message, "array '%s' is private", arraySymbol->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
                     retVal = false;
                 }
@@ -597,10 +594,8 @@ static bool checkRemote(SgStatement *st,
 
                             if (retVal && forVarsCount > 1 || forVar.second > 1)
                             {
-                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
-                                string message;
-                                __spf_printToBuf(message, "bad directive expression: too many DO variables");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
+                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());                                
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: too many DO variables", 1001));
                                 retVal = false;
                             }
 
@@ -634,10 +629,8 @@ static bool checkRemote(SgStatement *st,
 
                             if (!isRemoteSubTreeCond)
                             {
-                                __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());
-                                string message;
-                                __spf_printToBuf(message, "bad directive expression: only a * i + b");
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1001));
+                                __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());                                
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: only a * i + b", 1001));
                                 retVal = false;
                             }
                         }
@@ -663,8 +656,8 @@ static bool checkRemote(SgStatement *st,
             if (!cond)
             {
                 __spf_print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
-                string message;
-                __spf_printToBuf(message, "no such expression '%s' on loop", remElem.second->unparse());
+                wstring message;
+                __spf_printToLongBuf(message, L"no such expression '%s' on loop", to_wstring(remElem.second->unparse()).c_str());
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1111));
                 retVal = false;
             }
@@ -714,9 +707,9 @@ static bool checkParallelRegions(SgStatement *st,
                                 __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
                                             identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                string message;
-                                __spf_printToBuf(message, "wrong parallel region identifier: variable '%s' was declarated on line %d",
-                                                 identSymbol->identifier(), iterator->lineNumber());
+                                wstring message;
+                                __spf_printToLongBuf(message, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
+                                                     to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
                                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
 
                                 retVal = false;
@@ -740,9 +733,9 @@ static bool checkParallelRegions(SgStatement *st,
                             __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated in common block '%s' on line %d\n",
                                         identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
-                            string message;
-                            __spf_printToBuf(message, "wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
-                                             identSymbol->identifier(), commonBlockPair.first.c_str());
+                            wstring message;
+                            __spf_printToLongBuf(message, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
+                                                 to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
                             messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
 
                             retVal = false;
@@ -764,9 +757,9 @@ static bool checkParallelRegions(SgStatement *st,
                     __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n",
                                 identSymbol->identifier(), st->lineNumber());
 
-                    string message;
-                    __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
-                                     identSymbol->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
+                                         to_wstring(identSymbol->identifier()).c_str());
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                     retVal = false;
@@ -781,9 +774,9 @@ static bool checkParallelRegions(SgStatement *st,
                         __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
                                     identSymbol->identifier(), st->lineNumber());
 
-                        string message;
-                        __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
-                                         identSymbol->identifier());
+                        wstring message;
+                        __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
+                                             to_wstring(identSymbol->identifier()).c_str());
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                         retVal = false;
@@ -797,16 +790,12 @@ static bool checkParallelRegions(SgStatement *st,
             {
                 __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
 
-                string message;
-                __spf_printToBuf(message, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", identSymbol->identifier());
+                wstring message;
+                __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", to_wstring(identSymbol->identifier()).c_str());
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
 
                 retVal = false;
             }
-
-            // check region entries
-            if (retVal)
-                retVal = checkRegionEntries(st, iterator, messagesForFile);
         }
         else
         {
@@ -823,10 +812,7 @@ static bool checkParallelRegions(SgStatement *st,
                 {
                     // intersection
                     __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
-
-                    string message;
-                    __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
-                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'", 1001));
 
                     retVal = false;
                     break;
@@ -838,10 +824,7 @@ static bool checkParallelRegions(SgStatement *st,
                     if (iterator->controlParent() != st->controlParent())
                     {
                         __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
-
-                        string message;
-                        __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope");
-                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope", 1001));
 
                         retVal = false;
                     }
@@ -853,10 +836,7 @@ static bool checkParallelRegions(SgStatement *st,
             if (!found && retVal)
             {
                 __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
-
-                string message;
-                __spf_printToBuf(message, "bad directive position: expected 'SPF PARALLEL_REG_DIR'");
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR'", 1001));
 
                 retVal = false;
             }
@@ -885,10 +865,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
         if (checkVars && !vars.size())
         {
             __spf_print(1, "bad directive expression: expected list of variables on line %d\n", attributeStatement->lineNumber());
-
-            string message;
-            __spf_printToBuf(message, "bad directive expression: expected list of variables");
-            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: expected list of variables", 1043));
 
             retVal = false;
         }
@@ -899,11 +876,11 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
             if (vars.size() > forSt->isPerfectLoopNest())
             {
                 __spf_print(1, "bad directive expression: expected %d nested loops on line %d but got %d on line %d\n",
-                            vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
+                            (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
 
-                string message;
-                __spf_printToBuf(message, "bad directive expression: expected %d nested loops line %d but got %d",
-                                 vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
+                wstring message;
+                __spf_printToLongBuf(message, L"bad directive expression: expected %d nested loops line %d but got %d",
+                                     (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1043));
 
                 retVal = false;
@@ -918,9 +895,9 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
                             forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
 
-                string message;
-                __spf_printToBuf(message, "bad directive expression: expected variable '%s' at %d position\n",
-                                    forSt->doName()->identifier(), i + 1);
+                wstring message;
+                __spf_printToLongBuf(message, L"bad directive expression: expected variable '%s' at %d position\n",
+                                     to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
 
                 retVal = false;
@@ -1438,8 +1415,8 @@ void addAcrossToLoops(LoopGraph *topLoop,
             if (consoleMode)
                 printf("  add across dependencies by array '%s' for loop on line %d\n", arrayS->identifier(), topLoop->lineNum);
 
-            string message;
-            __spf_printToBuf(message, "add across dependencies by array '%s' to loop", arrayS->identifier());
+            wstring message;
+            __spf_printToLongBuf(message, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
             currMessages.push_back(Messages(NOTE, topLoop->lineNum, message, 3001));
 
             if (k != acrossToAdd.size() - 1)
@@ -1517,8 +1494,8 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 if (consoleMode)
                     printf("  add private scalar '%s' for loop on line %d\n", identifier.c_str(), topLoop->lineNum);
 
-                string message;
-                __spf_printToBuf(message, "add private scalar '%s' to loop on line %d", identifier.c_str(), topLoop->lineNum);
+                wstring message;
+                __spf_printToLongBuf(message, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
                 currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3002));
 
                 if (k != addForCurrLoop.size() - 1)
@@ -1638,8 +1615,9 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     if (consoleMode)
                         printf("  add reduction scalar '%s' with operation '%s' to loop on line %d\n", addForCurrLoop[k]->varin->symbol()->identifier(), oper, topLoop->lineNum);
 
-                    string message;
-                    __spf_printToBuf(message, "add reduction scalar '%s' with operation '%s' to loop on line %d", addForCurrLoop[k]->varin->symbol()->identifier(), oper, topLoop->lineNum);
+                    wstring message;
+                    __spf_printToLongBuf(message, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
+                                         to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
                     currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3003));
                 }
                 else
@@ -1647,8 +1625,8 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     if (consoleMode)
                         printf("  unknown type of reduction scalar '%s' on line %d\n", addForCurrLoop[k]->varin->symbol()->identifier(), addForCurrLoop[k]->stmtin->lineNumber());
 
-                    string message;
-                    __spf_printToBuf(message, "unknown type of reduction scalar '%s'", addForCurrLoop[k]->varin->symbol()->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
                     currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message, 3004));
 
                     topLoop->hasUnknownScalarDep = true;

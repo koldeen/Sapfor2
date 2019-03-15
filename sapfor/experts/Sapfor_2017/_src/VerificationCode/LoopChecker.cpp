@@ -17,6 +17,7 @@ using std::vector;
 using std::map;
 using std::pair;
 using std::string;
+using std::wstring;
 using std::make_pair;
 using std::set;
 
@@ -48,7 +49,7 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
                 if (currSt->isEnddoLoop() == 0)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
-                    currMessages.push_back(Messages(ERROR, st->lineNumber(), "This loop does not have END DO format", 1018));
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), L"This loop does not have END DO format", 1018));
                     checkOK = false;
                 }
             }
@@ -124,7 +125,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 if (needToReport)
                 {
                     __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
-                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), "An equivalence operator is not supported yet", 1038));
+                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"An equivalence operator is not supported yet", 1038));
                 }
             }
 
@@ -196,13 +197,12 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
 
                 if (needToReport)
                 {
-                    string message;
-                    __spf_printToBuf(message, "Variables '%s' and '%s' in one storage association (common block '%s') have different types (files - %s:%d and %s:%d)",
-                        vars[i].getName().c_str(), vars[j].getName().c_str(), block.first.c_str(), 
-                        vars[i].getDeclarated()->fileName(), vars[i].getDeclarated()->lineNumber(), 
-                        vars[j].getDeclarated()->fileName(), vars[j].getDeclarated()->lineNumber());
-                    __spf_print(1, "%s\n", message.c_str());
-
+                    wstring message;
+                    __spf_printToLongBuf(message, L"Variables '%s' and '%s' in one storage association (common block '%s') have different types (files - %s:%d and %s:%d)",
+                        to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
+                        to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
+                        to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
+                    
                     const int line = currUse->getDeclaratedPlace()->lineNumber();
                     currMessages.push_back(Messages(typeMessage, line, message, 1039));
                 }

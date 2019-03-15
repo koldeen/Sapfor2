@@ -285,6 +285,7 @@
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">false</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInserter.cpp" />
+    <ClCompile Include="..\_src\DynamicAnalysis\createParallelRegions.cpp" />
     <ClCompile Include="..\_src\DynamicAnalysis\gcov_info.cpp" />
     <ClCompile Include="..\_src\DynamicAnalysis\gCov_parser.cpp" />
     <ClCompile Include="..\_src\ExpressionTransform\control_flow_graph_part.cpp" />
@@ -501,6 +502,7 @@
     <ClInclude Include="..\_src\Distribution\DvmhDirective_func.h" />
     <ClInclude Include="..\_src\Distribution\GraphCSR.h" />
     <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInserter.h" />
+    <ClInclude Include="..\_src\DynamicAnalysis\createParallelRegions.h" />
     <ClInclude Include="..\_src\DynamicAnalysis\gcov_info.h" />
     <ClInclude Include="..\_src\DynamicAnalysis\gCov_parser_func.h" />
     <ClInclude Include="..\_src\ExpressionTransform\expr_transform.h" />

@@ -220,10 +220,10 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
                                     dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 
-                    char buf[256];
-                    sprintf(buf, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
-                                  dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
-                    messages.push_back(Messages(ERROR, loopLine, buf, 3007));
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
+                                         to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                    messages.push_back(Messages(ERROR, loopLine, bufw, 3007));
 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
