@@ -297,9 +297,6 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (leftSections.size() != rightSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-
-        string message;
-        __spf_printToBuf(message, "can not convert array assign to loop");
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
@@ -611,9 +608,6 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         rightSections.size() != assignSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-
-        string message;
-        __spf_printToBuf(message, "can not convert array assign to loop");
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
@@ -914,7 +908,7 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
 
     result.push_back(init);
 
-    newRightPart->setLhs(assign->expr(0));                                    
+    newRightPart->setLhs(assign->expr(0));
     newRightPart->setRhs(retVal->lexNext()->expr(1));
 
     retVal->lexNext()->setExpression(1, *newRightPart);
@@ -1316,9 +1310,23 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
 
                         data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
 
-                        for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())                        
-                            if (st_loc->variant() == FOR_NODE)
-                                newDeclarations.insert(st_loc->symbol());
+                        if (data->variant() == FOR_NODE)
+                        {
+                            for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                if (st_loc->variant() == FOR_NODE)
+                                    newDeclarations.insert(st_loc->symbol());
+                        }
+                        else if (data->variant() == ASSIGN_STAT)
+                        {
+                            data->unparsestdout();
+                            data->lexNext()->unparsestdout();
+                            if (data->lexNext()->variant() == FOR_NODE)
+                            {
+                                for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                    if (st_loc->variant() == FOR_NODE)
+                                        newDeclarations.insert(st_loc->symbol());
+                            }
+                        }
                     }
                 }
             }
