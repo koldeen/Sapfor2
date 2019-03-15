@@ -450,12 +450,13 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                     auto allDecl = array->GetDeclInfo();
                     for (auto &decl : allDecl)
                     {
-                        std::wstring bufw;
-                        std::wstring bufr;
-                        __spf_printToLongBuf(bufw, L"detected distributed and non distributed array links by function's calls for array '%s'\n", to_wstring(array->GetShortName()).c_str());
-                        __spf_printToLongBuf(bufw, L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n", 
+                        std::wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"detected distributed and non distributed array links by function's calls for array '%s'\n", to_wstring(array->GetShortName()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(bufR, L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n",
                                              to_wstring(array->GetShortName()).c_str());
-                        getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufw, 3020));
+#endif
+                        getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
                     }
                     
                     for (auto &realR : realArrayRefs)
@@ -465,12 +466,22 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                             auto allDecl = realR->GetDeclInfo();
                             for (auto &decl : allDecl)
                             {
-                                std::wstring bufw;
+                                std::wstring bufE, bufR;
                                 if (realR->GetNonDistributeFlag())
-                                    __spf_printToLongBuf(bufw, L"Обнаружен не распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+                                {
+                                    __spf_printToLongBuf(bufR, L"detected non distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufE, L"Обнаружен не распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+#endif
+                                }
                                 else
-                                    __spf_printToLongBuf(bufw, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
-                                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufw, 3020));
+                                {
+                                    __spf_printToLongBuf(bufR, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufR, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+#endif
+                                }
+                                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
                             }
                         }
                     }

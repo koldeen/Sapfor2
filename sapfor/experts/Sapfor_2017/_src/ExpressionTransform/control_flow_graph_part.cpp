@@ -14,6 +14,7 @@ using std::list;
 using std::make_pair;
 using std::set;
 using std::pair;
+using std::stack;
 
 void showDefs(set<ExpressionValue*> *defs);
 void showDefs(map<SymbolKey, ExpressionValue*> *defs);
@@ -24,6 +25,157 @@ static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 static CommonVarsOverseer *overseerPtr = NULL;
 static map<string, ExpressionValue*> allocated;
 static map<SymbolKey, map<ExpressionValue*, SgStatement*>> symbolAndExpToDefinition;
+
+
+static set<SymbolKey> usedSymbolsInStatement(SgStatement *st, bool includeLValue) {
+    stack<SgExpression*> toCheck;
+    set<SymbolKey> result;
+
+    for(int i=0;i<3;++i)
+        if(st->expr(i))
+            toCheck.push(st->expr(i));
+
+    while(!toCheck.empty()) {
+        SgExpression* top = toCheck.top();
+        toCheck.pop();
+        SgSymbol* symbol = top->symbol();
+        if(symbol)
+            result.insert(symbol);
+        else {
+            if(top->rhs())
+                toCheck.push(top->rhs());
+            if(top->lhs())
+                toCheck.push(top->lhs());
+        }
+    }
+    return result;
+}
+
+static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>>& result, SgStatement* definition, SgStatement* reachesHere)
+{
+    auto found_d = result.find(definition);
+    if(found_d == result.end())
+    {
+        pair<set<SgStatement*>, set<SgStatement*>> newPair;
+        newPair.first = set<SgStatement*>();
+        newPair.second = set<SgStatement*>();
+        newPair.second.insert(reachesHere);
+        result.insert(found_d, make_pair(definition, newPair));
+    }
+    else
+        found_d->second.second.insert(reachesHere);
+
+    auto found_r = result.find(reachesHere);
+        if(found_r == result.end())
+        {
+            pair<set<SgStatement*>, set<SgStatement*>> newPair;
+            newPair.first = set<SgStatement*>();
+            newPair.second = set<SgStatement*>();
+            newPair.first.insert(definition);
+            result.insert(found_r, make_pair(reachesHere, newPair));
+        }
+    else
+        found_r->second.first.insert(definition);
+}
+
+static bool carefulCheckOfUse(SgStatement* st, SgStatement* definition, SymbolKey& symbol) {
+    if(definition->variant() != ASSIGN_STAT)
+        return true;
+
+    //Нас интересуют операторы присвоения в перменные и массивы.
+
+    SgExpression *expDef = definition->expr(0);
+    stack<SgExpression*> toCheck;
+
+    if(st->variant() == ASSIGN_STAT) {
+        SgExpression* lvalue = st->expr(0);
+        if(lvalue->lhs())
+            toCheck.push(lvalue->lhs());
+        if (lvalue->rhs())
+            toCheck.push(lvalue->rhs());
+
+    }
+    else if (st->expr(0))
+        toCheck.push(st->expr(0));
+
+    for(int i=1;i<3;++i)
+        if(st->expr(i))
+            toCheck.push(st->expr(i));
+
+
+    while(!toCheck.empty()) {
+        SgExpression* top = toCheck.top();
+        toCheck.pop();
+        if(top->variant() == VAR_REF && symbol == top->symbol())
+            return true;
+        else if(top->variant() == ARRAY_REF && symbol == top->symbol()) {
+            //Нужно проерить индексы массива. Если там есть константы, то это уточнит анализ.
+            SgExpression *curIndexes = top->lhs();
+            SgExpression *defIndexes = expDef->lhs();
+            while(curIndexes != NULL) {
+                SgExpression *curI = curIndexes->lhs();
+                SgExpression *defI = defIndexes->lhs();
+                if(curIndexes->lhs() == NULL)
+                    break;
+
+                if(curI->variant() == INT_VAL && defI->variant() == INT_VAL &&
+                        ((SgValueExp*)curI)->intValue() != ((SgValueExp*)defI)->intValue())
+                    return false;
+
+                curIndexes = curIndexes->rhs();
+                defIndexes = defIndexes->rhs();
+            }
+            return true;
+        }
+        else {
+            if(top->rhs())
+                toCheck.push(top->rhs());
+            if(top->lhs())
+                toCheck.push(top->lhs());
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Построить мап с зависимостями:
+ * <Оператор от Х : пара<сет зависящих от Х операторов : сет используюемых в Х операторов>>
+ * с since включительно, по till не включительно
+ */
+map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachMap(SgStatement *since, SgStatement *till) {
+
+    int sinceLine = since->lineNumber();
+    int tillLine = till->lineNumber();
+
+    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> result;
+
+    for(SgStatement* cur = since; cur != till; cur = cur->lexNext())
+    {
+        auto definitions = getReachingDefinitionsExt(cur);
+        auto usedSymbols = usedSymbolsInStatement(cur, false);
+        for(SymbolKey symbol : usedSymbols)
+        {
+            auto expressions = definitions.find(symbol);
+            if(expressions != definitions.end())
+            {
+                for(ExpressionValue* expValue : expressions->second)
+                {
+                    SgStatement *def = getDefinitionFor(symbol, expValue);
+                    if(def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine)
+                        if(carefulCheckOfUse(cur, def, symbol)) {
+                            addDefinitionReachesStatement(result, def, cur);
+                        }
+                }
+            }
+        }
+    }
+
+    return result;
+
+}
+
+
 
 SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value)
 {
@@ -92,10 +244,10 @@ void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *d
     saveDefinitionStatement(var, expVal, defSt);
 }
 
-void CBasicBlock::addVarUnknownToGen(SymbolKey var) {
+void CBasicBlock::addVarUnknownToGen(SymbolKey var, SgStatement *defSt) {
     addVarToKill(var);
     gen.insert(make_pair(var, allocateExpressionValue(NULL)));
-
+    saveDefinitionStatement(var, NULL, defSt);
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -158,8 +310,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
         {
             SgExpression *arg = callStmt->arg(i);
             if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarUnknownToGen(arg->symbol());
-//                addVarToKill(arg->symbol());
+                addVarUnknownToGen(arg->symbol(), cfi->getOriginalStatement());
         }
         varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
     }
@@ -169,17 +320,14 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
         {
             SgExpression *arg = funcCall->arg(i);
             if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarUnknownToGen(arg->symbol());
-//                addVarToKill(arg->symbol());
+                addVarUnknownToGen(arg->symbol(), cfi->getOriginalStatement());
         }
         varsToKill = overseerPtr->killedVars(funcCall->symbol()->identifier());
     }
 
     if (varsToKill)
         for (auto var : *varsToKill)
-            addVarUnknownToGen(var);
-//            addVarToKill(var);
-
+            addVarUnknownToGen(var, cfi->getOriginalStatement());
 }
 
 set<SymbolKey>* CBasicBlock::getOutVars()
@@ -213,8 +361,7 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
     if (found_inDefs != in_defs.end())
     {
         for (auto& value : found_inDefs->second)
-            addVarUnknownToGen(value->getExp()->symbol());
-//            addVarToKill(value->getExp()->symbol());
+            addVarUnknownToGen(value->getExp()->symbol(), st);
     }
 }
 
@@ -327,6 +474,45 @@ bool CBasicBlock::expressionIsAvailable(ExpressionValue* expValue) {
     return false;
 }
 
+const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsExt(SgStatement *stmt)
+{
+    ControlFlowItem *cfi = getStart();
+    ControlFlowItem *till = getEnd()->getNext();
+    clearGenKill();
+    bool founded = false;
+    while (cfi != till)
+    {
+        if (cfi->getStatement() == stmt || cfi->getOriginalStatement() == stmt)
+        {
+            founded = true;
+            break;
+        }
+        adjustGenAndKill(cfi);
+        cfi = cfi->getNext();
+    }
+
+    map<SymbolKey, set<ExpressionValue*>> defs;
+    if (founded)
+    {
+        for (auto &it : in_defs)
+        {
+            if (kill.find(it.first) == kill.end())
+            {
+                auto founded = defs.find(it.first);
+                if (founded == defs.end())
+                    founded = defs.insert(founded, make_pair(it.first, set<ExpressionValue*>()));
+
+                for (auto &exp : it.second)
+                    founded->second.insert(exp);
+            }
+        }
+
+        for(auto &it : gen)
+            defs.insert(make_pair(it.first, set<ExpressionValue*>())).first->second.insert(it.second);
+    }
+    return defs;
+}
+
 const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgStatement *stmt)
 {
     ControlFlowItem *cfi = getStart();
@@ -356,7 +542,7 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
                     founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
 
                 for (auto &exp : it.second)
-                        founded->second.insert(exp->getExp());
+                    founded->second.insert(exp->getExp());
             }
         }
 

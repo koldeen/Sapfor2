@@ -109,11 +109,13 @@ public:
         if (value[value.size() - 1] != '.')
             value += '.';
         //check for capital letter
+#ifdef _WIN32
         const wchar_t fS = value[0];
         if (fS >= L'a' && fS <= L'z')
             value[0] = L'A' + (value[0] - L'a');
         if (fS >= L'à' && fS <= L'ÿ')
             value[0] = L'À' + (value[0] - L'ÿ');
+#endif
         //TODO: convert to upper case for test between '___'
     }
 
