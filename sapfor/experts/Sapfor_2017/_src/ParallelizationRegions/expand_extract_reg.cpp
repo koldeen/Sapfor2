@@ -78,9 +78,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad directive position on line %d: it can be placed only after all DATA statements\n", errorLine);
             
-            string message;
-            __spf_printToBuf(message, "bad directive position: it can be placed only after all DATA statements");
-            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad directive position: it can be placed only after all DATA statements");
+            messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
             error = false;
         }
@@ -90,9 +90,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad lines position: end line %d must be greater or equel begin line %d\n", endLine, startLine);
 
-            string message;
-            __spf_printToBuf(message, "bad lines position: end line %d must be greater or equel begin line %d", endLine, startLine);
-            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad lines position: end line %d must be greater or equel begin line %d", endLine, startLine);
+            messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
             error = false;
         }
@@ -105,9 +105,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad lines position: begin and end lines can not be placed at differect regions\n");
 
-            string message;
-            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at differect regions");
-            messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not be placed at differect regions");
+            messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
             error = false;
         }
@@ -130,9 +130,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad lines position on line %d: begin and end lines can not be placed at region implicit lines\n", errorLine);
 
-            string message;
-            __spf_printToBuf(message, "bad lines position: begin and end lines can not be placed at region implicit lines");
-            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not be placed at region implicit lines");
+            messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
             error = false;
         }
@@ -171,9 +171,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad lines position on line %d: begin and end lines can not include fragments of different regions at extending operation\n", startLine);
 
-            string message;
-            __spf_printToBuf(message, "bad lines position: begin and end lines can not include fragments of different regions at extending operation");
-            messagesForFile.push_back(Messages(ERROR, startLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not include fragments of different regions at extending operation");
+            messagesForFile.push_back(Messages(ERROR, startLine, bufw, 1001));
 
             error = false;
         }
@@ -249,9 +249,9 @@ bool expandExtractReg(const string &fileName,
                 {
                     __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);
 
-                    string message;
-                    __spf_printToBuf(message, "bad lines %d-%d position: expected lines with the same scope for creating region fragment");
-                    messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"bad lines %d-%d position: expected lines with the same scope for creating region fragment");
+                    messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
                     error = false;
                 }
@@ -279,9 +279,9 @@ bool expandExtractReg(const string &fileName,
             {
                 __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments\n", startLine, endLine);
 
-                string message;
-                __spf_printToBuf(message, "bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments");
-                messagesForFile.push_back(Messages(ERROR, endLine, message, 1001));
+                std::wstring bufw;
+                __spf_printToLongBuf(bufw, L"bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments");
+                messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
                 error = false;
             }
@@ -291,9 +291,9 @@ bool expandExtractReg(const string &fileName,
         {
             __spf_print(1, "bad lines position: expected lines with the same control parent on line %d\n", errorLine);
 
-            string message;
-            __spf_printToBuf(message, "bad lines position: expected lines with the same control parent");
-            messagesForFile.push_back(Messages(ERROR, errorLine, message, 1001));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"bad lines position: expected lines with the same control parent");
+            messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
             error = true;
         }
