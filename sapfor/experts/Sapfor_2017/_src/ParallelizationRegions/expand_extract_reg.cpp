@@ -43,6 +43,11 @@ static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileN
     return false;
 }
 
+static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
+{
+    return (start->controlParent() == end->controlParent() && end->variant() != CONTROL_END || end->variant() == CONTROL_END && start == end->controlParent());
+}
+
 bool expandExtractReg(const string &fileName,
                       const int startLine,
                       const int endLine,
@@ -201,7 +206,7 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (end->controlParent() == beginLines->stats.first->controlParent())
+                if (hasOwnControlParent(end, beginLines->stats.first))
                 {
                     insertEndParReg(end);
                     beginLines->stats.second->lexNext()->deleteStmt();
@@ -222,7 +227,7 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (begin->controlParent() == endLines->stats.first->controlParent())
+                if (hasOwnControlParent(begin, endLines->stats.first))
                 {
                     insertParRegDir(begin, endReg->GetName());
                     endLines->stats.first->lexPrev()->deleteStmt();
@@ -243,7 +248,7 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())
+                if (hasOwnControlParent(begin, end))
                     insertParRegDirs(begin, end, "reg" + to_string(regions.size()));
                 else
                 {
@@ -259,7 +264,7 @@ bool expandExtractReg(const string &fileName,
         }
         else if (beginLines && endLines && beginLines != endLines)
         {
-            if (begin->controlParent() == end->controlParent() || end->variant() == CONTROL_END && begin == end->controlParent())
+            if (hasOwnControlParent(begin, end))
             {
                 if (!toDelete)
                 {
