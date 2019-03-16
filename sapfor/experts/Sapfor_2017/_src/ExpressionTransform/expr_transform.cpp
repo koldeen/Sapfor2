@@ -121,14 +121,15 @@ const map<SymbolKey, set<ExpressionValue*>> getReachingDefinitionsExt(SgStatemen
     return b->getReachedDefinitionsExt(stmt);
 }
 
-const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
+//DEPRECATED
+/*const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
 {
     CBasicBlock* b = graphsKeeper->findBlock(stmt);
     if(!b)
         return map<SymbolKey, set<SgExpression*>>();
 
     return b->getReachedDefinitions(stmt);
-}
+}*/
 
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
 {

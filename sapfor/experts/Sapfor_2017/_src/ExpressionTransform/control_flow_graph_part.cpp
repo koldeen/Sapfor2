@@ -513,7 +513,8 @@ const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsEx
     return defs;
 }
 
-const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgStatement *stmt)
+//DEPRECATED
+/*const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgStatement *stmt)
 {
     ControlFlowItem *cfi = getStart();
     ControlFlowItem *till = getEnd()->getNext();
@@ -550,7 +551,7 @@ const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgSt
             defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second->getExp());
     }
     return defs;
-}
+}*/
 
 size_t max1 = 0;
 size_t min1 = 0;

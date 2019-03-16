@@ -103,7 +103,7 @@ public:
 };
 
 std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMap(SgStatement *since, SgStatement *till);
-const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
+//const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
 const std::map<SymbolKey, std::set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt);
 SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value);
 void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
@@ -118,4 +118,3 @@ void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);
 void showDefsOfGraph(ControlFlowGraph *CGraph);
 void debugStructure(ControlFlowGraph *CGraph, const std::string &filename);
-void clearAllocatedExprValues();
