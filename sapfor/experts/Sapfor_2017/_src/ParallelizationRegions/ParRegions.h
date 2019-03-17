@@ -153,7 +153,7 @@ public:
     {
         auto fileLines = GetLines(file);
         if (fileLines)
-            for (auto lines : *fileLines)
+            for (auto &lines : *fileLines)
                 if (lines.lines.first <= line && line <= lines.lines.second)
                     return &lines;
         return NULL;

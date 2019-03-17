@@ -249,7 +249,7 @@ bool expandExtractReg(const string &fileName,
             if (!toDelete)
             {
                 if (hasOwnControlParent(begin, end))
-                    insertParRegDirs(begin, end, "reg" + to_string(regions.size()));
+                    insertParRegDirs(begin, end, "reg" + to_string(regions.size() + 1));
                 else
                 {
                     __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);

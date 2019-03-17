@@ -1227,7 +1227,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         // ERROR
         //error = expandExtractReg(current_file->filename(), 27, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 28, 29, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
-        error = expandExtractReg(current_file->filename(), 29, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        //error = expandExtractReg(current_file->filename(), 29, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
 
         // OK
         //error = expandExtractReg(current_file->filename(), 28, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
@@ -1237,6 +1237,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         //error = expandExtractReg(current_file->filename(), 32, 34, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 34, 42, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
         //error = expandExtractReg(current_file->filename(), 28, 51, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
+        error = expandExtractReg(current_file->filename(), 28, 52, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
 
         if (error)
             internalExit = 1;
