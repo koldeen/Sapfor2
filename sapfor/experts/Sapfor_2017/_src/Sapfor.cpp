@@ -413,7 +413,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
-            auto loopsByFile = getObjectForFileFromMap(file_name, loopGraph);
+            auto &loopsByFile = getObjectForFileFromMap(file_name, loopGraph);
             map<int, LoopGraph*> mapLoopsByFile;
             createMapLoopGraph(loopsByFile, mapLoopsByFile);
 

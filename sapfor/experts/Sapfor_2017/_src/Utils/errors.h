@@ -119,10 +119,7 @@ public:
         //TODO: convert to upper case for test between '___'
     }
 
-    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group)
-    {
-        Messages(type, line, rus, group);
-    }
+    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : Messages(type, line, rus, group) { }
 
     std::wstring toString()
     {

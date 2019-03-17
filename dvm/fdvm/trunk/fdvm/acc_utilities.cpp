@@ -329,6 +329,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("shifta"));
     intrinsicF.insert(string("shiftl"));
     intrinsicF.insert(string("shiftr"));
+    intrinsicF.insert(string("sum"));
     intrinsicF.insert(string("tan"));
     intrinsicF.insert(string("tand"));
     intrinsicF.insert(string("tanh"));

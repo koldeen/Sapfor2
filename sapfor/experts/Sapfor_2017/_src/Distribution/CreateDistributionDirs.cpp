@@ -59,11 +59,12 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         addToGlobalBufferAndPrint(buf);
                         arraysWithErrors.insert(array->GetShortName());
                         
-                        std::wstring bufw;                        
-                        __spf_printToLongBuf(bufw, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
-
-                        auto currM = getObjectForFileFromMap(declF.c_str(), allMessages);
-                        currM.push_back(Messages(ERROR, declL, bufw, 1012));
+                        std::wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(bufR, L"Ќевозможно определить размеры массива '%s'", to_wstring(array->GetShortName()).c_str());
+#endif
+                        getObjectForFileFromMap(declF.c_str(), allMessages).push_back(Messages(ERROR, declL, bufR, bufE, 1012));
                     }
                 }
                 ok = false;
