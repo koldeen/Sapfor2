@@ -1223,7 +1223,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == EXPAND_EXTRACT_PAR_REGION)
     {
-        bool error;
+        bool error = expandExtractReg(std::get<0>(inData),
+                                      std::get<1>(inData),
+                                      std::get<2>(inData),
+                                      parallelRegions,
+                                      getObjectForFileFromMap(std::get<0>(inData).c_str(), SPF_messages),
+                                      std::get<3>(inData));
         // expand
         // ERROR
         //error = expandExtractReg(current_file->filename(), 27, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));
@@ -1251,7 +1256,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         //error = expandExtractReg(current_file->filename(), 29, 29, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
         
         //error = expandExtractReg(current_file->filename(), 34, 37, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
-        error = expandExtractReg(current_file->filename(), 35, 36, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
+        //error = expandExtractReg(current_file->filename(), 35, 36, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
         //error = expandExtractReg(current_file->filename(), 32, 42, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
         //error = expandExtractReg(current_file->filename(), 32, 34, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);
         //error = expandExtractReg(current_file->filename(), 34, 42, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages), true);

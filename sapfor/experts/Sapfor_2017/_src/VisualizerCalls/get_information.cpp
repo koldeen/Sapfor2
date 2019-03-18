@@ -997,8 +997,8 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         std::get<2>(inData) = toModifyLines[1];
         std::get<3>(inData) = toModifyLines[2];
 
-        //PASSES_DONE[PASS_NAME] = 0;
-        //runPassesForVisualizer(projName, { PASS_NAME }, folderName);
+        PASSES_DONE[EXPAND_EXTRACT_PAR_REGION] = 0;
+        runPassesForVisualizer(projName, { EXPAND_EXTRACT_PAR_REGION }, folderName);
 
         //fill data
 
