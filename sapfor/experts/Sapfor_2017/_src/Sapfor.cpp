@@ -1228,7 +1228,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                       std::get<2>(inData),
                                       parallelRegions,
                                       getObjectForFileFromMap(std::get<0>(inData).c_str(), SPF_messages),
-                                      std::get<3>(inData));
+                                      !std::get<3>(inData));
         // expand
         // ERROR
         //error = expandExtractReg(current_file->filename(), 27, 30, parallelRegions, getObjectForFileFromMap(current_file->filename(), SPF_messages));

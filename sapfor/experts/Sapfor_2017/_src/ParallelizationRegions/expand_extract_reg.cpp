@@ -248,8 +248,15 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
+                string regName;
+                // TODO: create correct new region name
+                if (internalLines.size())
+                    regName = internalLines.begin()->first->GetName();
+                else
+                    regName = "reg" + to_string(regions.size() + 1);
+
                 if (hasOwnControlParent(begin, end))
-                    insertParRegDirs(begin, end, "reg" + to_string(regions.size() + 1));
+                    insertParRegDirs(begin, end, regName);
                 else
                 {
                     __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);
@@ -287,23 +294,12 @@ bool expandExtractReg(const string &fileName,
                 if (startLine == beginLines->lines.first)
                     beginLines->stats.first->lexPrev()->deleteStmt();
                 else
-                {
-                    beginLines->stats.second->lexNext()->deleteStmt();
-                    insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, endLine + 1));
-                }
+                    insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
 
                 if (endLine == endLines->lines.second)
                     endLines->stats.second->lexNext()->deleteStmt();
                 else
-                {
-                    endLines->stats.first->lexPrev()->deleteStmt();
-                    insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, startLine - 1), endReg->GetName());
-                }
-                /*
-                insertParRegDirs(SgStatement::getStatementByFileAndLine(fileName, endLine + 1),
-                                 SgStatement::getStatementByFileAndLine(fileName, startLine - 1),
-                                 endReg->GetName());
-                */
+                    insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
             }
         }
 
