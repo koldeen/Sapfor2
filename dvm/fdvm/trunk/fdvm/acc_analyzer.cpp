@@ -318,12 +318,8 @@ void Private_Vars_Analyzer(SgStatement* start)
     CallData calls;
     CommonData commons;
     DoLoopDataList doloopList;
-    pCommons = &commons;
-    pCalls = &calls;
-    doLoopList = &doloopList;
+    SetUpVars(&commons, &calls, calls.AddHeader(start, false, start->symbol(), current_file_id), &doloopList);
 
-    currentProcedure = calls.AddHeader(start, false, start->symbol(), current_file_id);
-    mainProcedure = currentProcedure;
     //stage 1: preparing graph data
     ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, start, &calls, &commons);
     calls.AssociateGraphWithHeader(start, CGraph);
