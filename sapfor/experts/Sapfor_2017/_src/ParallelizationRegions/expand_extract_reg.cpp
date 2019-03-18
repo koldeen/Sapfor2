@@ -262,33 +262,48 @@ bool expandExtractReg(const string &fileName,
                 }
             }
         }
-        else if (beginLines && endLines && beginLines != endLines)
+        else if (beginLines && endLines)
         {
-            if (hasOwnControlParent(begin, end))
+            if (!toDelete)
             {
-                if (!toDelete)
+                if (beginLines != endLines && hasOwnControlParent(beginLines->stats.first, endLines->stats.first))
                 {
                     beginLines->stats.second->lexNext()->deleteStmt();
                     endLines->stats.first->lexPrev()->deleteStmt();
                 }
                 else
                 {
-                    beginLines->stats.first->lexPrev()->deleteStmt();
-                    endLines->stats.second->lexNext()->deleteStmt();
-                    insertParRegDirs(SgStatement::getStatementByFileAndLine(fileName, endLine + 1),
-                                     SgStatement::getStatementByFileAndLine(fileName, startLine -1),
-                                     endReg->GetName());
+                    __spf_print(1, "bad lines %d-%d position: can not extend region fragments with different scope\n", startLine, endLine);
+
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"bad lines %d-%d position: can not extend region fragments with different scope");
+                    messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
+
+                    error = false;
                 }
             }
-            else
+            else if (hasOwnControlParent(begin, end))
             {
-                __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments\n", startLine, endLine);
+                if (startLine == beginLines->lines.first)
+                    beginLines->stats.first->lexPrev()->deleteStmt();
+                else
+                {
+                    beginLines->stats.second->lexNext()->deleteStmt();
+                    insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, endLine + 1));
+                }
 
-                std::wstring bufw;
-                __spf_printToLongBuf(bufw, L"bad lines %d-%d position: expected lines with the same scope for extending/exacting region fragments");
-                messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
-
-                error = false;
+                if (endLine == endLines->lines.second)
+                    endLines->stats.second->lexNext()->deleteStmt();
+                else
+                {
+                    endLines->stats.first->lexPrev()->deleteStmt();
+                    insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, startLine - 1), endReg->GetName());
+                }
+                /*
+                insertParRegDirs(SgStatement::getStatementByFileAndLine(fileName, endLine + 1),
+                                 SgStatement::getStatementByFileAndLine(fileName, startLine - 1),
+                                 endReg->GetName());
+                */
             }
         }
 
