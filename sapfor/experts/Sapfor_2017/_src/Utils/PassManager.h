@@ -166,6 +166,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     Pass(GCOV_PARSER) <= Pass(CREATE_PARALLEL_REGIONS);
 
+    Pass(CREATE_INTER_TREE) <= Pass(CREATE_PARALLEL_REGIONS);
+
     Pass(CALL_GRAPH) <= Pass(CREATE_PARALLEL_REGIONS);
 
     list({ LOOP_ANALYZER_DATA_DIST_S1, REVERT_SUBST_EXPR }) <= Pass(LOOPS_SPLITTER);
