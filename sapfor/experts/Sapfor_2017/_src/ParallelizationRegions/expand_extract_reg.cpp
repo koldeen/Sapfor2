@@ -87,7 +87,7 @@ bool expandExtractReg(const string &fileName,
             __spf_printToLongBuf(bufw, L"bad directive position: it can be placed only after all DATA statements");
             messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
-            error = false;
+            error = true;
         }
 
         // 1. N1 <= N2
@@ -99,7 +99,7 @@ bool expandExtractReg(const string &fileName,
             __spf_printToLongBuf(bufw, L"bad lines position: end line %d must be greater or equel begin line %d", endLine, startLine);
             messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
-            error = false;
+            error = true;
         }
 
         // 2. запрещено располагать N1 и N2 во фрагментах разных ОР и неявных строках
@@ -114,7 +114,7 @@ bool expandExtractReg(const string &fileName,
             __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not be placed at differect regions");
             messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
-            error = false;
+            error = true;
         }
 
         localError = false;
@@ -139,7 +139,7 @@ bool expandExtractReg(const string &fileName,
             __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not be placed at region implicit lines");
             messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
-            error = false;
+            error = true;
         }
 
         // 3. при добавлении запрещено содержать внутри отрезка [N1,N2] фрагменты разных ОР
@@ -180,7 +180,7 @@ bool expandExtractReg(const string &fileName,
             __spf_printToLongBuf(bufw, L"bad lines position: begin and end lines can not include fragments of different regions at extending operation");
             messagesForFile.push_back(Messages(ERROR, startLine, bufw, 1001));
 
-            error = false;
+            error = true;
         }
 
         // use cases
@@ -206,7 +206,7 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (hasOwnControlParent(end, beginLines->stats.first))
+                if (hasOwnControlParent(beginLines->stats.first, end))
                 {
                     insertEndParReg(end);
                     beginLines->stats.second->lexNext()->deleteStmt();
@@ -262,10 +262,10 @@ bool expandExtractReg(const string &fileName,
                     __spf_print(1, "bad lines %d-%d position: expected lines with the same scope for creating region fragment\n", startLine, endLine);
 
                     std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"bad lines %d-%d position: expected lines with the same scope for creating region fragment");
+                    __spf_printToLongBuf(bufw, L"bad lines position: expected lines with the same scope for creating region fragment");
                     messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
-                    error = false;
+                    error = true;
                 }
             }
         }
@@ -286,7 +286,7 @@ bool expandExtractReg(const string &fileName,
                     __spf_printToLongBuf(bufw, L"bad lines %d-%d position: can not extend region fragments with different scope");
                     messagesForFile.push_back(Messages(ERROR, endLine, bufw, 1001));
 
-                    error = false;
+                    error = true;
                 }
             }
             else if (hasOwnControlParent(begin, end))
