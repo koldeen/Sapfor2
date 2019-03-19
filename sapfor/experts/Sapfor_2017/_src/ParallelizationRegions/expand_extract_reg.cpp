@@ -45,6 +45,8 @@ static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileN
 
 static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
 {
+    if (start == end)
+        return true;
     return (start->controlParent() == end->controlParent() && end->variant() != CONTROL_END || end->variant() == CONTROL_END && start == end->controlParent());
 }
 
@@ -106,7 +108,7 @@ bool expandExtractReg(const string &fileName,
         auto beginReg = getRegionByLine(regions, fileName, startLine);
         auto endReg = getRegionByLine(regions, fileName, endLine);
 
-        if (beginReg && endReg && beginReg != endReg)
+        if (!toDelete && beginReg && endReg && beginReg != endReg)
         {
             __spf_print(1, "bad lines position: begin and end lines can not be placed at differect regions\n");
 
@@ -289,17 +291,51 @@ bool expandExtractReg(const string &fileName,
                     error = true;
                 }
             }
-            else if (hasOwnControlParent(begin, end))
+            else
             {
-                if (startLine == beginLines->lines.first)
-                    beginLines->stats.first->lexPrev()->deleteStmt();
-                else
-                    insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
+                int errorLine1, errorLine2, printLine;
+                localError = false;
 
-                if (endLine == endLines->lines.second)
-                    endLines->stats.second->lexNext()->deleteStmt();
+                if (hasOwnControlParent(beginLines->stats.first, begin))
+                {
+                    if (startLine == beginLines->lines.first)
+                        beginLines->stats.first->lexPrev()->deleteStmt();
+                    else
+                        insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
+                }
                 else
-                    insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
+                {
+                    localError = true;
+                    errorLine1 = beginLines->lines.first;
+                    errorLine2 = startLine;
+                    printLine = startLine;
+                }
+
+                if (hasOwnControlParent(endLines->stats.first, end))
+                {
+                    if (endLine == endLines->lines.second)
+                        endLines->stats.second->lexNext()->deleteStmt();
+                    else
+                        insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
+                }
+                else
+                {
+                    localError = true;
+                    errorLine1 = endLine;
+                    errorLine2 = endLines->lines.second;
+                    printLine = endLine;
+                }
+
+                if (localError)
+                {
+                    __spf_print(1, "bad lines %d-%d position: expected line with the same scope for extracting region fragment\n", errorLine1, errorLine2);
+
+                    std::wstring bufw;
+                    __spf_printToLongBuf(bufw, L"bad lines position: expected line with the same scope for extracting region fragment");
+                    messagesForFile.push_back(Messages(ERROR, printLine, bufw, 1001));
+
+                    error = true;
+                }
             }
         }
 
