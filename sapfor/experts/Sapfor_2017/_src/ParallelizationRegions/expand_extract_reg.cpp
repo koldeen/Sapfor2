@@ -197,8 +197,8 @@ bool expandExtractReg(const string &fileName,
         {
             for (auto &lines : regLines.second)
             {
-                lines->stats.first->lexPrev()->deleteStmt();
-                lines->stats.second->lexNext()->deleteStmt();
+                lines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
+                lines->stats.second->GetOriginal()->lexNext()->deleteStmt();
             }
         }
 
@@ -208,10 +208,10 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (hasOwnControlParent(beginLines->stats.first, end))
+                if (hasOwnControlParent(beginLines->stats.first->GetOriginal(), end))
                 {
                     insertEndParReg(end);
-                    beginLines->stats.second->lexNext()->deleteStmt();
+                    beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
                 }
                 else
                 {
@@ -222,17 +222,17 @@ bool expandExtractReg(const string &fileName,
             else
             {
                 insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
-                beginLines->stats.second->lexNext()->deleteStmt();
+                beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
             }
         }
         else if (endLines && !beginLines)
         {
             if (!toDelete)
             {
-                if (hasOwnControlParent(begin, endLines->stats.first))
+                if (hasOwnControlParent(begin, endLines->stats.first->GetOriginal()))
                 {
                     insertParRegDir(begin, endReg->GetName());
-                    endLines->stats.first->lexPrev()->deleteStmt();
+                    endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                 }
                 else
                 {
@@ -243,7 +243,7 @@ bool expandExtractReg(const string &fileName,
             else
             {
                 insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
-                endLines->stats.first->lexPrev()->deleteStmt();
+                endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
             }
         }
         else if (!beginLines && !endLines)
@@ -275,10 +275,10 @@ bool expandExtractReg(const string &fileName,
         {
             if (!toDelete)
             {
-                if (beginLines != endLines && hasOwnControlParent(beginLines->stats.first, endLines->stats.first))
+                if (beginLines != endLines && hasOwnControlParent(beginLines->stats.first->GetOriginal(), endLines->stats.first->GetOriginal()))
                 {
-                    beginLines->stats.second->lexNext()->deleteStmt();
-                    endLines->stats.first->lexPrev()->deleteStmt();
+                    beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
+                    endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                 }
                 else
                 {
@@ -296,10 +296,10 @@ bool expandExtractReg(const string &fileName,
                 int errorLine1, errorLine2, printLine;
                 localError = false;
 
-                if (hasOwnControlParent(beginLines->stats.first, begin))
+                if (hasOwnControlParent(beginLines->stats.first->GetOriginal(), begin))
                 {
                     if (startLine == beginLines->lines.first)
-                        beginLines->stats.first->lexPrev()->deleteStmt();
+                        beginLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                     else
                         insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
                 }
@@ -311,10 +311,10 @@ bool expandExtractReg(const string &fileName,
                     printLine = startLine;
                 }
 
-                if (hasOwnControlParent(endLines->stats.first, end))
+                if (hasOwnControlParent(endLines->stats.first->GetOriginal(), end))
                 {
                     if (endLine == endLines->lines.second)
-                        endLines->stats.second->lexNext()->deleteStmt();
+                        endLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
                     else
                         insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
                 }
