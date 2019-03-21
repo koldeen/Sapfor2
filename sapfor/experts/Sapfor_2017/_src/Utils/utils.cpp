@@ -26,6 +26,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 using std::map;
 using std::pair;
@@ -712,3 +713,17 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
 }
 
 std::wstring to_wstring(const std::string &str) { return std::wstring(str.begin(), str.end()); }
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
+{
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, std::make_pair(fileName, objT()));
+    return it->second;
+}
+
+template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
+template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
+template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
+template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

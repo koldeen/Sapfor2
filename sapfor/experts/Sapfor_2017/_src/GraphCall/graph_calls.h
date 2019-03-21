@@ -149,6 +149,15 @@ struct FuncInfo
             return funcName + "_r" + std::to_string(regionId);
         return funcName;
     }
+
+    void removeNonDistrArrays()
+    {
+        std::set<DIST::Array*> newUsedArrays;
+        for (auto &elem : allUsedArrays)
+            if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
+                newUsedArrays.insert(elem);
+        allUsedArrays = newUsedArrays;        
+    }
 };
 
 struct CallV

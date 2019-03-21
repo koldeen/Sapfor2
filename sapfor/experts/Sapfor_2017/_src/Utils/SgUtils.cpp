@@ -1685,10 +1685,5 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
         it = mapObject.insert(it, std::make_pair(fileName, objT()));
     return it->second;
 }
-
-template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
-template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
-template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
-template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

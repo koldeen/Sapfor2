@@ -221,6 +221,16 @@ public:
         return retVal;
     }
 
+    void removeNonDistrArrays()
+    {
+        std::set<DIST::Array*> newUsedArrays;
+        for (auto &elem : usedArrays)
+            if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
+                newUsedArrays.insert(elem);
+        usedArrays = newUsedArrays;
+        for (auto &ch : children)
+            ch->removeNonDistrArrays();
+    }
 public:
     int lineNum;
     int lineNumAfterLoop;

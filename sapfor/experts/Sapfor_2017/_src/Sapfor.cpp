@@ -1294,6 +1294,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
         propagateArrayFlags(arrayLinksByFuncCalls);
+        for (auto &loopByFile : loopGraph)
+            for (auto &loop : loopByFile.second)
+                loop->removeNonDistrArrays();
+
+        for (auto &funcByFile : allFuncInfo)
+            for (auto &func : funcByFile.second)
+                func->removeNonDistrArrays();
+
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
