@@ -1749,7 +1749,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
-            runPass(INSERT_REGIONS, proj_name, folderName);
+			runAnalysis(*project, INSERT_REGIONS, false);
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 

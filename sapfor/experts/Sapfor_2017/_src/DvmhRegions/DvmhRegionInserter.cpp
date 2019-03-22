@@ -194,12 +194,12 @@ static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
 
 
 /*
-	1. Объединять идущие строго подряд регионы
-	2. Должны находиться в одной области видимости
-	3. Если между регионами что-то есть:
-		а) нет переходов вверх-вниз
-		б) если объявляются переменные -- перенести наверх (можно перенести, если данные не используются в пред. регионе)
-		в) если вызов функции -- используются ли данные из предыдущегрегиона в этой функции*
+	1. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	2. пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	3. пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅ:
+		пїЅ) пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅ
+		пїЅ) пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ -- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+		пїЅ) пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ -- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ*
 */
 
 static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
@@ -236,21 +236,17 @@ static std::map<SymbolKey, std::set<SgExpression*> > dummyDefenitions(SgStatemen
 }
 
 void DvmhRegionInsertor::insertActualDirectives() {
-	std::cout << "IN INSERT ACTUALS" << std::endl;
 	int funcNum = file.numberOfFunctions();
 
 	for (int i = 0; i < funcNum; ++i)
 	{
+		__spf_print(1, "1\n");
 		SgStatement *st = file.functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
 		while (st && st != lastNode)
 		{
-			if (!isSgExecutableStatement(st)) {
-				st = st->lexNext();
-				continue;
-			}
-
-			if (st->variant() == CONTAINS_STMT) {
+			// Todo: how to skip dvm directives?
+			if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st)) {
 				st = st->lexNext();
 				continue;
 			}
@@ -259,7 +255,6 @@ void DvmhRegionInsertor::insertActualDirectives() {
 			const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
 			//const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
 
-			std::vector<SgSymbol*> toActualise;
 			for (auto& var : vars) {
 				SgSymbol *symbol = (SgSymbol *)var.first.getSymbol();
 				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
@@ -296,7 +291,6 @@ void DvmhRegionInsertor::insertActualDirectives() {
 						auto stEx = SgStatement::getStatmentByExpression(defenition);
 						if (!stEx) { // couldn't find defenition for statement
 							printf("Unable to find statement for expr:\n");
-							defenition->unparsestdout();
 							printInternalError(saveName, st->lineNumber());
 							continue;
 						}
@@ -319,14 +313,27 @@ void DvmhRegionInsertor::insertActualDirectives() {
 				else {
 					// Searching for defenition in region
 					for (auto& defenition : var.second) {
-						DvmhRegion* containingRegion = getContainingRegion(SgStatement::getStatmentByExpression(defenition));
+						auto saveName = current_file->filename();
+						auto stEx = SgStatement::getStatmentByExpression(defenition);
+						if (!stEx) { // couldn't find defenition for statement
+							printf("Unable to find statement for expr:\n");
+							//defenition->unparsestdout();
+							printInternalError(saveName, st->lineNumber());
+							continue;
+						}
+						if (!stEx->switchToFile())
+							printInternalError(saveName, st->lineNumber());
+
+						DvmhRegion* containingRegion = getContainingRegion(stEx);
 						if (containingRegion) {
 							containingRegion->addToActualisationAfter(symbol);
 						}
+
+						if (SgFile::switchToFile(saveName) == -1)
+							printInternalError(saveName, st->lineNumber());
 					}
 				}
 			}
-
 			st = st->lexNext();
 		}
 	}
@@ -420,9 +427,13 @@ void DvmhRegionInsertor::mergeRegions()
 
 void DvmhRegionInsertor::insertDirectives()
 {
+	__spf_print(1, "Find edges for regions\n");
 	findEdgesForRegions(loopGraph);
+	__spf_print(1, "Merging regions\n");
 	mergeRegions();
+	__spf_print(1, "Insert regions\n");
 	insertRegionDirectives();
+	__spf_print(1, "Insert actuals\n");
 	insertActualDirectives();
 }
 
