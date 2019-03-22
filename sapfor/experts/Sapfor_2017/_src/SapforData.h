@@ -14,6 +14,7 @@
 #include "DynamicAnalysis/gcov_info.h"
 #include "Sapfor.h"
 #include "Utils/errors.h"
+#include "DynamicAnalysis/createParallelRegions.h"
 
 extern std::map<std::string, std::string> shortFileNames;
 static int activeState = 0;
@@ -107,6 +108,11 @@ std::vector<std::vector<long>> topologies; // current topologies
 
 //for GCOV_PARSER
 std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
+//
+
+//for SPF CHANGING
+std::tuple<std::string, int, int, int> inData; // file, startLine, endLine, del/add
+std::map<std::string, std::string> outData; // file -> new unparsed text
 //
 
 const char *passNames[EMPTY_PASS + 1];

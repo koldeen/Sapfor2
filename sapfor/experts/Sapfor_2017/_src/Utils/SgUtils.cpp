@@ -650,7 +650,9 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
                 start->variant() == VAR_DECL_90 ||
                 start->variant() == ALLOCATABLE_STMT ||
                 start->variant() == DIM_STAT || 
-                start->variant() == COMM_STAT)
+                start->variant() == COMM_STAT || 
+                start->variant() == HPF_TEMPLATE_STAT || 
+                start->variant() == DVM_VAR_DECL)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -662,7 +664,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             start = start->lexNext();
         }
     }
-    
+
     /*if (inDecl.size() == 0)
     {
         SgStatement *lowLevelDecl = toFind->declaredInStmt();
@@ -680,9 +682,9 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             if (itM == SPF_messages.end())
                 itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-            char buf[256];
-            sprintf(buf, "Can not find declaration for symbol '%s' in current scope", toFind->identifier());
-            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), buf, 1017));
+            std::wstring bufw;
+            __spf_printToLongBuf(bufw, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufw, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         return NULL;
@@ -708,6 +710,14 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
 
         for (int i = 0; i < inDecl.size(); ++i)
             if (inDecl[i]->variant() == COMM_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == HPF_TEMPLATE_STAT)
+                return inDecl[i];
+
+        for (int i = 0; i < inDecl.size(); ++i)
+            if (inDecl[i]->variant() == DVM_VAR_DECL)
                 return inDecl[i];
 
         for (int i = 0; i < inDecl.size(); ++i)
@@ -1071,7 +1081,8 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
 void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
-    functionAnalyzer(file, curFileFuncInfo);
+    vector<LoopGraph*> tmpL;
+    functionAnalyzer(file, curFileFuncInfo, tmpL);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);
@@ -1674,10 +1685,5 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
         it = mapObject.insert(it, std::make_pair(fileName, objT()));
     return it->second;
 }
-
-template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
-template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
-template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
-template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

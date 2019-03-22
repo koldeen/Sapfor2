@@ -17,6 +17,7 @@ extern int passDone;
 #endif
 
 #include "../GraphCall/graph_calls.h"
+#include "../Utils/errors.h"
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -65,7 +66,7 @@ extern Set* loopArrayAccessAnalysis(SgStatement *func, SgStatement *stmt, SgSymb
 ///////////////////////////////////////////////////////////////////////////////////////
 // declaration for defuse and reaching definition (defUse.C)
 ///////////////////////////////////////////////////////////////////////////////////////
-extern void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs);
+extern void initDefUseTable(SgStatement *func, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile);
 extern Set *makeGenSet(SgStatement *func, SgStatement *stmt);
 extern Set *makeKillSet(SgStatement *func, SgStatement *stmt);
 extern int symbRefEqual(void *e1, void *e2);
@@ -724,7 +725,7 @@ static bool setNewKind(int &reductionKind, const int newKind)
 int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStatement *loop)
 {
     PT_ACCESSARRAY  access2, lastaccess, firstaccess;
-    int i, j, nbaccess;
+    int i, j;
     if (!loop)
     {
         Message("No loop given in isItReduction", 0);
@@ -742,7 +743,6 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
     firstaccess = (PT_ACCESSARRAY)arrayset->getElement(firstref);
     accessesForStat[firstaccess->stmt].insert(firstaccess);
 
-    nbaccess = 1;
     lastaccess = NULL;
     for (j = firstref + 1; (j < arrayset->size()); j++)
     {
@@ -751,7 +751,6 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
             loop->isIncludedInStmt(*(access2->stmt)) &&
             (access1->var->symbol() == access2->var->symbol()))
         {
-            nbaccess++;
             lastaccess = access2;
             accessesForStat[lastaccess->stmt].insert(lastaccess);
         }
@@ -801,12 +800,21 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
         }
     }
 
+    std::map<SgStatement*, set<PT_ACCESSARRAY>> newAccessesForStat;
     for (auto &ACC : accessesForStat)
     {
         auto &elem = ACC.second;
 
-        // more then 2 accesses in one statement
-        if (elem.size() != 2)
+        // only read was accepted
+        if (elem.size() == 1)
+        {           
+            firstaccess = *elem.begin();
+            if (firstaccess->rw == 0)
+                continue;
+            else
+                return UNKNOWREDUCTION;
+        } // more then 2 accesses in one statement
+        else if (elem.size() != 2)
             return UNKNOWREDUCTION;
         // must be an assign statement or IF/LOGIF_NODE;
         if (ACC.first->variant() != ASSIGN_STAT &&
@@ -820,7 +828,10 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
         // one of them must be read and another one - write
         if (firstaccess->rw && lastaccess->rw)
             return UNKNOWREDUCTION;
+
+        newAccessesForStat[ACC.first] = ACC.second;
     }
+    accessesForStat = newAccessesForStat;
 
     int reductionKind = UNKNOWREDUCTION;
     for (auto &ACC : accessesForStat)
@@ -1326,7 +1337,7 @@ extern int toBeCalledByOmegaTest(int tdep, int kdep, int *dist, int *kdist, int 
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // f is a function statement; file the file;
-void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<string, FuncInfo*> &allFuncs)
+void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile)
 {
     if (!f || !file)
     {
@@ -1335,7 +1346,7 @@ void initializeDepAnalysisForFunction(SgFile *file, SgStatement *f, const map<st
     }
     // convert the loops to be enddo loops; should help later????
     convertContLoopToEnddo(f);
-    initDefUseTable(f, allFuncs);
+    initDefUseTable(f, allFuncs, messagesForFile);
     //  Not Needed Yet;
     //iterativeForwardFlowAnalysis(file,f,makeGenSet,makeKillSet,symbRefEqual,NULL,myPrint);
 

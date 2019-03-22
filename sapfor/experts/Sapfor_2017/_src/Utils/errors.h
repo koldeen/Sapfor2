@@ -40,8 +40,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   28 "Module with name '%s' must be placed in current file"
 //   29 lowlevel warnings from private analyzer
 //   30 lowlevel notes from private analyzer
-//   31 "variable '%s' was declarated on line %d"
-//   32 "variable '%s' was declarated in common - block '%s'"
+//   31 "wrong parallel region identifier: variable '%s' was declarated on line %d"
+//   32 "wrong parallel region identifier: variable '%s' was declarated in common block '%s'"
 //   33 "parallel region '%s' is included in file '%s'"
 //   34 "parallel regions '%s' and '%s' are crossed"
 //   35 "parallel region '%s' has data statement(s)"
@@ -54,8 +54,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   42 "distributed array in common block %s must have declaration in main unit"
 //   43 "bad directive expression"
 //   44 "Only pure procedures were supported"
-//   45 "argument '%s' of function '%s' in file '%s' does not have declaration statement"
-//   46 "argument '%s' of function '%s' in file '%s' has declaration statement in region '%s'"
+//   45 "function's argument '%s' does not have declaration statement"
+//   46 "mismatch of count formal and actual parameters "
 //   47 "inconsistent array use"
 
 // 20xx TRANSFORM GROUP
@@ -82,14 +82,15 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   09 "Added remote access for array ref '%s' can significantly reduce performance"
 //   10 "Can not find arrays for distribution for parallel region '%s', ignored"
 //   11 "Arrays have different align rules in this loop according to their write accesses"
-//   12 "parallel regions %shave common function '%s'"
-//   13 "parallel regions %shave local array '%s' that is not resolved"
-//   14 "parallel region '%s' has common array '%s' that is not resolved"
-//   15 "parallel region '%s' has lines that does not have intervals"
-//   16 "expected only assign operands in interval"
-//   17 "parallel region '%s' does not have copying of array '%' in interval"
-//   18 "parallel region '%s' does not have copying of common array '%'"
+//   12 "parallel regions %shave common function '%s' which is used inside them"
+//   13 "parallel regions %shave local array '%s' which is used inside them"
+//   14 "parallel region '%s' has common array '%s' which is used inside and outside region"
+//   15 "parallel region '%s' does not have DVM interval for fragment"
+//   16 "expected only assign operands in DVM interval"
+//   17 "parallel region '%s' does not have copying of array '%s' in DVM interval"
+//   18 "parallel region '%s' does not have copying of common array '%s' in DVM interval"
 //   19  "Can not find execution time for this loop, try to get times statistic"
+//   20  "detected distributed and non distributed array links by function's calls for array %s\n"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -98,21 +99,35 @@ struct Messages
 {
 public:
     //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
-    explicit Messages(const typeMessage type, const int line, const std::string &value_, const int group) : type(type), line(line), group(group)
+    explicit Messages(const typeMessage type, const int line, const std::wstring &value_, const int group) : type(type), line(line), group(group)
     {
         value = value_;
         //check for \n at the end
         if (value[value.size() - 1] == '\n')
             value.erase(value.begin() + value.size() - 1);
-    }        
+        //check for '.' at the end
+        if (value[value.size() - 1] != '.')
+            value += '.';
+        //check for capital letter
+#ifdef _WIN32
+        const wchar_t fS = value[0];
+        if (fS >= L'a' && fS <= L'z')
+            value[0] = L'A' + (value[0] - L'a');
+        if (fS >= L'à' && fS <= L'ÿ')
+            value[0] = L'À' + (value[0] - L'ÿ');
+#endif
+        //TODO: convert to upper case for test between '___'
+    }
 
-    std::string toString()
+    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : Messages(type, line, rus, group) { }
+
+    std::wstring toString()
     {
-        std::string retVal = "|";
-        retVal += std::to_string((int)type) + " ";
-        retVal += std::to_string(line) + " ";
-        retVal += std::to_string(group);
-        retVal += "|" + value;
+        std::wstring retVal = L"|";
+        retVal += std::to_wstring((int)type) + L" ";
+        retVal += std::to_wstring(line) + L" ";
+        retVal += std::to_wstring(group);
+        retVal += L"|" + value;
         return retVal; 
     }
 
@@ -120,7 +135,7 @@ public:
     typeMessage type;
     int group;
     int line;
-    std::string value;
+    std::wstring value;
 };
 
 // from Utils.cpp
@@ -170,10 +185,41 @@ static void printStackTrace() { };
    } \
 } while (0)
 
+#ifdef _WIN32
+#define allocAndPrintLong(buf, format, ...) do { \
+   const int bufLen = 32 * 1024 * 1024;\
+   buf = new wchar_t[bufLen];\
+   const int countW = swprintf(buf, format, ##__VA_ARGS__);\
+   if (countW + 1 > bufLen) \
+   { \
+        delete []buf; \
+        printInternalError(__FILE__, __LINE__);\
+   } \
+} while (0)
+#else
+#define allocAndPrintLong(buf, format, ...) do { \
+   const int bufLen = 32 * 1024 * 1024;\
+   buf = new wchar_t[bufLen];\
+   const int countW = swprintf(buf, bufLen, format, ##__VA_ARGS__);\
+   if (countW + 1 > bufLen) \
+   { \
+        delete []buf; \
+        printInternalError(__FILE__, __LINE__);\
+   } \
+} while (0)
+#endif
+
 #define __spf_printToBuf(outval, format, ...) do {\
     char *buf = NULL; \
     allocAndPrint(buf, format, ##__VA_ARGS__); \
     outval = std::string(buf);\
+    delete []buf;\
+} while (0)
+
+#define __spf_printToLongBuf(outval, format, ...) do {\
+    wchar_t *buf = NULL; \
+    allocAndPrintLong(buf, format, ##__VA_ARGS__); \
+    outval = std::wstring(buf);\
     delete []buf;\
 } while (0)
 

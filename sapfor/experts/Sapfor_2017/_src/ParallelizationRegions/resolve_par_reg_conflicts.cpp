@@ -8,15 +8,15 @@
 #include "ParRegions_func.h"
 #include "resolve_par_reg_conflicts.h"
 
-#include "../Utils/SgUtils.h"
-#include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../GraphLoop/graph_loops_func.h"
 
 using std::map;
 using std::pair;
 using std::set;
 using std::vector;
 using std::string;
+using std::wstring;
 using std::to_string;
 using std::make_pair;
 
@@ -138,15 +138,6 @@ static void insertStringDeclarations(SgStatement *insertPlace, DIST::Array *arra
         varSymb->changeName(varName.c_str());
         insertPlace->addComment(decl.c_str());
     }
-}
-
-static FuncInfo* getFuncInfo(const map<string, FuncInfo*> &funcMap, const string &funcName)
-{
-    auto it = funcMap.find(funcName);
-    if (it == funcMap.end())
-        return NULL;
-
-    return it->second;
 }
 
 static void createSetOfCalledFuncs(const string &funcName, const map<string, FuncInfo*> &funcMap, set<FuncInfo*> &callSet)
@@ -420,16 +411,9 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                                 {
                                     start = st;
 
-                                    //start->unparsestdout(); // DEBUG
-                                    //end->unparsestdout(); // DEBUG
-                                    //__spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
-                                    //for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
-
                                     Statement *intervalStart = new Statement(start);
                                     Statement *intervalEnd = new Statement(end);
                                     lines.intervalBefore = make_pair(intervalStart, intervalEnd);
-
-                                    //for (auto s = lines.intervalBefore.first->GetOriginal()->lexNext(); s != lines.intervalBefore.second->GetOriginal(); s = s->lexNext()) { s->unparsestdout(); __spf_print(1 ,"%d\n", s->lineNumber()); }// DEBUG
 
                                     break;
                                 }
@@ -446,16 +430,9 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                                 {
                                     end = st;
 
-                                    //start->unparsestdout(); // DEBUG
-                                    //end->unparsestdout(); // DEBUG
-                                    //__spf_print(1, "%d %d\n", start->lineNumber(), end->lineNumber()); // DEBUG
-                                    //for (auto s = start->lexNext(); s != end; s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); }// DEBUG
-
                                     Statement *intervalStart = new Statement(start);
                                     Statement *intervalEnd = new Statement(end);
                                     lines.intervalAfter = make_pair(intervalStart, intervalEnd);
-
-                                    //for (auto s = lines.intervalAfter.first->GetOriginal()->lexNext(); s != lines.intervalAfter.second->GetOriginal(); s = s->lexNext()) { s->unparsestdout(); __spf_print(1, "%d\n", s->lineNumber()); } // DEBUG
 
                                     break;
                                 }
@@ -464,11 +441,15 @@ void fillRegionIntervals(vector<ParallelRegion*> &regions)
                     }
                 }
             }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
 }
 
-bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Messages>> &SPF_messages)
+bool checkRegions(const vector<ParallelRegion*> &regions,
+                  const map<string, vector<FuncInfo*>> &allFuncInfo,
+                  map<string, vector<Messages>> &SPF_messages)
 {
     bool noError = true;
 
@@ -487,15 +468,9 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
                                         fileLines.first.c_str(), lines2.lines.first);
-                            string message;
-                            __spf_printToBuf(message, "parallel region '%s' is included in file '%s'", region->GetName().c_str(), fileLines.first.c_str());
-
-                            auto itM = SPF_messages.find(fileLines.first);
-                            if (itM == SPF_messages.end())
-                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
-
-                            itM->second.push_back(Messages(ERROR, lines2.lines.first, message, 1033));
-
+                            wstring message;
+                            __spf_printToLongBuf(message, L"parallel region '%s' is included in file '%s'", to_wstring(region->GetName()).c_str(), to_wstring(fileLines.first).c_str());
+                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines2.lines.first, message, 1033));
                             noError = false;
                         }
                     }
@@ -519,20 +494,39 @@ bool checkRegions(const vector<ParallelRegion*> &regions, map<string, vector<Mes
                         if (inRegs.size() > 1)
                         {
                             __spf_print(1, "parallel region '%s' has line included in another region on line %d\n", region->GetName().c_str(), line);
-                            string message;
-                            __spf_printToBuf(message, "parallel region '%s' has line included in another region", region->GetName().c_str());
 
-                            auto itM = SPF_messages.find(fileLines.first);
-                            if (itM == SPF_messages.end())
-                                itM = SPF_messages.insert(itM, make_pair(fileLines.first, vector<Messages>()));
-
-                            itM->second.push_back(Messages(ERROR, line, message, 1041));
+                            wstring message;
+                            __spf_printToLongBuf(message, L"parallel region '%s' has line included in another region", to_wstring(region->GetName()).c_str());
+                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 1041));
 
                             noError = false;
                         }
                     }
                 }
             }
+        }
+    }
+
+    // check if there are several entries in each fragment
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    for (auto &region : regions)
+    {
+        for (auto &fileLines : region->GetAllLines())
+        {
+            if (SgFile::switchToFile(fileLines.first) != -1)
+            {
+                for (auto &lines : fileLines.second)
+                {
+                    if (!lines.isImplicit())
+                    {
+                        noError = noError && checkRegionEntries(lines.stats.first->GetOriginal()->lexPrev(), lines.stats.second->GetOriginal()->lexNext(), funcMap, regions, SPF_messages);
+                    }
+                }
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
     }
 
@@ -885,15 +879,10 @@ static bool replaceCommonArray(const string &fileName,
             toPrint += " '" + arrayName + '\'';
         toPrint += " in file " + fileName;
         __spf_print(1, "%s on line %d\n", toPrint.c_str(), lines.lines.first);
-        string message;
-        __spf_printToBuf(message, "%s\n", toPrint.c_str());
 
-        auto itM = SPF_messages.find(fileName);
-        if (itM == SPF_messages.end())
-            itM = SPF_messages.insert(itM, make_pair(fileName, vector<Messages>()));
-
-        itM->second.push_back(Messages(ERROR, lines.lines.first, message, 1034));
-
+        wstring message;
+        __spf_printToLongBuf(message, L"%s\n", to_wstring(toPrint).c_str());
+        getObjectForFileFromMap(fileName.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 1034));
         // error
         return true;
     }
@@ -1193,10 +1182,10 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     else
                         outText += "'DEFAULT' ";
                 }
-                __spf_print(1, "parallel regions %shave common function '%s'\n", outText.c_str(), nameFunc.first.c_str());
+                __spf_print(1, "parallel regions %shave common function '%s' which is used inside them\n", outText.c_str(), nameFunc.first.c_str());
 
-                string message;
-                __spf_printToBuf(message, "parallel regions %shave common function '%s'", outText.c_str(), nameFunc.first.c_str());
+                wstring message;
+                __spf_printToLongBuf(message, L"parallel regions %shave common function '%s' which is used inside them", to_wstring(outText).c_str(), to_wstring(nameFunc.first).c_str());
 
                 ParallelRegion *reg = NULL;
                 for (auto &regId : func->callRegions)
@@ -1282,10 +1271,12 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             string regions = "";
                             for (auto &reg : regsByArr)
                                 regions += "'" + reg + "' ";
-                            __spf_print(1, "parallel regions %shave local array '%s' that is not resolved\n", regions.c_str(), arrayLines.first->GetShortName().c_str());
+                            __spf_print(1, "parallel regions %shave local array '%s' which is used inside them\n",
+                                        regions.c_str(), arrayLines.first->GetShortName().c_str());
 
-                            string message;
-                            __spf_printToBuf(message, "parallel regions %shave local array '%s' that is not resolved", regions.c_str(), arrayLines.first->GetShortName().c_str());
+                            wstring message;
+                            __spf_printToLongBuf(message, L"parallel regions %shave local array '%s' which is used inside them",
+                                                 to_wstring(regions).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
 
                             auto lines = reg->GetAllLines();
                             bool ok = false;
@@ -1332,12 +1323,12 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     auto pos = commonBlockName.rfind("_r");
                     if (!arrayLines.second[0].isImplicit() && (pos != commonBlockName.length() - 2 || commonBlock->getVariables().size() != 1))
                     {
-                        __spf_print(1, "parallel region '%s' has common array '%s' that is not resolved on lines %d-%d\n",
+                        __spf_print(1, "parallel region '%s' has common array '%s' which is used inside and outside region on lines %d-%d\n",
                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.first, lines.second);
 
-                        string message;
-                        __spf_printToBuf(message, "parallel region '%s' has common array '%s' that is not resolved",
-                                         reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                        wstring message;
+                        __spf_printToLongBuf(message, L"parallel region '%s' has common array '%s' which is used inside and outside region",
+                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
                         
                         getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(arrayLines.second[0].stats.first), message, 3014));
                         error = true;
@@ -1361,11 +1352,11 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             // check interval existing
                             if (!lines.intervalBefore.first || !lines.intervalBefore.second || !lines.intervalAfter.first || !lines.intervalAfter.second)
                             {
-                                __spf_print(1, "parallel region '%s' has lines that does not have intervals on line %d\n",
+                                __spf_print(1, "parallel region '%s' does not have DVM interval for fragment on line %d\n",
                                             reg->GetName().c_str(), lines.lines.first);
 
-                                string message;
-                                __spf_printToBuf(message, "parallel region '%s' has lines that does not have intervals", reg->GetName().c_str());
+                                wstring message;
+                                __spf_printToLongBuf(message, L"parallel region '%s' does not have DVM interval for fragment", to_wstring(reg->GetName()).c_str());
 
                                 getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(lines.stats.first), message, 3015));
                                 error = true;
@@ -1392,13 +1383,13 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                                 {
                                                     if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
                                                     {
-                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%s' in interval on line %d\n",
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%s' in DVM interval on line %d\n",
                                                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
 
-                                                        string message;
-                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%s' in interval",
-                                                                         reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
-                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+                                                        wstring message;
+                                                        __spf_printToLongBuf(message, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
+                                                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3018));
                                                         error = true;
                                                     }
                                                 }
@@ -1420,12 +1411,12 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                                 {
                                                     if (leftBefore.find(arrayLines.first) == leftBefore.end() || rightAfter.find(arrayLines.first) == rightAfter.end())
                                                     {
-                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%s' in interval on line %d\n",
+                                                        __spf_print(1, "parallel region '%s' does not have copying of array '%s' in DVM interval on line %d\n",
                                                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
 
-                                                        string message;
-                                                        __spf_printToBuf(message, "parallel region '%s' does not have copying of array '%s' in interval",
-                                                                         reg->GetName().c_str(), arrayLines.first->GetShortName().c_str());
+                                                        wstring message;
+                                                        __spf_printToLongBuf(message, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
+                                                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
                                                         getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
                                                         error = true;
                                                     }
@@ -1574,6 +1565,37 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
                     }
                 }
             }
+        }
+    }
+
+    // creating new common-blocks for main program unit
+    for (auto &funcPair : funcMap)
+    {
+        auto func = funcPair.second;
+        if (func->isMain)
+        {
+            if (SgFile::switchToFile(func->fileName) != -1)
+            {
+                auto it = insertedCommonBlocks.find(func);
+                if (it == insertedCommonBlocks.end())
+                    it = insertedCommonBlocks.insert(it, make_pair(func, set<DIST::Array*>()));
+
+                for (auto &arrayBlock : allUsedCommonArrays)
+                {
+                    auto varsOnPos = getArraySynonyms(arrayBlock.first);
+                    auto itt = it->second.find(arrayBlock.first);
+                    // insert only one of all array synonyms
+                    if (itt == it->second.end() && arrayBlock.first->GetShortName() == varsOnPos[0]->getName())
+                    {
+                        // need to insert common-block
+                        insertCommonBlock(func, arrayBlock.first);
+                        it->second.insert(arrayBlock.first);
+                    }
+                }
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            break;
         }
     }
 

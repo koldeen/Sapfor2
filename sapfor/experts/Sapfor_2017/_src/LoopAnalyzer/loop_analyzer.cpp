@@ -241,8 +241,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
             __spf_print(1, "WARN: array ref '%s' at line %d has more than one loop's variables\n", arrayRefString.second.c_str(), currLine);
 
-            string message;
-            __spf_printToBuf(message, "array ref '%s' has more than one loop's variables", arrayRefString.second.c_str());
+            wstring message;
+            __spf_printToLongBuf(message, L"array ref '%s' has more than one loop's variables", to_wstring(arrayRefString.second).c_str());
             if (currLine > 0)
                 currMessages->push_back(Messages(WARR, currLine, message, 1021));
         }
@@ -287,8 +287,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 {
                     __spf_print(1, "WARN: array ref '%s' at line %d does not have loop variables\n", arrayRefString.second.c_str(), currLine);
 
-                    string message;
-                    __spf_printToBuf(message, "array ref '%s' does not have loop variables", arrayRefString.second.c_str());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, message, 1021));
                 }
@@ -297,8 +297,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             {
                 __spf_print(1, "WARN: array ref '%s' at line %d has indirect access\n", arrayRefString.second.c_str(), currLine);
 
-                string message;
-                __spf_printToBuf(message, "array ref '%s' has indirect access", arrayRefString.second.c_str());
+                wstring message;
+                __spf_printToLongBuf(message, L"array ref '%s' has indirect access", to_wstring(arrayRefString.second).c_str());
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, message, 1022));
             }
@@ -337,8 +337,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
                 wasMapped = true;
 
-                string message;
-                __spf_printToBuf(message, "can not calculate index expression for array ref '%s'", arrayRefString.second.c_str());
+                wstring message;
+                __spf_printToLongBuf(message, L"can not calculate index expression for array ref '%s'", to_wstring(arrayRefString.second).c_str());
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, message, 1023));
             }
@@ -389,8 +389,8 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
                     wasMapped = true;
 
-                    string message;
-                    __spf_printToBuf(message, "coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", arrayRefString.second.c_str());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
                     if (line > 0)
                         currMessages->push_back(Messages(WARR, line, message, 1024));
                 }
@@ -505,8 +505,8 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
             {
                 __spf_print(1, "WARN: can not map write to array '%s' to loop on line %d\n", arrayRefS.c_str(), line);
 
-                string message;
-                __spf_printToBuf(message, "can not map write to array '%s' to this loop", arrayRefS.c_str());
+                wstring message;
+                __spf_printToLongBuf(message, L"can not map write to array '%s' to this loop", to_wstring(arrayRefS).c_str());
                 if (line > 0)
                     currMessages->push_back(Messages(WARR, line, message, 1025));
             }
@@ -768,8 +768,8 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         {
                             __spf_print(1, "WARN: write to non distributed array '%s' in loop on line %d\n", symb->identifier(), loop->lineNumber());
 
-                            string message;
-                            __spf_printToBuf(message, "write to non distributed array '%s' in this loop", symb->identifier());
+                            wstring message;
+                            __spf_printToLongBuf(message, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
                             if (loop->lineNumber() > 0)
                                 currMessages->push_back(Messages(WARR, loop->lineNumber(), message, 1026));
                             sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
@@ -1212,7 +1212,7 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
         {
             retVal = true;
             loopRef->hasNonPureProcedures = true;
-            messagesForFile.push_back(Messages(WARR, line, "Only pure procedures were supported", 1044));
+            messagesForFile.push_back(Messages(WARR, line, L"Only pure procedures were supported", 1044));
         }
     }
     bool retL = false, retR = false;
@@ -1329,10 +1329,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 #endif
             if (st == NULL)
             {
-                string message;
-                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message, 3008));
-
+                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1625,8 +1622,8 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                 auto itF = privatesByModule.find(st->symbol()->identifier());
                 if (itF == privatesByModule.end())
                 {
-                    string message;
-                    __spf_printToBuf(message, "Module with name '%s' must be placed in current file", st->symbol()->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
                     currMessages->push_back(Messages(ERROR, st->lineNumber(), message, 1028));
 
                     __spf_print(1, "Module at line %d with name '%s' must be placed in current file\n", st->lineNumber(), st->symbol()->identifier());
@@ -1817,7 +1814,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                 {
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), "Only pure procedures were supported", 1044));
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Only pure procedures were supported", 1044));
                                 }
                             }
 
@@ -1934,10 +1931,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 #endif
             if (st == NULL)
             {
-                string message;
-                __spf_printToBuf(message, "internal error in analysis, parallel directives will not be generated for this file!");
-                currMessages->push_back(Messages(ERROR, 1, message, 3008));
-
+                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -2302,8 +2296,8 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
                     {
                         deprecatedByIO.insert(found, OriginalSymbol(symb)->identifier());
 
-                        string message;
-                        __spf_printToBuf(message, "Array '%s' can not be distributed because of DVM's I/O constraints", symb->identifier());
+                        wstring message;
+                        __spf_printToLongBuf(message, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
                         currMessages.push_back(Messages(WARR, line, message, 1037));
 
                         __spf_print(1, "Array '%s' at line %d can not be distributed because of DVM's I/O constraints\n", symb->identifier(), line);

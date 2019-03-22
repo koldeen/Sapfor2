@@ -26,6 +26,7 @@
 #include "../GraphLoop/graph_loops.h"
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
+#include "../DynamicAnalysis/gcov_info.h"
 
 using std::map;
 using std::pair;
@@ -33,6 +34,7 @@ using std::tuple;
 using std::set;
 using std::vector;
 using std::string;
+using std::wstring;
 
 void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<LoopGraph*> *loopGraph)
 {
@@ -265,11 +267,11 @@ void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
             byFile.second = newVal;
     }
 
-    string val = "";
-    val += std::to_string(copySPF_messages.size());
+    wstring val = L"";
+    val += std::to_wstring(copySPF_messages.size());
     for (auto it = copySPF_messages.begin(); it != copySPF_messages.end(); ++it)
     {
-        val += "|" + it->first + "|" + std::to_string(it->second.size());
+        val += L"|" + to_wstring(it->first.c_str()) + L"|" + std::to_wstring(it->second.size());
         for (int k = 0; k < it->second.size(); ++k)
             val += it->second[k].toString();
     }
@@ -709,3 +711,19 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
         return retVal;
     }
 }
+
+std::wstring to_wstring(const std::string &str) { return std::wstring(str.begin(), str.end()); }
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)
+{
+    auto it = mapObject.find(fileName);
+    if (it == mapObject.end())
+        it = mapObject.insert(it, std::make_pair(fileName, objT()));
+    return it->second;
+}
+
+template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
+template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
+template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
+template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

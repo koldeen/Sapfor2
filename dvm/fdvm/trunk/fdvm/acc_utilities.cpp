@@ -132,6 +132,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("cmplx"));
     intrinsicF.insert(string("char"));
     intrinsicF.insert(string("ctan"));
+    intrinsicF.insert(string("cpu_time"));
     intrinsicF.insert(string("dim"));
     intrinsicF.insert(string("ddim"));
     intrinsicF.insert(string("dble"));
@@ -328,6 +329,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("shifta"));
     intrinsicF.insert(string("shiftl"));
     intrinsicF.insert(string("shiftr"));
+    intrinsicF.insert(string("sum"));
     intrinsicF.insert(string("tan"));
     intrinsicF.insert(string("tand"));
     intrinsicF.insert(string("tanh"));

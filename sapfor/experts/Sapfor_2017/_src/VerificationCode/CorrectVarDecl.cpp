@@ -11,11 +11,13 @@
 #include "dvm.h"
 #include "verifications.h"
 #include "../Utils/errors.h"
-#include "../Utils/SgUtils.h"
 #include "../ParallelizationRegions/ParRegions.h"
+
+#include "../GraphCall/graph_calls_func.h"
 
 using std::vector;
 using std::string;
+using std::wstring;
 using std::map;
 using std::pair;
 using std::set;
@@ -423,4 +425,67 @@ void restoreCorrectedModuleProcNames(SgFile *file)
             }
         }
     }
+}
+
+bool checkArgumentsDeclaration(SgProject *project,
+                               const map<string, vector<FuncInfo*>> &allFuncInfo,
+                               const vector<ParallelRegion*> &regions, 
+                               map<string, vector<Messages>> &SPF_messages)
+{
+    bool error = false;
+
+    map<string, FuncInfo*> funcMap;
+    createMapOfFunc(allFuncInfo, funcMap);
+
+    for (int i = 0; i < project->numberOfFiles(); ++i)
+    {
+        SgFile *file = &(project->file(i));
+
+        if (SgFile::switchToFile(file->filename()) != -1)
+        {
+            for (int j = 0; j < file->numberOfFunctions(); ++j)
+            {
+                SgStatement *st = file->functions(j);
+                SgStatement *lastNode = st->lastNodeOfStmt();
+
+                if (st->variant() != PROG_HEDR)
+                {
+                    SgProgHedrStmt *procFuncHedr = ((SgProgHedrStmt*)st);
+
+                    for (int k = 0; k < procFuncHedr->numberOfParameters(); ++k)
+                    {
+                        SgSymbol *symb = procFuncHedr->parameter(k);
+
+                        if (symb)
+                        {
+                            SgStatement *decl = declaratedInStmt(symb, NULL, false);
+
+                            if (!decl)
+                            {
+                                FuncInfo *func = getFuncInfo(funcMap, st->symbol()->identifier());
+                                checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+
+                                __spf_print(1, "function's argument '%s' does not have declaration statement on line %d\n", symb->identifier(), st->lineNumber());
+
+                                wstring message;
+                                __spf_printToLongBuf(message, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
+
+                                if (func->isInRegion())
+                                {
+                                    error = true;
+                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1045));
+                                }
+                                else
+                                   getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    return error;
 }

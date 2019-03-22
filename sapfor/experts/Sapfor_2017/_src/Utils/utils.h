@@ -25,6 +25,7 @@ void printBlanks(const int sizeOfBlank, const int countOfBlanks);
 void addToGlobalBufferAndPrint(const std::string &toPrint);
 void clearGlobalBuffer();
 const std::string& getGlobalBuffer();
+std::wstring to_wstring(const std::string&);
 void convertGlobalBuffer(short *&result, int *&resultSize);
 void clearGlobalMessagesBuffer();
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize);
@@ -66,3 +67,6 @@ std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, cons
 #ifdef _WIN32
 void printStackTrace();
 #endif
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);

@@ -15,6 +15,7 @@
 
 using std::vector;
 using std::string;
+using std::wstring;
 using std::set;
 using std::pair;
 
@@ -49,8 +50,8 @@ bool IncludeChecker(SgFile *file, const string &fileName, vector<Messages> &curr
                 {
                     __spf_print(1, "  ERROR: include '%s' at line %d has executable operators\n", st->fileName(), lastLine);
 
-                    string currM;
-                    __spf_printToBuf(currM, "Include '%s' has executable operators", st->fileName());
+                    wstring currM;
+                    __spf_printToLongBuf(currM, L"Include '%s' has executable operators", to_wstring(st->fileName()).c_str());
                     currMessages.push_back(Messages(ERROR, lastLine, currM, 1019));
                     checkOK = false;
                 }

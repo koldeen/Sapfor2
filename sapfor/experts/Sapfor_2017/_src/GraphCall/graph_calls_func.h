@@ -25,11 +25,12 @@ void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<F
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::pair<std::string, int>, FuncInfo*> &mapFuncInfo);
+FuncInfo* getFuncInfo(const std::map<std::string, FuncInfo*> &funcMap, const std::string &funcName);
 
 void updateFuncInfo(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
 #if __SPF
-void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, bool dontFillFuncParam = false);
+void functionAnalyzer(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<LoopGraph*> &loops, bool dontFillFuncParam = false);
 int CheckFunctionsToInline(SgProject *proj, const std::map<std::string, int> &files, const char *fileName,
                            std::map<std::string, std::vector<FuncInfo*>> &funcByFile, const std::map<std::string, std::vector<LoopGraph*>> &loopGraph,
                            std::map<std::string, std::vector<Messages>> &allMessages, bool needToAddErrors,

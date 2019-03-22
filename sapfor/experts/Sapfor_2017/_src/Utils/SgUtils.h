@@ -53,7 +53,4 @@ void groupDeclarations(SgFile *file);
 bool ifSymbolExists(SgFile *file, const std::string &symbName);
 const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &commonBlocks, const DIST::Array *array);
 
-template<typename objT>
-objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);
-
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
