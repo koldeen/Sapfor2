@@ -93,6 +93,9 @@ namespace Distribution
 
         SET<STRING> containsInRegions;
 
+        // file -> lines
+        MAP<STRING, SET<int>> usagePlaces;
+
         VECTOR<bool> mappedDims;
         VECTOR<bool> depracateToDistribute;
 
@@ -441,6 +444,22 @@ namespace Distribution
 
         const SET<STRING>& GetRegionsName() const { return containsInRegions; }
         void SetRegionPlace(const STRING &regName) { if (regName != "") containsInRegions.insert(regName); }
+        
+        const MAP<STRING, SET<int>>& GetUsagePlaces() const { return usagePlaces; }
+        const SET<int> GetUsagePlaces(const STRING &fileName) const
+        {
+            auto it = usagePlaces.find(fileName);
+            if (it == usagePlaces.end())
+                return SET<int>();
+            return it->second;
+        }
+        void AddUsagePlace(const STRING &fileName, int lineNumber)
+        {
+            auto it = usagePlaces.find(fileName);
+            if (it == usagePlaces.end())
+                it = usagePlaces.insert(it, make_pair(fileName, SET<int>()));
+            it->second.insert(lineNumber);
+        }
 
         void SetMappedDim(const int dim)
         {
@@ -478,6 +497,14 @@ namespace Distribution
                 return depracateToDistribute[dim];
         }
         
+        bool isAllDeprecated() const
+        {
+            bool ret = true;
+            for (int z = 0; z < dimSize; ++z)
+                ret = ret && depracateToDistribute[z];
+            return ret;
+        }
+
         int GetTypeSize() const { return typeSize; }
 
         ~Array() 

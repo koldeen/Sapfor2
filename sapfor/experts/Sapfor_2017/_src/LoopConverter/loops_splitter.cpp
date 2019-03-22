@@ -1,14 +1,10 @@
 #include "loops_splitter.h"
 
 #include "../LoopAnalyzer/loop_analyzer.h"
+#include "../ExpressionTransform/expr_transform.h"
 #include "../Utils/errors.h"
 #include <string>
 #include <vector>
-
-/*удалить от сих*/
-//#include "dvm.h"
-//#include "../GraphLoop/graph_loops.h"
-/*до сих*/
 
 using std::string;
 using std::vector;
@@ -51,10 +47,9 @@ static inline bool lineInsideBorder(int lineNumber, pair<SgStatement*, SgStateme
     return lineNumber >= border.first->lineNumber() && lineNumber < border.second->lineNumber();
 }
 
-static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders, 
+static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders,
                                   depGraph* parentDepGraph, map<SgExpression*, string> &collection)
 {
-    openDependencies.clear();
     for(depNode* node : parentDepGraph->getNodes()) {
         if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout))
         {
@@ -77,9 +72,58 @@ static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStat
 
                 if(!inIncluded && openDependencies.find(inLine) == openDependencies.end())
                     openDependencies.insert(inLine);
-                if(!outLine && openDependencies.find(outLine) == openDependencies.end())
+                if(!outIncluded && openDependencies.find(outLine) == openDependencies.end())
                     openDependencies.insert(outLine);
             }
+        }
+    }
+}
+
+static void addReachingDefinitionsDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders, map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> &requireReachMap)
+{
+    for(auto& border : borders)
+    {
+        for(SgStatement* current = border.first; ; current = current->lexNext())
+        {
+            auto found = requireReachMap.find(current);
+            if(found != requireReachMap.end())
+            {
+                for (auto it = found->second.first.begin(); it != found->second.first.end(); ++it)
+                {
+                    int lineNumber = (*it)->lineNumber();
+                    bool included = false;
+                    for(auto& b : borders)
+                    {
+                        if (lineInsideBorder(lineNumber, b))
+                        {
+                            included = true;
+                            break;
+                        }
+                    }
+                    if(!included && openDependencies.find(lineNumber) == openDependencies.end())
+                        openDependencies.insert(lineNumber);
+
+                }
+                for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
+                {
+                    int lineNumber = (*it)->lineNumber();
+                    bool included = false;
+                    for(auto& b : borders)
+                    {
+                        if (lineInsideBorder(lineNumber, b))
+                        {
+                            included = true;
+                            break;
+                        }
+                    }
+                    if(!included && openDependencies.find(lineNumber) == openDependencies.end())
+                        openDependencies.insert(lineNumber);
+                }
+
+            }
+
+            if(current == border.second)
+                break;
         }
     }
 }
@@ -92,7 +136,7 @@ static bool dependencyAlreadyEnclosed(int lineNum, vector<pair<SgStatement*, SgS
     return false;
 }
 
-void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders,
+static void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders,
                        set<int> openDependencies)
 {
     for(int lineNumOfDependecy : openDependencies)
@@ -166,14 +210,20 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     }
 
     borders.push_back(make_pair(since, till));
+    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap =  buildRequireReachMap(globalSince, globalTill);
 
     set<int> openDependencies;
     setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
+    addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
+        openDependencies.clear();
         setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
+        addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
+
+
 
     glueBorders(borders);
 
@@ -182,7 +232,6 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         return false;
 
     return true;
-
 }
 
 static void moveStatements(SgForStmt *newLoop, vector<pair<SgStatement*,SgStatement*>>& borders)
@@ -217,7 +266,7 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
        
     if(directLoops != parentGraph->children.size())
     {
-        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), "This loop has indirect child loops and can not be splitted", 2010));
+        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"This loop has indirect child loops and can not be splitted", 2010));
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
     }
@@ -249,16 +298,19 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
                 {
                     idxOfMessages++;
                     string str;
-
                     __spf_printToBuf(str, "Can not split this loop because of dependecy: %s", node->displayDepToStr().c_str());
-                    messages.push_back(Messages(WARR, parentGraph->lineNum, str, 2009));
                     __spf_print(1, "%s on line %d\n", str.c_str(), parentGraph->lineNum);
+
+                    std::wstring strw;
+                    __spf_printToLongBuf(strw, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
+                    messages.push_back(Messages(WARR, parentGraph->lineNum, strw, 2009));                    
                 }
             }
         }
     }
     return has;
 }
+
 
 static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int deep)
 {    
@@ -278,7 +330,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (lowestParentGraph->hasLimitsToSplit())
     {
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
-                            "This loop has limits to parallel (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")",
+                            L"This loop has limits to parallel (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             2010));
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
@@ -288,7 +340,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
         messages.push_back(Messages(ERROR, loopGraph->lineNum, 
-                           "This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_string(lowestParentGraph->lineNum) + ")", 
+                           L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
                            2010));
         __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
@@ -298,6 +350,15 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     SgStatement *globalSince, *globalTill;
     globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
     globalTill = lowestParentGraph->loop->GetOriginal()->lastNodeOfStmt()->lexNext();
+
+    vector<pair<SgStatement*, SgStatement*>> parts;
+    for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
+        parts.push_back(make_pair(since, since->lastNodeOfStmt()));
+
+
+//    while (setupSplitBorders(lowestParentGraph, parts, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+//        ;
+
 
     //Сам процесс разделения
     while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)  {

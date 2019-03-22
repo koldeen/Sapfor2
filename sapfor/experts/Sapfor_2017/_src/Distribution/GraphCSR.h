@@ -77,7 +77,7 @@ namespace Distribution
         int findDimNumLink(const vType v, const Array *to, const Arrays<vType> &allArrays, std::set<vType> &wasDone) const;
         bool checkFirstCoefOfNode(vType node);
         bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);        
-        bool hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays);
+        bool hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool);
     public:
         GraphCSR()
         {
@@ -115,6 +115,8 @@ namespace Distribution
             countRequestsToAdd = 0;
             countMissToAdd = 0;
         }
+
+        void cleanCacheLinks() { cacheLinks.clear(); }
 
         void ClearGraphCSR()
         {

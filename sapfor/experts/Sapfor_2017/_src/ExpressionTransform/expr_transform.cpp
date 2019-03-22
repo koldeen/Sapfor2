@@ -115,16 +115,23 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
     return NULL;
 }
 
-
-const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
+const map<SymbolKey, set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt)
 {
     CBasicBlock* b = graphsKeeper->findBlock(stmt);
-    if(!b) {
-        __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
-        return map<SymbolKey, set<SgExpression*>>();
-    }
-    return b->getReachedDefinitions(stmt);
+    if(!b)
+        return map<SymbolKey, set<ExpressionValue*>>();
+
+    return b->getReachedDefinitionsExt(stmt);
 }
+
+//DEPRECATED
+/*const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
+{
+    CBasicBlock* b = graphsKeeper->findBlock(stmt);
+    if(!b)
+        return map<SymbolKey, set<SgExpression*>>();
+    return b->getReachedDefinitions(stmt);
+}*/
 
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
 {

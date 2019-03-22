@@ -980,6 +980,7 @@ SgSymbol * CreateRegistrationArraySymbol()
  return(sn);
 }
 
+
 void CreateCoeffs(coeffs* scoef,SgSymbol *ar)
 {int i,r,i0;
  char *name;
@@ -4322,11 +4323,8 @@ void  CreateArray_RTS2(SgSymbol *das, int indh, SgStatement *stdis)
       ArrayHeader(das,indh);  // or 2
       SgExpression *array_header = HeaderRef(das);
       das->addAttribute(RTS2_CREATED, (void*) 1, 0);
-      if(!DEFERRED_SHAPE_TEMPLATE(das)) {
+      if(!DEFERRED_SHAPE_TEMPLATE(das)) 
          doCallStmt(DvmhTemplateCreate(das,array_header,rank,shape_list));
-         if(!HAS_SAVE_ATTR(das) && !IN_MODULE)
-            doCallStmt(ScopeInsert(array_header));
-      }
  }      
   else
  {
@@ -4446,8 +4444,8 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
     goto TREE_;
   }      
 
-// dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
-// CrtAMV creates current Abstract_Machine view 
+// dvm000(i) = crtamv(AMRef, rank, SizeArray, StaticSign)
+// crtamv() creates current Abstract_Machine view 
   size_array = doSizeArray(das,stdis); 
   if(!rank)  //distributee is not array
     size_array = new SgValueExp(0); // for continuing translation of procedure 
@@ -4514,7 +4512,7 @@ void GenDistArray (SgSymbol *das, int idisars, SgExpression *distr_rule_list, Sg
       iaxis = ndvm;
       doAlignRule_1(rank);
             //     doAlignRule_1(axis_array,coeff_array,const_array);
-      doAssignStmt(AlignArray(array_header, am_view, iaxis, iaxis+rank,                                                                 iaxis+2*rank));
+      doAssignStmt(AlignArray(array_header, am_view, iaxis, iaxis+rank, iaxis+2*rank));
        
            // AlgnDA result is exit code, isn't used */
            // axis_array, coeff_array and const_array arn't used more
@@ -4636,7 +4634,7 @@ void RedistributeArray(SgSymbol *das, int idisars, SgExpression *distr_rule_list
       doAssignStmt(GenBlock(ps,amvref, idisars+2*nblock,nblock)); 
     if(gen_block == 2) 
       doAssignStmt(WeightBlock(ps,amvref,idisars+2*nblock,idisars+3*nblock,nblock));  
-    doAssignStmt(RedistributeAM(headref, ps, nblock,idisars,sign));
+    doCallStmt(RedistributeAM(headref, ps, nblock,idisars,sign));
     if(mult_block)
       doAssignStmt(MultBlock(amvref, mult_block, 0));
     where = if_st->lexNext();  // reffer to ELSE statement 
@@ -4652,10 +4650,10 @@ void RedistributeArray(SgSymbol *das, int idisars, SgExpression *distr_rule_list
       if(!rank)  //distributee is not array
         size_array = new SgValueExp(0); // for continuing translation of procedure 
  
-      // dvm000(i) = CrtAMV(AMRef, rank, SizeArray, StaticSign)
-      //CrtAMV creates current Abstract_Machine view 
+      // dvm000(i) = crtamv(AMRef, rank, SizeArray, StaticSign)
+      //crtamv creates current Abstract_Machine view 
 
-      if((ia & SAVE_BIT) || saveall )
+      if((ia & SAVE_BIT) || saveall || IN_COMMON(das) || das->scope() != cur_func || IS_BY_USE(das) )
         st_sign = 1;
       else
         st_sign = 0; 
@@ -4716,7 +4714,7 @@ void RedistributeArray(SgSymbol *das, int idisars, SgExpression *distr_rule_list
       doAssignStmt(GenBlock(ps,amvref, idisars+2*nblock,nblock));  
     if(gen_block == 2) 
       doAssignStmt(WeightBlock(ps,amvref,idisars+2*nblock,idisars+3*nblock,nblock)); 
-    doAssignStmt(RedistributeAM(headref,ps,nblock,idisars,sign));
+    doCallStmt(RedistributeAM(headref,ps,nblock,idisars,sign));
     //doAssignTo_After(header_ref(das,rank+2),HeaderNplus1(das));
                                                    // calculating HEADER(rank+1) 
     if(mult_block)
@@ -4958,14 +4956,14 @@ void RealignArray(SgSymbol *als, SgSymbol *tgs, int iaxis, int nr, SgExpression 
 
   ia=als->attributes();
   if(!(ia & DYNAMIC_BIT) &&  !(ia & POSTPONE_BIT))
-       Error (" '%s' hasn't the DYNAMIC attribute",als->identifier(), 113,stal);
+      Error (" '%s' hasn't the DYNAMIC attribute",als->identifier(), 113,stal);
   if(!(ia & ALIGN_BIT)  && !(ia & INHERIT_BIT))
       Error (" '%s' does not appear in ALIGN or INHERIT directive ",als->identifier(),120, stal);
   if(ia & DISTRIBUTE_BIT)
       Error ("An alignee may not have the DISTRIBUTE attribute: %s",als->identifier(), 57,  stal);
   if(!HEADER(als)) {   
-     Error("%s isn't distributed array", als->identifier(), 72,stal); 
-     return;
+      Error("%s isn't distributed array", als->identifier(), 72,stal); 
+      return;
   } 
   if(!HEADER(tgs))    
     return;
@@ -4979,15 +4977,14 @@ void RealignArray(SgSymbol *als, SgSymbol *tgs, int iaxis, int nr, SgExpression 
   { if( !(ia & POSTPONE_BIT) )
       doCallAfter(Realign_H(HeaderRef(als),new_sign));
     else {      
-      if_st = doIfThenConstrForRealign(header_flag,cur_st,0); //doIfThenConstrForRealign(iamv,cur_st,0);
+      if_st = doIfThenConstrForRealign(header_flag,cur_st,0); 
       cur_st = if_st;
       doCallAfter(Realign_H(HeaderRef(als),new_sign));
       cur_st = if_st->lexNext()->lexNext(); //ENDIF statement 
     }
   }
-  doAssignStmtAfter(RealignArr(HeaderRef(als),HeaderRef(tgs),iaxis,iaxis+nr,iaxis+2*nr,new_sign));
-  FREE_DVM(1);
-        //doAssignTo_After(header_ref(als,rank+2),HeaderNplus1(als));
+  doCallAfter(RealignArr(HeaderRef(als),HeaderRef(tgs),iaxis,iaxis+nr,iaxis+2*nr,new_sign));
+  
 
   if(ia & POSTPONE_BIT) {
       if_st = doIfThenConstrForRealign(header_flag,cur_st,1);
@@ -5388,7 +5385,7 @@ void   ALLOCATEf90DistArray(SgSymbol *p, SgExpression *desc, SgStatement *stdis,
 
  // dvm000(i) = crtamv(AMRef, rank, SizeArray, StaticSign)
  // crtamv function creates current Abstract_Machine view  
-  if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT))
+  if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT) || p->scope()!=cur_func || IS_BY_USE(p))
     sign = 1;
   else
     sign = 0;  
@@ -5468,8 +5465,12 @@ void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpress
       return;    
   }
                        //interface of RTS1
-  ia = p->attributes();
-  sign = 0;  
+  SgSymbol *s_struct = LeftMostField(struct_e)->symbol();
+  ia = s_struct->attributes();
+  if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT) || s_struct->scope()!=cur_func || IS_BY_USE(s_struct))
+     sign = 1;
+  else
+     sign = 0;  
    
   // dvm000(i) = CrtDA (ArrayHeader,Base,Rank,TypeSize,SizeArray,
   //                StaticSign,ReDistrSign, LeftBSizeArray,RightBSizeArray)
@@ -5478,7 +5479,7 @@ void   ALLOCATEStructureComponent(SgSymbol *p, SgExpression *struct_e, SgExpress
   //creating LeftBSizeArray and RightBSizeArray
   ileft = ndvm;
   iright = BoundSizeArrays(p);
-  if(ia & DYNAMIC_BIT)
+  if(p->attributes() & DYNAMIC_BIT)
       re_sign = 3;
   else
       re_sign = 0;
@@ -5679,7 +5680,7 @@ void    AlignAllocArray(align *node, align *root, int nr, int iaxis,SgExpression
  
   ileft = ndvm;
   iright= BoundSizeArrays(als);
-  if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT))
+  if((ia & SAVE_BIT) || saveall || (ia & COMMON_BIT) || als->scope()!=cur_func || IS_BY_USE(als))
      sign = 1;
   else
      sign = 0;  

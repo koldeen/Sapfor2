@@ -445,7 +445,7 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     bool GraphCSR<vType, wType, attrType>::
-        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays)
+        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool increaseLink)
     {
         set<vType> next = { root };
         set<vType> done;
@@ -462,6 +462,29 @@ namespace Distribution
                     if (tmp->isTemplate())
                     {
                         found = true;
+                        if (increaseLink)
+                        {
+                            if (neighbors[v1 + 1] - neighbors[v1] != 1)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            const int k = neighbors[v1];
+
+                            const vType edgeV = edges[k];
+                            attributes[k].first.first++;
+
+                            bool done = false;
+                            for (int z = neighbors[edgeV]; z < neighbors[edgeV + 1]; ++z)
+                            {
+                                const vType currV = edges[z];
+                                if (currV == v1)
+                                {
+                                    attributes[z].second.first++;
+                                    done = true;
+                                    break;
+                                }
+                            }
+                            if (!done)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
                         break;
                     }
                 }
@@ -503,7 +526,8 @@ namespace Distribution
 
                     templV = globalIdx[currV];
                     templ = tmp;
-                    return make_pair(1.0f, 0.0f);
+                    return make_pair(attributes[k].second.first, attributes[k].second.second);
+                    //return make_pair(1.0f, 0.0f);
                 }
             }
         }
@@ -535,11 +559,30 @@ namespace Distribution
             if (ruleToTemplate != nulPair)
             {
                 auto currAttribute = attributes[k];
-                auto left = currAttribute.first;
-                auto right = currAttribute.second;
+                pair<float, float> left = currAttribute.first;
+                pair<float, float> right = currAttribute.second;
+                
+                //check for divisibility
+                /*float maxVal = left.first > right.first ? left.first : right.first;
+                float minVal = left.first < right.first ? left.first : right.first;
+                if (left.first != right.first)
+                {
+                    if (((int)maxVal % (int)minVal) != 0)
+                    {
+                        const int lcm = LCM((int)maxVal, (int)minVal);
+                        float mult = lcm / left.first;
+                        left.first *= mult;
+                        left.second *= mult;
 
+                        mult = lcm / right.first;
+                        right.first *= mult;
+                        right.second *= mult;
+                    }
+                }*/
+
+                // calculate transition
                 pair<float, float> X;
-                X.first = (float)right.first / left.first;
+                X.first = right.first / left.first;
 
                 left.first *= X.first;
                 left.second *= X.first;
@@ -1550,9 +1593,8 @@ namespace Distribution
                     int alignDim = -1;
                     Array *templ = NULL;
 
-                    set<vType> wasDone;
-                    
-                    if (hasLinkWithTempate(currV, allArrays))
+                    set<vType> wasDone;                    
+                    if (hasLinkWithTempate(currV, allArrays, false))
                     {
                         rule = findLinkWithTempate2(currV, alignDim, templ, allArrays, wasDone);
                         if (rule != make_pair(0.0f, 0.0f))
@@ -1561,10 +1603,13 @@ namespace Distribution
                             intRule.first = (int)rule.first;
                             intRule.second = (int)rule.second;
 
-                            if (intRule.first == 0)
+                            pair<float, float> toCheck = make_pair(intRule.first, intRule.second);
+                            if (toCheck != rule)
                             {
                                 __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
-                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                if (!hasLinkWithTempate(currV, allArrays, true))
+                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                return 101;
                             }
 
                             rules[i] = make_tuple(templ, alignDim, intRule);

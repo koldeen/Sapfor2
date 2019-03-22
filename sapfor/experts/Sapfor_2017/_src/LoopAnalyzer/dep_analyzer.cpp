@@ -34,10 +34,11 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
-extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs);
+extern void initializeDepAnalysisForFunction(SgFile *file, SgStatement *func, const map<string, FuncInfo*> &allFuncs, vector<Messages> &messagesForFile);
 extern int staticPrivateAnalysis;
 
 static const set<string> *currentNonDistrArrays = NULL;
@@ -159,7 +160,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         if (funcWasInit.find(func) == funcWasInit.end())
         {
             funcWasInit.insert(func);
-            initializeDepAnalysisForFunction(file, func, allFuncs);
+            initializeDepAnalysisForFunction(file, func, allFuncs, *currMessages);
         }
 
         currentNonDistrArrays = &nonDistrArrays;
@@ -219,10 +220,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             {
                                 if (!findUnknownDepLen)
                                 {
-                                    string depMessage = currNode->createDepMessagebetweenArrays();
-                                    depMessage += " with unknown distance in loop on line " + std::to_string(currLoopRef->lineNumber()) + " prevents parallelization";
-
-                                    __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
+                                    wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays());
+                                    depMessage += L" with unknown distance in loop on line " + std::to_wstring(currLoopRef->lineNumber()) + L" prevents parallelization";
                                     currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
 
                                     // __spf_print only first unknown dep length
@@ -280,9 +279,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                         {
                             if (!findUnknownDepLen)
                             {
-                                string depMessage = currNode->createDepMessagebetweenArrays() + " prevents parallelization";
-
-                                __spf_print(1, "%s\n", (string("  ") + depMessage).c_str());
+                                wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays()) + L" prevents parallelization";
                                 currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
 
                                 // __spf_print only first unknown dep length
@@ -331,11 +328,11 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                 currLoop->hasUnknownScalarDep = (unknownScalarDep.size() != 0);
                 for (int k = 0; k < unknownScalarDep.size(); ++k)
                 {
-                    printf("  unknown scalar dependencies by '%s' on line %d (try to specify its type)\n",
-                        unknownScalarDep[k]->varin->symbol()->identifier(), unknownScalarDep[k]->stmtin->lineNumber());
+                    __spf_print(1, "  unknown scalar dependencies by '%s' on line %d (try to specify its type)\n",
+                                unknownScalarDep[k]->varin->symbol()->identifier(), unknownScalarDep[k]->stmtin->lineNumber());
 
-                    string message;
-                    __spf_printToBuf(message, "unknown scalar dependencies by '%s' (try to specify its type)", unknownScalarDep[k]->varin->symbol()->identifier());
+                    wstring message;
+                    __spf_printToLongBuf(message, L"unknown scalar dependencies by '%s' (try to specify its type)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
                     currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), message, 3005));
 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());

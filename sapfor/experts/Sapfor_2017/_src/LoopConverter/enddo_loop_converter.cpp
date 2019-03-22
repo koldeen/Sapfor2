@@ -138,9 +138,8 @@ static void convert(SgStatement *&curr, const string &message)
     char buf[512];
     sprintf(buf, (message + " on line %d\n").c_str(), lineNum);
     addToGlobalBufferAndPrint(buf);
-
-    sprintf(buf, message.c_str());
-    currMessages->push_back(Messages(NOTE, lineNum, buf, 2002));
+        
+    currMessages->push_back(Messages(NOTE, lineNum, to_wstring(message), 2002));
 }
 
 static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfLoops)
@@ -221,8 +220,7 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
                 sprintf(buf, "ERROR: can not convert to END DO loop on line %d\n", lineNum);
                 addToGlobalBufferAndPrint(buf);
 
-                sprintf(buf, "can not convert to END DO loop");
-                currMessages->push_back(Messages(ERROR, lineNum, buf, 2003));
+                currMessages->push_back(Messages(ERROR, lineNum, L"can not convert to END DO loop", 2003));
             }
         }
 
@@ -232,8 +230,7 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
             sprintf(buf, "convert to END DO loop on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
 
-            sprintf(buf, "convert to END DO loop");
-            currMessages->push_back(Messages(NOTE, lineNum, buf, 2004));
+            currMessages->push_back(Messages(NOTE, lineNum, L"convert to END DO loop", 2004));
         }
     }
 }
