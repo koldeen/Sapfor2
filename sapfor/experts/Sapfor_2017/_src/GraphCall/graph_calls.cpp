@@ -380,6 +380,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
                     currInfo.allUsedArrays.insert(arrayRef);
+                    if (isWrite)
+                        currInfo.usedArraysWrite.insert(arrayRef);
                 }
             }
         }
@@ -1842,14 +1844,27 @@ static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DI
     //change to real refs
     for (auto &func : funcByName)
     {
-        set<DIST::Array*> curr = func.second->allUsedArrays;
-        set<DIST::Array*> newRefs;
-        for (auto &array : curr)
-            getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
-        func.second->allUsedArrays.clear();
-        for (auto &newArray : newRefs)
-            if (newArray->GetNonDistributeFlag() == false)
-                func.second->allUsedArrays.insert(newArray);
+        {
+            set<DIST::Array*> curr = func.second->allUsedArrays;
+            set<DIST::Array*> newRefs;
+            for (auto &array : curr)
+                getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
+            func.second->allUsedArrays.clear();
+            for (auto &newArray : newRefs)
+                if (newArray->GetNonDistributeFlag() == false)
+                    func.second->allUsedArrays.insert(newArray);
+        }
+
+        {
+            set<DIST::Array*> curr = func.second->usedArraysWrite;
+            set<DIST::Array*> newRefs;
+            for (auto &array : curr)
+                getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
+            func.second->usedArraysWrite.clear();
+            for (auto &newArray : newRefs)
+                if (newArray->GetNonDistributeFlag() == false)
+                    func.second->usedArraysWrite.insert(newArray);
+        }
     }
 
     bool changed = true;
@@ -1870,6 +1885,31 @@ static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DI
                         {
                             changed = true;
                             func.second->allUsedArrays.insert(usedArray);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (auto &func : funcByName)
+        {
+            for (auto &callsFrom : func.second->callsFrom)
+            {
+                auto itF = funcByName.find(callsFrom);
+                if (itF != funcByName.end())
+                {
+                    for (auto &usedArray : itF->second->usedArraysWrite)
+                    {
+                        auto itA = func.second->usedArraysWrite.find(usedArray);
+                        if (itA == func.second->usedArraysWrite.end())
+                        {
+                            changed = true;
+                            func.second->usedArraysWrite.insert(usedArray);
                         }
                     }
                 }

@@ -104,6 +104,8 @@ struct FuncInfo
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
     std::set<DIST::Array*> allUsedArrays; // real array refs
+    std::set<DIST::Array*> usedArraysWrite; // real array refs
+
     std::vector<LoopGraph*> loopsInFunc;
 
     std::vector<int> linesOfIO;

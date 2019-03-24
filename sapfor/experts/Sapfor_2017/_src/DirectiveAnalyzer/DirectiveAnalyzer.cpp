@@ -61,6 +61,11 @@ static void recUnite(vector<LoopGraph*> &loopGraph)
                     newDir = *first + *second;
                 else if (first != NULL)
                     newDir = new ParallelDirective(*first);
+                else if (first == NULL && second != NULL)
+                {
+                    newDir = new ParallelDirective(*second);
+                    newDir->parallel.insert(newDir->parallel.begin(), "*");
+                }
 
                 united.push_back(newDir);
             }

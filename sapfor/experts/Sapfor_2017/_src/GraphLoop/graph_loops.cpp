@@ -474,7 +474,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-static void findArrayRef(SgExpression *exp, set<DIST::Array*> &allUsedArrays)
+static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*> &allUsedArrays, set<DIST::Array*> &writeUsedArrays)
 {
     if (exp)
     {
@@ -491,13 +491,20 @@ static void findArrayRef(SgExpression *exp, set<DIST::Array*> &allUsedArrays)
 
             // only distributed arrays were added
             if (arrayRef)
+            {
                 if (arrayRef->GetNonDistributeFlag() == false)
+                {
                     allUsedArrays.insert(arrayRef);
+                    if (isWirte)
+                        writeUsedArrays.insert(arrayRef);
+                }
+            }
+
         }
         else
         {
-            findArrayRef(exp->lhs(), allUsedArrays);
-            findArrayRef(exp->rhs(), allUsedArrays);
+            findArrayRef(exp->lhs(), false, allUsedArrays, writeUsedArrays);
+            findArrayRef(exp->rhs(), false, allUsedArrays, writeUsedArrays);
         }
     }
 }
@@ -508,8 +515,15 @@ static void findArrayRefs(LoopGraph *loop)
     for (SgStatement *st = loop->loop->lexNext(); st != loop->loop->lastNodeOfStmt(); st = st->lexNext())
     {
         if (isSgExecutableStatement(st))
+        {
             for (int z = 0; z < 3; ++z)
-                findArrayRef(st->expr(z), loop->usedArrays);
+            {
+                bool isWrite = false;
+                if (z == 0 && st->variant() == ASSIGN_STAT)
+                    isWrite = true;
+                findArrayRef(st->expr(z), isWrite, loop->usedArrays, loop->usedArraysWrite);
+            }
+        }
     }
 }
 

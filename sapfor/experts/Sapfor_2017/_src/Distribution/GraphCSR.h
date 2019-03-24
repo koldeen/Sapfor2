@@ -172,6 +172,7 @@ namespace Distribution
 
         std::vector<attrType> GetAllAttributes(const int vert) const;
         int CountOfConnected(const vType startV) const;
+        int CountOfConnectedForArray(const vType startV) const;
         std::vector<std::tuple<vType, vType, attrType>> CreateMaximumSpanningTree();
         std::pair<int, int> MakeConnected(const vType startV, std::vector<unsigned char> &inSet) const;
     };
