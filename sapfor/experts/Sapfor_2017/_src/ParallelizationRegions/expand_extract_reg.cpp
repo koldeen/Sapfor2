@@ -33,13 +33,12 @@ static inline void insertParRegDirs(SgStatement *start, SgStatement *end, const 
 
 static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileName, const int line)
 {
-    if (reg)
+    if (reg && reg->GetName() != "DEFAULT")
     {
         auto regLines = reg->GetLines(fileName, line);
         if (regLines && regLines->isImplicit())
             return true; // error
     }
-
     return false;
 }
 
@@ -47,7 +46,8 @@ static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
 {
     if (start == end)
         return true;
-    return (start->controlParent() == end->controlParent() && end->variant() != CONTROL_END || end->variant() == CONTROL_END && start == end->controlParent());
+    return (end->variant() != CONTROL_END && start->controlParent() == end->controlParent() ||
+            end->variant() == CONTROL_END && start->controlParent() == end->controlParent()->controlParent());
 }
 
 bool expandExtractReg(const string &fileName,
@@ -186,10 +186,10 @@ bool expandExtractReg(const string &fileName,
         }
 
         // use cases
-        if (beginReg)
+        if (beginReg && beginReg->GetName() != "DEFAULT")
             beginLines = beginReg->GetLines(fileName, startLine);
 
-        if (endReg)
+        if (endReg && endReg->GetName() != "DEFAULT")
             endLines = endReg->GetLines(fileName, endLine);
 
         // delete all internal fragments
@@ -221,7 +221,7 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
+                insertEndParReg(begin->lexPrev());
                 beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
             }
         }
@@ -242,7 +242,7 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
+                insertParRegDir(end->lexNext(), endReg->GetName());
                 endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
             }
         }
@@ -301,7 +301,7 @@ bool expandExtractReg(const string &fileName,
                     if (startLine == beginLines->lines.first)
                         beginLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                     else
-                        insertEndParReg(SgStatement::getStatementByFileAndLine(fileName, startLine - 1));
+                        insertEndParReg(begin->lexPrev());
                 }
                 else
                 {
@@ -316,7 +316,7 @@ bool expandExtractReg(const string &fileName,
                     if (endLine == endLines->lines.second)
                         endLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
                     else
-                        insertParRegDir(SgStatement::getStatementByFileAndLine(fileName, endLine + 1), endReg->GetName());
+                        insertParRegDir(end->lexNext(), endReg->GetName());
                 }
                 else
                 {
@@ -324,6 +324,12 @@ bool expandExtractReg(const string &fileName,
                     errorLine1 = endLine;
                     errorLine2 = endLines->lines.second;
                     printLine = endLine;
+                }
+
+                if (beginLines != endLines)
+                {
+                    beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
+                    endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                 }
 
                 if (localError)
