@@ -50,6 +50,13 @@ static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
             end->variant() == CONTROL_END && start->controlParent() == end->controlParent()->controlParent());
 }
 
+static bool isNotComposit(SgStatement *st)
+{
+    if (!st || !st->lexNext())
+        return true;
+    return (st->controlParent() == st->lexNext()->controlParent());
+}
+
 bool expandExtractReg(const string &fileName,
                       const int startLine,
                       const int endLine,
@@ -63,6 +70,9 @@ bool expandExtractReg(const string &fileName,
     {
         SgStatement *begin = SgStatement::getStatementByFileAndLine(fileName, startLine);
         SgStatement *end = SgStatement::getStatementByFileAndLine(fileName, endLine);
+
+        checkNull(begin, convertFileName(__FILE__).c_str(), __LINE__);
+        checkNull(end, convertFileName(__FILE__).c_str(), __LINE__);
 
         // check user lines
         // 2. запрещено располагать N1 и N2 в неисполняемых операторах
@@ -355,6 +365,35 @@ bool expandExtractReg(const string &fileName,
 
             error = true;
         }
+
+        // TODO: check: delete all possible empty fragments
+        /*
+        SgStatement *parStart = NULL;
+        SgStatement *parEnd = NULL;
+
+        while (begin->variant() != PROG_HEDR && begin->variant() != PROC_HEDR && begin->variant() != FUNC_HEDR)
+            begin = begin->controlParent();
+        end = begin->lastNodeOfStmt();
+
+        for (auto st = begin; st != end; st = st->lexNext())
+        {
+            if (st->variant() == SPF_PARALLEL_REG_DIR)
+                parStart = st;
+
+            if (st->variant() == SPF_END_PARALLEL_REG_DIR)
+            {
+                parEnd = st;
+
+                if (parStart && parStart->lexNext() == parEnd)
+                {
+                    parStart->deleteStmt();
+                    parEnd->deleteStmt();
+                    parStart = NULL;
+                    parEnd = NULL;
+                }
+            }
+        }
+        */
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
