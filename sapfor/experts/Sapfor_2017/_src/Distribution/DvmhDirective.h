@@ -69,10 +69,14 @@ struct ParallelDirective : Directive
 {
 public:
     std::vector<std::string> parallel;
-    std::vector<std::pair<std::string, std::pair<int, int>>> on; //todo change to tuple //todo description/clear name
+    // tuple of <varName, A, B> on A*x + B
+    std::vector<std::pair<std::string, std::pair<int, int>>> on;
     DIST::Array *arrayRef; // template
-    std::string cloneOfTemplate; // if loop has realigns before 
+    
     DIST::Array *arrayRef2;// main array in loop
+    std::vector<std::pair<std::string, std::pair<int, int>>> on2;
+
+    std::string cloneOfTemplate; // if loop has realigns before 
 
     std::set<Symbol*> privates;
     //                               origin_Name   uniqName                   bounds
@@ -94,6 +98,8 @@ public:
     {
         parallel = copyFrom.parallel;
         on = copyFrom.on;
+        on2 = copyFrom.on2;
+
         arrayRef = copyFrom.arrayRef;
         arrayRef2 = copyFrom.arrayRef2;
 
@@ -104,6 +110,8 @@ public:
         acrossShifts = copyFrom.acrossShifts;
         remoteAccess = copyFrom.remoteAccess;
         reduction = copyFrom.reduction;
+
+        cloneOfTemplate = copyFrom.cloneOfTemplate;        
     }
 
     std::pair<std::string, std::vector<Expression*>> 
