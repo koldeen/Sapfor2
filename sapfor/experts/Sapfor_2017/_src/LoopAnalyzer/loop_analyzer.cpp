@@ -306,7 +306,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"array ref '%s' has indirect access", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                __spf_printToLongBuf(messageE, L"обращение к массиву '%s' имеет косвенную адресацию", to_wstring(arrayRefString.second).c_str());
+                __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' имеет косвенную адресацию", to_wstring(arrayRefString.second).c_str());
 #endif
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1022));

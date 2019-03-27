@@ -113,8 +113,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
     templ->SetSizes(initTemplSize, true);
+
+    bool ifRemAll = false;
 #if WITH_REMOVE
-    templ->RemoveUnpammedDims();
+    ifRemAll = templ->RemoveUnpammedDims();
 #endif
     for (int i = 0, templIdx = 0; i < distArray->GetDimSize(); ++i)
     {
@@ -137,6 +139,18 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
 #if !WITH_REMOVE
         else
             templ->ExtendDimSize(templIdx++, make_pair(1, 1));
+#else
+        else
+        {
+            if (ifRemAll)
+            {
+                AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+                templ->DeprecateDimension(i, false);
+                if (result.first != distArray)
+                    templ->ExtendDimSize(templIdx, result.first->GetSizes()[result.second]);
+                templIdx++;
+            }
+        }
 #endif
     }
 
@@ -297,7 +311,8 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
         }
     }
 
-    dataDirectives.createDirstributionVariants(arraysToDist);
+    if (arraysToDist.size())
+        dataDirectives.createDirstributionVariants(arraysToDist);
 }
 
 

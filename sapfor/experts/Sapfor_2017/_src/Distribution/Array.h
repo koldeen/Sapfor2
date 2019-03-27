@@ -190,20 +190,24 @@ namespace Distribution
             depracateToDistribute = copy.depracateToDistribute;
         }
 
-        void RemoveUnpammedDims()
+        bool RemoveUnpammedDims()
         {
             bool needToRemove = false;
+            int countToRem = 0;
             for (int z = 0; z < dimSize; ++z)
             {
                 if (!mappedDims[z] || depracateToDistribute[z])
                 {
                     needToRemove = true;
-                    break;
+                    countToRem++;
+                    //break;
                 }
             }
 
             if (needToRemove == false)
-                return;
+                return false;
+            if (countToRem == dimSize)
+                return true;
 
             VECTOR<PAIR<int, int>> newSizes;
             VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> newSizesExpr;
@@ -226,6 +230,8 @@ namespace Distribution
             mappedDims = newMappedDims;
             depracateToDistribute = newDepr;
             dimSize = (int)sizes.size();
+
+            return false;
         }
 
         int GetDimSize() const { return dimSize; }
@@ -476,11 +482,11 @@ namespace Distribution
                 return mappedDims[dim];
         }
 
-        void DeprecateDimension(const int dim)
+        void DeprecateDimension(const int dim, bool value = true)
         {
             if (dim >= dimSize)
                 return;
-            depracateToDistribute[dim] = true;
+            depracateToDistribute[dim] = value;
         }
 
         void DeprecateAllDims()
