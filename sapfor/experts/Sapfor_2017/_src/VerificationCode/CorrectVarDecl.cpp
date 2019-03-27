@@ -467,16 +467,20 @@ bool checkArgumentsDeclaration(SgProject *project,
 
                                 __spf_print(1, "function's argument '%s' does not have declaration statement on line %d\n", symb->identifier(), st->lineNumber());
 
-                                wstring message;
-                                __spf_printToLongBuf(message, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
+#ifdef _WIN32
+                                __spf_printToLongBuf(messageR, L"Аргумент '%s' функции '%s' не имеет оператора описания",
+                                                     to_wstring(symb->identifier()).c_str(), func->funcName.c_str());
+#endif
 
                                 if (func->isInRegion())
                                 {
                                     error = true;
-                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), message, 1045));
+                                    getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1045));
                                 }
                                 else
-                                   getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), message, 1045));
+                                   getObjectForFileFromMap(file->filename(), SPF_messages).push_back(Messages(WARR, st->lineNumber(), messageR, messageE, 1045));
                             }
                         }
                     }
