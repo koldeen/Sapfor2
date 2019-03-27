@@ -231,8 +231,19 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                insertEndParReg(begin->lexPrev());
-                beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
+                if (hasOwnControlParent(beginLines->stats.first->GetOriginal(), begin) && begin->variant() != CONTROL_END)
+                {
+                    if (startLine == beginLines->lines.first)
+                        beginLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
+                    else
+                        insertEndParReg(begin->lexPrev());
+                    beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
+                }
+                else
+                {
+                    errorLine = startLine;
+                    localError = true;
+                }
             }
         }
         else if (endLines && !beginLines)
@@ -252,8 +263,19 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                insertParRegDir(end->lexNext(), endReg->GetName());
-                endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
+                if (hasOwnControlParent(endLines->stats.first->GetOriginal(), end) && isNotComposit(end))
+                {
+                    if (endLine == endLines->lines.second)
+                        endLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
+                    else
+                        insertParRegDir(end->lexNext(), endReg->GetName());
+                    endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
+                }
+                else
+                {
+                    errorLine = endLine;
+                    localError = true;
+                }
             }
         }
         else if (!beginLines && !endLines)
@@ -303,10 +325,20 @@ bool expandExtractReg(const string &fileName,
             }
             else
             {
-                int errorLine1, errorLine2, printLine;
+                int errorLine1, errorLine2;
                 localError = false;
 
-                if (hasOwnControlParent(beginLines->stats.first->GetOriginal(), begin))
+                /*
+                if (beginLines == endLines && !hasOwnControlParent(begin, end))
+                {
+                    localError = true;
+                    errorLine = startLine;
+                    errorLine1 = startLine;
+                    errorLine2 = endLine;
+                }
+                */
+
+                if (hasOwnControlParent(beginLines->stats.first->GetOriginal(), begin) && begin->variant() != CONTROL_END)
                 {
                     if (startLine == beginLines->lines.first)
                         beginLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
@@ -316,12 +348,12 @@ bool expandExtractReg(const string &fileName,
                 else
                 {
                     localError = true;
+                    errorLine = startLine;
                     errorLine1 = beginLines->lines.first;
                     errorLine2 = startLine;
-                    printLine = startLine;
                 }
 
-                if (hasOwnControlParent(endLines->stats.first->GetOriginal(), end))
+                if (hasOwnControlParent(endLines->stats.first->GetOriginal(), end) && isNotComposit(end))
                 {
                     if (endLine == endLines->lines.second)
                         endLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
@@ -331,9 +363,9 @@ bool expandExtractReg(const string &fileName,
                 else
                 {
                     localError = true;
+                    errorLine = endLine;
                     errorLine1 = endLine;
                     errorLine2 = endLines->lines.second;
-                    printLine = endLine;
                 }
 
                 if (beginLines != endLines)
@@ -341,17 +373,18 @@ bool expandExtractReg(const string &fileName,
                     beginLines->stats.second->GetOriginal()->lexNext()->deleteStmt();
                     endLines->stats.first->GetOriginal()->lexPrev()->deleteStmt();
                 }
-
+                /*
                 if (localError)
                 {
                     __spf_print(1, "bad lines %d-%d position: expected line with the same scope for extracting region fragment\n", errorLine1, errorLine2);
 
                     std::wstring bufw;
                     __spf_printToLongBuf(bufw, L"bad lines position: expected line with the same scope for extracting region fragment");
-                    messagesForFile.push_back(Messages(ERROR, printLine, bufw, 1001));
+                    messagesForFile.push_back(Messages(ERROR, errorLine, bufw, 1001));
 
                     error = true;
                 }
+                */
             }
         }
 
