@@ -515,6 +515,9 @@
     <ClCompile Include="..\_src\DynamicAnalysis\createParallelRegions.cpp">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\loops_combiner.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1034,6 +1037,9 @@
     <ClInclude Include="..\_src\DynamicAnalysis\createParallelRegions.h">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
 >>>>>>> master
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\loops_combiner.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

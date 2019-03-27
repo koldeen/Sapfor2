@@ -221,6 +221,23 @@ public:
         return retVal;
     }
 
+    void removeNonDistrArrays()
+    {
+        std::set<DIST::Array*> newUsedArrays;
+        for (auto &elem : usedArrays)
+            if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
+                newUsedArrays.insert(elem);
+        usedArrays = newUsedArrays;
+
+        std::set<DIST::Array*> newUsedArraysW;
+        for (auto &elem : usedArraysWrite)
+            if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
+                newUsedArraysW.insert(elem);
+        usedArraysWrite = newUsedArraysW;
+
+        for (auto &ch : children)
+            ch->removeNonDistrArrays();
+    }
 public:
     int lineNum;
     int lineNumAfterLoop;
@@ -294,6 +311,7 @@ public:
     Statement *loop;
 
     std::set<DIST::Array*> usedArrays;
+    std::set<DIST::Array*> usedArraysWrite;
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);

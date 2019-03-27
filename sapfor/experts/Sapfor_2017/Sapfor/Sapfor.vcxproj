@@ -309,6 +309,7 @@
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
+    <ClCompile Include="..\_src\LoopConverter\loops_combiner.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
@@ -519,6 +520,7 @@
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
+    <ClInclude Include="..\_src\LoopConverter\loops_combiner.h" />
     <ClInclude Include="..\_src\LoopConverter\loops_splitter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />

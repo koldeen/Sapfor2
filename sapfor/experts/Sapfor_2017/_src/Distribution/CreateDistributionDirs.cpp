@@ -16,7 +16,6 @@
 
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
-#include "../Utils/SgUtils.h"
 #include "../GraphLoop/graph_loops.h"
 
 using std::vector;
@@ -81,10 +80,26 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
-#define WITH_REMOVE 0
+#define WITH_REMOVE 1
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
+    // find not connected dimentions and deprecate them 
+    vector<int> vInGraph;
+    int err = allArrays.GetAllVertNumber(distArray, vInGraph);
+    if (err != 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (!distArray->isLoopArray())
+    {
+        for (int z = 0; z < vInGraph.size(); ++z)
+        {
+            int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
+            if (count == 0)
+                distArray->DeprecateDimension(z);
+        }
+    }
+
     DIST::Array *templ = new DIST::Array(*distArray);
     templ->ChangeName("dvmh_temp" + std::to_string(templateCount++));
     templ->SetId(0);

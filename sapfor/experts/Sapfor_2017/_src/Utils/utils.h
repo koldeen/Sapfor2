@@ -67,3 +67,6 @@ std::vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, cons
 #ifdef _WIN32
 void printStackTrace();
 #endif
+
+template<typename objT>
+objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);

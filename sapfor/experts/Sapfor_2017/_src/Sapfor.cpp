@@ -48,6 +48,7 @@
 #include "LoopConverter/array_assign_to_loop.h"
 #include "LoopConverter/private_arrays_breeder.h"
 #include "LoopConverter/loops_splitter.h"
+#include "LoopConverter/loops_combiner.h"
 #include "Predictor/PredictScheme.h"
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
@@ -764,6 +765,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     internalExit = -1;
             }
         }
+        else if(curr_regime == LOOPS_COMBINER)
+                {
+                    auto founded = loopGraph.find(file->filename());
+                    if (founded != loopGraph.end())
+                    {
+                        int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
+                        if (err != 0)
+                            internalExit = -1;
+                    }
+                }
         else if (curr_regime == CREATE_INTER_TREE)
         {
             vector<string> include_functions;
@@ -1340,6 +1351,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
         propagateArrayFlags(arrayLinksByFuncCalls);
+        for (auto &loopByFile : loopGraph)
+            for (auto &loop : loopByFile.second)
+                loop->removeNonDistrArrays();
+
+        for (auto &funcByFile : allFuncInfo)
+            for (auto &func : funcByFile.second)
+                func->removeNonDistrArrays();
+
         //restore
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
@@ -1373,16 +1392,24 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == GET_ALL_ARRAY_DECL)
     {
-        for (auto array : declaratedArrays)
+        bool hasNonDefaultReg = false;
+        for (auto &elem : subs_parallelRegions)
+            if (elem->GetName() != "DEFAULT")
+                hasNonDefaultReg = true;
+
+        if (hasNonDefaultReg)
         {
-            if (array.second.first->GetRegionsName().size() == 0)
-                array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-            else if (array.second.first->GetRegionsName().size() == 1)
+            for (auto array : declaratedArrays)
             {
-                string test = *array.second.first->GetRegionsName().begin();
-                convertToLower(test);
-                if (test == "default" && parallelRegions.size() > 1)
+                if (array.second.first->GetRegionsName().size() == 0)
                     array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                else if (array.second.first->GetRegionsName().size() == 1)
+                {
+                    string test = *array.second.first->GetRegionsName().begin();
+                    convertToLower(test);
+                    if (test == "default")
+                        array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+                }
             }
         }
     }
@@ -1720,6 +1747,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS_TO_COMMENTS:
     case PRIVATE_ARRAYS_BREEDING:
     case LOOPS_SPLITTER:
+    case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
     case REMOVE_DVM_INTERVALS:
         runAnalysis(*project, curr_regime, true, "", folderName);

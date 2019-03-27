@@ -96,7 +96,7 @@ static int getNestedLevel(SgStatement* loop_stmt)
     return depth;
 }
 
-static void removeNestedIntervals(SpfInterval *interval)
+static void removeNestedIntervals(SpfInterval* interval)
 {
     if (isSgForStmt(interval->begin))
     {
@@ -115,7 +115,77 @@ static void removeNestedIntervals(SpfInterval *interval)
 }
 
 //Tree creation funcs
-static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt, int level)
+static vector<SpfInterval*> findUserIntervals(SgStatement *startSt)
+{
+    vector<SpfInterval*> userIntervals;
+    SpfInterval *currentInterval = NULL;
+
+    SgStatement *endSt = startSt->lastNodeOfStmt();
+    SgStatement *currentSt = startSt;
+
+    while(currentSt != endSt)
+    {
+        if(currentSt->variant() == DVM_INTERVAL_DIR)
+        {
+            SpfInterval *inter = new SpfInterval();
+            inter->begin = currentSt->lexNext();
+            inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
+            inter->parent = currentInterval;
+            inter->exit_levels.push_back(0);
+            inter->tag = getNextTag();
+            if(currentInterval != NULL)
+                currentInterval->nested.push_back(inter);
+            else
+                userIntervals.push_back(inter);
+
+            currentInterval = inter;
+        
+            currentSt = currentSt->lexPrev();
+            currentSt->lexNext()->deleteStmt();
+        }
+
+        if(currentSt->variant() == DVM_EXIT_INTERVAL_DIR)
+        {
+            currentInterval->ends.push_back(currentSt->lexNext());
+
+            SgExpression* list = currentSt->expr(0);
+            int depth = 0;
+            while(list)
+            {
+                depth++;
+                list = list->rhs();
+            }
+            currentInterval->exit_levels.push_back(depth);
+
+            currentSt = currentSt->lexPrev();
+            currentSt->lexNext()->deleteStmt();
+        }
+
+        if(currentSt->variant() == DVM_ENDINTERVAL_DIR)
+        {
+            if(currentInterval->ends.size() > 0)
+            {
+                SgStatement* otherEnd = currentInterval->ends[0];
+                
+                currentInterval->ends[0] = currentSt->lexPrev();
+                currentInterval->ends.push_back(otherEnd);
+            }
+            else
+                currentInterval->ends.push_back(currentSt->lexPrev());
+
+            currentInterval = currentInterval->parent;
+
+            currentSt = currentSt->lexPrev();
+            currentSt->lexNext()->deleteStmt();
+        }
+
+        currentSt = currentSt->lexNext();
+    }
+
+    return userIntervals;
+}
+
+static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt, int level)
 {
     int currentVar;
 
@@ -155,14 +225,17 @@ static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<i
                 int depth = 0;
 
                 SpfInterval* labelSearch = interval;
-                while (label_line < labelSearch->begin->lineNumber() || label_line >= labelSearch->begin->lastNodeOfStmt()->lineNumber())
+                while (label_line < labelSearch->begin->lineNumber() || label_line >= labelSearch->ends[0]->lineNumber())
                 {
                     labelSearch = labelSearch->parent;
                     depth++;
                 }
 
-                interval->ends.push_back(currentSt);
-                interval->exit_levels.push_back(depth);
+                if(depth != 0)
+                {
+                    interval->ends.push_back(currentSt);
+                    interval->exit_levels.push_back(depth);
+                }
             }
         }
 
@@ -171,9 +244,9 @@ static void findIntervals(SpfInterval* interval, map<int, int> &labelsRef, map<i
 
         SpfInterval* inter = new SpfInterval();
         inter->begin = currentSt;
+        inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
         inter->parent = interval;
-        inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->exit_levels.push_back(0);
         inter->tag = getNextTag();
         interval->nested.push_back(inter);
@@ -190,28 +263,40 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
 
     for (int i = 0; i < funcNum; i++)
     {
-        // Find labels
+        // Find labels.
         findAllLabels(file->functions(i), labelsRef);
         matchGotoLabels(file->functions(i), gotoStmts);
-        //
+
+        // Find user intervals.
+        vector<SpfInterval*> userIntervals = findUserIntervals(file->functions(i));
+        for(int j = 0; j < userIntervals.size(); j++)
+            fileIntervals.push_back(userIntervals[j]);
 
         SpfInterval *func_inters = new SpfInterval();
 
-        func_inters->begin = file->functions(i);
+        // Skip to executables.
+        SgStatement* beginSt = file->functions(i);
+        while (!isSgExecutableStatement(beginSt) || isSPF_stat(beginSt) || isDVM_stat(beginSt))
+            beginSt = beginSt->lexNext();
+
+        // Set begining of the interval.
+        func_inters->begin = beginSt;
         func_inters->lineFile = std::make_pair(file->functions(i)->lineNumber(), file->functions(i)->fileName());
         func_inters->tag = getNextTag();
 
-        SgStatement *lastNode = func_inters->begin->lastNodeOfStmt();
+        // Set ending of the interval.
+        SgStatement *lastNode = file->functions(i)->lastNodeOfStmt();
         SgStatement *prevLastNode = lastNode->lexPrev();
         while (isDVM_stat(prevLastNode) || isSPF_stat(prevLastNode))
             prevLastNode = prevLastNode->lexPrev();
 
         if (prevLastNode->variant() == RETURN_STAT || prevLastNode->variant() == EXIT_STMT)
-            func_inters->ends.push_back(prevLastNode);
+            func_inters->ends.push_back(prevLastNode->lexPrev());
         else
-            func_inters->ends.push_back(lastNode);
+            func_inters->ends.push_back(lastNode->lexPrev());
         func_inters->exit_levels.push_back(0);
 
+        // Find inner intervals.
         SgStatement *currentSt = func_inters->begin;
         findIntervals(func_inters, labelsRef, gotoStmts, currentSt, 1);
 
@@ -236,68 +321,47 @@ static void LogIftoIfThen(SgStatement *stmt)
 
 static void insertTree(SpfInterval* interval)
 {
-    if (interval->ifInclude)
+    if (!interval->ifInclude)
+        return;
+
+    SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
+    SgExpression* expr = new SgValueExp(interval->tag);
+    beg_inter->setExpression(0, *expr);
+
+    SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
+
+    if (interval->begin->lexPrev()->variant() == LOGIF_NODE)
+        LogIftoIfThen(interval->begin->lexPrev());
+
+    interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
+    beg_inter->setlineNumber(interval->begin->lineNumber());
+
+    interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
+
+    for (int i = 1; i < interval->ends.size(); i++)
     {
-        SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
-        SgExpression* expr = new SgValueExp(interval->tag);
-        beg_inter->setExpression(0, *expr);
+        int depth = interval->exit_levels[i];
+        SpfInterval* curr_inter = interval->parent;
 
-        SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
+        SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
+        SgExprListExp* curr_list_elem = expli;
 
-        if (interval->begin->lexPrev()->variant() == LOGIF_NODE)
-            LogIftoIfThen(interval->begin->lexPrev());
-
-        if (interval->parent)
+        for (int j = 1; j < depth; j++)
         {
-            if (interval->begin->lexPrev()->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexNext()->variant() != DVM_ENDINTERVAL_DIR)
-            {
-                interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
-                beg_inter->setlineNumber(interval->begin->lineNumber());
+            curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
 
-                interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
-            }
-        }
-        else
-        {
-            SgStatement* currentSt = interval->begin;
-            while (!isSgExecutableStatement(currentSt) || isSPF_stat(currentSt) || isDVM_stat(currentSt))
-                currentSt = currentSt->lexNext();
-
-            if (currentSt->variant() != DVM_INTERVAL_DIR || interval->ends[0]->lexPrev()->variant() != DVM_ENDINTERVAL_DIR)
-            {
-                currentSt->insertStmtBefore(*beg_inter, *currentSt->controlParent());
-                beg_inter->setlineNumber(currentSt->lineNumber());
-
-                interval->ends[0]->insertStmtBefore(*end_inter, *interval->ends[0]->controlParent());
-            }
+            curr_inter = curr_inter->parent;
+            curr_list_elem = curr_list_elem->next();
         }
 
-        for (int i = 1; i < interval->ends.size(); i++)
-        {
-            int depth = interval->exit_levels[i];
-            SpfInterval* curr_inter = interval->parent;
+        curr_list_elem->setRhs(NULL);
+        SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
+        exit_inter->setExpression(0, *expli);
 
-            SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
-            SgExprListExp* curr_list_elem = expli;
+        if (interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
+            LogIftoIfThen(interval->ends[i]->lexPrev());
 
-            for (int j = 1; j < depth; j++)
-            {
-                curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
-
-                curr_inter = curr_inter->parent;
-                curr_list_elem = curr_list_elem->next();
-            }
-
-            curr_list_elem->setRhs(NULL);
-            SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
-            exit_inter->setExpression(0, *expli);
-
-            if (interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
-                LogIftoIfThen(interval->ends[i]->lexPrev());
-
-            if (interval->ends[i]->lexPrev()->variant() != DVM_EXIT_INTERVAL_DIR)
-                interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
-        }
+        interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
     }
 
     for (int i = 0; i < interval->nested.size(); i++)

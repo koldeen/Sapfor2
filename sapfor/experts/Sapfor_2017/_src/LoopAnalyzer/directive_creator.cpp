@@ -908,6 +908,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                                   const DIST::Arrays<int> &allArrays, const int regId,
                                   ParallelDirective *parDirective,
                                   map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
+                                  const set<string> &deprecateToMatch,
                                   bool fromRead = false)
 {
     bool ret = true;
@@ -947,6 +948,9 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 }
                 else
                     mapTo = std::to_string(values[elem.first][i].second.second);
+
+                if (deprecateToMatch.find(mapTo) != deprecateToMatch.end())
+                    return false;
 
                 if (updateOn[idx].first)
                 {
@@ -1134,8 +1138,17 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     vector<pair<bool, string>> updateOn(parDirective->on.size());
     std::fill(updateOn.begin(), updateOn.end(), make_pair(false, ""));
 
+    set<string> deprecateToMatch;
+    int nested = ((SgForStmt*)loop)->isPerfectLoopNest();
+    SgForStmt *tmpL = (SgForStmt*)loop;
+    for (int z = 0; z < nested; ++z)
+    {
+        deprecateToMatch.insert(tmpL->symbol()->identifier());
+        tmpL = (SgForStmt*)(tmpL->lexNext());
+    }
+
     //try to resolve from write operations
-    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues);
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch);
     if (!ok)
         return false;
     else

@@ -193,6 +193,14 @@ static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, Sg
     }
 }
 
+static bool isNonDistrArray(SgSymbol *symb)
+{
+    SgStatement *decl = declaratedInStmt(symb);
+    DIST::Array *array = getArrayFromDeclarated(decl, symb->identifier());
+    checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);    
+    return array->GetNonDistributeFlag();    
+}
+
 static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
     vector<SgStatement*> result;
@@ -204,6 +212,9 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
         return result;
 
     if (assign->expr(0)->variant() != ARRAY_REF || assign->expr(1)->variant() != ARRAY_REF)
+        return result;
+
+    if (isNonDistrArray(assign->expr(0)->symbol()) || isNonDistrArray(assign->expr(1)->symbol()))
         return result;
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(0);
@@ -484,6 +495,11 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
     if (assign->expr(0)->variant() != ARRAY_REF ||
         assign->expr(1)->rhs()->variant() != ARRAY_REF ||
         assign->expr(1)->lhs()->variant() != ARRAY_REF)
+        return result;
+
+    if (isNonDistrArray(assign->expr(0)->symbol()) || 
+        isNonDistrArray(assign->expr(1)->rhs()->symbol()) ||
+        isNonDistrArray(assign->expr(1)->lhs()->symbol()) )
         return result;
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(1)->lhs();
@@ -771,6 +787,9 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
         assign->expr(1)->lhs()->lhs()->variant() != ARRAY_REF)
         return result;
 
+    if (isNonDistrArray(assign->expr(1)->lhs()->lhs()->symbol()))
+        return result;
+
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
 
@@ -903,21 +922,19 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
         }
     }
 
-    SgExpression* newRightPart = new SgExpression(ADD_OP);
-    SgAssignStmt* init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0    
-
+    
+    SgAssignStmt *init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0 
     result.push_back(init);
-
-    newRightPart->setLhs(assign->expr(0));
-    newRightPart->setRhs(retVal->lexNext()->expr(1));
-
-    retVal->lexNext()->setExpression(1, *newRightPart);
-
-    result.push_back(retVal);
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
 
+    SgExpression *newRightPart = new SgExpression(ADD_OP);
+    newRightPart->setLhs(copy->expr(0)->copyPtr());
+    newRightPart->setRhs(copy->expr(1));
+    copy->setExpression(1, *newRightPart);
+
+    result.push_back(retVal);    
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
     return result;
@@ -1142,9 +1159,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             {
                 vector<SgStatement*> conv;
                 if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
-                {
                     conv = convertFromSumToLoop(st, file, messagesForFile);
-                }
                 else
                 {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)

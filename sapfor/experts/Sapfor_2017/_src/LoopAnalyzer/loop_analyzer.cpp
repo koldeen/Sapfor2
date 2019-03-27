@@ -241,10 +241,13 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
             __spf_print(1, "WARN: array ref '%s' at line %d has more than one loop's variables\n", arrayRefString.second.c_str(), currLine);
 
-            wstring message;
-            __spf_printToLongBuf(message, L"array ref '%s' has more than one loop's variables", to_wstring(arrayRefString.second).c_str());
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"array ref '%s' has more than one loop's variables", to_wstring(arrayRefString.second).c_str());
+#if _WIN32
+            __spf_printToLongBuf(messageE, L"Обращение к массиву '%s' содержит более одной индексной переменной циклов", to_wstring(arrayRefString.second).c_str());
+#endif
             if (currLine > 0)
-                currMessages->push_back(Messages(WARR, currLine, message, 1021));
+                currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
         }
 
         for (int i = 0; i < allPositions.size(); ++i)
@@ -287,20 +290,26 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 {
                     __spf_print(1, "WARN: array ref '%s' at line %d does not have loop variables\n", arrayRefString.second.c_str(), currLine);
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
+#if _WIN32
+                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит индексных переменных циклов", to_wstring(arrayRefString.second).c_str());
+#endif
                     if (currLine > 0)
-                        currMessages->push_back(Messages(WARR, currLine, message, 1021));
+                        currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
                 }
             }
             else
             {
                 __spf_print(1, "WARN: array ref '%s' at line %d has indirect access\n", arrayRefString.second.c_str(), currLine);
 
-                wstring message;
-                __spf_printToLongBuf(message, L"array ref '%s' has indirect access", to_wstring(arrayRefString.second).c_str());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"array ref '%s' has indirect access", to_wstring(arrayRefString.second).c_str());
+#if _WIN32
+                __spf_printToLongBuf(messageE, L"обращение к массиву '%s' имеет косвенную адресацию", to_wstring(arrayRefString.second).c_str());
+#endif
                 if (currLine > 0)
-                    currMessages->push_back(Messages(WARR, currLine, message, 1022));
+                    currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1022));
             }
         }
     }
@@ -337,10 +346,13 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
                 wasMapped = true;
 
-                wstring message;
-                __spf_printToLongBuf(message, L"can not calculate index expression for array ref '%s'", to_wstring(arrayRefString.second).c_str());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"can not calculate index expression for array ref '%s'", to_wstring(arrayRefString.second).c_str());
+#if _WIN32
+                __spf_printToLongBuf(messageR, L"Невозможно вычислить индексное выражение в обращении к массиву '%s'", to_wstring(arrayRefString.second).c_str());
+#endif
                 if (currLine > 0)
-                    currMessages->push_back(Messages(WARR, currLine, message, 1023));
+                    currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1023));
             }
         }
         else
@@ -426,7 +438,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
     return allPositions;
 }
 
-static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int side,
+static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int side,
                                     map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, const int currLine,
                                     map<int, LoopGraph*> &sortedLoopGraph, const ParallelRegion *reg, const double currentW,
                                     const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
@@ -477,7 +489,7 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
     }
 
     if (currRegime == PRIVATE_STEP4)
-        return wasMapped;
+        return wasFound;
 
     bool ifUnknownFound = false;
     vector<int> canNotMapToLoop;
@@ -505,10 +517,13 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
             {
                 __spf_print(1, "WARN: can not map write to array '%s' to loop on line %d\n", arrayRefS.c_str(), line);
 
-                wstring message;
-                __spf_printToLongBuf(message, L"can not map write to array '%s' to this loop", to_wstring(arrayRefS).c_str());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"can not map write to array '%s' to this loop", to_wstring(arrayRefS).c_str());
+#if _WIN32
+                __spf_printToLongBuf(messageR, L"Невозможно сопоставить обращение к массиву на запись '%s' с данными циклом", to_wstring(arrayRefS).c_str());
+#endif
                 if (line > 0)
-                    currMessages->push_back(Messages(WARR, line, message, 1025));
+                    currMessages->push_back(Messages(WARR, line, messageR, messageE, 1025));
             }
         }
     }
@@ -652,7 +667,7 @@ static bool matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExp
         }
     }
 
-    return wasMapped;
+    return wasFound;
 }
 
 static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *currExp, const int lineNum, const int side, 
@@ -697,8 +712,11 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     printSide = "R_OP";
                 
                 __spf_print(PRINT_ARRAY_ARCS, "%s to array <%s> on line %d: ", printSide, OriginalSymbol(currExp->symbol())->identifier(), lineNum);
-                bool wasMapped = matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph, reg, currentW, arrayLinksByFuncCalls);
-                                
+                bool wasMapped = false;
+                vector<int> matched = matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph, reg, currentW, arrayLinksByFuncCalls);
+                for (int z = 0; z < matched.size(); ++z)
+                    wasMapped |= (matched[z] != 0);
+
                 if (parentLoops.size() == 0)
                 {
                     SgSymbol *symb = currExp->symbol();
@@ -735,6 +753,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                 if (itFound->second.first->GetNonDistributeFlagVal() != DIST::DISTR)
                 {
                     set<string> loopsPrivates;
+                    set<string> loopsRedUnited;
                     map<string, set<string>> loopsReductions;
                     map<string, set<tuple<string, string, int>>> loopsReductionsLoc;
 
@@ -750,8 +769,13 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     }
 
                     for (auto &elem : loopsReductions)
+                    {
                         for (auto &setElem : elem.second)
+                        {
                             loopsPrivates.insert(setElem);
+                            loopsRedUnited.insert(setElem);
+                        }
+                    }
 
                     for (auto &elem : loopsReductionsLoc)
                     {
@@ -759,20 +783,57 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         {
                             loopsPrivates.insert(get<0>(setElem));
                             loopsPrivates.insert(get<1>(setElem));
+                            loopsRedUnited.insert(get<0>(setElem));
+                            loopsRedUnited.insert(get<1>(setElem));
                         }
                     }
 
-                    if (loopsPrivates.find(string(OriginalSymbol(currExp->symbol())->identifier())) == loopsPrivates.end())                    
+                    const string key = string(OriginalSymbol(currExp->symbol())->identifier());
+                    if (loopsPrivates.find(key) == loopsPrivates.end())
                     {
                         for (auto &loop : parentLoops)
                         {
                             __spf_print(1, "WARN: write to non distributed array '%s' in loop on line %d\n", symb->identifier(), loop->lineNumber());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
+#if _WIN32
+                            __spf_printToLongBuf(messageR, L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом", to_wstring(symb->identifier()).c_str());
+#endif
                             if (loop->lineNumber() > 0)
-                                currMessages->push_back(Messages(WARR, loop->lineNumber(), message, 1026));
+                                currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
                             sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                        }
+                    }
+                    else if (loopsRedUnited.find(key) == loopsRedUnited.end())
+                    {
+                        auto saveReg = currRegime;
+                        currRegime = PRIVATE_STEP4;
+                        bool wasMapped = false;
+                        vector<int> matched = matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph, reg, currentW, arrayLinksByFuncCalls);
+                        for (int z = 0; z < matched.size(); ++z)
+                            wasMapped |= (matched[z] != 0);
+
+                        currRegime = saveReg;
+
+                        if (wasMapped)
+                        {
+                            int z = 0;
+                            for (auto &loop : parentLoops)
+                            {
+                                if (loopInfo.find(loop) != loopInfo.end() && matched[z])
+                                {
+                                    wstring messageE, messageR;
+                                    __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
+#if _WIN32
+                                    __spf_printToLongBuf(messageR, L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом", to_wstring(symb->identifier()).c_str());
+#endif
+                                    if (loop->lineNumber() > 0)
+                                        currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
+                                    sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                                }
+                                ++z;
+                            }
                         }
                     }
                 }

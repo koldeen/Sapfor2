@@ -990,9 +990,9 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
     try
     {
         int strL;
-        char *filerName;
-        ConvertShortToChar(fileNameToMod, strL, filerName);
-        std::get<0>(inData) = filerName;
+        char *filtrName;
+        ConvertShortToChar(fileNameToMod, strL, filtrName);
+        std::get<0>(inData) = filtrName;
         std::get<1>(inData) = toModifyLines[0];
         std::get<2>(inData) = toModifyLines[1];
         std::get<3>(inData) = toModifyLines[2];
