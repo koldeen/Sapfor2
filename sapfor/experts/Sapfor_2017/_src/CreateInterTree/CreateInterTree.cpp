@@ -225,7 +225,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
                 int depth = 0;
 
                 SpfInterval* labelSearch = interval;
-                while (label_line < labelSearch->begin->lineNumber() || label_line >= labelSearch->ends[0]->lineNumber())
+                while (label_line < labelSearch->begin->lineNumber() || label_line > labelSearch->ends[0]->lineNumber())
                 {
                     labelSearch = labelSearch->parent;
                     depth++;
@@ -274,18 +274,13 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
 
         SpfInterval *func_inters = new SpfInterval();
 
-        // Skip to executables.
-        SgStatement* beginSt = file->functions(i);
-        while (!isSgExecutableStatement(beginSt) || isSPF_stat(beginSt) || isDVM_stat(beginSt))
-            beginSt = beginSt->lexNext();
-
         // Set begining of the interval.
-        func_inters->begin = beginSt;
-        func_inters->lineFile = std::make_pair(file->functions(i)->lineNumber(), file->functions(i)->fileName());
+        func_inters->begin = file->functions(i);
+        func_inters->lineFile = std::make_pair(func_inters->begin->lineNumber(), file->functions(i)->fileName());
         func_inters->tag = getNextTag();
 
         // Set ending of the interval.
-        SgStatement *lastNode = file->functions(i)->lastNodeOfStmt();
+        SgStatement *lastNode = func_inters->begin->lastNodeOfStmt();
         SgStatement *prevLastNode = lastNode->lexPrev();
         while (isDVM_stat(prevLastNode) || isSPF_stat(prevLastNode))
             prevLastNode = prevLastNode->lexPrev();
@@ -330,13 +325,19 @@ static void insertTree(SpfInterval* interval)
 
     SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
 
-    if (interval->begin->lexPrev()->variant() == LOGIF_NODE)
-        LogIftoIfThen(interval->begin->lexPrev());
+    // Skip to executables.
+    SgStatement* beginSt = interval->begin;
+    while (!isSgExecutableStatement(beginSt) || isSPF_stat(beginSt) || isDVM_stat(beginSt))
+        beginSt = beginSt->lexNext();
 
-    interval->begin->insertStmtBefore(*beg_inter, *interval->begin->controlParent());
-    beg_inter->setlineNumber(interval->begin->lineNumber());
+    if (beginSt->lexPrev()->variant() == LOGIF_NODE)
+        LogIftoIfThen(beginSt->lexPrev());
+    
+    // Insert begining
+    beginSt->insertStmtBefore(*beg_inter, *beginSt->controlParent());
+    beg_inter->setlineNumber(beginSt->lineNumber());
 
-    interval->ends[0]->insertStmtAfter(*end_inter, *interval->begin->controlParent());
+    interval->ends[0]->insertStmtAfter(*end_inter, *beginSt->controlParent());
 
     for (int i = 1; i < interval->ends.size(); i++)
     {
