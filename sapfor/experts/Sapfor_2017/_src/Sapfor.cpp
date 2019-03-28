@@ -765,28 +765,29 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if(curr_regime == LOOPS_COMBINER)
-                {
-                    auto founded = loopGraph.find(file->filename());
-                    if (founded != loopGraph.end())
-                    {
-                        int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
-                        if (err != 0)
-                            internalExit = -1;
-                    }
-                }
+        {
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+            {
+                int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
+                if (err != 0)
+                    internalExit = -1;
+            }
+        }
         else if (curr_regime == CREATE_INTER_TREE)
         {
+#if RELEASE_CANDIDATE
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
+#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
-
     } // end of FOR by files
         
     if (internalExit != 0)

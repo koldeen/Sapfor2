@@ -576,7 +576,6 @@ static FuncInfo* getFunc(const string &file, const int line, const map<string, F
 
 void uniteIntervalsBetweenProcCalls(map<string, vector<SpfInterval*>> &intervals, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-    return;
     map<string, map<SgStatement*, SpfInterval*>> intervalsBySt;
     for (auto &byFile : intervals)
         for (auto &interval : byFile.second)
