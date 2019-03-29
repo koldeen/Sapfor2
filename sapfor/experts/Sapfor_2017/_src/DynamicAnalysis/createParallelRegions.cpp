@@ -14,17 +14,17 @@
 #include <vector>
 #include <string>
 
-struct Region {
+struct SpfRegion {
     int id;
 
     int time;
     SgStatement *start;
     SgStatement *end;
 
-    Region(int id_, int time_,  SgStatement *start_, SgStatement *end_): 
+    SpfRegion(int id_, int time_,  SgStatement *start_, SgStatement *end_): 
         id(id_), time(time_), start(start_), end(end_) {}
 
-    Region& operator+=(Region rg) 
+    SpfRegion& operator+=(SpfRegion rg) 
     {
         if (this != &rg)
         {
@@ -34,6 +34,13 @@ struct Region {
         return *this;
     }
 };
+
+const SpfInterval* findMainInterval(std::vector<SpfInterval*> &fileIntervals)
+{
+    for (const SpfInterval* interval : fileIntervals)
+        if (interval->tag == PROG_HEDR)
+            return interval;
+}
 
 void performFuncTime(SgFile *file, std::map<std::string, std::vector<FuncInfo*>> &funcInfo, std::map<std::string, int> &countFunc)
 {
@@ -171,15 +178,10 @@ void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileInterval
 
     __spf_print(1, "time of performing of the whole file is %f \n", sumTime);
 
-    std::map<Region, double> percentOfTime;
-
-
-    percentOfTime.insert(std::pair<Region, double>
-        (Region(0, sumTime, file->firstStatement(), st->lastNodeOfStmt()), 1.0));
-    createInterTree(file, fileIntervals, false);
-
-    // for (const SpfInterval* interval : fileIntervals)   --  найти нужный интервал
-    SpfInterval* mainInterval; //  = 
+    std::vector<SpfRegion> intervals;
+    
+    const SpfInterval* mainInterval;
+    mainInterval = findMainInterval(fileIntervals);
 
     float alreadyHavePercent = 0;
     int id = 1;
@@ -192,9 +194,7 @@ void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileInterval
 
         if (percentOfInterval + alreadyHavePercent < percent)
         {
-            percentOfTime.insert(std::pair<Region, double>
-                (Region(id, time, interval->begin, interval->ends[0]), time / sumTime ));
-           
+            intervals.push_back(SpfRegion(id, time, interval->begin, interval->ends[0]));
             alreadyHavePercent += percentOfInterval;
         }
 
@@ -202,12 +202,22 @@ void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileInterval
         {
             if (alreadyHavePercent >= percent)
                 break;
-
             iterated = interval->nested;
         }
     }
+    // TODO
+    // 1. выравнивание
+    // 2. добавить в анализаторы
 
-
-    // Добавить директивы в код программы
-
+    for (auto& item : intervals) 
+    {
+        SgStatement startRegion = SgStatement(SPF_PARALLEL_REG_DIR),
+             endRegion = SgStatement(SPF_END_PARALLEL_REG_DIR);
+        
+        startRegion.setId(item.id);
+        endRegion.setId(item.id);
+        
+        item.start->insertStmtAfter(startRegion);
+        item.end->insertStmtBefore(endRegion);
+    }
 }
