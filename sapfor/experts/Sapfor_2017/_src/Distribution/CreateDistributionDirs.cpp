@@ -95,7 +95,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         for (int z = 0; z < vInGraph.size(); ++z)
         {
             int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
-            if (count == 0)
+            if (count <= 0)
                 distArray->DeprecateDimension(z);
         }
     }

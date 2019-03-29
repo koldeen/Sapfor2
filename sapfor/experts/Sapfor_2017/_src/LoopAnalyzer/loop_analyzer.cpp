@@ -810,7 +810,9 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         auto saveReg = currRegime;
                         currRegime = PRIVATE_STEP4;
                         bool wasMapped = false;
-                        vector<int> matched = matchArrayToLoopSymbols(parentLoops, currExp, side, loopInfo, currLine, sortedLoopGraph, reg, currentW, arrayLinksByFuncCalls);
+                        map<SgForStmt*, map<SgSymbol*, ArrayInfo>> tmpLoopInfo = loopInfo;
+
+                        vector<int> matched = matchArrayToLoopSymbols(parentLoops, currExp, side, tmpLoopInfo, currLine, sortedLoopGraph, reg, currentW, arrayLinksByFuncCalls);
                         for (int z = 0; z < matched.size(); ++z)
                             wasMapped |= (matched[z] != 0);
 
@@ -821,7 +823,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                             int z = 0;
                             for (auto &loop : parentLoops)
                             {
-                                if (loopInfo.find(loop) != loopInfo.end() && matched[z])
+                                if (tmpLoopInfo.find(loop) != tmpLoopInfo.end() && matched[z])
                                 {
                                     wstring messageE, messageR;
                                     __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());

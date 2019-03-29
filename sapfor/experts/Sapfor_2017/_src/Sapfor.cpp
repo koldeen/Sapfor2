@@ -335,7 +335,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
-        currProcessing.first = file->filename(); currProcessing.second = NULL;
+        currProcessing.first = file->filename(); currProcessing.second = 0;
 
         const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
@@ -377,7 +377,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                          false, &(itFound->second));
 
-            currProcessing.second = NULL;
+            currProcessing.second = 0;
             UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -388,7 +388,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
-        else if (curr_regime == LOOP_GRAPH)        
+        else if (curr_regime == LOOP_GRAPH)
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
         {
@@ -452,7 +452,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
-            currProcessing.second = NULL;
+            currProcessing.second = 0;
                         
             //clear shadow specs
             if (extract)
@@ -704,7 +704,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
             convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
-            restoreAssignsFromLoop(file);
+        {
+            if (PASSES_DONE[CONVERT_ASSIGN_TO_LOOP])
+                restoreAssignsFromLoop(file);
+            else
+                __spf_print(1, "skip CONVERT_LOOP_TO_ASSIGN");
+        }
         else if (curr_regime == CALCULATE_STATS_SCHEME)
             processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)

@@ -140,6 +140,8 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ PREPROC_SPF, CALL_GRAPH2, FILL_PAR_REGIONS_LINES }) <= Pass(FILL_PAR_REGIONS) <= Pass(RESOLVE_PAR_REGIONS);
 
+    Pass(GET_ALL_ARRAY_DECL) <= Pass(CONVERT_LOOP_TO_ASSIGN);
+
     list({ CLEAR_SPF_DIRS, REVERT_SUBST_EXPR, CONVERT_LOOP_TO_ASSIGN }) <= Pass(RESOLVE_PAR_REGIONS);
     
     Pass(FILL_PAR_REGIONS) <= Pass(PRINT_PAR_REGIONS_ERRORS);

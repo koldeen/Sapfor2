@@ -1146,7 +1146,14 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         deprecateToMatch.insert(tmpL->symbol()->identifier());
         tmpL = (SgForStmt*)(tmpL->lexNext());
     }
-
+    auto tmpL1 = loop->controlParent();
+    while (tmpL1->variant() == FOR_NODE)
+    {
+        deprecateToMatch.insert(((SgForStmt*)tmpL1)->symbol()->identifier());
+        tmpL1 = tmpL1->controlParent();
+        if (tmpL1 == NULL)
+            break;
+    }
     //try to resolve from write operations
     bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch);
     if (!ok)
