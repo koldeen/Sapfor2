@@ -52,14 +52,14 @@ static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
 
 static bool isNotComposit(SgStatement *st)
 {
-    if (!st || !st->lexNext())
+    if (!st)
         return true;
-    return (st->controlParent() == st->lexNext()->controlParent());
+    return (st->lastNodeOfStmt() == st);
 }
 
 bool expandExtractReg(const string &fileName,
-                      const int startLine,
-                      const int endLine,
+                      int startLine,
+                      int endLine,
                       const vector<ParallelRegion*> &regions,
                       vector<Messages> &messagesForFile,
                       const bool toDelete)
@@ -71,8 +71,15 @@ bool expandExtractReg(const string &fileName,
         SgStatement *begin = SgStatement::getStatementByFileAndLine(fileName, startLine);
         SgStatement *end = SgStatement::getStatementByFileAndLine(fileName, endLine);
 
-        checkNull(begin, convertFileName(__FILE__).c_str(), __LINE__);
-        checkNull(end, convertFileName(__FILE__).c_str(), __LINE__);
+        int lastLine = -1;
+        for (auto st = current_file->firstStatement(); st; st = st->lexNext())
+            lastLine = st->lineNumber();
+
+        for (; !begin && startLine <= lastLine;)
+            begin = SgStatement::getStatementByFileAndLine(fileName, ++startLine);
+
+        for (; !end && endLine > 0;)
+            end = SgStatement::getStatementByFileAndLine(fileName, --endLine);
 
         // check user lines
         // 2. запрещено располагать N1 и N2 в неисполняемых операторах
@@ -166,6 +173,29 @@ bool expandExtractReg(const string &fileName,
             error = true;
         }
 
+        // X. запрещено выбирать строки в разных функциях
+        SgStatement *beginFunc = begin, *endFunc = end;
+
+        while (beginFunc->variant() != PROG_HEDR && beginFunc->variant() != PROC_HEDR && beginFunc->variant() != FUNC_HEDR)
+            beginFunc = beginFunc->controlParent();
+
+        while (endFunc->variant() != PROG_HEDR && endFunc->variant() != PROC_HEDR && endFunc->variant() != FUNC_HEDR)
+            endFunc = endFunc->controlParent();
+
+        if (beginFunc != endFunc)
+        {
+            __spf_print(1, "bad lines position: begin and end lines can not be placed at different functions\n");
+
+            std::wstring bufwE, bufwR;
+            __spf_printToLongBuf(bufwE, L"bad lines position: begin and end lines can not be placed at different functions");
+#ifdef _WIN32
+            __spf_printToLongBuf(bufwR, L"Неправильное положение строк: начало и конец не могут быть в разных функциях");
+#endif
+            messagesForFile.push_back(Messages(ERROR, errorLine, bufwR, bufwE, 1001));
+
+            error = true;
+        }
+
         // 3. при добавлении запрещено содержать внутри отрезка [N1,N2] фрагменты разных ОР
         const ParallelRegionLines *beginLines = NULL, *endLines = NULL;
         map<const ParallelRegion*, vector<const ParallelRegionLines*>> internalLines;
@@ -226,6 +256,9 @@ bool expandExtractReg(const string &fileName,
                 lines->stats.second->GetOriginal()->lexNext()->deleteStmt();
             }
         }
+
+        if (error)
+            return true;
 
         localError = false;
 

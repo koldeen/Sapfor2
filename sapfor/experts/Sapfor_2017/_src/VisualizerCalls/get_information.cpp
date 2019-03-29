@@ -1001,7 +1001,10 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         runPassesForVisualizer(projName, { EXPAND_EXTRACT_PAR_REGION }, folderName);
 
         //fill data
-
+        // size - число файлов для мод.
+        // sizes - размеры границ в буфере newFiles
+        // newFilesNames - имена файлов для мод., разд. '|'
+        // newFiles - буфер
     }
     catch (int ex)
     {
