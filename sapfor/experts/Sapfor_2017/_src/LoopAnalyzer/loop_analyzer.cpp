@@ -192,10 +192,8 @@ static void addInfoToVectors(map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInf
 static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentLoops, SgExpression *subscr,
                                                SgArrayRefExp *arrayRefIn, const int side, const int dimNum,
                                                map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
-                                               const int currLine, const int numOfSubscriptions, const double currentW, 
-                                               bool &wasMapped)
+                                               const int currLine, const int numOfSubscriptions, const double currentW)
 {
-    wasMapped = false;
     SgExpression *origSubscr = subscr;
     ArrayRefExp *arrayRef = new ArrayRefExp(arrayRefIn);
     
@@ -255,16 +253,10 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             if (currRegime == REMOTE_ACC)
             {
                 if (side == RIGHT)
-                {
                     addInfoToMaps(loopInfo, parentLoops[allPositions[i]], currOrigArrayS, arrayRef, dimNum, REMOTE_TRUE, currLine, numOfSubscriptions);
-                    wasMapped = true;
-                }
             }
             else
-            {
                 addInfoToVectors(loopInfo, parentLoops[allPositions[i]], currOrigArrayS, dimNum, make_pair(0, 0), UNREC_OP, numOfSubscriptions, currentW);
-                wasMapped = true;
-            }
         }
     }
     // no loop symbol in subscription
@@ -275,10 +267,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
         {
             if (side == RIGHT)
                 for (int i = 0; i < (int)parentLoops.size(); ++i)
-                {
                     addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, dimNum, REMOTE_TRUE, currLine, numOfSubscriptions);
-                    wasMapped = true;
-                }
         }
         else if (currRegime == DATA_DISTR)
         {
@@ -334,17 +323,15 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             if (currRegime == REMOTE_ACC)
             {
                 if (side == RIGHT)
-                {
                     addInfoToMaps(loopInfo, parentLoops[position], currOrigArrayS, arrayRef, dimNum, REMOTE_TRUE, currLine, numOfSubscriptions);
-                    wasMapped = true;
-                }
             }
             else if (currRegime == DATA_DISTR)
             {                
                 const pair<bool, string> &arrayRefString = constructArrayRefForPrint(arrayRef, dimNum, origSubscr);
                 __spf_print(1, "WARN: can not calculate index expression for array ref '%s' at line %d\n", arrayRefString.second.c_str(), currLine);
                 addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
-                wasMapped = true;
+                if (side == LEFT)
+                    allPositions.clear();
 
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"can not calculate index expression for array ref '%s'", to_wstring(arrayRefString.second).c_str());
@@ -381,13 +368,10 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     auto itAdd = itArrayAcc->second.second[dimNum].coefficients.find(coefs);
                     if (itAdd == itArrayAcc->second.second[dimNum].coefficients.end())
                         itAdd = itArrayAcc->second.second[dimNum].coefficients.insert(itAdd, make_pair(coefs, currentW));
-                    
-                    wasMapped = true;
                 }
 
                 //if we found regular access to array - set it false
                 addInfoToMaps(loopInfo, parentLoops[position], currOrigArrayS, arrayRef, dimNum, REMOTE_FALSE, currLine, numOfSubscriptions);
-                wasMapped = true;
             }
 
             if (coefs.first < 0)
@@ -399,7 +383,6 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
 
                     __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), line);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
-                    wasMapped = true;
 
                     wstring message;
                     __spf_printToLongBuf(message, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
@@ -413,7 +396,6 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, WRITE_OP, numOfSubscriptions, currentW);
                 else
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, READ_OP, numOfSubscriptions, currentW);
-                wasMapped = true;
             }
         }
     }
@@ -446,7 +428,9 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
     SgArrayRefExp *arrayRef = (SgArrayRefExp*)currExp;
     int numOfSubs = arrayRef->numberOfSubscripts();
 
-    currExp = currExp->lhs();
+    if (currExp && (currRegime == DATA_DISTR))
+        currExp->unparsestdout();
+    currExp = currExp->lhs();    
     vector<int> wasFound(parentLoops.size());
     vector<int> matched(numOfSubs);
     vector<int> matchedToDim(parentLoops.size());
@@ -455,14 +439,10 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
     std::fill(matchedToDim.begin(), matchedToDim.end(), -1);
     int maxMatched = 0;
     int sumMatched = 0;
-    bool wasMapped = false;
 
     for (int i = 0; i < numOfSubs; ++i)
     {
-        bool mapped = false;
-        vector<int> matchToLoops = matchSubscriptToLoopSymbols(parentLoops, currExp->lhs(), arrayRef, side, i, loopInfo, currLine, numOfSubs, currentW, mapped);
-        wasMapped |= mapped;
-
+        vector<int> matchToLoops = matchSubscriptToLoopSymbols(parentLoops, currExp->lhs(), arrayRef, side, i, loopInfo, currLine, numOfSubs, currentW);
         for (int k = 0; k < matchToLoops.size(); ++k)
         {
             wasFound[matchToLoops[k]]++;

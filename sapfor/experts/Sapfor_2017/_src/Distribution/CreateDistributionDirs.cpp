@@ -519,7 +519,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
-                if (isAllRulesEqual(rules))
+                if (isAllRulesEqualWithoutArray(rules))
                     createNewAlignRule(array, allArrays, rules[0], dataDirectives);
                 else
                     manyDistrRules.insert(make_pair(array, rules));

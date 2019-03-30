@@ -719,8 +719,8 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     if (!isAllRulesEqual(allRules))
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                    if (templateLink.size() != 1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    /*if (templateLink.size() != 1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__); */
 
                     const vector<pair<int, int>> &rules = *allRules[0];
                     const vector<int> &links = *allLinks[0];
