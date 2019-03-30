@@ -509,7 +509,6 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
         vector<pair<pair<string, string>, vector<pair<int, int>>>> acrossInfo;
         fillAcrossInfoFromDirectives(loopInfo.first, acrossInfo);
-
         bool hasConflict = false;
         // uniqKey -> pair<position of access, pair<acces>> ///write acceses ///
         map<DIST::Array*, pair<int, pair<int, int>>> arrayWriteAcc;
@@ -522,7 +521,6 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
         const map<DIST::Array*, const ArrayInfo*> &currAccesses = loopInfo.second;
         // find conflict and fill arrayWriteAcc
         hasConflict = checkForConflict(currAccesses, loopInfo.first, arrayWriteAcc, acrossInfo, acrossOutArrays);
-
         if (hasConflict)
             __spf_print(PRINT_DIR_RESULT, "    has conflict\n");
         else
@@ -690,13 +688,15 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
             // now OmegaTest is used for searching dependencies 
             if (!hasConflict)
                 hasConflict = checkForDependence(currAccesses, mainArray);
-
             if (!hasConflict &&
                 mainArray.arrayRef != NULL && mainArray.dimentionPos != -1 &&
                 !sortedLoopGraph[loopInfo.first->lineNum]->hasLimitsToParallel() &&
                 loopInfo.first->lineNum > 0)
             {
                 DIST::Array *mainArrayOfLoop = mainArray.arrayRef;
+                pair<int, int> mainAccess = mainArray.mainAccess;
+                const int dimPos = mainArray.dimentionPos;
+
                 //change array to template if ACROSS was not found
                 if (mainArray.underAcross == false)
                 {
@@ -736,8 +736,24 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                 if (parDir != NULL)
                 {
                     parDir->arrayRef2 = mainArrayOfLoop;
-                    addShadowFromAnalysis(parDir, currAccesses);
+                    if (mainArray.underAcross == false)
+                    {
+                        for (int i = 0; i < mainArrayOfLoop->GetDimSize(); ++i)
+                        {
+                            if (i == dimPos)
+                                parDir->on2.push_back(make_pair(loopInfo.first->loopSymbol, mainAccess));
+                            else
+                                parDir->on2.push_back(make_pair("*", make_pair(0, 0)));
+                        }
 
+                        for (int z = 0; z < parDir->on2.size(); ++z)
+                            if (parDir->on2[z].first != "*" && parDir->on2[z].second == make_pair(0, 0))
+                                parDir->on2[z].second = mainAccess;
+                    }
+                    else
+                        parDir->on2 = parDir->on;
+                    
+                    addShadowFromAnalysis(parDir, currAccesses);
                     loop->directiveForLoop = new ParallelDirective(*loop->directive);
                 }
                 __spf_print(PRINT_DIR_RESULT, "   directive created\n");

@@ -781,13 +781,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-#if RELEASE_CANDIDATE
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
-#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));

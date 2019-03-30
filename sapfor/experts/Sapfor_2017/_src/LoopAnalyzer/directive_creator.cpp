@@ -974,6 +974,29 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 parDirective->on[i].first = updateOn[i].second;
                 parDirective->on[i].second = make_pair(1, 0);
                 resolved = true;
+
+                if (!parDirective->arrayRef->isTemplate())
+                {
+                    parDirective->on2[i].first = updateOn[i].second;
+                    parDirective->on2[i].second = make_pair(1, 0);
+                }
+                else
+                {
+                    auto links = parDirective->arrayRef2->GetLinksWithTemplate(regId);
+                    if (parDirective->arrayRef2->GetTemplateArray(regId) != parDirective->arrayRef)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    int found = -1;
+                    for (int z = 0; z < links.size(); ++z)
+                        if (links[z] == i)
+                            found = z;
+                    if (found == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (parDirective->on2[found].first != "*")
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    parDirective->on2[found].first = updateOn[i].second;
+                    parDirective->on2[found].second = make_pair(1, 0);
+                }
             }
         }
     }

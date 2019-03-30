@@ -484,8 +484,7 @@ static pair<tuple<string, string, string, SgStatement*, SgStatement*, SgStatemen
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
 
-    //checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
-    //TODO: improve and check this!!
+    //checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);    
     if (templ == NULL)
     {
         set<DIST::Array*> realArrayRefs;
@@ -1026,8 +1025,14 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 else
                                     templDecl = "";
                                     
-                                if (templDecl != "")
-                                    templDecl = createFullTemplateDir(templDir.first);
+                                // don't insert template decl for inherit arrays in functions
+                                if (templDir.second == "!DVM$ INHERIT\n")
+                                    templDecl = "";
+                                else
+                                {
+                                    if (templDecl != "")
+                                        templDecl = createFullTemplateDir(templDir.first);
+                                }
 
                                 if (!strcmp(st->fileName(), fin_name))
                                 {
