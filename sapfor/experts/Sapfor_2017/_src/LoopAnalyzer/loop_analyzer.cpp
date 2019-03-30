@@ -428,8 +428,6 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
     SgArrayRefExp *arrayRef = (SgArrayRefExp*)currExp;
     int numOfSubs = arrayRef->numberOfSubscripts();
 
-    if (currExp && (currRegime == DATA_DISTR))
-        currExp->unparsestdout();
     currExp = currExp->lhs();    
     vector<int> wasFound(parentLoops.size());
     vector<int> matched(numOfSubs);
