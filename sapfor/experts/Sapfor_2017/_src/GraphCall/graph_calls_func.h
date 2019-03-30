@@ -39,5 +39,6 @@ void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*
 bool isPassFullArray(SgExpression *ex);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
 std::map<std::string, std::set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn);
+void propagateWritesToArrays(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 #endif
 

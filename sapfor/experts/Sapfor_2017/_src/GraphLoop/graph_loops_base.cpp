@@ -976,8 +976,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
                 getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufw, 1047));
             elem->SetNonDistributeFlag(DIST::SPF_PRIV);
         }
-    }
-    propagateArrayFlags(arrayLinksByFuncCalls);
+    }    
 }
 
 static bool isMapped(const vector<ArrayOp> &allOps)

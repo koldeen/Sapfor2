@@ -987,6 +987,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
+        propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
         uniteIntervalsBetweenProcCalls(intervals, allFuncInfo);
@@ -1305,10 +1306,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
 
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
-        propagateArrayFlags(arrayLinksByFuncCalls);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
+
         for (auto &loopByFile : loopGraph)
             for (auto &loop : loopByFile.second)
                 loop->removeNonDistrArrays();

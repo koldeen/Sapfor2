@@ -185,4 +185,4 @@ struct CallV
     }
 };
 
-void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
