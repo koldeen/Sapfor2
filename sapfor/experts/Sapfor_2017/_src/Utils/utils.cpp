@@ -599,6 +599,26 @@ void deletePointerAllocatedData()
 static unsigned arrayIdCounter = 0;
 unsigned getUniqArrayId() { return arrayIdCounter++; }
 
+static bool isAllRulesEqualWA_l(const vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> &rules)
+{
+    if (rules.size() <= 1)
+        return true;
+    else
+    {
+        vector<tuple<DIST::Array*, int, pair<int, int>>> first = rules[0];
+        for (auto &elem : rules)
+        {
+            int z = 0;
+            if (elem.size() != first.size())
+                return false;
+            for (auto &item : elem)
+                if (std::get<2>(item) != std::get<2>(first[z++]))
+                    return false;
+        }
+        return true;
+    }
+}
+
 template<typename T>
 static bool isAllRulesEqual_l(T rules)
 {
@@ -625,6 +645,11 @@ static bool isAllRulesEqual_p(T rules)
                 return false;
         return true;
     }
+}
+
+bool isAllRulesEqualWithoutArray(const vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> &allRules)
+{
+    return isAllRulesEqualWA_l(allRules);
 }
 
 bool isAllRulesEqual(const vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> &allRules)

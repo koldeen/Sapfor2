@@ -95,7 +95,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         for (int z = 0; z < vInGraph.size(); ++z)
         {
             int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
-            if (count == 0)
+            if (count <= 0)
                 distArray->DeprecateDimension(z);
         }
     }
@@ -519,7 +519,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
-                if (isAllRulesEqual(rules))
+                if (isAllRulesEqualWithoutArray(rules))
                     createNewAlignRule(array, allArrays, rules[0], dataDirectives);
                 else
                     manyDistrRules.insert(make_pair(array, rules));

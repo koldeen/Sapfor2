@@ -2008,7 +2008,7 @@ namespace Distribution
         if (localV == -1)
             return 0;
         else
-            return CountOfConnected(localV);
+            return CountOfConnected(localV) - 1;
     }
     template<typename vType, typename wType, typename attrType>
     pair<int, int> GraphCSR<vType, wType, attrType>::

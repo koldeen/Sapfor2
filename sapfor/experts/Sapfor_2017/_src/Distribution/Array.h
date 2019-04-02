@@ -19,7 +19,7 @@ class Expression;
 namespace Distribution
 {
     typedef enum distFlag : int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
-    typedef enum arrayLocation : int { l_LOCAL = 0, l_COMMON, l_MODULE, l_PARAMETER } arrayLocType;
+    typedef enum arrayLocation : int { l_LOCAL = 0, l_COMMON, l_MODULE, l_PARAMETER, l_STRUCT } arrayLocType;
 
     class Array;
 

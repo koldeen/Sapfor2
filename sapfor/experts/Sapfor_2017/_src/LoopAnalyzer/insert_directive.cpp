@@ -274,6 +274,7 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
 
             if (st->variant() == CONTAINS_STMT)
                 break;
+
             const int var = st->variant();
             //for details see dvm_tag.h
             if ((var >= 146 && var <= 149) ||
@@ -281,7 +282,7 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
                 (var >= 247 && var <= 249) ||
                 (var >= 605 && var <= 640) ||
                 (var >= 900 && var <= 949) ||
-                (var >= 296 || var == 299) ||
+                (var >= 296 && var <= 299) ||
                 (var == 277))
             {
                 if (st->fileName() == currFile)
@@ -484,8 +485,7 @@ static pair<tuple<string, string, string, SgStatement*, SgStatement*, SgStatemen
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
 
-    //checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
-    //TODO: improve and check this!!
+    //checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);    
     if (templ == NULL)
     {
         set<DIST::Array*> realArrayRefs;
@@ -1026,8 +1026,14 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 else
                                     templDecl = "";
                                     
-                                if (templDecl != "")
-                                    templDecl = createFullTemplateDir(templDir.first);
+                                // don't insert template decl for inherit arrays in functions
+                                if (templDir.second == "!DVM$ INHERIT\n")
+                                    templDecl = "";
+                                else
+                                {
+                                    if (templDecl != "")
+                                        templDecl = createFullTemplateDir(templDir.first);
+                                }
 
                                 if (!strcmp(st->fileName(), fin_name))
                                 {

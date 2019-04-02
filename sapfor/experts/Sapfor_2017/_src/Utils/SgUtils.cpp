@@ -369,7 +369,7 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     SgSymbol *newS = NULL;
     for (auto &symbs : result->second)
     {
-        if (symbs->scope() == scope && scope)
+        if ((symbs->scope() == scope && scope) || (!symbs->scope() && !scope))
         {
             if (symbs->type() && type)
             {
@@ -379,16 +379,11 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
                     break;
                 }
             }
-            else
+            else if (!symbs->type() && !type)
             {
                 newS = symbs;
                 break;
             }
-        }
-        else
-        {
-            newS = symbs;
-            break;
         }
     }
 
