@@ -134,13 +134,14 @@ static void fillConflictState(LoopGraph *currLoop, map<DIST::Array*, bool> &foun
         DIST::Array *arrayN = it->first;
         vector<ArrayOp> currWrites = it->second;
 
-        auto itRead = currLoop->readOps.find(arrayN);
+        //TODO: почему раньше надо было смотреть и чтения?! Ведь эти конфликты разрешаются c помощью REMOTE
+        /*auto itRead = currLoop->readOps.find(arrayN);
         if (itRead != currLoop->readOps.end())
         {
             const vector<ArrayOp> &currReads = itRead->second.first;
             for (int i = 0; i < currWrites.size(); ++i)
                 uniteVectors(currReads[i], currWrites[i]);
-        }
+        }*/
 
         auto it2 = unitedWROps.find(arrayN);
         if (it2 != unitedWROps.end())
@@ -975,8 +976,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
                 getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufw, 1047));
             elem->SetNonDistributeFlag(DIST::SPF_PRIV);
         }
-    }
-    propagateArrayFlags(arrayLinksByFuncCalls);
+    }    
 }
 
 static bool isMapped(const vector<ArrayOp> &allOps)

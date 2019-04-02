@@ -336,7 +336,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
-        currProcessing.first = file->filename(); currProcessing.second = NULL;
+        currProcessing.first = file->filename(); currProcessing.second = 0;
 
         const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
@@ -378,7 +378,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
                          false, &(itFound->second));
 
-            currProcessing.second = NULL;
+            currProcessing.second = 0;
             UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -389,7 +389,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
-        else if (curr_regime == LOOP_GRAPH)        
+        else if (curr_regime == LOOP_GRAPH)
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
         {
@@ -453,7 +453,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
             
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
-            currProcessing.second = NULL;
+            currProcessing.second = 0;
                         
             //clear shadow specs
             if (extract)
@@ -705,7 +705,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
             convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
-            restoreAssignsFromLoop(file);
+        {
+            if (PASSES_DONE[CONVERT_ASSIGN_TO_LOOP])
+                restoreAssignsFromLoop(file);
+            else
+                __spf_print(1, "skip CONVERT_LOOP_TO_ASSIGN");
+        }
         else if (curr_regime == CALCULATE_STATS_SCHEME)
             processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
@@ -766,15 +771,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
         else if(curr_regime == LOOPS_COMBINER)
-                {
-                    auto founded = loopGraph.find(file->filename());
-                    if (founded != loopGraph.end())
-                    {
-                        int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
-                        if (err != 0)
-                            internalExit = -1;
-                    }
-                }
+        {
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+            {
+                int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
+                if (err != 0)
+                    internalExit = -1;
+            }
+        }
         else if (curr_regime == CREATE_INTER_TREE)
         {
             vector<string> include_functions;
@@ -787,7 +792,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
-
     } // end of FOR by files
         
     if (internalExit != 0)
@@ -984,6 +988,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
+        propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
         uniteIntervalsBetweenProcCalls(intervals, allFuncInfo);
@@ -1314,10 +1319,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
 
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
-        propagateArrayFlags(arrayLinksByFuncCalls);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
+
         for (auto &loopByFile : loopGraph)
             for (auto &loop : loopByFile.second)
                 loop->removeNonDistrArrays();

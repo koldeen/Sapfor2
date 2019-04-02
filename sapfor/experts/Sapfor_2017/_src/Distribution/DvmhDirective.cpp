@@ -255,14 +255,17 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             else
                 p->setRhs(NULL);
         }
-        directive += ") ON " + arrayRef->GetShortName() + "(";
+        DIST::Array *mapTo = arrayRef2->isLoopArray() ? arrayRef : arrayRef2;
+        auto onTo = arrayRef2->isLoopArray() ? on : on2;
+
+        directive += ") ON " + mapTo->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
 
         SgSymbol *symbForPar;
         if (arrayRef->isTemplate())
         {
             if (cloneOfTemplate == "")
-                symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
+                symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);
             else
                 symbForPar = findSymbolOrCreate(file, cloneOfTemplate, typeArrayInt, scope);
         }
@@ -270,15 +273,15 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
 
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
-        for (int i = 0; i < (int)on.size(); ++i)
+        for (int i = 0; i < (int)onTo.size(); ++i)
         {            
-            const pair<int, int> &coeffs = on[i].second;
-            assert( (coeffs.first != 0 && on[i].first != "*") || on[i].first == "*");
+            const pair<int, int> &coeffs = onTo[i].second;
+            assert( (coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
 
             if (i != 0)
                 directive += ",";
 
-            if (on[i].first == "*")
+            if (onTo[i].first == "*")
             {
                 directive += "*";
                 SgVarRefExp *varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
@@ -286,8 +289,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             }
             else
             {
-                directive += genStringExpr(on[i].first, coeffs);
-                arrayExpr->addSubscript(*genSgExpr(file, on[i].first, coeffs));
+                directive += genStringExpr(onTo[i].first, coeffs);
+                arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
             }
         }
         directive += ")";

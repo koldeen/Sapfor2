@@ -555,6 +555,7 @@ namespace Distribution
             reducedG = G;
             reducedG.RemovedEdges(toDelArcs, allArrays);
 
+            double maxWeight = reducedG.CalculateSumOfWeights() + 1;
             //try to resolve conflicts of 1 type
             const set<Array*> &arrays = allArrays.GetArrays();
 
@@ -585,7 +586,7 @@ namespace Distribution
                     for (int j = i + 1; j < verts.size(); ++j)
                     {
                         GraphCSR<vType, wType, attrType> findConflict(reducedG);
-                        findConflict.AddToGraph(verts[i], verts[j], INT_MAX, tmpPair, WW_link);
+                        findConflict.AddToGraph(verts[i], verts[j], maxWeight, tmpPair, WW_link);
 
                         vector<tuple<int, int, attrType>> toDelArcsLocal;
                         globalSum = CreateOptimalAlignementTree(findConflict, allArrays, toDelArcsLocal, false, true).second;

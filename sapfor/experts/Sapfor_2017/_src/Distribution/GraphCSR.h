@@ -175,6 +175,13 @@ namespace Distribution
         int CountOfConnectedForArray(const vType startV) const;
         std::vector<std::tuple<vType, vType, attrType>> CreateMaximumSpanningTree();
         std::pair<int, int> MakeConnected(const vType startV, std::vector<unsigned char> &inSet) const;
+        double CalculateSumOfWeights() const
+        {
+            double ret = 0;
+            for (int z = 0; z < weights.size(); ++z)
+                ret += weights[z] / 2.0;
+            return ret;
+        }
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);
