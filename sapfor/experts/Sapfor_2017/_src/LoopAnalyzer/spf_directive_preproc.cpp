@@ -974,8 +974,30 @@ static bool checkParallelRegions(SgStatement *st,
     return retVal;
 }
 
+static inline void addSPFtoAttr(SgStatement *st, const string &currFile)
+{
+    bool cond = false;
+    SgStatement *iterator = st;
+    do
+    {
+        SgStatement *prev = iterator->lexPrev();
+        const int prevVar = prev->variant();
+        cond = (isSPF_comment(prevVar) && prevVar != SPF_END_PARALLEL_REG_DIR);
+        if (cond)
+        {
+            addToattribute(prev, st, prevVar);
+
+            if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
+                prev->deleteStmt();
+            else
+                iterator = prev;
+        }
+    } while (cond);
+}
+
 static bool checkFissionPrivatesExpansion(SgStatement *st,
                                           SgStatement *attributeStatement,
+                                          const string &currFile,
                                           vector<Messages> &messagesForFile,
                                           bool checkVars = false)
 {
@@ -1001,6 +1023,10 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
 
         if (vars.size())
         {
+            // move next SPF directives to atributes
+            for (auto s = st; s != st->lastNodeOfStmt()->lexNext(); s = s->lexNext())
+                addSPFtoAttr(s, currFile);
+
             SgForStmt *forSt = (SgForStmt*)st;
             if (vars.size() > forSt->isPerfectLoopNest())
             {
@@ -1094,23 +1120,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     if (isSPF_comment(st->variant()))
         return retVal;
 
-    bool cond = false;
-    SgStatement *iterator = st;
-    do
-    {
-        SgStatement *prev = iterator->lexPrev();
-        const int prevVar = prev->variant();
-        cond = (isSPF_comment(prev->variant()) && prevVar != SPF_END_PARALLEL_REG_DIR);
-        if (cond)
-        {
-            addToattribute(prev, st, prevVar);
-
-            if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
-                prev->deleteStmt();
-            else
-                iterator = prev;
-        }
-    } while (cond);
+    addSPFtoAttr(st, currFile);
 
     for (int i = 0; i < st->numberOfAttributes(); ++i)
     {
@@ -1187,7 +1197,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile, true);
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
             }
             // PRIVATES_EXPANSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
@@ -1198,7 +1208,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile);
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
             }
         }
     }
