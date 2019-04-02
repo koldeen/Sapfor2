@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -68,18 +67,37 @@ static void uniteReduction(const map<keyT, valT> &first, const map<keyT, valT> &
     }
 }
 
+template<typename vTuples>
+static vTuples uniteOnRules(const vTuples &first, const vTuples &second)
+{
+    vTuples result(first.size());
+    for (int i = 0; i < (int)first.size(); ++i)
+    {
+        bool firstStar = first[i].first == "*";
+        bool secondStar = second[i].first == "*";
+        if (firstStar && secondStar)
+            result[i].first = "*";
+        else if (firstStar)
+            result[i] = second[i];
+        else
+            result[i] = first[i];
+    }
+    return result;
+}
+
 ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirective &right)
 {
     const ParallelDirective *first = &left;
     const ParallelDirective *second = &right;
 
     ParallelDirective *result = NULL;
-    assert(first);
-    assert(second);
+    checkNull(first, convertFileName(__FILE__).c_str(), __LINE__);
+    checkNull(second, convertFileName(__FILE__).c_str(), __LINE__);
 
     if (first->arrayRef == second->arrayRef)
     {
-        assert(first->on.size() == second->on.size());
+        if (first->on.size() != second->on.size())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         result = new ParallelDirective();
 
@@ -100,17 +118,8 @@ ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirect
         for (int i = 0; i < (int)second->parallel.size(); ++i)
             result->parallel[i + first->parallel.size()] = second->parallel[i];
 
-        for (int i = 0; i < (int)first->on.size(); ++i)
-        {
-            bool firstStar = first->on[i].first == "*";
-            bool secondStar = second->on[i].first == "*";
-            if (firstStar && secondStar)
-                result->on[i].first = "*";
-            else if (firstStar)
-                result->on[i] = second->on[i];
-            else
-                result->on[i] = first->on[i];
-        }
+        result->on = uniteOnRules(first->on, second->on);
+        result->on2 = uniteOnRules(first->on2, second->on2);
 
         uniteVectors(first->across, second->across, result->across);
         uniteVectors(first->shadowRenew, second->shadowRenew, result->shadowRenew);
