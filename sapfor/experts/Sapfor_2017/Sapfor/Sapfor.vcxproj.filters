@@ -1030,13 +1030,10 @@
     <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInserter.h">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClInclude>
-<<<<<<< HEAD
     <ClInclude Include="..\_src\ParallelizationRegions\expand_extract_reg.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
-=======
     <ClInclude Include="..\_src\DynamicAnalysis\createParallelRegions.h">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
->>>>>>> master
     </ClInclude>
     <ClInclude Include="..\_src\LoopConverter\loops_combiner.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
