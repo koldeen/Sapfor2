@@ -1005,6 +1005,20 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         // sizes - размеры границ в буфере newFiles
         // newFilesNames - имена файлов для мод., разд. '|'
         // newFiles - буфер
+
+        string newFile, newFileName;
+
+        size = 1;
+        newFileName = std::get<0>(inData);
+        newFile = current_file->firstStatement()->unparse();
+
+        sizes = new int[size];
+        newFilesNames = new short[newFileName.size()];
+        newFiles = new short[newFile.size()];
+
+        sizes[0] = 0;
+        copyStringToShort(newFilesNames, newFileName);
+        copyStringToShort(newFiles, newFile);
     }
     catch (int ex)
     {
