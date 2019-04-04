@@ -93,11 +93,11 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 } while(0)
 
 #ifdef _WIN32
-#define BAD_POSITION_FULL(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
-   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
+#define BAD_POSITION_FULL(NEED_PRINT, ERR_TYPE, PLACE_E, PLACE_R, BEFORE_VAR_E, BEFORE_VAR_R, BEFORE_DO_E, BEFORE_DO_R, LINE) do { \
+   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
    wstring messageE, messageR;\
-   __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
-   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
+   __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
+   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %s %s %s", to_wstring(PLACE_R).c_str(), to_wstring(BEFORE_VAR_R).c_str(), to_wstring(BEFORE_DO_R).c_str()); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
 } while(0)
 #endif
@@ -1565,7 +1565,7 @@ void addAcrossToLoops(LoopGraph *topLoop,
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Добавьте across-зависимости к массиву '%s' в цикле", to_wstring(arrayS->identifier()).c_str());
+            __spf_printToLongBuf(messageR, L"Добавлена across-зависимость к массиву '%s' в цикле", to_wstring(arrayS->identifier()).c_str());
 #endif
             currMessages.push_back(Messages(NOTE, topLoop->lineNum, messageR, messageE, 3001));
 
@@ -1647,7 +1647,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Добавьте приватный скаляр '%s' к циклу на строке %d", to_wstring(identifier).c_str(), topLoop->lineNum);
+                __spf_printToLongBuf(messageR, L"Добавлен приватный скаляр '%s' к циклу на строке %d", to_wstring(identifier).c_str(), topLoop->lineNum);
 #endif
                 currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3002));
 
@@ -1772,7 +1772,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     __spf_printToLongBuf(messageE, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Добавьте редукционную переменную '%s' с операцией '%s' к циклу на строке %d",
+                    __spf_printToLongBuf(messageR, L"Добавлена редукционная переменная '%s' с типом операции '%s' к циклу на строке %d",
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #endif
                     currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3003));
@@ -1785,7 +1785,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Неизвестная редукционная операция '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"Неизвестный тип редукционной операции по скаляру '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #endif
                     currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3004));
 
