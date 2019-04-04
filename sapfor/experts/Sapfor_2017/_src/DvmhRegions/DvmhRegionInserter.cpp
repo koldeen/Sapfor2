@@ -240,19 +240,22 @@ void DvmhRegionInsertor::insertActualDirectives() {
 
 	for (int i = 0; i < funcNum; ++i)
 	{
-		__spf_print(1, "1\n");
 		SgStatement *st = file.functions(i);
 		SgStatement *lastNode = st->lastNodeOfStmt();
 		while (st && st != lastNode)
 		{
-			// Todo: how to skip dvm directives?
 			if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st)) {
 				st = st->lexNext();
 				continue;
 			}
 
 			DvmhRegion* region = getContainingRegion(st);
-			const std::map<SymbolKey, std::set<SgExpression*> > vars = getReachingDefinitions(st);
+			if (st->variant() == FOR_NODE || isDVM_stat(st))
+			{
+				st = st->lexNext();
+				continue;
+			}
+			const std::map<SymbolKey, std::set<ExpressionValue*> > vars = getReachingDefinitionsExt(st); // todo: c
 			//const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
 
 			for (auto& var : vars) {
@@ -288,9 +291,10 @@ void DvmhRegionInsertor::insertActualDirectives() {
 					for (auto& defenition : var.second) {
 						auto saveName = current_file->filename();
 
-						auto stEx = SgStatement::getStatmentByExpression(defenition);
+						auto stEx = SgStatement::getStatmentByExpression(defenition->getExp());
 						if (!stEx) { // couldn't find defenition for statement
 							printf("Unable to find statement for expr:\n");
+							printf("%s\n", defenition->getUnparsed());
 							printInternalError(saveName, st->lineNumber());
 							continue;
 						}
@@ -314,10 +318,10 @@ void DvmhRegionInsertor::insertActualDirectives() {
 					// Searching for defenition in region
 					for (auto& defenition : var.second) {
 						auto saveName = current_file->filename();
-						auto stEx = SgStatement::getStatmentByExpression(defenition);
+						auto stEx = SgStatement::getStatmentByExpression(defenition->getExp());
 						if (!stEx) { // couldn't find defenition for statement
 							printf("Unable to find statement for expr:\n");
-							//defenition->unparsestdout();
+							printf("%s\n", defenition->getUnparsed());
 							printInternalError(saveName, st->lineNumber());
 							continue;
 						}
@@ -382,43 +386,29 @@ void DvmhRegionInsertor::mergeRegions()
 	for (auto& loop : regions[0].loops)
 		newRegion.loops.push_back(loop);
 
+	int i = 0;
 	for (auto& region : regions)
 	{
-		if (isFirst) // first region in sequence to merge
+		printf("Merge number %d\n", i++);
+		if (isFirst) // skip first region
 		{
-			regionPrev = region;
 			isFirst = false;
 			continue;
 		}
 
-		if (areNeighbours(regionPrev, region)) // logic of intermediate derectives here, in perspective they can be accumulated and moved
+		if (!areNeighbours(regionPrev, region)) // logic of intermediate derectives here, in perspective they can be accumulated and moved
 		{
-			regionPrev = region;
-			for (auto& loop : region.loops) {
-				newRegion.loops.push_back(loop);
-				for (auto s : region.needActualisation) {
-					newRegion.addToActualisation(s);
-				}
-				for (auto s : region.needActualisationAfter) {
-					newRegion.addToActualisationAfter(s);
-				}
-			}
-		}
-		else
-		{
-			isFirst = true;
 			newRegions.push_back(newRegion);
 			newRegion = DvmhRegion();
-			for (auto& loop : region.loops) {
-				newRegion.loops.push_back(loop);
-				for (auto s : region.needActualisation) {
-					newRegion.addToActualisation(s);
-				}
-				for (auto s : region.needActualisationAfter) {
-					newRegion.addToActualisationAfter(s);
-				}
-			}
 		}
+
+		regionPrev = region;
+		for (auto& loop : region.loops)
+			newRegion.loops.push_back(loop);
+		for (auto s : region.needActualisation)
+			newRegion.addToActualisation(s);
+		for (auto s : region.needActualisationAfter)
+			newRegion.addToActualisationAfter(s);
 	}
 	newRegions.push_back(newRegion);
 
