@@ -1,4 +1,4 @@
-#include "../Utils/leak_detector.h"
+ï»¿#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -97,7 +97,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
    wstring messageE, messageR;\
    __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
-   __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: ìîæíî ðàñïîëàãàòü òîëüêî %s %s %s", to_wstring(PLACE_R).c_str(), to_wstring(BEFORE_VAR_R).c_str(), to_wstring(BEFORE_DO_R).c_str()); \
+   __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð¼Ð¾Ð¶Ð½Ð¾ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð°Ð³Ð°Ñ‚ÑŒ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ %s %s %s", to_wstring(PLACE_R).c_str(), to_wstring(BEFORE_VAR_R).c_str(), to_wstring(BEFORE_DO_R).c_str()); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
 } while(0)
 #endif
@@ -173,7 +173,7 @@ static bool checkPrivate(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå èñïîëüçóåòñÿ â öèêëå", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ÑÑ Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(privElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
@@ -183,7 +183,7 @@ static bool checkPrivate(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå èçìåíÿåòñÿ â öèêëå", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ Ð¸Ð·Ð¼ÐµÐ½ÑÐµÑ‚ÑÑ Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(privElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -244,7 +244,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå èñïîëüçóåòñÿ â öèêëå", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ÑÑ Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(setElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
@@ -254,7 +254,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå èçìåíÿåòñÿ â öèêëå", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ Ð¸Ð·Ð¼ÐµÐ½ÑÐµÑ‚ÑÑ Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(setElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -311,7 +311,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but must be 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ðàçìåðíîñòü ìàññèâà '%s' %d, à äîëæíà áûòü 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
+                    __spf_printToLongBuf(messageR, L"Ð Ð°Ð·Ð¼ÐµÑ€Ð½Ð¾ÑÑ‚ÑŒ Ð¼Ð°ÑÑÐ¸Ð²Ð° '%s' %d, Ð° Ð´Ð¾Ð»Ð¶Ð½Ð° Ð±Ñ‹Ñ‚ÑŒ 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1004));
 
@@ -325,7 +325,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"type of array '%s' but must be INTEGER", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Òèï ìàññèâà '%s' äîëåæåí áûòü INTEGER", to_wstring(arraySymbol->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"Ð¢Ð¸Ð¿ Ð¼Ð°ÑÑÐ¸Ð²Ð° '%s' Ð´Ð¾Ð»ÐµÐ¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ INTEGER", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1005));
 
@@ -339,7 +339,7 @@ static bool checkReduction(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"type of variable '%s' must be array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Òèïîì ïåðåìåííîé '%s' äîëæåí áûòü ìàññèâ", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"Ð¢Ð¸Ð¿Ð¾Ð¼ Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð¾Ð¹ '%s' Ð´Ð¾Ð»Ð¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ Ð¼Ð°ÑÑÐ¸Ð²", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
 
@@ -384,7 +384,7 @@ static bool checkReduction(SgStatement *st,
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"array size can't be computed");
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Ðàçìåð ìàññèâà íå ìîæåò áûòü âû÷èñëåí");
+                            __spf_printToLongBuf(messageR, L"Ð Ð°Ð·Ð¼ÐµÑ€ Ð¼Ð°ÑÑÐ¸Ð²Ð° Ð½Ðµ Ð¼Ð¾Ð¶ÐµÑ‚ Ð±Ñ‹Ñ‚ÑŒ Ð²Ñ‹Ñ‡Ð¸ÑÐ»ÐµÐ½");
 #endif
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1007));
 
@@ -398,7 +398,7 @@ static bool checkReduction(SgStatement *st,
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"size of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Ðàçìåð ìàññèâà '%s' %d, à âû ââîäèòå %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
+                            __spf_printToLongBuf(messageR, L"Ð Ð°Ð·Ð¼ÐµÑ€ Ð¼Ð°ÑÑÐ¸Ð²Ð° '%s' %d, Ð° Ð²Ñ‹ Ð²Ð²Ð¾Ð´Ð¸Ñ‚Ðµ %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
 #endif
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
 
@@ -448,7 +448,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå ÿâëÿåòñÿ ìàññèâîì", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ ÑÐ²Ð»ÑÐµÑ‚ÑÑ Ð¼Ð°ÑÑÐ¸Ð²Ð¾Ð¼", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
@@ -463,7 +463,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Ìàññèâ '%s' ÿâëÿåòñÿ ïðèâàòíûì", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"ÐœÐ°ÑÑÐ¸Ð² '%s' ÑÐ²Ð»ÑÐµÑ‚ÑÑ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ñ‹Ð¼", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                 retVal = false;
@@ -486,7 +486,7 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but you enter %d",
                                          to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ðàçìåðíîñòü ìàññèâà '%s' %d, à âû ââîäèòå %d",
+                    __spf_printToLongBuf(messageR, L"Ð Ð°Ð·Ð¼ÐµÑ€Ð½Ð¾ÑÑ‚ÑŒ Ð¼Ð°ÑÑÐ¸Ð²Ð° '%s' %d, Ð° Ð²Ñ‹ Ð²Ð²Ð¾Ð´Ð¸Ñ‚Ðµ %d",
                                          to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
@@ -500,7 +500,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Ïåðåìåííàÿ '%s' íå ÿâëÿåòñÿ ìàññèâîì", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"ÐŸÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ðµ ÑÐ²Ð»ÑÐµÑ‚ÑÑ Ð¼Ð°ÑÑÐ¸Ð²Ð¾Ð¼", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
@@ -515,7 +515,7 @@ static bool checkShadowAcross(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"only positive numbers are supported");
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ðàçðåøåíû òîëüêî ïîëîæèòåëüíûå ÷èñëà");
+                    __spf_printToLongBuf(messageR, L"Ð Ð°Ð·Ñ€ÐµÑˆÐµÐ½Ñ‹ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ð¿Ð¾Ð»Ð¾Ð¶Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ðµ Ñ‡Ð¸ÑÐ»Ð°");
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1010));
                     retVal = false;
@@ -619,7 +619,7 @@ static bool checkRemote(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Ìàññèâ '%s' ÿâëÿåòñÿ ïðèâàòíûì", to_wstring(arraySymbol->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐœÐ°ÑÑÐ¸Ð² '%s' ÑÐ²Ð»ÑÐµÑ‚ÑÑ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ñ‹Ð¼", to_wstring(arraySymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                     retVal = false;
@@ -667,7 +667,7 @@ static bool checkRemote(SgStatement *st,
                                 wstring messageE, messageR;
                                 __spf_printToLongBuf(messageE, L"bad directive expression: too many DO variables");
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Íåâåðíîå âûðàæåíèå: ñëèøêîì ìíîãî ïåðåìåííûõ öèêëà");
+                                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ: ÑÐ»Ð¸ÑˆÐºÐ¾Ð¼ Ð¼Ð½Ð¾Ð³Ð¾ Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ñ‹Ñ… Ñ†Ð¸ÐºÐ»Ð°");
 #endif
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
@@ -708,7 +708,7 @@ static bool checkRemote(SgStatement *st,
                                 wstring messageE, messageR;
                                 __spf_printToLongBuf(messageE, L"bad directive expression: only a * i + b");
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Íåâåðíîå âûðàæåíèå: âîçìîæíî òîëüêî âèäà a * i + b");
+                                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ: Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ð²Ð¸Ð´Ð° a * i + b");
 #endif
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
@@ -740,7 +740,7 @@ static bool checkRemote(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"no such expression '%s' on loop", to_wstring(remElem.second->unparse()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Íåò òàêîãî âûðàæåíèÿ '%s' â öèêëå", to_wstring(remElem.second->unparse()).c_str());
+                __spf_printToLongBuf(messageR, L"ÐÐµÑ‚ Ñ‚Ð°ÐºÐ¾Ð³Ð¾ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ñ '%s' Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(remElem.second->unparse()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1111));
                 retVal = false;
@@ -795,7 +795,7 @@ static bool checkParallelRegions(SgStatement *st,
                                 __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
                                                      to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Íåâåðíîå èìÿ îáëàñòè: èìÿ '%s' óæå îáúÿâëåíî íà ñòðîêå %d",
+                                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð¸Ð¼Ñ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸: Ð¸Ð¼Ñ '%s' ÑƒÐ¶Ðµ Ð¾Ð±ÑŠÑÐ²Ð»ÐµÐ½Ð¾ Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐµ %d",
                                                      to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #endif
                                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1031));
@@ -825,7 +825,7 @@ static bool checkParallelRegions(SgStatement *st,
                             __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Íåâåðíîå èìÿ îáëàñòè: èìÿ '%s' óæå îáúÿâëåíî â common-áëîêå '%s'",
+                            __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð¸Ð¼Ñ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸: Ð¸Ð¼Ñ '%s' ÑƒÐ¶Ðµ Ð¾Ð±ÑŠÑÐ²Ð»ÐµÐ½Ð¾ Ð² common-Ð±Ð»Ð¾ÐºÐµ '%s'",
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
 #endif
                             messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1032));
@@ -853,7 +853,7 @@ static bool checkParallelRegions(SgStatement *st,
                     __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
                                          to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: äëÿ îáëàñòè '%s' îæèäàåòñÿ 'SPF END PARALLEL_REG_DIR', à áûëà ïîëó÷åíà 'SPF PARALLEL_REG_DIR'",
+                    __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð´Ð»Ñ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸ '%s' Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF END PARALLEL_REG_DIR', Ð° Ð±Ñ‹Ð»Ð° Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½Ð° 'SPF PARALLEL_REG_DIR'",
                                          to_wstring(identSymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -874,7 +874,7 @@ static bool checkParallelRegions(SgStatement *st,
                         __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
                                              to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: äëÿ îáëàñòè '%s' îæèäàåòñÿ 'SPF END PARALLEL_REG_DIR'",
+                        __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð´Ð»Ñ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸ '%s' Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF END PARALLEL_REG_DIR'",
                                              to_wstring(identSymbol->identifier()).c_str());
 #endif
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -894,7 +894,7 @@ static bool checkParallelRegions(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'",
                                      to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: äëÿ îáëàñòè '%s' îæèäàåòñÿ 'SPF END PARALLEL_REG_DIR'",
+                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð´Ð»Ñ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸ '%s' Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF END PARALLEL_REG_DIR'",
                                      to_wstring(identSymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -921,7 +921,7 @@ static bool checkParallelRegions(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: îæèäàåòñÿ 'SPF PARALLEL_REG_DIR', à áûëà ïîëó÷åíà 'SPF END PARALLEL_REG_DIR'");
+                    __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF PARALLEL_REG_DIR', Ð° Ð±Ñ‹Ð»Ð° Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½Ð° 'SPF END PARALLEL_REG_DIR'");
 #endif
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
@@ -939,7 +939,7 @@ static bool checkParallelRegions(SgStatement *st,
                         wstring messageE, messageR;
                         __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope");
 #ifdef _WIN32
-                        __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: îæèäàåòñÿ 'SPF PARALLEL_REG_DIR' â òîé æå îáëàñòè âèäèìîñòè");
+                        __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF PARALLEL_REG_DIR' Ð² Ñ‚Ð¾Ð¹ Ð¶Ðµ Ð¾Ð±Ð»Ð°ÑÑ‚Ð¸ Ð²Ð¸Ð´Ð¸Ð¼Ð¾ÑÑ‚Ð¸");
 #endif
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
@@ -957,7 +957,7 @@ static bool checkParallelRegions(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR'");
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Íåâåðíîå ðàñïîëîæåíèå äèðåêòèâû: îæèäàåòñÿ 'SPF PARALLEL_REG_DIR'");
+                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ñ€Ð°ÑÐ¿Ð¾Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ñ‹: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ 'SPF PARALLEL_REG_DIR'");
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
@@ -1014,7 +1014,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"bad directive expression: expected list of variables");
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Íåâåðíîå âûðàæåíèå â äèðåêòèâå: îæèäàåòñÿ ñïèñîê ïåðåìåííûõ");
+            __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ Ð² Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ðµ: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ñ‹Ñ…");
 #endif
             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
 
@@ -1037,7 +1037,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive expression: expected %d nested loops on line %d but got %d",
                                      (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Íåâåðíîå âûðàæåíèå â äèðåêòèâå: îæèäàåòñÿ %d òåñíîâëîæåííûõ öèêëîâ íà ñòðîêå %d, íî èõ âñåãî %d",
+                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ Ð² Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ðµ: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ %d Ñ‚ÐµÑÐ½Ð¾Ð²Ð»Ð¾Ð¶ÐµÐ½Ð½Ñ‹Ñ… Ñ†Ð¸ÐºÐ»Ð¾Ð² Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐµ %d, Ð½Ð¾ Ð¸Ñ… Ð²ÑÐµÐ³Ð¾ %d",
                                      (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1043));
@@ -1058,7 +1058,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive expression: expected variable '%s' at %d position",
                                      to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Íåâåðíîå âûðàæåíèå â äèðåêòèâå: îæèäàåòñÿ ïåðåìåííàÿ '%s' íà ïîçèöèè %d",
+                __spf_printToLongBuf(messageR, L"ÐÐµÐ²ÐµÑ€Ð½Ð¾Ðµ Ð²Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ Ð² Ð´Ð¸Ñ€ÐµÐºÑ‚Ð¸Ð²Ðµ: Ð¾Ð¶Ð¸Ð´Ð°ÐµÑ‚ÑÑ Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ð½Ð° Ð¿Ð¾Ð·Ð¸Ñ†Ð¸Ð¸ %d",
                                      to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
@@ -1565,7 +1565,7 @@ void addAcrossToLoops(LoopGraph *topLoop,
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Äîáàâëåíà across-çàâèñèìîñòü ê ìàññèâó '%s' â öèêëå", to_wstring(arrayS->identifier()).c_str());
+            __spf_printToLongBuf(messageR, L"Ð”Ð¾Ð±Ð°Ð²Ð»ÐµÐ½Ð° across-Ð·Ð°Ð²Ð¸ÑÐ¸Ð¼Ð¾ÑÑ‚ÑŒ Ðº Ð¼Ð°ÑÑÐ¸Ð²Ñƒ '%s' Ð² Ñ†Ð¸ÐºÐ»Ðµ", to_wstring(arrayS->identifier()).c_str());
 #endif
             currMessages.push_back(Messages(NOTE, topLoop->lineNum, messageR, messageE, 3001));
 
@@ -1647,7 +1647,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Äîáàâëåí ïðèâàòíûé ñêàëÿð '%s' ê öèêëó íà ñòðîêå %d", to_wstring(identifier).c_str(), topLoop->lineNum);
+                __spf_printToLongBuf(messageR, L"Ð”Ð¾Ð±Ð°Ð²Ð»ÐµÐ½ Ð¿Ñ€Ð¸Ð²Ð°Ñ‚Ð½Ñ‹Ð¹ ÑÐºÐ°Ð»ÑÑ€ '%s' Ðº Ñ†Ð¸ÐºÐ»Ñƒ Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐµ %d", to_wstring(identifier).c_str(), topLoop->lineNum);
 #endif
                 currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3002));
 
@@ -1772,7 +1772,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     __spf_printToLongBuf(messageE, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Äîáàâëåíà ðåäóêöèîííàÿ ïåðåìåííàÿ '%s' ñ òèïîì îïåðàöèè '%s' ê öèêëó íà ñòðîêå %d",
+                    __spf_printToLongBuf(messageR, L"Ð”Ð¾Ð±Ð°Ð²Ð»ÐµÐ½Ð° Ñ€ÐµÐ´ÑƒÐºÑ†Ð¸Ð¾Ð½Ð½Ð°Ñ Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ '%s' Ñ Ñ‚Ð¸Ð¿Ð¾Ð¼ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸ '%s' Ðº Ñ†Ð¸ÐºÐ»Ñƒ Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐµ %d",
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #endif
                     currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3003));
@@ -1785,7 +1785,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Íåèçâåñòíûé òèï ðåäóêöèîííîé îïåðàöèè ïî ñêàëÿðó '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, L"ÐÐµÐ¸Ð·Ð²ÐµÑÑ‚Ð½Ñ‹Ð¹ Ñ‚Ð¸Ð¿ Ñ€ÐµÐ´ÑƒÐºÑ†Ð¸Ð¾Ð½Ð½Ð¾Ð¹ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸ Ð¿Ð¾ ÑÐºÐ°Ð»ÑÑ€Ñƒ '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #endif
                     currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3004));
 
