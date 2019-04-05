@@ -154,6 +154,7 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
     {
         auto definitions = getReachingDefinitionsExt(cur);
         auto usedSymbols = usedSymbolsInStatement(cur, false);
+
         for(SymbolKey symbol : usedSymbols)
         {
             auto expressions = definitions.find(symbol);
@@ -162,10 +163,11 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
                 for(ExpressionValue* expValue : expressions->second)
                 {
                     SgStatement *def = getDefinitionFor(symbol, expValue);
-                    if(def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine)
+                    if(def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine) {
                         if(carefulCheckOfUse(cur, def, symbol)) {
                             addDefinitionReachesStatement(result, def, cur);
                         }
+                    }
                 }
             }
         }
@@ -219,19 +221,17 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
     return result;
 }
 
-static ExpressionValue* allocateExpressionValue(SgExpression* newExp)
+ExpressionValue* allocateExpressionValue(SgExpression* newExp)
 {
-    string unp = newExp == NULL ? "(unknown value)" : newExp->unparse();
+    string unp = newExp == NULL ? "(unknown value)" : string(newExp->unparse());
+    ExpressionValue* newExpVal = NULL;
     auto alloc = allocated.find(unp);
 
-    ExpressionValue* newExpVal = NULL;
     if (alloc == allocated.end())
-    {
-        newExpVal = new ExpressionValue(newExp, unp);
-        allocated.insert(alloc, make_pair(unp, newExpVal));
-    }
+        newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp)))->second;
     else
         newExpVal = alloc->second;
+
     return newExpVal;
 }
 
@@ -246,8 +246,10 @@ void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *d
 
 void CBasicBlock::addVarUnknownToGen(SymbolKey var, SgStatement *defSt) {
     addVarToKill(var);
-    gen.insert(make_pair(var, allocateExpressionValue(NULL)));
-    saveDefinitionStatement(var, NULL, defSt);
+    ExpressionValue* expVal = allocateExpressionValue(NULL);
+
+    gen.insert(make_pair(var, expVal));
+    saveDefinitionStatement(var, expVal, defSt);
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -491,6 +493,7 @@ const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsEx
         cfi = cfi->getNext();
     }
 
+
     map<SymbolKey, set<ExpressionValue*>> defs;
     if (founded)
     {
@@ -510,48 +513,9 @@ const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsEx
         for(auto &it : gen)
             defs.insert(make_pair(it.first, set<ExpressionValue*>())).first->second.insert(it.second);
     }
+
     return defs;
 }
-
-//DEPRECATED
-/*const map<SymbolKey, set<SgExpression*>> CBasicBlock::getReachedDefinitions(SgStatement *stmt)
-{
-    ControlFlowItem *cfi = getStart();
-    ControlFlowItem *till = getEnd()->getNext();
-    clearGenKill();
-    bool founded = false;
-    while (cfi != till)
-    {
-        if (cfi->getStatement() == stmt || cfi->getOriginalStatement() == stmt)
-        {
-            founded = true;
-            break;
-        }
-        adjustGenAndKill(cfi);
-        cfi = cfi->getNext();
-    }
-
-    map<SymbolKey, set<SgExpression*>> defs;
-    if (founded)
-    {
-        for (auto &it : in_defs)
-        {
-            if (kill.find(it.first) == kill.end())
-            {
-                auto founded = defs.find(it.first);
-                if (founded == defs.end())
-                    founded = defs.insert(founded, make_pair(it.first, set<SgExpression*>()));
-
-                for (auto &exp : it.second)
-                    founded->second.insert(exp->getExp());
-            }
-        }
-
-        for(auto &it : gen)
-            defs.insert(make_pair(it.first, set<SgExpression*>())).first->second.insert(it.second->getExp());
-    }
-    return defs;
-}*/
 
 size_t max1 = 0;
 size_t min1 = 0;
@@ -913,19 +877,19 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
     }
 
     int64_t countS = 0;
-    for (auto &elem : allocated)
+    /*for (auto &elem : allocated)
     {
 #if PRINT_PROF_INFO
         countS += elem.second->getUnparsed().size();
 #endif
         delete elem.second;
-    }
+    }*/
 #if PRINT_PROF_INFO
-    //if (allocated.size())
+    if (allocated.size())
         __spf_print(1, "   count of elem %lld, in MB %f, info %lld in MB %f, elemCount = %d, elemCount1 = %d\n", 
                     countS, (double)countS / 1024. / 1024., memCount, double(memCount) / 1024./1024., elemCount, elemCount1);
 #endif
-    allocated.clear();
+    //allocated.clear();
 }
 
 //TODO

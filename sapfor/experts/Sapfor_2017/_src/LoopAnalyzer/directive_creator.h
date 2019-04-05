@@ -9,3 +9,4 @@ void createParallelDirectives(const std::map<LoopGraph*, std::map<DIST::Array*, 
                               std::vector<ParallelRegion*> regions, std::map<int, LoopGraph*> &sortedLoopGraph,
                               const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
                               std::vector<Messages> &messagesForFile);
+void clearTemplateClonesData();

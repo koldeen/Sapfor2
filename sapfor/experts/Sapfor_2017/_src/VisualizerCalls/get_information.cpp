@@ -574,9 +574,10 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         }
         predictRes += summed.to_string();
 
-        if (folderName == NULL)
+        //TODO: need to rewrite to new algo
+        /*if (folderName == NULL)
         {
-            SpfInterval *mainIterval = getMainInterval(project, intervals);
+            SpfInterval *mainIterval = getMainInterval(project, intervals);            
             const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
             int procCount = 1;
@@ -598,7 +599,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             sprintf(buf, "%.2f", speedUpBest / procCount * 100.0);
             predictRes += "|" + string(buf) + topo;
         }
-        else
+        else*/
             predictRes += "|0";
 
         copyStringToShort(predictorStats, predictRes);

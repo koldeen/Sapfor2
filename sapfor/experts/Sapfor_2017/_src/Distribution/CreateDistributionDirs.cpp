@@ -507,7 +507,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                                 }
                                 else
                                 {
-                                    __spf_printToLongBuf(bufR, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufE, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
 #endif

@@ -54,6 +54,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 #include "Utils/utils.h"
+#include "LoopAnalyzer/directive_creator.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -454,13 +455,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = 0;
-                        
-            //clear shadow specs
-            if (extract)
-            {
-                for (auto &array : declaratedArrays)
-                    array.second.first->ClearShadowSpecs();
-            }
 
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
@@ -486,8 +480,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
-            if (curr_regime == EXTRACT_PARALLEL_DIRS)
+            if (extract)
+            {
                 createdDirectives[file_name].clear();
+
+                //clear shadow specs
+                for (auto &array : declaratedArrays)
+                    array.second.first->ClearShadowSpecs();
+            }
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
         {
@@ -782,11 +782,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
+#if RELEASE_CANDIDATE
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
+#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -1687,18 +1689,19 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 
-            if (!folderName && !consoleMode || predictOn)
-                runAnalysis(*project, PREDICT_SCHEME, false);
+            //TODO: need to rewrite this to new algo 
+            /*if (!folderName && !consoleMode || predictOn)
+                runAnalysis(*project, PREDICT_SCHEME, false); */
 
             if (folderName || consoleMode)
                 runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
+            
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
             runPass(CLEAR_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN_BACK, proj_name, folderName);
-                        
+
             //clear shadow grouping
             for (auto &funcbyFile : allFuncInfo)
             {
@@ -1710,6 +1713,13 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                     func->allShadowNodes.clear();
                 }
             }
+
+            //clear template clones
+            for (auto &loopByFile : loopGraph)
+                for (auto &loop : loopByFile.second)
+                    if (loop->directive)
+                        loop->directive->cloneOfTemplate = "";
+            clearTemplateClonesData();
         }
     }
         break;

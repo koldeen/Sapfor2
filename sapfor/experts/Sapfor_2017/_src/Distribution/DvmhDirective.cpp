@@ -263,12 +263,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
         SgSymbol *symbForPar;
         if (arrayRef->isTemplate())
-        {
-            if (cloneOfTemplate == "")
-                symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);
-            else
-                symbForPar = findSymbolOrCreate(file, cloneOfTemplate, typeArrayInt, scope);
-        }
+            symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);        
         else
             symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
 
