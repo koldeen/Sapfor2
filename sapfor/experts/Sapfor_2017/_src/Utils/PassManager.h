@@ -144,7 +144,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ CLEAR_SPF_DIRS, REVERT_SUBST_EXPR, CONVERT_LOOP_TO_ASSIGN }) <= Pass(RESOLVE_PAR_REGIONS);
 
-    list({ FILL_PAR_REGIONS_LINES, REVERT_SUBST_EXPR }) <= Pass(EXPAND_EXTRACT_PAR_REGION);
+    Pass(REVERT_SUBST_EXPR) <= Pass(EXPAND_EXTRACT_PAR_REGION);
     
     Pass(FILL_PAR_REGIONS) <= Pass(PRINT_PAR_REGIONS_ERRORS);
 

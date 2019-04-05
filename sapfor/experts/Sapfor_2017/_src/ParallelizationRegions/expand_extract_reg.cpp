@@ -1,9 +1,12 @@
+#include <map>
+#include <string>
+#include <vector>
+
 #include "ParRegions_func.h"
 #include "expand_extract_reg.h"
 
 using std::map;
 using std::pair;
-using std::set;
 using std::vector;
 using std::string;
 using std::to_string;
@@ -35,7 +38,7 @@ static bool checkIfLineIsImplicit(const ParallelRegion *reg, const string &fileN
 {
     if (reg && reg->GetName() != "DEFAULT")
     {
-        auto regLines = reg->GetLines(fileName, line);
+        auto regLines = reg->GetLinesByLine(fileName, line);
         if (regLines && regLines->isImplicit())
             return true; // error
     }
@@ -242,10 +245,10 @@ bool expandExtractReg(const string &fileName,
 
         // use cases
         if (beginReg && beginReg->GetName() != "DEFAULT")
-            beginLines = beginReg->GetLines(fileName, startLine);
+            beginLines = beginReg->GetLinesByLine(fileName, startLine);
 
         if (endReg && endReg->GetName() != "DEFAULT")
-            endLines = endReg->GetLines(fileName, endLine);
+            endLines = endReg->GetLinesByLine(fileName, endLine);
 
         // delete all internal fragments
         for (auto &regLines : internalLines)

@@ -149,7 +149,7 @@ public:
         else
             return &(it->second);
     }
-    const ParallelRegionLines* GetLines(const std::string &file, const int line) const
+    const ParallelRegionLines* GetLinesByLine(const std::string &file, const int line) const
     {
         auto fileLines = GetLines(file);
         if (fileLines)

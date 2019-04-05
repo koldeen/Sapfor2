@@ -1010,13 +1010,14 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
 
         size = 1;
         newFileName = std::get<0>(inData);
-        newFile = current_file->firstStatement()->unparse();
+        newFile = string(current_file->firstStatement()->unparse());
 
-        sizes = new int[size];
+        sizes = new int[size + 1];
         newFilesNames = new short[newFileName.size()];
         newFiles = new short[newFile.size()];
 
         sizes[0] = 0;
+        sizes[1] = sizes[0] + newFile.size();
         copyStringToShort(newFilesNames, newFileName);
         copyStringToShort(newFiles, newFile);
     }
