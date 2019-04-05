@@ -114,10 +114,74 @@ static void removeNestedIntervals(SpfInterval* interval)
         removeNestedIntervals(include);
 }
 
-//Tree creation funcs
-static vector<SpfInterval*> findUserIntervals(SgStatement *startSt)
+// Merge trees functions.
+static int compareIntervals(SpfInterval* interval1, SpfInterval* interval2)
 {
-    vector<SpfInterval*> userIntervals;
+    SgStatement* begin_st_1 = interval1->begin;
+    while (!isSgExecutableStatement(begin_st_1) || isSPF_stat(begin_st_1) || isDVM_stat(begin_st_1))
+        begin_st_1 = begin_st_1->lexNext();
+
+    SgStatement* begin_st_2 = interval2->begin;
+    while (!isSgExecutableStatement(begin_st_2) || isSPF_stat(begin_st_2) || isDVM_stat(begin_st_2))
+        begin_st_2 = begin_st_2->lexNext();
+
+    int begin_1 = begin_st_1->lineNumber();
+    int begin_2 = begin_st_2->lineNumber();
+    int end_1 = interval1->ends[0]->lineNumber();
+    int end_2 = interval2->ends[0]->lineNumber();
+
+    if((begin_1 == begin_2 && end_1 == end_2) || end_1 <= begin_2 || begin_1 >= end_2)
+        return 0;
+
+    if(begin_1 <= begin_2 && end_1 >= end_2)
+        return 1;
+
+    return -1;
+}
+
+static void insertIntervalIntoTree(vector<SpfInterval*> &tree, SpfInterval* interval)
+{
+    int begin = -1;
+    int amount = -1;
+
+    for(int i = 0; i < tree.size(); i++)
+    {
+        int compare_result = compareIntervals(tree[i], interval);
+
+        if(compare_result == 0)
+            continue;
+
+        if(compare_result > 0)
+        {
+            insertIntervalIntoTree(tree[i]->nested, interval);
+            return;
+        }
+
+        interval->nested.push_back(tree[i]);
+        tree[i]->parent = interval;
+        interval->parent = tree[i]->parent;
+        tree[i] = interval;
+
+        if(begin == -1)
+            begin = i;
+
+        amount++;
+    }
+
+    if(amount > 0)
+        tree.erase(tree.begin() + begin, tree.begin() + begin + amount);
+}
+
+static void mergeTrees(vector<SpfInterval*> &fileIntervals, vector<SpfInterval*> &userIntervals)
+{
+    for(auto &userInterval : userIntervals){
+        insertIntervalIntoTree(fileIntervals, userInterval);
+    }
+}
+
+// Find intervals functions.
+static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIntervals)
+{
     SpfInterval *currentInterval = NULL;
 
     SgStatement *endSt = startSt->lastNodeOfStmt();
@@ -127,16 +191,18 @@ static vector<SpfInterval*> findUserIntervals(SgStatement *startSt)
     {
         if(currentSt->variant() == DVM_INTERVAL_DIR)
         {
+            SgStatement* begin = currentSt;
+            while(isDVM_stat(begin))
+                begin = begin->lexNext();
+
             SpfInterval *inter = new SpfInterval();
-            inter->begin = currentSt->lexNext();
+            inter->begin = begin;
             inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
             inter->parent = currentInterval;
             inter->exit_levels.push_back(0);
             inter->tag = getNextTag();
-            if(currentInterval != NULL)
-                currentInterval->nested.push_back(inter);
-            else
-                userIntervals.push_back(inter);
+
+            userIntervals.push_back(inter);
 
             currentInterval = inter;
         
@@ -147,15 +213,7 @@ static vector<SpfInterval*> findUserIntervals(SgStatement *startSt)
         if(currentSt->variant() == DVM_EXIT_INTERVAL_DIR)
         {
             currentInterval->ends.push_back(currentSt->lexNext());
-
-            SgExpression* list = currentSt->expr(0);
-            int depth = 0;
-            while(list)
-            {
-                depth++;
-                list = list->rhs();
-            }
-            currentInterval->exit_levels.push_back(depth);
+            currentInterval->exit_levels.push_back(0);
 
             currentSt = currentSt->lexPrev();
             currentSt->lexNext()->deleteStmt();
@@ -180,16 +238,15 @@ static vector<SpfInterval*> findUserIntervals(SgStatement *startSt)
         }
 
         currentSt = currentSt->lexNext();
-    }
-
-    return userIntervals;
+    } 
 }
 
 static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt, int level)
 {
     int currentVar;
+    SgStatement* endStatement = interval->parent ? interval->ends[0] : interval->ends[0]->lexNext();
 
-    while (currentSt != interval->ends[0])
+    while (currentSt != endStatement)
     {
         currentSt = currentSt->lexNext();
         currentVar = currentSt->variant();
@@ -199,7 +256,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
 
         if (currentVar == RETURN_STAT || currentVar == STOP_STAT)
         {
-            if (interval->ends[0] != currentSt)
+            if (endStatement != currentSt)
             {
                 interval->ends.push_back(currentSt);
                 interval->exit_levels.push_back(level);
@@ -208,7 +265,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
 
         if (currentVar == EXIT_STMT)
         {
-            if (interval->ends[0] != currentSt)
+            if (endStatement != currentSt)
             {
                 interval->ends.push_back(currentSt);
                 interval->exit_levels.push_back(1);
@@ -239,7 +296,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
             }
         }
 
-        if (currentSt == interval->ends[0] || currentVar != FOR_NODE)
+        if (currentSt == endStatement || currentVar != FOR_NODE)
             continue;
 
         SpfInterval* inter = new SpfInterval();
@@ -260,6 +317,7 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
     int funcNum = file->numberOfFunctions();
     map<int, int> labelsRef;           // id => line
     map<int, vector<int>> gotoStmts;   // line => label_ids
+    vector<SpfInterval*> userIntervals;
 
     for (int i = 0; i < funcNum; i++)
     {
@@ -268,9 +326,7 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         matchGotoLabels(file->functions(i), gotoStmts);
 
         // Find user intervals.
-        vector<SpfInterval*> userIntervals = findUserIntervals(file->functions(i));
-        for(int j = 0; j < userIntervals.size(); j++)
-            fileIntervals.push_back(userIntervals[j]);
+        findUserIntervals(file->functions(i), userIntervals);
 
         SpfInterval *func_inters = new SpfInterval();
 
@@ -297,6 +353,8 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
 
         fileIntervals.push_back(func_inters);
     }
+
+    mergeTrees(fileIntervals, userIntervals);
 
     if (nested_on)
         for (auto &interval : fileIntervals)
@@ -349,10 +407,13 @@ static void insertTree(SpfInterval* interval)
 
         for (int j = 1; j < depth; j++)
         {
-            curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
+            if(curr_inter->ifInclude)
+            {
+                curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
+                curr_list_elem = curr_list_elem->next();
+            }
 
             curr_inter = curr_inter->parent;
-            curr_list_elem = curr_list_elem->next();
         }
 
         curr_list_elem->setRhs(NULL);
