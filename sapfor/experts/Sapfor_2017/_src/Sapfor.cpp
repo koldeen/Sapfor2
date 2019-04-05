@@ -20,6 +20,7 @@
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
+#include "ParallelizationRegions/expand_extract_reg.h"
 
 #include "Distribution/Distribution.h"
 #include "Distribution/GraphCSR.h"
@@ -1236,6 +1237,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (error)
             internalExit = 1;
     }
+    else if (curr_regime == EXPAND_EXTRACT_PAR_REGION)
+    {
+        bool error = expandExtractReg(std::get<0>(inData),
+                                      std::get<1>(inData),
+                                      std::get<2>(inData),
+                                      parallelRegions,
+                                      getObjectForFileFromMap(std::get<0>(inData).c_str(), SPF_messages),
+                                      !std::get<3>(inData));
+
+        if (error)
+            internalExit = 1;
+    }
     else if (curr_regime == LOOP_GRAPH)
     {
         if (keepFiles)
@@ -1730,6 +1743,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case RESOLVE_PAR_REGIONS:
+    case EXPAND_EXTRACT_PAR_REGION:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)

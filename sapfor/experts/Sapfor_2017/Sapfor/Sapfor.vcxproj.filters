@@ -510,6 +510,8 @@
     <ClCompile Include="..\_src\DvmhRegions\DvmhRegionInserter.cpp">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\ParallelizationRegions\expand_extract_reg.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     <ClCompile Include="..\_src\DynamicAnalysis\createParallelRegions.cpp">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
     </ClCompile>
@@ -1028,6 +1030,8 @@
     <ClInclude Include="..\_src\DvmhRegions\DvmhRegionInserter.h">
       <Filter>Файлы исходного кода\DvmhRegions</Filter>
     </ClInclude>
+    <ClInclude Include="..\_src\ParallelizationRegions\expand_extract_reg.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     <ClInclude Include="..\_src\DynamicAnalysis\createParallelRegions.h">
       <Filter>Файлы исходного кода\DynamicAnalysis</Filter>
     </ClInclude>
