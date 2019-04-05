@@ -1006,11 +1006,27 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         // newFilesNames - имена файлов для мод., разд. '|'
         // newFiles - буфер
 
+        bool found = false;
         string newFile, newFileName;
 
         size = 1;
         newFileName = std::get<0>(inData);
-        newFile = string(current_file->firstStatement()->unparse());
+
+        for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+        {
+            SgFile *file = &(CurrentProject->file(i));
+            if (file->filename() == newFileName)
+            {
+                if (SgFile::switchToFile(newFileName) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                found = true;
+                newFile = string(file->firstStatement()->unparse());
+                break;
+            }
+        }
+
+        if (!found)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         sizes = new int[size + 1];
         newFilesNames = new short[newFileName.size()];
