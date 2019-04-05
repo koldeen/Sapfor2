@@ -97,7 +97,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
    wstring messageE, messageR;\
    __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
-   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %s %s %s", to_wstring(PLACE_R).c_str(), to_wstring(BEFORE_VAR_R).c_str(), to_wstring(BEFORE_DO_R).c_str()); \
+   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %ls %ls %ls", PLACE_R, BEFORE_VAR_R, BEFORE_DO_R); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
 } while(0)
 #endif
@@ -193,7 +193,11 @@ static bool checkPrivate(SgStatement *st,
             {
                 if (!defCond)
                 {
-                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());                    
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "before", L"перед", "variable declaration or", L"объявлением переменных или", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
+                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
             }
@@ -201,7 +205,11 @@ static bool checkPrivate(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "variable declaration or", L"объявлением переменных или", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -264,7 +272,11 @@ static bool checkReduction(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -525,7 +537,11 @@ static bool checkShadowAcross(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -749,7 +765,11 @@ static bool checkRemote(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -967,7 +987,11 @@ static bool checkParallelRegions(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "all DATA statements", L"всех операторов DATA", st->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "after", "", "all DATA statements", st->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -1184,7 +1208,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 const int prevVar = prev->variant();
                 if (prevVar != PROC_HEDR && prevVar != FUNC_HEDR)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "function statements", L"заголовка функции", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
             }
@@ -1193,7 +1221,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             {
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "once", L"единожды", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
                 else
@@ -1204,7 +1236,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             {
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "once", L"единожды", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
                 else
