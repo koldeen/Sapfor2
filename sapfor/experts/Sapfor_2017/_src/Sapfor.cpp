@@ -1753,7 +1753,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case RESOLVE_PAR_REGIONS:
-    case EXPAND_EXTRACT_PAR_REGION:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)

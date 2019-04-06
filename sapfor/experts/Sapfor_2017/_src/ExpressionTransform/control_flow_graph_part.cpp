@@ -223,16 +223,15 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 
 ExpressionValue* allocateExpressionValue(SgExpression* newExp)
 {
-    string unp = newExp == NULL ? "(unknown value)" : string(newExp->unparse());
+    string unp = (newExp == NULL) ? "(unknown value)" : string(newExp->unparse());
     ExpressionValue* newExpVal = NULL;
-    auto alloc = allocated.find(unp);
-
+    /*auto alloc = allocated.find(unp);
     if (alloc == allocated.end())
         newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp)))->second;
     else
-        newExpVal = alloc->second;
+        newExpVal = alloc->second;*/
 
-    return newExpVal;
+    return new ExpressionValue(newExp, unp);
 }
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *defSt)
@@ -876,13 +875,14 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
         b = b->getLexNext();
     }
 
-    int64_t countS = 0;
-    /*for (auto &elem : allocated)
+    /*int64_t countS = 0;
+    for (auto &elem : allocated)
     {
 #if PRINT_PROF_INFO
         countS += elem.second->getUnparsed().size();
 #endif
-        delete elem.second;
+        if (elem.second->getUnparsed() != "")
+            delete elem.second;        
     }*/
 #if PRINT_PROF_INFO
     if (allocated.size())
