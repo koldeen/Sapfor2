@@ -3883,7 +3883,14 @@ EXEC_PART_:
        case DVM_TEMPLATE_CREATE_DIR:
             LINE_NUMBER_BEFORE(stmt,stmt);
             Template_Create(stmt);
-            Extract_Stmt(stmt);            
+            pstmt = addToStmtList(pstmt, stmt);             
+            stmt = cur_st;
+            break;
+
+       case DVM_TEMPLATE_DELETE_DIR:
+            LINE_NUMBER_BEFORE(stmt,stmt);
+            Template_Delete(stmt);
+            pstmt = addToStmtList(pstmt, stmt);
             stmt = cur_st;
             break;
 
@@ -5856,7 +5863,36 @@ void Template_Create(SgStatement *stmt)
    }
    SET_DVM(isave);
 }
-   
+
+void Template_Delete(SgStatement *stmt)
+{
+   SgExpression *el;
+   for(el = stmt->expr(0); el; el=el->rhs())
+   {
+      if(isSgArrayRefExp(el->lhs()))
+      {  
+         SgSymbol *s = el->lhs()->symbol();
+         if(!HEADER(s))
+         {
+            Error("'%s' has not DISTRIBUTE attribute ", s->identifier(), 637,stmt); 
+            continue;
+         } 
+         if(!DEFERRED_SHAPE_TEMPLATE(s))
+         {
+            Error("Template '%s' has no deferred shape", s->identifier(), 640,stmt); 
+            continue;
+         }  
+ 
+         doCallAfter(DeleteObject_H(HeaderRef(s)));
+      }
+      else
+      {
+         err("Illegal element of list",636,stmt);
+         continue;
+      }
+   }
+}   
+
 SgExpression * dvm_array_ref () {
 // creates array reference: dvm000(i) , i - index of first free element
    SgValueExp * index = new SgValueExp(ndvm);
@@ -10788,7 +10824,8 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
        case DVM_LOCALIZE_DIR:
        case DVM_SHADOW_ADD_DIR: 
        case DVM_IO_MODE_DIR:
-       case DVM_TEMPLATE_CREATE_DIR:    
+       case DVM_TEMPLATE_CREATE_DIR:
+       case DVM_TEMPLATE_DELETE_DIR:    
             //including the DVM  directive to list
             pstmt = addToStmtList(pstmt, stmt);  
             break;
@@ -13863,6 +13900,7 @@ int lookForDVMdirectivesInBlock(SgStatement *first,SgStatement *last,int contain
        case DVM_LOCALIZE_DIR:
        case DVM_SHADOW_ADD_DIR: 
        case DVM_TEMPLATE_CREATE_DIR:  
+       case DVM_TEMPLATE_DELETE_DIR:
             dvm_dir = 1; 
             break;
 

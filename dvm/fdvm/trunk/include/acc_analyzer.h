@@ -740,7 +740,7 @@ private:
     std::string unparsed;
 public:
     ExpressionValue(): exp(NULL), unparsed("") {}
-    ExpressionValue(SgExpression *e): exp(e) { unparsed = (e != NULL ? e->unparse() : ""); }
+    //ExpressionValue(SgExpression *e): exp(e) { unparsed = (e != NULL ? e->unparse() : ""); }
     ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp) { }
     inline SgExpression* getExp() const { return exp; }
     inline const std::string& getUnparsed() const { return unparsed; }

@@ -33,7 +33,7 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     // move SgStatement to attribute
     SgStatement *toAdd = new SgStatement(toAttr->variant(), NULL, toAttr->symbol(), toAttr->expr(0), toAttr->expr(1), toAttr->expr(2));
     toAdd->setlineNumber(toAttr->lineNumber());
-
+    toAdd->setLocalLineNumber(777);
 
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
@@ -1399,7 +1399,7 @@ static void OptimizeTree(SgExpression *exp)
     }
 }
 
-SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
+static SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
 {
     set<string> uniqAttrs;
     SgStatement *toAddExp = NULL;
@@ -1429,11 +1429,24 @@ SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt)
     return toAddExp;
 }
 
+static vector<SgStatement*> filterUserSpf(const vector<SgStatement*> &toFilter)
+{
+    vector<SgStatement*> ret;
+    for (auto &elem : toFilter)
+        if (elem->localLineNumber() == 777)
+            ret.push_back(elem);
+
+    return ret;
+}
+
 void revertion_spf_dirs(SgFile *file,
                         map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
                         map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());
+
+    //set SPF_PRIVATE for arrays
+    /*
     for (auto &allStats : declaratedArraysSt)
     {
         if (allStats.first->fileName() == fileName)
@@ -1472,11 +1485,9 @@ void revertion_spf_dirs(SgFile *file,
             if (added)
                 allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
         }
-    }
+    } */
 
-    int funcNum = file->numberOfFunctions();
-
-    for (int i = 0; i < funcNum; i++) 
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
@@ -1501,7 +1512,7 @@ void revertion_spf_dirs(SgFile *file,
             if (atrib && st->fileName() == fileName)
             {
                 //check previosly directives SPF_ANALYSIS
-                vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
+                vector<SgStatement*> sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR}));
 
                 if (sameAtt.size())
                 {
@@ -1513,7 +1524,7 @@ void revertion_spf_dirs(SgFile *file,
                 //check previosly directives SPF_PARALLEL
                 if (sameAtt.size())
                 {
-                    sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+                    sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR}));
                     for (auto &elem : sameAtt)
                     {
                         if (toAdd)
@@ -1523,12 +1534,12 @@ void revertion_spf_dirs(SgFile *file,
                 }
 
                 //remaining directives
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME}));
                 if (sameAtt.size())
                 {
                     for (auto &elem : sameAtt)
                     {
-                        SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                        SgStatement *data = (SgStatement *)atrib->getAttributeData();
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)

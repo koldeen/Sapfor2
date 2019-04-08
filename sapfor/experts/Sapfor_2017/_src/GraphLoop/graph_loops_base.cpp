@@ -1073,7 +1073,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                             }
 
                             if (treeNumCount.size() == 0)
-                                return;
+                                continue;
 
                             auto itT = treeNumCount.begin();
                             treeNum = itT->first;
@@ -1167,9 +1167,9 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
         return;
 
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
-
     createMapOfFunc(allFuncs, mapFuncInfo);
 
-    for (auto &byFile : loopGraph)
-        filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
+    if (trees.size())
+        for (auto &byFile : loopGraph)
+            filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
 }

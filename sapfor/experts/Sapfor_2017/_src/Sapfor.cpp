@@ -198,8 +198,10 @@ static bool isDone(const int curr_regime)
 
 static void updateStatsExprs(const int id, const string &file)
 {
-    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
-        sgStats[st->thebif] = make_pair(file, id);
+    auto node = current_file->firstStatement()->thebif;
+    for (; node; node = node->thread)
+        sgStats[node] = make_pair(file, id);
+    
     for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
         sgExprs[ex->thellnd] = make_pair(file, id);
 }

@@ -50,6 +50,7 @@ static void setOptions(const int *options)
     keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
     parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
+    maxShadowWidth = options[MAX_SHADOW_WIDTH];
     //out_upper_case = 1;
 }
 

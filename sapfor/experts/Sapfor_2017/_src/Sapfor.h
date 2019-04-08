@@ -7,6 +7,7 @@ extern int keepSpfDirs;
 extern int consoleMode;
 extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
+extern int maxShadowWidth;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -125,6 +126,7 @@ enum optionNames {
     KEEP_DVM_DIRECTIVES,
     KEEP_SPF_DIRECTIVES,
     PARALLIZE_FREE_LOOPS,
+    MAX_SHADOW_WIDTH,
     EMPTY_OPTION
 };
 
