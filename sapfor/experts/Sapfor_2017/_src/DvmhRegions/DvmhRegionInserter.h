@@ -51,17 +51,6 @@ struct DvmhRegion {
 		needActualisation.push_back(s);
 		return true;
 	}
-
-	bool addToActualisationAfter(SgSymbol* s) {
-		for (auto present : needActualisationAfter) {
-			if (s == present) {
-				return false;
-			}
-		}
-
-		needActualisationAfter.push_back(s);
-		return true;
-	}
 };
 
 class DvmhRegionInsertor {

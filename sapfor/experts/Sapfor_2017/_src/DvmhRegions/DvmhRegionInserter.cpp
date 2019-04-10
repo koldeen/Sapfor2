@@ -258,6 +258,7 @@ void DvmhRegionInsertor::insertActualDirectives() {
 			const std::map<SymbolKey, std::set<ExpressionValue*> > vars = getReachingDefinitionsExt(st); // todo: c
 			//const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
 
+			std::vector<SgSymbol*> toActualise;
 			for (auto& var : vars) {
 				SgSymbol *symbol = (SgSymbol *)var.first.getSymbol();
 				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
@@ -316,6 +317,7 @@ void DvmhRegionInsertor::insertActualDirectives() {
 				}
 				else {
 					// Searching for defenition in region
+					bool symbolDeclaredInRegion = false;
 					for (auto& defenition : var.second) {
 						auto saveName = current_file->filename();
 						auto stEx = SgStatement::getStatmentByExpression(defenition->getExp());
@@ -330,14 +332,18 @@ void DvmhRegionInsertor::insertActualDirectives() {
 
 						DvmhRegion* containingRegion = getContainingRegion(stEx);
 						if (containingRegion) {
-							containingRegion->addToActualisationAfter(symbol);
+							symbolDeclaredInRegion = true;
+							break;
 						}
 
 						if (SgFile::switchToFile(saveName) == -1)
 							printInternalError(saveName, st->lineNumber());
 					}
+					if (symbolDeclaredInRegion)
+						toActualise.push_back(symbol);
 				}
 			}
+			insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
 			st = st->lexNext();
 		}
 	}
@@ -345,7 +351,6 @@ void DvmhRegionInsertor::insertActualDirectives() {
 	for (auto& region : regions) {
 		if (region.loops.size() > 0) {
 			insertActualDirectiveBefore(region.getFirstSt()->lexPrev()->lexPrev(), region.needActualisation, ACC_ACTUAL_DIR);
-			insertActualDirectiveBefore(region.getLastSt()->lexNext()->lexNext(), region.needActualisationAfter, ACC_GET_ACTUAL_DIR);
 		}
 		else
 			printf("Warning, empty region.\n");
@@ -407,8 +412,6 @@ void DvmhRegionInsertor::mergeRegions()
 			newRegion.loops.push_back(loop);
 		for (auto s : region.needActualisation)
 			newRegion.addToActualisation(s);
-		for (auto s : region.needActualisationAfter)
-			newRegion.addToActualisationAfter(s);
 	}
 	newRegions.push_back(newRegion);
 
