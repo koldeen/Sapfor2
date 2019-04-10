@@ -7,6 +7,7 @@ extern int keepSpfDirs;
 extern int consoleMode;
 extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
+extern int maxShadowWidth;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -62,6 +63,7 @@ enum passes {
     FILL_PAR_REGIONS,
     PRINT_PAR_REGIONS_ERRORS,
     RESOLVE_PAR_REGIONS,
+    EXPAND_EXTRACT_PAR_REGION,
     LOOP_DATA_DEPENDENCIES,
     INSERT_INCLUDES,
     REMOVE_DVM_DIRS,
@@ -104,6 +106,7 @@ enum passes {
     GCOV_PARSER,
     PRIVATE_ARRAYS_BREEDING,
     LOOPS_SPLITTER,
+    LOOPS_COMBINER,
     CHECK_PAR_REG_DIR,
     INSERT_REGIONS,
     CREATE_PARALLEL_REGIONS,
@@ -124,6 +127,7 @@ enum optionNames {
     KEEP_DVM_DIRECTIVES,
     KEEP_SPF_DIRECTIVES,
     PARALLIZE_FREE_LOOPS,
+    MAX_SHADOW_WIDTH,
     EMPTY_OPTION
 };
 
@@ -165,6 +169,7 @@ static void setPassValues()
     passNames[FILL_PAR_REGIONS_LINES] = "FILL_PAR_REGIONS_LINES";
     passNames[FILL_PAR_REGIONS] = "FILL_PAR_REGIONS";
     passNames[RESOLVE_PAR_REGIONS] = "RESOLVE_PAR_REGIONS";
+    passNames[EXPAND_EXTRACT_PAR_REGION] = "EXPAND_EXTRACT_PAR_REGION";
     passNames[LOOP_DATA_DEPENDENCIES] = "LOOP_DATA_DEPENDENCIES";
     passNames[INSERT_INCLUDES] = "INSERT_INCLUDES";
     passNames[REMOVE_DVM_DIRS] = "REMOVE_DVM_DIRS";
@@ -211,6 +216,7 @@ static void setPassValues()
     passNames[GCOV_PARSER] = "GCOV_PARSER";
     passNames[PRIVATE_ARRAYS_BREEDING] = "PRIVATE_ARRAYS_BREEDING";
     passNames[LOOPS_SPLITTER] = "LOOPS_SPLITTER";
+    passNames[LOOPS_COMBINER] = "LOOPS_COMBINER";
     passNames[CHECK_PAR_REG_DIR] = "CHECK_PAR_REG_DIR";
     passNames[CREATE_INTER_TREE] = "CREATE_INTER_TREE";
     passNames[INSERT_INTER_TREE] = "INSERT_INTER_TREE";

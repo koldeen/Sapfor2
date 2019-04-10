@@ -909,8 +909,9 @@ set_stat_list(old_list, stat)
             case (DVM_CP_WAIT_DIR):
             case (DVM_LOCALIZE_DIR):
             case (DVM_SHADOW_ADD_DIR):
-            case (DVM_TEMPLATE_CREATE_DIR):
 	    case (MOVE_PORT):
+            case (DVM_TEMPLATE_CREATE_DIR):
+            case (DVM_TEMPLATE_DELETE_DIR):
 	    case (SEND_STAT):
 	    case (RECEIVE_STAT):
 	    case (ENDCHANNEL_STAT):

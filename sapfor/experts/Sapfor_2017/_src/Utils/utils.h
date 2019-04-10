@@ -45,6 +45,7 @@ void uniteVectors(const std::vector<std::pair<std::pair<std::string, std::string
 void deletePointerAllocatedData();
 unsigned getUniqArrayId();
 
+bool isAllRulesEqualWithoutArray(const std::vector<std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>>> &allRules);
 bool isAllRulesEqual(const std::vector<std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>>> &allRules);
 bool isAllRulesEqual(const std::vector<const std::vector<std::pair<int, int>>*> &allRules);
 bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);

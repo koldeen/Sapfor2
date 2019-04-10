@@ -91,6 +91,9 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
     for(auto &graph : graphs) {
         if(graph.second->file_id != stmt->getFileId())
             continue;
+
+        stmt->switchToFile();
+
         CBasicBlock *b = graph.second->CGraph->getFirst();
         //std::cout << "1" << std::endl;
         while(b != NULL)
@@ -123,15 +126,6 @@ const map<SymbolKey, set<ExpressionValue*>> getReachingDefinitionsExt(SgStatemen
 
     return b->getReachedDefinitionsExt(stmt);
 }
-
-//DEPRECATED
-/*const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
-{
-    CBasicBlock* b = graphsKeeper->findBlock(stmt);
-    if(!b)
-        return map<SymbolKey, set<SgExpression*>>();
-    return b->getReachedDefinitions(stmt);
-}*/
 
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
 {
@@ -1104,11 +1098,11 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
         }
 
         map<SymbolKey, set<ExpressionValue*>> inDefs;
-
+        ExpressionValue* emptyValue = allocateExpressionValue(NULL);
         if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
                 inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue*>()))
-                .first->second.insert(new ExpressionValue());
+                .first->second.insert(emptyValue);
 
         if (graphsKeeper == NULL)
             graphsKeeper = new GraphsKeeper();

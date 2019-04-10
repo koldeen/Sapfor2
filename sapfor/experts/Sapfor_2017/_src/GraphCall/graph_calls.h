@@ -104,6 +104,8 @@ struct FuncInfo
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
     std::set<DIST::Array*> allUsedArrays; // real array refs
+    std::set<DIST::Array*> usedArraysWrite; // real array refs
+
     std::vector<LoopGraph*> loopsInFunc;
 
     std::vector<int> linesOfIO;
@@ -185,4 +187,4 @@ struct CallV
     }
 };
 
-void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);

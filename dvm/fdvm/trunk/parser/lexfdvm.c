@@ -2343,7 +2343,10 @@ analyz()
 	  case 't':
              if (eqn(15, nextch, "template_create")) {
                 stkey = TEMPLATE_CREATE;   
-                nextch += 15; 
+                nextch += 15;
+             } else if (eqn(15, nextch, "template_delete")) {
+                stkey = TEMPLATE_DELETE;   
+                nextch += 15;  
              } else if (eqn(8, nextch, "template")) {
                 stkey = HPF_TEMPLATE;   hpf = 1;
                 nextch += 8; 

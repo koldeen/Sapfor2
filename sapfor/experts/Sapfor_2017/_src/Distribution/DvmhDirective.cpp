@@ -214,6 +214,17 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
 
     map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(loop->GetOriginal());
+    SgForStmt *loopG = (SgForStmt *)loop->GetOriginal();
+    const int nested = loopG->isPerfectLoopNest();
+    vector<SgSymbol*> loopSymbs;
+    for (int z = 0; z < nested; ++z)
+    {
+        loopSymbs.push_back(loopG->symbol());
+        auto next = loopG->lexNext();
+        if (next->variant() != FOR_NODE && z + 1 < nested)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        loopG = (SgForStmt *)next;
+    }
 
     if (langType == LANG_F)
     {
@@ -226,41 +237,46 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
         directive += "!DVM$ PARALLEL(";
         for (int i = 0; i < (int)parallel.size(); ++i)
         {
+            const string pS = (parallel[i] == "*") ? loopSymbs[i]->identifier() : parallel[i];
             if (i == 0)
-                directive += parallel[i];
+                directive += pS;
             else
-                directive += "," + parallel[i];
-            SgVarRefExp *tmp = new SgVarRefExp(findSymbolOrCreate(file, parallel[i]));
+                directive += "," + pS;
+
+            SgVarRefExp *tmp = NULL;
+            if (parallel[i] == "*")
+                tmp = new SgVarRefExp(loopSymbs[i]);
+            else
+                tmp = new SgVarRefExp(findSymbolOrCreate(file, parallel[i]));
+
             p->setLhs(tmp);
             if (i != (int)parallel.size() - 1)
                 p = createAndSetNext(RIGHT, EXPR_LIST, p);
             else
                 p->setRhs(NULL);
         }
-        directive += ") ON " + arrayRef->GetShortName() + "(";
+        DIST::Array *mapTo = arrayRef2->isLoopArray() ? arrayRef : arrayRef2;
+        auto onTo = arrayRef2->isLoopArray() ? on : on2;
+
+        directive += ") ON " + mapTo->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
 
         SgSymbol *symbForPar;
         if (arrayRef->isTemplate())
-        {
-            if (cloneOfTemplate == "")
-                symbForPar = findSymbolOrCreate(file, arrayRef->GetShortName(), typeArrayInt, scope);
-            else
-                symbForPar = findSymbolOrCreate(file, cloneOfTemplate, typeArrayInt, scope);
-        }
+            symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);        
         else
             symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
 
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
-        for (int i = 0; i < (int)on.size(); ++i)
+        for (int i = 0; i < (int)onTo.size(); ++i)
         {            
-            const pair<int, int> &coeffs = on[i].second;
-            assert( (coeffs.first != 0 && on[i].first != "*") || on[i].first == "*");
+            const pair<int, int> &coeffs = onTo[i].second;
+            assert( (coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
 
             if (i != 0)
                 directive += ",";
 
-            if (on[i].first == "*")
+            if (onTo[i].first == "*")
             {
                 directive += "*";
                 SgVarRefExp *varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
@@ -268,8 +284,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             }
             else
             {
-                directive += genStringExpr(on[i].first, coeffs);
-                arrayExpr->addSubscript(*genSgExpr(file, on[i].first, coeffs));
+                directive += genStringExpr(onTo[i].first, coeffs);
+                arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
             }
         }
         directive += ")";

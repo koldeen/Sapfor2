@@ -162,26 +162,46 @@ static void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill,
     }
 }
 
-static void glueBorders(vector<pair<SgStatement*, SgStatement*>>& borders) {
-    for(auto it1 = borders.begin(); it1 != borders.end(); ++it1) {
-        for(auto it2 = borders.begin(); it2 != borders.end();) {
-            if(it1 == it2) {
-                ++it2;
-                continue;
-            }
+static void glueBorders(vector<pair<SgStatement*, SgStatement*>> &borders) 
+{
+    if (borders.size() <= 1)
+        return;
+    map<pair<int, int>, pair<SgStatement*, SgStatement*>> bordersMap;
+    for (int z = 0; z < borders.size(); ++z)
+        bordersMap[make_pair(borders[z].first->lineNumber(), borders[z].second->lineNumber())] = borders[z];
 
-            if(it1->second == it2->first) {
-                it1->second = it2->second;
-                it2 = borders.erase(it2);
-            }
-            else if(it1->first == it2->second) {
-                it1->first = it2->first;
-                it2 = borders.erase(it2);
-            }
+    borders.clear();
+    for (auto &elem : bordersMap)
+    {
+        //printf("** frag %d - %d\n", elem.first.first, elem.first.second);
+        borders.push_back(elem.second);
+    }
+
+    bool needToUpdate = true;    
+    while (needToUpdate)
+    {
+        needToUpdate = false;
+        vector<pair<SgStatement*, SgStatement*>> newBorders;
+        newBorders.push_back(borders[0]);
+        int lastIdx = 0;
+        for (int z = 1; z < borders.size(); ++z)
+        {
+            if (newBorders[lastIdx].second == borders[z].first)
+                newBorders[lastIdx].second = borders[z].second;
             else
-                ++it2;
+            {
+                newBorders.push_back(borders[z]);
+                lastIdx++;
+            }
+        }
+        if (newBorders.size() != borders.size())
+        {
+            borders = newBorders;
+            needToUpdate = (borders.size() > 1);
         }
     }
+    //for (int z = 0; z < borders.size(); ++z)
+    //    printf("*** frag %d - %d\n", borders[z].first->lineNumber(), borders[z].second->lineNumber());
 }
 
 static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
@@ -223,8 +243,6 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
 
-
-
     glueBorders(borders);
 
     //Если вырежем опять, исходный цикл останется пустым
@@ -234,17 +252,20 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     return true;
 }
 
-static void moveStatements(SgForStmt *newLoop, vector<pair<SgStatement*,SgStatement*>>& borders)
+static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*,SgStatement*>> &borders)
 {
     SgStatement *lastInserted = newLoop;
+    
     for(auto& border : borders)
     {
+        //printf("frag %d - %d, %s %s\n", border.first->lineNumber(), border.second->lineNumber(), border.first->fileName(), border.second->fileName());
         SgStatement *toMoveStmt = border.first;
         while(toMoveStmt != border.second)
         {
+            //printf("move st from line %d\n", toMoveStmt->lineNumber());
             SgStatement *st = toMoveStmt->copyPtr();
             lastInserted->insertStmtAfter(*st);
-            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
+            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();           
 
             SgStatement *toDelete = toMoveStmt;
             toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
@@ -355,20 +376,18 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
         parts.push_back(make_pair(since, since->lastNodeOfStmt()));
 
-
 //    while (setupSplitBorders(lowestParentGraph, parts, borders, lowestParentDepGraph, collection) && borders.size() > 0)
 //        ;
 
-
-    //Сам процесс разделения
-    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)  {
+    //Сам процесс разделения    
+    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+    {
         moveStatements(createNewLoop(loopGraph), borders);
         globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
     }
 
     //Исходный цикл остался с пустым телом
     loopGraph->loop->deleteStmt();
-
     return 0;
 }
 

@@ -380,6 +380,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
                     currInfo.allUsedArrays.insert(arrayRef);
+                    if (isWrite)
+                        currInfo.usedArraysWrite.insert(arrayRef);
                 }
             }
         }
@@ -1641,54 +1643,17 @@ map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
     return byUse;
 }
 
-
-static inline void addLinks(const FuncParam &actual, const FuncParam &formal, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-    if (actual.parameters.size() != formal.parameters.size())
-        return;
-    else
-    {
-        for (int i = 0; i < actual.parameters.size(); ++i)
-            if (actual.parametersT[i] == formal.parametersT[i] && formal.parametersT[i] == ARRAY_T)
-                arrayLinksByFuncCalls[(DIST::Array*)formal.parameters[i]].insert((DIST::Array*)actual.parameters[i]);
-    }
-}
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(allFuncInfo, funcByName);
 
-static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
-{
-    bool globalChange = false;
-    if (from->GetNonDistributeFlagVal() == flag)
-    {
-        for (auto &realRef : to)
-        {
-            auto val = realRef->GetNonDistributeFlagVal();
-            if (val != flag)
-            {
-                //exclude this case
-                if (flag == DIST::IO_PRIV && val == DIST::SPF_PRIV)
-                    ;
-                else
-                {
-                    realRef->SetNonDistributeFlag(flag);
-                    //printf("up: set %d %s\n", flag, realRef->GetName().c_str());
-                    change = true;
-                    globalChange = true;
-                }
-            }
-        }
-    }
-
-    return globalChange;
-}
-
-static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
-{
     bool change = true;
     while (change)
     {
         change = false;
 
-        for (auto &func : allFuncInfo)
+        for (auto &func : funcByName)
         {
             if (func.second->funcParams.countOfPars == 0)
                 continue;
@@ -1745,198 +1710,5 @@ static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
             }
         }
     }
-}
-
-static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    bool globalChange = false;
-    bool change = true;
-    while (change)
-    {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
-
-            bool allNonDistr = true;
-            bool allDistr = true;
-            bool nonDistrSpfPriv = false;
-            bool nonDistrIOPriv = false;
-            bool init = false;
-
-            // propagate SPF to down calls
-            for (auto &realRef : realArrayRefs)
-            {
-                if (realRef != array.second.first)
-                {
-                    bool nonDistr = realRef->GetNonDistributeFlag();
-                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
-                        nonDistrSpfPriv = true;
-                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
-                        nonDistrIOPriv = true;
-
-                    allNonDistr = allNonDistr && nonDistr;
-                    allDistr = allDistr && !nonDistr;
-                    init = true;
-                }
-            }
-
-            if (init)
-            {
-                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
-                {
-                    if (isDown)
-                    {
-                        if (nonDistrSpfPriv)
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
-                            //printf("down: set %d %s\n", DIST::SPF_PRIV, array.second.first->GetName().c_str());
-                        }
-                        else if (nonDistrIOPriv)
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
-                            //printf("down: set %d %s\n", DIST::IO_PRIV, array.second.first->GetName().c_str());
-                        }
-                        else
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-                            //printf("down: set %d %s\n", DIST::NO_DISTR, array.second.first->GetName().c_str());
-                        }
-                        change = true;
-                        globalChange = true;
-                    }
-                }
-                else
-                {
-                    if (!isDown)
-                    {
-                        bool ret = propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
-                        globalChange = globalChange || ret;
-                        ret = propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
-                        globalChange = globalChange || ret;
-                        //propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
-                    }
-                }
-            }
-        }
-    }
-
-    return globalChange;
-}
-
-void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    bool change = true;
-    while (change)
-    {
-        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
-        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
-
-        change = changeD || changeU;
-    }
-}
-
-static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    //change to real refs
-    for (auto &func : funcByName)
-    {
-        set<DIST::Array*> curr = func.second->allUsedArrays;
-        set<DIST::Array*> newRefs;
-        for (auto &array : curr)
-            getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
-        func.second->allUsedArrays.clear();
-        for (auto &newArray : newRefs)
-            if (newArray->GetNonDistributeFlag() == false)
-                func.second->allUsedArrays.insert(newArray);
-    }
-
-    bool changed = true;
-    while (changed)
-    {
-        changed = false;
-        for (auto &func : funcByName)
-        {
-            for (auto &callsFrom : func.second->callsFrom)
-            {
-                auto itF = funcByName.find(callsFrom);
-                if (itF != funcByName.end())
-                {
-                    for (auto &usedArray : itF->second->allUsedArrays)
-                    {
-                        auto itA = func.second->allUsedArrays.find(usedArray);
-                        if (itA == func.second->allUsedArrays.end())
-                        {
-                            changed = true;
-                            func.second->allUsedArrays.insert(usedArray);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
-{
-    for (auto &funcsOnFile : allFuncInfo)
-    {
-        for (auto &func : funcsOnFile.second)
-        {
-            const string &name = func->funcName;
-            for (auto &caller : func->callsTo)
-                for (int i = 0; i < caller->detailCallsFrom.size(); ++i)
-                    if (caller->detailCallsFrom[i].first == name)
-                        addLinks(caller->actualParams[i], func->funcParams, arrayLinksByFuncCalls);
-        }
-    }
-
-    propagateArrayFlags(arrayLinksByFuncCalls);
-
-    //propagate distr state
-    bool change = true;
-    while (change)
-    {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
-
-            if (realArrayRefs.size() && (*realArrayRefs.begin()) != array.second.first &&
-                !(*realArrayRefs.begin())->GetNonDistributeFlag() && array.second.first->GetNonDistributeFlag())
-            {
-                array.second.first->SetNonDistributeFlag(DIST::DISTR);
-                change = true;
-            }
-        }
-    }
-
-    map<string, FuncInfo*> funcByName;
-    createMapOfFunc(allFuncInfo, funcByName);
-
-    propagateWritesToArrays(funcByName);
-    aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
-
-    //debug dump
-    /*for (auto &elem : declaratedArrays)
-    {
-        auto array = elem.second.first;
-        auto flag = array->GetNonDistributeFlagVal();
-        // int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
-        string flagS = "";
-        if (flag == DIST::DISTR)
-            flagS = "DISTR";
-        else if (flag == DIST::NO_DISTR)
-            flagS = "NO_DISTR";
-        else if (flag == DIST::SPF_PRIV)
-            flagS = "SPF_PRIV";
-        else if (flag == DIST::IO_PRIV)
-            flagS = "IO_PRIV";
-
-        printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
-    }*/
 }
 #undef DEBUG

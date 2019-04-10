@@ -114,7 +114,7 @@ public:
         if (fS >= L'a' && fS <= L'z')
             value[0] = L'A' + (value[0] - L'a');
         if (fS >= L'à' && fS <= L'ÿ')
-            value[0] = L'À' + (value[0] - L'ÿ');
+            value[0] = L'À' + (value[0] - L'à');
 #endif
         //TODO: convert to upper case for test between '___'
     }

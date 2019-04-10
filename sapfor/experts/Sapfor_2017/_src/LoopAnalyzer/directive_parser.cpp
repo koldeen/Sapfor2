@@ -314,9 +314,6 @@ void fillRemoteFromComment(Statement *stIn, map<pair<fillType, string>, Expressi
             else if (type == DVM_PARALLEL_ON_DIR)
                 exprList = st->expr(1);            
 
-            if (exprList)
-                exprList->unparsestdout();
-
             while (exprList)
             {
                 if (exprList->lhs()->variant() == REMOTE_ACCESS_OP || type == DVM_REMOTE_ACCESS_DIR)
@@ -400,6 +397,7 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
+
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
     {
         Statement *sData = new Statement(data);

@@ -1745,8 +1745,12 @@ void SgStatement::checkConsistence()
 
 void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStatement*> &toUpdate)
 {
-    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
+    PTR_BFND node = current_file->firstStatement()->thebif;
+    for (; node; node = node->thread)
+    {
+        SgStatement *st = BfndMapping(node);
         toUpdate[std::make_pair(st->fileName(), st->lineNumber())] = st;
+    }
 }
 
 SgStatement* SgStatement::getStatementByFileAndLine(const std::string &fName, const int lineNum)
@@ -1788,9 +1792,13 @@ void SgStatement::updateStatsByExpression()
         current_file_id = i;
         current_file = file;
 
-        for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+        PTR_BFND node = current_file->firstStatement()->thebif;
+        for (; node; node = node->thread)
+        {
+            SgStatement *st = BfndMapping(node);
             for (int z = 0; z < 3; ++z)
                 updateStatsByExpression(st, st->expr(z));
+        }
     }
 
     CurrentProject->file(save_id);

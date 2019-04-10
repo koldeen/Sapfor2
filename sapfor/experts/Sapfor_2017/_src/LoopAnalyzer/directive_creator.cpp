@@ -119,10 +119,6 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
-
-
-
-
 static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                     DIST::GraphCSR<int, double, attrType> &reducedG,
@@ -319,7 +315,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
     }
     return ok;
 }
-
 
 static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &currDist, const ParallelDirective *currParDir, vector<bool> &saveDistr, const int regionId)
 {
@@ -610,6 +605,8 @@ static string createTemplateClone(DIST::Array *templ, const vector<dist> &redist
     return itA->second;
 }
 
+void clearTemplateClonesData() { cloneCount = 0; templateClones.clear(); }
+
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
@@ -735,9 +732,13 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
             }
                         
             while ((!isSgExecutableStatement(stF->lexNext()) || stF->fileName() != string(file->filename()) || isSPF_stat(stF->lexNext())) && !isDVM_stat(stF->lexNext()))
-                stF = stF->lexNext();            
+                stF = stF->lexNext();
+            if (!isSgExecutableStatement(stF))
+                stF = stF->lexNext();
+            
             toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", templCreate)));
             toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", cloneDistr)));
+            
         }
     }
     current->setNewRedistributeRules(redistributeRules);
@@ -908,6 +909,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                                   const DIST::Arrays<int> &allArrays, const int regId,
                                   ParallelDirective *parDirective,
                                   map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
+                                  const set<string> &deprecateToMatch,
                                   bool fromRead = false)
 {
     bool ret = true;
@@ -948,6 +950,9 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 else
                     mapTo = std::to_string(values[elem.first][i].second.second);
 
+                if (deprecateToMatch.find(mapTo) != deprecateToMatch.end())
+                    return false;
+
                 if (updateOn[idx].first)
                 {
                     if (updateOn[idx].second != mapTo && !fromRead) // DIFFERENT VALUES TO MAP
@@ -970,6 +975,29 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 parDirective->on[i].first = updateOn[i].second;
                 parDirective->on[i].second = make_pair(1, 0);
                 resolved = true;
+
+                if (!parDirective->arrayRef->isTemplate())
+                {
+                    parDirective->on2[i].first = updateOn[i].second;
+                    parDirective->on2[i].second = make_pair(1, 0);
+                }
+                else
+                {
+                    auto links = parDirective->arrayRef2->GetLinksWithTemplate(regId);
+                    if (parDirective->arrayRef2->GetTemplateArray(regId) != parDirective->arrayRef)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    int found = -1;
+                    for (int z = 0; z < links.size(); ++z)
+                        if (links[z] == i)
+                            found = z;
+                    if (found == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (parDirective->on2[found].first != "*")
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    parDirective->on2[found].first = updateOn[i].second;
+                    parDirective->on2[found].second = make_pair(1, 0);
+                }
             }
         }
     }
@@ -1134,8 +1162,24 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     vector<pair<bool, string>> updateOn(parDirective->on.size());
     std::fill(updateOn.begin(), updateOn.end(), make_pair(false, ""));
 
+    set<string> deprecateToMatch;
+    int nested = ((SgForStmt*)loop)->isPerfectLoopNest();
+    SgForStmt *tmpL = (SgForStmt*)loop;
+    for (int z = 0; z < nested; ++z)
+    {
+        deprecateToMatch.insert(tmpL->symbol()->identifier());
+        tmpL = (SgForStmt*)(tmpL->lexNext());
+    }
+    auto tmpL1 = loop->controlParent();
+    while (tmpL1->variant() == FOR_NODE)
+    {
+        deprecateToMatch.insert(((SgForStmt*)tmpL1)->symbol()->identifier());
+        tmpL1 = tmpL1->controlParent();
+        if (tmpL1 == NULL)
+            break;
+    }
     //try to resolve from write operations
-    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues);
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch);
     if (!ok)
         return false;
     else

@@ -80,10 +80,26 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
-#define WITH_REMOVE 0
+#define WITH_REMOVE 1
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
+    // find not connected dimentions and deprecate them 
+    vector<int> vInGraph;
+    int err = allArrays.GetAllVertNumber(distArray, vInGraph);
+    if (err != 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (!distArray->isLoopArray())
+    {
+        for (int z = 0; z < vInGraph.size(); ++z)
+        {
+            int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
+            if (count <= 0)
+                distArray->DeprecateDimension(z);
+        }
+    }
+
     DIST::Array *templ = new DIST::Array(*distArray);
     templ->ChangeName("dvmh_temp" + std::to_string(templateCount++));
     templ->SetId(0);
@@ -97,8 +113,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
     templ->SetSizes(initTemplSize, true);
+
+    bool ifRemAll = false;
 #if WITH_REMOVE
-    templ->RemoveUnpammedDims();
+    ifRemAll = templ->RemoveUnpammedDims();
 #endif
     for (int i = 0, templIdx = 0; i < distArray->GetDimSize(); ++i)
     {
@@ -121,6 +139,18 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
 #if !WITH_REMOVE
         else
             templ->ExtendDimSize(templIdx++, make_pair(1, 1));
+#else
+        else
+        {
+            if (ifRemAll)
+            {
+                AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+                templ->DeprecateDimension(i, false);
+                if (result.first != distArray)
+                    templ->ExtendDimSize(templIdx, result.first->GetSizes()[result.second]);
+                templIdx++;
+            }
+        }
 #endif
     }
 
@@ -281,7 +311,8 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
         }
     }
 
-    dataDirectives.createDirstributionVariants(arraysToDist);
+    if (arraysToDist.size())
+        dataDirectives.createDirstributionVariants(arraysToDist);
 }
 
 
@@ -476,7 +507,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                                 }
                                 else
                                 {
-                                    __spf_printToLongBuf(bufR, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufE, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
 #endif
@@ -488,7 +519,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
 
-                if (isAllRulesEqual(rules))
+                if (isAllRulesEqualWithoutArray(rules))
                     createNewAlignRule(array, allArrays, rules[0], dataDirectives);
                 else
                     manyDistrRules.insert(make_pair(array, rules));

@@ -888,6 +888,8 @@ int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
 void TemplateDeclarationTest(SgStatement *stmt);
 int DeferredShape(SgExpression *eShape);
 void Template_Create(SgStatement *stmt);
+void Template_Delete(SgStatement *stmt);
+
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
 int ParallelLoop_Debug(SgStatement *stmt);

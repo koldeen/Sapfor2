@@ -307,9 +307,11 @@
     <ClCompile Include="..\_src\LoopAnalyzer\spf_directive_preproc.cpp" />
     <ClCompile Include="..\_src\LoopConverter\array_assign_to_loop.cpp" />
     <ClCompile Include="..\_src\LoopConverter\enddo_loop_converter.cpp" />
+    <ClCompile Include="..\_src\LoopConverter\loops_combiner.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loops_splitter.cpp" />
     <ClCompile Include="..\_src\LoopConverter\loop_transform.cpp" />
     <ClCompile Include="..\_src\LoopConverter\private_arrays_breeder.cpp" />
+    <ClCompile Include="..\_src\ParallelizationRegions\expand_extract_reg.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\ParRegions.cpp" />
     <ClCompile Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.cpp" />
     <ClCompile Include="..\_src\Predictor\Lib\adler32.c" />
@@ -516,9 +518,11 @@
     <ClInclude Include="..\_src\LoopAnalyzer\shadow.h" />
     <ClInclude Include="..\_src\LoopConverter\array_assign_to_loop.h" />
     <ClInclude Include="..\_src\LoopConverter\enddo_loop_converter.h" />
+    <ClInclude Include="..\_src\LoopConverter\loops_combiner.h" />
     <ClInclude Include="..\_src\LoopConverter\loops_splitter.h" />
     <ClInclude Include="..\_src\LoopConverter\loop_transform.h" />
     <ClInclude Include="..\_src\LoopConverter\private_arrays_breeder.h" />
+    <ClInclude Include="..\_src\ParallelizationRegions\expand_extract_reg.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\ParRegions_func.h" />
     <ClInclude Include="..\_src\ParallelizationRegions\resolve_par_reg_conflicts.h" />

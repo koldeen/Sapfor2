@@ -1,4 +1,4 @@
-#include "../Utils/leak_detector.h"
+﻿#include "../Utils/leak_detector.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -33,7 +33,7 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     // move SgStatement to attribute
     SgStatement *toAdd = new SgStatement(toAttr->variant(), NULL, toAttr->symbol(), toAttr->expr(0), toAttr->expr(1), toAttr->expr(2));
     toAdd->setlineNumber(toAttr->lineNumber());
-
+    toAdd->setLocalLineNumber(777);
 
     curr->addAttribute(variant, toAdd, sizeof(SgStatement));
     //copy comments to st
@@ -91,6 +91,16 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_printToLongBuf(message, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, 1001)); \
 } while(0)
+
+#ifdef _WIN32
+#define BAD_POSITION_FULL(NEED_PRINT, ERR_TYPE, PLACE_E, PLACE_R, BEFORE_VAR_E, BEFORE_VAR_R, BEFORE_DO_E, BEFORE_DO_R, LINE) do { \
+   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
+   wstring messageE, messageR;\
+   __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
+   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %ls %ls %ls", PLACE_R, BEFORE_VAR_R, BEFORE_DO_R); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
+} while(0)
+#endif
 
 static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
 {
@@ -160,16 +170,22 @@ static bool checkPrivate(SgStatement *st,
                 if (!defCond && !useCond)
                 {
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Переменная '%s' не используется в цикле", to_wstring(privElem->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
                 else if (!defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Переменная '%s' не изменяется в цикле", to_wstring(privElem->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
                 }
             }
@@ -177,7 +193,11 @@ static bool checkPrivate(SgStatement *st,
             {
                 if (!defCond)
                 {
-                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());                    
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "before", L"перед", "variable declaration or", L"объявлением переменных или", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
+                    BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
             }
@@ -185,7 +205,11 @@ static bool checkPrivate(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "variable declaration or", L"объявлением переменных или", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "variable declaration or", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -225,16 +249,22 @@ static bool checkReduction(SgStatement *st,
                 if (var == FOR_NODE && !defCond && !useCond)
                 {
                     __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), message, 1002));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Переменная '%s' не используется в цикле", to_wstring(setElem->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
                 if (var == FOR_NODE && !defCond && useCond)
                 {
                     __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1003));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Переменная '%s' не изменяется в цикле", to_wstring(setElem->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
                 }
             }
@@ -242,7 +272,11 @@ static bool checkReduction(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -286,9 +320,12 @@ static bool checkReduction(SgStatement *st,
                 {
                     __spf_print(1, "dimention of array '%s' is %d, but must be 1 on line %d\n", arraySymbol->identifier(), dim, attributeStatement->lineNumber());
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"dimention of array '%s' is %d, but must be 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1004));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but must be 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Размерность массива '%s' %d, а должна быть 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1004));
 
                     retVal = false;
                 }
@@ -297,9 +334,12 @@ static bool checkReduction(SgStatement *st,
                 {
                     __spf_print(1, "type of array '%s' must be INTEGER on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"type of array '%s' but must be INTEGER", to_wstring(arraySymbol->identifier()).c_str());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1005));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"type of array '%s' but must be INTEGER", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Тип массива '%s' долежен быть INTEGER", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1005));
 
                     retVal = false;
                 }
@@ -308,9 +348,12 @@ static bool checkReduction(SgStatement *st,
             {
                 __spf_print(1, "type of variable '%s' must be array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"type of variable '%s' must be array", to_wstring(arraySymbol->identifier()).c_str());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"type of variable '%s' must be array", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Типом переменной '%s' должен быть массив", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
 
                 retVal = false;
             }
@@ -350,7 +393,12 @@ static bool checkReduction(SgStatement *st,
                             // Expression can not be computed
                             __spf_print(1, "array size can't be computed on line %d\n", attributeStatement->lineNumber());
 
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"array size can't be computed", 1007));
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"array size can't be computed");
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Размер массива не может быть вычислен");
+#endif
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1007));
 
                             retVal = false;
                         }
@@ -359,9 +407,12 @@ static bool checkReduction(SgStatement *st,
                             __spf_print(1, "size of array '%s' is %d, but you enter %d on line %d\n",
                                         arraySymbol->identifier(), size, count, attributeStatement->lineNumber());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"size of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
-                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"size of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Размер массива '%s' %d, а вы вводите %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
+#endif
+                            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
 
                             retVal = false;
                         }
@@ -405,9 +456,13 @@ static bool checkShadowAcross(SgStatement *st,
             if (arraySymbol->type()->variant() != T_ARRAY)
             {
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                wstring message;
-                __spf_printToLongBuf(message, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Переменная '%s' не является массивом", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
             }
 
@@ -416,9 +471,13 @@ static bool checkShadowAcross(SgStatement *st,
             if (!notPrivCond)
             {
                 __spf_print(1, "array '%s' on line %d is private\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                wstring message;
-                __spf_printToLongBuf(message, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Массив '%s' является приватным", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                 retVal = false;
             }
             
@@ -432,19 +491,30 @@ static bool checkShadowAcross(SgStatement *st,
 
                 if (dim != arrayDisc.size())
                 {
-                    __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n", arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"dimention of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1008));
+                    __spf_print(1, "dimention of array '%s' is %d, but you enter %d on line %d\n",
+                                arraySymbol->identifier(), arrayType->dimension(), (int)arrayDisc.size(), attributeStatement->lineNumber());
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but you enter %d",
+                                         to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Размерность массива '%s' %d, а вы вводите %d",
+                                         to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
                     retVal = false;
                 }
             }
             else
             {
                 __spf_print(1, "variable '%s' is not array on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                wstring message;
-                __spf_printToLongBuf(message, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1006));
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Переменная '%s' не является массивом", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
             }
 
@@ -452,8 +522,14 @@ static bool checkShadowAcross(SgStatement *st,
             {
                 if (array.first < 0 || array.second < 0)
                 {
-                    __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());                    
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"only positive numbers are supported", 1010));
+                    __spf_print(1, "only positive numbers are supported on line %d\n", attributeStatement->lineNumber());
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"only positive numbers are supported");
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Разрешены только положительные числа");
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1010));
                     retVal = false;
                 }
             }
@@ -461,7 +537,11 @@ static bool checkShadowAcross(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -551,9 +631,13 @@ static bool checkRemote(SgStatement *st,
                 if (!notPrivCond)
                 {
                     __spf_print(1, "array '%s' is private on line %d\n", arraySymbol->identifier(), attributeStatement->lineNumber());
-                    wstring message;
-                    __spf_printToLongBuf(message, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
-                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1009));
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Массив '%s' является приватным", to_wstring(arraySymbol->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                     retVal = false;
                 }
             }
@@ -594,8 +678,14 @@ static bool checkRemote(SgStatement *st,
 
                             if (retVal && forVarsCount > 1 || forVar.second > 1)
                             {
-                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());                                
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: too many DO variables", 1001));
+                                __spf_print(1, "bad directive expression: too many DO variables on line %d\n", attributeStatement->lineNumber());
+
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"bad directive expression: too many DO variables");
+#ifdef _WIN32
+                                __spf_printToLongBuf(messageR, L"Неверное выражение: слишком много переменных цикла");
+#endif
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
                             }
 
@@ -629,8 +719,14 @@ static bool checkRemote(SgStatement *st,
 
                             if (!isRemoteSubTreeCond)
                             {
-                                __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber());                                
-                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: only a * i + b", 1001));
+                                __spf_print(1, "bad directive expression: only a * i + b on line %d\n", attributeStatement->lineNumber()); 
+
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"bad directive expression: only a * i + b");
+#ifdef _WIN32
+                                __spf_printToLongBuf(messageR, L"Неверное выражение: возможно только вида a * i + b");
+#endif
+                                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
                             }
                         }
@@ -656,16 +752,24 @@ static bool checkRemote(SgStatement *st,
             if (!cond)
             {
                 __spf_print(1, "no such expression '%s' on line %d\n", remElem.second->unparse(), attributeStatement->lineNumber());
-                wstring message;
-                __spf_printToLongBuf(message, L"no such expression '%s' on loop", to_wstring(remElem.second->unparse()).c_str());
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1111));
+
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"no such expression '%s' on loop", to_wstring(remElem.second->unparse()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Нет такого выражения '%s' в цикле", to_wstring(remElem.second->unparse()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1111));
                 retVal = false;
             }
         }
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "before", L"перед", "", L"", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "before", "", "DO statement", attributeStatement->lineNumber());
+#endif
         retVal = false;
     }
 
@@ -707,10 +811,14 @@ static bool checkParallelRegions(SgStatement *st,
                                 __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated on line %d on line %d\n",
                                             identSymbol->identifier(), iterator->lineNumber(), st->lineNumber());
 
-                                wstring message;
-                                __spf_printToLongBuf(message, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
                                                      to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
-                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1031));
+#ifdef _WIN32
+                                __spf_printToLongBuf(messageR, L"Неверное имя области: имя '%s' уже объявлено на строке %d",
+                                                     to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
+#endif
+                                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1031));
 
                                 retVal = false;
                             }
@@ -733,10 +841,14 @@ static bool checkParallelRegions(SgStatement *st,
                             __spf_print(1, "wrong parallel region identifier: variable '%s' was declarated in common block '%s' on line %d\n",
                                         identSymbol->identifier(), commonBlockPair.first.c_str(), st->lineNumber());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
-                            messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1032));
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Неверное имя области: имя '%s' уже объявлено в common-блоке '%s'",
+                                                 to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
+#endif
+                            messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1032));
 
                             retVal = false;
                         }
@@ -757,10 +869,14 @@ static bool checkParallelRegions(SgStatement *st,
                     __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR' on line %d\n",
                                 identSymbol->identifier(), st->lineNumber());
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
                                          to_wstring(identSymbol->identifier()).c_str());
-                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR', а была получена 'SPF PARALLEL_REG_DIR'",
+                                         to_wstring(identSymbol->identifier()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                     retVal = false;
                     break;
@@ -774,10 +890,14 @@ static bool checkParallelRegions(SgStatement *st,
                         __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope on line %d\n",
                                     identSymbol->identifier(), st->lineNumber());
 
-                        wstring message;
-                        __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
                                              to_wstring(identSymbol->identifier()).c_str());
-                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+#ifdef _WIN32
+                        __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'",
+                                             to_wstring(identSymbol->identifier()).c_str());
+#endif
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                         retVal = false;
                     }
@@ -790,9 +910,14 @@ static bool checkParallelRegions(SgStatement *st,
             {
                 __spf_print(1, "bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' on line %d\n", identSymbol->identifier(), st->lineNumber());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'", to_wstring(identSymbol->identifier()).c_str());
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1001));
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'",
+                                     to_wstring(identSymbol->identifier()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'",
+                                     to_wstring(identSymbol->identifier()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                 retVal = false;
             }
@@ -812,7 +937,13 @@ static bool checkParallelRegions(SgStatement *st,
                 {
                     // intersection
                     __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
-                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'", 1001));
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR', а была получена 'SPF END PARALLEL_REG_DIR'");
+#endif
+                    messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                     retVal = false;
                     break;
@@ -824,7 +955,13 @@ static bool checkParallelRegions(SgStatement *st,
                     if (iterator->controlParent() != st->controlParent())
                     {
                         __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope on line %d\n", st->lineNumber());
-                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope", 1001));
+  
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope");
+#ifdef _WIN32
+                        __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR' в той же области видимости");
+#endif
+                        messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                         retVal = false;
                     }
@@ -836,7 +973,13 @@ static bool checkParallelRegions(SgStatement *st,
             if (!found && retVal)
             {
                 __spf_print(1, "bad directive position: expected 'SPF PARALLEL_REG_DIR' on line %d\n", st->lineNumber());
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), L"bad directive position: expected 'SPF PARALLEL_REG_DIR'", 1001));
+   
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR'");
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR'");
+#endif
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
                 retVal = false;
             }
@@ -844,15 +987,41 @@ static bool checkParallelRegions(SgStatement *st,
     }
     else
     {
+#ifdef _WIN32
+        BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "all DATA statements", L"всех операторов DATA", st->lineNumber());
+#else
         BAD_POSITION(1, ERROR, "after", "", "all DATA statements", st->lineNumber());
+#endif
         retVal = false;
     }
 
     return retVal;
 }
 
+static inline void addSPFtoAttr(SgStatement *st, const string &currFile)
+{
+    bool cond = false;
+    SgStatement *iterator = st;
+    do
+    {
+        SgStatement *prev = iterator->lexPrev();
+        const int prevVar = prev->variant();
+        cond = (isSPF_comment(prevVar) && prevVar != SPF_END_PARALLEL_REG_DIR);
+        if (cond)
+        {
+            addToattribute(prev, st, prevVar);
+
+            if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
+                prev->deleteStmt();
+            else
+                iterator = prev;
+        }
+    } while (cond);
+}
+
 static bool checkFissionPrivatesExpansion(SgStatement *st,
                                           SgStatement *attributeStatement,
+                                          const string &currFile,
                                           vector<Messages> &messagesForFile,
                                           bool checkVars = false)
 {
@@ -865,23 +1034,37 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
         if (checkVars && !vars.size())
         {
             __spf_print(1, "bad directive expression: expected list of variables on line %d\n", attributeStatement->lineNumber());
-            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), L"bad directive expression: expected list of variables", 1043));
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"bad directive expression: expected list of variables");
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается список переменных");
+#endif
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
 
             retVal = false;
         }
 
         if (vars.size())
         {
+            // move next SPF directives to atributes
+            for (auto s = st; s != st->lastNodeOfStmt()->lexNext(); s = s->lexNext())
+                addSPFtoAttr(s, currFile);
+
             SgForStmt *forSt = (SgForStmt*)st;
             if (vars.size() > forSt->isPerfectLoopNest())
             {
                 __spf_print(1, "bad directive expression: expected %d nested loops on line %d but got %d on line %d\n",
                             (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest(), st->lineNumber());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"bad directive expression: expected %d nested loops line %d but got %d",
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"bad directive expression: expected %d nested loops on line %d but got %d",
                                      (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
-                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), message, 1043));
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается %d тесновложенных циклов на строке %d, но их всего %d",
+                                     (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
+#endif
+                messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1043));
 
                 retVal = false;
             }
@@ -895,10 +1078,14 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_print(1, "bad directive expression: expected variable '%s' at %d position on line %d\n",
                             forSt->doName()->identifier(), i + 1, attributeStatement->lineNumber());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"bad directive expression: expected variable '%s' at %d position\n",
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"bad directive expression: expected variable '%s' at %d position",
                                      to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), message, 1043));
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается переменная '%s' на позиции %d",
+                                     to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
 
                 retVal = false;
             }
@@ -957,23 +1144,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
     if (isSPF_comment(st->variant()))
         return retVal;
 
-    bool cond = false;
-    SgStatement *iterator = st;
-    do
-    {
-        SgStatement *prev = iterator->lexPrev();
-        const int prevVar = prev->variant();
-        cond = (isSPF_comment(prev->variant()) && prevVar != SPF_END_PARALLEL_REG_DIR);
-        if (cond)
-        {
-            addToattribute(prev, st, prevVar);
-
-            if ((prev->fileName() == currFile) && prevVar != SPF_PARALLEL_REG_DIR)
-                prev->deleteStmt();
-            else
-                iterator = prev;
-        }
-    } while (cond);
+    addSPFtoAttr(st, currFile);
 
     for (int i = 0; i < st->numberOfAttributes(); ++i)
     {
@@ -1037,7 +1208,11 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 const int prevVar = prev->variant();
                 if (prevVar != PROC_HEDR && prevVar != FUNC_HEDR)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "function statements", L"заголовка функции", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "after", "", "function statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
             }
@@ -1046,22 +1221,30 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             {
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "once", L"единожды", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile, true);
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile, true);
             }
             // PRIVATES_EXPANSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
             {
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "once", L"единожды", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
                     BAD_POSITION(1, ERROR, "once", "before", "DO statement", attributeStatement->lineNumber());
+#endif
                     retVal = false;
                 }
                 else
-                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, messagesForFile);
+                    retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
             }
         }
     }
@@ -1216,7 +1399,7 @@ static void OptimizeTree(SgExpression *exp)
     }
 }
 
-SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
+static SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt) 
 {
     set<string> uniqAttrs;
     SgStatement *toAddExp = NULL;
@@ -1246,11 +1429,24 @@ SgStatement* GetOneAttribute(const vector<SgStatement*> &sameAtt)
     return toAddExp;
 }
 
+static vector<SgStatement*> filterUserSpf(const vector<SgStatement*> &toFilter)
+{
+    vector<SgStatement*> ret;
+    for (auto &elem : toFilter)
+        if (elem->localLineNumber() == 777)
+            ret.push_back(elem);
+
+    return ret;
+}
+
 void revertion_spf_dirs(SgFile *file,
                         map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays,
                         map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt)
 {
     const string fileName(file->filename());
+
+    //set SPF_PRIVATE for arrays
+    /*
     for (auto &allStats : declaratedArraysSt)
     {
         if (allStats.first->fileName() == fileName)
@@ -1289,11 +1485,9 @@ void revertion_spf_dirs(SgFile *file,
             if (added)
                 allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
         }
-    }
+    } */
 
-    int funcNum = file->numberOfFunctions();
-
-    for (int i = 0; i < funcNum; i++) 
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
@@ -1318,7 +1512,7 @@ void revertion_spf_dirs(SgFile *file,
             if (atrib && st->fileName() == fileName)
             {
                 //check previosly directives SPF_ANALYSIS
-                vector<SgStatement*> sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR});
+                vector<SgStatement*> sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_ANALYSIS_DIR}));
 
                 if (sameAtt.size())
                 {
@@ -1330,7 +1524,7 @@ void revertion_spf_dirs(SgFile *file,
                 //check previosly directives SPF_PARALLEL
                 if (sameAtt.size())
                 {
-                    sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR});
+                    sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_PARALLEL_DIR}));
                     for (auto &elem : sameAtt)
                     {
                         if (toAdd)
@@ -1340,12 +1534,12 @@ void revertion_spf_dirs(SgFile *file,
                 }
 
                 //remaining directives
-                sameAtt = getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME});
+                sameAtt = filterUserSpf(getAttributes<SgStatement*, SgStatement*>(st, set<int>{SPF_TRANSFORM_DIR, SPF_NOINLINE_OP, SPF_REGION_NAME}));
                 if (sameAtt.size())
                 {
                     for (auto &elem : sameAtt)
                     {
-                        SgStatement *data = (SgStatement *)atrib->getAttributeData(); // SgStatement * - statement was hidden
+                        SgStatement *data = (SgStatement *)atrib->getAttributeData();
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)
@@ -1415,9 +1609,12 @@ void addAcrossToLoops(LoopGraph *topLoop,
             if (consoleMode)
                 printf("  add across dependencies by array '%s' for loop on line %d\n", arrayS->identifier(), topLoop->lineNum);
 
-            wstring message;
-            __spf_printToLongBuf(message, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
-            currMessages.push_back(Messages(NOTE, topLoop->lineNum, message, 3001));
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, L"Добавлена across-зависимость к массиву '%s' в цикле", to_wstring(arrayS->identifier()).c_str());
+#endif
+            currMessages.push_back(Messages(NOTE, topLoop->lineNum, messageR, messageE, 3001));
 
             if (k != acrossToAdd.size() - 1)
             {
@@ -1494,9 +1691,12 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 if (consoleMode)
                     printf("  add private scalar '%s' for loop on line %d\n", identifier.c_str(), topLoop->lineNum);
 
-                wstring message;
-                __spf_printToLongBuf(message, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
-                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3002));
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Добавлен приватный скаляр '%s' к циклу на строке %d", to_wstring(identifier).c_str(), topLoop->lineNum);
+#endif
+                currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3002));
 
                 if (k != addForCurrLoop.size() - 1)
                 {
@@ -1615,19 +1815,26 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     if (consoleMode)
                         printf("  add reduction scalar '%s' with operation '%s' to loop on line %d\n", addForCurrLoop[k]->varin->symbol()->identifier(), oper, topLoop->lineNum);
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
-                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), message, 3003));
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Добавлена редукционная переменная '%s' с типом операции '%s' к циклу на строке %d",
+                                         to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
+#endif
+                    currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3003));
                 }
                 else
                 {
                     if (consoleMode)
                         printf("  unknown type of reduction scalar '%s' on line %d\n", addForCurrLoop[k]->varin->symbol()->identifier(), addForCurrLoop[k]->stmtin->lineNumber());
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
-                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), message, 3004));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Неизвестный тип редукционной операции по скаляру '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
+#endif
+                    currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3004));
 
                     topLoop->hasUnknownScalarDep = true;
                     topLoop->linesOfScalarDep.push_back(addForCurrLoop[k]->stmtin->lineNumber());
