@@ -294,6 +294,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
 
                             // inconsistent -> may be remote will add later...
+                            // or SINGLE position
                             if (minShift == 9999999 && maxShift == -9999999)
                                 minShift = maxShift = 0;
 
@@ -301,8 +302,11 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             {
                                 if (minShift == 0)
                                 {
-                                    shift[k].first = -coeffs.second[k].first;
-                                    shift[k].second = -coeffs.second[k].second;
+                                    if (parallelOnRule[currRuleOn.first].first != "SINGLE")
+                                    {
+                                        shift[k].first = -coeffs.second[k].first;
+                                        shift[k].second = -coeffs.second[k].second;
+                                    }
                                 }
                                 else
                                 {
@@ -402,6 +406,16 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
         for (int i = 0; i < ruleForRef.size(); ++i)
             if (get<0>(ruleForRef[i]))
                 on_ext[get<1>(ruleForRef[i])] = on[i];        
+    }
+
+    //replace single dim to key word 'SINGLE'
+    for (int i = 0; i < on_ext.size(); ++i)
+    {
+        if (on_ext[i].first != "*")
+        {
+            if (std::find(parallel.begin(), parallel.end(), on_ext[i].first) == parallel.end())
+                on_ext[i].first = "SINGLE";
+        }
     }
 
     string ret = "";

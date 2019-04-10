@@ -197,11 +197,16 @@ static bool isDone(const int curr_regime)
 }
 
 static void updateStatsExprs(const int id, const string &file)
-{
+{    
+    auto node1 = current_file->firstStatement();
+    for (; node1; node1 = node1->lexNext())
+        sgStats[node1->thebif] = make_pair(file, id);
+    
     auto node = current_file->firstStatement()->thebif;
     for (; node; node = node->thread)
-        sgStats[node] = make_pair(file, id);
-    
+        if (sgStats.find(node) == sgStats.end())
+            sgStats[node] = make_pair(file, id);
+
     for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
@@ -469,9 +474,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 set<string> distrArrays;
                 for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetShortName());
+                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
                 for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
+                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
 
                 const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
                 const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
@@ -503,9 +508,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 set<string> distrArrays;
                 for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetShortName());
+                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
                 for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
+                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
 
                 insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
             }
