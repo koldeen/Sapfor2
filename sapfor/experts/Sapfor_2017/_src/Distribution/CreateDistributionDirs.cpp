@@ -90,7 +90,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     if (err != 0)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    if (!distArray->isLoopArray())
+    if (!distArray->IsLoopArray())
     {
         for (int z = 0; z < vInGraph.size(); ++z)
         {
@@ -105,7 +105,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     templ->SetId(0);
     templ->SetTemplateFlag(true);
 
-    if (distArray->isLoopArray())
+    if (distArray->IsLoopArray())
         for (int z = 0; z < templ->GetDimSize(); ++z)
             templ->SetMappedDim(z);
 
@@ -129,7 +129,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         set<int> wasDone;
         reducedG.FindLinkWithMaxDim(vert, allArrays, result, wasDone);
 
-        if ((distArray->IsDimMapped(i) || distArray->isLoopArray()) && !distArray->IsDimDepracated(i))
+        if ((distArray->IsDimMapped(i) || distArray->IsLoopArray()) && !distArray->IsDimDepracated(i))
         {
             AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
             if (result.first != distArray)
@@ -272,7 +272,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
         for (auto &realArray : realRefs)
         {
-            hasTemplates = hasTemplates || realArray->isTemplate();
+            hasTemplates = hasTemplates || realArray->IsTemplate();
             auto it = trees.find(realArray);
             if (it == trees.end())
                 trees.insert(it, make_pair(realArray, ++countTrees));
@@ -305,7 +305,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
             for (auto &realArray : realRefs)
             {
-                if (realArray->isTemplate())
+                if (realArray->IsTemplate())
                     arraysToDist.push_back(realArray);
             }
         }
@@ -396,10 +396,12 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
         if (alignWith->GetShortName().find("dvmh") != string::npos)
         {
             pair<int, int> oldSizes = alignArray->GetSizes()[z];
-
-            oldSizes.first = oldSizes.first * rule.first + rule.second;
-            oldSizes.second = oldSizes.second * rule.first + rule.second;
-            alignWith->ExtendDimSize(alignToDim, oldSizes);
+            if (!(oldSizes.first == oldSizes.second && oldSizes.first == -1))
+            {
+                oldSizes.first = oldSizes.first * rule.first + rule.second;
+                oldSizes.second = oldSizes.second * rule.first + rule.second;
+                alignWith->ExtendDimSize(alignToDim, oldSizes);
+            }
         }
     }
     dataDirectives.alignRules.push_back(newRule);
@@ -423,7 +425,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
     if (dataDirectives.distrRules.size() == 0)
     {
         for (auto &array : arrays)
-            if (array->isTemplate())
+            if (array->IsTemplate())
                 distArrays.insert(array);
 
         if (distArrays.size() == 0)

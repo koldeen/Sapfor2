@@ -553,7 +553,7 @@ bool addToDistributionGraph(const LoopGraph *loopInfo, const string &inFunction)
         }
     }
     loopArray->ExtendDimSize(0, make_pair(loopInfo->startVal, loopInfo->endVal));
-    loopArray->setLoopArray(true);
+    loopArray->SetLoopArray(true);
 
     allArrays.AddArrayToGraph(loopArray);
     return true;
@@ -964,7 +964,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
 
     for (auto &elem : checked)
     {
-        if (elem->isAllDeprecated())
+        if (elem->IsAllDeprecated())
         {
             std::wstring bufw, bufR;
             __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
@@ -1160,7 +1160,7 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
     int count = 0;
     for (auto &array : arrays)
     {
-        if (!array->isLoopArray() && !array->isTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
+        if (!array->IsLoopArray() && !array->IsTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
             count++;
     }
     if (count <= 1)

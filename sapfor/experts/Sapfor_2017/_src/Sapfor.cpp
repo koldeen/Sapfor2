@@ -280,6 +280,41 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
     }
 }
 
+static bool isNotNullIntersection(const set<DIST::Array*> &first, const set<DIST::Array*> &second)
+{
+    for (auto &elem1 : first)
+        if (second.find(elem1) != second.end())
+            return true;
+    
+    return false;
+}
+
+static set<string> fillDistributedArrays(const DataDirective &dataDirectives)
+{
+    set<string> distrArrays;
+    set<DIST::Array*> distrArraysD;
+    set<DIST::Array*> distrArraysAdded;
+
+    for (int z = 0; z < dataDirectives.distrRules.size(); ++z)    
+        distrArraysD.insert(dataDirectives.distrRules[z].first);
+    for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
+        distrArraysD.insert(dataDirectives.alignRules[z].alignArray);
+
+    for (auto &elem : tableOfUniqNamesByArray)
+    {
+        set<DIST::Array*> realRefs;
+        getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
+        if (isNotNullIntersection(realRefs, distrArraysD))
+            distrArraysAdded.insert(elem.first);
+    }
+
+    for (auto &elem : distrArraysD)
+        distrArrays.insert(elem->GetName());
+    for (auto &elem : distrArraysAdded)
+        distrArrays.insert(elem->GetName());
+    return distrArrays;
+}
+
 pair<string, int> currProcessing; // file and line
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
@@ -472,12 +507,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
                 DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
 
-                set<string> distrArrays;
-                for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
-                for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
-
+                const set<string> distrArrays = fillDistributedArrays(dataDirectives);                
                 const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
                 const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
                 const vector<string> alignRules = dataDirectives.GenAlignsRules();
@@ -506,12 +536,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 DataDirective &dataDirectives = currReg->GetDataDirToModify();
                 DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
 
-                set<string> distrArrays;
-                for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
-                for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
-
+                const set<string> distrArrays = fillDistributedArrays(dataDirectives);                
                 insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
             }
         }
@@ -1159,7 +1184,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             for (auto &arrayP : dataDirectives.GenAlignsRules(NULL))
             {
                 auto array = arrayP.alignArray;
-                if (array->isLoopArray() || array->isTemplate())
+                if (array->IsLoopArray() || array->IsTemplate())
                     continue;
                 if (array->GetLocation().first == DIST::l_COMMON)
                 {
@@ -1336,7 +1361,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
         for (auto &loopByFile : loopGraph)
             for (auto &loop : loopByFile.second)
-                loop->removeNonDistrArrays();
+                loop->removeNonDistrArrays();            
 
         for (auto &funcByFile : allFuncInfo)
             for (auto &func : funcByFile.second)
@@ -1727,6 +1752,18 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                     if (loop->directive)
                         loop->directive->cloneOfTemplate = "";
             clearTemplateClonesData();
+            for (int z = 0; z < parallelRegions.size(); ++z)
+            {
+                const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();
+                const vector<int> &currentVariant = parallelRegions[z]->GetCurrentVariant();
+               
+                auto &tmp = dataDirectives.distrRules;
+                for (int z1 = 0; z1 < currentVariant.size(); ++z1)
+                {
+                    if (tmp[z1].first->IsTemplate())
+                        tmp[z1].first->ClearTemplateClones();
+                }
+            }
         }
     }
         break;

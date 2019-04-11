@@ -365,7 +365,7 @@ static inline pair<string, SgStatement*> genTemplateDelc(DIST::Array *templ, SgF
     string templDecl = (module == NULL) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
     SgStatement *templDeclSt = new SgStatement(HPF_TEMPLATE_STAT);
 
-    if (module && templ->isTemplate() && !templ->isLoopArray())
+    if (module && templ->IsTemplate() && !templ->IsLoopArray())
         templ->ChangeLocation(DIST::l_MODULE, module->symbol()->identifier());
     
     const vector<pair<int, int>> &sizes = templ->GetSizes();
@@ -373,7 +373,7 @@ static inline pair<string, SgStatement*> genTemplateDelc(DIST::Array *templ, SgF
         
     for (auto &size : sizes)
     {
-        if (templ->isLoopArray())
+        if (templ->IsLoopArray())
         {
             // TODO: move gen sizes to TEMPLATE CREATE directive immediately before parallel loop
             bool ok = true;
@@ -705,7 +705,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
             const set<DIST::Array*> &arrays = allArrays.GetArrays();
             for (auto &array : arrays)
             {
-                if (array->isTemplate() && !array->isLoopArray() && array->GetLocation().first != DIST::l_MODULE)
+                if (array->IsTemplate() && !array->IsLoopArray() && array->GetLocation().first != DIST::l_MODULE)
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     string templDecl = genTemplateDelc(array, file, NULL, true).first;
@@ -777,7 +777,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     const set<DIST::Array*> &arrays = allArrays.GetArrays();
     set<DIST::Array*> loopArrays;
     for (auto &array : arrays)
-        if (array->isTemplate() && array->isLoopArray())
+        if (array->IsTemplate() && array->IsLoopArray())
             loopArrays.insert(array);
     
     if (loopArrays.size())
@@ -892,6 +892,17 @@ static inline void addStringToComments(const vector<string> &toInsert, map<strin
     }
 }
 
+static string getFullArrayName(SgSymbol *symb)
+{
+    string fullArrayName = "";
+    if (symb->type()->variant() == T_ARRAY)
+    {
+        auto uniqKey = getFromUniqTable(symb);
+        fullArrayName = getShortName(uniqKey);
+    }
+    return fullArrayName;
+}
+
 void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDirective &dataDir, 
                               const set<string> &distrArrays, const vector<string> &distrRules, 
                               const vector<vector<dist>> &distrRulesSt,
@@ -991,9 +1002,8 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                     if (varExp->variant() == ARRAY_REF)
                     {
                         SgSymbol *currSymb = OriginalSymbol(varExp->symbol());
-                        auto uniqKey = getFromUniqTable(currSymb);
-                        const string fullArrayName = getShortName(uniqKey);
-
+                        const string fullArrayName = getFullArrayName(currSymb);
+                        
                         if (distrArrays.find(fullArrayName) != distrArrays.end())
                         {
                             const vector<SgStatement*> &allocatableStmtsCopy = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ALLOCATE_STMT });
@@ -1291,11 +1301,11 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                     if (varList->lhs()->variant() == ARRAY_REF)
                     {
                         SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
-                        auto uniqKey = getFromUniqTable(currSymb);
-                        const string fullArrayName = getShortName(uniqKey);
+                        const string fullArrayName = getFullArrayName(currSymb);
 
                         if (distrArrays.find(fullArrayName) != distrArrays.end())
                         {
+                            auto uniqKey = getFromUniqTable(currSymb);
                             auto itArr = declaratedArrays.find(uniqKey);
                             if (itArr != declaratedArrays.end())                                
                                 declaratedDistrArrays.insert(itArr->second.first);

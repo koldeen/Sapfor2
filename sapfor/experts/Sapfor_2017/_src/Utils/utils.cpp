@@ -695,7 +695,7 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
     vector<int> retVal(from->GetDimSize());
     std::fill(retVal.begin(), retVal.end(), -1);
 
-    if (to->isTemplate())
+    if (to->IsTemplate())
     {
         if (to != from->GetTemplateArray(regionId))
             return retVal;

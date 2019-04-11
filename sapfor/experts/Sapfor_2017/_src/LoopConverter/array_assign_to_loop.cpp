@@ -65,10 +65,10 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
     if (IS_ALLOCATABLE(symb) && consistInAllocates == 0)
         return false;
 
+    bool symbFound = false;
     if (consistInAllocates == 0)
     {
         const string toFind = string(symb->identifier());
-
         for (SgExpression *ex = decl->expr(0); ex && (alloc == NULL); ex = ex->rhs())
         {
             if (ex->lhs()->variant() == ASSGN_OP)
@@ -77,11 +77,26 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
                     checkAlloc(ex->lhs(), alloc, toFind);
             }
             else if (ex->lhs() && ex->lhs()->symbol())
+            {
+                symbFound |= (ex->lhs()->symbol()->identifier() == toFind);
                 checkAlloc(ex, alloc, toFind);
+            }
         }
     }
 
-    if (alloc == NULL)
+    if (symbFound && alloc == NULL)
+    {
+        for (SgExpression *ex = decl->expr(2); ex; ex = ex->rhs())
+        {
+            if (ex->lhs() && ex->lhs()->variant() == DIMENSION_OP)
+            {
+                alloc = ex->lhs()->lhs();
+                break;
+            }
+        }
+    }
+
+    if (alloc == NULL)        
         return false;
     
     for ( ; alloc; alloc = alloc->rhs())

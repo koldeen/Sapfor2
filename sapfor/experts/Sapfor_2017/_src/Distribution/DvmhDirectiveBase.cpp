@@ -383,7 +383,7 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     
     auto on_ext = on;
     //replace to template align ::on
-    if (arrayRef->isTemplate() == false)
+    if (arrayRef->IsTemplate() == false)
     {
         vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
             getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);

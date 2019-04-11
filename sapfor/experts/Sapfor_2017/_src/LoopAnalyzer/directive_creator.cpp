@@ -323,7 +323,7 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
     DIST::Array *templArray = currDist.first;
 
     //return true if need to skeep
-    if (parallelOn->isTemplate())
+    if (parallelOn->IsTemplate())
     {
         if (parallelOn != templArray)
             return true;
@@ -337,7 +337,7 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
     bool conflict = false;
     
     vector<int> linkWithTempl;
-    if (parallelOn->isTemplate())
+    if (parallelOn->IsTemplate())
         for (int i = 0; i < templArray->GetDimSize(); ++i)
             linkWithTempl.push_back(i);
     else
@@ -579,6 +579,7 @@ static int cloneCount = 0;
 static map<pair<string, string>, map<pair<DIST::Array*, vector<dist>>, string>> templateClones;
 static string createTemplateClone(DIST::Array *templ, const vector<dist> &redistr, SgFile *file, SgStatement *currLoop, bool &needToInsert)
 {
+    string TODO = templ->AddTemplateClone(redistr);
     string ret = "dvmh_temp_r";
     needToInsert = false;
 
@@ -976,7 +977,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 parDirective->on[i].second = make_pair(1, 0);
                 resolved = true;
 
-                if (!parDirective->arrayRef->isTemplate())
+                if (!parDirective->arrayRef->IsTemplate())
                 {
                     parDirective->on2[i].first = updateOn[i].second;
                     parDirective->on2[i].second = make_pair(1, 0);

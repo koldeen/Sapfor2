@@ -519,7 +519,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         DIST::Array *arrayRefOnDir = THIRD(under_dvm_dir)->arrayRef;
         set<DIST::Array*> realRefArrayOnDir;
 
-        if (!arrayRefOnDir->isTemplate())
+        if (!arrayRefOnDir->IsTemplate())
         {
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
             if (realRefArrayOnDir.size() != 1)

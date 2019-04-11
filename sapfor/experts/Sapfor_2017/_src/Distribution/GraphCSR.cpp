@@ -459,7 +459,7 @@ namespace Distribution
                 Array *tmp = allArrays.GetArrayByVertex(globalIdx[v1]);
                 if (tmp)
                 {
-                    if (tmp->isTemplate())
+                    if (tmp->IsTemplate())
                     {
                         found = true;
                         if (increaseLink)
@@ -520,7 +520,7 @@ namespace Distribution
             Array *tmp = allArrays.GetArrayByVertex(globalIdx[currV]);
             if (tmp)
             {
-                if (tmp->isTemplate())
+                if (tmp->IsTemplate())
                 {
                     wasFound = true;
 
@@ -1571,7 +1571,7 @@ namespace Distribution
             return err;
 
         rules.resize(arrayVerts.size());
-        if (inputArray->isTemplate())
+        if (inputArray->IsTemplate())
         {
             std::vector<vType> vertsInGraph;
             allArrays.GetAllVertNumber(inputArray, vertsInGraph);
