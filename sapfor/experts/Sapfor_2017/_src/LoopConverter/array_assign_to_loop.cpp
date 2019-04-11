@@ -196,6 +196,11 @@ static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, Sg
 static bool isNonDistrArray(SgSymbol *symb)
 {
     SgStatement *decl = declaratedInStmt(symb);
+
+    SgType *type = symb->type();
+    if (type && type->variant() == T_STRING)
+        return false;
+
     DIST::Array *array = getArrayFromDeclarated(decl, symb->identifier());
     checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);    
     return array->GetNonDistributeFlag();    

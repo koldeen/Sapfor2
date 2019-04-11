@@ -20,6 +20,7 @@
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
+#include "ParallelizationRegions/expand_extract_reg.h"
 
 #include "Distribution/Distribution.h"
 #include "Distribution/GraphCSR.h"
@@ -53,6 +54,7 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 #include "Utils/utils.h"
+#include "LoopAnalyzer/directive_creator.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -195,9 +197,16 @@ static bool isDone(const int curr_regime)
 }
 
 static void updateStatsExprs(const int id, const string &file)
-{
-    for (SgStatement *st = current_file->firstStatement(); st; st = st->lexNext())
-        sgStats[st->thebif] = make_pair(file, id);
+{    
+    auto node1 = current_file->firstStatement();
+    for (; node1; node1 = node1->lexNext())
+        sgStats[node1->thebif] = make_pair(file, id);
+    
+    auto node = current_file->firstStatement()->thebif;
+    for (; node; node = node->thread)
+        if (sgStats.find(node) == sgStats.end())
+            sgStats[node] = make_pair(file, id);
+
     for (SgExpression *ex = current_file->firstExpression(); ex; ex = ex->nextInExprTable())
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
@@ -453,13 +462,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = 0;
-                        
-            //clear shadow specs
-            if (extract)
-            {
-                for (auto &array : declaratedArrays)
-                    array.second.first->ClearShadowSpecs();
-            }
 
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
@@ -472,9 +474,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 set<string> distrArrays;
                 for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetShortName());
+                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
                 for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
+                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
 
                 const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
                 const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
@@ -485,8 +487,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                                          arrayLinksByFuncCalls, currReg->GetId());
             }
 
-            if (curr_regime == EXTRACT_PARALLEL_DIRS)
+            if (extract)
+            {
                 createdDirectives[file_name].clear();
+
+                //clear shadow specs
+                for (auto &array : declaratedArrays)
+                    array.second.first->ClearShadowSpecs();
+            }
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
         {
@@ -500,9 +508,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 set<string> distrArrays;
                 for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.distrRules[z].first->GetShortName());
+                    distrArrays.insert(dataDirectives.distrRules[z].first->GetName());
                 for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
-                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetShortName());
+                    distrArrays.insert(dataDirectives.alignRules[z].alignArray->GetName());
 
                 insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
             }
@@ -781,11 +789,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
+#if RELEASE_CANDIDATE
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
+#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -1236,6 +1246,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (error)
             internalExit = 1;
     }
+    else if (curr_regime == EXPAND_EXTRACT_PAR_REGION)
+    {
+        bool error = expandExtractReg(std::get<0>(inData),
+                                      std::get<1>(inData),
+                                      std::get<2>(inData),
+                                      parallelRegions,
+                                      getObjectForFileFromMap(std::get<0>(inData).c_str(), SPF_messages),
+                                      !std::get<3>(inData));
+
+        if (error)
+            internalExit = 1;
+    }
     else if (curr_regime == LOOP_GRAPH)
     {
         if (keepFiles)
@@ -1674,18 +1696,19 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 
-            if (!folderName && !consoleMode || predictOn)
-                runAnalysis(*project, PREDICT_SCHEME, false);
+            //TODO: need to rewrite this to new algo 
+            /*if (!folderName && !consoleMode || predictOn)
+                runAnalysis(*project, PREDICT_SCHEME, false); */
 
             if (folderName || consoleMode)
                 runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
-
+            
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);
             runPass(CLEAR_SPF_DIRS, proj_name, folderName);
             runPass(RESTORE_LOOP_FROM_ASSIGN_BACK, proj_name, folderName);
-                        
+
             //clear shadow grouping
             for (auto &funcbyFile : allFuncInfo)
             {
@@ -1697,6 +1720,13 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                     func->allShadowNodes.clear();
                 }
             }
+
+            //clear template clones
+            for (auto &loopByFile : loopGraph)
+                for (auto &loop : loopByFile.second)
+                    if (loop->directive)
+                        loop->directive->cloneOfTemplate = "";
+            clearTemplateClonesData();
         }
     }
         break;

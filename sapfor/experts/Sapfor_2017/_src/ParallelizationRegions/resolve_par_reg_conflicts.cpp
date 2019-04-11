@@ -468,9 +468,14 @@ bool checkRegions(const vector<ParallelRegion*> &regions,
                         {
                             __spf_print(1, "parallel region '%s' is included in file '%s' on line %d\n", region->GetName().c_str(),
                                         fileLines.first.c_str(), lines2.lines.first);
-                            wstring message;
-                            __spf_printToLongBuf(message, L"parallel region '%s' is included in file '%s'", to_wstring(region->GetName()).c_str(), to_wstring(fileLines.first).c_str());
-                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines2.lines.first, message, 1033));
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"parallel region '%s' is included in file '%s'",
+                                                 to_wstring(region->GetName()).c_str(), to_wstring(fileLines.first).c_str());
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Область распараллеливания '%s' включает саму себя в файле '%s'",
+                                                 to_wstring(region->GetName()).c_str(), to_wstring(fileLines.first).c_str());
+#endif
+                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines2.lines.first, messageR, messageE, 1033));
                             noError = false;
                         }
                     }
@@ -495,9 +500,13 @@ bool checkRegions(const vector<ParallelRegion*> &regions,
                         {
                             __spf_print(1, "parallel region '%s' has line included in another region on line %d\n", region->GetName().c_str(), line);
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"parallel region '%s' has line included in another region", to_wstring(region->GetName()).c_str());
-                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, line, message, 1041));
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"parallel region '%s' has line included in another region", to_wstring(region->GetName()).c_str());
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Область распараллеливания '%s'содержит строку, которая включеная в другую область",
+                                                 to_wstring(region->GetName()).c_str());
+#endif
+                            getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, line, messageR, messageE, 1041));
 
                             noError = false;
                         }
@@ -874,15 +883,20 @@ static bool replaceCommonArray(const string &fileName,
 
     if (!array)
     {
-        string toPrint = "wrong parallel region position, there is no common-block with any of such arrays:";
+        string toPrint;
         for (auto &arrayName : arraySynonymNames)
             toPrint += " '" + arrayName + '\'';
-        toPrint += " in file " + fileName;
-        __spf_print(1, "%s on line %d\n", toPrint.c_str(), lines.lines.first);
+        __spf_print(1, "wrong parallel region position, there is no common-block in file %s with any of such arrays:%s on line %d\n",
+                    fileName.c_str(), toPrint.c_str(), lines.lines.first);
 
-        wstring message;
-        __spf_printToLongBuf(message, L"%s\n", to_wstring(toPrint).c_str());
-        getObjectForFileFromMap(fileName.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 1034));
+        wstring messageE, messageR;
+        __spf_printToLongBuf(messageE, L"wrong parallel region position, there is no common-block in file %s with any of such arrays:%s",
+                             fileName.c_str(), to_wstring(toPrint).c_str());
+#ifdef _WIN32
+        __spf_printToLongBuf(messageR, L"Неверное расположение области: не существует common-блока в файле %s со следующими массивами:%s",
+                             fileName.c_str(), to_wstring(toPrint).c_str());
+#endif
+        getObjectForFileFromMap(fileName.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, messageR, messageE, 1034));
         // error
         return true;
     }
@@ -1184,8 +1198,13 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                 }
                 __spf_print(1, "parallel regions %shave common function '%s' which is used inside them\n", outText.c_str(), nameFunc.first.c_str());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"parallel regions %shave common function '%s' which is used inside them", to_wstring(outText).c_str(), to_wstring(nameFunc.first).c_str());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"parallel regions %shave common function '%s' which is used inside them",
+                                     to_wstring(outText).c_str(), to_wstring(nameFunc.first).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Области распараллеливания %sимеют общую используемую функцию '%s'",
+                                     to_wstring(outText).c_str(), to_wstring(nameFunc.first).c_str());
+#endif
 
                 ParallelRegion *reg = NULL;
                 for (auto &regId : func->callRegions)
@@ -1208,7 +1227,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                     {
                         if (line.stats.first && line.stats.second)
                         {
-                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3012));
+                            getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), messageR, messageE, 3012));
                             error = true;
                             ok = true;
                             break;
@@ -1274,9 +1293,13 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                             __spf_print(1, "parallel regions %shave local array '%s' which is used inside them\n",
                                         regions.c_str(), arrayLines.first->GetShortName().c_str());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"parallel regions %shave local array '%s' which is used inside them",
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"parallel regions %shave local array '%s' which is used inside them",
                                                  to_wstring(regions).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Области распараллеливания %sимеют общий используемый локальный массив",
+                                                 to_wstring(regions).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#endif
 
                             auto lines = reg->GetAllLines();
                             bool ok = false;
@@ -1286,7 +1309,7 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                 {
                                     if (line.stats.first && line.stats.second)
                                     {
-                                        getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), message, 3013));
+                                        getObjectForFileFromMap(linePair.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(line.stats.first), messageR, messageE, 3013));
                                         error = true;
                                         ok = true;
                                         break;
@@ -1326,11 +1349,15 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                         __spf_print(1, "parallel region '%s' has common array '%s' which is used inside and outside region on lines %d-%d\n",
                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.first, lines.second);
 
-                        wstring message;
-                        __spf_printToLongBuf(message, L"parallel region '%s' has common array '%s' which is used inside and outside region",
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"parallel region '%s' has common array '%s' which is used inside and outside region",
                                              to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(messageR, L"Область распараллеливания '%s' содержит common-массив '%s', используемый в области и вне её",
+                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#endif
                         
-                        getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(arrayLines.second[0].stats.first), message, 3014));
+                        getObjectForFileFromMap(funcArrays.first->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(arrayLines.second[0].stats.first), messageR, messageE, 3014));
                         error = true;
                     }
                 }
@@ -1355,10 +1382,13 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                 __spf_print(1, "parallel region '%s' does not have DVM interval for fragment on line %d\n",
                                             reg->GetName().c_str(), lines.lines.first);
 
-                                wstring message;
-                                __spf_printToLongBuf(message, L"parallel region '%s' does not have DVM interval for fragment", to_wstring(reg->GetName()).c_str());
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"parallel region '%s' does not have DVM interval for fragment", to_wstring(reg->GetName()).c_str());
+#ifdef _WIN32
+                                __spf_printToLongBuf(messageR, L"Область распараллеливания '%s' не имеет DVM-интервала для фрагмента", to_wstring(reg->GetName()).c_str());
+#endif
 
-                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(lines.stats.first), message, 3015));
+                                getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, getRegionExplicitLine(lines.stats.first), messageR, messageE, 3015));
                                 error = true;
                             }
                             // check arrays
@@ -1386,10 +1416,14 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                                         __spf_print(1, "parallel region '%s' does not have copying of array '%s' in DVM interval on line %d\n",
                                                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
 
-                                                        wstring message;
-                                                        __spf_printToLongBuf(message, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
+                                                        wstring messageE, messageR;
+                                                        __spf_printToLongBuf(messageE, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
                                                                              to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
-                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3018));
+#ifdef _WIN32
+                                                        __spf_printToLongBuf(messageR, L"Область распараллеливания '%s' не содержит копирования массива '%s' в DVM-интервале",
+                                                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#endif
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, messageR, messageE, 3018));
                                                         error = true;
                                                     }
                                                 }
@@ -1414,10 +1448,14 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
                                                         __spf_print(1, "parallel region '%s' does not have copying of array '%s' in DVM interval on line %d\n",
                                                                     reg->GetName().c_str(), arrayLines.first->GetShortName().c_str(), lines.lines.first);
 
-                                                        wstring message;
-                                                        __spf_printToLongBuf(message, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
+                                                        wstring messageE, messageR;
+                                                        __spf_printToLongBuf(messageE, L"parallel region '%s' does not have copying of array '%s' in DVM interval",
                                                                              to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
-                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, message, 3017));
+#ifdef _WIN32
+                                                        __spf_printToLongBuf(messageR, L"Область распараллеливания '%s' не содержит копирования массива '%s' в DVM-интервале",
+                                                                             to_wstring(reg->GetName()).c_str(), to_wstring(arrayLines.first->GetShortName()).c_str());
+#endif
+                                                        getObjectForFileFromMap(fileLines.first.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, messageR, messageE, 3017));
                                                         error = true;
                                                     }
                                                 }

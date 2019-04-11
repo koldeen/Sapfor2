@@ -57,20 +57,32 @@ static SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
     return result;
 }
 
-static void removeDoubleRedistribute(map<int, vector<vector<Expression*>>> &toInsertMap)
+static void filterInsertMap(map<int, vector<vector<Expression*>>> &toInsertMap)
 {
     for (auto it = toInsertMap.begin(); it != toInsertMap.end(); ++it)
     {
         vector<vector<Expression*>> newVal;
-
         for (int z = 1; z < it->second.size(); ++z)
         {
+            //removeDoubleRedistribute
             if (it->second[z].size() == 4)
                 if (it->second[z].size() == it->second[z - 1].size())
                     continue;
             newVal.push_back(it->second[z - 1]);
         }
         newVal.push_back(it->second.back());
+
+        //sort by type
+        map<int, vector<vector<Expression*>>> toSort;
+        for (auto &elem : newVal)
+            toSort[elem.size()].push_back(elem);
+
+        newVal.clear();
+        for (auto itR = toSort.rbegin(); itR != toSort.rend(); itR++)
+        {
+            for (auto &elem : itR->second)
+                newVal.push_back(elem);
+        }
         it->second = newVal;
     }
 }
@@ -102,7 +114,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
             it->second.push_back(toInsert[i].second.second);
     }
 
-    removeDoubleRedistribute(toInsertMap);
+    filterInsertMap(toInsertMap);
     vector<SgStatement*> toDel;
 
     vector<SgStatement*> modulesAndFuncs;
@@ -115,7 +127,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
 
         if (extractDir && st->variant() == MODULE_STMT)
         {
-            if (st->symbol()->identifier() == string("dvmhTemplateMod"))
+            if (st->symbol()->identifier() == string("dvmh_Template_Mod"))
             {
                 st->deleteStmt();
                 continue;
@@ -178,7 +190,10 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     var == DVM_SHADOW_DIR ||
                     var == DVM_INHERIT_DIR ||
                     var == DVM_DYNAMIC_DIR ||
-                    (var == USE_STMT && st->lineNumber() < 0))
+                    (var == USE_STMT && st->lineNumber() < 0) ||
+                    var == HPF_TEMPLATE_STAT || 
+                    var == DVM_ALIGN_DIR ||
+                    var == DVM_DISTRIBUTE_DIR)
                 {
                     toDel.push_back(st);
 
@@ -257,10 +272,11 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
     vector<SgStatement*> toDel;
     const string currFile = file->filename();
 
-    int funcNum = file->numberOfFunctions();
-    for (int i = 0; i < funcNum; ++i)
+    vector<SgStatement*> toProcess;
+    getModulesAndFunctions(file, toProcess);
+    for (int i = 0; i < toProcess.size(); ++i)
     {
-        SgStatement *st = file->functions(i);
+        SgStatement *st = toProcess[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         while (st != lastNode)
@@ -806,15 +822,28 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
     }
 }
 
+static vector<SgStatement*> filterAllocateStats(const vector<SgStatement*> &current, const string &array)
+{
+    vector<SgStatement*> filtered;
+    
+    for (auto &stat : current)
+        if (recSymbolFind(stat->expr(0), array, ARRAY_REF))
+            filtered.push_back(stat);    
+
+    if (filtered.size() != 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    return filtered;
+}
+
 static SgStatement* insertDvmhModule(SgStatement *firstSt)
 {
     if (firstSt->lexNext()->variant() == MODULE_STMT)
     {
-        if (firstSt->lexNext()->symbol()->identifier() == string("dvmhTemplateMod"))
+        if (firstSt->lexNext()->symbol()->identifier() == string("dvmh_Template_Mod"))
             return firstSt->lexNext();
     }
 
-    SgFuncHedrStmt *moduleN = new SgFuncHedrStmt("dvmhTemplateMod");
+    SgFuncHedrStmt *moduleN = new SgFuncHedrStmt("dvmh_Template_Mod");
     moduleN->setVariant(MODULE_STMT);
     moduleN->setlineNumber(getNextNegativeLineNumber());
     moduleN->setFileId(current_file_id);
@@ -961,15 +990,17 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                 {
                     if (varExp->variant() == ARRAY_REF)
                     {
-                        if (distrArrays.find(OriginalSymbol(varExp->symbol())->identifier()) != distrArrays.end())
+                        SgSymbol *currSymb = OriginalSymbol(varExp->symbol());
+                        auto uniqKey = getFromUniqTable(currSymb);
+                        const string fullArrayName = getShortName(uniqKey);
+
+                        if (distrArrays.find(fullArrayName) != distrArrays.end())
                         {
-                            SgSymbol *currSymb = OriginalSymbol(varExp->symbol());
-                            const string currArray(currSymb->identifier());
+                            const vector<SgStatement*> &allocatableStmtsCopy = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ALLOCATE_STMT });
+                            vector<SgStatement*> allocatableStmts;
+                            if (isModule && allocatableStmtsCopy.size())
+                                allocatableStmts = filterAllocateStats(allocatableStmtsCopy, currSymb->identifier());
 
-                            auto uniqKey = getFromUniqTable(currSymb);
-                            const string fullArrayName = getShortName(uniqKey);
-
-                            const vector<SgStatement*> &allocatableStmts = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ALLOCATE_STMT });
                             pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir, isModule && allocatableStmts.size() != 0);
 
                             string toInsert = dirWithArray.second;
@@ -1027,10 +1058,11 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     templDecl = "";
                                     
                                 // don't insert template decl for inherit arrays in functions
-                                if (templDir.second == "!DVM$ INHERIT\n")
+                                //TODO: need to correct in case of use local arrays in functions
+                                /*if (templDir.second == "!DVM$ INHERIT\n")
                                     templDecl = "";
-                                else
-                                {
+                                else*/
+                                { 
                                     if (templDecl != "")
                                         templDecl = createFullTemplateDir(templDir.first);
                                 }
@@ -1258,11 +1290,12 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                 {
                     if (varList->lhs()->variant() == ARRAY_REF)
                     {
-                        if (distrArrays.find(OriginalSymbol(varList->lhs()->symbol())->identifier()) != distrArrays.end())
-                        {
-                            SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
+                        SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
+                        auto uniqKey = getFromUniqTable(currSymb);
+                        const string fullArrayName = getShortName(uniqKey);
 
-                            auto uniqKey = getFromUniqTable(currSymb);
+                        if (distrArrays.find(fullArrayName) != distrArrays.end())
+                        {
                             auto itArr = declaratedArrays.find(uniqKey);
                             if (itArr != declaratedArrays.end())                                
                                 declaratedDistrArrays.insert(itArr->second.first);

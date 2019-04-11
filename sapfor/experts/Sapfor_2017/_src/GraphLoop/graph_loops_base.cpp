@@ -969,7 +969,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
             std::wstring bufw, bufR;
             __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен, так как всего изменения запрещены к распределению",
+            __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен, так как все его измерения запрещены к распределению",
                                         to_wstring(elem->GetShortName()).c_str());
 #endif
             for (auto &decl : elem->GetDeclInfo())
@@ -1073,7 +1073,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                             }
 
                             if (treeNumCount.size() == 0)
-                                return;
+                                continue;
 
                             auto itT = treeNumCount.begin();
                             treeNum = itT->first;
@@ -1167,9 +1167,9 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
         return;
 
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
-
     createMapOfFunc(allFuncs, mapFuncInfo);
 
-    for (auto &byFile : loopGraph)
-        filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
+    if (trees.size())
+        for (auto &byFile : loopGraph)
+            filterArrayInCSRGraph(byFile.second, mapFuncInfo, reg, arrayLinksByFuncCalls, trees, messages);
 }

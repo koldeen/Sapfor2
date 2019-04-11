@@ -327,14 +327,15 @@
 %token STATUS 327
 %token EXITINTERVAL 328
 %token TEMPLATE_CREATE 329
-%token SPF_ANALYSIS 330
-%token SPF_PARALLEL 331
-%token SPF_TRANSFORM 332
-%token SPF_NOINLINE 333
-%token SPF_PARALLEL_REG 334
-%token SPF_END_PARALLEL_REG 335
-%token SPF_PRIVATES_EXPANSION 336
-%token SPF_FISSION 337
+%token TEMPLATE_DELETE 330
+%token SPF_ANALYSIS 331
+%token SPF_PARALLEL 332
+%token SPF_TRANSFORM 333
+%token SPF_NOINLINE 334
+%token SPF_PARALLEL_REG 335
+%token SPF_END_PARALLEL_REG 336
+%token SPF_PRIVATES_EXPANSION 337
+%token SPF_FISSION 338
 
 %{
 #include <string.h>
@@ -533,7 +534,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> dvm_debug_dir dvm_enddebug_dir dvm_traceon_dir dvm_traceoff_dir
 %type <bf_node> dvm_interval_dir dvm_endinterval_dir dvm_exit_interval_dir dvm_barrier_dir dvm_check 
 %type <bf_node> dvm_io_mode_dir dvm_shadow_add dvm_localize
-%type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait dvm_template_create
+%type <bf_node> dvm_cp_create dvm_cp_load dvm_cp_save dvm_cp_wait dvm_template_create dvm_template_delete
 %type <bf_node> dvm_asyncid dvm_f90 dvm_asynchronous dvm_endasynchronous dvm_asyncwait
 %type <bf_node> dvm_consistent_group dvm_consistent_start dvm_consistent_wait dvm_consistent
 %type <ll_node> dist_name dist_name_list dist_format dist_format_list
@@ -567,7 +568,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> derived_subscript derived_subscript_list opt_plus_shadow plus_shadow shadow_id
 %type <ll_node> template_ref template_obj shadow_axis shadow_axis_list opt_include_to 
 %type <ll_node> localize_target target_subscript target_subscript_list aster_expr dummy_ident 
-%type <ll_node> template_list
+%type <ll_node> template_list template_ident_list
 %type <symbol> processors_name align_base_name 
 %type <symbol> shadow_group_name reduction_group_name reduction_group  indirect_group_name task_name
 %type <symbol> remote_group_name group_name array_name async_ident consistent_group_name consistent_group
@@ -726,7 +727,7 @@ void enddcl();
 void install_const();
 void setimpl();
 void copy_module_scope();
-
+void replace_symbol_in_expr();
 long convci();
 void set_expr_type();
 void errstr();
@@ -4231,6 +4232,7 @@ iffable:  let expr EQUAL expr
                        }
 	               hash_entry = look_up_sym(r->entry.Template.symbol->parent->ident);
 	               s3 = make_scalar(hash_entry, s1->type, IO);
+                       replace_symbol_in_expr(s3,$4);
 	               if (arg_list == SMNULL) 
                           s2 = arg_list = s3;
              	       else 
@@ -4982,6 +4984,7 @@ dvm_exec: dvm_redistribute
         | dvm_cp_save
         | dvm_cp_wait
         | dvm_template_create
+        | dvm_template_delete
         | hpf_independent 
 	| omp_execution_directive /*OMP*/
 /*        | dvm_own      */
@@ -7157,6 +7160,16 @@ dvm_template_create: TEMPLATE_CREATE end_spec  LEFTPAR  template_list RIGHTPAR
 template_list: array_element
 	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
 	     | template_list COMMA array_element
+               { $$ = set_ll_list($1, $3, EXPR_LIST); }
+             ;
+
+dvm_template_delete: TEMPLATE_DELETE end_spec  LEFTPAR  template_ident_list RIGHTPAR
+                     { $$ = get_bfnd(fi,DVM_TEMPLATE_DELETE_DIR,SMNULL,$4,LLNULL,LLNULL); }
+                   ;
+
+template_ident_list: ident
+	       { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	     | template_ident_list COMMA ident
                { $$ = set_ll_list($1, $3, EXPR_LIST); }
              ;
 omp_specification_directive: omp_threadprivate_directive

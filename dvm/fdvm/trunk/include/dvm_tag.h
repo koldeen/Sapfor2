@@ -61,7 +61,8 @@
 #define DVM_CP_SAVE_DIR              637	
 #define DVM_CP_WAIT_DIR              638
 #define DVM_EXIT_INTERVAL_DIR	     639
-#define DVM_TEMPLATE_CREATE_DIR	     640        		   
+#define DVM_TEMPLATE_CREATE_DIR	     640 
+#define DVM_TEMPLATE_DELETE_DIR	     641       		   
 #define BLOCK_OP           705
 #define NEW_SPEC_OP        706
 #define REDUCTION_OP       707

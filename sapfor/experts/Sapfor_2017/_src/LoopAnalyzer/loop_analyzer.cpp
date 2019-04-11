@@ -282,7 +282,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит индексных переменных циклов", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит итерационных переменных циклов", to_wstring(arrayRefString.second).c_str());
 #endif
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
@@ -2495,6 +2495,39 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                   isSgExecutableStatement(st) ? true : false, currFunctionName,
                                   (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+            }
+            st = st->lexNext();
+        }
+    }
+
+    for (auto &mod : modules)
+    {
+        SgStatement *st = mod->lexNext();
+        SgStatement *lastNode = mod->lastNodeOfStmt();
+        map<string, vector<SgExpression*>> commonBlocks;
+        set<string> privates;
+        set<string> deprecatedByIO;
+        set<string> funcParNames;
+
+        while (st != lastNode)
+        {
+            currProcessing.second = st->lineNumber();
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            if (!isSPF_stat(st))
+            {
+                //TODO: set clear regions for modules
+                set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                vector<string> regNames;
+                for (auto &reg : currRegs)
+                    regNames.push_back(reg->GetName());
+                if (regNames.size() == 0)
+                    regNames.push_back("default");
+
+                for (int i = 0; i < 3; ++i)
+                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                  false, "NULL", false, regNames, funcParNames);
             }
             st = st->lexNext();
         }

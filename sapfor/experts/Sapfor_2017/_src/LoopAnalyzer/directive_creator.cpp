@@ -119,10 +119,6 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
-
-
-
-
 static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                                     DIST::GraphCSR<int, double, attrType> &reducedG,
@@ -319,7 +315,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
     }
     return ok;
 }
-
 
 static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &currDist, const ParallelDirective *currParDir, vector<bool> &saveDistr, const int regionId)
 {
@@ -610,6 +605,8 @@ static string createTemplateClone(DIST::Array *templ, const vector<dist> &redist
     return itA->second;
 }
 
+void clearTemplateClonesData() { cloneCount = 0; templateClones.clear(); }
+
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
@@ -735,9 +732,13 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
             }
                         
             while ((!isSgExecutableStatement(stF->lexNext()) || stF->fileName() != string(file->filename()) || isSPF_stat(stF->lexNext())) && !isDVM_stat(stF->lexNext()))
-                stF = stF->lexNext();            
+                stF = stF->lexNext();
+            if (!isSgExecutableStatement(stF))
+                stF = stF->lexNext();
+            
             toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", templCreate)));
             toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", cloneDistr)));
+            
         }
     }
     current->setNewRedistributeRules(redistributeRules);

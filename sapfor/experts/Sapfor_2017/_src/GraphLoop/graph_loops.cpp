@@ -91,20 +91,20 @@ static void recInderectFind(SgExpression *ex, set<DIST::Array*> &usedArrays)
     }
 }
 
-static bool recScalarSymbolFind(SgExpression *ex, const string &symb)
+bool recSymbolFind(SgExpression *ex, const string &symb, const int var)
 {
     bool ret = false;
     if (ex)
     {
-        if (ex->variant() == VAR_REF)
+        if (ex->variant() == var)
         {
             if (ex->symbol())
                 if (ex->symbol()->identifier() == symb)
                     return true;
         }
 
-        ret = ret || recScalarSymbolFind(ex->lhs(), symb);
-        ret = ret || recScalarSymbolFind(ex->rhs(), symb);
+        ret = ret || recSymbolFind(ex->lhs(), symb, var);
+        ret = ret || recSymbolFind(ex->rhs(), symb, var);
     }
 
     return ret;
@@ -423,9 +423,9 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
             if (symb)
             {
                 const string strSymb = symb->identifier();
-                has = has || recScalarSymbolFind(start, strSymb);
-                has = has || recScalarSymbolFind(end, strSymb);
-                has = has || recScalarSymbolFind(step, strSymb);
+                has = has || recSymbolFind(start, strSymb, VAR_REF);
+                has = has || recSymbolFind(end, strSymb, VAR_REF);
+                has = has || recSymbolFind(step, strSymb, VAR_REF);
 
                 if (has)
                     break;

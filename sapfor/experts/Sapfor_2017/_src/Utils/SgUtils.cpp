@@ -890,7 +890,10 @@ tuple<int, string, string> getFromUniqTable(SgSymbol *symb)
     auto place = declaratedInStmt(symb);
     auto localIt = tableOfUniqNames.find(std::make_tuple(symb->identifier(), place->fileName(), place->lineNumber()));
     if (localIt == tableOfUniqNames.end())
+    {
+        auto place = declaratedInStmt(symb);
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     
     return localIt->second;
 }

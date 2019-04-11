@@ -368,16 +368,17 @@
      STATUS = 327,
      EXITINTERVAL = 328,
      TEMPLATE_CREATE = 329,
-     SPF_ANALYSIS = 330,
-     SPF_PARALLEL = 331,
-     SPF_TRANSFORM = 332,
-     SPF_NOINLINE = 333,
-     SPF_PARALLEL_REG = 334,
-     SPF_END_PARALLEL_REG = 335,
-     SPF_PRIVATES_EXPANSION = 336,
-     SPF_FISSION = 337,
-     BINARY_OP = 340,
-     UNARY_OP = 341
+     TEMPLATE_DELETE = 330,
+     SPF_ANALYSIS = 331,
+     SPF_PARALLEL = 332,
+     SPF_TRANSFORM = 333,
+     SPF_NOINLINE = 334,
+     SPF_PARALLEL_REG = 335,
+     SPF_END_PARALLEL_REG = 336,
+     SPF_PRIVATES_EXPANSION = 337,
+     SPF_FISSION = 338,
+     BINARY_OP = 341,
+     UNARY_OP = 342
    };
 #endif
 /* Tokens.  */
@@ -710,23 +711,24 @@
 #define STATUS 327
 #define EXITINTERVAL 328
 #define TEMPLATE_CREATE 329
-#define SPF_ANALYSIS 330
-#define SPF_PARALLEL 331
-#define SPF_TRANSFORM 332
-#define SPF_NOINLINE 333
-#define SPF_PARALLEL_REG 334
-#define SPF_END_PARALLEL_REG 335
-#define SPF_PRIVATES_EXPANSION 336
-#define SPF_FISSION 337
-#define BINARY_OP 340
-#define UNARY_OP 341
+#define TEMPLATE_DELETE 330
+#define SPF_ANALYSIS 331
+#define SPF_PARALLEL 332
+#define SPF_TRANSFORM 333
+#define SPF_NOINLINE 334
+#define SPF_PARALLEL_REG 335
+#define SPF_END_PARALLEL_REG 336
+#define SPF_PRIVATES_EXPANSION 337
+#define SPF_FISSION 338
+#define BINARY_OP 341
+#define UNARY_OP 342
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 420 "gram1.y"
+#line 421 "gram1.y"
 {
     int token;
     char charv;
@@ -739,7 +741,7 @@ typedef union YYSTYPE
     PTR_LABEL label;
 }
 /* Line 1489 of yacc.c.  */
-#line 743 "gram1.tab.h"
+#line 745 "gram1.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -47,8 +47,8 @@ static inline bool lineInsideBorder(int lineNumber, pair<SgStatement*, SgStateme
     return lineNumber >= border.first->lineNumber() && lineNumber < border.second->lineNumber();
 }
 
-static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders,
-                                  depGraph* parentDepGraph, map<SgExpression*, string> &collection)
+static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<SgStatement*, SgStatement*>> &borders,
+                                  depGraph *parentDepGraph, map<SgExpression*, string> &collection)
 {
     for(depNode* node : parentDepGraph->getNodes()) {
         if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout))
@@ -79,9 +79,10 @@ static void setupOpenDependencies(set<int>& openDependencies, vector<pair<SgStat
     }
 }
 
-static void addReachingDefinitionsDependencies(set<int>& openDependencies, vector<pair<SgStatement*, SgStatement*>>& borders, map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> &requireReachMap)
+static void addReachingDefinitionsDependencies(set<int> &openDependencies, const vector<pair<SgStatement*, SgStatement*>> &borders, 
+                                               map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> &requireReachMap)
 {
-    for(auto& border : borders)
+    for(auto &border : borders)
     {
         for(SgStatement* current = border.first; ; current = current->lexNext())
         {
@@ -92,7 +93,7 @@ static void addReachingDefinitionsDependencies(set<int>& openDependencies, vecto
                 {
                     int lineNumber = (*it)->lineNumber();
                     bool included = false;
-                    for(auto& b : borders)
+                    for(auto &b : borders)
                     {
                         if (lineInsideBorder(lineNumber, b))
                         {
@@ -108,7 +109,7 @@ static void addReachingDefinitionsDependencies(set<int>& openDependencies, vecto
                 {
                     int lineNumber = (*it)->lineNumber();
                     bool included = false;
-                    for(auto& b : borders)
+                    for(auto &b : borders)
                     {
                         if (lineInsideBorder(lineNumber, b))
                         {
@@ -136,8 +137,8 @@ static bool dependencyAlreadyEnclosed(int lineNum, vector<pair<SgStatement*, SgS
     return false;
 }
 
-static void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders,
-                       set<int> openDependencies)
+static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill, vector<pair<SgStatement*, SgStatement*>> &borders,
+                              set<int> openDependencies)
 {
     for(int lineNumOfDependecy : openDependencies)
     {
@@ -147,41 +148,63 @@ static void expandCopyBorders(SgStatement* globalSince, SgStatement* globalTill,
         SgStatement *since = NULL, *till = NULL;
         since = globalSince;
 
-        for(since = globalSince; since != globalTill; since = since->lexNext()) {
+        for(since = globalSince; since != globalTill; since = since->lexNext()) 
+        {
 
-            if(since->lineNumber() == lineNumOfDependecy) {
+            if(since->lineNumber() == lineNumOfDependecy) 
+            {
                 till = since->lastNodeOfStmt()->lexNext();
                 break;
             }
         }
 
-        if(since == globalTill) //зависимости вне вне основного цикла? ну уж нет.
+        if(since == globalTill) //зависимости вне основного цикла? ну уж нет.
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         borders.push_back(make_pair(since, till));
     }
 }
 
-static void glueBorders(vector<pair<SgStatement*, SgStatement*>>& borders) {
-    for(auto it1 = borders.begin(); it1 != borders.end(); ++it1) {
-        for(auto it2 = borders.begin(); it2 != borders.end();) {
-            if(it1 == it2) {
-                ++it2;
-                continue;
-            }
+static void glueBorders(vector<pair<SgStatement*, SgStatement*>> &borders) 
+{
+    if (borders.size() <= 1)
+        return;
+    map<pair<int, int>, pair<SgStatement*, SgStatement*>> bordersMap;
+    for (int z = 0; z < borders.size(); ++z)
+        bordersMap[make_pair(borders[z].first->lineNumber(), borders[z].second->lineNumber())] = borders[z];
 
-            if(it1->second == it2->first) {
-                it1->second = it2->second;
-                it2 = borders.erase(it2);
-            }
-            else if(it1->first == it2->second) {
-                it1->first = it2->first;
-                it2 = borders.erase(it2);
-            }
+    borders.clear();
+    for (auto &elem : bordersMap)
+    {
+        //printf("** frag %d - %d\n", elem.first.first, elem.first.second);
+        borders.push_back(elem.second);
+    }
+
+    bool needToUpdate = true;    
+    while (needToUpdate)
+    {
+        needToUpdate = false;
+        vector<pair<SgStatement*, SgStatement*>> newBorders;
+        newBorders.push_back(borders[0]);
+        int lastIdx = 0;
+        for (int z = 1; z < borders.size(); ++z)
+        {
+            if (newBorders[lastIdx].second == borders[z].first)
+                newBorders[lastIdx].second = borders[z].second;
             else
-                ++it2;
+            {
+                newBorders.push_back(borders[z]);
+                lastIdx++;
+            }
+        }
+        if (newBorders.size() != borders.size())
+        {
+            borders = newBorders;
+            needToUpdate = (borders.size() > 1);
         }
     }
+    //for (int z = 0; z < borders.size(); ++z)
+    //    printf("*** frag %d - %d\n", borders[z].first->lineNumber(), borders[z].second->lineNumber());
 }
 
 static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
@@ -199,10 +222,6 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     since = globalSince;
     till = since->lastNodeOfStmt()->lexNext();
 
-    /*
-     * since-till может быть одним одним операторм, захватить тогда больше?
-     */
-
     if(parentDepGraph == NULL) //Нет зависимостей, можно взять изначальный фрагмент без измененений
     {
         borders.push_back(make_pair(since, till));
@@ -210,7 +229,7 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     }
 
     borders.push_back(make_pair(since, till));
-    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap =  buildRequireReachMap(globalSince, globalTill);
+    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMap(globalSince, globalTill);
 
     set<int> openDependencies;
     setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
@@ -223,7 +242,8 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
 
-
+    //for (auto &fragment : borders)
+    //    printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
 
     glueBorders(borders);
 
@@ -234,21 +254,22 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     return true;
 }
 
-static void moveStatements(SgForStmt *newLoop, vector<pair<SgStatement*,SgStatement*>>& borders)
+static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &borders)
 {
     SgStatement *lastInserted = newLoop;
+    
     for(auto& border : borders)
     {
+        //printf("frag %d - %d, %s %s\n", border.first->lineNumber(), border.second->lineNumber(), border.first->fileName(), border.second->fileName());
         SgStatement *toMoveStmt = border.first;
         while(toMoveStmt != border.second)
         {
-            SgStatement *st = toMoveStmt->copyPtr();
-            lastInserted->insertStmtAfter(*st);
-            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
-
-            SgStatement *toDelete = toMoveStmt;
+            //printf("move st from line %d\n", toMoveStmt->lineNumber());
+            SgStatement *st = toMoveStmt;
             toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
-            toDelete->deleteStmt();
+
+            lastInserted->insertStmtAfter(*st->extractStmt());
+            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
         }
     }
 }
@@ -355,20 +376,44 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
         parts.push_back(make_pair(since, since->lastNodeOfStmt()));
 
-
 //    while (setupSplitBorders(lowestParentGraph, parts, borders, lowestParentDepGraph, collection) && borders.size() > 0)
 //        ;
 
-
-    //Сам процесс разделения
-    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)  {
+    //Сам процесс разделения 
+    //TODO весьмма странный процесс, попробовал переписать иначе ниже
+    /*while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+    {
+        printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
         moveStatements(createNewLoop(loopGraph), borders);
-        globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
-    }
+        globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();        
+    }*/
+
+    //тут вроде как уже мы получаем разюивку всего тела, остается лишь переместить операторы в нужные циклы
+    //альтрнативная ветка, будет работать как только будут правильно сделаны границы. 
+    /*if (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection))
+    {
+        for (auto &fragment : borders)
+            printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
+
+        for (auto &fragment : borders)
+        {
+            SgStatement *lastInserted = createNewLoop(loopGraph);
+            SgStatement *toMoveStmt = fragment.first;
+
+            while (toMoveStmt != fragment.second)
+            {
+                //printf("move st from line %d\n", toMoveStmt->lineNumber());
+                SgStatement *st = toMoveStmt;
+                toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
+
+                lastInserted->insertStmtAfter(*st->extractStmt());
+                lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
+            }
+        }
+    }*/
 
     //Исходный цикл остался с пустым телом
     loopGraph->loop->deleteStmt();
-
     return 0;
 }
 
