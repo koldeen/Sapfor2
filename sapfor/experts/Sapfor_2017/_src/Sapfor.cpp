@@ -345,6 +345,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     //for insert and extract dirs
     map<string, string> templateDeclInIncludes;
 
+    //for function checker
+    map<string, pair<string, int>> functionNames;
+
     // **********************************  ///
     /// FIRST STEP - RUN ANALYSIS BY FILES ///
     // **********************************  ///
@@ -824,6 +827,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+        else if (curr_regime == VERIFY_FUNC_DECL)
+        {
+            bool res = FunctionsChecker(file, functionNames, SPF_messages);
+            verifyOK &= res;
+        }
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
     } // end of FOR by files
@@ -1067,7 +1075,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
              curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS ||
              curr_regime == VERIFY_EQUIVALENCE ||
-             curr_regime == VERIFY_COMMON)
+             curr_regime == VERIFY_COMMON ||
+             curr_regime == VERIFY_FUNC_DECL)
     {
         if (verifyOK == false)
             throw(-1);
@@ -1655,7 +1664,11 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     setPassValues();
 
     if (project == NULL)
+    {
         project = createProject(proj_name);
+        //first check correctness
+        runPass(VERIFY_FUNC_DECL, proj_name, folderName);
+    }
         
     //Run dep passes analysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
@@ -1751,7 +1764,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 for (auto &loop : loopByFile.second)
                     if (loop->directive)
                         loop->directive->cloneOfTemplate = "";
-            clearTemplateClonesData();
+
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();

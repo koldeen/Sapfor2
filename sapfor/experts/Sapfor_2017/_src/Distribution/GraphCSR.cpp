@@ -438,7 +438,7 @@ namespace Distribution
         return make_pair(x.first * F.first, x.second * F.first + F.second);
     }
 
-    static pair<float, float> Fx(const pair<float, float> &x, const pair<float, float> &F)
+    static pair<double, double> Fx(const pair<double, double> &x, const pair<double, double> &F)
     {
         return make_pair(x.first * F.first, x.second * F.first + F.second);
     }
@@ -507,10 +507,10 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    pair<float, float> GraphCSR<vType, wType, attrType>::
+    pair<double, double> GraphCSR<vType, wType, attrType>::
         findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, set<vType> wasDone)
     {
-        const pair<float, float> nulPair = make_pair(0.f, 0.f);
+        const pair<double, double> nulPair = make_pair(0.0, 0.0);
 
         wasDone.insert(v1);
         bool wasFound = false;
@@ -534,7 +534,7 @@ namespace Distribution
 
         auto it = cacheLinks.find(v1);
         if (it == cacheLinks.end())
-            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<float, float>>>()));
+            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<double, double>>>()));
 
         for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
         {
@@ -543,7 +543,7 @@ namespace Distribution
             
             auto ruleCache = it->second.find(edges[k]);
 
-            pair<float, float> ruleToTemplate;
+            pair<double, double> ruleToTemplate;
             if (ruleCache == it->second.end())
             {
                 ruleToTemplate = findLinkWithTempate2(edges[k], templV, templ, allArrays, wasDone);
@@ -559,29 +559,11 @@ namespace Distribution
             if (ruleToTemplate != nulPair)
             {
                 auto currAttribute = attributes[k];
-                pair<float, float> left = currAttribute.first;
-                pair<float, float> right = currAttribute.second;
-                
-                //check for divisibility
-                /*float maxVal = left.first > right.first ? left.first : right.first;
-                float minVal = left.first < right.first ? left.first : right.first;
-                if (left.first != right.first)
-                {
-                    if (((int)maxVal % (int)minVal) != 0)
-                    {
-                        const int lcm = LCM((int)maxVal, (int)minVal);
-                        float mult = lcm / left.first;
-                        left.first *= mult;
-                        left.second *= mult;
-
-                        mult = lcm / right.first;
-                        right.first *= mult;
-                        right.second *= mult;
-                    }
-                }*/
+                pair<double, double> left = currAttribute.first;
+                pair<double, double> right = currAttribute.second;
 
                 // calculate transition
-                pair<float, float> X;
+                pair<double, double> X;
                 X.first = right.first / left.first;
 
                 left.first *= X.first;
@@ -1589,7 +1571,7 @@ namespace Distribution
                 // if current vertex has links
                 if (currV != -1)
                 {
-                    pair<float, float> rule = make_pair(0, 0);
+                    pair<double, double> rule = make_pair(0, 0);
                     int alignDim = -1;
                     Array *templ = NULL;
 
@@ -1597,14 +1579,16 @@ namespace Distribution
                     if (hasLinkWithTempate(currV, allArrays, false))
                     {
                         rule = findLinkWithTempate2(currV, alignDim, templ, allArrays, wasDone);
-                        if (rule != make_pair(0.0f, 0.0f))
+                        if (rule != make_pair(0.0, 0.0))
                         {
                             pair<int, int> intRule;
                             intRule.first = (int)rule.first;
                             intRule.second = (int)rule.second;
 
-                            pair<float, float> toCheck = make_pair(intRule.first, intRule.second);
-                            if (toCheck != rule)
+                            pair<double, double> toCheck = make_pair(intRule.first, intRule.second);
+                            const double diff1 = rule.first - toCheck.first;
+                            const double diff2 = rule.second - toCheck.second;
+                            if (diff1 > 10e-14 || diff2 > 10e-14)
                             {
                                 __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
                                 if (!hasLinkWithTempate(currV, allArrays, true))

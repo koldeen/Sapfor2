@@ -421,6 +421,31 @@ string splitDirective(const string &in_)
     return out + lastEnd;
 }
 
+string splitDirectiveFull(const string &in_)
+{
+    if (in_ == "")
+        return "";
+
+    string in(in_);
+    string lastEnd = "";
+    if (in[in.size() - 1] == '\n')
+    {
+        in.erase(in.begin() + in_.size() - 1);
+        lastEnd = "\n";
+    }
+
+    string out = "";
+    vector<string> splited;
+    splitString(in_, '\n', splited);
+    for (int z = 0; z < splited.size(); ++z)
+    {
+        if (z != 0)
+            out += "\n";
+        out += splitDirective(splited[z]);
+    }
+    return out + lastEnd;
+}
+
 extern void ExitFromOmegaTest(const int c) { throw c; }
 
 void sortFilesBySize(const char *proj_name)

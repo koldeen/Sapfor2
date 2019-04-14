@@ -48,7 +48,7 @@ namespace Distribution
         int maxLoopDim;
         uint64_t maxAvailMemory;
 
-        std::map<vType, std::map<vType, std::tuple<int, Array*, std::pair<float, float>>>> cacheLinks;
+        std::map<vType, std::map<vType, std::tuple<int, Array*, std::pair<double, double>>>> cacheLinks;
         int countRequestsToAdd, countMissToAdd;
     private:
         GraphCSR(const std::vector<vType> &neighbors, const std::vector<vType> &edges,
@@ -73,7 +73,7 @@ namespace Distribution
         void FindLoop(std::vector<std::map<std::vector<unsigned>, Cycle<vType, wType, attrType>>> &cycles, const vType V, const vType VPrev, const std::vector<vType> &numbers);
         void RemoveDuplicates(std::vector<Cycle<vType, wType, attrType>> &cycles);
         bool findLink(const vType v1, std::pair<int, int> &inGraphAttr1, const vType v2, std::pair<int, int> &inGraphAttr2);
-        std::pair<float, float> findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
+        std::pair<double, double> findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, std::set<vType> wasDone);
         int findDimNumLink(const vType v, const Array *to, const Arrays<vType> &allArrays, std::set<vType> &wasDone) const;
         bool checkFirstCoefOfNode(vType node);
         bool getOptimalBoundsForNode(vType nodeFrom, vType nodeTo, int &needBound, std::pair<int, int> &bounds);        

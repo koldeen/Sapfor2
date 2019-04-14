@@ -527,6 +527,8 @@ namespace Distribution
 
         void ClearTemplateClones() { templateClones.clear(); }
 
+        const MAP<VECTOR<dist>, STRING>& GetAllClones() const { return templateClones; }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)
