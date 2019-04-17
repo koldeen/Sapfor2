@@ -420,14 +420,16 @@ void DvmhRegionInsertor::mergeRegions()
 
 void DvmhRegionInsertor::insertDirectives()
 {
-	__spf_print(1, "Find edges for regions\n");
-	findEdgesForRegions(loopGraph);
-	__spf_print(1, "Merging regions\n");
-	mergeRegions();
-	__spf_print(1, "Insert regions\n");
-	insertRegionDirectives();
-	__spf_print(1, "Insert actuals\n");
-	insertActualDirectives();
+	//__spf_print(1, "Find edges for regions\n");
+	//findEdgesForRegions(loopGraph);
+	//__spf_print(1, "Merging regions\n");
+	//mergeRegions();
+	//__spf_print(1, "Insert regions\n");
+	//insertRegionDirectives();
+	//__spf_print(1, "Insert actuals\n");
+	//insertActualDirectives();
+	//printControlFlowGraph();
+	AFlowGraph graph = AFlowGraph(file);
 }
 
 DvmhRegionInsertor::~DvmhRegionInsertor()
