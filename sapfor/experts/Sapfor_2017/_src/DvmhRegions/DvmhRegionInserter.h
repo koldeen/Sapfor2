@@ -76,41 +76,41 @@ class DvmhRegionInsertor {
 	LoopCheckResults updateLoopNode(LoopGraph *);
 	void DvmhRegionInsertor::printControlFlowGraph()
 	{
-		int funcNum = file.numberOfFunctions();
-		for (int i = 0; i < funcNum; ++i)
-		{
-			SgStatement *st = file.functions(i);
-			auto graphsKeeper = new GraphsKeeper();
+		//int funcNum = file.numberOfFunctions();
+		//for (int i = 0; i < funcNum; ++i)
+		//{
+		//	SgStatement *st = file.functions(i);
+		//	auto graphsKeeper = new GraphsKeeper();
 
-			ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
+		//	ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
 
-			printFuncName(st);
-			CBasicBlock* bb = CGraph->getFirst();
-			while (bb) 
-			{
-				// ControlFlowItem* start = (bb->getStart()->getNext()) ? bb->getStart()->getNext() : bb->getStart();
-				// ControlFlowItem* end = (bb->getEnd()->getNext()) ? bb->getEnd()->getNext() : bb->getEnd();
-				ControlFlowItem* start = bb->getStart();
-				ControlFlowItem* end = bb->getEnd();
-				BasicBlockItem* prev = bb->getPrev();
-				vector<int> prev_ids;
-				while (prev) {
-					prev_ids.push_back(prev->block->getNum());
-					prev = prev->next;
-				}
-				string s_prev_ids = "";
-				for (auto id : prev_ids)
-					s_prev_ids = s_prev_ids + to_string(id) + " | ";
-				printf("Basic block [%d]: start [%d], end [%d], prev blocks [%s].\n", bb->getNum(), start->GetLineNumber(), end->GetLineNumber(), s_prev_ids);
-				while (start && start->getBBno() == bb->getNum()) {
-					start->printDebugInfo();
-					start = start->getNext();
-				}
-				printf("______________________\n");
+		//	printFuncName(st);
+		//	CBasicBlock* bb = CGraph->getFirst();
+		//	while (bb) 
+		//	{
+		//		// ControlFlowItem* start = (bb->getStart()->getNext()) ? bb->getStart()->getNext() : bb->getStart();
+		//		// ControlFlowItem* end = (bb->getEnd()->getNext()) ? bb->getEnd()->getNext() : bb->getEnd();
+		//		ControlFlowItem* start = bb->getStart();
+		//		ControlFlowItem* end = bb->getEnd();
+		//		BasicBlockItem* prev = bb->getPrev();
+		//		vector<int> prev_ids;
+		//		while (prev) {
+		//			prev_ids.push_back(prev->block->getNum());
+		//			prev = prev->next;
+		//		}
+		//		string s_prev_ids = "";
+		//		for (auto id : prev_ids)
+		//			s_prev_ids = s_prev_ids + to_string(id) + " | ";
+		//		printf("Basic block [%d]: start [%d], end [%d], prev blocks [%s].\n", bb->getNum(), start->GetLineNumber(), end->GetLineNumber(), s_prev_ids);
+		//		while (start && start->getBBno() == bb->getNum()) {
+		//			start->printDebugInfo();
+		//			start = start->getNext();
+		//		}
+		//		printf("______________________\n");
 
-				bb = bb->getLexNext();
-			}
-		}
+		//		bb = bb->getLexNext();
+		//	}
+		//}
 		printf("Graph printed.\n");
 	}
 
@@ -142,32 +142,66 @@ public:
 		ControlFlowItem* cfi = bblock->getStart();
 		while (cfi && cfi->getBBno() == bblock->getNum()) 
 		{
-			if (cfi->getStatement())
-				content.push_back(cfi->getStatement());
+			SgStatement *st = cfi->getStatement();
+			if (st) {
+				content.push_back(st);
+
+				// Fill used distributed arrays
+				set<SgSymbol*> symbols = getUsedSymbols(st); 
+				// TODO: append used symbols in func call
+				for (auto symbol: symbols) {
+					try {
+						DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+						if (arr && !arr->GetNonDistributeFlag())
+							d_arrays.push_back(symbol);
+					}
+					catch (...) {
+						cout << "Disribute array assertion having some fun." << endl;
+					}
+				}
+			}
 
 			cfi = cfi->getNext();
 		}
-
-		// Fill used distributed array (interface is nuts)
-		VarSet* vars = bblock->getUse();
-		VarItem* var_i = vars->getFirst();
-		while (var_i) {
-			SgSymbol* symbol = var_i->var->GetSymbol();
-			try {
-				DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-				bool isDistr = !arr->GetNonDistributeFlag();
-				if (isDistr)
-					d_arrays.push_back(symbol);
-			}
-			catch (...) {
-				cout << "Disribute array assertion having some fun." << endl;
-			}
-
-			var_i = var_i->next;
-		}
 	}
 
-	operator std::string() const
+	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) {
+		set<SgSymbol *> result;
+
+		if (exp)
+		{
+			if (exp->variant() == ARRAY_REF) 
+				result.insert(exp->symbol());
+
+			set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
+			set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
+
+			result.insert(lhsSymbols.begin(), lhsSymbols.end());
+			result.insert(rhsSymbols.begin(), rhsSymbols.end());
+		}
+
+		return result;
+	}
+
+	static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
+		set<SgSymbol *> result;
+
+		// ignore not executable statements
+		if (!isSgExecutableStatement(st)) {
+			return result;
+		}
+
+		for (int i = 0; i < 3; ++i) {
+			if (st->expr(i)) {
+				set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
+				result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+			}
+		}
+
+		return result;
+	}
+
+	string getInfo() const
     {
 		string s_content = "";
 		for (auto st: content)
@@ -175,11 +209,21 @@ public:
 
 		string s_d_arrays = "";
 		for (auto arr: d_arrays)
-			s_d_arrays = string(arr->identifier()) + " , ";
+			s_d_arrays = s_d_arrays + string(arr->identifier()) + " , ";
+
+		string s_prev = "";
+		for (auto node: prev)
+			s_prev = s_prev + to_string(node->id) + " , ";
+
+		string s_succ = "";
+		for (auto node: succ)
+			s_succ = s_succ + to_string(node->id) + " , ";
 
         string info = "id [" 		+ to_string(id)		+ "]\n" +\
 					+ "type ["		+ to_string(type)	+ "]\n" +\
 					+ "content["	+ s_content			+ "]\n" +\
+					+ "prev["		+ s_prev			+ "]\n" +\
+					+ "succ["		+ s_succ			+ "]\n" +\
 					+ "d_arrays["	+ s_d_arrays		+ "]\n";
 		return info;
     }
@@ -193,6 +237,21 @@ public:
 class AFlowGraph {
 	map<string, vector<DFGNode*> > fun_graphs;
 public:
+	DFGNode* getNode(string fun_name, int id)
+	{
+		auto check = fun_graphs.find(fun_name);
+		if (check == fun_graphs.end())
+			return NULL;
+		
+		vector<DFGNode*> graph = fun_graphs[fun_name];
+		for (auto node: graph) 
+		{
+			if (node->id == id)
+				return node;
+		}
+
+		return NULL;
+	}
 	AFlowGraph(SgFile file) 
 	{
 		// Build initial full CFG
@@ -202,6 +261,7 @@ public:
 
 		// Build initial abstract CFG
 		int funcNum = file.numberOfFunctions();
+		// Convert all bblocks to nodes
 		for (int i = 0; i < funcNum; ++i)
 		{
 			vector<DFGNode*> fun_graph;
@@ -217,13 +277,69 @@ public:
 			while (bb) 
 			{
 				fun_graph.push_back(new DFGNode(bb));
-				cout << fun_graph.back(); // debug
+				bb = bb->getLexNext();
+			}
+			fun_graphs[func_name] = fun_graph;
+		}
+		// Link nodes
+		for (int i = 0; i < funcNum; ++i)
+		{
+			string func_name = file.functions(i)->symbol()->identifier();
+			ControlFlowGraph* CGraph = graphsKeeper->getGraph(func_name)->CGraph;
+			if (!CGraph) 
+			{
+				cout << "Failed to find graph for function " << func_name << endl;
+				continue;
+			}
+
+			CBasicBlock* bb = CGraph->getFirst();
+			while (bb) 
+			{
+				DFGNode* node = getNode(func_name, bb->getNum());
+				if (!node) {
+					cout << "Node not found" << endl;
+					bb = bb->getLexNext();
+					continue;
+				}
+
+				BasicBlockItem* succ = bb->getSucc();
+				while (succ) {
+					DFGNode* succ_node = getNode(func_name, succ->block->getNum());
+					if (!succ_node) {
+						cout << "Succ node not found" << endl;
+						succ = succ->next;
+						continue;
+					}
+
+					node->succ.push_back(succ_node);
+					succ = succ->next;
+				}
+				BasicBlockItem* prev = bb->getPrev();
+				while (prev) {
+					DFGNode* prev_node = getNode(func_name, prev->block->getNum());
+					if (!prev_node) {
+						cout << "Prev node not found" << endl;
+						prev = prev->next;
+						continue;
+					}
+
+					node->prev.push_back(prev_node);
+					prev = prev->next;
+				}
+
+				// cout << node->getInfo(); // debug
+				// cout << "___________" << endl;
 				bb = bb->getLexNext();
 			}
 		}
 
 		// Remove verticies which doesn't reference destributed arrays
+		// for (auto graph: fun_graphs) {
+		// 	vector<DFGNode*> shrinked_graph;
+		// 	for (auto node: graph.second) {
 
+		// 	}
+		// }
 		// Join nodes, composing parallel loops
 	}
 };

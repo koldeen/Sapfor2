@@ -152,47 +152,6 @@ std::vector<LoopGraph *>  DvmhRegionInsertor::updateLoopGraph()
 }
 
 
-static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) {
-	set<SgSymbol *> result;
-
-	if (exp)
-	{
-		if (exp->variant() == ARRAY_REF) 
-			result.insert(exp->symbol());
-
-		set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
-		set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
-
-		result.insert(lhsSymbols.begin(), lhsSymbols.end());
-		result.insert(rhsSymbols.begin(), rhsSymbols.end());
-	}
-
-	return result;
-}
-
-static set<SgSymbol *> getUsedSymbols(SgStatement* st) {
-	set<SgSymbol *> result;
-
-	// ignore not executable statements
-	if (!isSgExecutableStatement(st)) {
-		return result;
-	}
-
-	for (int i = 0; i < 3; ++i) {
-		if (st->variant() == ASSIGN_STAT && i == 0) {
-			continue;
-		}
-
-		if (st->expr(i)) {
-			set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-			result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-		}
-	}
-
-	return result;
-}
-
-
 /*
 	1. ���������� ������ ������ ������ �������
 	2. ������ ���������� � ����� ������� ���������
@@ -208,32 +167,32 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 }
 
 // Finds the closest variable's defenition (test only)
-static std::map<SymbolKey, std::set<SgExpression*> > dummyDefenitions(SgStatement* st)
-{
-	std::map<SymbolKey, std::set<SgExpression*> > result;
+// static std::map<SymbolKey, std::set<SgExpression*> > dummyDefenitions(SgStatement* st)
+// {
+// 	std::map<SymbolKey, std::set<SgExpression*> > result;
 
-	set<SgSymbol*> usedSymbols = getUsedSymbols(st);
+// 	set<SgSymbol*> usedSymbols = getUsedSymbols(st);
 
-	for (auto& var : usedSymbols)
-	{
-		SgStatement* prev = st->lexPrev();
+// 	for (auto& var : usedSymbols)
+// 	{
+// 		SgStatement* prev = st->lexPrev();
 
-		std::set<SgExpression*> defs;
-		while (prev)
-		{
-			if (SymbDefinedIn(var, prev)) {
-				defs.insert(prev->expr(1));
-				break;
-			}
+// 		std::set<SgExpression*> defs;
+// 		while (prev)
+// 		{
+// 			if (SymbDefinedIn(var, prev)) {
+// 				defs.insert(prev->expr(1));
+// 				break;
+// 			}
 
-			prev = prev->lexPrev();
-		}
+// 			prev = prev->lexPrev();
+// 		}
 
-		result[SymbolKey(var, false)] = defs;
-	}
+// 		result[SymbolKey(var, false)] = defs;
+// 	}
 
-	return result;
-}
+// 	return result;
+// }
 
 void DvmhRegionInsertor::insertActualDirectives() {
 	int funcNum = file.numberOfFunctions();
