@@ -1707,6 +1707,12 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         if (staticPrivateAnalysis)
             runAnalysis(*project, curr_regime, false);
         break;
+    case CREATE_PARALLEL_REGIONS:
+        if (folderName)
+            runAnalysis(*project, curr_regime, true, "", folderName);
+        else
+            __spf_print(1, "can not run CREATE_PARALLEL_REGIONS - folder name is null\n");
+        break;
     default:
         runAnalysis(*project, curr_regime, false);
         break;
