@@ -102,7 +102,12 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
     for ( ; alloc; alloc = alloc->rhs())
     {
         if (alloc->lhs()->variant() == DDOT)
+        {
+            if (alloc->lhs()->lhs() == NULL || alloc->lhs()->rhs() == NULL)
+                return false;
             bounds.push_back(std::make_tuple(alloc->lhs()->lhs()->copyPtr(), alloc->lhs()->rhs()->copyPtr(), (SgExpression*)NULL));
+            
+        }
         else
             bounds.push_back(std::make_tuple(new SgValueExp(1), alloc->lhs()->copyPtr(), (SgExpression*)NULL));
     }

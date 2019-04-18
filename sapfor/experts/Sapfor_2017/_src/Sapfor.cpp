@@ -221,7 +221,16 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (keepSpfDirs)
             revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
         else
-            __spf_print(1, "   ignore SPF REVERT\n");
+        {
+            vector<SgStatement*> toDel;
+            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                if (isSPF_stat(st)) // except sapfor parallel regions and if attributes dont move
+                    if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
+                        toDel.push_back(st);
+
+            for (auto &elem : toDel)
+                elem->deleteStmt();
+        }
 
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
@@ -1029,7 +1038,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
-        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
+        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, keepFiles);
         propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
@@ -1118,53 +1127,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                for (auto &array : allArrays.GetArrays())
-                {
-                    auto itF = arraysDone.find(array);
-                    if (itF == arraysDone.end())
-                    {
-                        itF = arraysDone.insert(itF, array);
-                        Symbol *symb = array->GetDeclSymbol();
-                        if (symb)
-                        {
-                            auto &sizeInfo = array->GetSizes();
-                            bool needToUpdate = false;
-                            for (auto &elem : sizeInfo)
-                            {
-                                if (elem.first == elem.second)
-                                {
-                                    needToUpdate = true;
-                                    break;
-                                }
-                            }
+                recalculateArraySizes(arraysDone, allArrays.GetArrays());
 
-                            if (needToUpdate)
-                            {
-                                auto &declInfo = array->GetDeclInfo();
-                                bool wasSelect = false;
-                                for (auto &elem : declInfo)
-                                {
-                                    int fileId = SgFile::switchToFile(elem.first);
-                                    if (fileId != -1)
-                                    {
-                                        SgFile *tmpfile = &(CurrentProject->file(fileId));
-                                        current_file = tmpfile;
-                                        current_file_id = fileId;
-                                        wasSelect = true;
-                                        break;
-                                    }
-                                }
-                                if (!wasSelect)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                SgStatement *decl = declaratedInStmt(symb);
-                                vector<pair<int, int>> sizes;
-                                getArraySizes(sizes, symb, decl);
-                                array->SetSizes(sizes);
-                            }
-                        }
-                    }
-                }
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
             }

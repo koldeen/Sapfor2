@@ -1095,7 +1095,7 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
         }
 
         map<SymbolKey, set<ExpressionValue*>> inDefs;
-        ExpressionValue* emptyValue = allocateExpressionValue(NULL);
+        ExpressionValue* emptyValue = allocateExpressionValue(NULL, NULL);
         if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
                 inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue*>()))

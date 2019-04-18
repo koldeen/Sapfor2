@@ -916,7 +916,7 @@ static pair<Expression*, Expression*> getElem(SgExpression *exp)
         return make_pair((Expression*)NULL, (Expression*)NULL);
 }
 
-vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     vector<pair<Expression*, Expression*>> retVal;
@@ -1057,6 +1057,102 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
     }
 
     return retVal;
+}
+
+void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays)
+{
+    for (auto &array : allArrays)
+    {
+        auto itF = arraysDone.find(array);
+        if (itF == arraysDone.end())
+        {
+            itF = arraysDone.insert(itF, array);
+            Symbol *symb = array->GetDeclSymbol();
+            if (symb)
+            {
+                auto &sizeInfo = array->GetSizes();
+                bool needToUpdate = false;
+                for (auto &elem : sizeInfo)
+                {
+                    if (elem.first == elem.second)
+                    {
+                        needToUpdate = true;
+                        break;
+                    }
+                }
+
+                if (needToUpdate)
+                {
+                    auto &declInfo = array->GetDeclInfo();
+                    bool wasSelect = false;
+                    for (auto &elem : declInfo)
+                    {
+                        int fileId = SgFile::switchToFile(elem.first);
+                        if (fileId != -1)
+                        {
+                            SgFile *tmpfile = &(CurrentProject->file(fileId));
+                            current_file = tmpfile;
+                            current_file_id = fileId;
+                            wasSelect = true;
+                            break;
+                        }
+                    }
+                    if (!wasSelect)
+                    {
+                        //try to find in includes
+                        for (int i = CurrentProject->numberOfFiles() - 1; i >= 0; --i)
+                        {                            
+                            SgFile *file = &(CurrentProject->file(i));
+                            current_file_id = i;
+                            current_file = file;
+
+                            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                            {
+                                for (auto &elem : declInfo)
+                                {
+                                    if (make_pair(string(st->fileName()), st->lineNumber()) == elem)
+                                    {
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+
+                                if (wasSelect)
+                                {
+                                    wasSelect = false;
+                                    SgStatement *decl = declaratedInStmt(symb);
+                                    vector<pair<int, int>> sizes;
+                                    getArraySizes(sizes, symb, decl);
+                                    array->SetSizes(sizes);
+
+                                    needToUpdate = false;
+                                    for (auto &elem : sizes)
+                                    {
+                                        if (elem.first == elem.second)
+                                        {
+                                            needToUpdate = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!needToUpdate)
+                                    {
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (wasSelect)
+                                break;                            
+                        }
+
+                        if (!wasSelect)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }                    
+                }
+            }
+        }
+    }
 }
 
 bool isIntrinsic(const char *funName)

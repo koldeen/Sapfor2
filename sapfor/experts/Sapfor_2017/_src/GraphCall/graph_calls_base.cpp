@@ -376,7 +376,10 @@ static inline void addLinks(const FuncParam &actual, const FuncParam &formal, ma
     {
         for (int i = 0; i < actual.parameters.size(); ++i)
             if (actual.parametersT[i] == formal.parametersT[i] && formal.parametersT[i] == ARRAY_T)
+            {
+                //printf("add lhs %s -> rhs %s\n", ((DIST::Array*)formal.parameters[i])->GetName().c_str(), ((DIST::Array*)actual.parameters[i])->GetName().c_str());
                 arrayLinksByFuncCalls[(DIST::Array*)formal.parameters[i]].insert((DIST::Array*)actual.parameters[i]);
+            }
     }
 }
 
@@ -578,12 +581,13 @@ static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DI
 }
 
 void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
+                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, bool keepFiles)
 {
     for (auto &funcsOnFile : allFuncInfo)
     {
         for (auto &func : funcsOnFile.second)
         {
+            //printf("func %s :\n", func->funcName.c_str());
             const string &name = func->funcName;
             for (auto &caller : func->callsTo)
                 for (int i = 0; i < caller->detailCallsFrom.size(); ++i)
@@ -592,6 +596,18 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         }
     }
 
+    if (keepFiles)
+    {
+        FILE *file = fopen("_arrayLinksByCalls.txt", "w");
+        for (auto &elem : arrayLinksByFuncCalls)
+        {
+            fprintf(file, "%s -> ", elem.first->GetName().c_str());
+            for (auto &rhs : elem.second)
+                fprintf(file, " %s ", rhs->GetName().c_str());
+            fprintf(file, "\n");
+        }
+        fclose(file);
+    }
     propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
 
     //propagate distr state

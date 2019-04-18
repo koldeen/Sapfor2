@@ -443,9 +443,14 @@ namespace Distribution
         return make_pair(x.first * F.first, x.second * F.first + F.second);
     }
 
+    static pair<RationalNum, RationalNum> Fx(const pair<RationalNum, RationalNum> &x, const pair<RationalNum, RationalNum> &F)
+    {
+        return make_pair(x.first * F.first, x.second * F.first + F.second);
+    }
+
     template<typename vType, typename wType, typename attrType>
     bool GraphCSR<vType, wType, attrType>::
-        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool increaseLink)
+        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool increaseLink, int newValue)
     {
         set<vType> next = { root };
         set<vType> done;
@@ -469,7 +474,10 @@ namespace Distribution
                             const int k = neighbors[v1];
 
                             const vType edgeV = edges[k];
-                            attributes[k].first.first++;
+                            if (newValue == 0)
+                                attributes[k].first.first++;
+                            else
+                                attributes[k].first.first = newValue;
 
                             bool done = false;
                             for (int z = neighbors[edgeV]; z < neighbors[edgeV + 1]; ++z)
@@ -477,7 +485,10 @@ namespace Distribution
                                 const vType currV = edges[z];
                                 if (currV == v1)
                                 {
-                                    attributes[z].second.first++;
+                                    if (newValue == 0)
+                                        attributes[z].second.first++;
+                                    else
+                                        attributes[z].second.first = newValue;
                                     done = true;
                                     break;
                                 }
@@ -507,10 +518,10 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    pair<double, double> GraphCSR<vType, wType, attrType>::
+    pair<RationalNum, RationalNum> GraphCSR<vType, wType, attrType>::
         findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, set<vType> wasDone)
     {
-        const pair<double, double> nulPair = make_pair(0.0, 0.0);
+        const pair<RationalNum, RationalNum> nulPair = make_pair(0, 0);
 
         wasDone.insert(v1);
         bool wasFound = false;
@@ -534,7 +545,7 @@ namespace Distribution
 
         auto it = cacheLinks.find(v1);
         if (it == cacheLinks.end())
-            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<double, double>>>()));
+            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<RationalNum, RationalNum>>>()));
 
         for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
         {
@@ -543,7 +554,7 @@ namespace Distribution
             
             auto ruleCache = it->second.find(edges[k]);
 
-            pair<double, double> ruleToTemplate;
+            pair<RationalNum, RationalNum> ruleToTemplate;
             if (ruleCache == it->second.end())
             {
                 ruleToTemplate = findLinkWithTempate2(edges[k], templV, templ, allArrays, wasDone);
@@ -559,11 +570,11 @@ namespace Distribution
             if (ruleToTemplate != nulPair)
             {
                 auto currAttribute = attributes[k];
-                pair<double, double> left = currAttribute.first;
-                pair<double, double> right = currAttribute.second;
+                pair<RationalNum, RationalNum> left = currAttribute.first;
+                pair<RationalNum, RationalNum> right = currAttribute.second;
 
                 // calculate transition
-                pair<double, double> X;
+                pair<RationalNum, RationalNum> X;
                 X.first = right.first / left.first;
 
                 left.first *= X.first;
@@ -1571,7 +1582,9 @@ namespace Distribution
                 // if current vertex has links
                 if (currV != -1)
                 {
-                    pair<double, double> rule = make_pair(0, 0);
+                    pair<RationalNum, RationalNum> rule = make_pair(0, 0);
+                    pair<RationalNum, RationalNum> nul = rule;
+
                     int alignDim = -1;
                     Array *templ = NULL;
 
@@ -1579,23 +1592,23 @@ namespace Distribution
                     if (hasLinkWithTempate(currV, allArrays, false))
                     {
                         rule = findLinkWithTempate2(currV, alignDim, templ, allArrays, wasDone);
-                        if (rule != make_pair(0.0, 0.0))
+                        if (rule != nul)
                         {
-                            pair<int, int> intRule;
-                            intRule.first = (int)rule.first;
-                            intRule.second = (int)rule.second;
-
-                            pair<double, double> toCheck = make_pair(intRule.first, intRule.second);
-                            const double diff1 = rule.first - toCheck.first;
-                            const double diff2 = rule.second - toCheck.second;
-                            if (diff1 > 10e-14 || diff2 > 10e-14)
+                            if ((int)rule.first.getDenominator() != 1 || rule.second.getDenominator() != 1)
                             {
-                                __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
+                                __spf_print(1, "Can not find correct align rule for array '%s', found (%d/%d, %d/%d)\n", inputArray->GetShortName().c_str(), 
+                                    (int)rule.first.getNumerator(), (int)rule.first.getDenominator(), 
+                                    (int)rule.second.getNumerator(), (int)rule.second.getDenominator());
+
+                                //TODO: need to correct
+                                //const int newValue = (rule.first.getDenominator() == rule.second.getDenominator()) ? rule.first.getDenominator() : 0;
                                 if (!hasLinkWithTempate(currV, allArrays, true))
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                                 return 101;
                             }
 
+                            pair<int, int> intRule = make_pair((int)rule.first.getNumerator(), (int)rule.second.getNumerator());
+                            
                             rules[i] = make_tuple(templ, alignDim, intRule);
                             int dimNum = -1;
                             int err = allArrays.GetDimNumber(templ, alignDim, dimNum);

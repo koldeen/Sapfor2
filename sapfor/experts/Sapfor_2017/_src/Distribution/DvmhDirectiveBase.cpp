@@ -324,8 +324,21 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
                             else if (currReadOp->first[k].coefficients.size() > 0)
                             {
-                                shift[k].first = std::abs(minShift) - coeffs.second[k].first;
-                                shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                if (minShift > 0 && maxShift > 0)
+                                {
+                                    shift[k].first = 0;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
+                                else if (minShift < 0 && maxShift < 0)
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = 0;
+                                }
+                                else
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
                             }
                         }
                     }

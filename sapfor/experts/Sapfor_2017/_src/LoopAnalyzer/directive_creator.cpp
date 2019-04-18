@@ -119,13 +119,13 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
-static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
-                                    const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                    DIST::GraphCSR<int, double, attrType> &reducedG,
-                                    DIST::Arrays<int> &allArrays, const int regionId)
+static bool createLinksBetweenArrays(map<DIST::Array*, vector<int>> &links, DIST::Array *dist, 
+                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     DIST::GraphCSR<int, double, attrType> &reducedG,
+                                     DIST::Arrays<int> &allArrays, const int regionId)
 {
     bool ok = true;
-    if (templ == NULL)
+    if (dist == NULL)
         return false;
 
     for (auto &array : links)
@@ -136,7 +136,7 @@ static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST:
         vector<vector<int>> AllLinks(realArrayRef.size());
         int currL = 0;
         for (auto &array : realArrayRef)
-            AllLinks[currL++] = findLinksBetweenArrays(array, templ, regionId);
+            AllLinks[currL++] = findLinksBetweenArrays(array, dist, regionId);
 
         if (isAllRulesEqual(AllLinks))
             array.second = AllLinks[0];
@@ -159,11 +159,12 @@ static bool checkCorrectness(const ParallelDirective &dir,
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
     map<DIST::Array*, vector<int>> arrayLinksWithTmpl;
+    map<DIST::Array*, vector<int>> arrayLinksWithDirArray;
 
     const DistrVariant *distRuleTempl = NULL;
 
     for (auto &array : allArraysInLoop)
-        arrayLinksWithTmpl[array] = vector<int>();
+        arrayLinksWithDirArray[array] = arrayLinksWithTmpl[array] = vector<int>();
 
     vector<int> links;
     bool ok = true;
@@ -248,7 +249,25 @@ static bool checkCorrectness(const ParallelDirective &dir,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
-    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    auto templArray = dir.arrayRef;
+    if (templArray->IsTemplate() == false)
+        templArray = dir.arrayRef->GetTemplateArray(regionId);
+
+    ok = createLinksBetweenArrays(arrayLinksWithTmpl, templArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    if (ok == false)
+    {
+        if (newDistArray)
+        {
+            delete newDistArray->second;
+            delete newDistArray;
+        }
+        return ok;
+    }
+
+    if (dir.arrayRef->IsTemplate())
+        arrayLinksWithDirArray = arrayLinksWithTmpl;
+    else
+        ok = ok && createLinksBetweenArrays(arrayLinksWithDirArray, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
     
     // check main array
     if (dir.arrayRef2 != dir.arrayRef)
@@ -274,8 +293,20 @@ static bool checkCorrectness(const ParallelDirective &dir,
         }
     }
 
+    if (ok == false)
+    {
+        if (newDistArray)
+        {
+            delete newDistArray->second;
+            delete newDistArray;
+        }
+        return ok;
+    }
+
     for (auto &array : arrayLinksWithTmpl)
     {
+        auto dirArrayRef = arrayLinksWithDirArray[array.first];
+
         if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
         {
             vector<dist> derivedRule(array.first->GetDimSize());
@@ -298,7 +329,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             {
                 if (derivedRule[i] == dist::BLOCK)
                 {
-                    if (dir.on[array.second[i]].first == "*")
+                    if (dir.on[dirArrayRef[i]].first == "*")
                     {
                         ok = false;
                         it->second[i] = true;
