@@ -15,6 +15,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 using namespace std;
 
@@ -132,6 +133,8 @@ public:
 	vector<SgSymbol*> d_arrays;
 	DFGType type;
 	int id;
+	bool isParLoop;
+	bool isRegion;
 
 	DFGNode(CBasicBlock* bblock) {
 		initial.push_back(bblock);
@@ -227,6 +230,25 @@ public:
 					+ "d_arrays["	+ s_d_arrays		+ "]\n";
 		return info;
     }
+
+	bool addSucc(DFGNode* new_succ) 
+	{
+		for (auto old_succ : succ)
+			if (old_succ == new_succ || old_succ->id == new_succ->id)
+				return false;
+		succ.push_back(new_succ);
+		return true;
+	}
+
+	bool addPrev(DFGNode* new_prev) 
+	{
+		for (auto old_prev : prev)
+			if (old_prev == new_prev || old_prev->id == new_prev->id)
+				return false;
+		
+		prev.push_back(new_prev);
+		return true;
+	}
 };
 
 /*	Abstract control flow graph 
@@ -334,12 +356,52 @@ public:
 		}
 
 		// Remove verticies which doesn't reference destributed arrays
-		// for (auto graph: fun_graphs) {
-		// 	vector<DFGNode*> shrinked_graph;
-		// 	for (auto node: graph.second) {
+		for (auto graph: fun_graphs) {
+			vector<DFGNode*> shrinked_graph;
+			for (auto node: graph.second) {
+				if (node->d_arrays.size() > 0) {
+					shrinked_graph.push_back(node);
+					continue;
+				}
+				
+				// link successors with predecessors directly
+				for (auto prev_node: node->prev) {
+					for (auto succ_node: node->succ) {
+						prev_node->addSucc(succ_node); // TODO: control unique
+						succ_node->addPrev(prev_node); // TODO: control unique
+					}
+				}
+				for (auto prev_node: node->prev) {
+					// delete node itself from succ of its predecessor	
+					auto node_in_succ = find(prev_node->succ.begin(), prev_node->succ.end(), node);
+					if (node_in_succ == prev_node->succ.end()) {
+						cout << "cannot find node in succ of its predecessor" << endl;
+						continue;
+					}
+					prev_node->succ.erase(node_in_succ);
+				}
+				for (auto succ_node: node->succ) {
+					// delete node itself from prev of its successor	
+					auto node_in_prev = find(succ_node->prev.begin(), succ_node->prev.end(), node);
+					if (node_in_prev == succ_node->prev.end()) {
+						cout << "cannot find node in prev of its successor" << endl;
+						continue;
+					}
+					succ_node->prev.erase(node_in_prev);
+				}
 
-		// 	}
-		// }
+				delete(node);
+			}
+			fun_graphs[graph.first] = shrinked_graph;
+		}
+		// Debug print
+		for (auto graph: fun_graphs) {
+			cout << "Graph for function: " << graph.first << endl;
+			for (auto node: graph.second) {
+				cout << node->getInfo(); // debug
+				cout << "___________" << endl;
+			}
+		}
 		// Join nodes, composing parallel loops
 	}
 };
