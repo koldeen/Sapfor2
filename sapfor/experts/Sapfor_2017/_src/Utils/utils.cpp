@@ -551,6 +551,9 @@ void uniteVectors(const vector<pair<pair<string, string>, vector<pair<int, int>>
 
 // pointer -> type of alloc function
 static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollection;
+static bool deleteInProgress = false;
+static void* currentPointer = NULL;
+static set<void*> deleted;
 
 // type == 0 -> free, type == 1 -> delete, type == 2 -> delete[]
 // acc_analyzer.h: ControlFlowItem = 3, doLoopItem = 4, doLoops = 5, LabelCFI = 6, CLAStatementItem = 7
@@ -568,25 +571,43 @@ extern "C" void addToCollection(const int line, const char *file, void *pointer,
 
 extern "C" void removeFromCollection(void *pointer)
 {
-    if (pointerCollection.size() == 0)
-        return;
-    auto it = pointerCollection.find(pointer);
-    if (it != pointerCollection.end())
-        pointerCollection.erase(it);
+    if (deleteInProgress)
+    {
+        if (pointer != currentPointer)
+            deleted.insert(pointer);
+    }
+    else
+    {
+        if (pointerCollection.size() == 0)
+            return;
+
+        auto it = pointerCollection.find(pointer);
+        if (it != pointerCollection.end())
+            pointerCollection.erase(it);
+    }
 }
 
 void deletePointerAllocatedData()
 {
     int leaks = 0;
     int failed = 0;
+    deleteInProgress = true;
+    deleted.clear();
+    int maxS = -1;
 
-    auto copy = pointerCollection;
-    for (auto &elem : copy)
-    {        
-        if (pointerCollection.find(elem.first) == pointerCollection.end())
+    for (auto &elem : pointerCollection)
+    {
+        maxS = std::max(maxS, (int)deleted.size());
+
+        auto itD = deleted.find(elem.first);
+        if (deleted.find(elem.first) != deleted.end())
+        {            
+            deleted.erase(itD);
             continue;
+        }
 
         const pair<void*, int> pointer = std::make_pair(elem.first, std::get<0>(elem.second));
+        currentPointer = pointer.first;
         //printf("%d %s\n", std::get<1>(elem.second), std::get<2>(elem.second));
         //fflush(NULL);
         if (pointer.second == 0)
@@ -668,6 +689,12 @@ void deletePointerAllocatedData()
         printf("SAPFOR: detected %d leaks of memory\n", leaks);
     if (failed > 0)
         printf("SAPFOR: detected failed %d leaks of memory\n", failed);
+    printf("SAPFOR: deleted set size %d, maxS = %d\n", deleted.size(), maxS);
+
+    pointerCollection.clear();
+    deleted.clear();
+    deleteInProgress = false;
+    currentPointer = NULL;
 }
 
 static unsigned arrayIdCounter = 0;

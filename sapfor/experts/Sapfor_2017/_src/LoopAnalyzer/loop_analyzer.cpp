@@ -1119,7 +1119,7 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
 
                                 if (wasSelect)
                                 {
-                                    wasSelect = false;
+                                    //wasSelect = false;
                                     SgStatement *decl = declaratedInStmt(symb);
                                     vector<pair<int, int>> sizes;
                                     getArraySizes(sizes, symb, decl);
@@ -1134,11 +1134,12 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                                             break;
                                         }
                                     }
-                                    if (!needToUpdate)
+
+                                    /*if (!needToUpdate)
                                     {
                                         wasSelect = true;
                                         break;
-                                    }
+                                    }*/
                                 }
                             }
 
