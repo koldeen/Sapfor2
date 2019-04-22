@@ -39,6 +39,7 @@ static SgForStmt* createNewLoop(LoopGraph *globalLoop)
     SgStatement *lowestInsertedFor = insertBeforeThis;
     for (int i = 0; i < globalLoop->perfectLoop; ++i) //пройти по всем enddo
         lowestInsertedFor = lowestInsertedFor->lexPrev();
+
     return (SgForStmt*)lowestInsertedFor->lexPrev(); //самый внутренний цикл
 }
 
@@ -148,10 +149,11 @@ static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill,
         SgStatement *since = NULL, *till = NULL;
         since = globalSince;
 
-        for(since = globalSince; since != globalTill; since = since->lexNext()) 
-        {
 
-            if(since->lineNumber() == lineNumOfDependecy) 
+        for(since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
+        {
+            if(since->lineNumber() <= lineNumOfDependecy && since->lastNodeOfStmt()->lineNumber() >= lineNumOfDependecy)
+//            if(since->lineNumber() == lineNumOfDependecy)
             {
                 till = since->lastNodeOfStmt()->lexNext();
                 break;
@@ -161,6 +163,7 @@ static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill,
         if(since == globalTill) //зависимости вне основного цикла? ну уж нет.
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+        printf("added: %d - %d\n", since->lineNumber(), till->lineNumber());
         borders.push_back(make_pair(since, till));
     }
 }
@@ -228,6 +231,9 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         return true;
     }
 
+//    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
+//    printf("%s\n", since->unparse());
+
     borders.push_back(make_pair(since, till));
     map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMap(globalSince, globalTill);
 
@@ -236,6 +242,11 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
+/*        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
+        for(auto& it : openDependencies)
+            printf(" %d,", it);
+        printf("\n");*/
+
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         openDependencies.clear();
         setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
@@ -254,15 +265,13 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     return true;
 }
 
-static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &borders)
+static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &fragments)
 {
     SgStatement *lastInserted = newLoop;
-    
-    for(auto& border : borders)
+    for (auto &fragment : fragments)
     {
-        //printf("frag %d - %d, %s %s\n", border.first->lineNumber(), border.second->lineNumber(), border.first->fileName(), border.second->fileName());
-        SgStatement *toMoveStmt = border.first;
-        while(toMoveStmt != border.second)
+        SgStatement *toMoveStmt = fragment.first;
+        while (toMoveStmt != fragment.second)
         {
             //printf("move st from line %d\n", toMoveStmt->lineNumber());
             SgStatement *st = toMoveStmt;
@@ -370,7 +379,20 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
 
     SgStatement *globalSince, *globalTill;
     globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
-    globalTill = lowestParentGraph->loop->GetOriginal()->lastNodeOfStmt()->lexNext();
+    globalTill = lowestParentGraph->loop->GetOriginal()->lastNodeOfStmt();
+
+    //printf("global %d %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+
+
+/*    auto definitions = getReachingDefinitionsExt(globalSince);
+    for(auto& it : definitions)
+    {
+        printf("%s: ", it.first.getVarName().c_str());
+        for(auto& itt : it.second)
+            printf("%s from %s, ", itt->getUnparsed().c_str(), itt->getFrom() ? itt->getFrom()->unparse() : "(nowhere)");
+        printf("\n");
+    }*/
+
 
     vector<pair<SgStatement*, SgStatement*>> parts;
     for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
@@ -380,17 +402,24 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
 //        ;
 
     //Сам процесс разделения 
-    //TODO весьмма странный процесс, попробовал переписать иначе ниже
-    /*while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+    //Alexander: весьмма странный процесс, попробовал переписать иначе ниже
+    //Ivan: Нормальный процесс. Берётся первый оператор цикла, это начальный фрагмент. Высчитываются зависимости, фрагмент расширяется на них
+    //Когда все зависимости удовлетворены, фрагменты вырезаются и вставялются в новый цикл. Затем берётся следующий оператор из оставшихся.
+    //Последний расширенный фрагмент не вырезается, а остаётся в оиргинальном цикле..
+    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
     {
-        printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+        //printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+        //printf("result fragment: ");
+/*        for(auto& it : borders)
+            printf("%d - %d, ", it.first->lineNumber(), it.second->lineNumber());
+        printf("\n");*/
         moveStatements(createNewLoop(loopGraph), borders);
         globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();        
-    }*/
+    }
 
     //тут вроде как уже мы получаем разюивку всего тела, остается лишь переместить операторы в нужные циклы
     //альтрнативная ветка, будет работать как только будут правильно сделаны границы. 
-    /*if (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection))
+/*    if (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection))
     {
         for (auto &fragment : borders)
             printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
@@ -412,8 +441,6 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
         }
     }*/
 
-    //Исходный цикл остался с пустым телом
-    loopGraph->loop->deleteStmt();
     return 0;
 }
 

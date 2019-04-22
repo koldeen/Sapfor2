@@ -324,8 +324,21 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
                             else if (currReadOp->first[k].coefficients.size() > 0)
                             {
-                                shift[k].first = std::abs(minShift) - coeffs.second[k].first;
-                                shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                if (minShift > 0 && maxShift > 0)
+                                {
+                                    shift[k].first = 0;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
+                                else if (minShift < 0 && maxShift < 0)
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = 0;
+                                }
+                                else
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
                             }
                         }
                     }
@@ -383,7 +396,7 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     
     auto on_ext = on;
     //replace to template align ::on
-    if (arrayRef->isTemplate() == false)
+    if (arrayRef->IsTemplate() == false)
     {
         vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
             getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);

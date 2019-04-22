@@ -255,14 +255,14 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             else
                 p->setRhs(NULL);
         }
-        DIST::Array *mapTo = arrayRef2->isLoopArray() ? arrayRef : arrayRef2;
-        auto onTo = arrayRef2->isLoopArray() ? on : on2;
+        DIST::Array *mapTo = arrayRef2->IsLoopArray() ? arrayRef : arrayRef2;
+        auto onTo = arrayRef2->IsLoopArray() ? on : on2;
 
         directive += ") ON " + mapTo->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
 
         SgSymbol *symbForPar;
-        if (arrayRef->isTemplate())
+        if (arrayRef->IsTemplate())
             symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);        
         else
             symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();

@@ -5,6 +5,7 @@
 #include <map>
 #include <algorithm>
 #include <climits>
+#include "DvmhDirectiveBase.h"
 
 class Symbol;
 class Expression;
@@ -119,6 +120,9 @@ namespace Distribution
             for (auto &place : declPlaces)
                 uniqKey += place.first + TO_STR(place.second);
         }
+
+        //clones of template for realignes
+        MAP<VECTOR<dist>, STRING> templateClones;
     public:
         Array()
         {
@@ -253,9 +257,9 @@ namespace Distribution
         const VECTOR<PAIR<int, int>>& GetSizes() const { return sizes; }
         const VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>>& GetSizesExpr() const { return sizesExpr; }
         void SetTemplateFlag(const bool templFlag) { isTemplFlag = templFlag; }
-        bool isTemplate() const { return isTemplFlag; }
-        bool isLoopArray() const { return isLoopArrayFlag; }
-        void setLoopArray(const bool flag) { isLoopArrayFlag = flag; }
+        bool IsTemplate() const { return isTemplFlag; }
+        bool IsLoopArray() const { return isLoopArrayFlag; }
+        void SetLoopArray(const bool flag) { isLoopArrayFlag = flag; }
         void SetSizesExpr(const VECTOR<PAIR<Expression*, Expression*>> &_sizesExpr)
         {
             for (int i = 0; i < _sizesExpr.size(); ++i)
@@ -306,7 +310,7 @@ namespace Distribution
 
         void ExtendDimSize(const int dim, const PAIR<int, int> &size) 
         {
-            if (size.first == size.second && size.first == -1)
+            if (size.first == size.second)
                 return;
 
             sizes[dim].first = std::min(sizes[dim].first, size.first);
@@ -503,7 +507,7 @@ namespace Distribution
                 return depracateToDistribute[dim];
         }
         
-        bool isAllDeprecated() const
+        bool IsAllDeprecated() const
         {
             bool ret = true;
             for (int z = 0; z < dimSize; ++z)
@@ -512,6 +516,18 @@ namespace Distribution
         }
 
         int GetTypeSize() const { return typeSize; }
+
+        STRING AddTemplateClone(const VECTOR<dist> &newDist)
+        {
+            auto it = templateClones.find(newDist);
+            if (it == templateClones.end())
+                it = templateClones.insert(it, std::make_pair(newDist, shortName + STRING("_r") + TO_STR(templateClones.size())));
+            return it->second;
+        }
+
+        void ClearTemplateClones() { templateClones.clear(); }
+
+        const MAP<VECTOR<dist>, STRING>& GetAllClones() const { return templateClones; }
 
         ~Array() 
         {
@@ -530,7 +546,7 @@ namespace Distribution
         {
             auto it = accessPattern.find(file);
             if (it == accessPattern.end())
-                it = accessPattern.insert(it, make_pair(file, std::set<PAIR<int, char>>()));
+                it = accessPattern.insert(it, std::make_pair(file, std::set<PAIR<int, char>>()));
             it->second.insert(info);
         }
         const MAP<STRING, std::set<PAIR<int, char>>>& GetAllAccessInfo() const { return accessPattern; }

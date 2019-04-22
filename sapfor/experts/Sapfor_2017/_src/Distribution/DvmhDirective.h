@@ -56,7 +56,7 @@ public:
     {
         for (auto &elem : distrRules)
         {
-            if (elem.first && elem.first->isTemplate())
+            if (elem.first && elem.first->IsTemplate())
             {
                 delete elem.first;
                 elem.first = NULL;

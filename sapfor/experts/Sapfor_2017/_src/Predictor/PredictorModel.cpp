@@ -1127,7 +1127,7 @@ int predictScheme(ParallelRegion *reg, const vector<pair<DIST::Array*, const Dis
             for (auto &var : distVar)
                 Model_distr(var.first, var.second);
             for (auto &array : allArrays)
-                if (!array->isTemplate() && !array->isLoopArray())
+                if (!array->IsTemplate() && !array->IsLoopArray())
                     Model_align(array, reg->GetId());
 
             for (auto &dir : dirsToPredict)

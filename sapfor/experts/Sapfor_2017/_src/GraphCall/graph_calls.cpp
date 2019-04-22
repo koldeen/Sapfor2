@@ -622,6 +622,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
             containsPrefix = st_cp->symbol()->identifier() + string(".");
+        else if (st_cp->variant() == INTERFACE_STMT)
+            continue;
         
         string currFunc = "";
         if (st->variant() == PROG_HEDR)

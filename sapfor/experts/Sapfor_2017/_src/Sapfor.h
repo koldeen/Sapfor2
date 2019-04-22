@@ -43,6 +43,7 @@ enum passes {
     VERIFY_INCLUDE,
     VERIFY_EQUIVALENCE,
     VERIFY_COMMON,
+    VERIFY_FUNC_DECL,
     PREPROC_SPF,
     EXTRACT_PARALLEL_DIRS,
     CORRECT_VAR_DECL,
@@ -221,6 +222,7 @@ static void setPassValues()
     passNames[CREATE_PARALLEL_REGIONS] = "CREATE_PARALLEL_REGIONS";
     passNames[CALCULATE_STATS_SCHEME] = "CALCULATE_STATS_SCHEME";
     passNames[REMOVE_DVM_INTERVALS] = "REMOVE_DVM_INTERVALS";
+    passNames[VERIFY_FUNC_DECL] = "VERIFY_FUNC_DECL";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

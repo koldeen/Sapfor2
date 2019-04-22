@@ -317,6 +317,11 @@ public:
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
                 newUsedArraysW.insert(elem);
         usedArraysWrite = newUsedArraysW;
+        
+        readOpsArray.clear();
+        readOps.clear();
+        writeOps.clear();
+        hasConflicts.clear();
 
         for (auto &ch : children)
             ch->removeNonDistrArrays();

@@ -119,13 +119,13 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
     }
 }
 
-static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST::Array *templ, 
-                                    const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                    DIST::GraphCSR<int, double, attrType> &reducedG,
-                                    DIST::Arrays<int> &allArrays, const int regionId)
+static bool createLinksBetweenArrays(map<DIST::Array*, vector<int>> &links, DIST::Array *dist, 
+                                     const std::map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                     DIST::GraphCSR<int, double, attrType> &reducedG,
+                                     DIST::Arrays<int> &allArrays, const int regionId)
 {
     bool ok = true;
-    if (templ == NULL)
+    if (dist == NULL)
         return false;
 
     for (auto &array : links)
@@ -136,7 +136,7 @@ static bool createLinksWithTemplate(map<DIST::Array*, vector<int>> &links, DIST:
         vector<vector<int>> AllLinks(realArrayRef.size());
         int currL = 0;
         for (auto &array : realArrayRef)
-            AllLinks[currL++] = findLinksBetweenArrays(array, templ, regionId);
+            AllLinks[currL++] = findLinksBetweenArrays(array, dist, regionId);
 
         if (isAllRulesEqual(AllLinks))
             array.second = AllLinks[0];
@@ -159,11 +159,12 @@ static bool checkCorrectness(const ParallelDirective &dir,
     const pair<DIST::Array*, const DistrVariant*> *distArray = NULL;
     pair<DIST::Array*, const DistrVariant*> *newDistArray = NULL;
     map<DIST::Array*, vector<int>> arrayLinksWithTmpl;
+    map<DIST::Array*, vector<int>> arrayLinksWithDirArray;
 
     const DistrVariant *distRuleTempl = NULL;
 
     for (auto &array : allArraysInLoop)
-        arrayLinksWithTmpl[array] = vector<int>();
+        arrayLinksWithDirArray[array] = arrayLinksWithTmpl[array] = vector<int>();
 
     vector<int> links;
     bool ok = true;
@@ -248,7 +249,25 @@ static bool checkCorrectness(const ParallelDirective &dir,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
-    ok = createLinksWithTemplate(arrayLinksWithTmpl, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    auto templArray = dir.arrayRef;
+    if (templArray->IsTemplate() == false)
+        templArray = dir.arrayRef->GetTemplateArray(regionId);
+
+    ok = createLinksBetweenArrays(arrayLinksWithTmpl, templArray, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
+    if (ok == false)
+    {
+        if (newDistArray)
+        {
+            delete newDistArray->second;
+            delete newDistArray;
+        }
+        return ok;
+    }
+
+    if (dir.arrayRef->IsTemplate())
+        arrayLinksWithDirArray = arrayLinksWithTmpl;
+    else
+        ok = ok && createLinksBetweenArrays(arrayLinksWithDirArray, dir.arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
     
     // check main array
     if (dir.arrayRef2 != dir.arrayRef)
@@ -274,8 +293,20 @@ static bool checkCorrectness(const ParallelDirective &dir,
         }
     }
 
+    if (ok == false)
+    {
+        if (newDistArray)
+        {
+            delete newDistArray->second;
+            delete newDistArray;
+        }
+        return ok;
+    }
+
     for (auto &array : arrayLinksWithTmpl)
     {
+        auto dirArrayRef = arrayLinksWithDirArray[array.first];
+
         if (array.first != dir.arrayRef2 && array.first != dir.arrayRef)
         {
             vector<dist> derivedRule(array.first->GetDimSize());
@@ -298,7 +329,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
             {
                 if (derivedRule[i] == dist::BLOCK)
                 {
-                    if (dir.on[array.second[i]].first == "*")
+                    if (dir.on[dirArrayRef[i]].first == "*")
                     {
                         ok = false;
                         it->second[i] = true;
@@ -323,7 +354,7 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
     DIST::Array *templArray = currDist.first;
 
     //return true if need to skeep
-    if (parallelOn->isTemplate())
+    if (parallelOn->IsTemplate())
     {
         if (parallelOn != templArray)
             return true;
@@ -337,7 +368,7 @@ static bool matchParallelAndDist(const pair<DIST::Array*, const DistrVariant*> &
     bool conflict = false;
     
     vector<int> linkWithTempl;
-    if (parallelOn->isTemplate())
+    if (parallelOn->IsTemplate())
         for (int i = 0; i < templArray->GetDimSize(); ++i)
             linkWithTempl.push_back(i);
     else
@@ -575,38 +606,6 @@ static vector<vector<pair<string, vector<Expression*>>>>
     return optimizedRules;
 }
 
-static int cloneCount = 0;
-static map<pair<string, string>, map<pair<DIST::Array*, vector<dist>>, string>> templateClones;
-static string createTemplateClone(DIST::Array *templ, const vector<dist> &redistr, SgFile *file, SgStatement *currLoop, bool &needToInsert)
-{
-    string ret = "dvmh_temp_r";
-    needToInsert = false;
-
-    string fileN = file->filename();
-    while (currLoop->variant() != PROC_HEDR && currLoop->variant() != PROG_HEDR && currLoop->variant() != FUNC_HEDR)
-    {
-        currLoop = currLoop->controlParent();
-        checkNull(currLoop, convertFileName(__FILE__).c_str(), __LINE__);
-    }
-    string funcN = currLoop->symbol()->identifier();
-    pair<string, string> key = make_pair(fileN, funcN);
-    auto it = templateClones.find(key);
-    if (it == templateClones.end())
-        it = templateClones.insert(it, make_pair(key, map<pair<DIST::Array*, vector<dist>>, string>()));
-
-    pair<DIST::Array*, vector<dist>> arrayKey = make_pair(templ, redistr);
-    auto itA = it->second.find(arrayKey);
-    if (itA == it->second.end())
-    {
-        itA = it->second.insert(itA, make_pair(arrayKey, ret + std::to_string(cloneCount++)));
-        needToInsert = true;
-    }
-
-    return itA->second;
-}
-
-void clearTemplateClonesData() { cloneCount = 0; templateClones.clear(); }
-
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
@@ -678,12 +677,11 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         sprintf(buf, "Added redistribute for loop by array '%s' can significantly reduce performance", distribution[idx].first->GetShortName().c_str());
         messages.push_back(Messages(WARR, current->lineNum, buf, 3009));*/
 
-        // New var - realign
-        bool needToInsert = false;
-        const auto redistrRule = redistributeRules[z].second->distRule;
-        string newTemplate = createTemplateClone(distribution[idx].first, redistrRule, file, current->loop->GetOriginal(), needToInsert);
+        // New var - realign with global template clones        
+        const auto redistrRule = redistributeRules[z].second->distRule;        
+        const string newTemplate = distribution[idx].first->AddTemplateClone(redistrRule);
 
-        vector<vector<pair<string, vector<Expression*>>>> toRealign = createRealignRules(current, regionId, file, newTemplate, arrayLinksByFuncCalls);
+        const vector<vector<pair<string, vector<Expression*>>>> &toRealign = createRealignRules(current, regionId, file, newTemplate, arrayLinksByFuncCalls);
         for (auto &rule : toRealign[0])
             toInsert.push_back(make_pair(current->lineNum, rule));
         for (auto &rule : toRealign[1])
@@ -691,55 +689,6 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
 
         if (toRealign[0].size())
             currParDir->cloneOfTemplate = newTemplate;
-        else
-            needToInsert = false;
-
-        if (needToInsert)
-        {
-            vector<Expression*> cloneDistr(6);
-            vector<Expression*> templCreate(7);
-
-            std::fill(cloneDistr.begin(), cloneDistr.end(), (Expression*)NULL);
-            std::fill(templCreate.begin(), templCreate.end(), (Expression*)NULL);
-
-            SgVarRefExp *clone = new SgVarRefExp(*findSymbolOrCreate(file, newTemplate));
-            SgExprListExp *listDist = new SgExprListExp();
-            for (int z = 0; z < redistrRule.size(); ++z)
-            {
-                SgVarRefExp *toSet;
-                if (redistrRule[z] == BLOCK)
-                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "BLOCK"));
-                else
-                    toSet = new SgVarRefExp(*findSymbolOrCreate(file, "*"));
-                if (z == 0)
-                    listDist->setLhs(toSet);
-                else
-                    listDist->append(*toSet);
-            }
-            cloneDistr[0] = new Expression(clone);
-            cloneDistr[1] = new Expression(listDist);
-            
-            SgArrayRefExp *cloneWithDims = new SgArrayRefExp(*findSymbolOrCreate(file, newTemplate, new SgArrayType(*SgTypeInt())));
-            for (auto &elem : distribution[idx].first->GetSizes())
-                cloneWithDims->addSubscript(SgDDotOp(*new SgValueExp(elem.first), *new SgValueExp(elem.second)));
-            templCreate[0] = new Expression(cloneWithDims);
-
-            SgStatement *stF = current->loop->GetOriginal();
-            while (stF->variant() != PROC_HEDR && stF->variant() != PROG_HEDR && stF->variant() != FUNC_HEDR)
-            {
-                stF = stF->controlParent();
-                checkNull(stF, convertFileName(__FILE__).c_str(), __LINE__);
-            }
-                        
-            while ((!isSgExecutableStatement(stF->lexNext()) || stF->fileName() != string(file->filename()) || isSPF_stat(stF->lexNext())) && !isDVM_stat(stF->lexNext()))
-                stF = stF->lexNext();
-            if (!isSgExecutableStatement(stF))
-                stF = stF->lexNext();
-            
-            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", templCreate)));
-            toInsert.push_back(make_pair(stF->lineNumber(), make_pair("", cloneDistr)));
-            
-        }
     }
     current->setNewRedistributeRules(redistributeRules);
 
@@ -976,7 +925,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 parDirective->on[i].second = make_pair(1, 0);
                 resolved = true;
 
-                if (!parDirective->arrayRef->isTemplate())
+                if (!parDirective->arrayRef->IsTemplate())
                 {
                     parDirective->on2[i].first = updateOn[i].second;
                     parDirective->on2[i].second = make_pair(1, 0);

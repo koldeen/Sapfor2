@@ -519,6 +519,9 @@
     <ClCompile Include="..\_src\ParallelizationRegions\expand_extract_reg.cpp">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\Utils\RationalNum.cpp">
+      <Filter>Файлы исходного кода\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1039,6 +1042,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\ParallelizationRegions\expand_extract_reg.h">
       <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\Utils\RationalNum.h">
+      <Filter>Файлы исходного кода\Utils</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

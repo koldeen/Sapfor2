@@ -273,7 +273,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
 			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o loops_combiner.o CreateInterTree.o gcov_info.o gCov_parser.o \
 			 graph_calls_base.o directive_creator_base.o PredictorModel.o createParallelRegions.o \
-			 expand_extract_reg.o
+			 expand_extract_reg.o RationalNum.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
@@ -288,6 +288,8 @@ gCov_parser.o: $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp $(REPO_SPF_BASE)D
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 CreateInterTree.o: $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+RationalNum.o: $(REPO_SPF_BASE)Utils/RationalNum.cpp $(REPO_SPF_BASE)Utils/RationalNum.h 
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/RationalNum.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 SgUtils.o: $(REPO_SPF_BASE)Utils/SgUtils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
