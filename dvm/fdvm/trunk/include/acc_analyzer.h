@@ -324,7 +324,7 @@ public:
 
     ControlFlowItem* endLoop(ControlFlowItem* last); 
     ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);    
-    inline ~doLoops();
+    ~doLoops();
 };
 
 struct LabelCFI

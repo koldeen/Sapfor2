@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE 0 //_WIN32
+#define RELEASE_CANDIDATE 1 //_WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
