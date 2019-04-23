@@ -23,8 +23,8 @@ void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
-static map<string, ExpressionValue*> allocated;
-//static map<SymbolKey, map<ExpressionValue*, SgStatement*>> symbolAndExpToDefinition;
+//static map<string, ExpressionValue*> allocated;
+static map<int, map<string, ExpressionValue*>> allocated2;
 
 
 static set<ExpressionValue> usedVariablesInStatement(SgStatement *st) {
@@ -79,6 +79,44 @@ static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement
         found_r->second.first.insert(definition);
 }
 
+static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValue &symbol, vector <ControlFlowItem*> &cfis) {
+    if(cfis.size() == 0)
+        findCFIsForStmt(st, cfis);
+
+    for(ControlFlowItem *cfi : cfis) {
+
+        AnalysedCallsList *callData = cfi->getCall();
+        SgFunctionCallExp *funcCall = NULL;
+        if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
+        {
+            SgCallStmt *callStmt = isSgCallStmt(st);
+            for (int i = 0; i < callStmt->numberOfArgs(); ++i)
+            {
+                SgExpression *arg = callStmt->arg(i);
+                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData, true))) {
+ //                   printf("in %s ", st->unparse());
+ //                   printf(" %s is required\n", arg->unparse());
+                    return true;
+                }
+            }
+        }
+        else if ((funcCall = cfi->getFunctionCall()) != NULL)
+        {
+            for (int i = 0; i < funcCall->numberOfArgs(); ++i)
+            {
+                SgExpression *arg = funcCall->arg(i);
+                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData, true))) {
+//                    printf("in %s ", st->unparse());
+//                    printf(" %s is required\n", arg->unparse());
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 /**
  * symbol упоминается в st. Нужно проверить, что значение symbol действительно важно в st.
  * Например для оператора x = 7; значение x не важно, а для x = x + 2 - важно
@@ -86,8 +124,11 @@ static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement
  *
  * symbol - это ExpressionValue из SgExpression у которого есть symbol()
  */
-static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol) {
+static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, vector <ControlFlowItem*> &cfis) {
     stack<SgExpression*> toCheck;
+
+    if(checkSymbolUsedByProcsAndFuncs(st, symbol, cfis))
+        return true;
 
     SgExpression *lval = st->expr(0);
     if(lval)
@@ -120,14 +161,14 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol) {
                 return true;
         }*/
 
+        SgExpression *rhs = top->rhs();
+        SgExpression *lhs = top->lhs();
 
-        if (top->rhs())
-            toCheck.push(top->rhs());
-        if (top->lhs())
-            toCheck.push(top->lhs());
+        if (rhs && rhs->variant() != FUNC_CALL)
+            toCheck.push(rhs);
+        if (lhs && lhs->variant() != FUNC_CALL)
+            toCheck.push(lhs);
     }
-
-
 
     return false;
 }
@@ -148,10 +189,11 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
     {
         auto definitions = getReachingDefinitionsExt(cur);
         auto usedVariables = usedVariablesInStatement(cur);
+        vector <ControlFlowItem*> cfis;
 
         for(auto& var : usedVariables)
         {
-            if(symbolIsUsed(cur, var))
+            if(symbolIsUsed(cur, var, cfis))
             {
                 auto expressions = definitions.find(var.getExp()->symbol());
                 if (expressions != definitions.end())
@@ -184,37 +226,6 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
 
 }
 
-/*
-
-SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value)
-{
-    auto found = symbolAndExpToDefinition.find(symbol);
-    if(found == symbolAndExpToDefinition.end())
-        return NULL;
-
-    for(auto& it : found->second)
-        if(value->unparsedEquals(it.first))
-            return it.second;
-
-    return NULL;
-}
-
-static void saveDefinitionStatement(SymbolKey &var, ExpressionValue *value, SgStatement *defSt)
-{
-    auto found = symbolAndExpToDefinition.find(var);
-    if(found == symbolAndExpToDefinition.end())
-        symbolAndExpToDefinition.insert(found, make_pair(var, map<ExpressionValue*, SgStatement*>()))->second.insert(make_pair(value, defSt));
-    else
-    {
-        auto ffound = found->second.find(value);
-        if(ffound == found->second.end())
-            ffound->second = defSt;
-        else
-            found->second.insert(ffound, make_pair(value, defSt));
-    }
-}
-*/
-
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
 {
     bool result = false;
@@ -241,13 +252,25 @@ ExpressionValue* allocateExpressionValue(SgExpression* newExp, SgStatement* from
 {
     string unp = (newExp == NULL) ? "(unknown value)" : string(newExp->unparse());
     ExpressionValue* newExpVal = NULL;
-    /*auto alloc = allocated.find(unp);
-    if (alloc == allocated.end())
-        newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp)))->second;
-    else
-        newExpVal = alloc->second;*/
 
-    return new ExpressionValue(newExp, unp, from);
+    int file_id = from == NULL ? current_file_id : from->getFileId();
+    auto allocatedMap = allocated2.find(file_id);
+    if(allocatedMap == allocated2.end())
+        allocatedMap = allocated2.insert(allocatedMap, make_pair(file_id, map<string, ExpressionValue*>()));
+
+    auto alloc = allocatedMap->second.find(unp);
+    if (alloc == allocatedMap->second.end())
+        newExpVal = allocatedMap->second.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp, from)))->second;
+    else
+        newExpVal = alloc->second;
+
+/*    auto alloc = allocated.find(unp);
+    if (alloc == allocated.end())
+        newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp, from)))->second;
+    else
+        newExpVal = alloc->second;
+*/
+    return newExpVal;//new ExpressionValue(newExp, unp, from);
 }
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *defSt)
@@ -284,7 +307,7 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
             ++it;
 }
 
-bool argIsReplaceable(int i, AnalysedCallsList *callData)
+bool argIsReplaceable(int i, AnalysedCallsList *callData, bool argHasOutterDep)
 {
     // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
     if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
@@ -306,12 +329,23 @@ bool argIsReplaceable(int i, AnalysedCallsList *callData)
     bool isArgOut = callData->isArgOut(i, NULL);
     bool isArgIn = callData->isArgIn(i, NULL);
 
-    if ((attr & (OUT_BIT)) || (attr & (INOUT_BIT)) || isArgOut) //argument modified inside procedure
-        return false;
-    else if (!((attr & (IN_BIT)) || isArgIn)) // no information, assume that argument is "inout"
-        return false;
-    else
-        return true;
+    if (!argHasOutterDep)
+    {
+        if ((attr & (OUT_BIT)) || (attr & (INOUT_BIT)) || isArgOut) //argument modified inside procedure
+            return false;
+        else if (!((attr & (IN_BIT)) || isArgIn)) // no information, assume that argument is "inout"
+            return false;
+        else
+            return true;
+    }
+    else {
+        if ((attr & (IN_BIT)) || (attr & (INOUT_BIT)) || isArgIn) //argument used inside procedure
+            return false;
+        else if (!((attr & (OUT_BIT)) || isArgOut)) // no information, assume that argument is "inout"
+            return false;
+        else
+            return true;
+    }
 }
 
 void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
@@ -528,6 +562,13 @@ const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsEx
         for(auto &it : gen)
             defs.insert(make_pair(it.first, set<ExpressionValue*>())).first->second.insert(it.second);
     }
+
+/*    for(auto it : defs) {
+        printf("%s: ", it.first.getVarName().c_str());
+        for(auto itt : it.second)
+            printf("%s, ", itt->getUnparsed().c_str());
+        printf("\n");
+    }*/
 
     return defs;
 }
@@ -899,13 +940,22 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
 #endif
         if (elem.second->getUnparsed() != "")
             delete elem.second;        
-    }*/
+    }
 #if PRINT_PROF_INFO
     if (allocated.size())
         __spf_print(1, "   count of elem %lld, in MB %f, info %lld in MB %f, elemCount = %d, elemCount1 = %d\n", 
                     countS, (double)countS / 1024. / 1024., memCount, double(memCount) / 1024./1024., elemCount, elemCount1);
 #endif
+*/
     //allocated.clear();
+}
+
+void deleteAllocatedExpressionValues(int file_id) {
+    auto fa = allocated2.find(file_id);
+    if(fa != allocated2.end())
+        for(auto &elem : fa->second)
+            delete elem.second;
+    allocated2.clear();
 }
 
 //TODO

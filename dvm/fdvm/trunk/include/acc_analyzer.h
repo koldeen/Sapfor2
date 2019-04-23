@@ -324,7 +324,7 @@ public:
 
     ControlFlowItem* endLoop(ControlFlowItem* last); 
     ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);    
-    inline ~doLoops();
+    ~doLoops();
 };
 
 struct LabelCFI
@@ -739,22 +739,20 @@ class ExpressionValue {
 private:
     SgExpression *exp;
     std::string unparsed;
-    int file_id;
     SgStatement* from;
 public:
-    ExpressionValue(): exp(NULL), unparsed(""), file_id(current_file_id), from(NULL) {}
+    ExpressionValue(): exp(NULL), unparsed(""), from(NULL) {}
     //ExpressionValue(SgExpression *e): exp(e) { unparsed = (e != NULL ? e->unparse() : ""); }
-    ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp), file_id(current_file_id), from(NULL) { }
-    ExpressionValue(SgExpression *e, const std::string &unp, SgStatement* f) : exp(e), unparsed(unp), file_id(current_file_id), from(f) { }
+    ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp), from(NULL) { }
+    ExpressionValue(SgExpression *e, const std::string &unp, SgStatement* f) : exp(e), unparsed(unp), from(f) { }
     inline bool unparsedEquals(ExpressionValue &other) const {return unparsed == other.unparsed; }
     inline bool unparsedEquals(ExpressionValue *other) const {return unparsed == other->unparsed; }
     inline SgExpression* getExp() const { return exp; }
     inline const std::string& getUnparsed() const { return unparsed; }
-    inline const int getFileId() const { return file_id; }
     inline void setFrom(SgStatement* st) { from = st; }
     inline SgStatement* getFrom() const { return from; }
-    inline bool operator<(const ExpressionValue &other) const   { return file_id == other.file_id ? (from == other.from ? unparsed < other.unparsed : from < other.from) : file_id < other.file_id; }
-    inline bool operator==(const ExpressionValue &other) const  { return file_id == other.file_id && from == other.from && unparsed == other.unparsed; }
+    inline bool operator<(const ExpressionValue &other) const   { return from == other.from ? unparsed < other.unparsed : from < other.from; }
+    inline bool operator==(const ExpressionValue &other) const  { return from == other.from && unparsed == other.unparsed; }
     inline bool operator==(SgExpression* e) const               { return strcmp(unparsed.c_str(), e->unparse()) == 0; }
 };
 #endif
@@ -1207,4 +1205,5 @@ int SwitchFile(int);
 
 #if __SPF
 ExpressionValue* allocateExpressionValue(SgExpression*, SgStatement*);
+void deleteAllocatedExpressionValues(int file_id);
 #endif

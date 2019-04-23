@@ -134,7 +134,7 @@ void deleteAllAllocatedData(bool enable)
             delete[]ALGORITHMS_DONE[i];
         delete project;
 
-        deleteGraphsKeeper();
+        GraphsKeeper::deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
 }

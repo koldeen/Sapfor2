@@ -2129,9 +2129,16 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                                      sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
                                      mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
                     else
-                        findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, 
-                                     sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
-                                     mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                    {
+                        SgExpression *listEx = st->expr(0);
+                        while (listEx)
+                        {
+                            findArrayRef(parentLoops, listEx->lhs(), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars,
+                                         sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays,
+                                         mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                            listEx = listEx->rhs();
+                        }
+                    }
                 }
             }
             st = st->lexNext();

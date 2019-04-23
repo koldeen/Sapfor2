@@ -34,7 +34,7 @@ static SgForStmt* createNewLoop(LoopGraph *globalLoop)
     SgForStmt *curForStmt = (SgForStmt*)graphs[0]->loop->GetOriginal();
     SgForStmt *newGlobalLoop = new SgForStmt(curForStmt->doName(), curForStmt->start(), curForStmt->end(), curForStmt->step(), newLoop);
 
-    insertBeforeThis->insertStmtBefore(*newGlobalLoop);
+    insertBeforeThis->insertStmtBefore(*newGlobalLoop, *insertBeforeThis->controlParent());
 
     SgStatement *lowestInsertedFor = insertBeforeThis;
     for (int i = 0; i < globalLoop->perfectLoop; ++i) //пройти по всем enddo
@@ -49,9 +49,10 @@ static inline bool lineInsideBorder(int lineNumber, pair<SgStatement*, SgStateme
 }
 
 static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<SgStatement*, SgStatement*>> &borders,
-                                  depGraph *parentDepGraph, map<SgExpression*, string> &collection)
+                                    vector<depGraph*> &depGraphs, map<SgExpression*, string> &collection)
 {
-    for(depNode* node : parentDepGraph->getNodes()) {
+    for(depGraph* dependencyGraph : depGraphs) {
+    for(depNode* node : dependencyGraph->getNodes()) {
         if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout))
         {
             bool hasDependency = false;
@@ -61,8 +62,8 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
             {
                 int inLine = node->stmtin->lineNumber();
                 int outLine = node->stmtout->lineNumber();
-                bool inIncluded = false, outIncluded = false;
 
+                bool inIncluded = false, outIncluded = false;
                 for (auto border : borders)
                 {
                     if (lineInsideBorder(inLine, border))
@@ -77,6 +78,7 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
                     openDependencies.insert(outLine);
             }
         }
+    }
     }
 }
 
@@ -141,6 +143,8 @@ static bool dependencyAlreadyEnclosed(int lineNum, vector<pair<SgStatement*, SgS
 static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill, vector<pair<SgStatement*, SgStatement*>> &borders,
                               set<int> openDependencies)
 {
+//    printf("since-till %d - %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+
     for(int lineNumOfDependecy : openDependencies)
     {
         if(dependencyAlreadyEnclosed(lineNumOfDependecy, borders))
@@ -160,10 +164,12 @@ static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill,
             }
         }
 
+//        printf("linenum of dependency %d\n", lineNumOfDependecy);
+
         if(since == globalTill) //зависимости вне основного цикла? ну уж нет.
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        printf("added: %d - %d\n", since->lineNumber(), till->lineNumber());
+//        printf("added: %d - %d\n", since->lineNumber(), till->lineNumber());
         borders.push_back(make_pair(since, till));
     }
 }
@@ -210,14 +216,33 @@ static void glueBorders(vector<pair<SgStatement*, SgStatement*>> &borders)
     //    printf("*** frag %d - %d\n", borders[z].first->lineNumber(), borders[z].second->lineNumber());
 }
 
+vector<LoopGraph*> getLoopsFrom(vector<pair<SgStatement*, SgStatement*>>& borders, LoopGraph *parentGraph) {
+    vector<LoopGraph*> result;
+    for(LoopGraph *loop : parentGraph->children) {
+        for(pair<SgStatement*, SgStatement*> &frag : borders)
+            if(loop->lineNum >= frag.first->lineNumber() && loop->lineNumAfterLoop <= frag.second->lineNumber())
+                result.push_back(loop);
+    }
+
+    return result;
+}
+
+vector<depGraph*> getDepGraphsFor(vector<LoopGraph*> &loops, LoopGraph *parentGraph) {
+
+    vector<depGraph*> result;
+    const set<string> privVars;
+    for(auto loop : loops)
+        result.push_back(getDependenciesGraph(parentGraph, current_file, &privVars));
+    return result;
+}
+
 static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
                               vector<pair<SgStatement*, SgStatement*>>& borders,
                               depGraph* parentDepGraph, map<SgExpression*, string>& collection)
 {
-    //Каким-то образом, мы вырезали всё из цикла и хотем продолжать.
+    //Каким-то образом, мы вырезали всё из цикла и хотим продолжать.
     if(globalSince == globalTill)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
 
     borders.clear();
     SgStatement *since, *till;
@@ -225,20 +250,21 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     since = globalSince;
     till = since->lastNodeOfStmt()->lexNext();
 
-    if(parentDepGraph == NULL) //Нет зависимостей, можно взять изначальный фрагмент без измененений
-    {
-        borders.push_back(make_pair(since, till));
+    borders.push_back(make_pair(since, till));
+
+    vector<LoopGraph*> loops = getLoopsFrom(borders, parentGraph);
+    vector<depGraph*> depGraphs = getDepGraphsFor(loops, parentGraph);
+
+    if(depGraphs.size() == 0) //Нет зависимостей, можно взять изначальный фрагмент без измененений
         return true;
-    }
 
 //    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
 //    printf("%s\n", since->unparse());
 
-    borders.push_back(make_pair(since, till));
     map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMap(globalSince, globalTill);
 
     set<int> openDependencies;
-    setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
+    setupOpenDependencies(openDependencies, borders, depGraphs, collection);
     addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
@@ -249,7 +275,10 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
 
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         openDependencies.clear();
-        setupOpenDependencies(openDependencies, borders, parentDepGraph, collection);
+
+        loops = getLoopsFrom(borders, parentGraph);
+        depGraphs = getDepGraphsFor(loops, parentGraph);
+        setupOpenDependencies(openDependencies, borders, depGraphs, collection);
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
 
@@ -403,14 +432,14 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
 
     //Сам процесс разделения 
     //Alexander: весьмма странный процесс, попробовал переписать иначе ниже
-    //Ivan: Нормальный процесс. Берётся первый оператор цикла, это начальный фрагмент. Высчитываются зависимости, фрагмент расширяется на них
+    //Ivan: Нормальный процесс. Берётся первый оператор цикла, это начальный фрагмент. Высчитываются зависимости, фрагмент расширяется на них.
     //Когда все зависимости удовлетворены, фрагменты вырезаются и вставялются в новый цикл. Затем берётся следующий оператор из оставшихся.
-    //Последний расширенный фрагмент не вырезается, а остаётся в оиргинальном цикле..
+    //Последний расширенный фрагмент не вырезается, а остаётся в оиргинальном цикле.
     while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
     {
-        //printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
-        //printf("result fragment: ");
-/*        for(auto& it : borders)
+/*        printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+        printf("result fragment: ");
+        for(auto& it : borders)
             printf("%d - %d, ", it.first->lineNumber(), it.second->lineNumber());
         printf("\n");*/
         moveStatements(createNewLoop(loopGraph), borders);
@@ -451,6 +480,9 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
     createMapLoopGraph(loopGraphs, mapLoopGraph);
     int totalErr = 0;
 
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
+        BuildUnfilteredReachingDefinitionsFor(file->functions(i));
+
     for (auto &loopPair : mapLoopGraph)
     {
         LoopGraph *loop = loopPair.second;
@@ -472,6 +504,9 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
             }
         }
     }  
+
+    deleteAllocatedExpressionValues(file->functions(0)->getFileId());
+
 
     return totalErr;
 }
