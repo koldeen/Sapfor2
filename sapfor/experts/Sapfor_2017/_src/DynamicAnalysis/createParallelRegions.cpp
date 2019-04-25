@@ -218,6 +218,8 @@ void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileInterval
         if (!interval) 
         {
             __spf_print(1, "internal error in analysis, directives will not be generated for this file!\n");
+            
+            
             return;
         }
 
@@ -265,15 +267,15 @@ void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileInterval
 
     for (auto& item : regions) 
     {
-        SgStatement startRegion = SgStatement(SPF_PARALLEL_REG_DIR),
-             endRegion = SgStatement(SPF_END_PARALLEL_REG_DIR);
+        SgStatement *startRegion = new SgStatement(SPF_PARALLEL_REG_DIR),
+             *endRegion =  new SgStatement(SPF_END_PARALLEL_REG_DIR);
         
         __spf_print(1, "Coverage of region is %f percent\n", alreadyHavePercent);
 
-        startRegion.setId(item.id);
-        endRegion.setId(item.id);
-        
-        item.start->insertStmtAfter(startRegion);
-        item.end->insertStmtBefore(endRegion);
+        startRegion->setSymbol(*(new SgSymbol(VARIABLE_NAME, strcat("region_", std::to_string(item.id).c_str()))));
+        endRegion->setSymbol(*(new SgSymbol(VARIABLE_NAME, strcat("region_", std::to_string(item.id).c_str()))));
+
+        item.start->insertStmtAfter(*startRegion);
+        item.end->insertStmtBefore(*endRegion);
     }
 }
