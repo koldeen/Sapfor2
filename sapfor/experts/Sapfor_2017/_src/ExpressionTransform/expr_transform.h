@@ -49,8 +49,10 @@ struct GraphItem {
 class GraphsKeeper {
 private:
     std::map<std::string, GraphItem*> graphs;
-public:
     GraphsKeeper(): graphs(std::map<std::string, GraphItem*>()) {}
+public:
+    static GraphsKeeper* getGraphsKeeper();
+    static void deleteGraphsKeeper();
     ~GraphsKeeper()
     {
         for (auto &it : graphs)
@@ -112,10 +114,13 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool valueWithArrayReference(SgExpression *exp);
-bool argIsReplaceable(int i, AnalysedCallsList* callData);
+bool argIsReplaceable(int i, AnalysedCallsList* callData, bool argHasOutterDep = false);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);
 void showDefsOfGraph(ControlFlowGraph *CGraph);
 void debugStructure(ControlFlowGraph *CGraph, const std::string &filename);
 ExpressionValue* allocateExpressionValue(SgExpression* newExp);
+bool findCFIsForStmt(SgStatement *st, std::vector <ControlFlowItem*> &cfis);
+std::map<SymbolKey, std::set<ExpressionValue*>> createHeaderInDefs(SgStatement *header);
+ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header);

@@ -293,16 +293,6 @@ static bool checkCorrectness(const ParallelDirective &dir,
         }
     }
 
-    if (ok == false)
-    {
-        if (newDistArray)
-        {
-            delete newDistArray->second;
-            delete newDistArray;
-        }
-        return ok;
-    }
-
     for (auto &array : arrayLinksWithTmpl)
     {
         auto dirArrayRef = arrayLinksWithDirArray[array.first];

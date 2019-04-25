@@ -1159,15 +1159,20 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
     auto arrays = reg->GetAllArrays().GetArrays();
     int count = 0;
     for (auto &array : arrays)
-    {
         if (!array->IsLoopArray() && !array->IsTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
             count++;
-    }
+
     if (count <= 1)
         return;
 
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
     createMapOfFunc(allFuncs, mapFuncInfo);
+
+    int lastTreesNum = trees.size();
+    for (auto &array : arrays)
+        if (!array->IsLoopArray() && !array->IsTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
+            if (trees.find(array) == trees.end())
+                trees[array] = lastTreesNum++;
 
     if (trees.size())
         for (auto &byFile : loopGraph)
