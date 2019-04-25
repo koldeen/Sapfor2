@@ -1945,3 +1945,14 @@ int isResultVar(sym)
   else
     return(0);
 }
+
+void replace_symbol_in_expr(PTR_LLND expr, PTR_SYMB symb)
+{                                                      
+   if(!expr) 
+      return;
+   if(expr->variant == VAR_REF)
+      if(!strcmp(expr->entry.Template.symbol->ident, symb->ident))
+         expr->entry.Template.symbol = symb;
+   replace_symbol_in_expr(expr->entry.Template.ll_ptr1,symb);
+   replace_symbol_in_expr(expr->entry.Template.ll_ptr2,symb);
+}

@@ -318,12 +318,8 @@ void Private_Vars_Analyzer(SgStatement* start)
     CallData calls;
     CommonData commons;
     DoLoopDataList doloopList;
-    pCommons = &commons;
-    pCalls = &calls;
-    doLoopList = &doloopList;
+    SetUpVars(&commons, &calls, calls.AddHeader(start, false, start->symbol(), current_file_id), &doloopList);
 
-    currentProcedure = calls.AddHeader(start, false, start->symbol(), current_file_id);
-    mainProcedure = currentProcedure;
     //stage 1: preparing graph data
     ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, start, &calls, &commons);
     calls.AssociateGraphWithHeader(start, CGraph);
@@ -358,6 +354,7 @@ CallData::~CallData()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     /*
     for (AnalysedCallsList* l = calls_list; l != NULL;) 
@@ -381,6 +378,7 @@ CommonData::~CommonData()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (CommonDataItem* i = list; i != NULL;) {
         for (CommonVarInfo* info = i->info; info != NULL;) {
@@ -398,6 +396,7 @@ ControlFlowGraph::~ControlFlowGraph()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     while (common_def != NULL) 
     {
@@ -435,7 +434,9 @@ CBasicBlock::~CBasicBlock()
 {
 #if __SPF
     removeFromCollection(this);
-#endif
+    return;
+#endif    
+
     CommonVarSet* d = getCommonDef();
     while (d != NULL) 
     {
@@ -503,6 +504,7 @@ doLoops::~doLoops()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (doLoopItem *it = first; it != NULL; ) 
     {
@@ -516,6 +518,7 @@ PrivateDelayedItem::~PrivateDelayedItem()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     if (delay)
         delete delay;
@@ -527,6 +530,7 @@ VarSet::~VarSet()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (VarItem* it = list; it != NULL;) 
     {
@@ -548,7 +552,7 @@ CommonVarSet::CommonVarSet(const CommonVarSet& c)
         next = NULL;
 
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 22);
 #endif
 }
 
@@ -1531,6 +1535,7 @@ DoLoopDataList::~DoLoopDataList()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     while (list != NULL) {
         DoLoopDataItem* t = list->next;
@@ -1880,7 +1885,7 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
 #endif
 {
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 30);
 #endif
     int n = 0;
     ControlFlowItem* orig = list;
@@ -3452,7 +3457,7 @@ bool GetExpressionAndCoefficientOfBound(SgExpression* exp, SgExpression** end, i
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s)
 {
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 16);
 #endif
     // TODO: need to check all alhorithm!!
     disabled = true;
@@ -3532,7 +3537,7 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol *s, int sub, int ds, const vecto
                                        : CVarEntryInfo(s), subscripts(sub), disabled(ds)
 { 
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 16);
 #endif
     if (sub > 0) 
         data = d;

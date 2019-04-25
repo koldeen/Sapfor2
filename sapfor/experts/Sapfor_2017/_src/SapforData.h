@@ -31,6 +31,7 @@ int genSpecificVar = -1; //generate specific distribution variant
 int ignoreDvmChecker = 0; // temporary flag
 int parallizeFreeLoops = 0; // parallize free loops without arrays with DIST status
 int automaticDeprecateArrays = 0; // automatic change DIST status to NON_DIST of Array
+int maxShadowWidth = 50; // in percent
 long long intervals_threshold = 0; //Threshold for intervals
 
 uint64_t currentAvailMemory = 0;
@@ -108,6 +109,11 @@ std::vector<std::vector<long>> topologies; // current topologies
 
 //for GCOV_PARSER
 std::map<std::string, std::map<int, Gcov_info>> gCovInfo; // file -> [lines, info]
+//
+
+//for SPF CHANGING
+std::tuple<std::string, int, int, int> inData; // file, startLine, endLine, del/add
+std::map<std::string, std::string> outData; // file -> new unparsed text
 //
 
 const char *passNames[EMPTY_PASS + 1];

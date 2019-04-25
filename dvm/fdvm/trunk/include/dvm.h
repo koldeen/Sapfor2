@@ -888,6 +888,8 @@ int TestMaxDims(SgExpression *list, SgSymbol *ar, SgStatement *stmt);
 void TemplateDeclarationTest(SgStatement *stmt);
 int DeferredShape(SgExpression *eShape);
 void Template_Create(SgStatement *stmt);
+void Template_Delete(SgStatement *stmt);
+
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
 int ParallelLoop_Debug(SgStatement *stmt);
@@ -914,6 +916,8 @@ void CreateShadowGroupsForAccrossNeg(SgExpression *in_spec,SgStatement * stmt,Sg
 int Recurrences(SgExpression *shl, SgExpression *lrec[], SgExpression *rrec[],int n);
 int DepList (SgExpression *el, SgStatement *st, SgExpression *gref, int dep);
 int doDepLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int dep);
+void AcrossList(int ilh, SgExpression *el, SgStatement *st);
+SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st);
 void ReceiveArray(SgExpression *spec_accr,SgStatement *parst);
 void SendArray(SgExpression *spec_accr);
 void ReductionList  (SgExpression *el,SgExpression *gref, SgStatement *st, SgStatement *stmt1, SgStatement *stmt2, int ilh2);
@@ -1743,6 +1747,7 @@ SgExpression *RedPost(SgSymbol *loop_s, SgSymbol *s_var_num, SgSymbol *sRed,SgSy
 SgExpression *CudaInitReduction(SgSymbol *s_loop_ref,  SgSymbol *s_var_num, SgSymbol *s_dev_red, SgSymbol *s_dev_loc);
 SgExpression *CudaReplicate(SgSymbol *Addr, SgSymbol *recordSize, SgSymbol *quantity, SgSymbol *devPtr);
 SgStatement *LoopAcross_H(int il,SgExpression *oldGroup,SgExpression *newGroup);
+SgStatement *LoopAcross_H2(int il, SgExpression *headref, int rank, SgExpression *shlist);
 SgExpression *GetDependencyMask(SgSymbol *s_loop_ref) ;
 SgExpression *CudaTransform(SgSymbol *s_loop_ref, SgSymbol *s_head, SgSymbol *s_BackFlag, SgSymbol *s_headH, SgSymbol *s_addrParam); 
 SgExpression *CudaAutoTransform(SgSymbol *s_loop_ref, SgSymbol *s_head);

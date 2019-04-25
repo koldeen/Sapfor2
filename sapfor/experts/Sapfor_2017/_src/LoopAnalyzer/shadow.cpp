@@ -153,6 +153,7 @@ static void convertShadowToDDOTRemote(SgExpression *spec)
     }
 }
 
+extern int maxShadowWidth;
 static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
@@ -215,8 +216,8 @@ static void replaceShadowByRemote(SgExpression *spec, SgStatement *stat,
                             float maxSpec = std::max(spec[z].first, spec[z].second);
                             float dimSize = arraySizes[z].second - arraySizes[z].first + 1;
 
-                            // 50 %
-                            if (dimSize * 0.5 < maxSpec)
+                            // 50 % by default
+                            if (dimSize * (maxShadowWidth / 100.) < maxSpec)
                             {
                                 replaceByRemote = true;
                                 break;

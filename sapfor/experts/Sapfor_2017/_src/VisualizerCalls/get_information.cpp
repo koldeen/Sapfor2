@@ -50,6 +50,7 @@ static void setOptions(const int *options)
     keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
     parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
+    maxShadowWidth = options[MAX_SHADOW_WIDTH];
     //out_upper_case = 1;
 }
 
@@ -574,9 +575,10 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         }
         predictRes += summed.to_string();
 
-        if (folderName == NULL)
+        //TODO: need to rewrite to new algo
+        /*if (folderName == NULL)
         {
-            SpfInterval *mainIterval = getMainInterval(project, intervals);
+            SpfInterval *mainIterval = getMainInterval(project, intervals);            
             const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
             int procCount = 1;
@@ -598,7 +600,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             sprintf(buf, "%.2f", speedUpBest / procCount * 100.0);
             predictRes += "|" + string(buf) + topo;
         }
-        else
+        else*/
             predictRes += "|0";
 
         copyStringToShort(predictorStats, predictRes);
@@ -974,6 +976,77 @@ int SPF_RemoveDvmIntervals(int winHandler, int *options, short *projName, short 
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(REMOVE_DVM_INTERVALS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+extern tuple<string, int, int, int> inData;
+extern map<string, string> outData;
+int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                           int *&outputSize, short *&outputMessage, int *&outputMessageSize, 
+                           short *fileNameToMod, int *toModifyLines,
+                           int &size, int *&sizes, short *&newFilesNames, short *&newFiles)
+{
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retCode = 0;
+    try
+    {
+        int strL;
+        char *filtrName;
+        ConvertShortToChar(fileNameToMod, strL, filtrName);
+        std::get<0>(inData) = filtrName;
+        std::get<1>(inData) = toModifyLines[0];
+        std::get<2>(inData) = toModifyLines[1];
+        std::get<3>(inData) = toModifyLines[2];
+
+        PASSES_DONE[EXPAND_EXTRACT_PAR_REGION] = 0;
+        runPassesForVisualizer(projName, { EXPAND_EXTRACT_PAR_REGION }, folderName);
+
+        //fill data
+        // size - число файлов для мод.
+        // sizes - размеры границ в буфере newFiles
+        // newFilesNames - имена файлов для мод., разд. '|'
+        // newFiles - буфер
+
+        string newFile, newFileName;
+
+        size = 1;
+        newFileName = std::get<0>(inData);
+
+        if (SgFile::switchToFile(newFileName) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        newFile = string(current_file->firstStatement()->unparse());
+
+        sizes = new int[size + 1];
+        newFilesNames = new short[newFileName.size()];
+        newFiles = new short[newFile.size()];
+
+        sizes[0] = 0;
+        sizes[1] = sizes[0] + newFile.size();
+        copyStringToShort(newFilesNames, newFileName);
+        copyStringToShort(newFiles, newFile);
+        retCode = (int)newFileName.size() + 1;
+    }
+    catch (int ex)
+    {
+        __spf_print(1, "catch code %d\n", ex);
+        if (ex == -99)
+            return -99;
+        else
+            retCode = -1;
+    }
+    catch (...)
+    {
+        retCode = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retCode;
 }
 
 extern set<string> filesToInclude;

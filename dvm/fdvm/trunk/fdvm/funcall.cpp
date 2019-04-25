@@ -3690,6 +3690,20 @@ SgStatement *LoopAcross_H(int il,SgExpression *oldGroup,SgExpression *newGroup)
   return(call);
 }
 
+SgStatement *LoopAcross_H2(int il, SgExpression *headref, int rank, SgExpression *shlist)
+{  //generating subroutine call:  
+   //            dvmh_loop_across(const DvmType *pCurLoop, const DvmType dvmDesc[], const DvmType *pRank, /* const DvmType *pShadowLow, const DvmType *pShadowHigh */...)
+
+  SgCallStmt *call = new SgCallStmt(*fdvm[LOOP_ACROSS_2]);  
+  fmask[LOOP_ACROSS_2] = 2;
+  
+  call -> addArg(*DVM000(il));
+  call -> addArg(*headref);
+  call -> addArg(*ConstRef(rank));               
+  AddListToList(call->expr(0),shlist);
+  return(call);
+}
+
 SgExpression *GetStage(SgStatement *first_do,int iplp)
 {// generating function call: dvmh_get_next_stage(LineNumber,FileName,LoopRef,DvmhRegionRef)
  // Loopref - result of crtpl()

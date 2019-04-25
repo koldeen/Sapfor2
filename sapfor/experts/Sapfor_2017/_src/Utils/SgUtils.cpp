@@ -369,7 +369,7 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     SgSymbol *newS = NULL;
     for (auto &symbs : result->second)
     {
-        if (symbs->scope() == scope && scope)
+        if ((symbs->scope() == scope && scope) || (!symbs->scope() && !scope))
         {
             if (symbs->type() && type)
             {
@@ -379,16 +379,11 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
                     break;
                 }
             }
-            else
+            else if (!symbs->type() && !type)
             {
                 newS = symbs;
                 break;
             }
-        }
-        else
-        {
-            newS = symbs;
-            break;
         }
     }
 
@@ -895,7 +890,10 @@ tuple<int, string, string> getFromUniqTable(SgSymbol *symb)
     auto place = declaratedInStmt(symb);
     auto localIt = tableOfUniqNames.find(std::make_tuple(symb->identifier(), place->fileName(), place->lineNumber()));
     if (localIt == tableOfUniqNames.end())
+    {
+        auto place = declaratedInStmt(symb);
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     
     return localIt->second;
 }
@@ -1685,10 +1683,5 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
         it = mapObject.insert(it, std::make_pair(fileName, objT()));
     return it->second;
 }
-
-template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
-template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
-template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
-template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

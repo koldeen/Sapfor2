@@ -16,7 +16,6 @@
 
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
-#include "../Utils/SgUtils.h"
 #include "../GraphLoop/graph_loops.h"
 
 using std::vector;
@@ -59,11 +58,12 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         addToGlobalBufferAndPrint(buf);
                         arraysWithErrors.insert(array->GetShortName());
                         
-                        std::wstring bufw;                        
-                        __spf_printToLongBuf(bufw, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
-
-                        auto currM = getObjectForFileFromMap(declF.c_str(), allMessages);
-                        currM.push_back(Messages(ERROR, declL, bufw, 1012));
+                        std::wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(bufR, L"Невозможно определить размеры массива '%s'", to_wstring(array->GetShortName()).c_str());
+#endif
+                        getObjectForFileFromMap(declF.c_str(), allMessages).push_back(Messages(ERROR, declL, bufR, bufE, 1012));
                     }
                 }
                 ok = false;
@@ -80,16 +80,32 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
-#define WITH_REMOVE 0
+#define WITH_REMOVE 1
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
+    // find not connected dimentions and deprecate them 
+    vector<int> vInGraph;
+    int err = allArrays.GetAllVertNumber(distArray, vInGraph);
+    if (err != 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (!distArray->IsLoopArray())
+    {
+        for (int z = 0; z < vInGraph.size(); ++z)
+        {
+            int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
+            if (count <= 0)
+                distArray->DeprecateDimension(z);
+        }
+    }
+
     DIST::Array *templ = new DIST::Array(*distArray);
     templ->ChangeName("dvmh_temp" + std::to_string(templateCount++));
     templ->SetId(0);
     templ->SetTemplateFlag(true);
 
-    if (distArray->isLoopArray())
+    if (distArray->IsLoopArray())
         for (int z = 0; z < templ->GetDimSize(); ++z)
             templ->SetMappedDim(z);
 
@@ -97,8 +113,10 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     for (int i = 0; i < distArray->GetDimSize(); ++i)
         initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
     templ->SetSizes(initTemplSize, true);
+
+    bool ifRemAll = false;
 #if WITH_REMOVE
-    templ->RemoveUnpammedDims();
+    ifRemAll = templ->RemoveUnpammedDims();
 #endif
     for (int i = 0, templIdx = 0; i < distArray->GetDimSize(); ++i)
     {
@@ -111,8 +129,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
         set<int> wasDone;
         reducedG.FindLinkWithMaxDim(vert, allArrays, result, wasDone);
 
-
-        if ((distArray->IsDimMapped(i) || distArray->isLoopArray()) && !distArray->IsDimDepracated(i))
+        if ((distArray->IsDimMapped(i) || distArray->IsLoopArray()) && !distArray->IsDimDepracated(i))
         {
             AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
             if (result.first != distArray)
@@ -122,6 +139,18 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
 #if !WITH_REMOVE
         else
             templ->ExtendDimSize(templIdx++, make_pair(1, 1));
+#else
+        else
+        {
+            if (ifRemAll)
+            {
+                AddArrayAccess(reducedG, allArrays, templ, result.first, make_pair(templIdx, result.second), 1.0, make_pair(make_pair(1, 0), make_pair(1, 0)), RR_link);
+                templ->DeprecateDimension(i, false);
+                if (result.first != distArray)
+                    templ->ExtendDimSize(templIdx, result.first->GetSizes()[result.second]);
+                templIdx++;
+            }
+        }
 #endif
     }
 
@@ -243,7 +272,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
         for (auto &realArray : realRefs)
         {
-            hasTemplates = hasTemplates || realArray->isTemplate();
+            hasTemplates = hasTemplates || realArray->IsTemplate();
             auto it = trees.find(realArray);
             if (it == trees.end())
                 trees.insert(it, make_pair(realArray, ++countTrees));
@@ -276,13 +305,14 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 
             for (auto &realArray : realRefs)
             {
-                if (realArray->isTemplate())
+                if (realArray->IsTemplate())
                     arraysToDist.push_back(realArray);
             }
         }
     }
 
-    dataDirectives.createDirstributionVariants(arraysToDist);
+    if (arraysToDist.size())
+        dataDirectives.createDirstributionVariants(arraysToDist);
 }
 
 
@@ -366,10 +396,12 @@ static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allAr
         if (alignWith->GetShortName().find("dvmh") != string::npos)
         {
             pair<int, int> oldSizes = alignArray->GetSizes()[z];
-
-            oldSizes.first = oldSizes.first * rule.first + rule.second;
-            oldSizes.second = oldSizes.second * rule.first + rule.second;
-            alignWith->ExtendDimSize(alignToDim, oldSizes);
+            if (!(oldSizes.first == oldSizes.second && oldSizes.first == -1))
+            {
+                oldSizes.first = oldSizes.first * rule.first + rule.second;
+                oldSizes.second = oldSizes.second * rule.first + rule.second;
+                alignWith->ExtendDimSize(alignToDim, oldSizes);
+            }
         }
     }
     dataDirectives.alignRules.push_back(newRule);
@@ -385,7 +417,7 @@ static string printRule(const vector<tuple<DIST::Array*, int, pair<int, int>>> &
 
 typedef vector<vector<tuple<DIST::Array*, int, attrType>>> AssignType;
 int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
-                    const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
+                    const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, map<string, vector<Messages>> &SPF_messages)
 {
     set<DIST::Array*> distArrays;
     const set<DIST::Array*> &arrays = allArrays.GetArrays();
@@ -393,7 +425,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
     if (dataDirectives.distrRules.size() == 0)
     {
         for (auto &array : arrays)
-            if (array->isTemplate())
+            if (array->IsTemplate())
                 distArrays.insert(array);
 
         if (distArrays.size() == 0)
@@ -405,54 +437,113 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
             distArrays.insert(dataDirectives.distrRules[i].first);
     }
 
-    set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
-
-    for (auto &array : arrays)
-    {        
-        if (distArrays.find((array)) == distArrays.end())
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
-
-            vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> rules(realArrayRefs.size());
-
-            int i = 0;
-            bool allNonDistr = true;
-            bool partlyNonDistr = false;
-            for (auto &arrays : realArrayRefs)
-            {
-                reducedG.GetAlignRuleWithTemplate(arrays, allArrays, rules[i], regionId);
-                bool nonDistr = arrays->GetNonDistributeFlag();
-                allNonDistr = allNonDistr && nonDistr;
-                partlyNonDistr = partlyNonDistr || nonDistr;
-                ++i;
-            }
-
-            if (allNonDistr)
-                continue;
-            if (partlyNonDistr)
-            {
-                __spf_print(1, "detected distributed and non distributed array links by function's calls for array %s\n", array->GetName().c_str());
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            }
-
-            if (isAllRulesEqual(rules))
-                createNewAlignRule(array, allArrays, rules[0], dataDirectives);
-            else
-                manyDistrRules.insert(make_pair(array, rules));
-        }
-    }
-    
-    if (manyDistrRules.size() > 0)
+    bool repeat = true;
+    int countRep = 0;
+    while (repeat)
     {
-        for (auto &array : manyDistrRules)
+        ++countRep;
+        repeat = false;
+        set<pair<DIST::Array*, vector<vector<tuple<DIST::Array*, int, pair<int, int>>>>>> manyDistrRules;
+        for (auto &array : arrays)
         {
-            __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
-            for (auto &rule : array.second)
-                __spf_print(1, "  -> %s\n", printRule(rule).c_str());
-        }
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    }
+            if (distArrays.find((array)) == distArrays.end())
+            {
+                set<DIST::Array*> realArrayRefs;
+                getRealArrayRefs(array, array, realArrayRefs, arrayLinksByFuncCalls);
 
+                vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> rules(realArrayRefs.size());
+
+                int i = 0;
+                bool allNonDistr = true;
+                bool partlyNonDistr = false;
+                for (auto &arrays : realArrayRefs)
+                {
+                    int err = reducedG.GetAlignRuleWithTemplate(arrays, allArrays, rules[i], regionId);
+                    if (err == 101)
+                    {
+                        reducedG.cleanCacheLinks();
+                        dataDirectives.alignRules.clear();
+                        repeat = true;
+                        break;
+                    }
+                    bool nonDistr = arrays->GetNonDistributeFlag();
+                    allNonDistr = allNonDistr && nonDistr;
+                    partlyNonDistr = partlyNonDistr || nonDistr;
+                    ++i;
+                }
+
+                if (repeat)
+                    break;
+
+                if (allNonDistr)
+                    continue;
+                if (partlyNonDistr)
+                {
+                    __spf_print(1, "detected distributed and non distributed array links by function's calls for array %s\n", array->GetName().c_str());
+                    auto allDecl = array->GetDeclInfo();
+                    for (auto &decl : allDecl)
+                    {
+                        std::wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"detected distributed and non distributed array links by function's calls for array '%s'\n", to_wstring(array->GetShortName()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(bufR, L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n",
+                                             to_wstring(array->GetShortName()).c_str());
+#endif
+                        getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
+                    }
+                    
+                    for (auto &realR : realArrayRefs)
+                    {
+                        if (realR != array)
+                        {
+                            auto allDecl = realR->GetDeclInfo();
+                            for (auto &decl : allDecl)
+                            {
+                                std::wstring bufE, bufR;
+                                if (realR->GetNonDistributeFlag())
+                                {
+                                    __spf_printToLongBuf(bufR, L"detected non distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufE, L"Обнаружен не распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+#endif
+                                }
+                                else
+                                {
+                                    __spf_printToLongBuf(bufE, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufR, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+#endif
+                                }
+                                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
+                            }
+                        }
+                    }
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+
+                if (isAllRulesEqualWithoutArray(rules))
+                    createNewAlignRule(array, allArrays, rules[0], dataDirectives);
+                else
+                    manyDistrRules.insert(make_pair(array, rules));
+            }
+        }
+
+        if (countRep > 500)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (repeat)
+            continue;
+
+        if (manyDistrRules.size() > 0)
+        {
+            for (auto &array : manyDistrRules)
+            {
+                __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
+                for (auto &rule : array.second)
+                    __spf_print(1, "  -> %s\n", printRule(rule).c_str());
+            }
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+    }
     return 0;
 }

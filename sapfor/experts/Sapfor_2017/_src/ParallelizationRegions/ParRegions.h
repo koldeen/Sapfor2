@@ -149,6 +149,15 @@ public:
         else
             return &(it->second);
     }
+    const ParallelRegionLines* GetLinesByLine(const std::string &file, const int line) const
+    {
+        auto fileLines = GetLines(file);
+        if (fileLines)
+            for (auto &lines : *fileLines)
+                if (lines.lines.first <= line && line <= lines.lines.second)
+                    return &lines;
+        return NULL;
+    }
 
     const DIST::GraphCSR<int, double, attrType>& GetGraph() const { return G; }
     DIST::GraphCSR<int, double, attrType>& GetGraphToModify() { return G; }

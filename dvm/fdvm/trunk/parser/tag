@@ -235,6 +235,7 @@
 #define DVM_CP_WAIT_DIR          638	/* DVM-F */
 #define DVM_EXIT_INTERVAL_DIR	 639    /* DVM-F */
 #define DVM_TEMPLATE_CREATE_DIR	 640    /* DVM-F */ 
+#define DVM_TEMPLATE_DELETE_DIR	 641    /* DVM-F */
     
 /***************** variant tags for low level nodes ********************/
 

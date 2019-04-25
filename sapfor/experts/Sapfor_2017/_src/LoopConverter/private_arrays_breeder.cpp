@@ -62,7 +62,7 @@ static void extendArrayDeclaration(const vector<int> &dimensions, SgExpression *
     }
 }
 
-static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend, SgSymbol* newSymbol)
+static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpression *expressionToExtend, SgSymbol *newSymbol, const vector<SgExpression*> &lowBounds)
 {
     SgExpression *newTail = NULL;
     for (int i = indexes.size() - 1; i >= 0; --i)
@@ -72,10 +72,23 @@ static SgExpression* extendArrayRef(const vector<SgSymbol*> &indexes, SgExpressi
     }
 
     SgExpression *oldTail = expressionToExtend->lhs();
-    if(oldTail == NULL) // create array from scalar
+    if(oldTail == NULL) 
     {
-        expressionToExtend = new SgArrayRefExp(*newSymbol); //TODO delete old SgExpression maybe?
-        expressionToExtend->setLhs(newTail);
+        if (expressionToExtend->variant() == VAR_REF) // create array from scalar
+        {
+            expressionToExtend = new SgArrayRefExp(*newSymbol);
+            expressionToExtend->setLhs(newTail);
+        }
+        else if (expressionToExtend->variant() == ARRAY_REF) // create array from full array ref
+        {
+            SgArrayRefExp *curr = (SgArrayRefExp*)expressionToExtend;
+            expressionToExtend->setSymbol(newSymbol);
+            for (auto &elem : lowBounds) // add low bounds
+                curr->addSubscript(*elem); 
+            curr->addSubscript(*newTail);
+        }
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     else
     {
@@ -172,18 +185,19 @@ static SgSymbol* alterArrayDeclaration(SgStatement* declarationStatement, SgSymb
 
 }
 
-static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, SgSymbol *arraySymbol, SgSymbol *newArraySymbol) {
-    queue<SgExpression*> toCheck = queue<SgExpression*>();
+static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement *st, SgSymbol *arraySymbol, SgSymbol *newArraySymbol, const vector<SgExpression*> &lowBounds) 
+{
+    queue<SgExpression*> toCheck;
 
     for (int i = 0; i < 3; ++i)
     {
         if (st->expr(i))
         {
             if (st->expr(i)->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
-                extendArrayRef(indexes, st->expr(i), newArraySymbol);
+                extendArrayRef(indexes, st->expr(i), newArraySymbol, lowBounds);
             else if (st->expr(i)->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), st->expr(i)->symbol()->identifier()))
             {
-                SgExpression *extended = extendArrayRef(indexes, st->expr(i), newArraySymbol);
+                SgExpression *extended = extendArrayRef(indexes, st->expr(i), newArraySymbol, lowBounds);
                 st->setExpression(i, *extended);
             }
             else
@@ -200,24 +214,23 @@ static void extendArrayRefs(const vector<SgSymbol*> &indexes, SgStatement* st, S
         if(lhs)
         {
             if(lhs->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), lhs->symbol()->identifier()))
-                extendArrayRef(indexes, lhs, newArraySymbol);
+                extendArrayRef(indexes, lhs, newArraySymbol, lowBounds);
             else if(lhs->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), lhs->symbol()->identifier()))
             {
-                SgExpression *extended = extendArrayRef(indexes, lhs, newArraySymbol);
+                SgExpression *extended = extendArrayRef(indexes, lhs, newArraySymbol, lowBounds);
                 parent->setLhs(extended);
             }
             else
                 toCheck.push(lhs);
-
         }
 
         if(rhs)
         {
             if (rhs->variant() == ARRAY_REF && !strcmp(arraySymbol->identifier(), rhs->symbol()->identifier()))
-                extendArrayRef(indexes, rhs, newArraySymbol);
+                extendArrayRef(indexes, rhs, newArraySymbol, lowBounds);
             else if (rhs->variant() == VAR_REF && !strcmp(arraySymbol->identifier(), rhs->symbol()->identifier()))
             {
-                SgExpression *extended = extendArrayRef(indexes, rhs, newArraySymbol);
+                SgExpression *extended = extendArrayRef(indexes, rhs, newArraySymbol, lowBounds);
                 parent->setRhs(extended);
             }
             else
@@ -258,13 +271,14 @@ static SgExpression* constructBoundCall(bool upBound, SgSymbol *array, int dim) 
     return new SgFunctionCallExp(boundS, params);
 }
 
-static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpression *origArray, SgSymbol *arraySymbol, int depthOfBreed) {
+static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpression *origArray, SgSymbol *arraySymbol, int depthOfBreed, vector<SgExpression*> &lowBounds)
+{
 
     SgExpression *arrayRef = origArray->copyPtr();
     arrayRef->setSymbol(arraySymbol);
     vector<SgExpression*> dimensions(depthOfBreed);
     LoopGraph *curLoop = forLoop;
-    for(int i = 0; i < depthOfBreed; ++i)
+    for (int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
         dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
@@ -272,7 +286,7 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     }
 
     SgExpression *newTail = NULL;
-    for(int i=dimensions.size()-1; i>=0 ;--i)
+    for (int i = dimensions.size() - 1; i >= 0; --i)
         newTail = new SgExpression(EXPR_LIST, dimensions[i], newTail, (SgSymbol*)NULL);
 
     SgExpression *oldTail = arrayRef->lhs();
@@ -290,11 +304,18 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
             if (!ddot->rhs())
                 ddot->setRhs(constructBoundCall(true, origArraySymbol, curDim));
         }
+
+        if (oldTail->lhs()->variant() == DDOT)
+            lowBounds.push_back(oldTail->lhs()->lhs());
+        else
+            lowBounds.push_back(new SgValueExp(1));
+
         oldTail = oldTail->rhs();
-        if(oldTail)
+        if (oldTail)
             attachTo = oldTail;
     }
-    if(arrayRef->variant() == VAR_REF)// create array from scalar
+
+    if (arrayRef->variant() == VAR_REF)// create array from scalar
     {
         arrayRef = new SgArrayRefExp(*arrayRef->symbol());
         arrayRef->setLhs(newTail);
@@ -305,16 +326,17 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     return new SgExpression(EXPR_LIST, arrayRef, (SgExpression*)NULL, (SgSymbol*)NULL);
 }
 
-static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclaration, SgSymbol *origArraySymbol, SgSymbol *arraySymbol, int depthOfBreed) 
+static vector<SgExpression*> insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclaration, SgSymbol *origArraySymbol, SgSymbol *arraySymbol, int depthOfBreed) 
 {
     SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
+    vector<SgExpression*> lowBounds;
 
     SgExpression *origArray = NULL;
     for (origArray = originalDeclaration->expr(0); strcmp(origArray->lhs()->symbol()->identifier(), origArraySymbol->identifier()); origArray = origArray->rhs())
-    {}// Yes-yes-yes, YEEEEEEESSSSS!!!
+    { }// Yes-yes-yes, YEEEEEEESSSSS!!!
     origArray = origArray->lhs();
 
-    SgExpression *arrayAllocation = constructArrayAllocationExp(forLoop, origArray, arraySymbol, depthOfBreed);
+    SgExpression *arrayAllocation = constructArrayAllocationExp(forLoop, origArray, arraySymbol, depthOfBreed, lowBounds);
     SgExpression *arrayDeallocation = new SgExpression(EXPR_LIST, new SgExpression(ARRAY_REF, (SgExpression*)NULL, (SgExpression*)NULL, arraySymbol), (SgExpression*)NULL, (SgSymbol*)NULL);
 
     SgStatement *allocate = new SgStatement(ALLOCATE_STMT, (SgLabel*)NULL, (SgSymbol*)NULL, arrayAllocation, (SgExpression*)NULL, (SgExpression*)NULL);
@@ -322,6 +344,8 @@ static void insertAllocDealloc(LoopGraph *forLoop, SgStatement *originalDeclarat
 
     loopStmt->insertStmtBefore(*allocate, *loopStmt->controlParent());
     loopStmt->lastNodeOfStmt()->insertStmtAfter(*deallocate, *loopStmt->controlParent());
+
+    return lowBounds;
 }
 
 static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBreed)
@@ -356,10 +380,10 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
     SgForStmt *loopStmt = (SgForStmt*)(forLoop->loop->GetOriginal());
     if (newArraySymbol)
     {
-        insertAllocDealloc(forLoop, originalDeclaration, arraySymbol, newArraySymbol, indexes.size());
+        auto lowBounds = insertAllocDealloc(forLoop, originalDeclaration, arraySymbol, newArraySymbol, indexes.size());
         for (SgStatement *st = loopStmt->lexNext(); st != loopStmt->lastNodeOfStmt()->lexNext(); st = st->lexNext())
             if (st->variant() != ALLOCATE_STMT && st->variant() != DEALLOCATE_STMT)
-                extendArrayRefs(indexes, st, arraySymbol, newArraySymbol);
+                extendArrayRefs(indexes, st, arraySymbol, newArraySymbol, lowBounds);
     }
 }
 

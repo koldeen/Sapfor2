@@ -464,7 +464,7 @@ int areIllegalClauses(SgStatement *stmt)
 { SgExpression *el;
 
   for(el=stmt->expr(1); el; el=el->rhs()) 
-    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP && el->lhs()->variant() != ACROSS_OP)
+    if(el->lhs()->variant() != REDUCTION_OP && el->lhs()->variant() != ACC_PRIVATE_OP && el->lhs()->variant() != ACC_CUDA_BLOCK_OP) // && el->lhs()->variant() != ACROSS_OP)
       return 1;
   return 0;                 
 }          
@@ -1530,6 +1530,68 @@ int doDepLengthArrays(SgExpression *shl, SgSymbol *ar, SgStatement *st, int dep,
 }
 */
 
+SgExpression *doLowHighList(SgExpression *shl, SgSymbol *ar, SgStatement *st)
+{
+  SgValueExp c1(1);
+  int nw, i;
+  SgExpression *wl, *ew, *lbound[MAX_DIMS], *hbound[MAX_DIMS];
+  int rank = Rank(ar);
+  if(!TestMaxDims(shl,ar,st))
+     return(NULL);
+  for(wl = shl,i=0; wl; wl = wl->rhs(),i++) {
+     ew = wl->lhs();
+     lbound[i] = &(ew->lhs())->copy(); 
+     hbound[i] = &(ew->rhs())->copy();
+     
+     if(lbound[i]->variant() != INT_VAL || hbound[i]->variant() != INT_VAL) {
+        Error("Wrong dependence length of distributed array '%s'",ar->identifier(), 179, st);
+        lbound[i] = hbound[i] = &c1;
+     }
+  }
+
+  nw = i; 
+
+  if (rank && (nw != rank) ) 
+     Error("--Wrong dependence length list of distributed array '%s'", ar->identifier(), 180, st); 
+
+  TestShadowWidths(ar, lbound, hbound, nw, st);
+  
+  SgExpression *shlist = NULL; 
+  for(i=0; i<nw; i++)
+  { 
+     shlist = AddElementToList(shlist, DvmType_Ref(hbound[i]));
+     shlist = AddElementToList(shlist, DvmType_Ref(lbound[i]));
+  }
+
+  return( shlist );
+}
+
+void AcrossList(int ilh, SgExpression *el, SgStatement *st)
+{ 
+  SgExpression *es, *ear;  
+  
+  // looking through the dependent_array_list
+  for(es = el; es; es = es->rhs()) {
+    if( es->lhs()->variant() == ARRAY_OP){
+      ear = es->lhs()->lhs();
+      err("SECTION  specification is not permitted", 643, st);
+    } else {
+      ear = es->lhs(); 
+      if(!ear->lhs()) { //whole array
+        Error("Dependence list is not specified for %s", ear->symbol()->identifier(), 644, st);
+        continue;
+      }
+    }
+     SgSymbol *ar = ear->symbol();
+     if(!HEADER(ar)) {
+       Error("'%s' isn't distributed array", ar->identifier(), 72, st);
+       continue;
+     }
+     
+     doCallAfter(LoopAcross_H2(ilh, HeaderRef(ar), Rank(ar), doLowHighList(ear->lhs(), ar, st)));
+  }
+}
+
 void StoreLoopPar(SgExpression *par[], int n, int ind, SgStatement*stl)
 { SgStatement *stat = NULL;
   SgSymbol*s;
@@ -2058,7 +2120,27 @@ void Interface_2(SgStatement *stmt,SgExpression *clause[],SgExpression *init[],S
   {
      red_list = clause[REDUCTION_]->lhs();
      ReductionList(red_list,NULL,stmt,cur_st,cur_st,ilh);
-   }
+  }
+  if(clause[ACROSS_])  //there is ACROSS clause
+  {
+        SgExpression *in_spec=NULL;
+        SgExpression *e = clause[ACROSS_];
+        SgKeywordValExp *kwe;        
+        if(e->rhs())
+           err("Wrong ACROSS clause",256 ,stmt); 
+        else if((e->lhs()->variant() == DDOT) && (kwe=isSgKeywordValExp(e->lhs()->lhs())))
+        {
+           if(!strcmp(kwe->value(),"in"))
+              in_spec = e->lhs()->rhs();
+           else
+              err("Wrong ACROSS clause",256 ,stmt); 
+        } 
+        else
+           in_spec = e->lhs();            
+        if(in_spec)
+           AcrossList(ilh,in_spec,stmt);
+  }
+
   //---------------------------------------------------------------------------
   LINE_NUMBER_AFTER(first_do,cur_st);      
   cur_st->addComment(ParallelLoopComment(first_do->lineNumber()));    

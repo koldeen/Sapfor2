@@ -206,6 +206,7 @@ name_dvm[DESTROY_ARRAY]    = "dvmh_destroy_array";
 name_dvm[DESTROY_SCALAR]   = "dvmh_destroy_variable";
 name_dvm[HANDLE_CONSIST]   = "region_handle_consistent";
 name_dvm[LOOP_ACROSS]      = "loop_across"; 
+name_dvm[LOOP_ACROSS_2]    = "dvmh_loop_across"; 
 name_dvm[GET_STAGE]        = "dvmh_get_next_stage";
 name_dvm[MAP_TASKS]        = "map_tasks"; 
 name_dvm[DATA_ENTER]       = "dvmh_data_enter";

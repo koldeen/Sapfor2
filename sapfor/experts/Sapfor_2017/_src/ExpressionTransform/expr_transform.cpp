@@ -54,13 +54,24 @@ static map<SgStatement*, vector<SgExpression*>>* curFileReplacements;
 static set<SgStatement*> visitedStatements;
 static CommonVarsOverseer overseer;
 static GraphsKeeper *graphsKeeper = NULL;
-
 static unsigned int substitutionsCounter = 0;
 static void incrementSubstitutionsCounter(int print_prof_info) {
     if(print_prof_info)
         substitutionsCounter++;
 }
 
+void GraphsKeeper::deleteGraphsKeeper()
+{
+    if(graphsKeeper)
+        delete graphsKeeper;
+    graphsKeeper = NULL;
+}
+
+GraphsKeeper* GraphsKeeper::getGraphsKeeper() {
+    if(graphsKeeper == NULL)
+        graphsKeeper = new GraphsKeeper();
+    return graphsKeeper;
+}
 
 GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
 {
@@ -91,6 +102,9 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
     for(auto &graph : graphs) {
         if(graph.second->file_id != stmt->getFileId())
             continue;
+
+        stmt->switchToFile();
+
         CBasicBlock *b = graph.second->CGraph->getFirst();
         while(b != NULL)
         {
@@ -112,16 +126,38 @@ CBasicBlock* GraphsKeeper::findBlock(SgStatement* stmt)
     return NULL;
 }
 
+bool findCFIsForStmt(SgStatement *stmt, vector <ControlFlowItem*> &cfis) {
+    CBasicBlock* b = GraphsKeeper::getGraphsKeeper()->findBlock(stmt);
+    if(!b)
+        return false;
 
-const map<SymbolKey, set<SgExpression*>> getReachingDefinitions(SgStatement* stmt)
-{
-    CBasicBlock* b = graphsKeeper->findBlock(stmt);
-    if(!b) {
-        __spf_print(1, "SgStatement %s cannot be found.\n", stmt->unparse());
-        return map<SymbolKey, set<SgExpression*>>();
+    ControlFlowItem *cfi = b->getStart();
+    ControlFlowItem *till = b->getEnd()->getNext();
+
+    while (cfi != till)
+    {
+        SgStatement *st = cfi->getStatement();
+        if (st && st->id() == stmt->id())
+            cfis.push_back(cfi);
+        else {
+            st = cfi->getOriginalStatement();
+            if (st && st->id() == stmt->id())
+                cfis.push_back(cfi);
+        }
+        cfi = cfi->getNext();
     }
 
-    return b->getReachedDefinitions(stmt);
+    return cfis.size() != 0;
+
+}
+
+const map<SymbolKey, set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt)
+{
+    CBasicBlock* b = GraphsKeeper::getGraphsKeeper()->findBlock(stmt);
+    if(!b)
+        return map<SymbolKey, set<ExpressionValue*>>();
+
+    return b->getReachedDefinitionsExt(stmt);
 }
 
 static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
@@ -939,6 +975,13 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey,
 //    debugStructure(CGraph, filename);
 }
 
+ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header) {
+    auto inDefs = createHeaderInDefs(header);
+    ControlFlowGraph *CGraph = GraphsKeeper::getGraphsKeeper()->getGraph(header->symbol()->identifier())->CGraph;
+    BuildUnfilteredReachingDefinitions(CGraph, inDefs, header->getFile()->filename());
+    return CGraph;
+}
+
 static void initOverseer(const map<string, vector<DefUseList>> &defUseByFunctions, const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     vector<FuncCallSE> funcCalls;
@@ -1047,6 +1090,17 @@ static bool isInParallelRegion(SgStatement *func, const vector<ParallelRegion*> 
     return ok;
 }
 
+map<SymbolKey, set<ExpressionValue*>> createHeaderInDefs(SgStatement *header) {
+    map<SymbolKey, set<ExpressionValue*>> inDefs;
+    ExpressionValue* emptyValue = allocateExpressionValue(NULL, NULL);
+    emptyValue->setFrom(header);
+    if(header->variant() == PROC_HEDR || header->variant() == FUNC_HEDR)
+        for(int i=0; i<((SgProcHedrStmt*)header)->numberOfParameters();++i)
+            inDefs.insert(make_pair(((SgProcHedrStmt*)header)->parameter(i), set<ExpressionValue*>()))
+            .first->second.insert(emptyValue);
+    return inDefs;
+}
+
 void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &defUseByFunctions, 
                         const map<string, CommonBlock> &commonBlocks, const map<string, vector<FuncInfo*>> &allFuncInfo,
                         const vector<ParallelRegion*> &regions)
@@ -1094,22 +1148,17 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             __spf_print(PRINT_PROF_INFO, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
-        map<SymbolKey, set<ExpressionValue*>> inDefs;
 
-        if(st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
-            for(int i=0; i<((SgProcHedrStmt*)st)->numberOfParameters();++i)
-                inDefs.insert(make_pair(((SgProcHedrStmt*)st)->parameter(i), set<ExpressionValue*>()))
-                .first->second.insert(new ExpressionValue());
+        GraphsKeeper* gk = GraphsKeeper::getGraphsKeeper();
 
-        if (graphsKeeper == NULL)
-            graphsKeeper = new GraphsKeeper();
         replaceConstants(filename, st);
 
-        ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
+        ControlFlowGraph* CGraph = gk->buildGraph(st)->CGraph;
 
+        auto inDefs = createHeaderInDefs(st);
         ExpandExpressions(CGraph, inDefs);
+
         __spf_print(PRINT_PROF_INFO, "%u total substitutions\n", substitutionsCounter);
-        BuildUnfilteredReachingDefinitions(CGraph, inDefs, filename);
     }
 
     for (auto &stmt : *curFileReplacements)
@@ -1124,9 +1173,6 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
             }
         }
     }
-}
 
-void deleteGraphsKeeper()
-{
-    delete graphsKeeper;
+    deleteAllocatedExpressionValues(file->functions(0)->getFileId());
 }

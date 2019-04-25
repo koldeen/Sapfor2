@@ -282,9 +282,12 @@ static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpress
             }
             needToIterate = true;
 
-            wstring message;            
-            __spf_printToLongBuf(message, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
-            messages.push_back(Messages(NOTE, parent->lineNumber(), message, 2006));
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, L"Была выполнена подстановка макроса с именем '%s'", to_wstring(funcName).c_str());
+#endif
+            messages.push_back(Messages(NOTE, parent->lineNumber(), messageR, messageE, 2006));
         }
 
         doMacroExpand(parent, findIn, findIn->lhs(), 0, macroStats, macroNames, needToIterate, messages);
@@ -380,6 +383,8 @@ static void findArrayRef(SgExpression *exp, FuncInfo &currInfo, bool isWrite)
                     for (SgExpression *ex = exp; ex != NULL; ex = ex->rhs())
                         findIdxRef(exp->lhs(), currInfo);
                     currInfo.allUsedArrays.insert(arrayRef);
+                    if (isWrite)
+                        currInfo.usedArraysWrite.insert(arrayRef);
                 }
             }
         }
@@ -617,6 +622,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
             containsPrefix = st_cp->symbol()->identifier() + string(".");
+        else if (st_cp->variant() == INTERFACE_STMT)
+            continue;
         
         string currFunc = "";
         if (st->variant() == PROG_HEDR)
@@ -874,12 +881,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
     if (countInCall != countInDef)
     {
-        std::wstring bufw;
-        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
-
+        wstring bufR, bufE;
+        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
+#ifdef _WIN32
+        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается количество формальных и фактических параметров", to_wstring(def->funcName).c_str());
+#endif
         if (needToAddErrors)
         {
-            messages.push_back(Messages(NOTE, line, bufw, 1013));
+            messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
             __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
         }
         result = false;
@@ -897,12 +906,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                 proj->file(numFileForDef);
                 if (callType->equivalentToType(defParam->type()) == false)
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
-
+                    wstring bufR, bufE;
+                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается тип фактического и формального %d-го параметра", to_wstring(def->funcName).c_str(), i);
+#endif
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufw, 1013));
+                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
                     }
                     result = false;
@@ -916,12 +927,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
                 if (callArrayRef->numberOfSubscripts() > 0)
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
-
+                    wstring bufR, bufE;
+                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как можно передавать массивы только целиком", to_wstring(def->funcName).c_str());
+#endif
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufw, 1013));
+                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
@@ -1177,12 +1190,16 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
 
         if (idx != -1)
         {
-            std::wstring bufw;
-            __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
                                  to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
+#if _WIN32
+            __spf_printToLongBuf(bufR, L"Необходимо подставить функцию '%s', так как через параметр %d передается итерационная переменная цикла на строке %d и она используется в индексном выражении в обращении к массиву в теле этой функции",
+                to_wstring(func->funcName).c_str(), idx, loop->lineNumber());
+#endif
             if (needToAddErrors)
             {
-                messages.push_back(Messages(ERROR, funcOnLine, bufw, 1013));
+                messages.push_back(Messages(ERROR, funcOnLine, bufR, bufE, 1013));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array inside this call, in parameter num %d\n", 
                                 func->funcName.c_str(), loop->lineNumber(), idx);
             }
@@ -1556,9 +1573,12 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
                 const string &chain = printChainRec(currentChainCalls);
                 __spf_print(1, "For function on line %d found recursive chain calls: %s\n", currentChainCalls[0]->linesNum.first, chain.c_str());
 
-                std::wstring bufw;
-                __spf_printToLongBuf(bufw, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
-                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufw, 1014));
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(bufR, L"Была найдена рекурсивная цепочка вызовов: %s, данная функция исключена из рассмотрения", to_wstring(chain).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufR, bufE, 1014));
                 break;
             }
         }
@@ -1641,54 +1661,17 @@ map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
     return byUse;
 }
 
-
-static inline void addLinks(const FuncParam &actual, const FuncParam &formal, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
 {
-    if (actual.parameters.size() != formal.parameters.size())
-        return;
-    else
-    {
-        for (int i = 0; i < actual.parameters.size(); ++i)
-            if (actual.parametersT[i] == formal.parametersT[i] && formal.parametersT[i] == ARRAY_T)
-                arrayLinksByFuncCalls[(DIST::Array*)formal.parameters[i]].insert((DIST::Array*)actual.parameters[i]);
-    }
-}
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(allFuncInfo, funcByName);
 
-static bool propagateUp(DIST::Array *from, set<DIST::Array*> to, DIST::distFlag flag, bool &change)
-{
-    bool globalChange = false;
-    if (from->GetNonDistributeFlagVal() == flag)
-    {
-        for (auto &realRef : to)
-        {
-            auto val = realRef->GetNonDistributeFlagVal();
-            if (val != flag)
-            {
-                //exclude this case
-                if (flag == DIST::IO_PRIV && val == DIST::SPF_PRIV)
-                    ;
-                else
-                {
-                    realRef->SetNonDistributeFlag(flag);
-                    //printf("up: set %d %s\n", flag, realRef->GetName().c_str());
-                    change = true;
-                    globalChange = true;
-                }
-            }
-        }
-    }
-
-    return globalChange;
-}
-
-static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
-{
     bool change = true;
     while (change)
     {
         change = false;
 
-        for (auto &func : allFuncInfo)
+        for (auto &func : funcByName)
         {
             if (func.second->funcParams.countOfPars == 0)
                 continue;
@@ -1745,198 +1728,5 @@ static void propagateWritesToArrays(map<string, FuncInfo*> &allFuncInfo)
             }
         }
     }
-}
-
-static bool propagateFlag(bool isDown, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    bool globalChange = false;
-    bool change = true;
-    while (change)
-    {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
-
-            bool allNonDistr = true;
-            bool allDistr = true;
-            bool nonDistrSpfPriv = false;
-            bool nonDistrIOPriv = false;
-            bool init = false;
-
-            // propagate SPF to down calls
-            for (auto &realRef : realArrayRefs)
-            {
-                if (realRef != array.second.first)
-                {
-                    bool nonDistr = realRef->GetNonDistributeFlag();
-                    if (realRef->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
-                        nonDistrSpfPriv = true;
-                    else if (realRef->GetNonDistributeFlagVal() == DIST::IO_PRIV)
-                        nonDistrIOPriv = true;
-
-                    allNonDistr = allNonDistr && nonDistr;
-                    allDistr = allDistr && !nonDistr;
-                    init = true;
-                }
-            }
-
-            if (init)
-            {
-                if (allNonDistr && array.second.first->GetNonDistributeFlag() == false)
-                {
-                    if (isDown)
-                    {
-                        if (nonDistrSpfPriv)
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
-                            //printf("down: set %d %s\n", DIST::SPF_PRIV, array.second.first->GetName().c_str());
-                        }
-                        else if (nonDistrIOPriv)
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::IO_PRIV);
-                            //printf("down: set %d %s\n", DIST::IO_PRIV, array.second.first->GetName().c_str());
-                        }
-                        else
-                        {
-                            array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
-                            //printf("down: set %d %s\n", DIST::NO_DISTR, array.second.first->GetName().c_str());
-                        }
-                        change = true;
-                        globalChange = true;
-                    }
-                }
-                else
-                {
-                    if (!isDown)
-                    {
-                        bool ret = propagateUp(array.second.first, realArrayRefs, DIST::SPF_PRIV, change);
-                        globalChange = globalChange || ret;
-                        ret = propagateUp(array.second.first, realArrayRefs, DIST::IO_PRIV, change);
-                        globalChange = globalChange || ret;
-                        //propagateUp(array.second.first, realArrayRefs, DIST::NO_DISTR, change);
-                    }
-                }
-            }
-        }
-    }
-
-    return globalChange;
-}
-
-void propagateArrayFlags(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    bool change = true;
-    while (change)
-    {
-        bool changeD = propagateFlag(true, arrayLinksByFuncCalls);
-        bool changeU = propagateFlag(false, arrayLinksByFuncCalls);
-
-        change = changeD || changeU;
-    }
-}
-
-static void aggregateUsedArrays(map<string, FuncInfo*> &funcByName, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
-{
-    //change to real refs
-    for (auto &func : funcByName)
-    {
-        set<DIST::Array*> curr = func.second->allUsedArrays;
-        set<DIST::Array*> newRefs;
-        for (auto &array : curr)
-            getRealArrayRefs(array, array, newRefs, arrayLinksByFuncCalls);
-        func.second->allUsedArrays.clear();
-        for (auto &newArray : newRefs)
-            if (newArray->GetNonDistributeFlag() == false)
-                func.second->allUsedArrays.insert(newArray);
-    }
-
-    bool changed = true;
-    while (changed)
-    {
-        changed = false;
-        for (auto &func : funcByName)
-        {
-            for (auto &callsFrom : func.second->callsFrom)
-            {
-                auto itF = funcByName.find(callsFrom);
-                if (itF != funcByName.end())
-                {
-                    for (auto &usedArray : itF->second->allUsedArrays)
-                    {
-                        auto itA = func.second->allUsedArrays.find(usedArray);
-                        if (itA == func.second->allUsedArrays.end())
-                        {
-                            changed = true;
-                            func.second->allUsedArrays.insert(usedArray);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &allFuncInfo, map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                             const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
-{
-    for (auto &funcsOnFile : allFuncInfo)
-    {
-        for (auto &func : funcsOnFile.second)
-        {
-            const string &name = func->funcName;
-            for (auto &caller : func->callsTo)
-                for (int i = 0; i < caller->detailCallsFrom.size(); ++i)
-                    if (caller->detailCallsFrom[i].first == name)
-                        addLinks(caller->actualParams[i], func->funcParams, arrayLinksByFuncCalls);
-        }
-    }
-
-    propagateArrayFlags(arrayLinksByFuncCalls);
-
-    //propagate distr state
-    bool change = true;
-    while (change)
-    {
-        change = false;
-        for (auto &array : declaratedArrays)
-        {
-            set<DIST::Array*> realArrayRefs;
-            getRealArrayRefs(array.second.first, array.second.first, realArrayRefs, arrayLinksByFuncCalls);
-
-            if (realArrayRefs.size() && (*realArrayRefs.begin()) != array.second.first &&
-                !(*realArrayRefs.begin())->GetNonDistributeFlag() && array.second.first->GetNonDistributeFlag())
-            {
-                array.second.first->SetNonDistributeFlag(DIST::DISTR);
-                change = true;
-            }
-        }
-    }
-
-    map<string, FuncInfo*> funcByName;
-    createMapOfFunc(allFuncInfo, funcByName);
-
-    propagateWritesToArrays(funcByName);
-    aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
-
-    //debug dump
-    /*for (auto &elem : declaratedArrays)
-    {
-        auto array = elem.second.first;
-        auto flag = array->GetNonDistributeFlagVal();
-        // int { DISTR = 0, NO_DISTR, SPF_PRIV, IO_PRIV } distFlagType;
-        string flagS = "";
-        if (flag == DIST::DISTR)
-            flagS = "DISTR";
-        else if (flag == DIST::NO_DISTR)
-            flagS = "NO_DISTR";
-        else if (flag == DIST::SPF_PRIV)
-            flagS = "SPF_PRIV";
-        else if (flag == DIST::IO_PRIV)
-            flagS = "IO_PRIV";
-
-        printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
-    }*/
 }
 #undef DEBUG

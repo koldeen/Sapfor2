@@ -21,7 +21,6 @@ enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
-std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
@@ -65,6 +64,7 @@ void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, 
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
                             const std::vector<ParallelRegion*> &regions);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
+void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DIST::Array*> &allArrays);
 
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,

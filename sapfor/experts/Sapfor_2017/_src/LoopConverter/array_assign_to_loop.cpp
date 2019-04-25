@@ -65,10 +65,10 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
     if (IS_ALLOCATABLE(symb) && consistInAllocates == 0)
         return false;
 
+    bool symbFound = false;
     if (consistInAllocates == 0)
     {
         const string toFind = string(symb->identifier());
-
         for (SgExpression *ex = decl->expr(0); ex && (alloc == NULL); ex = ex->rhs())
         {
             if (ex->lhs()->variant() == ASSGN_OP)
@@ -77,17 +77,37 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
                     checkAlloc(ex->lhs(), alloc, toFind);
             }
             else if (ex->lhs() && ex->lhs()->symbol())
+            {
+                symbFound |= (ex->lhs()->symbol()->identifier() == toFind);
                 checkAlloc(ex, alloc, toFind);
+            }
         }
     }
 
-    if (alloc == NULL)
+    if (symbFound && alloc == NULL)
+    {
+        for (SgExpression *ex = decl->expr(2); ex; ex = ex->rhs())
+        {
+            if (ex->lhs() && ex->lhs()->variant() == DIMENSION_OP)
+            {
+                alloc = ex->lhs()->lhs();
+                break;
+            }
+        }
+    }
+
+    if (alloc == NULL)        
         return false;
     
     for ( ; alloc; alloc = alloc->rhs())
     {
         if (alloc->lhs()->variant() == DDOT)
+        {
+            if (alloc->lhs()->lhs() == NULL || alloc->lhs()->rhs() == NULL)
+                return false;
             bounds.push_back(std::make_tuple(alloc->lhs()->lhs()->copyPtr(), alloc->lhs()->rhs()->copyPtr(), (SgExpression*)NULL));
+            
+        }
         else
             bounds.push_back(std::make_tuple(new SgValueExp(1), alloc->lhs()->copyPtr(), (SgExpression*)NULL));
     }
@@ -193,6 +213,19 @@ static void insertMainPart(SgExpression *subsL, SgFile *file, const int deep, Sg
     }
 }
 
+static bool isNonDistrArray(SgSymbol *symb)
+{
+    SgStatement *decl = declaratedInStmt(symb);
+
+    SgType *type = symb->type();
+    if (type && type->variant() == T_STRING)
+        return false;
+
+    DIST::Array *array = getArrayFromDeclarated(decl, symb->identifier());
+    checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);    
+    return array->GetNonDistributeFlag();    
+}
+
 static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile *file, vector<Messages> &messagesForFile)
 {
     vector<SgStatement*> result;
@@ -204,6 +237,9 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
         return result;
 
     if (assign->expr(0)->variant() != ARRAY_REF || assign->expr(1)->variant() != ARRAY_REF)
+        return result;
+
+    if (isNonDistrArray(assign->expr(0)->symbol()) || isNonDistrArray(assign->expr(1)->symbol()))
         return result;
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(0);
@@ -297,9 +333,6 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (leftSections.size() != rightSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-
-        string message;
-        __spf_printToBuf(message, "can not convert array assign to loop");
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
@@ -489,6 +522,11 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         assign->expr(1)->lhs()->variant() != ARRAY_REF)
         return result;
 
+    if (isNonDistrArray(assign->expr(0)->symbol()) || 
+        isNonDistrArray(assign->expr(1)->rhs()->symbol()) ||
+        isNonDistrArray(assign->expr(1)->lhs()->symbol()) )
+        return result;
+
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(1)->lhs();
     SgArrayRefExp *rightPart = (SgArrayRefExp*)assign->expr(1)->rhs();
     SgArrayRefExp *assignPart = (SgArrayRefExp*)assign->expr(0);
@@ -611,9 +649,6 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         rightSections.size() != assignSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-
-        string message;
-        __spf_printToBuf(message, "can not convert array assign to loop");
         messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
     }
     else
@@ -777,6 +812,9 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
         assign->expr(1)->lhs()->lhs()->variant() != ARRAY_REF)
         return result;
 
+    if (isNonDistrArray(assign->expr(1)->lhs()->lhs()->symbol()))
+        return result;
+
     SgForStmt *retVal = NULL;
     SgStatement *copy = assign->copyPtr();
 
@@ -909,21 +947,19 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
         }
     }
 
-    SgExpression* newRightPart = new SgExpression(ADD_OP);
-    SgAssignStmt* init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0    
-
+    
+    SgAssignStmt *init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0 
     result.push_back(init);
-
-    newRightPart->setLhs(assign->expr(0));                                    
-    newRightPart->setRhs(retVal->lexNext()->expr(1));
-
-    retVal->lexNext()->setExpression(1, *newRightPart);
-
-    result.push_back(retVal);
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
 
+    SgExpression *newRightPart = new SgExpression(ADD_OP);
+    newRightPart->setLhs(copy->expr(0)->copyPtr());
+    newRightPart->setRhs(copy->expr(1));
+    copy->setExpression(1, *newRightPart);
+
+    result.push_back(retVal);    
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
     return result;
@@ -1148,9 +1184,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             {
                 vector<SgStatement*> conv;
                 if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
-                {
                     conv = convertFromSumToLoop(st, file, messagesForFile);
-                }
                 else
                 {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
@@ -1316,9 +1350,23 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
 
                         data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
 
-                        for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())                        
-                            if (st_loc->variant() == FOR_NODE)
-                                newDeclarations.insert(st_loc->symbol());
+                        if (data->variant() == FOR_NODE)
+                        {
+                            for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                if (st_loc->variant() == FOR_NODE)
+                                    newDeclarations.insert(st_loc->symbol());
+                        }
+                        else if (data->variant() == ASSIGN_STAT)
+                        {
+                            data->unparsestdout();
+                            data->lexNext()->unparsestdout();
+                            if (data->lexNext()->variant() == FOR_NODE)
+                            {
+                                for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())
+                                    if (st_loc->variant() == FOR_NODE)
+                                        newDeclarations.insert(st_loc->symbol());
+                            }
+                        }
                     }
                 }
             }

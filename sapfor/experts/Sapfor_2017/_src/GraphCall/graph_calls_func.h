@@ -21,7 +21,7 @@ FuncInfo* isUserFunctionInProject(const std::string &func);
 std::string convertToString(const FuncInfo *currFunc);
 void findDeadFunctionsAndFillCallTo(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &allMessages, bool noPrint = false);
 void createLinksBetweenFormalAndActualParams(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                            const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
+                                            const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, bool keepFiles = false);
 void createMapOfFunc(const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::string, FuncInfo*> &mapFuncInfo);
 void createMapOfFunc(const std::vector<FuncInfo*> &allFuncInfo, std::map<std::pair<std::string, int>, FuncInfo*> &mapFuncInfo);
@@ -39,5 +39,6 @@ void checkForRecursion(SgFile *file, std::map<std::string, std::vector<FuncInfo*
 bool isPassFullArray(SgExpression *ex);
 void doMacroExpand(SgFile *file, std::vector<Messages> &messages);
 std::map<std::string, std::set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn);
+void propagateWritesToArrays(std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 #endif
 

@@ -9,11 +9,9 @@
 #include "../GraphLoop/graph_loops.h"
 
 static const char* paramNames[] = 
-{ "NONE_T", "ARRAY_T", "SCALAR_INT_T", "SCALAR_FLOAT_T", "SCALAR_DOUBLE_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "UNKNOWN_T" };
+{ "NONE_T", "ARRAY_T", "SCALAR_INT_T", "SCALAR_FLOAT_T", "SCALAR_DOUBLE_T", "SCALAR_CHAR_T", "SCALAR_BOOL_T", "SCALAR_CMPLX_FLOAT_T", "SCALAR_CMPLX_DOUBLE_T", "UNKNOWN_T" };
 
-typedef enum parF { NONE_T, ARRAY_T, 
-                    SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T, SCALAR_CMPLX_FLOAT_T, SCALAR_CMPLX_DOUBLE_T,
-                    UNKNOWN_T } paramType;
+typedef enum parF { NONE_T, ARRAY_T, SCALAR_INT_T, SCALAR_FLOAT_T, SCALAR_DOUBLE_T, SCALAR_CHAR_T, SCALAR_BOOL_T, SCALAR_CMPLX_FLOAT_T, SCALAR_CMPLX_DOUBLE_T, UNKNOWN_T } paramType;
 
 #ifndef IN_BIT
     #define IN_BIT 16
@@ -106,6 +104,8 @@ struct FuncInfo
     ShadowNode *shadowTree;
     std::map<void*, ShadowNode*> allShadowNodes;
     std::set<DIST::Array*> allUsedArrays; // real array refs
+    std::set<DIST::Array*> usedArraysWrite; // real array refs
+
     std::vector<LoopGraph*> loopsInFunc;
 
     std::vector<int> linesOfIO;
@@ -151,6 +151,15 @@ struct FuncInfo
             return funcName + "_r" + std::to_string(regionId);
         return funcName;
     }
+
+    void removeNonDistrArrays()
+    {
+        std::set<DIST::Array*> newUsedArrays;
+        for (auto &elem : allUsedArrays)
+            if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
+                newUsedArrays.insert(elem);
+        allUsedArrays = newUsedArrays;        
+    }
 };
 
 struct CallV
@@ -176,4 +185,4 @@ struct CallV
     }
 };
 
-void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
+void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);

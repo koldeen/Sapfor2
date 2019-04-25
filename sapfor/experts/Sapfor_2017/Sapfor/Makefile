@@ -8,7 +8,7 @@ SRCDIR = ../_src
 
 CXX = g++
 CC  = gcc
-CFLAGS = -O3 -D__SPF
+CFLAGS = -O3 -D__SPF 
 STD=c++11
 
 REPO_FDVM_BASE      = ../../../../dvm/fdvm/trunk/
@@ -271,12 +271,15 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
-			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o CreateInterTree.o gcov_info.o gCov_parser.o \
-			 graph_calls_base.o directive_creator_base.o PredictorModel.o createParallelRegions.o
+			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o loops_combiner.o CreateInterTree.o gcov_info.o gCov_parser.o \
+			 graph_calls_base.o directive_creator_base.o PredictorModel.o createParallelRegions.o \
+			 expand_extract_reg.o RationalNum.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
 
+expand_extract_reg.o: $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.cpp $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 createParallelRegions.o: $(REPO_SPF_BASE)DynamicAnalysis/createParallelRegions.cpp $(REPO_SPF_BASE)DynamicAnalysis/createParallelRegions.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DynamicAnalysis/createParallelRegions.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 gcov_info.o: $(REPO_SPF_BASE)DynamicAnalysis/gcov_info.cpp $(REPO_SPF_BASE)DynamicAnalysis/gcov_info.h
@@ -285,6 +288,8 @@ gCov_parser.o: $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp $(REPO_SPF_BASE)D
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 CreateInterTree.o: $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+RationalNum.o: $(REPO_SPF_BASE)Utils/RationalNum.cpp $(REPO_SPF_BASE)Utils/RationalNum.h 
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/RationalNum.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 SgUtils.o: $(REPO_SPF_BASE)Utils/SgUtils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
@@ -449,6 +454,8 @@ private_arrays_breeder.o: $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.c
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loops_splitter.o: $(REPO_SPF_BASE)LoopConverter/loops_splitter.cpp $(REPO_SPF_BASE)LoopConverter/loops_splitter.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loops_splitter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+loops_combiner.o: $(REPO_SPF_BASE)LoopConverter/loops_combiner.cpp $(REPO_SPF_BASE)LoopConverter/loops_combiner.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loops_combiner.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 	
 clean:
 	rm -rf *.o

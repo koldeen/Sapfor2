@@ -69,19 +69,25 @@ static bool findAllArraysForRemote(SgStatement *current, SgExpression *expr, con
             {
                 // find distributed dims
                 DIST::Array *templ = array->GetTemplateArray(regionID);
-                bool needToAdd = false;
+                checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
+                auto links = array->GetLinksWithTemplate(regionID);
 
+                bool needToAdd = false;
                 for (int i = 0; i < data.distrRules.size(); ++i)
                 {
                     if (data.distrRules[i].first == templ)
                     {
                         const vector<dist> &rule = data.distrRules[i].second[currVar[i]].distRule;
-                        for (int k = 0; k < rule.size(); ++k)
+                        for (int k = 0; k < links.size(); ++k)
                         {
-                            if (rule[k] == BLOCK)
+                            const int idx = links[k];
+                            if (idx >= 0)
                             {
-                                needToAdd = true;
-                                break;
+                                if (rule[idx] == BLOCK)
+                                {
+                                    needToAdd = true;
+                                    break;
+                                }
                             }
                         }
                         break;
@@ -513,7 +519,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         DIST::Array *arrayRefOnDir = THIRD(under_dvm_dir)->arrayRef;
         set<DIST::Array*> realRefArrayOnDir;
 
-        if (!arrayRefOnDir->isTemplate())
+        if (!arrayRefOnDir->IsTemplate())
         {
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
             if (realRefArrayOnDir.size() != 1)

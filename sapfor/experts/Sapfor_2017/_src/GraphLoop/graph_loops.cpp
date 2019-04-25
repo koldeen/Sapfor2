@@ -65,40 +65,46 @@ static bool recVariantFind(SgExpression *ex, const int var)
     return ret;
 }
 
-static bool recInderectFind(SgExpression *ex, bool wasArrayref)
+static void recInderectFind(SgExpression *ex, set<DIST::Array*> &usedArrays)
 {
-    bool ret = false;
     if (ex)
     {
         if (ex->variant() == ARRAY_REF)
         {
-            if (wasArrayref)
-                return true;
+            DIST::Array *arrayRef = NULL;
+            SgSymbol *symbS = OriginalSymbol(ex->symbol());
+            const string symb = symbS->identifier();
+
+            if (symbS)
+                arrayRef = getArrayFromDeclarated(declaratedInStmt(symbS), symb);
             else
-                wasArrayref = true;
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            // only distributed arrays were added
+            if (arrayRef)
+                if (arrayRef->GetNonDistributeFlag() == false)
+                    usedArrays.insert(arrayRef);
         }
 
-        ret = ret || recInderectFind(ex->lhs(), wasArrayref);
-        ret = ret || recInderectFind(ex->rhs(), wasArrayref);
+        recInderectFind(ex->lhs(), usedArrays);        
+        recInderectFind(ex->rhs(), usedArrays);        
     }
-
-    return ret;
 }
 
-static bool recScalaraSymbolFind(SgExpression *ex, const string &symb)
+bool recSymbolFind(SgExpression *ex, const string &symb, const int var)
 {
     bool ret = false;
     if (ex)
     {
-        if (ex->variant() == VAR_REF)
+        if (ex->variant() == var)
         {
             if (ex->symbol())
                 if (ex->symbol()->identifier() == symb)
                     return true;
         }
 
-        ret = ret || recScalaraSymbolFind(ex->lhs(), symb);
-        ret = ret || recScalaraSymbolFind(ex->rhs(), symb);
+        ret = ret || recSymbolFind(ex->lhs(), symb, var);
+        ret = ret || recSymbolFind(ex->rhs(), symb, var);
     }
 
     return ret;
@@ -386,15 +392,28 @@ void findAllRefsToLables(SgStatement *st, map<int, vector<int>> &labelsRef, bool
         processLables(st, labelsRef, includeWrite);
 }
 
-static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
+static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vector<Messages> &messages)
 {
     SgExpression *start = st->start();
     SgExpression *end = st->end();
     SgExpression *step = st->step();
 
-    bool has = recVariantFind(start, FUNC_CALL) || recVariantFind(end, FUNC_CALL) || recVariantFind(step, FUNC_CALL);
-    has = has || recInderectFind(start, false) || recInderectFind(end, false) || recInderectFind(step, false);
+    set<DIST::Array*> usedArrays;
+
+    bool has1 = recVariantFind(start, FUNC_CALL) || recVariantFind(end, FUNC_CALL) || recVariantFind(step, FUNC_CALL);
+    recInderectFind(start, usedArrays);
+    recInderectFind(end, usedArrays);
+    recInderectFind(step, usedArrays);
+    bool has = has1 || (usedArrays.size() > 0);
     
+    for (auto &array : usedArrays)
+    {
+        std::wstring bufw;
+        __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
+        messages.push_back(Messages(ERROR, st->lineNumber(), bufw, 1047));
+        array->SetNonDistributeFlag(DIST::SPF_PRIV);
+    }
+
     if (has == false)
     {
         for (auto &upLoop : parentLoops)
@@ -404,9 +423,9 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops)
             if (symb)
             {
                 const string strSymb = symb->identifier();
-                has = has || recScalaraSymbolFind(start, strSymb);
-                has = has || recScalaraSymbolFind(end, strSymb);
-                has = has || recScalaraSymbolFind(step, strSymb);
+                has = has || recSymbolFind(start, strSymb, VAR_REF);
+                has = has || recSymbolFind(end, strSymb, VAR_REF);
+                has = has || recSymbolFind(step, strSymb, VAR_REF);
 
                 if (has)
                     break;
@@ -455,7 +474,7 @@ static void addLoopVariablesToPrivateList(SgForStmt *currLoopRef)
     currLoopRef->addAttribute(SPF_ANALYSIS_DIR, spfStat, sizeof(SgStatement));
 }
 
-static void findArrayRef(SgExpression *exp, set<DIST::Array*> &allUsedArrays)
+static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*> &allUsedArrays, set<DIST::Array*> &writeUsedArrays)
 {
     if (exp)
     {
@@ -472,13 +491,20 @@ static void findArrayRef(SgExpression *exp, set<DIST::Array*> &allUsedArrays)
 
             // only distributed arrays were added
             if (arrayRef)
+            {
                 if (arrayRef->GetNonDistributeFlag() == false)
+                {
                     allUsedArrays.insert(arrayRef);
+                    if (isWirte)
+                        writeUsedArrays.insert(arrayRef);
+                }
+            }
+
         }
         else
         {
-            findArrayRef(exp->lhs(), allUsedArrays);
-            findArrayRef(exp->rhs(), allUsedArrays);
+            findArrayRef(exp->lhs(), false, allUsedArrays, writeUsedArrays);
+            findArrayRef(exp->rhs(), false, allUsedArrays, writeUsedArrays);
         }
     }
 }
@@ -489,8 +515,15 @@ static void findArrayRefs(LoopGraph *loop)
     for (SgStatement *st = loop->loop->lexNext(); st != loop->loop->lastNodeOfStmt(); st = st->lexNext())
     {
         if (isSgExecutableStatement(st))
+        {
             for (int z = 0; z < 3; ++z)
-                findArrayRef(st->expr(z), loop->usedArrays);
+            {
+                bool isWrite = false;
+                if (z == 0 && st->variant() == ASSIGN_STAT)
+                    isWrite = true;
+                findArrayRef(st->expr(z), isWrite, loop->usedArrays, loop->usedArraysWrite);
+            }
+        }
     }
 }
 
@@ -567,7 +600,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
-                newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops);
+                newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
                 auto itTime = mapIntervals.find(newLoop->lineNum);
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;

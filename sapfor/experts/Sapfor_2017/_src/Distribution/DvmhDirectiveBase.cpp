@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -68,18 +67,37 @@ static void uniteReduction(const map<keyT, valT> &first, const map<keyT, valT> &
     }
 }
 
+template<typename vTuples>
+static vTuples uniteOnRules(const vTuples &first, const vTuples &second)
+{
+    vTuples result(first.size());
+    for (int i = 0; i < (int)first.size(); ++i)
+    {
+        bool firstStar = first[i].first == "*";
+        bool secondStar = second[i].first == "*";
+        if (firstStar && secondStar)
+            result[i].first = "*";
+        else if (firstStar)
+            result[i] = second[i];
+        else
+            result[i] = first[i];
+    }
+    return result;
+}
+
 ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirective &right)
 {
     const ParallelDirective *first = &left;
     const ParallelDirective *second = &right;
 
     ParallelDirective *result = NULL;
-    assert(first);
-    assert(second);
+    checkNull(first, convertFileName(__FILE__).c_str(), __LINE__);
+    checkNull(second, convertFileName(__FILE__).c_str(), __LINE__);
 
     if (first->arrayRef == second->arrayRef)
     {
-        assert(first->on.size() == second->on.size());
+        if (first->on.size() != second->on.size())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         result = new ParallelDirective();
 
@@ -100,17 +118,8 @@ ParallelDirective* operator+(const ParallelDirective &left, const ParallelDirect
         for (int i = 0; i < (int)second->parallel.size(); ++i)
             result->parallel[i + first->parallel.size()] = second->parallel[i];
 
-        for (int i = 0; i < (int)first->on.size(); ++i)
-        {
-            bool firstStar = first->on[i].first == "*";
-            bool secondStar = second->on[i].first == "*";
-            if (firstStar && secondStar)
-                result->on[i].first = "*";
-            else if (firstStar)
-                result->on[i] = second->on[i];
-            else
-                result->on[i] = first->on[i];
-        }
+        result->on = uniteOnRules(first->on, second->on);
+        result->on2 = uniteOnRules(first->on2, second->on2);
 
         uniteVectors(first->across, second->across, result->across);
         uniteVectors(first->shadowRenew, second->shadowRenew, result->shadowRenew);
@@ -285,6 +294,7 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
 
                             // inconsistent -> may be remote will add later...
+                            // or SINGLE position
                             if (minShift == 9999999 && maxShift == -9999999)
                                 minShift = maxShift = 0;
 
@@ -292,8 +302,11 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             {
                                 if (minShift == 0)
                                 {
-                                    shift[k].first = -coeffs.second[k].first;
-                                    shift[k].second = -coeffs.second[k].second;
+                                    if (parallelOnRule[currRuleOn.first].first != "SINGLE")
+                                    {
+                                        shift[k].first = -coeffs.second[k].first;
+                                        shift[k].second = -coeffs.second[k].second;
+                                    }
                                 }
                                 else
                                 {
@@ -311,8 +324,21 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
                             else if (currReadOp->first[k].coefficients.size() > 0)
                             {
-                                shift[k].first = std::abs(minShift) - coeffs.second[k].first;
-                                shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                if (minShift > 0 && maxShift > 0)
+                                {
+                                    shift[k].first = 0;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
+                                else if (minShift < 0 && maxShift < 0)
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = 0;
+                                }
+                                else
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
                             }
                         }
                     }
@@ -370,7 +396,7 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
     
     auto on_ext = on;
     //replace to template align ::on
-    if (arrayRef->isTemplate() == false)
+    if (arrayRef->IsTemplate() == false)
     {
         vector<tuple<DIST::Array*, int, pair<int, int>>> ruleForRef =
             getAlignRuleWithTemplate(arrayRef, arrayLinksByFuncCalls, reducedG, allArrays, regionId);
@@ -393,6 +419,16 @@ string ParallelDirective::genBounds(const vector<AlignRule> &alignRules,
         for (int i = 0; i < ruleForRef.size(); ++i)
             if (get<0>(ruleForRef[i]))
                 on_ext[get<1>(ruleForRef[i])] = on[i];        
+    }
+
+    //replace single dim to key word 'SINGLE'
+    for (int i = 0; i < on_ext.size(); ++i)
+    {
+        if (on_ext[i].first != "*")
+        {
+            if (std::find(parallel.begin(), parallel.end(), on_ext[i].first) == parallel.end())
+                on_ext[i].first = "SINGLE";
+        }
     }
 
     string ret = "";
