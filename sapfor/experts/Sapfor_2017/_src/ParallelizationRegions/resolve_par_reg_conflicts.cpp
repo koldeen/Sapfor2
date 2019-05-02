@@ -891,10 +891,10 @@ static bool replaceCommonArray(const string &fileName,
 
         wstring messageE, messageR;
         __spf_printToLongBuf(messageE, L"wrong parallel region position, there is no common-block in file %s with any of such arrays:%s",
-                             fileName.c_str(), to_wstring(toPrint).c_str());
+                             to_wstring(fileName).c_str(), to_wstring(toPrint).c_str());
 #ifdef _WIN32
         __spf_printToLongBuf(messageR, L"Ќеверное расположение области: не существует common-блока в файле %s со следующими массивами:%s",
-                             fileName.c_str(), to_wstring(toPrint).c_str());
+                             to_wstring(fileName).c_str(), to_wstring(toPrint).c_str());
 #endif
         getObjectForFileFromMap(fileName.c_str(), SPF_messages).push_back(Messages(ERROR, lines.lines.first, messageR, messageE, 1034));
         // error

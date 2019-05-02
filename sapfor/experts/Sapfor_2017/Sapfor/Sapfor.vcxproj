@@ -255,6 +255,7 @@
     <ClCompile Include="..\_src\DEAR\dep_cpp\pu_routine_call.cpp" />
     <ClCompile Include="..\_src\DEAR\help.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
+    <ClCompile Include="..\_src\Distribution\Array.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</IntrinsicFunctions>

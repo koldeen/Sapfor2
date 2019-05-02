@@ -27,7 +27,9 @@
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
 #include "../DynamicAnalysis/gcov_info.h"
+#if __SPF
 #include "acc_analyzer.h"
+#endif
 
 using std::map;
 using std::pair;
@@ -646,6 +648,7 @@ void deletePointerAllocatedData()
             {
                 switch (pointer.second)
                 {
+#if __SPF
                 case 3: delete (ControlFlowItem*)pointer.first; break;
                 case 4: delete (doLoopItem*)pointer.first; break;
                 case 5: delete (doLoops*)pointer.first; break;
@@ -674,6 +677,7 @@ void deletePointerAllocatedData()
                 case 28: delete (PrivateDelayedItem*)pointer.first; break;
                 case 29: delete (ActualDelayedData*)pointer.first; break;
                 case 30: delete (ControlFlowGraph*)pointer.first; break;
+#endif
                 default:
                     break;
                 }
@@ -689,7 +693,7 @@ void deletePointerAllocatedData()
         printf("SAPFOR: detected %d leaks of memory\n", leaks);
     if (failed > 0)
         printf("SAPFOR: detected failed %d leaks of memory\n", failed);
-    printf("SAPFOR: deleted set size %d, maxS = %d\n", deleted.size(), maxS);
+    printf("SAPFOR: deleted set size %d, maxS = %d\n", (int)deleted.size(), maxS);
 
     pointerCollection.clear();
     deleted.clear();
@@ -742,7 +746,7 @@ static bool isAllRulesEqual_p(T rules)
     else
     {
         for (auto &elem : rules)
-            if (*elem != *rules[0])
+            if (elem != rules[0])
                 return false;
         return true;
     }
@@ -763,7 +767,7 @@ bool isAllRulesEqual(const vector<vector<int>> &allRules)
     return isAllRulesEqual_l(allRules);
 }
 
-bool isAllRulesEqual(const vector<const vector<pair<int, int>>*> &allRules)
+bool isAllRulesEqual(const vector<vector<pair<int, int>>> &allRules)
 {
     return isAllRulesEqual_p(allRules);
 }
