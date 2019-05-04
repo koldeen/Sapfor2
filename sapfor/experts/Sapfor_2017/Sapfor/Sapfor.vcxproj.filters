@@ -522,6 +522,9 @@
     <ClCompile Include="..\_src\Utils\RationalNum.cpp">
       <Filter>Файлы исходного кода\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\Distribution\Array.cpp">
+      <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">

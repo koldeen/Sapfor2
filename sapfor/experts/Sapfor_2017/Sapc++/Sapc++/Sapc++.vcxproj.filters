@@ -78,6 +78,9 @@
     <ClCompile Include="..\..\_src\LoopAnalyzer\directive_creator_base.cpp">
       <Filter>Исходные файлы\LoopAnalyzer</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\_src\Distribution\Array.cpp">
+      <Filter>Файлы заголовков\Distribution</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\_src\Distribution\Array.h">

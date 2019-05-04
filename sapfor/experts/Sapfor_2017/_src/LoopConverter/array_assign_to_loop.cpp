@@ -221,7 +221,7 @@ static bool isNonDistrArray(SgSymbol *symb)
     if (type && type->variant() == T_STRING)
         return false;
 
-    DIST::Array *array = getArrayFromDeclarated(decl, symb->identifier());
+    DIST::Array *array = getArrayFromDeclarated(decl, OriginalSymbol(symb)->identifier());
     checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);    
     return array->GetNonDistributeFlag();    
 }

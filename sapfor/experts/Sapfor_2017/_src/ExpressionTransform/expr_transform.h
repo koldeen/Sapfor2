@@ -104,7 +104,7 @@ public:
     }
 };
 
-std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMap(SgStatement *since, SgStatement *till);
+std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till);
 //const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
 const std::map<SymbolKey, std::set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt);
 SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value);
@@ -114,7 +114,8 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
 bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool valueWithArrayReference(SgExpression *exp);
-bool argIsReplaceable(int i, AnalysedCallsList* callData, bool argHasOutterDep = false);
+bool argIsReplaceable(int i, AnalysedCallsList* callData);
+bool argIsUsed(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);

@@ -586,8 +586,8 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                 }
 
                 //fill info links with template
-                const vector<int> &linksWithTempl = arrayRef->GetLinksWithTemplate(regionId);
-                const vector<pair<int, int>> &alignRuleWithTempl = arrayRef->GetAlignRulesWithTemplate(regionId);
+                auto linksWithTempl = arrayRef->GetLinksWithTemplate(regionId);
+                auto alignRuleWithTempl = arrayRef->GetAlignRulesWithTemplate(regionId);
 
                 const DIST::Array *templArray = arrayRef->GetTemplateArray(regionId);
                 if (!templArray)
@@ -740,8 +740,8 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                     const int writeDim = tmpLinks[i];
                                     if (writeDim != -1)
                                     {
-                                        const vector<pair<int, int>> &writeRulesWithTempl = writesInLoop[k].first->GetAlignRulesWithTemplate(regionId);
-                                        const pair<int, int> &alignRuleWrite = writeRulesWithTempl[writeDim];
+                                        auto writeRulesWithTempl = writesInLoop[k].first->GetAlignRulesWithTemplate(regionId);
+                                        auto alignRuleWrite = writeRulesWithTempl[writeDim];
 
                                         for (auto &writes : writesInLoop[k].second.writeOps[writeDim].coefficients)
                                         {

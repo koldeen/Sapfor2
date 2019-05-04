@@ -162,7 +162,7 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
         return false;
 
     if (get<0>(ruleForShadow[dimN]) == NULL)
-        return false;
+        return true;
 
     //check for distributed in declaration or in redistr. rules
     const tuple<DIST::Array*, int, pair<int, int>> &toCheck = ruleForShadow[dimN];
