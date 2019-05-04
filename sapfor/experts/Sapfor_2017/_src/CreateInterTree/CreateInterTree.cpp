@@ -19,7 +19,11 @@ static long int getNextTag()
 static void printTree(SpfInterval* inter, fstream &file, int level)
 {
     if (!(inter->ifInclude))
+    {
+        for (int i = 0; i < inter->nested.size(); i++)
+            printTree(inter->nested[i], file, level + 1);    
         return;
+    }
 
     for (int i = 0; i < level; i++)
         file << "  ";
@@ -378,7 +382,7 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         while (isDVM_stat(prevLastNode) || isSPF_stat(prevLastNode))
             prevLastNode = prevLastNode->lexPrev();
 
-        if (prevLastNode->variant() == RETURN_STAT || prevLastNode->variant() == EXIT_STMT)
+        if (prevLastNode->variant() == RETURN_STAT || prevLastNode->variant() == EXIT_STMT || prevLastNode->variant() == STOP_STAT)
             func_inters->ends.push_back(prevLastNode->lexPrev());
         else
             func_inters->ends.push_back(lastNode->lexPrev());
@@ -412,56 +416,56 @@ static void LogIftoIfThen(SgStatement *stmt)
 
 static void insertTree(SpfInterval* interval)
 {
-    if (!interval->ifInclude)
-        return;
-
-    SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
-    SgExpression* expr = new SgValueExp(interval->tag);
-    beg_inter->setExpression(0, *expr);
-
-    SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
-
-    // Skip to executables.
-    SgStatement* beginSt = interval->begin;
-    while (!isSgExecutableStatement(beginSt) || isSPF_stat(beginSt) || isDVM_stat(beginSt))
-        beginSt = beginSt->lexNext();
-
-    if (beginSt->lexPrev()->variant() == LOGIF_NODE)
-        LogIftoIfThen(beginSt->lexPrev());
-    
-    // Insert begining
-    beginSt->insertStmtBefore(*beg_inter, *beginSt->controlParent());
-    beg_inter->setlineNumber(beginSt->lineNumber());
-
-    interval->ends[0]->insertStmtAfter(*end_inter, *beginSt->controlParent());
-
-    for (int i = 1; i < interval->ends.size(); i++)
+    if (interval->ifInclude)
     {
-        int depth = interval->exit_levels[i];
-        SpfInterval* curr_inter = interval->parent;
+        SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
+        SgExpression* expr = new SgValueExp(interval->tag);
+        beg_inter->setExpression(0, *expr);
 
-        SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
-        SgExprListExp* curr_list_elem = expli;
+        SgStatement* end_inter = new SgStatement(DVM_ENDINTERVAL_DIR);
 
-        for (int j = 1; j < depth; j++)
+        // Skip to executables.
+        SgStatement* beginSt = interval->begin;
+        while (!isSgExecutableStatement(beginSt) || isSPF_stat(beginSt) || isDVM_stat(beginSt))
+            beginSt = beginSt->lexNext();
+
+        if (beginSt->lexPrev()->variant() == LOGIF_NODE)
+            LogIftoIfThen(beginSt->lexPrev());
+        
+        // Insert begining
+        beginSt->insertStmtBefore(*beg_inter, *beginSt->controlParent());
+        beg_inter->setlineNumber(beginSt->lineNumber());
+
+        interval->ends[0]->insertStmtAfter(*end_inter, *beginSt->controlParent());
+
+        for (int i = 1; i < interval->ends.size(); i++)
         {
-            if(curr_inter->ifInclude)
+            int depth = interval->exit_levels[i];
+            SpfInterval* curr_inter = interval->parent;
+
+            SgExprListExp* expli = new SgExprListExp(*(new SgValueExp(interval->tag)));
+            SgExprListExp* curr_list_elem = expli;
+
+            for (int j = 1; j < depth; j++)
             {
-                curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
-                curr_list_elem = curr_list_elem->next();
+                if(curr_inter->ifInclude)
+                {
+                    curr_list_elem->setRhs(new SgExprListExp(*(new SgValueExp(curr_inter->tag))));
+                    curr_list_elem = curr_list_elem->next();
+                }
+
+                curr_inter = curr_inter->parent;
             }
 
-            curr_inter = curr_inter->parent;
+            curr_list_elem->setRhs(NULL);
+            SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
+            exit_inter->setExpression(0, *expli);
+
+            if (interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
+                LogIftoIfThen(interval->ends[i]->lexPrev());
+
+            interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
         }
-
-        curr_list_elem->setRhs(NULL);
-        SgStatement* exit_inter = new SgStatement(DVM_EXIT_INTERVAL_DIR);
-        exit_inter->setExpression(0, *expli);
-
-        if (interval->ends[i]->lexPrev()->variant() == LOGIF_NODE)
-            LogIftoIfThen(interval->ends[i]->lexPrev());
-
-        interval->ends[i]->insertStmtBefore(*exit_inter, *interval->ends[i]->controlParent());
     }
 
     for (int i = 0; i < interval->nested.size(); i++)
@@ -475,9 +479,9 @@ void insertIntervals(SgFile *file, const vector<SpfInterval*> &fileIntervals)
 }
 
 //Profiling funcs
-static FileProfile parseProfiles(fstream &file)
+static map<int, long long> parseProfiles(fstream &file)
 {
-    FileProfile fileProfile;
+    map<int, long long> fileProfile;
     string line;
 
     while (!file.eof())
@@ -495,19 +499,19 @@ static FileProfile parseProfiles(fstream &file)
             int line_num = stoi(nums.substr(0, pos_com));
             long long calls_num = stoll(nums.substr(pos_com + 1));
 
-            fileProfile.profile[line_num] = calls_num;
+            fileProfile[line_num] = calls_num;
         }
     }
 
     return fileProfile;
 }
 
-static void assignRec(SpfInterval* inter, FileProfile &fp)
+static void assignRec(SpfInterval* inter, map<int, long long> &fp)
 {
     for (int i = 0; i < inter->nested.size(); i++)
         assignRec(inter->nested[i], fp);
 
-    inter->calls_count = fp.profile[inter->begin->lineNumber()];
+    inter->calls_count = fp[inter->begin->lineNumber()];
 }
 
 void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &intervals)
@@ -518,7 +522,7 @@ void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &interva
     if (!file.good())
         return;
 
-    FileProfile fileProfile = parseProfiles(file);
+    map<int, long long> fileProfile = parseProfiles(file);
 
     file.close();
 

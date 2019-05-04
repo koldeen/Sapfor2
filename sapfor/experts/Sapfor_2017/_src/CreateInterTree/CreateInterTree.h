@@ -46,11 +46,6 @@ struct SpfInterval
     }
 };
 
-struct FileProfile
-{
-    std::map<int, long long> profile;
-};
-
 void saveIntervals(const std::string &fileName, std::map<std::string, std::vector<SpfInterval*>> &intervals);
 void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool);
 void assignCallsToFile(const std::string&, std::vector<SpfInterval*>&);
