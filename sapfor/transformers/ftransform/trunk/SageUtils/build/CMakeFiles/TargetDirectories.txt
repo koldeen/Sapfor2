@@ -1,0 +1,3 @@
+/home/soloway2010/Desktop/Диплом/sapfor_2017/sapfor/transformers/ftransform/trunk/SageUtils/build/CMakeFiles/rebuild_cache.dir
+/home/soloway2010/Desktop/Диплом/sapfor_2017/sapfor/transformers/ftransform/trunk/SageUtils/build/CMakeFiles/SageUtils.dir
+/home/soloway2010/Desktop/Диплом/sapfor_2017/sapfor/transformers/ftransform/trunk/SageUtils/build/CMakeFiles/edit_cache.dir

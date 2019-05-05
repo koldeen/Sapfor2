@@ -356,12 +356,13 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
 void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nested_on)
 {
     int funcNum = file->numberOfFunctions();
-    map<int, int> labelsRef;           // id => line
-    map<int, vector<int>> gotoStmts;   // line => label_ids
-    vector<SpfInterval*> userIntervals;
-
+    
     for (int i = 0; i < funcNum; i++)
     {
+        map<int, int> labelsRef;           // id => line
+        map<int, vector<int>> gotoStmts;   // line => label_ids
+        vector<SpfInterval*> userIntervals;
+
         // Find labels.
         findAllLabels(file->functions(i), labelsRef);
         matchGotoLabels(file->functions(i), gotoStmts);
@@ -392,11 +393,14 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         SgStatement *currentSt = func_inters->begin;
         findIntervals(func_inters, labelsRef, gotoStmts, currentSt);
 
-        fileIntervals.push_back(func_inters);
-    }
+        vector<SpfInterval*> oneInterval;
+        oneInterval.push_back(func_inters);
 
-    mergeTrees(fileIntervals, userIntervals);
-    calibrateExits(fileIntervals, labelsRef, gotoStmts, 1);
+        mergeTrees(oneInterval, userIntervals);
+        calibrateExits(oneInterval, labelsRef, gotoStmts, 1);
+
+        fileIntervals.push_back(oneInterval[0]);
+    }
 
     if (nested_on)
         for (auto &interval : fileIntervals)

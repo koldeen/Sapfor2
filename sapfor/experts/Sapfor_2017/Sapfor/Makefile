@@ -23,6 +23,10 @@ SAGE_SRC_OLD  = $(SAGE_BASE_DIR)lib/oldsrc/
 SAGE_INCL_DIR = $(SAGE_BASE_DIR)/h
 LIB_INCL      = $(SAGE_BASE_DIR)/lib/include
 
+SAGE_TRANSFORM = $(REPO_TRANSFORM_BASE)/SageTransformLib/
+SAGE_UTILS = $(REPO_TRANSFORM_BASE)/SageUtils/
+SAGE_COMMON = $(REPO_TRANSFORM_BASE)/CommonLib/
+
 DVMINCLUDE      = $(REPO_FDVM_BASE)/include
 PARSER_BASE_DIR = $(REPO_FDVM_BASE)parser/
 
@@ -276,7 +280,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 expand_extract_reg.o RationalNum.o Array.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
-	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
+	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a $(SAGE_TRANSFORM)/build/libSageTransformLib.a $(SAGE_UTILS)/build/libSageUtils.a $(SAGE_COMMON)/build/libCommonLib.a
 
 expand_extract_reg.o: $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.cpp $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)ParallelizationRegions/expand_extract_reg.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
@@ -328,7 +332,7 @@ enddo_loop_converter.o: $(REPO_SPF_BASE)LoopConverter/enddo_loop_converter.cpp $
 array_assign_to_loop.o: $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/array_assign_to_loop.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loop_transform.o: $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp $(REPO_SPF_BASE)LoopConverter/loop_transform.h $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)GraphLoop/graph_loops.h 
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loop_transform.cpp -I$(SAGE_TRANSFORM)include -I$(SAGE_UTILS)include -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 shadow.o: $(REPO_SPF_BASE)LoopAnalyzer/shadow.cpp $(REPO_SPF_BASE)LoopAnalyzer/loop_analyzer.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopAnalyzer/shadow.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL) $(TR_LIB_INC)
 	
