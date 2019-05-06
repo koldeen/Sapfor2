@@ -601,8 +601,8 @@ AFlowGraph::AFlowGraph(SgFile file)
 {
 	// Build initial full CFG
 	SgStatement *st = file.functions(0);
-	auto graphsKeeper = new GraphsKeeper();
-	graphsKeeper->buildGraph(st);
+	GraphsKeeper* graphsKeeper = GraphsKeeper::getGraphsKeeper();
+	ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
 
 	// Build initial abstract CFG
 	int funcNum = file.numberOfFunctions();
@@ -677,23 +677,23 @@ AFlowGraph::AFlowGraph(SgFile file)
 			bb = bb->getLexNext();
 		}
 	}
-	// Join nodes, composing parallel loops
-	// for (auto graph: fun_graphs) {
-	// 	vector<DFGNode*> shrinked_graph;
-	// 	for (auto node: graph.second) {
-	// 		// If node not in parallel loop => skip it
+	//Join nodes, composing parallel loops
+	for (auto graph: fun_graphs) {
+		vector<DFGNode*> shrinked_graph;
+		for (auto node: graph.second) {
+			// If node not in parallel loop => skip it
 			
-	// 		// If node is the start of the parallel loop => 
-	// 		// 1) set type to par_loop
+			// If node is the start of the parallel loop => 
+			// 1) set type to par_loop
 			
-	// 		// 2) push it to shrinked_graph 
+			// 2) push it to shrinked_graph 
 
-	// 		// If node is in parallel loop && not the start of it =>
-	// 		// 1) add it's succ, pred, content, d_arrays
-	// 		// 2) delete it 
-	// 	}
-	// 	fun_graphs[graph.first] = shrinked_graph;
-	// }
+			// If node is in parallel loop && not the start of it =>
+			// 1) add it's succ, pred, content, d_arrays
+			// 2) delete it 
+		}
+		fun_graphs[graph.first] = shrinked_graph;
+	}
 
 	// Remove verticies which doesn't reference destributed arrays
 	for (auto graph: fun_graphs) {
@@ -742,4 +742,5 @@ AFlowGraph::AFlowGraph(SgFile file)
 			cout << "___________" << endl;
 		}
 	}
+	cout << "Graph printed" << endl;
 }
