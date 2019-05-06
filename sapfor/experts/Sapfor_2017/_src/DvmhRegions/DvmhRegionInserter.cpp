@@ -379,15 +379,14 @@ void DvmhRegionInsertor::mergeRegions()
 
 void DvmhRegionInsertor::insertDirectives()
 {
-	//__spf_print(1, "Find edges for regions\n");
-	//findEdgesForRegions(loopGraph);
-	//__spf_print(1, "Merging regions\n");
-	//mergeRegions();
-	//__spf_print(1, "Insert regions\n");
-	//insertRegionDirectives();
-	//__spf_print(1, "Insert actuals\n");
-	//insertActualDirectives();
-	//printControlFlowGraph();
+	// __spf_print(1, "Find edges for regions\n");
+	// findEdgesForRegions(loopGraph);
+	// __spf_print(1, "Merging regions\n");
+	// mergeRegions();
+	// __spf_print(1, "Insert regions\n");
+	// insertRegionDirectives();
+	// __spf_print(1, "Insert actuals\n");
+	// insertActualDirectives();
 	AFlowGraph graph = AFlowGraph(file);
 }
 
@@ -461,4 +460,286 @@ SgStatement* DvmhRegion::getLastSt() {
 	}
 
 	return loops.back()->loop->lastNodeOfStmt();
+}
+
+/* AFlowGraph*/
+DFGNode::DFGNode(CBasicBlock* bblock) {
+	initial.push_back(bblock);
+	type = block;
+	id = bblock->getNum();
+	isParLoop = bblock->getStart()->IsParloopStart();
+
+	// Fill containing statements
+	ControlFlowItem* cfi = bblock->getStart();
+	while (cfi && cfi->getBBno() == bblock->getNum()) 
+	{
+		SgStatement *st = cfi->getStatement();
+		if (st) {
+			content.push_back(st);
+
+			// Fill used distributed arrays
+			set<SgSymbol*> symbols = getUsedSymbols(st); 
+			// TODO: append used symbols in func call
+			for (auto symbol: symbols) {
+				try {
+					DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+					if (arr && !arr->GetNonDistributeFlag())
+						d_arrays.push_back(symbol);
+				}
+				catch (...) {
+					cout << "Disribute array assertion having some fun." << endl;
+				}
+			}
+		}
+
+		cfi = cfi->getNext();
+	}
+}
+
+set<SgSymbol *> DFGNode::getSymbolsFromExpression(SgExpression *exp) 
+{
+	set<SgSymbol *> result;
+
+	if (exp)
+	{
+		if (exp->variant() == ARRAY_REF) 
+			result.insert(exp->symbol());
+
+		set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
+		set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
+
+		result.insert(lhsSymbols.begin(), lhsSymbols.end());
+		result.insert(rhsSymbols.begin(), rhsSymbols.end());
+	}
+
+	return result;
+}
+
+set<SgSymbol *> DFGNode::getUsedSymbols(SgStatement* st) 
+{
+	set<SgSymbol *> result;
+
+	// ignore not executable statements
+	if (!isSgExecutableStatement(st)) {
+		return result;
+	}
+
+	for (int i = 0; i < 3; ++i) {
+		if (st->expr(i)) {
+			set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
+			result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+		}
+	}
+
+	return result;
+}
+
+string DFGNode::getInfo() const
+{
+	string s_content = "";
+	for (auto st: content)
+		s_content = s_content + st->unparse() + "\n";
+
+	string s_d_arrays = "";
+	for (auto arr: d_arrays)
+		s_d_arrays = s_d_arrays + string(arr->identifier()) + " , ";
+
+	string s_prev = "";
+	for (auto node: prev)
+		s_prev = s_prev + to_string(node->id) + " , ";
+
+	string s_succ = "";
+	for (auto node: succ)
+		s_succ = s_succ + to_string(node->id) + " , ";
+
+	string info = "id [" 		+ to_string(id)			+ "]\n" +\
+				+ "type ["		+ to_string(type)		+ "]\n" +\
+				+ "isParLoop["	+ to_string(isParLoop)	+ "]\n" +\
+				+ "content["	+ s_content				+ "]\n" +\
+				+ "prev["		+ s_prev				+ "]\n" +\
+				+ "succ["		+ s_succ				+ "]\n" +\
+				+ "d_arrays["	+ s_d_arrays			+ "]\n";
+	return info;
+}
+
+bool DFGNode::addSucc(DFGNode* new_succ) 
+{
+	for (auto old_succ : succ)
+		if (old_succ == new_succ || old_succ->id == new_succ->id)
+			return false;
+	succ.push_back(new_succ);
+	return true;
+}
+
+bool DFGNode::addPrev(DFGNode* new_prev) 
+{
+	for (auto old_prev : prev)
+		if (old_prev == new_prev || old_prev->id == new_prev->id)
+			return false;
+	
+	prev.push_back(new_prev);
+	return true;
+}
+
+DFGNode* AFlowGraph::getNode(string fun_name, int id)
+{
+	auto check = fun_graphs.find(fun_name);
+	if (check == fun_graphs.end())
+		return NULL;
+	
+	vector<DFGNode*> graph = fun_graphs[fun_name];
+	for (auto node: graph) 
+	{
+		if (node->id == id)
+			return node;
+	}
+
+	return NULL;
+}
+
+AFlowGraph::AFlowGraph(SgFile file) 
+{
+	// Build initial full CFG
+	SgStatement *st = file.functions(0);
+	auto graphsKeeper = new GraphsKeeper();
+	graphsKeeper->buildGraph(st);
+
+	// Build initial abstract CFG
+	int funcNum = file.numberOfFunctions();
+	// Convert all bblocks to nodes
+	for (int i = 0; i < funcNum; ++i)
+	{
+		vector<DFGNode*> fun_graph;
+		string func_name = file.functions(i)->symbol()->identifier();
+		ControlFlowGraph* CGraph = graphsKeeper->getGraph(func_name)->CGraph;
+		if (!CGraph) 
+		{
+			cout << "Failed to find graph for function " << func_name << endl;
+			continue;
+		}
+
+		CBasicBlock* bb = CGraph->getFirst();
+		while (bb) 
+		{
+			fun_graph.push_back(new DFGNode(bb));
+			bb = bb->getLexNext();
+		}
+		fun_graphs[func_name] = fun_graph;
+	}
+	// Link nodes
+	for (int i = 0; i < funcNum; ++i)
+	{
+		string func_name = file.functions(i)->symbol()->identifier();
+		ControlFlowGraph* CGraph = graphsKeeper->getGraph(func_name)->CGraph;
+		if (!CGraph) 
+		{
+			cout << "Failed to find graph for function " << func_name << endl;
+			continue;
+		}
+
+		CBasicBlock* bb = CGraph->getFirst();
+		while (bb) 
+		{
+			DFGNode* node = getNode(func_name, bb->getNum());
+			if (!node) {
+				cout << "Node not found" << endl;
+				bb = bb->getLexNext();
+				continue;
+			}
+
+			BasicBlockItem* succ = bb->getSucc();
+			while (succ) {
+				DFGNode* succ_node = getNode(func_name, succ->block->getNum());
+				if (!succ_node) {
+					cout << "Succ node not found" << endl;
+					succ = succ->next;
+					continue;
+				}
+
+				node->succ.push_back(succ_node);
+				succ = succ->next;
+			}
+			BasicBlockItem* prev = bb->getPrev();
+			while (prev) {
+				DFGNode* prev_node = getNode(func_name, prev->block->getNum());
+				if (!prev_node) {
+					cout << "Prev node not found" << endl;
+					prev = prev->next;
+					continue;
+				}
+
+				node->prev.push_back(prev_node);
+				prev = prev->next;
+			}
+
+			// cout << node->getInfo(); // debug
+			// cout << "___________" << endl;
+			bb = bb->getLexNext();
+		}
+	}
+	// Join nodes, composing parallel loops
+	// for (auto graph: fun_graphs) {
+	// 	vector<DFGNode*> shrinked_graph;
+	// 	for (auto node: graph.second) {
+	// 		// If node not in parallel loop => skip it
+			
+	// 		// If node is the start of the parallel loop => 
+	// 		// 1) set type to par_loop
+			
+	// 		// 2) push it to shrinked_graph 
+
+	// 		// If node is in parallel loop && not the start of it =>
+	// 		// 1) add it's succ, pred, content, d_arrays
+	// 		// 2) delete it 
+	// 	}
+	// 	fun_graphs[graph.first] = shrinked_graph;
+	// }
+
+	// Remove verticies which doesn't reference destributed arrays
+	for (auto graph: fun_graphs) {
+		vector<DFGNode*> shrinked_graph;
+		for (auto node: graph.second) {
+			if (node->d_arrays.size() > 0 || node->isParLoop) {
+				shrinked_graph.push_back(node);
+				continue;
+			}
+			
+			// link successors with predecessors directly
+			for (auto prev_node: node->prev) {
+				for (auto succ_node: node->succ) {
+					prev_node->addSucc(succ_node);
+					succ_node->addPrev(prev_node);
+				}
+			}
+			for (auto prev_node: node->prev) {
+				// delete node itself from succ of its predecessor	
+				auto node_in_succ = find(prev_node->succ.begin(), prev_node->succ.end(), node);
+				if (node_in_succ == prev_node->succ.end()) {
+					cout << "cannot find node in succ of its predecessor" << endl;
+					continue;
+				}
+				prev_node->succ.erase(node_in_succ);
+			}
+			for (auto succ_node: node->succ) {
+				// delete node itself from prev of its successor	
+				auto node_in_prev = find(succ_node->prev.begin(), succ_node->prev.end(), node);
+				if (node_in_prev == succ_node->prev.end()) {
+					cout << "cannot find node in prev of its successor" << endl;
+					continue;
+				}
+				succ_node->prev.erase(node_in_prev);
+			}
+
+			delete(node);
+		}
+		fun_graphs[graph.first] = shrinked_graph;
+	}
+	// Debug print
+	for (auto graph: fun_graphs) {
+		cout << "Graph for function: " << graph.first << endl;
+		for (auto node: graph.second) {
+			cout << node->getInfo(); // debug
+			cout << "___________" << endl;
+		}
+	}
 }
