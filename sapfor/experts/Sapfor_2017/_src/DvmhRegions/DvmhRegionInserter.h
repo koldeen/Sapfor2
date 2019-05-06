@@ -87,8 +87,8 @@ enum DFGType {block, par_loop};
 
 /*	Distributed Flow Graph Node.
 		Node represents either:
-		1) basic block, containing usages of distibuted arrays;
-		2) set of basic blocks, composing parallel loop.
+		(1) basic block, containing usages of distibuted arrays;
+		(2) set of basic blocks, composing parallel loop.
 */
 class DFGNode {
 public:
@@ -102,8 +102,11 @@ public:
 	bool isParLoop;
 	bool isRegion;
 
-	/* Initializes DFGNode from CBasicBlock. */
+	/* Initializes DFGNode (1) from CBasicBlock. */
 	DFGNode(CBasicBlock* bblock);
+
+	/* Initializes DFGNode (2) from list of DFGNode's. */
+	DFGNode(vector<DFGNode*> elements);
 
 	/* Finds set of symbols used in the expression. */
 	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
@@ -130,7 +133,7 @@ public:
 	DFGNode* getNode(string fun_name, int id);
 
 	/* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
-	AFlowGraph(SgFile file);
+	AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
 };
 
 #endif /* SAPFOR_EXPERTS_SAPFOR_2017__SRC_DVMHREGIONS_DVMHREGIONINSERTOR_H_ */

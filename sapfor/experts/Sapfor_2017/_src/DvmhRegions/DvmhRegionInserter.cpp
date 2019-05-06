@@ -379,15 +379,19 @@ void DvmhRegionInsertor::mergeRegions()
 
 void DvmhRegionInsertor::insertDirectives()
 {
-	// __spf_print(1, "Find edges for regions\n");
-	// findEdgesForRegions(loopGraph);
+	__spf_print(1, "Find edges for regions\n");
+	findEdgesForRegions(loopGraph);
 	// __spf_print(1, "Merging regions\n");
 	// mergeRegions();
 	// __spf_print(1, "Insert regions\n");
 	// insertRegionDirectives();
 	// __spf_print(1, "Insert actuals\n");
 	// insertActualDirectives();
-	AFlowGraph graph = AFlowGraph(file);
+	vector<DvmhRegion*> l_regions;
+	for (auto &region : regions)
+		l_regions.push_back(&region);
+
+	AFlowGraph graph = AFlowGraph(file, l_regions);
 }
 
 DvmhRegionInsertor::~DvmhRegionInsertor()
@@ -467,8 +471,7 @@ DFGNode::DFGNode(CBasicBlock* bblock) {
 	initial.push_back(bblock);
 	type = block;
 	id = bblock->getNum();
-	isParLoop = bblock->getStart()->IsParloopStart();
-
+	isParLoop = bblock->containsParloopStart();
 	// Fill containing statements
 	ControlFlowItem* cfi = bblock->getStart();
 	while (cfi && cfi->getBBno() == bblock->getNum()) 
@@ -597,7 +600,7 @@ DFGNode* AFlowGraph::getNode(string fun_name, int id)
 	return NULL;
 }
 
-AFlowGraph::AFlowGraph(SgFile file) 
+AFlowGraph::AFlowGraph(SgFile file, vector<DvmhRegion*> regions) 
 {
 	// Build initial full CFG
 	SgStatement *st = file.functions(0);
@@ -677,24 +680,38 @@ AFlowGraph::AFlowGraph(SgFile file)
 			bb = bb->getLexNext();
 		}
 	}
-	//Join nodes, composing parallel loops
-	for (auto graph: fun_graphs) {
-		vector<DFGNode*> shrinked_graph;
-		for (auto node: graph.second) {
-			// If node not in parallel loop => skip it
-			
-			// If node is the start of the parallel loop => 
-			// 1) set type to par_loop
-			
-			// 2) push it to shrinked_graph 
 
-			// If node is in parallel loop && not the start of it =>
-			// 1) add it's succ, pred, content, d_arrays
-			// 2) delete it 
+	// Join nodes, composing regions
+	for (auto region : regions)
+	{
+		// Accumulate all nodes composing region
+		vector<DFGNode*> elements;
+		for (auto loop : region->loops)
+		{
+			SgStatement* st = loop->loop;
+			SgStatement* end = loop->loop->lastNodeOfStmt();
+			while (st && st != end)
+			{
+				CBasicBlock* bb = graphsKeeper->findBlock(st);
+				if (bb)
+				{
+					string fun_name = "TODO";
+					DFGNode* node = getNode(fun_name, bb->getNum());
+					elements.push_back(node);
+				} else
+				{
+					cout << "Failed to find bblock for statement:" << endl;
+					st->unparsestdout();
+				}
+
+				st = st->lexNext();
+			}
 		}
-		fun_graphs[graph.first] = shrinked_graph;
+		DFGNode* region_node = new DFGNode(elements);
+		// TODO: Set links to the new node
+		// TODO: Replace old nodes with new one
 	}
-
+	/*
 	// Remove verticies which doesn't reference destributed arrays
 	for (auto graph: fun_graphs) {
 		vector<DFGNode*> shrinked_graph;
@@ -734,13 +751,14 @@ AFlowGraph::AFlowGraph(SgFile file)
 		}
 		fun_graphs[graph.first] = shrinked_graph;
 	}
-	// Debug print
-	for (auto graph: fun_graphs) {
-		cout << "Graph for function: " << graph.first << endl;
-		for (auto node: graph.second) {
-			cout << node->getInfo(); // debug
-			cout << "___________" << endl;
-		}
-	}
+	*/
+	////Debug print
+	//for (auto graph: fun_graphs) {
+	//	cout << "Graph for function: " << graph.first << endl;
+	//	for (auto node: graph.second) {
+	//		cout << node->getInfo(); // debug
+	//		cout << "___________" << endl;
+	//	}
+	//}
 	cout << "Graph printed" << endl;
 }
