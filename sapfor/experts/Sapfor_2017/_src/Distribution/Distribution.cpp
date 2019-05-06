@@ -57,7 +57,48 @@ namespace Distribution
         ERROR_CHECK(allArrays.GetVertNumber(arr1, arc.first, V1));
         ERROR_CHECK(allArrays.GetVertNumber(arr2, arc.second, V2));
 
-        G.AddToGraph(V1, V2, arcWeight, arcAttr, linkType);
+        //fix attributes: pair< pair<int, int>, pair<int, int> > 
+        pair<int, int> left = arcAttr.first;
+        pair<int, int> right = arcAttr.second;
+
+        if (left.first == right.first)
+        {
+            if (left.second == right.second)
+                left.second = right.second = 0;
+            else if (left.second != 0 && right.second != 0)
+            {
+                int diffZeroL = abs(left.second - 0);
+                int diffZeroR = abs(right.second - 0);
+                if (diffZeroL < diffZeroR)
+                {
+                    if (left.second > 0)
+                    {
+                        left.second -= diffZeroL;
+                        right.second -= diffZeroL;
+                    }
+                    else
+                    {
+                        left.second += diffZeroL;
+                        right.second += diffZeroL;
+                    }
+                }
+                else
+                {
+                    if (right.second > 0)
+                    {
+                        left.second -= diffZeroR;
+                        right.second -= diffZeroR;
+                    }
+                    else
+                    {
+                        left.second += diffZeroR;
+                        right.second += diffZeroR;
+                    }
+                }
+            }
+        }
+
+        G.AddToGraph(V1, V2, arcWeight, make_pair(left, right), linkType);
         return err;
     }
 

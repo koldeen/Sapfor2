@@ -57,6 +57,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   45 "function's argument '%s' does not have declaration statement"
 //   46 "mismatch of count formal and actual parameters "
 //   47 "inconsistent array use"
+//   48 "the same function name in different places was found"
+
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -118,7 +120,7 @@ public:
 #endif
         //TODO: convert to upper case for test between '___'
     }
-
+public:
     explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : Messages(type, line, rus, group) { }
 
     std::wstring toString()

@@ -371,9 +371,9 @@ bool expandExtractReg(const string &fileName,
                     __spf_print(1, "bad lines %d-%d position: can not extend region fragments with different scope\n", startLine, endLine);
 
                     std::wstring bufwE, bufwR;
-                    __spf_printToLongBuf(bufwE, L"bad lines %d-%d position: can not extend region fragments with different scope");
+                    __spf_printToLongBuf(bufwE, L"bad lines %d-%d position: can not extend region fragments with different scope", startLine, endLine);
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: нельзя объединить фрагменты в разных областях видимости");
+                    __spf_printToLongBuf(bufwR, L"Неправильное расположение строк %d-%d: нельзя объединить фрагменты в разных областях видимости", startLine, endLine);
 #endif
                     messagesForFile.push_back(Messages(ERROR, endLine, bufwR, bufwE, 1001));
 

@@ -282,7 +282,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит индексных переменных циклов", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит итерационных переменных циклов", to_wstring(arrayRefString.second).c_str());
 #endif
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
@@ -916,7 +916,7 @@ static pair<Expression*, Expression*> getElem(SgExpression *exp)
         return make_pair((Expression*)NULL, (Expression*)NULL);
 }
 
-vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     vector<pair<Expression*, Expression*>> retVal;
@@ -1057,6 +1057,100 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
     }
 
     return retVal;
+}
+
+void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays)
+{
+    for (auto &array : allArrays)
+    {
+        auto itF = arraysDone.find(array);
+        if (itF == arraysDone.end())
+        {
+            itF = arraysDone.insert(itF, array);
+            Symbol *symb = array->GetDeclSymbol();
+            if (symb)
+            {
+                auto &sizeInfo = array->GetSizes();
+                bool needToUpdate = false;
+                for (auto &elem : sizeInfo)
+                {
+                    if (elem.first == elem.second)
+                    {
+                        needToUpdate = true;
+                        break;
+                    }
+                }
+
+                if (needToUpdate)
+                {
+                    auto &declInfo = array->GetDeclInfo();
+                    bool wasSelect = false;
+                    for (auto &elem : declInfo)
+                    {
+                        int fileId = SgFile::switchToFile(elem.first);
+                        if (fileId != -1)
+                        {
+                            SgFile *tmpfile = &(CurrentProject->file(fileId));
+                            current_file = tmpfile;
+                            current_file_id = fileId;
+                            wasSelect = true;
+                            break;
+                        }
+                    }
+
+                    if (!wasSelect)
+                    {
+                        //try to find in includes
+                        for (int i = CurrentProject->numberOfFiles() - 1; i >= 0; --i)
+                        {                            
+                            SgFile *file = &(CurrentProject->file(i));
+                            current_file_id = i;
+                            current_file = file;
+
+                            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                            {
+                                for (auto &elem : declInfo)
+                                {
+                                    if (make_pair(string(st->fileName()), st->lineNumber()) == elem)
+                                    {
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+
+                                if (wasSelect)
+                                {
+                                    //wasSelect = false;
+                                    SgStatement *decl = declaratedInStmt(symb);
+                                    vector<pair<int, int>> sizes;
+                                    getArraySizes(sizes, symb, decl);
+                                    array->SetSizes(sizes);
+                                }
+                            }
+
+                            if (wasSelect)
+                                break;                            
+                        }
+
+                        if (!wasSelect)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                    else
+                    {
+                        if (wasSelect)
+                        {
+                            SgStatement *decl = declaratedInStmt(symb);
+                            vector<pair<int, int>> sizes;
+                            getArraySizes(sizes, symb, decl);
+                            array->SetSizes(sizes);
+                        }
+                        else
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                }
+            }
+        }
+    }
 }
 
 bool isIntrinsic(const char *funName)
@@ -1207,19 +1301,26 @@ static inline void fillPrivatesFromDecl(SgExpression *ex, set<SgSymbol*> &delcsS
 
     if (ex->variant() == ARRAY_REF)
     {
-        SgSymbol *s = ex->symbol();
-        auto it = delcsSymbViewed.find(s);
-        if (it == delcsSymbViewed.end())
+        SgSymbol *symb = ex->symbol();
+        if (symb->type())
         {
-            delcsSymbViewed.insert(it, s);
-            SgStatement *decl = declaratedInStmt(s);
-
-            auto itD = delcsStatViewed.find(decl);
-            if (itD == delcsStatViewed.end())
+            if (symb->type()->variant() == T_ARRAY)
             {
-                delcsStatViewed.insert(itD, decl);
-                tryToFindPrivateInAttributes(decl, privatesVars);
-                fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                SgSymbol *s = ex->symbol();
+                auto it = delcsSymbViewed.find(s);
+                if (it == delcsSymbViewed.end())
+                {
+                    delcsSymbViewed.insert(it, s);
+                    SgStatement *decl = declaratedInStmt(s);
+
+                    auto itD = delcsStatViewed.find(decl);
+                    if (itD == delcsStatViewed.end())
+                    {
+                        delcsStatViewed.insert(itD, decl);
+                        tryToFindPrivateInAttributes(decl, privatesVars);
+                        fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    }
+                }
             }
         }
     }
@@ -2032,9 +2133,16 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                                      sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
                                      mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
                     else
-                        findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, 
-                                     sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
-                                     mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                    {
+                        SgExpression *listEx = st->expr(0);
+                        while (listEx)
+                        {
+                            findArrayRef(parentLoops, listEx->lhs(), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars,
+                                         sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays,
+                                         mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                            listEx = listEx->rhs();
+                        }
+                    }
                 }
             }
             st = st->lexNext();
@@ -2495,6 +2603,39 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                   isSgExecutableStatement(st) ? true : false, currFunctionName,
                                   (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+            }
+            st = st->lexNext();
+        }
+    }
+
+    for (auto &mod : modules)
+    {
+        SgStatement *st = mod->lexNext();
+        SgStatement *lastNode = mod->lastNodeOfStmt();
+        map<string, vector<SgExpression*>> commonBlocks;
+        set<string> privates;
+        set<string> deprecatedByIO;
+        set<string> funcParNames;
+
+        while (st != lastNode)
+        {
+            currProcessing.second = st->lineNumber();
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
+            if (!isSPF_stat(st))
+            {
+                //TODO: set clear regions for modules
+                set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
+                vector<string> regNames;
+                for (auto &reg : currRegs)
+                    regNames.push_back(reg->GetName());
+                if (regNames.size() == 0)
+                    regNames.push_back("default");
+
+                for (int i = 0; i < 3; ++i)
+                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                  false, "NULL", false, regNames, funcParNames);
             }
             st = st->lexNext();
         }

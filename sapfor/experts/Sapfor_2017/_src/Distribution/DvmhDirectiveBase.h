@@ -3,14 +3,14 @@
 #include <vector>
 #include <string>
 
+typedef enum lang : int { LANG_C, LANG_F } language;
+typedef enum dist : int { BLOCK, NONE } distType;
+
 namespace Distribution
-{
+{    
     class Array;
 }
 namespace DIST = Distribution;
-
-typedef enum lang : int { LANG_C, LANG_F } language;
-typedef enum dist : int { BLOCK, NONE } distType;
 
 struct Directive
 {

@@ -1026,6 +1026,7 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         sizes[1] = sizes[0] + newFile.size();
         copyStringToShort(newFilesNames, newFileName);
         copyStringToShort(newFiles, newFile);
+        retCode = (int)newFileName.size() + 1;
     }
     catch (int ex)
     {

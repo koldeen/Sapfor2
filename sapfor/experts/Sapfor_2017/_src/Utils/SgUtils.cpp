@@ -890,7 +890,10 @@ tuple<int, string, string> getFromUniqTable(SgSymbol *symb)
     auto place = declaratedInStmt(symb);
     auto localIt = tableOfUniqNames.find(std::make_tuple(symb->identifier(), place->fileName(), place->lineNumber()));
     if (localIt == tableOfUniqNames.end())
+    {
+        auto place = declaratedInStmt(symb);
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
     
     return localIt->second;
 }
@@ -1265,22 +1268,27 @@ int printDefUseSets(const char *fileName, const map<string, vector<DefUseList>> 
     return 0;
 }
 
-static bool isDefVar(const int paramPosition, const string &funcName, map<string, vector<DefUseList>> &defUseByFunctions)
+static bool isDefUseVar(const int paramPosition, const string &funcName, map<string, vector<DefUseList>> &defUseByFunctions, bool defined)
 {
     auto founded = defUseByFunctions.find(funcName);
     if(founded == defUseByFunctions.end())
-        return true; //No information. Argument can be changed.
+        return true; //No information. Argument can be defined or used.
 
     vector<DefUseList>& curDefUse = founded->second;
-    bool isDef = false;
+    bool isDefUse = false;
 
     for (int i = 0; i < curDefUse.size(); ++i)
     {
         if (paramPosition == curDefUse[i].getParameterPositionInFunction())
         {
-            if (curDefUse[i].isDef())
+            if (defined && curDefUse[i].isDef())
             {
-                isDef = true;
+                isDefUse = true;
+                break;
+            }
+            else if(!defined && curDefUse[i].isUse())
+            {
+                isDefUse = true;
                 break;
             }
             else
@@ -1288,14 +1296,14 @@ static bool isDefVar(const int paramPosition, const string &funcName, map<string
                 const string calledFuncName = curDefUse[i].getParamOfFunction();
                 if (!calledFuncName.empty())
                 {
-                    isDef = isDefVar(curDefUse[i].getParameterPosition(), calledFuncName, defUseByFunctions);
-                    if (isDef)
+                    isDefUse = isDefUseVar(curDefUse[i].getParameterPosition(), calledFuncName, defUseByFunctions, defined);
+                    if (isDefUse)
                         break;
                 }
             }
         }
     }
-    return isDef;
+    return isDefUse;
 }
 
 static SgExpression* makeList(const vector<SgExpression*> &list)
@@ -1354,7 +1362,11 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
             int currAttr = header->parameter(i)->attributes();
             if ((currAttr & OUT_BIT) == 0 && (currAttr & INOUT_BIT) == 0 && (currAttr & IN_BIT) == 0)
             {
-                if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
+                bool isDef = isDefUseVar(i, header->symbol()->identifier(), defUseByFunctions, true);
+                bool isUse = isDefUseVar(i, header->symbol()->identifier(), defUseByFunctions, false);
+                if(isDef && isUse)
+                    header->parameter(i)->setAttribute(INOUT_BIT);
+                else if (isDef)
                     header->parameter(i)->setAttribute(OUT_BIT);
                 else
                     header->parameter(i)->setAttribute(IN_BIT);

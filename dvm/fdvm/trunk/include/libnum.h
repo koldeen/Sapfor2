@@ -207,6 +207,7 @@ enum {
       DESTROY_SCALAR,
       HANDLE_CONSIST,
       LOOP_ACROSS,
+      LOOP_ACROSS_2,
       GET_STAGE,
       MAP_TASKS,
       DATA_ENTER,

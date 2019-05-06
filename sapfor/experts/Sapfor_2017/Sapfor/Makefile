@@ -271,9 +271,9 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 depInterface.o flowAnalysis.o intrinsic.o invariant.o loopTransform.o set.o \
 			 add-assert.o affine.o cover.o ddomega.o ddomega-build.o ddomega-use.o debug.o ip.o kill.o refine.o sagedriver.o \
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
-			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o CreateInterTree.o gcov_info.o gCov_parser.o \
-			 graph_calls_base.o directive_creator_base.o PredictorModel.o DvmhRegionInsertor.o createParallelRegions.o \
-			 expand_extract_reg.o
+			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o loops_combiner.o CreateInterTree.o gcov_info.o gCov_parser.o \
+			 graph_calls_base.o directive_creator_base.o PredictorModel.o createParallelRegions.o \
+			 expand_extract_reg.o RationalNum.o Array.o DvmhRegionInsertor.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
@@ -288,6 +288,8 @@ gCov_parser.o: $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp $(REPO_SPF_BASE)D
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DynamicAnalysis/gCov_parser.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
 CreateInterTree.o: $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)CreateInterTree/CreateInterTree.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+RationalNum.o: $(REPO_SPF_BASE)Utils/RationalNum.cpp $(REPO_SPF_BASE)Utils/RationalNum.h 
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/RationalNum.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 utils.o: $(REPO_SPF_BASE)Utils/utils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Utils/utils.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 SgUtils.o: $(REPO_SPF_BASE)Utils/SgUtils.cpp $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Utils/utils.h
@@ -392,6 +394,8 @@ Cycle.o: $(REPO_SPF_BASE)Distribution/Cycle.cpp $(REPO_SPF_BASE)Distribution/Cyc
 Distribution.o: $(REPO_SPF_BASE)Distribution/Distribution.cpp $(REPO_SPF_BASE)Distribution/Distribution.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h \
 				$(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/Distribution.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)	
+Array.o: $(REPO_SPF_BASE)Distribution/Array.cpp $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)Distribution/Array.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)		
 GraphCSR.o: $(REPO_SPF_BASE)Distribution/GraphCSR.cpp $(REPO_SPF_BASE)Distribution/GraphCSR.h $(REPO_SPF_BASE)Distribution/DvmhDirective.h \
 				$(REPO_SPF_BASE)Utils/utils.h $(REPO_SPF_BASE)Utils/errors.h $(REPO_SPF_BASE)Distribution/Arrays.h $(REPO_SPF_BASE)Distribution/Array.h \
 				$(REPO_SPF_BASE)Distribution/Cycle.h

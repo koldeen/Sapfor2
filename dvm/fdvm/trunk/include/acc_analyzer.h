@@ -56,7 +56,7 @@ public:
         prev(NULL), conditionFriend(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 3);
 #endif
     }
 
@@ -70,7 +70,7 @@ public:
             n->prev = this;
         }
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 3);
 #endif
     }
 
@@ -84,7 +84,7 @@ public:
             n->prev = this;
         }
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 3);
 #endif
     }
 
@@ -98,7 +98,7 @@ public:
             n->prev = this;
         }
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 3);
 #endif
     }
 
@@ -264,7 +264,7 @@ public:
         label(l), name(s), iter(i), emptyAfter(e), current(true), next(NULL), parallel_depth(-1)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 4);
 #endif
     }
 
@@ -307,7 +307,7 @@ public:
     inline doLoops() : first(NULL), current(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 5);
 #endif
     }
     
@@ -324,7 +324,7 @@ public:
 
     ControlFlowItem* endLoop(ControlFlowItem* last); 
     ControlFlowItem* checkStatementForLoopEnding(int label, ControlFlowItem* item);    
-    inline ~doLoops();
+    ~doLoops();
 };
 
 struct LabelCFI
@@ -335,7 +335,7 @@ struct LabelCFI
     LabelCFI() : item(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 6);
 #endif
     }
     ~LabelCFI()
@@ -357,7 +357,7 @@ struct CLAStatementItem
     CLAStatementItem() : stmt(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 7);
 #endif
     }
 };
@@ -388,7 +388,7 @@ struct VarItem
     VarItem() : var(NULL), ov(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 8);
 #endif
     }
     ~VarItem()
@@ -408,7 +408,7 @@ public:
     inline VarSet() : list(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 9);
 #endif
     }
 
@@ -450,7 +450,7 @@ struct DoLoopDataItem
     DoLoopDataItem() : l(NULL), r(NULL), st(NULL), loop_var(NULL), next(NULL), statement(NULL), file_id(-1)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 10);
 #endif
     }
     ~DoLoopDataItem()
@@ -469,7 +469,7 @@ public:
     DoLoopDataList() : list(NULL) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 11);
 #endif
     }
     void AddLoop(int file_id, SgStatement* st, SgExpression* l, SgExpression* r, SgExpression* step, SgSymbol* lv);
@@ -488,7 +488,7 @@ public:
     CVarEntryInfo(SgSymbol* s) : symbol(s), references(1) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 12);
 #endif
     }
 
@@ -517,7 +517,7 @@ public:
     CScalarVarEntryInfo(SgSymbol* s) : CVarEntryInfo(s) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 13);
 #endif
     }
     ~CScalarVarEntryInfo() 
@@ -546,7 +546,7 @@ public:
     CRecordVarEntryInfo(SgSymbol* s, CVarEntryInfo* ptr) : CVarEntryInfo(s), parent(ptr) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 14);
 #endif
     }
 
@@ -554,6 +554,7 @@ public:
     {
 #if __SPF
         removeFromCollection(this);
+        return;
 #endif
         if (parent->RemoveReference())
             delete parent;
@@ -586,13 +587,13 @@ struct ArraySubscriptData
     ArraySubscriptData() : loop(NULL), left_bound(NULL), right_bound(NULL)
     {
 #if __SPF
-    //    addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 15);
 #endif
     }
     ~ArraySubscriptData()
     {
 #if __SPF
-    //    removeFromCollection(this);
+        removeFromCollection(this);
 #endif
     }
 };
@@ -646,7 +647,7 @@ struct BasicBlockItem
     BasicBlockItem() : drawn(false)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 17);
 #endif
     }
     ~BasicBlockItem()
@@ -669,7 +670,7 @@ struct CallAnalysisLog
     CallAnalysisLog() : el(NULL), prev(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 18);
 #endif
     }
     ~CallAnalysisLog()
@@ -688,7 +689,7 @@ struct CExprList
     CExprList() : entry(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 19);
 #endif
     }
     ~CExprList()
@@ -711,13 +712,13 @@ public:
     SymbolKey(SgSymbol *v): var(v), varName(v->identifier()), pointer(false) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 20);
 #endif
     }
     SymbolKey(SgSymbol *v, bool isPointer): var(v), varName(v->identifier()), pointer(isPointer) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 20);
 #endif
     }
     ~SymbolKey()
@@ -738,15 +739,21 @@ class ExpressionValue {
 private:
     SgExpression *exp;
     std::string unparsed;
+    SgStatement* from;
 public:
-    ExpressionValue(): exp(NULL), unparsed("") {}
+    ExpressionValue(): exp(NULL), unparsed(""), from(NULL) {}
     //ExpressionValue(SgExpression *e): exp(e) { unparsed = (e != NULL ? e->unparse() : ""); }
-    ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp) { }
+    ExpressionValue(SgExpression *e, const std::string &unp) : exp(e), unparsed(unp), from(NULL) { }
+    ExpressionValue(SgExpression *e, const std::string &unp, SgStatement* f) : exp(e), unparsed(unp), from(f) { }
+    inline bool unparsedEquals(ExpressionValue &other) const {return unparsed == other.unparsed; }
+    inline bool unparsedEquals(ExpressionValue *other) const {return unparsed == other->unparsed; }
     inline SgExpression* getExp() const { return exp; }
     inline const std::string& getUnparsed() const { return unparsed; }
-    inline bool operator<(const ExpressionValue &other) const   { return unparsed < other.unparsed; }
-    inline bool operator==(const ExpressionValue &other) const  { return unparsed == other.unparsed; }
-    inline bool operator==(SgExpression* e) const               { return strcmp(unparsed.c_str(),e->unparse()) == 0; }
+    inline void setFrom(SgStatement* st) { from = st; }
+    inline SgStatement* getFrom() const { return from; }
+    inline bool operator<(const ExpressionValue &other) const   { return from == other.from ? unparsed < other.unparsed : from < other.from; }
+    inline bool operator==(const ExpressionValue &other) const  { return from == other.from && unparsed == other.unparsed; }
+    inline bool operator==(SgExpression* e) const               { return strcmp(unparsed.c_str(), e->unparse()) == 0; }
 };
 #endif
 
@@ -813,7 +820,7 @@ public:
         common_use(NULL), old_mrd_in(NULL), old_mrd_out(NULL), old_lv_in(NULL), old_lv_out(NULL), privdata(NULL), findentity(NULL), proc(pr)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 21);
 #endif
     }
 
@@ -928,7 +935,7 @@ struct CommonVarSet
     CommonVarSet() : cvd(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 22);
 #endif
     }
     ~CommonVarSet()
@@ -1010,7 +1017,7 @@ struct AnalysedCallsList
         header(h), isIntrinsic(intr), isPure(pure), isFunction(fun), hasBeenAnalysed(false), graph(NULL), funName(name), file_id(fid), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 23);
 #endif
     }
     ~AnalysedCallsList()
@@ -1041,7 +1048,7 @@ public:
         recursion_flag = false; 
         calls_list = NULL; 
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 24);
 #endif
     }
 
@@ -1061,7 +1068,7 @@ struct CommonVarInfo
     CommonVarInfo() : var(NULL), parent(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 25);
 #endif
     }
     ~CommonVarInfo()
@@ -1087,7 +1094,7 @@ struct CommonDataItem
     CommonDataItem() : cb(NULL), proc(NULL), first(NULL), info(NULL), next(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 26);
 #endif
     }
 
@@ -1116,7 +1123,7 @@ public:
     CommonData() : list(NULL) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 27);
 #endif
     }
     ~CommonData();
@@ -1137,7 +1144,7 @@ public:
         detected(d), original(o), lp(p), lstart(l), next(n), graph(g), delay(dl), file_id(fd) 
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 28);
 #endif
     }
     ~PrivateDelayedItem();
@@ -1179,7 +1186,7 @@ struct ActualDelayedData
     ActualDelayedData() : original(NULL), commons(NULL), next(NULL), call(NULL)
     {
 #if __SPF
-        addToCollection(__LINE__, __FILE__, this, 1);
+        addToCollection(__LINE__, __FILE__, this, 29);
 #endif
     }
     ~ActualDelayedData()
@@ -1194,4 +1201,9 @@ ControlFlowGraph* GetControlFlowGraphWithCalls(bool, SgStatement*, CallData*, Co
 void FillCFGSets(ControlFlowGraph*);
 void SetUpVars(CommonData*, CallData*, AnalysedCallsList*, DoLoopDataList*);
 AnalysedCallsList* GetCurrentProcedure();
-int SwitchFile(int file_id);
+int SwitchFile(int);
+
+#if __SPF
+ExpressionValue* allocateExpressionValue(SgExpression*, SgStatement*);
+void deleteAllocatedExpressionValues(int file_id);
+#endif

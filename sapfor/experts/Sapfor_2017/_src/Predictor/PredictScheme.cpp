@@ -37,7 +37,10 @@ static void fillParallel(SgExpression *exp, ParallelStats &parStats)
                 parStats.RemoteCount += list->length();
             break;
         case ACROSS_OP:
-            list = isSgExprListExp(exp->lhs());
+            if (exp->lhs()->variant() == DDOT)
+                list = isSgExprListExp(exp->lhs()->rhs());
+            else
+                list = isSgExprListExp(exp->lhs());            
             if (list)
                 parStats.AcrossCount += list->length();
             break;

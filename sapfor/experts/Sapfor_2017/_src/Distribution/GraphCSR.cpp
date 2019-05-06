@@ -438,14 +438,19 @@ namespace Distribution
         return make_pair(x.first * F.first, x.second * F.first + F.second);
     }
 
-    static pair<float, float> Fx(const pair<float, float> &x, const pair<float, float> &F)
+    static pair<double, double> Fx(const pair<double, double> &x, const pair<double, double> &F)
+    {
+        return make_pair(x.first * F.first, x.second * F.first + F.second);
+    }
+
+    static pair<RationalNum, RationalNum> Fx(const pair<RationalNum, RationalNum> &x, const pair<RationalNum, RationalNum> &F)
     {
         return make_pair(x.first * F.first, x.second * F.first + F.second);
     }
 
     template<typename vType, typename wType, typename attrType>
     bool GraphCSR<vType, wType, attrType>::
-        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool increaseLink)
+        hasLinkWithTempate(const vType root, const Arrays<vType> &allArrays, bool increaseLink, int newValue)
     {
         set<vType> next = { root };
         set<vType> done;
@@ -459,7 +464,7 @@ namespace Distribution
                 Array *tmp = allArrays.GetArrayByVertex(globalIdx[v1]);
                 if (tmp)
                 {
-                    if (tmp->isTemplate())
+                    if (tmp->IsTemplate())
                     {
                         found = true;
                         if (increaseLink)
@@ -469,7 +474,10 @@ namespace Distribution
                             const int k = neighbors[v1];
 
                             const vType edgeV = edges[k];
-                            attributes[k].first.first++;
+                            if (newValue == 0)
+                                attributes[k].first.first++;
+                            else
+                                attributes[k].first.first = newValue;
 
                             bool done = false;
                             for (int z = neighbors[edgeV]; z < neighbors[edgeV + 1]; ++z)
@@ -477,7 +485,10 @@ namespace Distribution
                                 const vType currV = edges[z];
                                 if (currV == v1)
                                 {
-                                    attributes[z].second.first++;
+                                    if (newValue == 0)
+                                        attributes[z].second.first++;
+                                    else
+                                        attributes[z].second.first = newValue;
                                     done = true;
                                     break;
                                 }
@@ -507,10 +518,10 @@ namespace Distribution
     }
 
     template<typename vType, typename wType, typename attrType>
-    pair<float, float> GraphCSR<vType, wType, attrType>::
+    pair<RationalNum, RationalNum> GraphCSR<vType, wType, attrType>::
         findLinkWithTempate2(const vType v1, int &templV, Array *&templ, const Arrays<vType> &allArrays, set<vType> wasDone)
     {
-        const pair<float, float> nulPair = make_pair(0.f, 0.f);
+        const pair<RationalNum, RationalNum> nulPair = make_pair(0, 0);
 
         wasDone.insert(v1);
         bool wasFound = false;
@@ -520,7 +531,7 @@ namespace Distribution
             Array *tmp = allArrays.GetArrayByVertex(globalIdx[currV]);
             if (tmp)
             {
-                if (tmp->isTemplate())
+                if (tmp->IsTemplate())
                 {
                     wasFound = true;
 
@@ -534,7 +545,7 @@ namespace Distribution
 
         auto it = cacheLinks.find(v1);
         if (it == cacheLinks.end())
-            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<float, float>>>()));
+            it = cacheLinks.insert(it, make_pair(v1, map<vType, tuple<int, Array*, pair<RationalNum, RationalNum>>>()));
 
         for (int k = neighbors[v1]; k < neighbors[v1 + 1]; ++k)
         {
@@ -543,7 +554,7 @@ namespace Distribution
             
             auto ruleCache = it->second.find(edges[k]);
 
-            pair<float, float> ruleToTemplate;
+            pair<RationalNum, RationalNum> ruleToTemplate;
             if (ruleCache == it->second.end())
             {
                 ruleToTemplate = findLinkWithTempate2(edges[k], templV, templ, allArrays, wasDone);
@@ -559,29 +570,11 @@ namespace Distribution
             if (ruleToTemplate != nulPair)
             {
                 auto currAttribute = attributes[k];
-                pair<float, float> left = currAttribute.first;
-                pair<float, float> right = currAttribute.second;
-                
-                //check for divisibility
-                /*float maxVal = left.first > right.first ? left.first : right.first;
-                float minVal = left.first < right.first ? left.first : right.first;
-                if (left.first != right.first)
-                {
-                    if (((int)maxVal % (int)minVal) != 0)
-                    {
-                        const int lcm = LCM((int)maxVal, (int)minVal);
-                        float mult = lcm / left.first;
-                        left.first *= mult;
-                        left.second *= mult;
-
-                        mult = lcm / right.first;
-                        right.first *= mult;
-                        right.second *= mult;
-                    }
-                }*/
+                pair<RationalNum, RationalNum> left = currAttribute.first;
+                pair<RationalNum, RationalNum> right = currAttribute.second;
 
                 // calculate transition
-                pair<float, float> X;
+                pair<RationalNum, RationalNum> X;
                 X.first = right.first / left.first;
 
                 left.first *= X.first;
@@ -1571,7 +1564,7 @@ namespace Distribution
             return err;
 
         rules.resize(arrayVerts.size());
-        if (inputArray->isTemplate())
+        if (inputArray->IsTemplate())
         {
             std::vector<vType> vertsInGraph;
             allArrays.GetAllVertNumber(inputArray, vertsInGraph);
@@ -1589,7 +1582,9 @@ namespace Distribution
                 // if current vertex has links
                 if (currV != -1)
                 {
-                    pair<float, float> rule = make_pair(0, 0);
+                    pair<RationalNum, RationalNum> rule = make_pair(0, 0);
+                    pair<RationalNum, RationalNum> nul = rule;
+
                     int alignDim = -1;
                     Array *templ = NULL;
 
@@ -1597,21 +1592,23 @@ namespace Distribution
                     if (hasLinkWithTempate(currV, allArrays, false))
                     {
                         rule = findLinkWithTempate2(currV, alignDim, templ, allArrays, wasDone);
-                        if (rule != make_pair(0.0f, 0.0f))
+                        if (rule != nul)
                         {
-                            pair<int, int> intRule;
-                            intRule.first = (int)rule.first;
-                            intRule.second = (int)rule.second;
-
-                            pair<float, float> toCheck = make_pair(intRule.first, intRule.second);
-                            if (toCheck != rule)
+                            if ((int)rule.first.getDenominator() != 1 || rule.second.getDenominator() != 1)
                             {
-                                __spf_print(1, "Can not find correct align rule for array '%s', found (%f, %f)\n", inputArray->GetShortName().c_str(), rule.first, rule.second);
+                                __spf_print(1, "Can not find correct align rule for array '%s', found (%d/%d, %d/%d)\n", inputArray->GetShortName().c_str(), 
+                                    (int)rule.first.getNumerator(), (int)rule.first.getDenominator(), 
+                                    (int)rule.second.getNumerator(), (int)rule.second.getDenominator());
+
+                                //TODO: need to correct
+                                //const int newValue = (rule.first.getDenominator() == rule.second.getDenominator()) ? rule.first.getDenominator() : 0;
                                 if (!hasLinkWithTempate(currV, allArrays, true))
                                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                                 return 101;
                             }
 
+                            pair<int, int> intRule = make_pair((int)rule.first.getNumerator(), (int)rule.second.getNumerator());
+                            
                             rules[i] = make_tuple(templ, alignDim, intRule);
                             int dimNum = -1;
                             int err = allArrays.GetDimNumber(templ, alignDim, dimNum);

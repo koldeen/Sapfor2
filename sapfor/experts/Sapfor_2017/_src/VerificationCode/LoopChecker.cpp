@@ -49,10 +49,22 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
                 if (currSt->isEnddoLoop() == 0)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
-                    currMessages.push_back(Messages(ERROR, st->lineNumber(), L"This loop does not have END DO format", 1018));
+#if _WIN32
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), L"Данный цикл не в END DO формате", L"This loop does not have END DO format", 1018));
+#endif                    
                     checkOK = false;
                 }
             }
+
+            if (st->variant() == FORALL_NODE || st->variant() == FORALL_STAT)
+            {
+                __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
+#if _WIN32
+                currMessages.push_back(Messages(ERROR, st->lineNumber(), L"Данный цикл не в END DO формате", L"This loop does not have END DO format", 1018));
+#endif          
+                checkOK = false;
+            }
+
             st = st->lexNext();
         }
     }
@@ -125,7 +137,9 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 if (needToReport)
                 {
                     __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
-                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"An equivalence operator is not supported yet", 1038));
+#if _WIN32
+                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"Опретор EQUIVALENCE не поддерживается на данный момент", L"An equivalence operator is not supported yet", 1038));
+#endif
                 }
             }
 
@@ -197,18 +211,65 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
 
                 if (needToReport)
                 {
-                    wstring message;
-                    __spf_printToLongBuf(message, L"Variables '%s' and '%s' in one storage association (common block '%s') have different types (files - %s:%d and %s:%d)",
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Variables '%s' and '%s' in one storage association (common block '%s') have different types (files - %s:%d and %s:%d)",
                         to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
-                    
+#if _WIN32
+                    __spf_printToLongBuf(messageR, L"Переменные '%s' и '%s' находятся в одной области ассоциации (common block '%s'), но имеют разные типы (файлы - %s:%d и %s:%d)",
+                        to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
+                        to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
+                        to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
+#endif
                     const int line = currUse->getDeclaratedPlace()->lineNumber();
-                    currMessages.push_back(Messages(typeMessage, line, message, 1039));
+                    currMessages.push_back(Messages(typeMessage, line, messageR, messageE, 1039));
                 }
             }
         }
     }
     
+    return checkOK;
+}
+
+bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, map<string, vector<Messages>> &currMessages)
+{
+    int funcNum = file->numberOfFunctions();
+    bool checkOK = true;
+
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
+        int lastLine = 1;
+        
+        if (st->controlParent()->variant() == GLOBAL)
+        {
+            string funcName = st->symbol()->identifier();
+            auto it = funcNames.find(funcName);
+            if (it == funcNames.end())
+                funcNames[funcName] = make_pair(file->filename(), st->lineNumber());
+            else
+            {
+                __spf_print(1, "the same function name in different places was found: func %s, palces %s:%d and %s:%d\n", 
+                            it->first.c_str(), it->second.first.c_str(), it->second.second, file->filename(), st->lineNumber());
+#if _WIN32
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Function '%s' was declarated in more that one palce: '%s':%d и '%s':%d",
+                                                to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(),
+                                                it->second.second, to_wstring(file->filename()).c_str(), st->lineNumber());
+
+                __spf_printToLongBuf(messageR, L"Функция '%s' с одинаковым именем была объявлена в более, чем одном месте: в файле '%s':%d и '%s':%d",
+                                                to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(), 
+                                                it->second.second, to_wstring(file->filename()).c_str(), st->lineNumber());
+
+                currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1048));
+                currMessages[it->second.first].push_back(Messages(ERROR, it->second.second, messageR, messageE, 1048));
+#endif
+                checkOK = false;
+            }
+        }
+    }
+
     return checkOK;
 }

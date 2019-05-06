@@ -282,9 +282,12 @@ static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpress
             }
             needToIterate = true;
 
-            wstring message;            
-            __spf_printToLongBuf(message, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
-            messages.push_back(Messages(NOTE, parent->lineNumber(), message, 2006));
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, L"Была выполнена подстановка макроса с именем '%s'", to_wstring(funcName).c_str());
+#endif
+            messages.push_back(Messages(NOTE, parent->lineNumber(), messageR, messageE, 2006));
         }
 
         doMacroExpand(parent, findIn, findIn->lhs(), 0, macroStats, macroNames, needToIterate, messages);
@@ -619,6 +622,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
             containsPrefix = st_cp->symbol()->identifier() + string(".");
+        else if (st_cp->variant() == INTERFACE_STMT)
+            continue;
         
         string currFunc = "";
         if (st->variant() == PROG_HEDR)
@@ -876,12 +881,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
     if (countInCall != countInDef)
     {
-        std::wstring bufw;
-        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
-
+        wstring bufR, bufE;
+        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
+#ifdef _WIN32
+        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается количество формальных и фактических параметров", to_wstring(def->funcName).c_str());
+#endif
         if (needToAddErrors)
         {
-            messages.push_back(Messages(NOTE, line, bufw, 1013));
+            messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
             __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
         }
         result = false;
@@ -899,12 +906,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                 proj->file(numFileForDef);
                 if (callType->equivalentToType(defParam->type()) == false)
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
-
+                    wstring bufR, bufE;
+                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается тип фактического и формального %d-го параметра", to_wstring(def->funcName).c_str(), i);
+#endif
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufw, 1013));
+                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
                     }
                     result = false;
@@ -918,12 +927,14 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
 
                 if (callArrayRef->numberOfSubscripts() > 0)
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
-
+                    wstring bufR, bufE;
+                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как можно передавать массивы только целиком", to_wstring(def->funcName).c_str());
+#endif
                     if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufw, 1013));
+                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
@@ -1179,12 +1190,16 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
 
         if (idx != -1)
         {
-            std::wstring bufw;
-            __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
                                  to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
+#if _WIN32
+            __spf_printToLongBuf(bufR, L"Необходимо подставить функцию '%s', так как через параметр %d передается итерационная переменная цикла на строке %d и она используется в индексном выражении в обращении к массиву в теле этой функции",
+                to_wstring(func->funcName).c_str(), idx, loop->lineNumber());
+#endif
             if (needToAddErrors)
             {
-                messages.push_back(Messages(ERROR, funcOnLine, bufw, 1013));
+                messages.push_back(Messages(ERROR, funcOnLine, bufR, bufE, 1013));
                 __spf_print(1, "Function '%s' needs to be inlined due to use of loop's symbol  on line %d as index of an array inside this call, in parameter num %d\n", 
                                 func->funcName.c_str(), loop->lineNumber(), idx);
             }
@@ -1558,9 +1573,12 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
                 const string &chain = printChainRec(currentChainCalls);
                 __spf_print(1, "For function on line %d found recursive chain calls: %s\n", currentChainCalls[0]->linesNum.first, chain.c_str());
 
-                std::wstring bufw;
-                __spf_printToLongBuf(bufw, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
-                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufw, 1014));
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(bufR, L"Была найдена рекурсивная цепочка вызовов: %s, данная функция исключена из рассмотрения", to_wstring(chain).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufR, bufE, 1014));
                 break;
             }
         }

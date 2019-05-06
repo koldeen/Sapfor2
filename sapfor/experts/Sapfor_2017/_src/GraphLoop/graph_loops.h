@@ -91,29 +91,112 @@ public:
     void addConflictMessages(std::vector<Messages> *messages)
     {
         if (hasUnknownArrayDep)
-            messages->push_back(Messages(NOTE, lineNum, L"unknown array dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Неизвестная зависимость по массиву препятствует распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"unknown array dependency prevents parallelization of this loop", 3006));
+
         if (hasUnknownScalarDep)
-            messages->push_back(Messages(NOTE, lineNum, L"unknown scalar dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Неизвестная зависимость по скаляру препятствует распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"unknown scalar dependency prevents parallelization of this loop", 3006));
+
         if (hasGoto)
-            messages->push_back(Messages(NOTE, lineNum, L"internal/external goto operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Внешние или внутренние операторы перехода (GOTO) препятствуют распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"internal/external goto operations prevent parallelization of this loop", 3006));
+
         if (hasPrints)
-            messages->push_back(Messages(NOTE, lineNum, L"IO operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Операторы ввода/вывода препятствуют распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"IO operations prevent parallelization of this loop", 3006));
+
         if (hasStops)
-            messages->push_back(Messages(NOTE, lineNum, L"stop operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Операторы STOP препятствуют распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"stop operations prevent parallelization of this loop", 3006));
+
         if (hasConflicts.size() != 0)
-            messages->push_back(Messages(NOTE, lineNum, L"conflict writes operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum,
+#ifdef _WIN32
+                L"Обнаружены конфликтные присваивания, которые препятствуют распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"conflict writes operations prevent parallelization of this loop", 3006));
+
         if (hasUnknownArrayAssigns)
-            messages->push_back(Messages(NOTE, lineNum, L"unknown array reference for writes prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Невозможность сопоставить обращение к массиву на запись и данный цикл препятствует распараллеливанию", 
+#else
+                L"",
+#endif
+                L"unknown array reference for writes prevent parallelization of this loop", 3006));
+
         if (hasNonRectangularBounds)
-            messages->push_back(Messages(NOTE, lineNum, L"non rectangular bounds prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Обнаружено не прямоугольное пространство итераций", 
+#else
+                L"",
+#endif
+                L"non rectangular bounds prevent parallelization of this loop", 3006));
+
         if (hasIndirectAccess)
-            messages->push_back(Messages(NOTE, lineNum, L"indirect access by distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Косвенная адресация по распределяемому массиву препятствует распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"indirect access by distributed array prevents parallelization of this loop", 3006));
+
         if (hasWritesToNonDistribute)
-            messages->push_back(Messages(NOTE, lineNum, L"writes to non distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Обращение к нераспределенному массиву на запись препятствует распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"writes to non distributed array prevents parallelization of this loop", 3006));
+
         if (hasDifferentAlignRules)
-            messages->push_back(Messages(NOTE, lineNum, L"different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Надены различные правила выравнивания массивов, используемых на запись в данном цикле препятствует распараллеливанию", 
+#else
+                L"",
+#endif
+                L"different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+
         if (hasNonPureProcedures)
-            messages->push_back(Messages(NOTE, lineNum, L"non pure procedures prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, lineNum, 
+#ifdef _WIN32
+                L"Процедуры с побочным эффектном препятствуют распараллеливанию данного цикла", 
+#else
+                L"",
+#endif
+                L"non pure procedures prevent parallelization of this loop", 3006));
     }
 
     void setNewRedistributeRules(const std::vector<std::pair<DIST::Array*, DistrVariant*>> &newRedistributeRules)
@@ -234,6 +317,11 @@ public:
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
                 newUsedArraysW.insert(elem);
         usedArraysWrite = newUsedArraysW;
+        
+        readOpsArray.clear();
+        readOps.clear();
+        writeOps.clear();
+        hasConflicts.clear();
 
         for (auto &ch : children)
             ch->removeNonDistrArrays();

@@ -131,7 +131,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>C:\local\boost_1_68_0\;..\..\..\..\dvm\fdvm\trunk\Sage\lib\include;..\..\..\..\dvm\fdvm\trunk\Sage\h;..\..\..\..\dvm\fdvm\trunk\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <OutDir>C:\Users\kolganov\Documents\visualizer\Visual_DVM\Visual_DVM\bin\Release\Components\</OutDir>
+    <OutDir>C:\Users\kolganov\Documents\visualizer\Visual_DVM\Visual_DVM\bin\Release\Components</OutDir>
     <LibraryPath>..\_lib\x64\Release_Vis;C:\local\boost_1_68_0\lib64-msvc-14.1\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -255,6 +255,7 @@
     <ClCompile Include="..\_src\DEAR\dep_cpp\pu_routine_call.cpp" />
     <ClCompile Include="..\_src\DEAR\help.cpp" />
     <ClCompile Include="..\_src\DirectiveAnalyzer\DirectiveAnalyzer.cpp" />
+    <ClCompile Include="..\_src\Distribution\Array.cpp" />
     <ClCompile Include="..\_src\Distribution\CreateDistributionDirs.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</IntrinsicFunctions>
@@ -395,6 +396,7 @@
     <ClCompile Include="..\_src\SageAnalysisTool\set.cpp" />
     <ClCompile Include="..\_src\Sapfor.cpp" />
     <ClCompile Include="..\_src\Utils\BoostStackTrace.cpp" />
+    <ClCompile Include="..\_src\Utils\RationalNum.cpp" />
     <ClCompile Include="..\_src\Utils\SgUtils.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</Optimization>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release_Vis|x64'">Disabled</InlineFunctionExpansion>
@@ -577,6 +579,7 @@
     <ClInclude Include="..\_src\Utils\errors.h" />
     <ClInclude Include="..\_src\Utils\leak_detector.h" />
     <ClInclude Include="..\_src\Utils\PassManager.h" />
+    <ClInclude Include="..\_src\Utils\RationalNum.h" />
     <ClInclude Include="..\_src\Utils\SgUtils.h" />
     <ClInclude Include="..\_src\Utils\types.h" />
     <ClInclude Include="..\_src\Utils\utils.h" />
