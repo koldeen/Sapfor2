@@ -541,6 +541,15 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                 __spf_print(1, "different align rules for array %s was found\n", array.first->GetName().c_str());
                 for (auto &rule : array.second)
                     __spf_print(1, "  -> %s\n", printRule(rule).c_str());
+
+                std::wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"different align rules for array %s was found\n", to_wstring(array.first->GetName()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(bufR, L"ƒл€ массива '%s' не удаетс€ найти единого распределени€, внутренн€€ ошибка системы.\n",
+                    to_wstring(array.first->GetName()).c_str());
+#endif
+                for (auto &declPlace : array.first->GetDeclInfo())
+                    getObjectForFileFromMap(declPlace.first.c_str(), SPF_messages).push_back(Messages(ERROR, declPlace.second, bufR, bufE, 3020));
             }
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }

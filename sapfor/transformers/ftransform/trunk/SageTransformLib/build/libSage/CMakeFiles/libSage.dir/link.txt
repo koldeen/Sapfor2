@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblibSage.a  CMakeFiles/libSage.dir/home/soloway2010/Desktop/Диплом/sapfor_2017/dvm/fdvm/trunk/Sage/lib/newsrc/low_level.c.o CMakeFiles/libSage.dir/home/soloway2010/Desktop/Диплом/sapfor_2017/dvm/fdvm/trunk/Sage/lib/newsrc/unparse.c.o
+/usr/bin/ranlib liblibSage.a

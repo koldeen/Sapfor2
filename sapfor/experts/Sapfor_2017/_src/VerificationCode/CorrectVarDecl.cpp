@@ -471,7 +471,7 @@ bool checkArgumentsDeclaration(SgProject *project,
                                 __spf_printToLongBuf(messageE, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
 #ifdef _WIN32
                                 __spf_printToLongBuf(messageR, L"Аргумент '%s' функции '%s' не имеет оператора описания",
-                                                     to_wstring(symb->identifier()).c_str(), func->funcName.c_str());
+                                                     to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
 #endif
 
                                 if (func->isInRegion())

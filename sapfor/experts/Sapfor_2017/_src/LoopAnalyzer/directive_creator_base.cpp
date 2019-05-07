@@ -704,16 +704,16 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     getRealArrayRefs(mainArray.arrayRef, mainArray.arrayRef, realArrayRef, arrayLinksByFuncCalls);
 
                     set<DIST::Array*> templateLink;
-                    vector<const vector<pair<int, int>>*> allRules;
-                    vector<const vector<int>*> allLinks;
+                    vector<vector<pair<int, int>>> allRules;
+                    vector<vector<int>> allLinks;
 
                     for (auto &array : realArrayRef)
                     {
                         DIST::Array *toAdd = array->GetTemplateArray(currReg->GetId());
                         if (toAdd)
                             templateLink.insert(toAdd);
-                        allRules.push_back(&(array->GetAlignRulesWithTemplate(currReg->GetId())));
-                        allLinks.push_back(&(array->GetLinksWithTemplate(currReg->GetId())));
+                        allRules.push_back(array->GetAlignRulesWithTemplate(currReg->GetId()));
+                        allLinks.push_back(array->GetLinksWithTemplate(currReg->GetId()));
                     }
 
                     if (!isAllRulesEqual(allRules))
@@ -722,8 +722,8 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     /*if (templateLink.size() != 1)
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__); */
 
-                    const vector<pair<int, int>> &rules = *allRules[0];
-                    const vector<int> &links = *allLinks[0];
+                    const vector<pair<int, int>> &rules = allRules[0];
+                    const vector<int> &links = allLinks[0];
 
                     mainArray.arrayRef = *templateLink.begin();
                     mainArray.mainAccess = DIST::Fx(mainArray.mainAccess, rules[mainArray.dimentionPos]);

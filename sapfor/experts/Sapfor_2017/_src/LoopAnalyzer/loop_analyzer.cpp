@@ -1097,6 +1097,7 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                             break;
                         }
                     }
+
                     if (!wasSelect)
                     {
                         //try to find in includes
@@ -1124,22 +1125,6 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                                     vector<pair<int, int>> sizes;
                                     getArraySizes(sizes, symb, decl);
                                     array->SetSizes(sizes);
-
-                                    needToUpdate = false;
-                                    for (auto &elem : sizes)
-                                    {
-                                        if (elem.first == elem.second)
-                                        {
-                                            needToUpdate = true;
-                                            break;
-                                        }
-                                    }
-
-                                    /*if (!needToUpdate)
-                                    {
-                                        wasSelect = true;
-                                        break;
-                                    }*/
                                 }
                             }
 
@@ -1149,7 +1134,19 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
 
                         if (!wasSelect)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                    }                    
+                    }
+                    else
+                    {
+                        if (wasSelect)
+                        {
+                            SgStatement *decl = declaratedInStmt(symb);
+                            vector<pair<int, int>> sizes;
+                            getArraySizes(sizes, symb, decl);
+                            array->SetSizes(sizes);
+                        }
+                        else
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
                 }
             }
         }
@@ -1304,19 +1301,26 @@ static inline void fillPrivatesFromDecl(SgExpression *ex, set<SgSymbol*> &delcsS
 
     if (ex->variant() == ARRAY_REF)
     {
-        SgSymbol *s = ex->symbol();
-        auto it = delcsSymbViewed.find(s);
-        if (it == delcsSymbViewed.end())
+        SgSymbol *symb = ex->symbol();
+        if (symb->type())
         {
-            delcsSymbViewed.insert(it, s);
-            SgStatement *decl = declaratedInStmt(s);
-
-            auto itD = delcsStatViewed.find(decl);
-            if (itD == delcsStatViewed.end())
+            if (symb->type()->variant() == T_ARRAY)
             {
-                delcsStatViewed.insert(itD, decl);
-                tryToFindPrivateInAttributes(decl, privatesVars);
-                fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                SgSymbol *s = ex->symbol();
+                auto it = delcsSymbViewed.find(s);
+                if (it == delcsSymbViewed.end())
+                {
+                    delcsSymbViewed.insert(it, s);
+                    SgStatement *decl = declaratedInStmt(s);
+
+                    auto itD = delcsStatViewed.find(decl);
+                    if (itD == delcsStatViewed.end())
+                    {
+                        delcsStatViewed.insert(itD, decl);
+                        tryToFindPrivateInAttributes(decl, privatesVars);
+                        fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    }
+                }
             }
         }
     }

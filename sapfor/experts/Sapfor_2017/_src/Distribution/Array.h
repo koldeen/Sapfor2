@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <climits>
 #include "DvmhDirectiveBase.h"
@@ -24,8 +25,14 @@ namespace Distribution
 
     class Array;
 
-    struct TemplateLink
+    class TemplateLink
     {
+    private:
+        VECTOR<int> linkWithTemplate;
+        VECTOR<PAIR<int, int>> alignRuleWithTemplate;
+        Array *templateArray;
+
+    public:
         TemplateLink(const int dimSize)
         {
             linkWithTemplate.resize(dimSize);
@@ -40,27 +47,13 @@ namespace Distribution
             linkWithTemplate = copy.linkWithTemplate;
             alignRuleWithTemplate = copy.alignRuleWithTemplate;
             templateArray = copy.templateArray;
-        }
+        }        
 
-        VECTOR<int> linkWithTemplate;
-        VECTOR<PAIR<int, int>> alignRuleWithTemplate;
-        Array *templateArray;
-
-        STRING toString()
-        {
-            STRING retVal = "";
-
-            retVal += " " + TO_STR(linkWithTemplate.size());
-            for (int i = 0; i < linkWithTemplate.size(); ++i)
-                retVal += " " + TO_STR(linkWithTemplate[i]);
-
-            retVal += " " + TO_STR(alignRuleWithTemplate.size());
-            for (int i = 0; i < alignRuleWithTemplate.size(); ++i)
-                retVal += " " + TO_STR(alignRuleWithTemplate[i].first) + " " + TO_STR(alignRuleWithTemplate[i].second);
-
-            retVal += " " + TO_STR((long long)templateArray);
-            return retVal;
-        }
+        Array* GetTemplateArray() const { return templateArray; }
+        VECTOR<PAIR<int, int>> GetAlignRules() const;
+        VECTOR<int> GetLinks() const;
+        void AddRule(const int dimNum, int value, const PAIR<int, int> &rule, Array *templateArray_);
+        STRING toString() const;
     };
 
     class Array
@@ -123,6 +116,8 @@ namespace Distribution
 
         //clones of template for realignes
         MAP<VECTOR<dist>, STRING> templateClones;
+        VECTOR<int> templateDimsOrder;
+
     public:
         Array()
         {
@@ -277,23 +272,21 @@ namespace Distribution
             else
             {
                 TemplateLink *currLink = getTemlateInfo(regionId);
-                                
-                currLink->linkWithTemplate[dimNum] = value;
-                currLink->alignRuleWithTemplate[dimNum] = rule;
-                currLink->templateArray = templateArray_;
+                currLink->AddRule(dimNum, value, rule, templateArray_);                
             }
             return err;
         }
-        const VECTOR<int>& GetLinksWithTemplate(const int regionId) 
+
+        VECTOR<int> GetLinksWithTemplate(const int regionId)
         {
             TemplateLink *currLink = getTemlateInfo(regionId);
-            return currLink->linkWithTemplate;
+            return currLink->GetLinks();
         }
 
-        const VECTOR<PAIR<int, int>>& GetAlignRulesWithTemplate(const int regionId)
+        VECTOR<PAIR<int, int>> GetAlignRulesWithTemplate(const int regionId)
         {
             TemplateLink *currLink = getTemlateInfo(regionId);
-            return currLink->alignRuleWithTemplate;
+            return currLink->GetAlignRules();
         }
 
         void ChangeName(const STRING &newName)
@@ -429,7 +422,7 @@ namespace Distribution
         Array* GetTemplateArray(const int regionId) 
         {
             TemplateLink *currLink = getTemlateInfo(regionId);
-            return currLink->templateArray;
+            return currLink->GetTemplateArray();
         }
 
         void SetNonDistributeFlag(const distFlag isNonDistribute_) { isNonDistribute = isNonDistribute_; }
@@ -525,9 +518,13 @@ namespace Distribution
             return it->second;
         }
 
-        void ClearTemplateClones() { templateClones.clear(); }
+        void ClearTemplateClones() { templateClones.clear(); templateDimsOrder.clear(); }
 
         const MAP<VECTOR<dist>, STRING>& GetAllClones() const { return templateClones; }
+
+        void AddNewTemplateDimsOrder(const VECTOR<int> &newOrder) { templateDimsOrder = newOrder; }
+
+        VECTOR<int> GetNewTemplateDimsOrder() const { return templateDimsOrder; }
 
         ~Array() 
         {
@@ -540,16 +537,16 @@ namespace Distribution
     class ArrayAccessInfo
     {
     private:
-        MAP<STRING, std::set<PAIR<int, char>>> accessPattern; // file -> PAIRS<LINE, R/W -> 0, 1>
+        MAP<STRING, SET<PAIR<int, char>>> accessPattern; // file -> PAIRS<LINE, R/W -> 0, 1>
     public:
         void AddAccessInfo(const PAIR<int, char> &info, const STRING &file)
         {
             auto it = accessPattern.find(file);
             if (it == accessPattern.end())
-                it = accessPattern.insert(it, std::make_pair(file, std::set<PAIR<int, char>>()));
+                it = accessPattern.insert(it, std::make_pair(file, SET<PAIR<int, char>>()));
             it->second.insert(info);
         }
-        const MAP<STRING, std::set<PAIR<int, char>>>& GetAllAccessInfo() const { return accessPattern; }
+        const MAP<STRING, SET<PAIR<int, char>>>& GetAllAccessInfo() const { return accessPattern; }
     };
 }
 #undef VECTOR

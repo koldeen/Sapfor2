@@ -87,7 +87,7 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
 {
     for(auto &border : borders)
     {
-        for(SgStatement* current = border.first; ; current = current->lexNext())
+        for(SgStatement* current = border.first; current != border.second; current = current->lexNext())
         {
             auto found = requireReachMap.find(current);
             if(found != requireReachMap.end())
@@ -106,7 +106,6 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                         openDependencies.insert(lineNumber);
-
                 }
                 for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
                 {
@@ -125,9 +124,6 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                 }
 
             }
-
-            if(current == border.second)
-                break;
         }
     }
 }
@@ -236,6 +232,11 @@ vector<depGraph*> getDepGraphsFor(vector<LoopGraph*> &loops, LoopGraph *parentGr
     return result;
 }
 
+bool continueSplitting(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders) {
+    //Если вырежем опять, исходный цикл останется пустым
+    return !(borders.size() == 1 && borders[0].first == globalSince && borders[0].second == globalTill);
+}
+
 static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
                               vector<pair<SgStatement*, SgStatement*>>& borders,
                               depGraph* parentDepGraph, map<SgExpression*, string>& collection)
@@ -255,43 +256,41 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     vector<LoopGraph*> loops = getLoopsFrom(borders, parentGraph);
     vector<depGraph*> depGraphs = getDepGraphsFor(loops, parentGraph);
 
-    if(depGraphs.size() == 0) //Нет зависимостей, можно взять изначальный фрагмент без измененений
-        return true;
+    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
+//      printf("%s\n", since->unparse());
 
-//    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
-//    printf("%s\n", since->unparse());
+//    if(depGraphs.size() == 0) //Нет зависимостей, можно взять изначальный фрагмент без измененений
+//        return continueSplitting(globalSince, globalTill, borders);
 
-    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMap(globalSince, globalTill);
+    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMapForLoop(globalSince, globalTill);
 
     set<int> openDependencies;
-    setupOpenDependencies(openDependencies, borders, depGraphs, collection);
+    //setupOpenDependencies(openDependencies, borders, depGraphs, collection);
     addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
-/*        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
+        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
         for(auto& it : openDependencies)
             printf(" %d,", it);
-        printf("\n");*/
+        printf("\n");
 
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         openDependencies.clear();
 
         loops = getLoopsFrom(borders, parentGraph);
         depGraphs = getDepGraphsFor(loops, parentGraph);
-        setupOpenDependencies(openDependencies, borders, depGraphs, collection);
+        //setupOpenDependencies(openDependencies, borders, depGraphs, collection);
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
 
-    //for (auto &fragment : borders)
-    //    printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
+    for (auto &fragment : borders)
+        printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
+
+
 
     glueBorders(borders);
 
-    //Если вырежем опять, исходный цикл останется пустым
-    if(borders.size() == 1 && borders[0].first == globalSince && borders[0].second == globalTill)
-        return false;
-
-    return true;
+    return continueSplitting(globalSince, globalTill, borders);
 }
 
 static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &fragments)
@@ -410,7 +409,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();
     globalTill = lowestParentGraph->loop->GetOriginal()->lastNodeOfStmt();
 
-    //printf("global %d %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+//    printf("global %d %d\n", globalSince->lineNumber(), globalTill->lineNumber());
 
 
 /*    auto definitions = getReachingDefinitionsExt(globalSince);
@@ -481,7 +480,11 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
     int totalErr = 0;
 
     for (int i = 0; i < file->numberOfFunctions(); ++i)
-        BuildUnfilteredReachingDefinitionsFor(file->functions(i));
+    {
+        ControlFlowGraph* cfg = BuildUnfilteredReachingDefinitionsFor(file->functions(i));
+ //       if(string(file->filename()) == "z_solve.f")
+ //           showDefsOfGraph(cfg);
+    }
 
     for (auto &loopPair : mapLoopGraph)
     {

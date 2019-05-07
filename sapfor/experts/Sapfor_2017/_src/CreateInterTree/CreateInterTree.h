@@ -46,15 +46,10 @@ struct SpfInterval
     }
 };
 
-struct FileProfile
-{
-    std::map<int, long long> profile;
-};
-
 void saveIntervals(const std::string &fileName, std::map<std::string, std::vector<SpfInterval*>> &intervals);
 void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool);
 void assignCallsToFile(const std::string&, std::vector<SpfInterval*>&);
-void removeNodes(long long, std::vector<SpfInterval*>&, std::vector<std::string>&);
+void removeNodes(int, std::vector<SpfInterval*>&, std::vector<std::string>&);
 void insertIntervals(SgFile*, const std::vector<SpfInterval*>&);
 void createMapOfinterval(std::map<int, SpfInterval*> &mapIntervals, const std::vector<SpfInterval*> &intervals);
 void initTimeForIntervalTree(const int numOfTopologies, std::vector<SpfInterval*> &intervals);

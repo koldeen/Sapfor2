@@ -534,8 +534,8 @@ static vector<vector<pair<string, vector<Expression*>>>>
                 continue;
 
             auto realRef = getRealArrayRef(elem, regId, arrayLinksByFuncCalls);
-            const auto &rules = realRef->GetAlignRulesWithTemplate(regId);
-            const auto &links = realRef->GetLinksWithTemplate(regId);
+            auto rules = realRef->GetAlignRulesWithTemplate(regId);
+            auto links = realRef->GetLinksWithTemplate(regId);
             const auto &templ = realRef->GetTemplateArray(regId);            
             checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
             

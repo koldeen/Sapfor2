@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE 0 //_WIN32
+#define RELEASE_CANDIDATE 1 //_WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
@@ -829,7 +829,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #if RELEASE_CANDIDATE
             vector<string> include_functions;
             
-            createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
 #endif
@@ -1832,10 +1832,14 @@ int main(int argc, char **argv)
             switch (curr_arg[0])
             {
             case '-':
-                if( string(curr_arg) == "-threshold")
+                if (string(curr_arg) == "-threshold")
                 {
                     i++;
                     intervals_threshold = atoll(argv[i]);
+                }
+                else if (string(curr_arg) == "-removeNestedIntervals")
+                {
+                    removeNestedIntervals = true;
                 }
                 else if (string(curr_arg) == "-p")
                 {
