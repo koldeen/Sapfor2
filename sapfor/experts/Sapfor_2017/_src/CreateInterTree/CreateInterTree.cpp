@@ -4,10 +4,13 @@
 
 using std::string;
 using std::vector;
+using std::list;
 using std::map;
 using std::cout;
 using std::endl;
 using std::fstream;
+
+static int total_interval_amount = 0;
 
 static long int getNextTag()
 {
@@ -29,7 +32,7 @@ static void printTree(SpfInterval* inter, fstream &file, int level)
         file << "  ";
     file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()] << ", gcov_calls " << inter->calls_count << ") ";
     file << " [" << inter->lineFile.first << ", " << inter->lineFile.second << "]\n";
-
+    total_interval_amount++;
 
     for (int i = 0; i < inter->nested.size(); i++)
         printTree(inter->nested[i], file, level + 1);
@@ -57,6 +60,8 @@ void saveIntervals(const string &fileName, map<string, vector<SpfInterval*>> &in
             printTree(interval, file_intervals, 0);
     }
     file_intervals.close();
+
+    cout << total_interval_amount << endl;
 }
 
 //Labels funcs
@@ -537,24 +542,51 @@ void assignCallsToFile(const string &baseFilename, vector<SpfInterval*> &interva
 //Deleting intervals funcs
 static void removeNode(SpfInterval* inter, long long threshold)
 {
-    if (inter->calls_count > threshold)
+    if (inter->calls_count >= threshold)
         inter->ifInclude = false;
 
     for (int i = 0; i < inter->nested.size(); i++)
         removeNode(inter->nested[i], threshold);
 }
 
-void removeNodes(long long threshold, vector<SpfInterval*> &intervals, vector<string> &include_functions)
+static void fillListWithValues(list<long long> &interval_calls, SpfInterval* interval)
 {
-    if (threshold == 0)
+    auto it = interval_calls.begin();
+
+    for(; it != interval_calls.end(); it++)
+        if(interval->calls_count < *it)
+        {
+            interval_calls.insert(it, interval->calls_count);
+            break;
+        }
+
+    if(it == interval_calls.end())
+        interval_calls.push_back(interval->calls_count);
+
+    for (auto &i : interval->nested)
+        fillListWithValues(interval_calls, i);
+}
+
+void removeNodes(int threshold, vector<SpfInterval*> &intervals, vector<string> &include_functions)
+{
+    if (threshold == 100)
         return;
 
     for (auto &interval : intervals)
     {
         string func_name = interval->begin->symbol()->identifier();
 
-        if (include_functions.size() == 0 || find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
-            removeNode(interval, threshold);
+        if (find(include_functions.begin(), include_functions.end(), func_name) != include_functions.end())
+            continue;
+
+        list<long long> interval_calls;
+        fillListWithValues(interval_calls, interval);
+
+        int amount = interval_calls.size() / 100.f * threshold;
+        auto it = interval_calls.begin();
+        advance(it, amount);
+
+        removeNode(interval, *it);
     }
 }
 
