@@ -10,8 +10,6 @@ using std::cout;
 using std::endl;
 using std::fstream;
 
-static int total_interval_amount = 0;
-
 static long int getNextTag()
 {
     static long int INTERVAL_TAG = 0;
@@ -32,7 +30,6 @@ static void printTree(SpfInterval* inter, fstream &file, int level)
         file << "  ";
     file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()] << ", gcov_calls " << inter->calls_count << ") ";
     file << " [" << inter->lineFile.first << ", " << inter->lineFile.second << "]\n";
-    total_interval_amount++;
 
     for (int i = 0; i < inter->nested.size(); i++)
         printTree(inter->nested[i], file, level + 1);
@@ -60,8 +57,6 @@ void saveIntervals(const string &fileName, map<string, vector<SpfInterval*>> &in
             printTree(interval, file_intervals, 0);
     }
     file_intervals.close();
-
-    cout << total_interval_amount << endl;
 }
 
 //Labels funcs
