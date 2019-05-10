@@ -324,6 +324,11 @@ static set<string> fillDistributedArrays(const DataDirective &dataDirectives)
     return distrArrays;
 }
 
+static bool comparSort(pair<int, int> left, pair<int, int> right)
+{
+    return (left.second > right.second);
+}
+
 pair<string, int> currProcessing; // file and line
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
@@ -537,6 +542,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (auto &array : declaratedArrays)
                     array.second.first->ClearShadowSpecs();
             }
+			else
+			{
+				set<int> regNum;
+				for (int z = 0; z < parallelRegions.size(); ++z)
+					regNum.insert(parallelRegions[z]->GetId());
+				insertTemplateModuleUse(file, regNum);
+			}
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
         {
@@ -1678,6 +1690,37 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 continue;
 
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
+
+			/*
+            for (int z = 0; z < parallelRegions.size(); ++z)
+            {
+                const DataDirective &dirs = parallelRegions[z]->GetDataDir();
+                if (dirs.distrRules.size() > 1)
+                {
+                    __spf_print(1, "New order for templates for region %s\n", parallelRegions[z]->GetName().c_str());
+                    const vector<int> &currVar = parallelRegions[z]->GetCurrentVariant();
+                    for (int p = 0; p < dirs.distrRules.size(); ++p)
+                    {
+                        DIST::Array *templ = dirs.distrRules[p].first;
+                        const DistrVariant &var = dirs.distrRules[p].second[currVar[p]];
+                        vector<pair<int, int>> order(templ->GetDimSize());
+                        auto sizes = templ->GetSizes();
+
+                        for (int d = 0; d < templ->GetDimSize(); ++d)
+                            order[d] = make_pair(d, var.distRule[d] == BLOCK ? (sizes[d].second - sizes[d].first + 1) : (-1 * d));
+                        sort(order.begin(), order.end(), comparSort);
+
+                        vector<int> newOrder;
+                        for (auto &elem : order)
+                            newOrder.push_back(elem.first);
+                        templ->AddNewTemplateDimsOrder(newOrder);
+                        __spf_print(1, "  -- for template '%s': [", templ->GetShortName().c_str());
+                        for (auto &elem : newOrder)
+                            __spf_print(1, " %d", elem);
+                        __spf_print(1, "]\n");
+                    }
+                }
+            } */
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 

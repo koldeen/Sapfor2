@@ -13,8 +13,6 @@ STD=c++11
 
 REPO_FDVM_BASE      = ../../../../dvm/fdvm/trunk/
 REPO_SPF_BASE       = ../_src/
-REPO_TRANSFORM_BASE = ../../../transformers/ftransform/trunk/
-
 
 SAGE_BASE_DIR = $(REPO_FDVM_BASE)Sage/
 SAGE_SRC_DIR  = $(SAGE_BASE_DIR)Sage++/
