@@ -69,9 +69,11 @@ void DvmhRegionInsertor::insertRegionDirectives()
 
 		SgStatement *statementBefore = region.getFirstSt()->lexPrev();
 		if (!statementBefore || statementBefore->variant() != DVM_PARALLEL_ON_DIR) {
-			// TODO: report an error: region's illegal
+			printf("Error: no parallel statement before the region.");
 			continue;
 		}
+		regionStartSt->setComments(statementBefore->comments());
+		statementBefore->setComments("");
 		statementBefore->insertStmtBefore(*regionStartSt);
 
 		SgStatement *regionEndSt = new SgStatement(ACC_END_REGION_DIR);
@@ -390,8 +392,8 @@ void DvmhRegionInsertor::insertDirectives()
 	mergeRegions();
 	__spf_print(1, "Insert regions\n");
 	insertRegionDirectives();
-	__spf_print(1, "Insert actuals\n");
-	insertActualDirectives();
+	//__spf_print(1, "Insert actuals\n");
+	//insertActualDirectives();
 	// vector<DvmhRegion*> l_regions;
 	// for (auto &region : regions)
 	// 	l_regions.push_back(&region);
