@@ -43,7 +43,9 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 		if (!hasLimitsToDvmhParallel(loopNode))
 		{
 			if (loopNode->loop->lexPrev()->variant() == DVM_PARALLEL_ON_DIR) {
-				DvmhRegion dvmhRegion(loopNode);
+				SgStatement* func_st = getFuncStat(loopNode->loop);
+				string fun_name = func_st->symbol()->identifier();
+				DvmhRegion dvmhRegion(loopNode, fun_name);
 				regions.push_back(dvmhRegion);
 			}
 		}
@@ -353,6 +355,11 @@ void DvmhRegionInsertor::mergeRegions()
 	int i = 0;
 	for (auto& region : regions)
 	{
+		if (newRegion.fun_name == "" && region.loops.size() > 0) {
+			SgStatement* func_st = getFuncStat(region.loops[0]->loop);
+			string fun_name = func_st->symbol()->identifier();
+			newRegion.fun_name = fun_name;
+		}
 		printf("Merge number %d\n", i++);
 		if (isFirst) // skip first region
 		{
@@ -381,17 +388,18 @@ void DvmhRegionInsertor::insertDirectives()
 {
 	__spf_print(1, "Find edges for regions\n");
 	findEdgesForRegions(loopGraph);
-	// __spf_print(1, "Merging regions\n");
-	// mergeRegions();
-	// __spf_print(1, "Insert regions\n");
-	// insertRegionDirectives();
-	// __spf_print(1, "Insert actuals\n");
-	// insertActualDirectives();
-	vector<DvmhRegion*> l_regions;
-	for (auto &region : regions)
-		l_regions.push_back(&region);
+	__spf_print(1, "Merging regions\n");
+	mergeRegions();
+	__spf_print(1, "Insert regions\n");
+	insertRegionDirectives();
+	__spf_print(1, "Insert actuals\n");
+	insertActualDirectives();
+	// vector<DvmhRegion*> l_regions;
+	// for (auto &region : regions)
+	// 	l_regions.push_back(&region);
 
-	AFlowGraph graph = AFlowGraph(file, l_regions);
+	// __spf_print(1, "Constructing Abstract Graph\n");
+	// AFlowGraph graph = AFlowGraph(file, l_regions);
 }
 
 DvmhRegionInsertor::~DvmhRegionInsertor()
@@ -402,7 +410,7 @@ DvmhRegionInsertor::~DvmhRegionInsertor()
 /*********** DvmhRegion *************/
 DvmhRegion::DvmhRegion() {}
 
-DvmhRegion::DvmhRegion(LoopGraph *loopNode)
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, string fun_name) : fun_name(fun_name)
 {
 	loops.push_back(loopNode);
 }
@@ -471,7 +479,6 @@ DFGNode::DFGNode(CBasicBlock* bblock) {
 	initial.push_back(bblock);
 	type = block;
 	id = bblock->getNum();
-	isParLoop = bblock->containsParloopStart();
 	// Fill containing statements
 	ControlFlowItem* cfi = bblock->getStart();
 	while (cfi && cfi->getBBno() == bblock->getNum()) 
@@ -497,6 +504,24 @@ DFGNode::DFGNode(CBasicBlock* bblock) {
 
 		cfi = cfi->getNext();
 	}
+}
+
+DFGNode::DFGNode(vector<DFGNode*> elements) {
+	if (elements.size() == 0)
+		return;
+
+	// Add all initial bblocks of all element-nodes to the new one
+	for (auto node : elements) 
+		initial.insert(initial.end(), node->initial.begin(), node->initial.end());
+
+	// Add predecessors of first element-node to the new one
+	
+	vector<DFGNode*> succ;
+	vector<SgStatement*> content;
+	vector<SgSymbol*> d_arrays;
+	DFGType type;
+	int id;
+	bool isRegion;
 }
 
 set<SgSymbol *> DFGNode::getSymbolsFromExpression(SgExpression *exp) 
@@ -557,7 +582,6 @@ string DFGNode::getInfo() const
 
 	string info = "id [" 		+ to_string(id)			+ "]\n" +\
 				+ "type ["		+ to_string(type)		+ "]\n" +\
-				+ "isParLoop["	+ to_string(isParLoop)	+ "]\n" +\
 				+ "content["	+ s_content				+ "]\n" +\
 				+ "prev["		+ s_prev				+ "]\n" +\
 				+ "succ["		+ s_succ				+ "]\n" +\
@@ -695,8 +719,8 @@ AFlowGraph::AFlowGraph(SgFile file, vector<DvmhRegion*> regions)
 				CBasicBlock* bb = graphsKeeper->findBlock(st);
 				if (bb)
 				{
-					string fun_name = "TODO";
-					DFGNode* node = getNode(fun_name, bb->getNum());
+					cout << "func_name: " << region->fun_name << endl;
+					DFGNode* node = getNode(region->fun_name, bb->getNum());
 					elements.push_back(node);
 				} else
 				{
@@ -752,13 +776,13 @@ AFlowGraph::AFlowGraph(SgFile file, vector<DvmhRegion*> regions)
 		fun_graphs[graph.first] = shrinked_graph;
 	}
 	*/
-	////Debug print
-	//for (auto graph: fun_graphs) {
-	//	cout << "Graph for function: " << graph.first << endl;
-	//	for (auto node: graph.second) {
-	//		cout << node->getInfo(); // debug
-	//		cout << "___________" << endl;
-	//	}
-	//}
+	//Debug print
+	for (auto graph: fun_graphs) {
+		cout << "Graph for function: " << graph.first << endl;
+		for (auto node: graph.second) {
+			cout << node->getInfo(); // debug
+			cout << "___________" << endl;
+		}
+	}
 	cout << "Graph printed" << endl;
 }

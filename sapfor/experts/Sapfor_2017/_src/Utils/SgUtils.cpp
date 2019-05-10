@@ -1694,3 +1694,16 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 }
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
+
+SgStatement* getFuncStat(SgStatement *st)
+{
+    if (!st)
+        return NULL;
+
+    SgStatement *iterator = st;
+
+    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+        iterator = iterator->controlParent();
+
+    return iterator;
+}

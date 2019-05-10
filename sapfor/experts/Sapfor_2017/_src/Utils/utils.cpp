@@ -591,6 +591,7 @@ extern "C" void removeFromCollection(void *pointer)
 
 void deletePointerAllocatedData()
 {
+	return;
     int leaks = 0;
     int failed = 0;
     deleteInProgress = true;

@@ -10,6 +10,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../Utils/SgUtils.h"
 #include <iostream>
 #include <set>
 #include <map>
@@ -38,10 +39,11 @@ struct LoopCheckResults {
 struct DvmhRegion {
 	std::vector<LoopGraph *> loops;
 
+	string fun_name;
 	std::vector<SgSymbol*> needActualisation;
 	std::vector<SgSymbol*> needActualisationAfter;
 	DvmhRegion();
-	DvmhRegion(LoopGraph *loopNode);
+	DvmhRegion(LoopGraph *loopNode, string fun_name);
 	bool isInRegion(SgStatement *);
 	SgStatement* getFirstSt();
 	SgStatement* getLastSt();
@@ -99,7 +101,6 @@ public:
 	vector<SgSymbol*> d_arrays;
 	DFGType type;
 	int id;
-	bool isParLoop;
 	bool isRegion;
 
 	/* Initializes DFGNode (1) from CBasicBlock. */
