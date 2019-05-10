@@ -42,21 +42,19 @@ void DvmhRegionInsertor::findEdgesForRegions(std::vector<LoopGraph *> loops) // 
 	{
 		if (!hasLimitsToDvmhParallel(loopNode))
 		{
-			if (loopNode->loop->lexPrev()->variant() == DVM_PARALLEL_ON_DIR) {
-				SgStatement* func_st = getFuncStat(loopNode->loop);
-				string fun_name = func_st->symbol()->identifier();
-				DvmhRegion dvmhRegion(loopNode, fun_name);
-				regions.push_back(dvmhRegion);
-			}
+			SgStatement* func_st = getFuncStat(loopNode->loop);
+			string fun_name = func_st->symbol()->identifier();
+			DvmhRegion dvmhRegion(loopNode, fun_name);
+			regions.push_back(dvmhRegion);
 		}
-		else if (loopNode->loop->lexPrev()->variant() != DVM_PARALLEL_ON_DIR && loopNode->children.size() > 0)
+		else if (loopNode->children.size() > 0)
 			findEdgesForRegions(loopNode->children);
 	}
 }
 
 bool DvmhRegionInsertor::hasLimitsToDvmhParallel(LoopGraph *loop)
 {
-	return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls;
+	return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls || !loop->directive;
 }
 
 void DvmhRegionInsertor::insertRegionDirectives()
