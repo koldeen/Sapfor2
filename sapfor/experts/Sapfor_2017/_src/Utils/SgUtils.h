@@ -54,3 +54,5 @@ bool ifSymbolExists(SgFile *file, const std::string &symbName);
 const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &commonBlocks, const DIST::Array *array);
 
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
+SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig);
+std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);

@@ -1694,3 +1694,70 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 }
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
+
+SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig)
+{
+    if (byUse.size())
+    {
+        auto it = byUse.find(orig->identifier());
+        if (it == byUse.end())
+            return orig;
+        else
+        {
+            if (it->second.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            return *(it->second.begin());
+        }
+    }
+    else
+        return orig;
+}
+
+map<string, set<string>> createMapOfModuleUses(SgFile *file)
+{
+	map<string, set<string>> retValMap;
+
+	vector<SgStatement*> modules;
+	findModulesInFile(file, modules);
+
+	for (int z = 0; z < modules.size(); ++z)
+	{
+		SgStatement *curr = modules[z];
+        string modName = curr->symbol()->identifier();
+        for (SgStatement *st = curr->lexNext(); st != curr->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == USE_STMT)
+                retValMap[modName].insert(st->symbol()->identifier());
+            else if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+                break;
+        }
+	}
+
+    bool repeat = true;
+    while (repeat)
+    {
+        repeat = false;
+        for (auto &elem : retValMap)
+        {
+            set<string> toAdd(elem.second);
+            for (auto &inUse : elem.second)
+            {
+                auto it = retValMap.find(inUse);
+                if (it != retValMap.end())
+                {
+                    for (auto &inUseToAdd : it->second)
+                    {
+                        if (toAdd.find(inUseToAdd) == toAdd.end())
+                        {
+                            toAdd.insert(inUseToAdd);
+                            repeat = true;
+                        }
+                    }
+                }
+            }
+            elem.second = toAdd;
+        }
+    }
+
+    return retValMap;
+}

@@ -2022,6 +2022,7 @@ SgExpression *CreateArrayDummyList(SgType *indexType);
 SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbol *s_loop_ref, SgSymbol *idxTypeInKernel, SgSymbol *s_blocks);
 int isIntrinsicFunctionName(char *name);
 void addNumberOfFileToAttribute(SgProject *project);
+void recExpressionPrintFdvm(SgExpression *exp);
 
 /* calls.cpp */
 void ProjectStructure(SgProject &project);

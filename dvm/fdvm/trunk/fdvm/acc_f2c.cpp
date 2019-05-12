@@ -824,6 +824,58 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                 {
                     if (typeInCall->variant() == T_DESCRIPT)
                         typeInCall = ((SgDescriptType*)typeInCall)->baseType();
+                    else
+                    {
+                        if (typeInProt->variant() == typeInCall->variant())
+                        {
+                            if (typeInProt->hasBaseType() && !typeInCall->hasBaseType()) // inconsistency
+                                typeInCall = NULL;
+
+                            if (typeInProt->hasBaseType() && typeInCall)
+                            {
+                                if (typeInProt->baseType()->variant() != typeInCall->baseType()->variant()) // inconsistency
+                                    typeInCall = NULL;
+                                else
+                                {
+                                    typeInProt = typeInProt->baseType();
+                                    typeInCall = typeInCall->baseType();
+                                }
+                            }
+
+                            if (typeInCall)
+                            {
+                                if (typeInProt->equivalentToType(typeInCall))
+                                    typeInCall = typeInProt;
+                                else
+                                {
+                                    if (typeInProt->length() && typeInCall->length())
+                                    {
+                                        if (string(typeInProt->length()->unparse()) == string(typeInCall->length()->unparse()))
+                                            typeInCall = typeInProt;
+                                        else
+                                            typeInCall = NULL; // TODO
+                                    }
+                                    else if (typeInProt->selector() && typeInCall->selector())
+                                    {
+                                        if (string(typeInProt->selector()->unparse()) == string(typeInCall->selector()->unparse()))
+                                            typeInCall = typeInProt;
+                                        else
+                                            typeInCall = NULL; // TODO
+                                    }
+                                    else
+                                        ; //TODO
+                                }
+                            }
+
+                            if (typeInProt != typeInCall)
+                            {
+                                char buf[256];
+                                sprintf(buf, "The type of %d argument of '%s' procedure can not be equal to actual parameter in call", i + 1, name.c_str());
+                                Warning(buf, "", 900, first_do_par);
+                                typeInCall = typeInProt;
+                            }
+                        }
+                    }
                 }
 
                 if (typeInProt != typeInCall)

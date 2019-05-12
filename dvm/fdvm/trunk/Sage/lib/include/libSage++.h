@@ -3835,7 +3835,10 @@ inline SgExpression *SgType::length()
 }
 
 inline SgExpression *SgType::selector()
-{ return LlndMapping(TYPE_KIND_LEN(thetype)); }
+{
+    PTR_LLND kindExpr = TYPE_KIND_LEN(thetype);
+    return kindExpr ? LlndMapping(TYPE_KIND_LEN(thetype)) : NULL;
+}
 
 // SgLabel--inlines
 inline int SgLabel::id()
