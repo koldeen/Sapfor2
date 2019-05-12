@@ -1616,6 +1616,38 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
     }
 }
 
+static void fillUseStmt(SgStatement *stat, map<string, set<SgSymbol*>> &byUse)
+{
+    if (stat->variant() != USE_STMT)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgExpression* ex = stat->expr(0);
+    if (ex && ex->variant() == ONLY_NODE)
+    {
+        for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+        {
+            if (exI->lhs()->variant() == RENAME_NODE)
+            {
+                SgExpression* ren = exI->lhs();
+                if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+            }
+        }
+    }
+    else if (ex && ex->lhs())
+    {
+        for (auto exI = ex; exI; exI = exI->rhs())
+        {
+            if (exI->lhs()->variant() == RENAME_NODE)
+            {
+                SgExpression* ren = exI->lhs();
+                if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+            }
+        }
+    }
+}
+
 map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 {
     map<string, set<SgSymbol*>> byUse;
@@ -1628,38 +1660,60 @@ map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
         var = stIn->variant();
     }
     
+    auto mapOfUses = createMapOfModuleUses(stIn->getFile());
+    set<string> useMods;
+
     for (SgStatement *stat = stIn->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
     {
         if (stat->variant() == USE_STMT)
         {
-            SgExpression *ex = stat->expr(0);
-            if (ex && ex->variant() == ONLY_NODE)
+            fillUseStmt(stat, byUse);
+            useMods.insert(stat->symbol()->identifier());
+        }
+    }
+
+    bool chages = true;
+    while (chages)
+    {
+        chages = false;
+        set<string> newUseMods(useMods);
+        for (auto &elem : useMods)
+        {
+            auto it = mapOfUses.find(elem);
+            if (it != mapOfUses.end())
             {
-                for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+                for (auto &elem2 : it->second)
                 {
-                    if (exI->lhs()->variant() == RENAME_NODE)
+                    if (newUseMods.find(elem2) == newUseMods.end())
                     {
-                        SgExpression *ren = exI->lhs();
-                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
-                    }
-                }
-            }
-            else if (ex && ex->lhs())
-            {
-                for (auto exI = ex; exI; exI = exI->rhs())
-                {
-                    if (exI->lhs()->variant() == RENAME_NODE)
-                    {
-                        SgExpression *ren = exI->lhs();
-                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+                        newUseMods.insert(elem2);
+                        chages = true;
                     }
                 }
             }
         }
+        useMods = newUseMods;
     }
 
+    vector<SgStatement*> modules;
+    findModulesInFile(stIn->getFile(), modules);
+    for (auto &mod : modules)
+    {
+        if (useMods.find(mod->symbol()->identifier()) != useMods.end())
+        {
+            for (SgStatement *stat = mod->lexNext(); stat != mod->lastNodeOfStmt(); stat = stat->lexNext())
+            {
+                const int var = stat->variant();
+                if (var == USE_STMT)
+                {
+                    fillUseStmt(stat, byUse);
+                    useMods.insert(stat->symbol()->identifier());
+                }
+                else if (var == PROC_HEDR || var == FUNC_HEDR)
+                    break;
+            }
+        }
+    }
     return byUse;
 }
 

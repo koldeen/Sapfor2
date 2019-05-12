@@ -22,7 +22,7 @@ static void printTree(SpfInterval* inter, fstream &file, int level)
     if (!(inter->ifInclude))
     {
         for (int i = 0; i < inter->nested.size(); i++)
-            printTree(inter->nested[i], file, level + 1);    
+            printTree(inter->nested[i], file, level + 1);
         return;
     }
 
