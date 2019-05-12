@@ -115,8 +115,7 @@ static pair<SgForStmt*, depGraph*> getDepGraph(LoopGraph *loopGraph, const map<L
 
 static DependencyType fromDepNode(depNode *node)
 {
-    std::cout << node->typedep << std::endl;
-    if (node->typedep == SCALARDEP || node->typedep == PRIVATEDEP || node->typedep == REDUCTIONDEP) 
+    if (node->typedep > ARRAYDEP)
     {
         ddnature nature = (ddnature) node->kinddep;
         switch (nature) 
@@ -146,21 +145,20 @@ static void printDepGraph(depGraph *dg)
     for (depNode *dn : dg->getNodes())
     {
         dn->displayDep();
-        std::cout << (int) fromDepNode(dn) << std::endl;
         int out = dn->stmtout != nullptr ? dn->stmtout->lineNumber() : -1;
         int in = dn->stmtin != nullptr ? dn->stmtin->lineNumber() : -1;
         __spf_print(1, "dep from %d --> %d\n", out, in);
     }
 }
 
-static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, std::map<SgSymbol*, DependencyType> &depMap)
+static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, depGraph *innerDepGraph, std::map<SgSymbol*, DependencyType> &depMap)
 {
     depNode *node = outerDepGraph->isThereAnEdge(in, out);
     if (node != nullptr)
     {
+        std::cout << in->lineNumber() << " " << out->lineNumber() << "==========================" <<  std::endl;
         DependencyType type = fromDepNode(node);
         SgSymbol *symbol = node->varout->symbol();
-        std::cout << symbol << std::endl;
         depMap.insert(std::make_pair(symbol, type));
     }
 }
@@ -183,8 +181,8 @@ static map<SgSymbol*, DependencyType> buildTransformerDependencyMap(SgForStmt *o
         //loop through invariants before inner loop
         for (SgStatement *bodyStmt = innerLoop->lexNext(); bodyStmt != innerEnddo; bodyStmt = bodyStmt->lexNext()) 
         {
-            addToMap(stmt, bodyStmt, outerDepGraph, depMap);
-            addToMap(bodyStmt, stmt, outerDepGraph, depMap);
+            addToMap(stmt, bodyStmt, outerDepGraph, innerDepGraph, depMap);
+            addToMap(bodyStmt, stmt, outerDepGraph, innerDepGraph, depMap);
         }
     }
 
@@ -223,9 +221,9 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
 
                 __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 
-                wchar_t buf[256];
-                //sprintf(buf, "loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
-                messages.push_back(Messages(NOTE, current->lineNum, buf, 2005));
+                char buf[256];
+                sprintf(buf, "loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
+                messages.push_back(Messages(NOTE, current->lineNum, to_wstring(buf), 2005));
             }
         }
     }
