@@ -16,7 +16,7 @@
 #endif
 
 #define DEBUG_LVL1 true
-#define RELEASE_CANDIDATE 1 //_WIN32
+#define RELEASE_CANDIDATE 0 //_WIN32
 
 #include "ParallelizationRegions/ParRegions_func.h"
 #include "ParallelizationRegions/resolve_par_reg_conflicts.h"
@@ -758,7 +758,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
-        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
+        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP) // And MOVE COMPLITE DECLARATION as ASSIGN OPERATORS
             convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
         {
@@ -1872,7 +1872,7 @@ int main(int argc, char **argv)
                 if (string(curr_arg) == "-threshold")
                 {
                     i++;
-                    intervals_threshold = atoll(argv[i]);
+                    intervals_threshold = atoi(argv[i]);
                 }
                 else if (string(curr_arg) == "-removeNestedIntervals")
                 {

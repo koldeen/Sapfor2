@@ -14,9 +14,11 @@
 #include "array_assign_to_loop.h"
 #include "../Utils/SgUtils.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../GraphCall/graph_calls_func.h"
 
 using std::vector;
 using std::set;
+using std::map;
 using std::pair;
 using std::tuple;
 using std::make_pair;
@@ -1135,6 +1137,14 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 {
 
     int funcNum = file->numberOfFunctions();
+    auto useMapMod = createMapOfModuleUses(file);
+    
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+    map<string, SgStatement*> modMap;
+    for (auto& elem : modules)
+        modMap[elem->symbol()->identifier()] = elem;
+
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -1144,14 +1154,22 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         SgStatement *firstExec = NULL;
         SgStatement *controlParFristExec = NULL;
-        for (SgStatement *st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+        for (SgStatement* st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+        {
+            const int var = st->variant();
             if (isSgExecutableStatement(st))
                 firstExec = st;
+            if ((var == CONTAINS_STMT || var == PROC_HEDR || var == FUNC_HEDR) && st != file->functions(i))
+                break;
+        }
 
         if (firstExec)
             controlParFristExec = firstExec->controlParent();
 
         vector<SgStatement*> toDel;
+        set<SgStatement*> useMods;
+        map<string, set<SgSymbol*>> byUse = moduleRefsByUseInFunction(st);
+
         for (; st != lastNode; st = st->lexNext())
         {
             if (st->variant() == CONTAINS_STMT)
@@ -1176,6 +1194,52 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         toAdd->setLocalLineNumber(st->lineNumber());
                     }
                 }
+            }
+
+            if (firstExec && st->variant() == USE_STMT)
+                useMods.insert(st);
+
+            //TODO: change names by use
+            //TODO: create init of decl for all USE map
+            if (firstExec && isSgExecutableStatement(st))
+            {
+                for (auto& elem : useMods)
+                {
+                    auto it = modMap.find(elem->symbol()->identifier());
+                    if (it == modMap.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    for (SgStatement* stM = it->second->lexNext(); stM != it->second->lastNodeOfStmt(); stM = stM->lexNext())
+                    {
+                        if (isSgExecutableStatement(stM))
+                            break;
+                        const int var = stM->variant();
+                        if (var == PROC_HEDR || var == FUNC_HEDR)
+                            break;
+
+                        if (isSgDeclarationStatement(stM))
+                        {
+                            SgVarDeclStmt* declStat = (SgVarDeclStmt*)stM;
+                            for (int k = 0; k < declStat->numberOfSymbols(); ++k)
+                            {
+                                SgExpression* completeInit = declStat->completeInitialValue(k);
+                                if (completeInit)
+                                {
+                                    SgStatement* toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                                    toAdd->setFileId(controlParFristExec->getFileId());
+                                    toAdd->setProject(controlParFristExec->getProject());
+
+                                    firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+
+                                    toMove.push_back(make_pair(elem, toAdd));
+                                    toAdd->setlineNumber(getNextNegativeLineNumber());
+                                    toAdd->setLocalLineNumber(elem->lineNumber());
+                                }
+                            }
+                        }
+                    }
+                }
+                firstExec = NULL;
             }
 
             currProcessing.second = st->lineNumber();
