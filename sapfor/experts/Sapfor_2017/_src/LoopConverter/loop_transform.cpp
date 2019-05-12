@@ -1,8 +1,5 @@
 #include "../Utils/leak_detector.h"
 
-#include "SageTransformLib.hpp"
-#include "SageUtils.hpp"
-
 #include <vector>
 #include <string>
 #include <set>
@@ -13,9 +10,6 @@
 #include "../SageAnalysisTool/definesValues.h"
 #include "../Utils/SgUtils.h"
 
-using namespace SageTransform;
-using namespace SageUtils;
-
 using std::pair;
 using std::map;
 using std::tuple;
@@ -23,6 +17,7 @@ using std::stack;
 using std::string;
 using std::vector;
 using std::set;
+using std::make_pair;
 
 static void buildTopParentLoop(LoopGraph *current, LoopGraph *top, map<LoopGraph*, LoopGraph*> &loopTopMap)
 {
@@ -93,47 +88,40 @@ static void fillPrivateAndReductionFromComment(SgStatement *st, set<SgSymbol*> &
 
 static pair<SgForStmt*, depGraph*> getDepGraph(LoopGraph *loopGraph, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph)
 {
-    SgForStmt *sgForStmt = nullptr;
-    depGraph *dg = nullptr;
+    SgForStmt *sgForStmt = NULL;
+    depGraph *dg = NULL;
 
-    if (depInfoForLoopGraph.count(loopGraph) == 0) 
-    {
+    if (depInfoForLoopGraph.count(loopGraph) == 0)
         __spf_print(1, "getDepGraph for loop at %d. No depGraph found\n", loopGraph->lineNum);
-    } 
     else 
     {
         dg = depInfoForLoopGraph.at(loopGraph);
         sgForStmt = isSgForStmt(dg->loop);
-        if (sgForStmt == nullptr) 
-        {
+        if (sgForStmt == NULL) 
             __spf_print(1, "getDepGraph for loop at %d. SgForStmt missing for depGraph\n", loopGraph->lineNum);
-        }
     }
 
-    return std::make_pair(sgForStmt, dg);
+    return make_pair(sgForStmt, dg);
 }
 
-static DependencyType fromDepNode(depNode *node)
+static ddnature fromDepNode(depNode *node)
 {
-    if (node->typedep > ARRAYDEP)
+    if (node->typedep == SCALARDEP || node->typedep == PRIVATEDEP || node->typedep == REDUCTIONDEP) 
     {
         ddnature nature = (ddnature) node->kinddep;
         switch (nature) 
         {
-            case ddflow:
-                return SageTransform::DependencyType::FLOW_DEP;
-            case ddanti:
-                return SageTransform::DependencyType::ANTI_DEP;
-            case ddoutput:
-                return SageTransform::DependencyType::OUTPUT_DEP;
+            case ddflow:               
+            case ddanti:               
+            case ddoutput:               
             case ddreduce:
-                return SageTransform::DependencyType::REDUCTION_DEP;
+                return nature;
             default:
                 break;
         }
     }
 
-    return SageTransform::DependencyType::UNKNOWN_DEP;
+    return dd_unknown;
 }
 
 
@@ -145,25 +133,34 @@ static void printDepGraph(depGraph *dg)
     for (depNode *dn : dg->getNodes())
     {
         dn->displayDep();
-        int out = dn->stmtout != nullptr ? dn->stmtout->lineNumber() : -1;
-        int in = dn->stmtin != nullptr ? dn->stmtin->lineNumber() : -1;
+        int out = dn->stmtout != NULL ? dn->stmtout->lineNumber() : -1;
+        int in = dn->stmtin != NULL ? dn->stmtin->lineNumber() : -1;
         __spf_print(1, "dep from %d --> %d\n", out, in);
     }
 }
 
-static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, depGraph *innerDepGraph, std::map<SgSymbol*, DependencyType> &depMap)
+static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, map<SgSymbol*, ddnature> &depMap)
 {
     depNode *node = outerDepGraph->isThereAnEdge(in, out);
-    if (node != nullptr)
+    if (node != NULL)
     {
-        std::cout << in->lineNumber() << " " << out->lineNumber() << "==========================" <<  std::endl;
-        DependencyType type = fromDepNode(node);
+        ddnature type = fromDepNode(node);
         SgSymbol *symbol = node->varout->symbol();
-        depMap.insert(std::make_pair(symbol, type));
+        depMap.insert(make_pair(symbol, type));
     }
 }
 
-static map<SgSymbol*, DependencyType> buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, SgForStmt *innerLoop, depGraph *innerDepGraph)
+static SgStatement* getLastLoopStatement(SgForStmt* pForLoop) 
+{
+    SgStatement* stmt = pForLoop->body();
+    while (stmt &&
+          !(isSgControlEndStmt(stmt) && stmt->controlParent() && stmt->controlParent()->id() == pForLoop->id())) 
+        stmt = stmt->lexNext();
+    
+    return stmt;
+}
+
+static map<SgSymbol*, ddnature> buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, SgForStmt *innerLoop, depGraph *innerDepGraph)
 {
     __spf_print(1, "Print outer depgraph START\n");
     printDepGraph(outerDepGraph);
@@ -174,19 +171,272 @@ static map<SgSymbol*, DependencyType> buildTransformerDependencyMap(SgForStmt *o
     __spf_print(1, "Print inner depgraph END\n");
 
     SgStatement *innerEnddo = getLastLoopStatement(innerLoop);
-    std::map<SgSymbol*, DependencyType> depMap;
+    map<SgSymbol*, ddnature> depMap;
 
     for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerLoop; stmt = stmt->lexNext()) 
     {
         //loop through invariants before inner loop
         for (SgStatement *bodyStmt = innerLoop->lexNext(); bodyStmt != innerEnddo; bodyStmt = bodyStmt->lexNext()) 
         {
-            addToMap(stmt, bodyStmt, outerDepGraph, innerDepGraph, depMap);
-            addToMap(bodyStmt, stmt, outerDepGraph, innerDepGraph, depMap);
+            addToMap(stmt, bodyStmt, outerDepGraph, depMap);
+            addToMap(bodyStmt, stmt, outerDepGraph, depMap);
         }
     }
 
     return depMap;
+}
+
+static SgForStmt* lexNextLoop(SgStatement* pStmt, SgStatement* end) 
+{
+    SgStatement* pClosestDo = pStmt;
+    while (!isSgForStmt(pClosestDo) && pClosestDo != end)
+        pClosestDo = pClosestDo->lexNext();    
+    return isSgForStmt(pClosestDo);
+}
+
+static ddnature getOrDefault(const map<SgSymbol*, ddnature> &inMap, SgSymbol *key, ddnature defaultValue)
+{
+    //implementation must be visible to compiler 
+    auto it = inMap.find(key);
+    if (it == inMap.end())
+        return defaultValue;
+    else
+        return it->second;
+};
+
+static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
+{
+    //by type check
+    SgStatement* stmt = invBegin;
+    bool allAssignment = true;
+    while (stmt != invEnd && allAssignment) 
+    {
+        allAssignment = allAssignment && isSgAssignStmt(stmt);
+        stmt = stmt->lexNext();
+    }
+
+    if (allAssignment) 
+    {
+        bool hasFlowDep = false;
+        stmt = invBegin;
+        while (stmt != invEnd && !hasFlowDep) 
+        {
+            SgAssignStmt* assignStmt = isSgAssignStmt(stmt);
+            SgSymbol* symbol = assignStmt->lhs()->symbol();
+            auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
+            hasFlowDep = hasFlowDep
+                || dependency == ddflow
+                || dependency == dd_unknown;
+            stmt = stmt->lexNext();
+        }
+
+        if (hasFlowDep) 
+        {
+            bool hasAntiOrOutputDep = false;
+            stmt = invBegin;
+            while (stmt != invEnd && !hasAntiOrOutputDep) 
+            {
+                SgAssignStmt* assignStmt = isSgAssignStmt(stmt);
+                SgSymbol* symbol = assignStmt->lhs()->symbol();
+                auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
+                hasAntiOrOutputDep = hasAntiOrOutputDep
+                    || dependency == ddanti
+                    || dependency == ddoutput
+                    || dependency == dd_unknown;
+                stmt = stmt->lexNext();
+            }
+
+            if (!hasAntiOrOutputDep) 
+            {
+                //TODO: add message
+                //string msg = "Only flow dependencies present, can tighten.";
+                //this->addMessage(0, invBegin->lineNumber(), msg);
+                return true;
+            }
+        }
+        else 
+        {
+            //TODO: add message
+            //string msg = "Invariant value not used in loop, can tighten.";
+            //this->addMessage(0, invBegin->lineNumber(), msg);
+            return true;
+        }
+    }
+    //TODO: add message
+    //string msg = "Invariant cannot be moved into loop.";
+    //this->addMessage(0, invBegin->lineNumber(), msg);
+    return false;
+}
+
+static bool validateInvariantStatementAfterLoop(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
+{
+    if (invBegin == invEnd) 
+    {
+        //TODO: add message
+        //string msg = "No invariants after loop";
+        //this->addMessage(0, invBegin->lineNumber(), msg);
+        return true; //no after invariant;
+    }
+    //TODO: add message
+    //string msg = "There are invariants after loop, cannot tighten";
+    //this->addMessage(0, invBegin->lineNumber(), msg);
+    return false; //unknown, why would loop need that
+}
+
+static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddnature> &dependencies) 
+{
+    SgStatement* outerEnddo = getLastLoopStatement(outerLoop);
+    SgForStmt* innerLoop = lexNextLoop(outerLoop->lexNext(), outerEnddo);
+    if (innerLoop != NULL) 
+    {
+        bool beforeValid = validateInvariantStatementBeforeLoop(outerLoop->lexNext(), innerLoop, dependencies);
+        bool afterValid = validateInvariantStatementAfterLoop(getLastLoopStatement(innerLoop)->lexNext(), outerEnddo, dependencies);
+        return beforeValid && afterValid;
+    }
+    else 
+        return false;    
+}
+
+static int canTighten(SgForStmt* pForLoop, const map<SgSymbol*, ddnature> &dependencies) 
+{
+    int nestDepth = 1;
+    SgForStmt* processedLoop = pForLoop;
+    while (canTightenSingleLevel(processedLoop, dependencies)) 
+    {
+        processedLoop = lexNextLoop(processedLoop->lexNext(), NULL);
+        nestDepth++;
+    }
+
+    if (nestDepth == 1) 
+        return 0;
+    else 
+        return nestDepth;    
+}
+
+static int canTighten(SgForStmt* pForLoop) 
+{
+    int nestnessLevel = 1;
+    SgForStmt* nextOuterLoop = pForLoop;
+    while (nextOuterLoop) 
+    {
+        SgStatement* outerLoopControlEnd = getLastLoopStatement(nextOuterLoop);
+        SgStatement* nextInnerLoop = nextOuterLoop->lexNext();
+        while (!isSgForStmt(nextInnerLoop) && nextInnerLoop != outerLoopControlEnd)
+            nextInnerLoop = nextInnerLoop->lexNext();
+        
+        if (nextInnerLoop == outerLoopControlEnd) //no for loops found in outerloop            
+            nextOuterLoop = NULL;        
+        else //inner for loop found
+        {
+            //check control ends
+            SgForStmt* innerLoop = isSgForStmt(nextInnerLoop);
+            SgStatement* innerControlEnd = getLastLoopStatement(innerLoop);
+            if (innerControlEnd->lexNext() == outerLoopControlEnd) 
+            {
+                //controls are tight, can tighten this
+                nestnessLevel++;
+                nextOuterLoop = innerLoop;
+            }
+            else
+            {
+                //TODO: invariants after loop body
+                //cannot tighten loop further, stop here
+                nextOuterLoop = NULL;
+            }
+        }
+    }
+    if (nestnessLevel == 1) 
+        return 0;
+    else 
+        return nestnessLevel;    
+}
+
+static SgStatement* sinkIntoNextNearestLoop(SgStatement* pStmt, SgStatement* nextLoop) 
+{
+    //Log::debug("sinkIntoNextNearestLoop " + getLineNumber(pStmt));
+
+    SgStatement *extr = pStmt->extractStmt();
+    nextLoop->insertStmtAfter(*extr, *nextLoop);
+    return pStmt;
+}
+
+static SgControlEndStmt* lexPrevEnddo(SgStatement* pStmt, SgStatement* end) 
+{
+    SgStatement* pClosestEndDo = pStmt;
+    while (!isSgControlEndStmt(pClosestEndDo) && pClosestEndDo != end)
+        pClosestEndDo = pClosestEndDo->lexPrev();    
+    return isSgControlEndStmt(pClosestEndDo);
+}
+
+static SgStatement* sinkIntoPreviousNearestLoop(SgStatement* pStmt) 
+{
+    //Log::debug("sinkIntoPreviousNearestLoop " + getLineNumber(pStmt));
+
+    SgControlEndStmt * ctrlEnd = lexPrevEnddo(pStmt, NULL);
+    SgForStmt * scope = isSgForStmt(ctrlEnd->controlParent());
+    SgStatement * pStmtCopy = pStmt->extractStmt();
+    ctrlEnd->insertStmtBefore(*pStmtCopy, *scope);
+    return pStmtCopy;
+}
+
+static void tightenSingleLevel(SgForStmt* outerLoop, SgForStmt* topLevelForLoop) 
+{
+    SgForStmt* innerLoop = lexNextLoop(outerLoop->lexNext(), NULL);
+    {
+        //move statements after given loop before the inner loop
+
+        //moving these statements is done in reverse order,
+        // because insertion is always after the inner loop header
+
+        //begin := statement before closest inner loop header
+        SgStatement* begin = innerLoop->lexPrev();
+        SgStatement* end = outerLoop;
+        SgStatement* stmt = begin;
+        SgStatement* next;
+        while (stmt != end) 
+        {
+            next = stmt->lexPrev();
+            sinkIntoNextNearestLoop(stmt, innerLoop);
+            stmt = next;
+        }
+    }
+
+    {
+        //move statements before given loop enddo after the inner loop enddo
+
+        //moving these statements is done in normal order,
+        // insertion is done before inner loop enddo
+
+        //begin := statement after closest inner loop enddo
+        SgStatement* begin = getLastLoopStatement(innerLoop)->lexNext();
+        SgStatement* end = getLastLoopStatement(outerLoop);
+        SgStatement* stmt = begin;
+        SgStatement* next;
+        while (stmt != end) 
+        {
+            next = stmt->lexNext();
+            sinkIntoPreviousNearestLoop(stmt);
+            stmt = next;
+        }
+    }
+}
+
+static bool tighten(SgForStmt* pForLoop, int level) 
+{
+    if (level > canTighten(pForLoop))     
+        //cannot do that
+        return false;
+    
+    int processing = 2;
+    SgForStmt* processedLoop = pForLoop;
+
+    while (processing <= level) 
+    {
+        tightenSingleLevel(processedLoop, pForLoop);        
+        processedLoop = lexNextLoop(processedLoop->lexNext(), NULL);
+        processing++;
+    }
+    return true;
 }
 
 bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
@@ -206,12 +456,10 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
         {
             SgForStmt *outerLoop = outerLoopDependencies.first;
 
-            SageTransform::LoopTransformTighten loopTransformTighten;
-            map<SgSymbol *, DependencyType> depMap = buildTransformerDependencyMap(outerLoop, outerLoopDependencies.second, innerLoopDependencies.first, innerLoopDependencies.second);
-
-            if (loopTransformTighten.canTighten(outerLoop, depMap) >= 2) 
+            map<SgSymbol*, ddnature> depMap = buildTransformerDependencyMap(outerLoop, outerLoopDependencies.second, innerLoopDependencies.first, innerLoopDependencies.second);
+            if (canTighten(outerLoop, depMap) >= 2) 
             {
-                outerTightened = loopTransformTighten.tighten(outerLoop, 2);
+                outerTightened = tighten(outerLoop, 2);
                 LoopGraph *firstChild = current->children.at(0);
 
                 if (outerTightened) 

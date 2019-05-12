@@ -1,2 +1,0 @@
-/usr/bin/ar qc libSageUtils.a  CMakeFiles/SageUtils.dir/src/SageUtils.cpp.o CMakeFiles/SageUtils.dir/src/SageTransformUtils.cpp.o CMakeFiles/SageUtils.dir/src/decodeStmtVariant.cpp.o CMakeFiles/SageUtils.dir/src/LineReorderRecord.cpp.o CMakeFiles/SageUtils.dir/src/LineReorderer.cpp.o
-/usr/bin/ranlib libSageUtils.a

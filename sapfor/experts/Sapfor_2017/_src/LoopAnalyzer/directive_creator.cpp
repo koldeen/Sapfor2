@@ -23,6 +23,7 @@
 #include "../GraphLoop/graph_loops_func.h"
 #include "../LoopConverter/loop_transform.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../GraphCall/graph_calls_func.h"
 
 #include "../Utils/AstWrapper.h"
 
@@ -525,6 +526,7 @@ static vector<vector<pair<string, vector<Expression*>>>>
                        const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
+    auto byUse = moduleRefsByUseInFunction(current->loop->GetOriginal());
 
     for (int num = 0; num < 2; ++num)
     {
@@ -540,7 +542,7 @@ static vector<vector<pair<string, vector<Expression*>>>>
             checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
             
             vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
-            SgVarRefExp *ref = new SgVarRefExp(*findSymbolOrCreate(file, elem->GetShortName()));
+            SgVarRefExp *ref = new SgVarRefExp(getFromModule(byUse, findSymbolOrCreate(file, elem->GetShortName())));
 
             realign[0] = new Expression(ref);
             SgExprListExp *list = new SgExprListExp();
@@ -548,9 +550,9 @@ static vector<vector<pair<string, vector<Expression*>>>>
             for (int z = 0; z < elem->GetDimSize(); ++z)
             {
                 if (z == 0)
-                    list->setLhs(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+                    list->setLhs(*new SgVarRefExp(findSymbolOrCreate(file, base + std::to_string(z))));
                 else
-                    list->append(*new SgVarRefExp(*findSymbolOrCreate(file, base + std::to_string(z))));
+                    list->append(*new SgVarRefExp(findSymbolOrCreate(file, base + std::to_string(z))));
             }
 
             realign[1] = new Expression(list);
@@ -635,12 +637,12 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
     {
         const int idx = redistrDirs.first[z];
         string redist = "!DVM$ REDISTRIBUTE " + distribution[idx].first->GetShortName();
-        redist += distribution[idx].second->GenRuleBase() + "\n";
+        redist += distribution[idx].second->GenRuleBase(distribution[idx].first->GetNewTemplateDimsOrder()) + "\n";
 
         vector<Expression*> redistSt = { NULL, NULL, NULL, NULL };
 
         SgVarRefExp *ref = new SgVarRefExp(*findSymbolOrCreate(file, distribution[idx].first->GetShortName()));
-        vector<Expression*> subs = distribution[idx].second->GenRuleSt(new File(file));
+        vector<Expression*> subs = distribution[idx].second->GenRuleSt(new File(file), distribution[idx].first->GetNewTemplateDimsOrder());
 
         SgExpression *ruleList = new SgExpression(EXPR_LIST);
         SgExpression *pointer = ruleList;
@@ -922,8 +924,20 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 }
                 else
                 {
-                    auto links = parDirective->arrayRef2->GetLinksWithTemplate(regId);
-                    if (parDirective->arrayRef2->GetTemplateArray(regId) != parDirective->arrayRef)
+                    set<DIST::Array*> realRefsOfPar;
+                    getRealArrayRefs(parDirective->arrayRef2, parDirective->arrayRef2, realRefsOfPar, arrayLinksByFuncCalls);
+
+                    vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefsOfPar.size());
+                    int tmpIdx = 0;
+                    for (auto &array : realRefsOfPar)
+                        reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regId);
+
+                    if (!isAllRulesEqual(allRules))
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    DIST::Array *arrayRef2 = *realRefsOfPar.begin();
+                    auto links = arrayRef2->GetLinksWithTemplate(regId);
+                    if (arrayRef2->GetTemplateArray(regId) != parDirective->arrayRef)
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     int found = -1;
                     for (int z = 0; z < links.size(); ++z)
@@ -1197,7 +1211,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                             }
 
                             auto itSh = elem.second[i].second.find(base);
-                            if (itSh != elem.second[i].second.end())
+                            if (itSh != elem.second[i].second.end()) // shadow
                             {
                                 auto shadowElem = itSh->second;
                                 shadowElem.first -= foundVal;
@@ -1210,6 +1224,23 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
                                 shadows.second[i].first = std::max(shadows.second[i].first, abs(shadowElem.first));
                                 shadows.second[i].second = std::max(shadows.second[i].second, shadowElem.second);
+                            }
+                            else // remote
+                            {
+                                string bounds = "";
+                                SgExprListExp *listB = new SgExprListExp();
+                                for (int z = 0; z < elem.first->GetDimSize(); ++z)
+                                {
+                                    bounds += ":";
+                                    if (z != elem.first->GetDimSize() - 1)
+                                        bounds += ",";
+
+                                    if (z == 0)
+                                        listB->setLhs(*new SgExpression(DDOT));
+                                    else
+                                        listB->append(*new SgExpression(DDOT));
+                                }
+                                parDirective->remoteAccess[make_pair(elem.first->GetShortName(), bounds)] = new Expression(listB);
                             }
                         }
                     }

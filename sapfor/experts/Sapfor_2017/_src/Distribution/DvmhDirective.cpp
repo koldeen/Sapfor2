@@ -186,20 +186,6 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
-static inline SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig)
-{
-    if (byUse.size())
-    {
-        auto it = byUse.find(orig->identifier());
-        if (it == byUse.end())
-            return orig;
-        else
-            return *(it->second.begin());
-    }
-    else
-        return orig;
-}
-
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -263,9 +249,9 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
         SgSymbol *symbForPar;
         if (arrayRef->IsTemplate())
-            symbForPar = findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope);        
+            symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope));
         else
-            symbForPar = arrayRef->GetDeclSymbol()->GetOriginal();
+            symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal());
 
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
         for (int i = 0; i < (int)onTo.size(); ++i)
@@ -309,7 +295,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 else
                     directive += privVar->identifier();
 
-                SgVarRefExp *varExpr = new SgVarRefExp(privVar);
+                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar));
                 p->setLhs(varExpr);
                 if (k != privates.size() - 1)
                     p = createAndSetNext(RIGHT, EXPR_LIST, p);
@@ -516,7 +502,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
                     directive += nameGroup + "(" + list + ")";
 
-                    SgVarRefExp *tmp2 = new SgVarRefExp(findSymbolOrCreate(file, list));
+                    SgVarRefExp *tmp2 = new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, list)));
                     SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup), *tmp2);
 
                     p->setLhs(tmp1);
@@ -567,8 +553,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
                     SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup));
 
-                    tmp1->addArg(*new SgVarRefExp(findSymbolOrCreate(file, get<0>(list))));
-                    tmp1->addArg(*new SgVarRefExp(findSymbolOrCreate(file, get<1>(list))));
+                    tmp1->addArg(*new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, get<0>(list)))));
+                    tmp1->addArg(*new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, get<1>(list)))));
                     tmp1->addArg(*new SgValueExp(get<2>(list)));
 
                     p->setLhs(tmp1);
@@ -599,7 +585,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 directive += it->first.first + "(";
                 directive += it->first.second + ")";
                                 
-                SgArrayRefExp *tmp = new SgArrayRefExp(*findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), *it->second);
+                SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, it->first.first, typeArrayInt, scope)), *it->second);
 
                 DIST::Array *currArray = allArrays.GetArrayByName(it->first.second);
                 tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
@@ -626,20 +612,36 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     return make_pair(directive, dirStatement);
 }
 
-void DistrVariant::GenRule(File *file, Expression *rule) const
+void DistrVariant::GenRule(File *file, Expression *rule, const vector<int> &newOrder) const
 {    
     for (int i = 0; i < distRule.size(); ++i)
     {
         SgVarRefExp *toSet = NULL;
-        if (distRule[i] == dist::NONE)
+        if (newOrder.size() == 0)
         {
-            toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
-            rule->setLhs(toSet);
+            if (distRule[i] == dist::NONE)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                rule->setLhs(toSet);
+            }
+            else if (distRule[i] == dist::BLOCK)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+                rule->setLhs(toSet);
+            }
         }
-        else if (distRule[i] == dist::BLOCK)
+        else
         {
-            toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
-            rule->setLhs(toSet);
+            if (distRule[newOrder[i]] == dist::NONE)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                rule->setLhs(toSet);
+            }
+            else if (distRule[newOrder[i]] == dist::BLOCK)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+                rule->setLhs(toSet);
+            }
         }
 
         if (i != distRule.size() - 1)
@@ -651,22 +653,38 @@ void DistrVariant::GenRule(File *file, Expression *rule) const
     }       
 }
 
-vector<Expression*> DistrVariant::GenRuleSt(File *file) const
+vector<Expression*> DistrVariant::GenRuleSt(File *file, const vector<int> &newOrder) const
 {
     vector<Expression*> retVal;
     
     for (int i = 0; i < distRule.size(); ++i)
     {
         SgVarRefExp *toSet = NULL;
-        if (distRule[i] == dist::NONE)        
+        if (newOrder.size() == 0)
         {
-            toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
-            retVal.push_back(new Expression(toSet));
+            if (distRule[i] == dist::NONE)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                retVal.push_back(new Expression(toSet));
+            }
+            else if (distRule[i] == dist::BLOCK)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+                retVal.push_back(new Expression(toSet));
+            }
         }
-        else if (distRule[i] == dist::BLOCK)
+        else
         {
-            toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
-            retVal.push_back(new Expression(toSet));
+            if (distRule[newOrder[i]] == dist::NONE)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                retVal.push_back(new Expression(toSet));
+            }
+            else if (distRule[newOrder[i]] == dist::BLOCK)
+            {
+                toSet = new SgVarRefExp(findSymbolOrCreate(file, "BLOCK"));
+                retVal.push_back(new Expression(toSet));
+            }
         }
     }
     return retVal;
@@ -687,7 +705,7 @@ vector<Statement*> DataDirective::GenRule(File *file, const vector<int> &rules, 
             SgVarRefExp *dirstRef = new SgVarRefExp(*findSymbolOrCreate(file, tmp));
             SgExpression *rule = new SgExpression(EXPR_LIST);
             
-            distrRules[i].second[rules[i]].GenRule(file, new Expression(rule));
+            distrRules[i].second[rules[i]].GenRule(file, new Expression(rule), distrRules[i].first->GetNewTemplateDimsOrder());
 
             SgExpression *toAdd = new SgExpression(EXPR_LIST, dirstRef, NULL, NULL);
             dir->setExpression(0, *toAdd);
@@ -748,7 +766,16 @@ Statement* AlignRule::GenRule(File *file, const int variant) const
         alignEachDim[i] = new SgVarRefExp(findSymbolOrCreate(file, "*"));    
 
     for (int i = 0; i < alignRuleWith.size(); ++i)
-        alignEachDim[alignRuleWith[i].first] = genSgExpr(file, alignNames[i], alignRuleWith[i].second);
+        if (alignRuleWith[i].first != -1)
+            alignEachDim[alignRuleWith[i].first] = genSgExpr(file, alignNames[i], alignRuleWith[i].second);
+
+    auto newOrder = alignWith->GetNewTemplateDimsOrder();
+    if (newOrder.size() != 0)
+    {
+        vector<SgExpression*> alignEachDimNew(alignEachDim);
+        for (int i = 0; i < newOrder.size(); ++i)
+            alignEachDim[i] = alignEachDimNew[newOrder[i]];
+    }
 
     for (int i = 0; i < alignWith->GetDimSize(); ++i)
         alignWithRef->addSubscript(*alignEachDim[i]);

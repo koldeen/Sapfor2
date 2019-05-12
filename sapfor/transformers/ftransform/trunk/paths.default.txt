@@ -1,9 +1,0 @@
-fdvm_include=../../../../dvm/fdvm/trunk/include/
-sage_include_1=../../../../dvm/fdvm/trunk/Sage/lib/include/
-sage_include_2=../../../../dvm/fdvm/trunk/Sage/h/
-libdb_sources=../../../../dvm/fdvm/trunk/Sage/lib/oldsrc/
-sage_sources=../../../../dvm/fdvm/trunk/Sage/lib/newsrc/
-sagepp_sources=../../../../dvm/fdvm/trunk/Sage/Sage++/
-parser_sources=../../../../dvm/fdvm/trunk/parser/
-sapfor2017_include=../../../../sapfor/experts/Sapfor_2017/_src/
-sapfor2017_sources=../../../../sapfor/experts/Sapfor_2017/_src/

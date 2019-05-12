@@ -1618,14 +1618,16 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
 
 map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 {
+    map<string, set<SgSymbol*>> byUse;
     int var = stIn->variant();
     while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
     {
         stIn = stIn->controlParent();
+        if (stIn == NULL)
+            return byUse;
         var = stIn->variant();
     }
-
-    map<string, set<SgSymbol*>> byUse;
+    
     for (SgStatement *stat = stIn->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
     {
         if (stat->variant() == USE_STMT)

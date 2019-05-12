@@ -33,13 +33,13 @@ void VarDeclCorrecter(SgFile *file)
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         while (st != lastNode)
-        {
-            currProcessing.second = NULL;
+        {            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;
