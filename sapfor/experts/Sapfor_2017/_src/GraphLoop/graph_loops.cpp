@@ -423,6 +423,7 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
             if (symb)
             {
                 const string strSymb = symb->identifier();
+
                 has = has || recSymbolFind(start, strSymb, VAR_REF);
                 has = has || recSymbolFind(end, strSymb, VAR_REF);
                 has = has || recSymbolFind(step, strSymb, VAR_REF);

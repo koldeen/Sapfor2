@@ -69,6 +69,9 @@ namespace Distribution
         // original sizes + shifts
         VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> sizesExpr;
 
+        VECTOR<PAIR<int, int>> orderedSizes;
+        VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>> orderedSizesExpr;
+
         // template info by region
         MAP<int, TemplateLink*> templateInfo;
         bool isTemplFlag;
@@ -249,8 +252,8 @@ namespace Distribution
                 }
             }
         }
-        const VECTOR<PAIR<int, int>>& GetSizes() const { return sizes; }
-        const VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>>& GetSizesExpr() const { return sizesExpr; }
+        const VECTOR<PAIR<int, int>>& GetSizes();
+        const VECTOR<PAIR<PAIR<Expression*, PAIR<int, int>>, PAIR<Expression*, PAIR<int, int>>>>& GetSizesExpr();
         void SetTemplateFlag(const bool templFlag) { isTemplFlag = templFlag; }
         bool IsTemplate() const { return isTemplFlag; }
         bool IsLoopArray() const { return isLoopArrayFlag; }
@@ -272,7 +275,7 @@ namespace Distribution
             else
             {
                 TemplateLink *currLink = getTemlateInfo(regionId);
-                currLink->AddRule(dimNum, value, rule, templateArray_);                
+                currLink->AddRule(dimNum, value, rule, templateArray_);
             }
             return err;
         }
@@ -303,8 +306,8 @@ namespace Distribution
 
         void ExtendDimSize(const int dim, const PAIR<int, int> &size) 
         {
-            if (size.first == size.second)
-                return;
+            /*if (size.first == size.second)
+                return;*/
 
             sizes[dim].first = std::min(sizes[dim].first, size.first);
             sizes[dim].second = std::max(sizes[dim].second, size.second);
@@ -476,7 +479,12 @@ namespace Distribution
             if (dim >= dimSize)
                 return false;
             else
-                return mappedDims[dim];
+            {
+                if (templateDimsOrder.size() == 0)
+                   return mappedDims[dim];
+                else
+                   return mappedDims[templateDimsOrder[dim]];
+            }
         }
 
         void DeprecateDimension(const int dim, bool value = true)
@@ -497,7 +505,12 @@ namespace Distribution
             if (dim >= dimSize)
                 return false;
             else
-                return depracateToDistribute[dim];
+            {
+                if (templateDimsOrder.size() == 0)
+                    return depracateToDistribute[dim];
+                else
+                    return depracateToDistribute[templateDimsOrder[dim]];
+            }
         }
         
         bool IsAllDeprecated() const
@@ -507,6 +520,8 @@ namespace Distribution
                 ret = ret && depracateToDistribute[z];
             return ret;
         }
+
+		const VECTOR<bool>& GetDeprecetedDims() const { return depracateToDistribute; }
 
         int GetTypeSize() const { return typeSize; }
 
@@ -518,7 +533,13 @@ namespace Distribution
             return it->second;
         }
 
-        void ClearTemplateClones() { templateClones.clear(); templateDimsOrder.clear(); }
+        void ClearTemplateClones()
+        {
+            templateClones.clear();
+            templateDimsOrder.clear(); 
+            orderedSizes.clear();
+            orderedSizesExpr.clear();
+        }
 
         const MAP<VECTOR<dist>, STRING>& GetAllClones() const { return templateClones; }
 

@@ -55,6 +55,20 @@ static set<ExpressionValue> usedVariablesInStatement(SgStatement *st) {
 
 static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>>& result, SgStatement* definition, SgStatement* reachesHere)
 {
+    //this depends on
+    auto found_r = result.find(reachesHere);
+    if (found_r == result.end())
+    {
+        pair<set<SgStatement*>, set<SgStatement*>> newPair;
+        newPair.first = set<SgStatement*>();
+        newPair.second = set<SgStatement*>();
+        newPair.first.insert(definition);
+        result.insert(found_r, make_pair(reachesHere, newPair));
+    }
+    else
+        found_r->second.first.insert(definition);
+
+    //this used in
     auto found_d = result.find(definition);
     if(found_d == result.end())
     {
@@ -66,21 +80,9 @@ static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement
     }
     else
         found_d->second.second.insert(reachesHere);
-
-    auto found_r = result.find(reachesHere);
-        if(found_r == result.end())
-        {
-            pair<set<SgStatement*>, set<SgStatement*>> newPair;
-            newPair.first = set<SgStatement*>();
-            newPair.second = set<SgStatement*>();
-            newPair.first.insert(definition);
-            result.insert(found_r, make_pair(reachesHere, newPair));
-        }
-    else
-        found_r->second.first.insert(definition);
 }
 
-static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValue &symbol, vector <ControlFlowItem*> &cfis) {
+static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValue &symbol, map<SymbolKey, set<ExpressionValue>> &arraysAssingments, vector <ControlFlowItem*> &cfis) {
     if(cfis.size() == 0)
         findCFIsForStmt(st, cfis);
 
@@ -130,7 +132,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
 static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<SymbolKey, set<ExpressionValue>> &arraysAssingments, vector <ControlFlowItem*> &cfis) {
     stack<SgExpression*> toCheck;
 
-    if(checkSymbolUsedByProcsAndFuncs(st, symbol, cfis))
+    if(checkSymbolUsedByProcsAndFuncs(st, symbol, arraysAssingments, cfis))
         return true;
 
     SgExpression *lval = st->expr(0);
@@ -158,8 +160,9 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
             if(symbol.getUnparsed() == top->symbol()->identifier())
                 return true;
 
+        //TODO arraysAssignments
 /*        if(top->variant() == ARRAY_REF) {
-            //TODO ?
+
             if(symbol.getUnparsed() == top->unparse())
                 return true;
         }*/
@@ -242,14 +245,23 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
         {
             if(symbolIsUsed(cur, var, arraysAssingments, cfis))
             {
+/*                if(cur->lineNumber() == 393 || cur->lineNumber() == 317) {
+                    printf("checking %s\n", cur->unparse());
+                    printf("%s is used\n", var.getUnparsed().c_str());
+               }*/
+
+
                 auto expressions = definitions.find(var.getExp()->symbol());
                 if (expressions != definitions.end())
                 {
                     for (ExpressionValue* expValue : expressions->second)
                     {
                         SgStatement *def = expValue->getFrom();
-                        if (def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine && def->lineNumber() != cur->lineNumber())
+                        if (def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine && def->lineNumber() != cur->lineNumber()) {
                             addDefinitionReachesStatement(result, def, cur);
+//                            if(cur->lineNumber() == 393)
+//                                printf("connected to %s\n", def->unparse());
+                        }
                     }
                 }
             }

@@ -52,5 +52,5 @@ public:
 
 public:
     DistrVariantBase(const std::vector<dist> &distRule) : distRule(distRule) { }
-    std::string GenRuleBase() const;    
+    std::string GenRuleBase(const std::vector<int> &newOrder) const;
 };

@@ -1,11 +1,14 @@
 #include "CreateInterTree.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/utils.h"
 #include "../GraphCall/graph_calls_func.h"
 
 using std::string;
 using std::vector;
 using std::list;
 using std::map;
+using std::pair;
+using std::set;
 using std::cout;
 using std::endl;
 using std::fstream;
@@ -22,14 +25,24 @@ static void printTree(SpfInterval* inter, fstream &file, int level)
     if (!(inter->ifInclude))
     {
         for (int i = 0; i < inter->nested.size(); i++)
-            printTree(inter->nested[i], file, level + 1);    
+            printTree(inter->nested[i], file, level + 1);
         return;
     }
 
     for (int i = 0; i < level; i++)
         file << "  ";
-    file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()] << ", gcov_calls " << inter->calls_count << ") ";
-    file << " [" << inter->lineFile.first << ", " << inter->lineFile.second << "]\n";
+    file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()];
+    if (inter->begin->variant() == PROC_HEDR || inter->begin->variant() == FUNC_HEDR)
+    {
+        string name(inter->begin->symbol()->identifier());
+        convertToUpper(name);
+        file << ", " << name;
+    }
+    file << ", gcov_calls " << inter->calls_count << ") ";
+    file << " [" << inter->lineFile.first << ", " << inter->lineFile.second << "]";
+    if (inter->parent == NULL && level != 0)
+        file << " -- through PROC_CALL --";
+    file << "\n";
 
     for (int i = 0; i < inter->nested.size(); i++)
         printTree(inter->nested[i], file, level + 1);
@@ -709,12 +722,44 @@ static FuncInfo* getFunc(const string &file, const int line, const map<string, F
     return NULL;
 }
 
+static void createMapOfIntervals(const vector<SpfInterval*> &intervals, map<SgStatement*, SpfInterval*> &intervalsBySt)
+{
+    for (auto &interval : intervals)
+        intervalsBySt[interval->begin] = interval;
+
+    for (auto &interval : intervals)
+        if (interval->nested.size())
+            createMapOfIntervals(interval->nested, intervalsBySt);
+}
+
+static void insertAndSort(SpfInterval *nearest, SpfInterval *toInsert, SgStatement *stLine)
+{
+    if (nearest->nested.size() == 0)
+        nearest->nested.push_back(toInsert);
+    else
+    {
+        const int line = stLine->lineNumber();
+        for (int z = 0; z < nearest->nested.size(); ++z)
+        {
+            if (nearest->nested[z]->parent)
+            {
+                if (nearest->nested[z]->lineFile.first > line)
+                {
+                    nearest->nested.insert(nearest->nested.begin() + z, toInsert);
+                    return;
+                }
+            }
+        }
+                
+        nearest->nested.push_back(toInsert);
+    }
+}
+
 void uniteIntervalsBetweenProcCalls(map<string, vector<SpfInterval*>> &intervals, const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     map<string, map<SgStatement*, SpfInterval*>> intervalsBySt;
     for (auto &byFile : intervals)
-        for (auto &interval : byFile.second)
-            intervalsBySt[byFile.first][interval->begin] = interval;
+        createMapOfIntervals(byFile.second, intervalsBySt[byFile.first]);
 
     map<string, FuncInfo*> allFuncs;
     createMapOfFunc(allFuncInfo, allFuncs);
@@ -760,12 +805,7 @@ void uniteIntervalsBetweenProcCalls(map<string, vector<SpfInterval*>> &intervals
                                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                             auto nearest = findNearestUp(itI->second, base);
-                            bool inV = false;
-                            for (auto &elem : nearest->nested)
-                                if (elem == intvl)
-                                    inV = true;
-                            if (inV == false)
-                                nearest->nested.push_back(intvl);
+                            insertAndSort(nearest, intvl, base);
                         }
                     }
                 }

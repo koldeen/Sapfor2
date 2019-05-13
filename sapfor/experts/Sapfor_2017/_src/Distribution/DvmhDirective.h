@@ -28,8 +28,8 @@ struct DistrVariant : public DistrVariantBase
 {
 public:
     DistrVariant(const std::vector<dist> &distRule) : DistrVariantBase(distRule) { }
-    void GenRule(File *file, Expression *arrayRef) const;
-    std::vector<Expression*> GenRuleSt(File *file) const;
+    void GenRule(File *file, Expression *arrayRef, const std::vector<int> &newOrder) const;
+    std::vector<Expression*> GenRuleSt(File *file, const std::vector<int> &newOrder) const;
 };
 
 struct DataDirective : Directive

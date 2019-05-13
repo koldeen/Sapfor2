@@ -92,11 +92,30 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
 
     if (!distArray->IsLoopArray())
     {
+        int countOfDepr = 0;
         for (int z = 0; z < vInGraph.size(); ++z)
         {
             int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
             if (count <= 0)
-                distArray->DeprecateDimension(z);
+                countOfDepr++;
+        }
+
+        if (countOfDepr == distArray->GetDimSize())
+        {
+            for (int z = 0; z < distArray->GetDimSize(); ++z)
+            {
+                if (!distArray->IsDimMapped(z))
+                    distArray->DeprecateDimension(z);
+            }
+        }
+        else
+        {
+            for (int z = 0; z < vInGraph.size(); ++z)
+            {
+                int count = reducedG.CountOfConnectedForArray(vInGraph[z]);
+                if (count <= 0)
+                    distArray->DeprecateDimension(z);
+            }
         }
     }
 

@@ -53,11 +53,18 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
 {
     for(depGraph* dependencyGraph : depGraphs) {
     for(depNode* node : dependencyGraph->getNodes()) {
-        if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout))
+        if ((!isEqExpressions(node->varin, node->varout, collection)) && (node->varin != node->varout) )
         {
             bool hasDependency = false;
-            for (int i = 1; i < node->knowndist.size(); ++i)
-                hasDependency |= (node->knowndist[i] == 0 || node->distance[i] != 0);
+            for (int i = 1; i < node->knowndist.size(); ++i) {
+                if((node->typedep == ARRAYDEP) && (node->kinddep == 0))
+                    continue;
+                if((node->typedep == ARRAYDEP) && (node->kinddep == 2))
+                    continue;
+                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
+//                hasDependency |= (node->knowndist[i] != 0) || (node->distance[i] !=0);
+            }
+
             if (hasDependency)
             {
                 int inLine = node->stmtin->lineNumber();
@@ -71,6 +78,18 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
                     if (lineInsideBorder(outLine, border))
                         outIncluded = true;
                 }
+
+
+                if(!inIncluded && !outIncluded)
+                    continue;
+
+/*                if((!inIncluded && openDependencies.find(inLine) == openDependencies.end()) ||
+                    (!outIncluded && openDependencies.find(outLine) == openDependencies.end()))
+                {
+                    printf("\n");
+                    node->displayDep();
+                    printf("%d %d adding: ", node->knowndist[1], node->distance[1]);
+                }*/
 
                 if(!inIncluded && openDependencies.find(inLine) == openDependencies.end())
                     openDependencies.insert(inLine);
@@ -105,11 +124,16 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                         }
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
+                    {
+//                        printf("1 rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
+                    }
                 }
-                for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
+ /*               for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
                 {
                     int lineNumber = (*it)->lineNumber();
+//                    if(lineNumber < current->lineNumber())
+//                        continue;
                     bool included = false;
                     for(auto &b : borders)
                     {
@@ -120,9 +144,12 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                         }
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
+                    {
+                        printf("2 rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
+                    }
                 }
-
+*/
             }
         }
     }
@@ -256,36 +283,33 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     vector<LoopGraph*> loops = getLoopsFrom(borders, parentGraph);
     vector<depGraph*> depGraphs = getDepGraphsFor(loops, parentGraph);
 
-    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
+//    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
 //      printf("%s\n", since->unparse());
-
-//    if(depGraphs.size() == 0) //Нет зависимостей, можно взять изначальный фрагмент без измененений
-//        return continueSplitting(globalSince, globalTill, borders);
 
     map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMapForLoop(globalSince, globalTill);
 
     set<int> openDependencies;
-    //setupOpenDependencies(openDependencies, borders, depGraphs, collection);
+    setupOpenDependencies(openDependencies, borders, depGraphs, collection);
     addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
-        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
+/*        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
         for(auto& it : openDependencies)
             printf(" %d,", it);
-        printf("\n");
+        printf("\n");*/
 
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         openDependencies.clear();
 
         loops = getLoopsFrom(borders, parentGraph);
         depGraphs = getDepGraphsFor(loops, parentGraph);
-        //setupOpenDependencies(openDependencies, borders, depGraphs, collection);
+        setupOpenDependencies(openDependencies, borders, depGraphs, collection);
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
 
-    for (auto &fragment : borders)
+/*    for (auto &fragment : borders)
         printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
-
+*/
 
 
     glueBorders(borders);

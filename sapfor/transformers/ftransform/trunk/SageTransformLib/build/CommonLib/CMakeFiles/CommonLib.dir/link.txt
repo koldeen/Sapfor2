@@ -1,2 +1,0 @@
-/usr/bin/ar qc libCommonLib.a  CMakeFiles/CommonLib.dir/src/Log.cpp.o CMakeFiles/CommonLib.dir/src/StringUtils.cpp.o CMakeFiles/CommonLib.dir/src/Stacktrace.cpp.o CMakeFiles/CommonLib.dir/src/SageTransformException.cpp.o CMakeFiles/CommonLib.dir/src/SignalHandling.cpp.o
-/usr/bin/ranlib libCommonLib.a
