@@ -1280,7 +1280,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 bool topCheck = isOnlyTopPerfect(loop, distribution);
                 ParallelDirective *parDirective = loop->directive;
                 parDirective->cloneOfTemplate = "";
-                /*if (topCheck == false)
+                if (topCheck == false)
                 {  //try to unite loops and recheck
                     bool result = createNestedLoops(loop, depInfoForLoopGraph, messages);
                     if (result)
@@ -1288,7 +1288,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                         parDirective = loop->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(loop, distribution);
                     }
-                } */
+                }
                 
                 bool needToContinue = false;
                 if (topCheck)

@@ -139,14 +139,27 @@ static void printDepGraph(depGraph *dg)
     }
 }
 
-static void addToMap(SgStatement *in, SgStatement *out, depGraph *outerDepGraph, map<SgSymbol*, ddnature> &depMap)
+static void addToMap(SgStatement *stmt, depGraph *depGraph, map<SgSymbol*, ddnature> &depMap)
 {
-    depNode *node = outerDepGraph->isThereAnEdge(in, out);
+    depNode *node = NULL;
+
+    for (depNode *dn : depGraph->getNodes())
+        if(dn->stmtin == stmt && dn->stmtout == NULL)
+        {
+            node = dn;
+            break;
+        }
+
     if (node != NULL)
     {
         ddnature type = fromDepNode(node);
-        SgSymbol *symbol = node->varout->symbol();
-        depMap.insert(make_pair(symbol, type));
+        SgSymbol *symbol = node->varin->symbol();
+
+        auto it = depMap.find(symbol);
+        if(it != depMap.end())
+            depMap[symbol] = (it->second < type ? type : it->second);
+        else
+            depMap.insert(make_pair(symbol, type));
     }
 }
 
@@ -173,14 +186,10 @@ static map<SgSymbol*, ddnature> buildTransformerDependencyMap(SgForStmt *outerLo
     SgStatement *innerEnddo = getLastLoopStatement(innerLoop);
     map<SgSymbol*, ddnature> depMap;
 
-    for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerLoop; stmt = stmt->lexNext()) 
+    for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerEnddo; stmt = stmt->lexNext())
     {
-        //loop through invariants before inner loop
-        for (SgStatement *bodyStmt = innerLoop->lexNext(); bodyStmt != innerEnddo; bodyStmt = bodyStmt->lexNext()) 
-        {
-            addToMap(stmt, bodyStmt, outerDepGraph, depMap);
-            addToMap(bodyStmt, stmt, outerDepGraph, depMap);
-        }
+        addToMap(stmt, innerDepGraph, depMap);
+        addToMap(stmt, outerDepGraph, depMap);
     }
 
     return depMap;
@@ -248,23 +257,17 @@ static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatem
 
             if (!hasAntiOrOutputDep) 
             {
-                //TODO: add message
-                //string msg = "Only flow dependencies present, can tighten.";
-                //this->addMessage(0, invBegin->lineNumber(), msg);
+                __spf_print(1, "%d : Only flow dependencies present, can tighten.\n", invBegin->lineNumber());
                 return true;
             }
         }
         else 
         {
-            //TODO: add message
-            //string msg = "Invariant value not used in loop, can tighten.";
-            //this->addMessage(0, invBegin->lineNumber(), msg);
+            __spf_print(1, "%d : Invariant value not used in loop, can tighten.\n", invBegin->lineNumber());
             return true;
         }
     }
-    //TODO: add message
-    //string msg = "Invariant cannot be moved into loop.";
-    //this->addMessage(0, invBegin->lineNumber(), msg);
+    __spf_print(1, "%d : Invariant cannot be moved into loop.\n", invBegin->lineNumber());
     return false;
 }
 
@@ -272,14 +275,11 @@ static bool validateInvariantStatementAfterLoop(SgStatement* invBegin, SgStateme
 {
     if (invBegin == invEnd) 
     {
-        //TODO: add message
-        //string msg = "No invariants after loop";
-        //this->addMessage(0, invBegin->lineNumber(), msg);
+        __spf_print(1, "%d : No invariants after loop\n", invBegin->lineNumber());
         return true; //no after invariant;
     }
-    //TODO: add message
-    //string msg = "There are invariants after loop, cannot tighten";
-    //this->addMessage(0, invBegin->lineNumber(), msg);
+
+    __spf_print(1, "%d : There are invariants after loop, cannot tighten\n", invBegin->lineNumber());
     return false; //unknown, why would loop need that
 }
 
@@ -452,7 +452,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
         pair<SgForStmt*, depGraph*> outerLoopDependencies = getDepGraph(current, depInfoForLoopGraph);
         pair<SgForStmt*, depGraph*> innerLoopDependencies = getDepGraph(current->children.at(0), depInfoForLoopGraph);
 
-        if (outerLoopDependencies.first && outerLoopDependencies.second) 
+        if (outerLoopDependencies.first && outerLoopDependencies.second && innerLoopDependencies.first && innerLoopDependencies.second) 
         {
             SgForStmt *outerLoop = outerLoopDependencies.first;
 
