@@ -106,15 +106,14 @@ static pair<SgForStmt*, depGraph*> getDepGraph(LoopGraph *loopGraph, const map<L
 
 static ddnature fromDepNode(depNode *node)
 {
-    if (node->typedep == SCALARDEP || node->typedep == PRIVATEDEP || node->typedep == REDUCTIONDEP) 
+    if (node->typedep == SCALARDEP || node->typedep == PRIVATEDEP) 
     {
         ddnature nature = (ddnature) node->kinddep;
         switch (nature) 
         {
-            case ddflow:               
-            case ddanti:               
-            case ddoutput:               
-            case ddreduce:
+            case ddflow:
+            case ddanti:
+            case ddoutput:
                 return nature;
             default:
                 break;
