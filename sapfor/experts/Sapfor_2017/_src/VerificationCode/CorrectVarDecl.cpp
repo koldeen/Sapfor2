@@ -73,6 +73,9 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
         if (modules.size())
         {
             SgStatement *func = file->functions(z);
+            bool hasTemplateUse = false;
+            set<DIST::Array*> needToAdd;
+
             for (auto st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
             {
                 if (isSgExecutableStatement(st))
@@ -84,7 +87,12 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                     string modName = st->symbol()->identifier();
 
                     auto it = mod.find(modName);
-                                        
+                    if (modName == "dvmh_Template_Mod")
+                    {
+                        hasTemplateUse = true;
+                        break;
+                    }
+                        
                     if (ex && ex->variant() == ONLY_NODE && it != mod.end())
                     {
                         set<string> allS;
@@ -99,7 +107,7 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                             }
                         }
 
-                        set<DIST::Array*> needToAdd;
+                        //set<DIST::Array*> needToAdd;
                         for (auto &parReg : regs)
                         {
                             const DataDirective &dataDir = parReg->GetDataDir();
@@ -112,7 +120,7 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                             }
                         }
 
-                        for (auto &array : needToAdd)
+                        /*for (auto &array : needToAdd)
                         {
                             if (allS.find(array->GetShortName()) == allS.end())
                             {
@@ -122,9 +130,18 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
                                 newEx->setLhs(new SgExpression(RENAME_NODE, new SgVarRefExp(s), NULL, s));
                                 ex->setLhs(newEx);
                             }
-                        }
+                        }*/
                     }
                 }
+            }
+
+            if (!hasTemplateUse && needToAdd.size())
+            {
+                SgStatement* useSt = new SgStatement(USE_STMT);
+                useSt->setSymbol(*findSymbolOrCreate(file, "dvmh_Template_Mod"));
+                useSt->setlineNumber(getNextNegativeLineNumber());
+
+                func->insertStmtBefore(*useSt, *func);
             }
         }
     }
