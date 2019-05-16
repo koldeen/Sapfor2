@@ -14,6 +14,7 @@ extern int passDone;
 #include <vector>
 #include <queue>
 #include <iterator>
+#include <fstream>
 #include <omp.h>
 
 #include "../ParallelizationRegions/ParRegions.h"
@@ -83,6 +84,11 @@ GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
     result->calls.AssociateGraphWithHeader(st, result->CGraph);
     result->commons.MarkEndOfCommon(GetCurrentProcedure());
     result->file_id = current_file_id;
+
+    /*std::fstream fs;
+    fs.open("graph.txt", std::fstream::out);
+    fs << result->CGraph->GetVisualGraph(&result->calls);
+    fs.close();*/
 
     auto inserted = graphs.insert(make_pair(st->symbol()->identifier(), result));
     return inserted.first->second;

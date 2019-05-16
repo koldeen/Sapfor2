@@ -147,7 +147,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
 
             if (st == NULL)
             {
-                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#ifdef _WIN32
+                messagesForFile.push_back(Messages(ERROR, 1, L"¬нутренн€€ ошибка анализа, распараллеливание не будет выполнено дл€ данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1188,7 +1190,9 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
         {
             if (st == NULL)
             {
-                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#ifdef _WIN32
+                messagesForFile.push_back(Messages(ERROR, 1, L"¬нутренн€€ ошибка анализа, распараллеливание не будет выполнено дл€ данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1324,6 +1328,19 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 {
                                     if (modulesAndFuncs[i]->variant() == PROG_HEDR)
                                         templDecl = "";
+                                    else
+                                    {
+                                        set<DIST::Array*> realRefs;
+                                        getRealArrayRefs(dirWithArray.first, dirWithArray.first, realRefs, arrayLinksByFuncCalls);
+                                        for (auto &elem : realRefs)
+                                        {                                            
+                                            if (elem->GetTemplateArray(regionId)->GetLocation().first == DIST::arrayLocType::l_MODULE)
+                                            {
+                                                templDecl = "";
+                                                break;
+                                            }
+                                        }
+                                    }
 
                                     string toAdd = "";
                                     if (isModule && dvmhModule)
@@ -1526,7 +1543,9 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
         {
             if (st == NULL)
             {
-                messagesForFile.push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#ifdef _WIN32
+                messagesForFile.push_back(Messages(ERROR, 1, L"¬нутренн€€ ошибка анализа, распараллеливание не будет выполнено дл€ данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }

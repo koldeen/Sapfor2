@@ -4178,7 +4178,17 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
     if (!pt)
         return NULL;
     if (!isADeclBif(BIF_CODE(pt->thebif)))
-        return (SgExecutableStatement *)pt;
+    {
+#if __SPF
+        const int var = pt->variant();
+        if (var == CONTROL_END)
+            return isSgExecutableStatement(pt->controlParent());
+        else
+            return (SgExecutableStatement*)pt;
+#else
+        return (SgExecutableStatement*)pt;
+#endif
+    }
     else
     {
 #if __SPF

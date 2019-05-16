@@ -162,7 +162,7 @@ static pair<SgStatement*, SgStatement*> convertForall(SgStatement *st)
 }
 
 template<vector<SgStatement*> funcConv(SgStatement*)>
-static void convert(SgStatement *&curr, const string &message)
+static void convert(SgStatement *&curr, const wstring &messageR, const wstring &messageE)
 {
     const int lineNum = curr->lineNumber();
     vector<SgStatement*> replaceSt = funcConv(curr);
@@ -175,11 +175,12 @@ static void convert(SgStatement *&curr, const string &message)
     curr = curr->lexNext();
     toDel->deleteStmt();
 
-    char buf[512];
-    sprintf(buf, (message + " on line %d\n").c_str(), lineNum);
-    addToGlobalBufferAndPrint(buf);
+    //TODO
+    //char buf[512];
+    //sprintf(buf, (to_string(messageE) + " on line %d\n").c_str(), lineNum);
+    //addToGlobalBufferAndPrint(buf);
         
-    currMessages->push_back(Messages(NOTE, lineNum, to_wstring(message), 2002));
+    currMessages->push_back(Messages(NOTE, lineNum, messageR, messageE, 2002));
 }
 
 static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfLoops)
@@ -224,14 +225,21 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
     //TODO: add ASSIGN GOTO
     while (curr != lastNode)
     {
+        wstring bufR = L"";
         if (curr->variant() == ARITHIF_NODE)
         {
-            convert<convertArithIf>(curr, "convert arithmetic IF to simple IF");            
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"�������������� IF ��� ������������ � IF-ENDIF");
+#endif
+            convert<convertArithIf>(curr, L"convert arithmetic IF to simple IF", bufR);
             continue;
         }
         else if (curr->variant() == COMGOTO_NODE)
         {
-            convert<convertComGoto>(curr, "convert computed GOTO to simple IF");
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"������������ GOTO ��� ������������ � IF-ENDIF");
+#endif
+            convert<convertComGoto>(curr, L"convert computed GOTO to simple IF", bufR);
             continue;
         }
         else if (curr->variant() == ASSGOTO_NODE)
@@ -259,8 +267,9 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
                 char buf[512];
                 sprintf(buf, "ERROR: can not convert to END DO loop on line %d\n", lineNum);
                 addToGlobalBufferAndPrint(buf);
-
-                currMessages->push_back(Messages(ERROR, lineNum, L"can not convert to END DO loop", 2003));
+#ifdef _WIN32
+                currMessages->push_back(Messages(ERROR, lineNum, L"���������� ������������� ������������� ���� � END DO ����", L"can not convert to END DO loop", 2003));
+#endif
             }
         }
 
@@ -269,8 +278,9 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
             char buf[512];
             sprintf(buf, "convert to END DO loop on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
-
-            currMessages->push_back(Messages(NOTE, lineNum, L"convert to END DO loop", 2004));
+#ifdef _WIN32
+            currMessages->push_back(Messages(NOTE, lineNum, L"���� ��� ������������ � END DO ����", L"convert to END DO loop", 2004));
+#endif
         }
     }
 }

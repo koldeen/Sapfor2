@@ -20,5 +20,11 @@ bool FunctionsChecker(SgFile *file, std::map<std::string, std::pair<std::string,
 int VerifyFile(SgFile *file);
 void fixUseOnlyStmt(SgFile *file, const std::vector<ParallelRegion*> &regs);
 void correctModuleProcNames(SgFile *file);
+void correctModuleSymbols(SgFile *file);
+void replaceStructuresToSimpleTypes(SgFile* file);
 void restoreCorrectedModuleProcNames(SgFile *file);
 bool checkArgumentsDeclaration(SgProject *project, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::vector<ParallelRegion*> &regions, std::map<std::string, std::vector<Messages>> &SPF_messages);
+
+void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *insertB, const std::map<std::string, SgStatement*> &derivedTypesDecl);
+bool isDerivedAssign(SgStatement *st);
+std::map<std::string, SgStatement*> createDerivedTypeDeclMap(SgStatement *forS);

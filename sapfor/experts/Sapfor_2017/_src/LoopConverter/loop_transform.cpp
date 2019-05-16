@@ -474,7 +474,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
 
                 wchar_t buf[256];
                 //sprintf(buf, "loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
-                messages.push_back(Messages(NOTE, current->lineNum, buf, 2005));
+                //messages.push_back(Messages(NOTE, current->lineNum, buf, 2005));
             }
         }
     }

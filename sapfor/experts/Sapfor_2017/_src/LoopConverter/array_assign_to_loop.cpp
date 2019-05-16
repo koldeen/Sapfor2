@@ -15,6 +15,7 @@
 #include "../Utils/SgUtils.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../VerificationCode/verifications.h"
 
 using std::vector;
 using std::set;
@@ -335,7 +336,9 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (leftSections.size() != rightSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
+#ifdef _WIN32
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+#endif
     }
     else
     {
@@ -651,7 +654,9 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         rightSections.size() != assignSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
+#ifdef _WIN32
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+#endif
     }
     else
     {
@@ -1135,7 +1140,6 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
 //                move (create copy) init assigns in DECL before the first executable
 void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 {
-
     int funcNum = file->numberOfFunctions();
     auto useMapMod = createMapOfModuleUses(file);
     
@@ -1154,6 +1158,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         SgStatement *firstExec = NULL;
         SgStatement *controlParFristExec = NULL;
+
         for (SgStatement* st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
         {
             const int var = st->variant();
@@ -1170,6 +1175,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
         set<SgStatement*> useMods;
         map<string, set<SgSymbol*>> byUse = moduleRefsByUseInFunction(st);
 
+        map<string, SgStatement*> derivedTypesDecl = createDerivedTypeDeclMap(st);
         for (; st != lastNode; st = st->lexNext())
         {
             if (st->variant() == CONTAINS_STMT)
@@ -1184,14 +1190,20 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     if (completeInit)
                     {
                         SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
-                        toAdd->setFileId(controlParFristExec->getFileId());
-                        toAdd->setProject(controlParFristExec->getProject());
 
-                        firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+                        if (isDerivedAssign(toAdd))
+                            replaceDerivedAssigns(file, toAdd, firstExec, derivedTypesDecl);
+                        else
+                        {
+                            toAdd->setFileId(controlParFristExec->getFileId());
+                            toAdd->setProject(controlParFristExec->getProject());
 
+                            firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+
+                            toAdd->setlineNumber(getNextNegativeLineNumber());
+                            toAdd->setLocalLineNumber(st->lineNumber());
+                        }
                         toMove.push_back(make_pair(st, toAdd));
-                        toAdd->setlineNumber(getNextNegativeLineNumber());
-                        toAdd->setLocalLineNumber(st->lineNumber());
                     }
                 }
             }

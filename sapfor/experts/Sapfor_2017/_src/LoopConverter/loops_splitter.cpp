@@ -12,6 +12,7 @@ using std::map;
 using std::set;
 using std::pair;
 using std::make_pair;
+using std::wstring;
 
 static SgForStmt* createNewLoop(LoopGraph *globalLoop)
 {
@@ -57,11 +58,13 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
         {
             bool hasDependency = false;
             for (int i = 1; i < node->knowndist.size(); ++i) {
-                if((node->typedep == ARRAYDEP) && (node->kinddep == 0))
+                if((node->typedep == ARRAYDEP) && (node->kinddep == 0)) //FLOW
                     continue;
-                if((node->typedep == ARRAYDEP) && (node->kinddep == 2))
+                if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
                     continue;
-                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
+                //ANTI and REDUCE
+                hasDependency |= (node->knowndist[i] == 0) || ((node->knowndist[i] == 1) && (node->distance[i] != 0));
+//                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
 //                hasDependency |= (node->knowndist[i] != 0) || (node->distance[i] !=0);
             }
 
@@ -125,7 +128,7 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                     {
-//                        printf("1 rd %d -> %d\n", current->lineNumber(), lineNumber);
+//                        printf("rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
                     }
                 }
@@ -293,7 +296,7 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
-/*        printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
+/*       printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
         for(auto& it : openDependencies)
             printf(" %d,", it);
         printf("\n");*/
@@ -306,8 +309,8 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         setupOpenDependencies(openDependencies, borders, depGraphs, collection);
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
-
-/*    for (auto &fragment : borders)
+/*
+    for (auto &fragment : borders)
         printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
 */
 
@@ -348,7 +351,9 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
        
     if(directLoops != parentGraph->children.size())
     {
-        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"This loop has indirect child loops and can not be splitted", 2010));
+#ifdef _WIN32
+        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"Данный цикл содержит косвенные подциклы, поэтому не может быть разделен", L"This loop has indirect child loops and can not be splitted", 2010));
+#endif
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
     }
@@ -383,9 +388,12 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
                     __spf_printToBuf(str, "Can not split this loop because of dependecy: %s", node->displayDepToStr().c_str());
                     __spf_print(1, "%s on line %d\n", str.c_str(), parentGraph->lineNum);
 
-                    std::wstring strw;
-                    __spf_printToLongBuf(strw, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
-                    messages.push_back(Messages(WARR, parentGraph->lineNum, strw, 2009));                    
+                    wstring strR, strE;
+                    __spf_printToLongBuf(strE, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(strR, L"Невозможно разделить данный цикл из-за следующей зависимости: %s", to_wstring(node->displayDepToStr()).c_str());
+#endif
+                    messages.push_back(Messages(WARR, parentGraph->lineNum, strR, strE, 2009));
                 }
             }
         }
@@ -411,9 +419,12 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
     if (lowestParentGraph->hasLimitsToSplit())
     {
+#ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
+                            L"У данного цикла есть ограничение на распараллеливание (в строке " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             L"This loop has limits to parallel (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             2010));
+#endif
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }
@@ -421,9 +432,12 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
+#ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum, 
-                           L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
+                           L"У данного цикла есть зависимости, которые нельзя проанализирова, поэтому он не может быть разделен (в строке " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
+                           L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                            2010));
+#endif
         __spf_print(1, "%d loop has unexpected dependencies and can not be splitted (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }

@@ -113,9 +113,12 @@ static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpr
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != call->numberOfArgs())
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
-                    messagesForFile.push_back(Messages(ERROR, currLine, bufw, 1046));
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, currLine, bufR, bufE, 1046));
                     throw -991;
                 }
             }
@@ -247,9 +250,12 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     currInfo = it->second;
                     if (currInfo->funcParams.countOfPars != fc->numberOfArgs())
                     {
-                        std::wstring bufw;
-                        __spf_printToLongBuf(bufw, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
-                        messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufw, 1046));
+                        wstring bufE, bufR;
+                        __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+#endif
+                        messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufR, bufE, 1046));
                         throw -991;
                     }
                 }
@@ -492,9 +498,12 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                 currInfo = it->second;
                 if (currInfo->funcParams.countOfPars != callStat->numberOfArgs())
                 {
-                    wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
-                    messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufw, 1046));
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufR, bufE, 1046));
                     throw -991;
                 }
             }

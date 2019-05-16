@@ -633,16 +633,19 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
         {            
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
-                std::wstring bufw;
-                __spf_printToLongBuf(bufw, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 
                                      to_wstring(loops[i]->region->GetName()).c_str());
 
-                auto itM = uniqMessages.find(bufw);
+                auto itM = uniqMessages.find(bufE);
                 if (itM == uniqMessages.end())
                 {
-                    uniqMessages.insert(itM, bufw);
-
-                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufw, 1016));
+                    uniqMessages.insert(itM, bufE);
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Невозможно вычислить количество итераций данного цикла, информация о количестве итераций для всех остальных циклов в области распараллеливания '%s' будет проигнорирована",
+                                         to_wstring(loops[i]->region->GetName()).c_str());
+#endif
+                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufR, bufE, 1016));
                     __spf_print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
                 }
                 isNotOkey.insert(loops[i]->region);

@@ -31,6 +31,7 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 struct MapToArray
 {
@@ -637,10 +638,15 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                 if (!statusOk)
                                 {
-                                    std::wstring bufw;
-                                    __spf_printToLongBuf(bufw, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
+                                    wstring bufE, bufR;
+                                    __spf_printToLongBuf(bufE, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
                                                          to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
-                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufw, 4011));
+#ifdef  _WIN32
+                                    __spf_printToLongBuf(bufR, L"У массивов '%s' и '%s' разные правила выравнивания согласно обращению на запись в в данном цикле",
+                                                         to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
+#endif 
+
+                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufR, bufE, 4011));
                                     sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
                                     break;
                                 }

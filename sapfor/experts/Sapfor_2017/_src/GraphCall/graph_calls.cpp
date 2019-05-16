@@ -1003,14 +1003,30 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                         bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
 
                         string add = "";
+                        wstring addW = L"";
                         if (type1)
+                        {
                             add += "(as out argument";
+#ifdef _WIN32
+                            addW += L"(как выходной аргумент";
+#endif
+                        }
                         if (type2)
                         {
                             if (type1)
+                            {
                                 add += ", as array in function)";
+#ifdef _WIN32
+                                addW += L", как массив в функции)";
+#endif
+                            }
                             else
+                            {
                                 add += "(as array in function)";
+#ifdef _WIN32
+                                addW += L"(как массив в функции)";
+#endif
+                            }
                         }
                         else
                             add += ")";
@@ -1025,20 +1041,26 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 {
                                     if (loop)
                                     {
-                                        std::wstring bufw;
-                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
+                                        wstring bufE, bufR;
+                                        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
-
-                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' в цикле на строке %d %s",
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), addW.c_str());
+#endif
+                                        messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
                                     else
                                     {
-                                        std::wstring bufw;
-                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
+                                        wstring bufE, bufR;
+                                        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
-
-                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' %s",
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), addW.c_str());
+#endif
+                                        messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
                                 }
@@ -1069,15 +1091,22 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     inFunction->DeprecateAllDims();
                                     inFunction->SetNonDistributeFlag(DIST::NO_DISTR);
 
-                                    std::wstring bufw;
-                                    if (inFunction->GetDimSize() == 1)
-                                        __spf_printToLongBuf(bufw, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
+                                    wstring bufE, bufR;
+                                    if (inFunction->GetDimSize() == 1)                                    
+                                        __spf_printToLongBuf(bufE, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
                                                              to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
                                     else
-                                        __spf_printToLongBuf(bufw, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
+                                        __spf_printToLongBuf(bufE, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
-
-                                    messages.push_back(Messages(NOTE, statLine, bufw, 1040));
+#ifdef _WIN32
+                                    if (inFunction->GetDimSize() == 1)                                    
+                                        __spf_printToLongBuf(bufR, L"Первое измерение массива '%s' запрещено к распределению из-за передачи в функцию '%s'", 
+                                                             to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+                                    else
+                                        __spf_printToLongBuf(bufR, L"Первые %d измерений массива '%s' запрещены к распределению из-за передачи к функцию '%s'", 
+                                                             inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+#endif
+                                    messages.push_back(Messages(NOTE, statLine, bufR, bufE, 1040));
                                 }
                             }
                         }
@@ -1094,11 +1123,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray->GetDimSize() != inFunction->GetDimSize() && 
                                     !(inFunction->GetNonDistributeFlag() && !mainArray->GetNonDistributeFlag()))
                                 {
-                                    std::wstring bufw;
-                                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
-                                             to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
-
-                                    messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+                                    wstring bufE, bufR;
+                                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
+                                                         to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufR, L"Требуется подставить функцию '%s' из-за разной размерности массива %s', передаваемого в качестве параметра: размерность формального параметра = %d и фактического параметра = %d",
+                                                         to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize());
+#endif
+                                    messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                     __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'\n", 
                                                     func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
                                     ret = true;
@@ -1106,11 +1138,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                             }
                             else
                             {
-                                std::wstring bufw;
-                                __spf_printToLongBuf(bufw, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
+                                wstring bufE, bufR;
+                                __spf_printToLongBuf(bufE, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
-
-                                messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                __spf_printToLongBuf(bufR, L"Обнаружено несоответствие типов в функции '%s' в формальном и фактическом параметре для массива '%s'\n",
+                                                     to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
+#endif
+                                messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                 __spf_print(1, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
                                 ret = true;
                             }
