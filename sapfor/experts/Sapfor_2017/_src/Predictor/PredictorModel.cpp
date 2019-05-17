@@ -1011,9 +1011,9 @@ static vector<vector<long>> generate_matrixes(int procNum, int dim)
 
 static void addTimeMessage(map<string, vector<Messages>> &messagesByFile, const string file, const int line)
 {
-    wstring messg;
+    /*wstring messg;
     __spf_printToLongBuf(messg, L"Can not find execution time for this loop, try to get times statistic");
-    messagesByFile[file].push_back(Messages(ERROR, line, messg, 3016));
+    messagesByFile[file].push_back(Messages(ERROR, line, messg, 3016));*/
 
     __spf_print(1, "%s on line %d\n", "Can not find execution time for this loop, try to get times statistic", line);
 }

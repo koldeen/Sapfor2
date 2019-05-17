@@ -39,6 +39,7 @@ using std::vector;
 using std::string;
 using std::make_pair;
 using std::make_tuple;
+using std::wstring;
 
 const char *tag[];
 
@@ -677,9 +678,12 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             if (itM == SPF_messages.end())
                 itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-            std::wstring bufw;
-            __spf_printToLongBuf(bufw, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
-            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufw, 1017));
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"Ќевозможно найти определение дл€ символа '%s' в данной области видимости", to_wstring(toFind->identifier()).c_str());
+#endif
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufR, bufE, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         return NULL;
@@ -1706,7 +1710,11 @@ SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig
         {
             if (it->second.size() == 0)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            return *(it->second.begin());
+
+            map<string, SgSymbol*> byName;
+            for (auto& elem : it->second)
+                byName[elem->identifier()] = elem;
+            return byName.begin()->second;
         }
     }
     else

@@ -50,9 +50,12 @@ bool IncludeChecker(SgFile *file, const string &fileName, vector<Messages> &curr
                 {
                     __spf_print(1, "  ERROR: include '%s' at line %d has executable operators\n", st->fileName(), lastLine);
 
-                    wstring currM;
-                    __spf_printToLongBuf(currM, L"Include '%s' has executable operators", to_wstring(st->fileName()).c_str());
-                    currMessages.push_back(Messages(ERROR, lastLine, currM, 1019));
+                    wstring currE, currR;
+                    __spf_printToLongBuf(currE, L"Include '%s' has executable operators", to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(currR, L"¬ключаемый файл '%s' содержит исполн€емые операторы, что запрещено к распараллеливанию в системе SAPFOR", to_wstring(st->fileName()).c_str());
+#endif
+                    currMessages.push_back(Messages(ERROR, lastLine, currR, currE, 1019));
                     checkOK = false;
                 }
             }

@@ -33,7 +33,7 @@ void VarDeclCorrecter(SgFile *file)
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         while (st != lastNode)
-        {            
+        {
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -376,6 +376,86 @@ void correctModuleProcNames(SgFile *file)
     }
 }
 
+static void rename(SgExpression* ex, const map<SgSymbol*, SgSymbol*>& orig_rename)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF || ex->variant() == VAR_REF)
+        {
+            SgSymbol* s = ex->symbol();
+            SgSymbol* sOrig = OriginalSymbol(ex->symbol());
+            if (s != sOrig)
+            {
+                auto itF = orig_rename.find(sOrig);
+                if (itF != orig_rename.end())
+                    ex->setSymbol(itF->second);
+            }
+        }
+
+        rename(ex->lhs(), orig_rename);
+        rename(ex->rhs(), orig_rename);
+    }
+}
+
+static void fillOrigRename(SgExpression *ex, map<SgSymbol*, set<SgSymbol*>> &orig_rename)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF || ex->variant() == VAR_REF)
+        {
+            SgSymbol* s = ex->symbol();
+            SgSymbol* sOrig = OriginalSymbol(ex->symbol());
+            if (s != sOrig)
+                orig_rename[sOrig].insert(s);
+        }
+
+        fillOrigRename(ex->lhs(), orig_rename);
+        fillOrigRename(ex->rhs(), orig_rename);
+    }
+}
+
+//switch to only one synonym for each module renaming 
+void correctModuleSymbols(SgFile *file)
+{
+    int funcNum = file->numberOfFunctions();
+    for (int i = 0; i < funcNum; ++i)
+    {
+        SgStatement *stF = file->functions(i);
+        map<SgSymbol*, set<SgSymbol*>> orig_rename;
+
+        for (auto st = stF->lexNext(); st != stF->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (!isSgExecutableStatement(st))
+                continue;
+            for (int z = 0; z < 3; ++z)
+                fillOrigRename(st->expr(z), orig_rename);
+        }
+
+        map<SgSymbol*, SgSymbol*> orig_rename_2;
+        for (auto& elem : orig_rename)
+        {
+            if (elem.second.size() > 1)
+            {
+                map<string, SgSymbol*> byName;
+                for (auto& elem2 : elem.second)
+                    byName[elem2->identifier()] = elem2;
+                orig_rename_2[elem.first] = byName.begin()->second;
+            }
+        }
+        
+        if (orig_rename_2.size())
+        {
+            for (auto st = stF->lexNext(); st != stF->lastNodeOfStmt(); st = st->lexNext())
+            {
+                if (!isSgExecutableStatement(st))
+                    continue;
+                for (int z = 0; z < 3; ++z)
+                    rename(st->expr(z), orig_rename_2);
+            }
+        }
+    }
+}
+
 static void restoreInFunc(SgExpression *ex)
 {
     if (ex)
@@ -509,4 +589,223 @@ bool checkArgumentsDeclaration(SgProject *project,
     }
 
     return error;
+}
+
+static map<SgFile*, map<SgSymbol*, SgSymbol*>> copied;
+
+static void copySymbol(SgSymbol *&toCopy, SgSymbol *mainS, const vector<string> &structS, map<SgSymbol*, SgSymbol*> &copy)
+{
+    toCopy = &mainS->copy();
+    string new_name = "";
+    for (int z = structS.size() - 1; z >= 0; --z)
+        new_name += structS[z] + "_";
+    new_name += mainS->identifier();
+    toCopy->changeName(new_name.c_str());
+    copy[mainS] = toCopy;
+
+    SgStatement* decl = toCopy->makeVarDeclStmt();
+    SgStatement *scope = mainS->scope();
+    scope->insertStmtBefore(*decl, *scope->controlParent());
+}
+
+static SgExpression* replaceStructS(SgExpression *ex, map<SgSymbol*, SgSymbol*> &copy)
+{
+    SgExpression* retF = ex;
+    if (ex)
+    {
+        if (ex->variant() == RECORD_REF)
+        {
+            auto mainS = ex->rhs()->symbol();
+            vector<string> structS;
+            SgExpression* exS = ex->lhs();
+
+            while (exS->variant() == RECORD_REF)
+            {
+                structS.push_back(exS->rhs()->symbol()->identifier());
+                exS = exS->lhs();
+            }
+            structS.push_back(exS->symbol()->identifier());
+
+            SgSymbol* toCopy = NULL;
+            if (copy.find(mainS) == copy.end())
+                copySymbol(toCopy, mainS, structS, copy);
+            else
+                toCopy = copy[mainS];
+
+            retF = new SgVarRefExp(toCopy);
+        }
+        else
+        {
+            auto ret = replaceStructS(ex->lhs(), copy);
+            if (ret != ex->lhs())
+                ex->setLhs(ret);
+            ret = replaceStructS(ex->rhs(), copy);
+            if (ret != ex->rhs())
+                ex->setRhs(ret);
+        }
+    }
+    return retF;
+}
+
+void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *insertB, const map<string, SgStatement*> &derivedTypesDecl)
+{
+    map<SgSymbol*, SgSymbol*> &copy = copied[file];
+
+    SgExpression* left = stToCopy->expr(0);
+    SgExpression* right = stToCopy->expr(1);
+
+    vector<SgExpression*> structConstructor;
+    if (right->variant() == STRUCTURE_CONSTRUCTOR)
+    {        
+        SgExprListExp *constr = (SgExprListExp *)right->lhs();
+        
+        for (int z = 0; z < constr->length(); ++z)
+            structConstructor.push_back(constr->elem(z));
+    }
+
+    auto it = derivedTypesDecl.find(left->symbol()->type()->symbol()->identifier());
+    if (it == derivedTypesDecl.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* derived = it->second;
+    vector<string> structSL;
+    vector<string> structSR;
+    structSL.push_back(left->symbol()->identifier());
+    structSR.push_back(right->symbol()->identifier());
+
+    int z = 0;
+    for (auto st = derived->lexNext(); st != derived->lastNodeOfStmt(); st = st->lexNext())
+    {        
+        if (st->variant() == VAR_DECL || st->variant() == VAR_DECL_90)
+        {
+            SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
+            for (int k = 0; k < declStat->numberOfSymbols(); ++k)
+            {
+                auto currS = declStat->symbol(k);
+                string toFindL = string(left->symbol()->identifier()) + "_" + currS->identifier();
+                string toFindR = string(right->symbol()->identifier()) + "_" + currS->identifier();
+                SgSymbol *lS = NULL, *rS = NULL;
+                for (auto &elem : copy)
+                {
+                    if (elem.second->identifier() == toFindL)
+                        lS = elem.second;
+                    else if (elem.second->identifier() == toFindR)
+                        rS = elem.second;
+                }
+                if (!lS)
+                    copySymbol(lS, currS, structSL, copy);
+
+                SgStatement *ass = NULL;
+                if (structConstructor.size())
+                    ass = new SgAssignStmt(*new SgVarRefExp(lS), structConstructor[z++]->copy());
+                else
+                {
+                    if (!rS)
+                        copySymbol(rS, currS, structSR, copy);
+                    ass = new SgAssignStmt(*new SgVarRefExp(lS), *new SgVarRefExp(rS));
+                }
+                ass->setProject(stToCopy->getProject());
+                ass->setFileId(stToCopy->getFileId());
+                ass->setlineNumber(getNextNegativeLineNumber());
+                ass->setLocalLineNumber(stToCopy->lineNumber());
+                insertB->insertStmtBefore(*ass, *insertB->controlParent());
+            }
+        }
+    }
+}
+
+bool isDerivedAssign(SgStatement *st)
+{
+    if (st->variant() == ASSIGN_STAT)
+    {
+        auto left = st->expr(0);
+        auto right = st->expr(1);
+        if (left->variant() == VAR_REF && (right->variant() == VAR_REF || right->variant() == CONST_REF))
+        {
+            bool nul = !(left->lhs()) || !(left->rhs()) || !(right->lhs()) || !(right->rhs());
+            if (nul)
+            {
+                SgType* lType = left->symbol()->type();
+                SgType* rType = right->symbol()->type();
+                if (lType == NULL || rType == NULL)
+                    return false;
+
+                if (lType->variant() == T_DERIVED_TYPE && rType->variant() == T_DERIVED_TYPE &&
+                    !lType->hasBaseType() && !rType->hasBaseType())
+                {
+                    if (lType->symbol() == rType->symbol())
+                    {
+                        if (right->variant() == CONST_REF)
+                        {
+                            SgConstantSymb *sc = isSgConstantSymb(right->symbol());
+                            if (sc->constantValue())
+                                st->setExpression(1, sc->constantValue());                            
+                        }                        
+                        return true;
+                    }
+                }
+            }
+        }
+        else if (left->variant() == VAR_REF && right->variant() == STRUCTURE_CONSTRUCTOR)
+        {
+            SgType* lType = left->symbol()->type();
+            if (lType == NULL)
+                return false;
+
+            if (lType->variant() == T_DERIVED_TYPE && !lType->hasBaseType())
+                return true;            
+        }
+    }
+
+    return false;
+}
+
+map<string, SgStatement*> createDerivedTypeDeclMap(SgStatement *forS)
+{
+    map<string, SgStatement*> derivedTypesDecl;
+    
+    for (SgStatement* st = forS; st != forS->lastNodeOfStmt(); st = st->lexNext())
+    {
+        if (!isSgExecutableStatement(st))
+        {
+            if (st->variant() == STRUCT_DECL)
+                derivedTypesDecl[st->symbol()->identifier()] = st;
+            continue;
+        }
+        else
+            break;
+    }
+    return derivedTypesDecl;
+}
+
+void replaceStructuresToSimpleTypes(SgFile *file)
+{
+    copied[file] = map<SgSymbol*, SgSymbol*>();
+
+    int numF = file->numberOfFunctions();
+    for (int z = 0; z < numF; ++z)
+    {        
+        for (SgStatement* st = file->functions(z); st != file->functions(z)->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (!isSgExecutableStatement(st))
+                continue;
+
+            for (int z = 0; z < 3; ++z)
+            {
+                auto ret = replaceStructS(st->expr(z), copied[file]);
+                if (ret != st->expr(z))
+                    st->setExpression(z, ret);
+            }
+        }
+
+        map<string, SgStatement*> derivedTypesDecl = createDerivedTypeDeclMap(file->functions(z));
+        for (SgStatement* st = file->functions(z); st != file->functions(z)->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (!isSgExecutableStatement(st))
+                continue;
+
+            if (isDerivedAssign(st))
+                replaceDerivedAssigns(file, st, st, derivedTypesDecl);
+        }
+    }
 }

@@ -42,6 +42,7 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
 {
@@ -218,10 +219,15 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     __spf_print(1, "Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'\n", 
                                     dir.arrayRef2->GetShortName().c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
                                          to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
-                    messages.push_back(Messages(ERROR, loopLine, bufw, 3007));
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Невозможно создать с шаблоном для массива '%s': размерность массива '%d' и это не равно '%d'",
+                                         to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+#endif
+
+                    messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
