@@ -58,10 +58,10 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
         {
             bool hasDependency = false;
             for (int i = 1; i < node->knowndist.size(); ++i) {
-                if((node->typedep == ARRAYDEP) && (node->kinddep == 0)) //FLOW
+/*                if((node->typedep == ARRAYDEP) && (node->kinddep == 0)) //FLOW
                     continue;
                 if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
-                    continue;
+                    continue;*/
                 //ANTI and REDUCE
                 hasDependency |= (node->knowndist[i] == 0) || ((node->knowndist[i] == 1) && (node->distance[i] != 0));
 //                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
@@ -128,15 +128,13 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                     {
-//                        printf("rd %d -> %d\n", current->lineNumber(), lineNumber);
+                        //printf("rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
                     }
                 }
- /*               for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
+                for (auto it = found->second.second.begin(); it != found->second.second.end(); ++it)
                 {
                     int lineNumber = (*it)->lineNumber();
-//                    if(lineNumber < current->lineNumber())
-//                        continue;
                     bool included = false;
                     for(auto &b : borders)
                     {
@@ -148,11 +146,11 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                     {
-                        printf("2 rd %d -> %d\n", current->lineNumber(), lineNumber);
+                        //printf("2 rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
                     }
                 }
-*/
+
             }
         }
     }

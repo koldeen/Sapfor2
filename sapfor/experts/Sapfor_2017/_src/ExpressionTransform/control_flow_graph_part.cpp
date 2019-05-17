@@ -96,7 +96,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < callStmt->numberOfArgs(); ++i)
             {
                 SgExpression *arg = callStmt->arg(i);
-                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF/* || arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -110,7 +110,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < funcCall->numberOfArgs(); ++i)
             {
                 SgExpression *arg = funcCall->arg(i);
-                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF /*|| arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -228,7 +228,6 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
     int tillLine = till->lineNumber();
 
     map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> result;
-
     map<SymbolKey, set<ExpressionValue>> arraysAssingments;
 
     for(SgStatement* cur = since; cur != till; cur = cur->lexNext())
@@ -267,8 +266,8 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
                         SgStatement *def = expValue->getFrom();
                         if (def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine && def->lineNumber() != cur->lineNumber()) {
                             addDefinitionReachesStatement(result, def, cur);
- //                           if(cur->lineNumber() == 368 || cur->lineNumber() == 313)
- //                               printf("connected to %s\n", def->unparse());
+//                            if(cur->lineNumber() == 368 || cur->lineNumber() == 313)
+//                                printf("connected to %s\n", def->unparse());
                         }
                     }
                 }

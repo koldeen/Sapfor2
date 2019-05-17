@@ -451,7 +451,7 @@ static inline pair<string, SgStatement*>
     return make_pair("!DVM$ DISTRIBUTE " + distrRules[templIdx] + "\n", distrSt);
 }
 
-static string genDynamicDecl(DIST::Array *templ)
+static pair<string, SgStatement*> genDynamicDecl(DIST::Array *templ, SgFile *file)
 {
     auto allClones = templ->GetAllClones();
     string templDyn = "!DVM$ DYNAMIC " + templ->GetShortName();
@@ -459,7 +459,21 @@ static string genDynamicDecl(DIST::Array *templ)
     for (auto &elem : allClones)
         templDyn += ", " + elem.second;
     templDyn += "\n";
-    return templDyn;
+
+    SgStatement* templDynSt = NULL;
+
+    if (allClones.size() == 0)
+        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())), NULL, NULL);
+    else
+    {
+        SgExprListExp* list = new SgExprListExp();
+        list->setLhs(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
+        for (auto& elem : allClones)
+            list->append(*new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
+        templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, list, NULL, NULL);
+    }
+
+    return make_pair(templDyn, templDynSt);
 }
 
 static inline int findTeplatePosition(const DIST::Array *templ, const DataDirective &dataDir)
@@ -533,7 +547,7 @@ static pair<templateDir, string>
                             const int regionId, SgStatement *module, bool isMain, SgFile *file)
 {   
     DIST::Array *templ = findLinkWithTemplate(alignArray, allArrays, reducedG, regionId);   
-    SgStatement *templDynSt = NULL;
+    bool templDynSt = false;
     string lastReturn = "";
     
     //checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
@@ -569,21 +583,7 @@ static pair<templateDir, string>
         lastReturn = "!DVM$ INHERIT\n";
     }
     else
-    {
-        auto allClones = templ->GetAllClones();
-
-        if (allClones.size() == 0)
-            templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())), NULL, NULL);
-        else
-        {
-            SgExprListExp *list = new SgExprListExp();
-            list->setLhs(new SgVarRefExp(*findSymbolOrCreate(file, templ->GetShortName())));
-            for (auto &elem : allClones)
-                list->append(*new SgVarRefExp(*findSymbolOrCreate(file, elem.second)));
-            templDynSt = new SgStatement(DVM_DYNAMIC_DIR, NULL, NULL, list, NULL, NULL);
-        }
-        lastReturn = templ->GetShortName();        
-    }
+        lastReturn = templ->GetShortName();
 
     auto allClones = templ->GetAllClones();
     templateDir retDir;
@@ -627,8 +627,7 @@ static pair<templateDir, string>
         retDir.templDist.second.push_back(templDist.second);
     }
 
-    retDir.templDyn.first = genDynamicDecl(templ);
-    retDir.templDyn.second = templDynSt;
+    retDir.templDyn = genDynamicDecl(templ, file);
 
     return make_pair(retDir, lastReturn);
 }
@@ -809,11 +808,23 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
                     auto allClones = array->GetAllClones();
-                    string templDecl = genTemplateDelc(array, array->GetShortName(), file, NULL, true).first;
-                    for (auto &elem : allClones)
-                        templDecl += genTemplateDelc(array, elem.second, file, NULL, true).first;
+                    vector<SgStatement*> insertList1, insertList2;
+
+                    auto templDeclP = genTemplateDelc(array, array->GetShortName(), file, NULL, true);
+                    string templDecl = templDeclP.first;
+                    insertList1.push_back(templDeclP.second);
+
+                    for (auto& elem : allClones)
+                    {
+                        auto tmp = genTemplateDelc(array, elem.second, file, NULL, true);
+                        templDecl += tmp.first;
+                        insertList1.push_back(tmp.second);
+                    }
                     
-                    string templDist = genTemplateDistr(array, array->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, true, file).first;
+                    auto tmp = genTemplateDistr(array, array->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, true, file);
+                    string templDist = tmp.first;
+                    insertList2.push_back(tmp.second);
+
                     for (auto &elem : allClones)
                     {
                         vector<vector<dist>> tmpRuleSt = { elem.first };
@@ -833,10 +844,13 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                         strRule += ")";
                         vector<string> tmpStrRule = { strRule };
 
-                        templDist += genTemplateDistr(array, elem.second, tmpStrRule, tmpRuleSt, regionId, 0, true, file).first;
+                        tmp = genTemplateDistr(array, elem.second, tmpStrRule, tmpRuleSt, regionId, 0, true, file);
+                        templDist += tmp.first;
+                        insertList2.push_back(tmp.second);
                     }
 
-                    const string templDyn = genDynamicDecl(array);
+                    auto tmpDyn = genDynamicDecl(array, file);
+                    const string templDyn = tmpDyn.first;
                     const string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));                    
                               
                     bool needToInsert = true;
@@ -867,7 +881,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                                     if (stLoc->variant() == CONTAINS_STMT)
                                         break;
 
-                                    char *comment = stLoc->comments();
+                                    const char *comment = stLoc->comments();
                                     if (comment)
                                     {
                                         if (string(comment).find(templName) != string::npos)
@@ -888,10 +902,20 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     {
                         SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
                         
-                        if (extractDir)
+                        /*if (extractDir)
                             extractComments(nextSt, fullDecl);
                         else
-                            nextSt->addComment(fullDecl.c_str());
+                            nextSt->addComment(fullDecl.c_str());*/
+                        if (!extractDir)
+                        {
+                            auto cp = nextSt->controlParent();
+                            for (int z = 0; z < insertList1.size(); ++z)
+                            {
+                                nextSt->insertStmtBefore(*insertList1[z], *cp);
+                                nextSt->insertStmtBefore(*insertList2[z], *cp);
+                            }
+                            nextSt->insertStmtBefore(*tmpDyn.second, *cp);
+                        }
                     }
                 }
             }
@@ -925,20 +949,21 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                 if (location.second == name)
                 {
                     int templIdx = findTeplatePosition(array, dataDir);
-                    //XXX
-                    string templDecl = genTemplateDelc(array, array->GetShortName(), file, (SgStatement*)-1, true).first;
-                    string templDist = genTemplateDistr(array, array->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, true, file).first;
-                    string templDyn = "";
 
-                    string fullDecl = createFullTemplateDir(make_tuple(templDecl, templDist, templDyn));
+                    auto templDecl = genTemplateDelc(array, array->GetShortName(), file, (SgStatement*)-1, true);
+                    auto templDist = genTemplateDistr(array, array->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, true, file);
+                    
+                    const string fullDecl = createFullTemplateDir(make_tuple(templDecl.first, templDist.first, ""));
                     SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
 
                     if (includedToThisFile.find(fullDecl) == includedToThisFile.end())
                     {
-                        if (extractDir)
-                            extractComments(nextSt, fullDecl);
-                        else
-                            nextSt->addComment(fullDecl.c_str());
+                        if (!extractDir)
+                        {
+                            auto cp = nextSt->controlParent();
+                            nextSt->insertStmtBefore(*templDist.second, *cp);
+                            nextSt->insertStmtBefore(*templDecl.second, *cp);
+                        }
                     }
                 }
             }

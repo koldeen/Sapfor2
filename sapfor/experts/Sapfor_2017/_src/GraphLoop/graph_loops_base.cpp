@@ -969,7 +969,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
     {
         if (elem->IsAllDeprecated())
         {
-            std::wstring bufw, bufR;
+            wstring bufw, bufR;
             __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
 #ifdef _WIN32
             __spf_printToLongBuf(bufR, L"ћассив '%s' не может быть распределен, так как все его измерени€ запрещены к распределению",
@@ -1056,7 +1056,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA == trees.end() || itA->second < 0)
                                 {
-                                    std::wstring bufw, bufR;
+                                    wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"ћассив '%s' не может быть распределен",
@@ -1096,7 +1096,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA == trees.end() || itA->second != treeNum)
                                 {
-                                    std::wstring bufw, bufR;
+                                    wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"ћассив '%s' не может быть распределен",
@@ -1130,7 +1130,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                     }
                                     if (needToDeprecated)
                                     {
-                                        std::wstring bufw, bufR;
+                                        wstring bufw, bufR;
                                         __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(inCall->GetShortName()).c_str());
 #ifdef _WIN32
                                         __spf_printToLongBuf(bufR, L"ћассив '%s' не может быть распределен",

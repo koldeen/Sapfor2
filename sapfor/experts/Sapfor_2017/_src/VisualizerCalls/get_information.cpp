@@ -51,7 +51,7 @@ static void setOptions(const int *options)
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
     parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = options[MAX_SHADOW_WIDTH];
-    out_upper_case = 1;
+    out_upper_case = options[OUTPUT_UPPER];
 }
 
 static int strLen(const short *shString)
