@@ -162,16 +162,6 @@ static void addToMap(SgStatement *stmt, depGraph *depGraph, map<SgSymbol*, ddnat
     }
 }
 
-static SgStatement* getLastLoopStatement(SgForStmt* pForLoop) 
-{
-    SgStatement* stmt = pForLoop->body();
-    while (stmt &&
-          !(isSgControlEndStmt(stmt) && stmt->controlParent() && stmt->controlParent()->id() == pForLoop->id())) 
-        stmt = stmt->lexNext();
-    
-    return stmt;
-}
-
 static map<SgSymbol*, ddnature> buildTransformerDependencyMap(SgForStmt *outerLoop, depGraph *outerDepGraph, SgForStmt *innerLoop, depGraph *innerDepGraph)
 {
     __spf_print(1, "Print outer depgraph START\n");
@@ -182,7 +172,7 @@ static map<SgSymbol*, ddnature> buildTransformerDependencyMap(SgForStmt *outerLo
     printDepGraph(innerDepGraph);
     __spf_print(1, "Print inner depgraph END\n");
 
-    SgStatement *innerEnddo = getLastLoopStatement(innerLoop);
+    SgStatement *innerEnddo = innerLoop->lastNodeOfStmt();
     map<SgSymbol*, ddnature> depMap;
 
     for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerEnddo; stmt = stmt->lexNext())
@@ -216,25 +206,28 @@ static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatem
 {
     //by type check
     SgStatement* stmt = invBegin;
-    bool allAssignment = true;
-    while (stmt != invEnd && allAssignment) 
+    bool allAssignmentOrIf = true;
+    while (stmt != invEnd && allAssignmentOrIf) 
     {
-        allAssignment = allAssignment && isSgAssignStmt(stmt);
+        allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgControlEndStmt(stmt));
         stmt = stmt->lexNext();
     }
 
-    if (allAssignment) 
+    if (allAssignmentOrIf) 
     {
         bool hasFlowDep = false;
         stmt = invBegin;
         while (stmt != invEnd && !hasFlowDep) 
         {
             SgAssignStmt* assignStmt = isSgAssignStmt(stmt);
-            SgSymbol* symbol = assignStmt->lhs()->symbol();
-            auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
-            hasFlowDep = hasFlowDep
-                || dependency == ddflow
-                || dependency == dd_unknown;
+            if(assignStmt)
+            {
+                SgSymbol* symbol = assignStmt->lhs()->symbol();
+                auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
+                hasFlowDep = hasFlowDep
+                    || dependency == ddflow
+                    || dependency == dd_unknown;
+            }
             stmt = stmt->lexNext();
         }
 
@@ -245,12 +238,15 @@ static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatem
             while (stmt != invEnd && !hasAntiOrOutputDep) 
             {
                 SgAssignStmt* assignStmt = isSgAssignStmt(stmt);
-                SgSymbol* symbol = assignStmt->lhs()->symbol();
-                auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
-                hasAntiOrOutputDep = hasAntiOrOutputDep
-                    || dependency == ddanti
-                    || dependency == ddoutput
-                    || dependency == dd_unknown;
+                if(assignStmt)
+                {
+                    SgSymbol* symbol = assignStmt->lhs()->symbol();
+                    auto dependency = getOrDefault(dependencies, symbol, ddnovalue);
+                    hasAntiOrOutputDep = hasAntiOrOutputDep
+                        || dependency == ddanti
+                        || dependency == ddoutput
+                        || dependency == dd_unknown;
+                }
                 stmt = stmt->lexNext();
             }
 
@@ -284,12 +280,12 @@ static bool validateInvariantStatementAfterLoop(SgStatement* invBegin, SgStateme
 
 static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddnature> &dependencies) 
 {
-    SgStatement* outerEnddo = getLastLoopStatement(outerLoop);
+    SgStatement* outerEnddo = outerLoop->lastNodeOfStmt();
     SgForStmt* innerLoop = lexNextLoop(outerLoop->lexNext(), outerEnddo);
     if (innerLoop != NULL) 
     {
         bool beforeValid = validateInvariantStatementBeforeLoop(outerLoop->lexNext(), innerLoop, dependencies);
-        bool afterValid = validateInvariantStatementAfterLoop(getLastLoopStatement(innerLoop)->lexNext(), outerEnddo, dependencies);
+        bool afterValid = validateInvariantStatementAfterLoop(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
         return beforeValid && afterValid;
     }
     else 
@@ -318,7 +314,7 @@ static int canTighten(SgForStmt* pForLoop)
     SgForStmt* nextOuterLoop = pForLoop;
     while (nextOuterLoop) 
     {
-        SgStatement* outerLoopControlEnd = getLastLoopStatement(nextOuterLoop);
+        SgStatement* outerLoopControlEnd = nextOuterLoop->lastNodeOfStmt();
         SgStatement* nextInnerLoop = nextOuterLoop->lexNext();
         while (!isSgForStmt(nextInnerLoop) && nextInnerLoop != outerLoopControlEnd)
             nextInnerLoop = nextInnerLoop->lexNext();
@@ -329,7 +325,7 @@ static int canTighten(SgForStmt* pForLoop)
         {
             //check control ends
             SgForStmt* innerLoop = isSgForStmt(nextInnerLoop);
-            SgStatement* innerControlEnd = getLastLoopStatement(innerLoop);
+            SgStatement* innerControlEnd = innerLoop->lastNodeOfStmt();
             if (innerControlEnd->lexNext() == outerLoopControlEnd) 
             {
                 //controls are tight, can tighten this
@@ -352,10 +348,14 @@ static int canTighten(SgForStmt* pForLoop)
 
 static SgStatement* sinkIntoNextNearestLoop(SgStatement* pStmt, SgStatement* nextLoop) 
 {
-    //Log::debug("sinkIntoNextNearestLoop " + getLineNumber(pStmt));
+    __spf_print(1, "%d : SinkIntoNextNearestLoop\n", pStmt->lineNumber());
 
-    SgStatement *extr = pStmt->extractStmt();
-    nextLoop->insertStmtAfter(*extr, *nextLoop);
+    if(!isSgIfStmt(pStmt->controlParent()))
+    {
+        SgStatement *extr = pStmt->extractStmt();
+        nextLoop->insertStmtAfter(*extr, *nextLoop);
+    }
+    
     return pStmt;
 }
 
@@ -369,7 +369,7 @@ static SgControlEndStmt* lexPrevEnddo(SgStatement* pStmt, SgStatement* end)
 
 static SgStatement* sinkIntoPreviousNearestLoop(SgStatement* pStmt) 
 {
-    //Log::debug("sinkIntoPreviousNearestLoop " + getLineNumber(pStmt));
+    __spf_print(1, "%d : sinkIntoPreviousNearestLoop\n", pStmt->lineNumber());
 
     SgControlEndStmt * ctrlEnd = lexPrevEnddo(pStmt, NULL);
     SgForStmt * scope = isSgForStmt(ctrlEnd->controlParent());
@@ -407,8 +407,8 @@ static void tightenSingleLevel(SgForStmt* outerLoop, SgForStmt* topLevelForLoop)
         // insertion is done before inner loop enddo
 
         //begin := statement after closest inner loop enddo
-        SgStatement* begin = getLastLoopStatement(innerLoop)->lexNext();
-        SgStatement* end = getLastLoopStatement(outerLoop);
+        SgStatement* begin = innerLoop->lastNodeOfStmt()->lexNext();
+        SgStatement* end = outerLoop->lastNodeOfStmt();
         SgStatement* stmt = begin;
         SgStatement* next;
         while (stmt != end) 
