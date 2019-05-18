@@ -162,7 +162,7 @@ void InitPassesDependencies(map<passes, vector<passes>> &passDepsIn, set<passes>
 
     list({ CALL_GRAPH2, REVERT_SUBST_EXPR }) <= Pass(PRIVATE_ARRAYS_BREEDING);
 
-    list({ GCOV_PARSER, CREATE_INTER_TREE, CALL_GRAPH }) <= Pass(CREATE_PARALLEL_REGIONS);
+    list({ GCOV_PARSER, CREATE_INTER_TREE, CALL_GRAPH, CALL_GRAPH2 }) <= Pass(CREATE_PARALLEL_REGIONS);
 
     list({ LOOP_ANALYZER_DATA_DIST_S1, REVERT_SUBST_EXPR }) << list({ LOOPS_SPLITTER, LOOPS_COMBINER });
     

@@ -30,6 +30,6 @@ struct SpfRegion {
     }
 };
 
-const SpfInterval* findMainInterval(std::vector<SpfInterval*> &fileIntervals);
+SpfInterval* findMainInterval(std::vector<SpfInterval*> &fileIntervals);
 float performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo*>> &funcInfo, int rec_level = 0);
-void createParallelRegions(SgFile *file, std::vector<SpfInterval*> &fileIntervals, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo*>> &funcInfo);
+void createParallelRegions(SgFile *file, std::vector<SpfInterval*>&fileIntervals, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo*>> &funcInfo);
