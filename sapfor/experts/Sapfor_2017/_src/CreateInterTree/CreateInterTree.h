@@ -15,6 +15,10 @@ struct SpfInterval
     int tag = 0;
     long long calls_count = 0;
     bool ifInclude = true;
+
+    bool isRegion;
+    bool isNested;
+
     SgStatement *begin;
     std::pair<int, std::string> lineFile;
     SpfInterval *parent = NULL;
