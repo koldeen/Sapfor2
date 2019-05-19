@@ -196,7 +196,8 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     (var == USE_STMT && st->lineNumber() < 0) ||
                     var == HPF_TEMPLATE_STAT || 
                     var == DVM_ALIGN_DIR ||
-                    var == DVM_DISTRIBUTE_DIR)
+                    var == DVM_DISTRIBUTE_DIR || 
+                    var == DVM_VAR_DECL)
                 {
                     toDel.push_back(st);
 
@@ -219,7 +220,11 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
         if (extractDir)
         {
             for (int k = 0; k < toDel.size(); ++k)
-                toDel[k]->deleteStmt();            
+            {
+                if (toDel[k]->lineNumber() > 0)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                toDel[k]->deleteStmt();
+            }
         }
     }
 }
@@ -366,7 +371,12 @@ static inline pair<string, SgExpression*> genBoundsOfDim(const pair<int, int> &i
 static inline pair<string, SgStatement*> genTemplateDelc(DIST::Array *templ, const string &name, SgFile *file, SgStatement *module = NULL, bool isMain = false)
 {
     string templDecl = (module == NULL) ? "!DVM$ TEMPLATE, COMMON :: " : "!DVM$ TEMPLATE ";
-    SgStatement *templDeclSt = new SgStatement(HPF_TEMPLATE_STAT);
+    SgStatement* templDeclSt = NULL;
+
+    if (module == NULL)
+        templDeclSt = new SgStatement(DVM_VAR_DECL);
+    else
+        templDeclSt = new SgStatement(HPF_TEMPLATE_STAT);
 
     if (module && templ->IsTemplate() && !templ->IsLoopArray())
         templ->ChangeLocation(DIST::l_MODULE, module->symbol()->identifier());
@@ -409,7 +419,12 @@ static inline pair<string, SgStatement*> genTemplateDelc(DIST::Array *templ, con
             templDecl += ",";
     }
     templDecl += ")\n";
-    templDeclSt->setExpression(0, new SgArrayRefExp(*findSymbolOrCreate(file, name, new SgArrayType(*SgTypeInt())), *listDim));
+    if (module != NULL)
+        templDeclSt->setExpression(0, new SgArrayRefExp(*findSymbolOrCreate(file, name, new SgArrayType(*SgTypeInt())), *listDim));
+    else 
+        templDeclSt->setExpression(0, new SgExpression(EXPR_LIST, new SgArrayRefExp(*findSymbolOrCreate(file, name, new SgArrayType(*SgTypeInt())), *listDim), NULL, NULL));
+    if (module == NULL)
+        templDeclSt->setExpression(2, new SgExpression(EXPR_LIST, new SgExpression(TEMPLATE_OP), new SgExpression(EXPR_LIST, new SgExpression(COMMON_OP), NULL, NULL), NULL));    
 
     return make_pair(templDecl, templDeclSt);
 }

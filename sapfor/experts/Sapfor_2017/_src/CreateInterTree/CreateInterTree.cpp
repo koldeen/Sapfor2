@@ -252,6 +252,31 @@ static void calibrateExits(vector<SpfInterval*> fileIntervals, map<int, int> &la
     }
 }
 
+static void removeUserIntervals(SgFile *file)
+{
+    for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+    {
+        const int var = st->variant();
+        if (var == DVM_INTERVAL_DIR || var == DVM_EXIT_INTERVAL_DIR || var == DVM_ENDINTERVAL_DIR)
+        {            
+            //move comment to next statement
+            if (st->comments())
+            {
+                const char* comms = st->comments();
+                string comments(comms);
+                st->delComments();
+
+                SgStatement* next = st->lexNext();
+                if (next)
+                    next->addComment(comments.c_str());
+            }
+
+            st = st->lexPrev();
+            st->lexNext()->deleteStmt();
+        }
+    }
+}
+
 // Find intervals functions.
 static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIntervals)
 {
@@ -260,12 +285,12 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
     SgStatement *endSt = startSt->lastNodeOfStmt();
     SgStatement *currentSt = startSt;
 
-    while(currentSt != endSt)
+    while (currentSt != endSt)
     {
         if(currentSt->variant() == DVM_INTERVAL_DIR)
         {
             SgStatement* begin = currentSt;
-            while(isDVM_stat(begin))
+            while (isDVM_stat(begin))
                 begin = begin->lexNext();
 
             SpfInterval *inter = new SpfInterval();
@@ -279,24 +304,26 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
 
             currentInterval = inter;
         
-            currentSt = currentSt->lexPrev();
-            currentSt->lexNext()->deleteStmt();
+            //currentSt = currentSt->lexPrev();
+            //currentSt->lexNext()->deleteStmt();
         }
 
         if(currentSt->variant() == DVM_EXIT_INTERVAL_DIR)
         {
-            currentSt = currentSt->lexPrev();
-            currentSt->lexNext()->deleteStmt();
+            //currentSt = currentSt->lexPrev();
+            //currentSt->lexNext()->deleteStmt();
         }
 
         if(currentSt->variant() == DVM_ENDINTERVAL_DIR)
         {
+            if (currentInterval == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             currentInterval->ends.push_back(currentSt->lexPrev());
 
             currentInterval = currentInterval->parent;
 
-            currentSt = currentSt->lexPrev();
-            currentSt->lexNext()->deleteStmt();
+            //currentSt = currentSt->lexPrev();
+            //currentSt->lexNext()->deleteStmt();
         }
 
         currentSt = currentSt->lexNext();
@@ -491,6 +518,7 @@ static void insertTree(SpfInterval* interval)
 
 void insertIntervals(SgFile *file, const vector<SpfInterval*> &fileIntervals)
 {
+    removeUserIntervals(file);
     for (auto &interval : fileIntervals)
         insertTree(interval);
 }
@@ -505,15 +533,19 @@ static map<int, long long> parseProfiles(fstream &file)
     {
         getline(file, line);
 
-        int pos_type = line.find(":");
+        auto pos_type = line.find(":");
         string type = line.substr(0, pos_type);
 
         if (type == "lcount")
         {
+            if ((int)line.size() >= pos_type + 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             string nums = line.substr(pos_type + 1);
-            int pos_com = nums.find(",");
+            auto pos_com = nums.find(",");
 
-            int line_num = stoi(nums.substr(0, pos_com));
+            auto line_num = stoi(nums.substr(0, pos_com));
+            if ((int)nums.size() >= pos_com + 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             long long calls_num = stoll(nums.substr(pos_com + 1));
 
             fileProfile[line_num] = calls_num;
