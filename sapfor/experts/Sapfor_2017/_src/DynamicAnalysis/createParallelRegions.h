@@ -9,17 +9,18 @@
 #include <map>
 #include <vector>
 
-struct SpfRegion {
+struct SpfRegion 
+{
     int id;
 
-    float time;
+    double time;
     SgStatement *start;
     SgStatement *end;
 
-    SpfRegion(int id_, int time_, SgStatement *start_, SgStatement *end_) :
-        id(id_), time(time_), start(start_), end(end_) {}
+    SpfRegion(int id_, int time_, SgStatement *start_, SgStatement *end_) : 
+              id(id_), time(time_), start(start_), end(end_) {}
 
-    SpfRegion& operator+=(SpfRegion rg)
+    SpfRegion& operator+=(const SpfRegion &rg) 
     {
         if (this != &rg)
         {
@@ -30,6 +31,4 @@ struct SpfRegion {
     }
 };
 
-SpfInterval* findMainInterval(std::vector<SpfInterval*> &fileIntervals);
-float performTime(SgFile *file, SgStatement *src, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo*>> &funcInfo, int rec_level = 0);
-void createParallelRegions(SgFile *file, std::vector<SpfInterval*>&fileIntervals, std::map<int, Gcov_info> &gCovInfo, std::map<std::string, std::vector<FuncInfo*>> &funcInfo);
+void createParallelRegions(SgProject *project, SpfInterval *mainInterval, const std::map<std::string, std::map<int, Gcov_info>> &gCovInfo, const std::map<std::string, std::vector<FuncInfo*>> &funcInfo);
