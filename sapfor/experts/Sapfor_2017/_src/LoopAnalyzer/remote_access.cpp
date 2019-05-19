@@ -34,6 +34,7 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 #define FIRST(x)  get<0>(x)
 #define SECOND(x) get<1>(x)
@@ -488,9 +489,12 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
             string remoteExp(expr->unparse());
             __spf_print(1, "WARN: added remote access for array ref '%s' on line %d can significantly reduce performance\n", remoteExp.c_str(), line);
 
-            std::wstring bufw;
-            __spf_printToLongBuf(bufw, L"Added remote access for array ref '%s' can significantly reduce performance", to_wstring(remoteExp).c_str());
-            messages.push_back(Messages(WARR, line, bufw, 3009));
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Added remote access for array ref '%s' can significantly reduce performance", to_wstring(remoteExp).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"Добаленный REMOTE_ACCESS для обращения к массиву '%s' может привести к сильному замедлению", to_wstring(remoteExp).c_str());
+#endif
+            messages.push_back(Messages(WARR, line, bufR, bufE, 3009));
         }
     }
 }

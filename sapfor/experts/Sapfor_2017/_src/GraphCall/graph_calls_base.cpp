@@ -349,7 +349,11 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
 
             for (auto &func : it.second)
                 if (func->deadFunction)
-                    itM->second.push_back(Messages(NOTE, func->linesNum.first, L"This function is not called in current project", 1015));
+                {
+#ifdef _WIN32
+                    itM->second.push_back(Messages(NOTE, func->linesNum.first, L"Данная функция не вызывается в данном проекте", L"This function is not called in current project", 1015));
+#endif
+                }
         }
     }
 

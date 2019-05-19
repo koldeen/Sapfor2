@@ -267,9 +267,12 @@ bool checkRegionEntries(SgStatement *begin,
     {
         __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by GOTO on line %d\n", regIdent->identifier(), begin->lineNumber());
 
-        wstring message;
-        __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
-        getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), message, 1001));
+        wstring messageE, messageR;
+        __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
+#ifdef _WIN32
+        __spf_printToLongBuf(messageR, L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором GOTO", to_wstring(regIdent->identifier()).c_str());
+#endif
+        getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), messageR, messageE, 1001));
 
         noError = false;
     }
@@ -287,9 +290,12 @@ bool checkRegionEntries(SgStatement *begin,
             {
                 __spf_print(1, "wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY on line %d\n", reg->GetName().c_str(), funcSt->lineNumber());
 
-                wstring message;
-                __spf_printToLongBuf(message, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
-                getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), message, 1001));
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором ENTRY", to_wstring(reg->GetName()).c_str());
+#endif
+                getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), messageR, messageE, 1001));
 
                 noError = false;
             }
@@ -408,9 +414,12 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
     
     for (auto &array : usedArrays)
     {
-        std::wstring bufw;
-        __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
-        messages.push_back(Messages(ERROR, st->lineNumber(), bufw, 1047));
+        wstring bufE, bufR;
+        __spf_printToLongBuf(bufE, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
+#ifdef _WIN32
+        __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен", to_wstring(array->GetShortName()).c_str());
+#endif
+        messages.push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 1047));
         array->SetNonDistributeFlag(DIST::SPF_PRIV);
     }
 
@@ -606,7 +615,11 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Can not find execution time in statistic", 3016));                
+                {
+#ifdef _WIN32
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Невозможно считать DVM-статистику для получения времен", L"Can not find execution time in statistic", 3016));
+#endif
+                }
 
                 SgForStmt *currLoopRef = ((SgForStmt*)st);
 

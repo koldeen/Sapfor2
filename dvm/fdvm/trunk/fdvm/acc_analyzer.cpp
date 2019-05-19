@@ -330,8 +330,8 @@ void Private_Vars_Analyzer(SgStatement* start)
     std::fstream fs;
     fs.open("graph.txt", std::fstream::out);
     fs << CGraph->GetVisualGraph(&calls);
-    fs.close();*/    
-
+    fs.close();
+    */
     currentProcedure->graph->getPrivate();
 #if ACCAN_DEBUG
     calls.printControlFlows();
@@ -752,10 +752,7 @@ int ControlFlowItem::GetLineNumber()
 
 bool CBasicBlock::IsEmptyBlock()
 {
-    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {
-        if (it->getStatement() != NULL && it->getStatement()->lineNumber() == 54) {
-            printf("test");
-        }
+    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {        
         if (!it->IsEmptyCFI())
             return false;
     }
@@ -1311,14 +1308,21 @@ static ControlFlowItem* getControlFlowList(SgStatement *firstSt, SgStatement *la
     SgStatement *stmt;
     for (stmt = firstSt; (
         stmt != lastSt
-        && stmt->variant() != CONTROL_END && stmt->variant() != CONTAINS_STMT
+        && stmt->variant() != CONTAINS_STMT
         && (lastSt != NULL || stmt->variant() != ELSEIF_NODE)
         && (lastSt != NULL || stmt->variant() != CASE_NODE)
         && (lastSt != NULL || stmt->variant() != DEFAULT_NODE));
         stmt = stmt->lexNext())
     {
+        if (stmt->variant() == CONTROL_END)
+        {
+            if (isSgExecutableStatement(stmt))
+                break;
+        }
+
         cur = processOneStatement(&stmt, &pred, &list, cur, loops, calls, commons);
-        if (cur == NULL){
+        if (cur == NULL)
+        {
             clearList(list);
             return NULL;
         }

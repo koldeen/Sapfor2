@@ -220,9 +220,10 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                             {
                                 if (!findUnknownDepLen)
                                 {
+                                    //TODO
                                     wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays());
                                     depMessage += L" with unknown distance in loop on line " + std::to_wstring(currLoopRef->lineNumber()) + L" prevents parallelization";
-                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
+                                    currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
 
                                     // __spf_print only first unknown dep length
                                     findUnknownDepLen = true;
@@ -279,8 +280,9 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                         {
                             if (!findUnknownDepLen)
                             {
+                                //TODO
                                 wstring depMessage = to_wstring(currNode->createDepMessagebetweenArrays()) + L" prevents parallelization";
-                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, 3006));
+                                currMessages->push_back(Messages(NOTE, currNode->stmtin->lineNumber(), depMessage, depMessage, 3006));
 
                                 // __spf_print only first unknown dep length
                                 findUnknownDepLen = true;
@@ -331,9 +333,12 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                     __spf_print(1, "  unknown scalar dependencies by '%s' on line %d (try to specify its type)\n",
                                 unknownScalarDep[k]->varin->symbol()->identifier(), unknownScalarDep[k]->stmtin->lineNumber());
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"unknown scalar dependencies by '%s' (try to specify its type)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
-                    currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), message, 3005));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"unknown scalar dependencies by '%s' (try to specify its type)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Неизвестная зависимость по скалярной переменной '%s' (попробуйте вручную специфицировать ее тип)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
+#endif
+                    currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), messageR, messageE, 3005));
 
                     currLoop->linesOfScalarDep.push_back(unknownScalarDep[k]->stmtin->lineNumber());
                 }

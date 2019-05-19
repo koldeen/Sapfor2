@@ -147,7 +147,9 @@ static inline void printDvmActiveDirsErrors()
         for (auto &code : err.second)
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
-            currMessages.push_back(Messages(ERROR, code, L"Active DVM directives are not supported yet", 1020));
+#ifdef _WIN32
+            currMessages.push_back(Messages(ERROR, code, L"Активные DVM-директивы не поддерживаются в данный момент", L"Active DVM directives are not supported yet", 1020));
+#endif
         }
     }
 }
@@ -156,16 +158,16 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "WARR: line %d: %s\n", line, message);
-
-    currM.push_back(Messages(WARR, line, to_wstring(message), group));
+    //TODO
+    currM.push_back(Messages(WARR, line, to_wstring(message), to_wstring(message), group));
 }
 
 extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "NOTE: line %d: %s\n", line, message);
-
-    currM.push_back(Messages(NOTE, line, to_wstring(message), group));
+    //TODO
+    currM.push_back(Messages(NOTE, line, to_wstring(message), to_wstring(message), group));
 }
 
 static bool isDone(const int curr_regime)
@@ -241,7 +243,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
-            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
+#ifdef _WIN32
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+#endif
             throw(-1);
         }
 
@@ -273,7 +277,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             else
             {
                 __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
+#ifdef _WIN32
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+#endif
                 throw(-1);
             }
         }
@@ -838,13 +844,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-#if 1
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
-#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -901,9 +905,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (error)
                 {
-                    wstring message;
-                    __spf_printToLongBuf(message, L"Can not build align graph from user's DVM directives in this region");
-
+                    wstring messageR, messageE;
+                    __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Невозможно построить дерево выравнивания в данной области распараллеливания, используя пользовательские DVM-директивы");
+#endif
                     for (auto &lines : currReg->GetAllLines())
                     {
                         const auto &vecLines = lines.second;
@@ -914,7 +920,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             if (line.stats.first && line.stats.second)
                             {
-                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), message, 1036));
+                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), messageR, messageE, 1036));
 
                                 __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
                                             fileName.c_str(), line.stats.first->lineNumber());
@@ -990,9 +996,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (parallelRegions[z]->GetId() == 0) // DEFAULT
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this project");
-
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данном преокте");
+#endif
                     for (auto &funcByFile : allFuncInfo)
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
@@ -1000,21 +1008,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             auto stat = func->funcPointer->GetOriginal();
                             if (stat->variant() == PROG_HEDR)
-                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufw, 3010));
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufR, bufE, 3010));
                         }
                     }
                 }
                 else
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this region");
-
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данной области распараллеливания");
+#endif
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
                         for (auto &lines : linesByFile.second)
                             if (!lines.isImplicit())
-                                fileM.push_back(Messages(ERROR, lines.lines.first, bufw, 3010));
+                                fileM.push_back(Messages(ERROR, lines.lines.first, bufR, bufE, 3010));
                     }
                 }
                 idxToDel.insert(z);
@@ -1182,10 +1192,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             vector<Messages> &currMessages = getObjectForFileFromMap(place.first.c_str(), SPF_messages);
                             __spf_print(1, "  ERROR: distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-                            currMessages.push_back(Messages(ERROR, place.second, message, 1042));
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Распределенный массив '%s' состоящий в common блоке '%s' должен иметь описание в главной программной единице",
+                                                 to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
+#endif
+                            currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
                         }
                         internalExit = 1;
                     }
@@ -1625,7 +1639,11 @@ static SgProject* createProject(const char *proj_name)
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
 
     for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
         correctModuleProcNames(&(project->file(z)));
+        correctModuleSymbols(&(project->file(z)));
+        replaceStructuresToSimpleTypes(&(project->file(z)));
+    }
 
     Statement::activeConsistentchecker();
     return project;
@@ -1860,7 +1878,7 @@ int main(int argc, char **argv)
         int numVar = 0;
 
         out_free_form = 0; // F90 style out
-        //out_upper_case = 1;
+        out_upper_case = 1;
         bool printText = false;
 
         for (int i = 0; i < argc; ++i)

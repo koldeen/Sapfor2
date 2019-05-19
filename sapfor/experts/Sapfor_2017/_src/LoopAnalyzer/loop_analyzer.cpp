@@ -384,10 +384,13 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), line);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Коэффициент A в линейном обращении A*x+B к массиву '%s' не может быть отрицательным, так как инверсное распределение не поддерживается", to_wstring(arrayRefString.second).c_str());
+#endif
                     if (line > 0)
-                        currMessages->push_back(Messages(WARR, line, message, 1024));
+                        currMessages->push_back(Messages(WARR, line, messageR, messageE, 1024));
                 }
             }
             else
@@ -1354,7 +1357,9 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
         {
             retVal = true;
             loopRef->hasNonPureProcedures = true;
-            messagesForFile.push_back(Messages(WARR, line, L"Only pure procedures were supported", 1044));
+#ifdef _WIN32
+            messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+#endif
         }
     }
     bool retL = false, retR = false;
@@ -1471,7 +1476,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 #endif
             if (st == NULL)
             {
-                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#if _WIN32
+                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1764,9 +1771,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                 auto itF = privatesByModule.find(st->symbol()->identifier());
                 if (itF == privatesByModule.end())
                 {
-                    wstring message;
-                    __spf_printToLongBuf(message, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
-                    currMessages->push_back(Messages(ERROR, st->lineNumber(), message, 1028));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Описание модуля '%s' должено находиться в данном файле", to_wstring(st->symbol()->identifier()).c_str());
+#endif
+                    currMessages->push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1028));
 
                     __spf_print(1, "Module at line %d with name '%s' must be placed in current file\n", st->lineNumber(), st->symbol()->identifier());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1956,7 +1966,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                 {
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Only pure procedures were supported", 1044));
+#ifdef _WIN32
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+#endif
                                 }
                             }
 
@@ -2073,7 +2085,9 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 #endif
             if (st == NULL)
             {
-                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#ifdef _WIN32
+                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -2445,9 +2459,12 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
                     {
                         deprecatedByIO.insert(found, OriginalSymbol(symb)->identifier());
 
-                        wstring message;
-                        __spf_printToLongBuf(message, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
-                        currMessages.push_back(Messages(WARR, line, message, 1037));
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за ограничений ввода/вывода, накладываемых DVM системой", to_wstring(symb->identifier()).c_str());
+#endif
+                        currMessages.push_back(Messages(WARR, line, messageR, messageE, 1037));
 
                         __spf_print(1, "Array '%s' at line %d can not be distributed because of DVM's I/O constraints\n", symb->identifier(), line);
                     }
