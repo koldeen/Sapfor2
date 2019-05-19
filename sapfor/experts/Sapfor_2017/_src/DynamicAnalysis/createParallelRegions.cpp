@@ -32,6 +32,20 @@ static void markNestedIntervals(SpfInterval *interval)
     }
 }
 
+static int countOfIntervals(const SpfInterval *interval, const SpfInterval *mainInterval)
+{
+    int count = 0;
+    for (auto &item : mainInterval->nested)
+    {
+        if (item == interval)
+            count++;
+        else
+            count += countOfIntervals(interval, item);
+    }
+
+    return count;
+}
+
 static void performFuncTime(const map<string, vector<FuncInfo*>> &funcInfo, map<string, int> &countFunc)
 {
     int count = 0;
@@ -48,42 +62,60 @@ static void performFuncTime(const map<string, vector<FuncInfo*>> &funcInfo, map<
     }
 }
 
-double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gCovInfo, map<string, int> &calls, int recLevel)
+double performTime(SgProject* project, SgStatement *src, const map<string, map<int, Gcov_info>> &gCovInfo, map<string, int> &calls, int recLevel)
 {
     SgStatement* stmt = src;
-    auto it = gCovInfo.find(stmt->lineNumber());
-    if (it == gCovInfo.end())
+    if (!isSgExecutableStatement(stmt))
+        return 0.0;
+    auto gCovForFile = gCovInfo.find(string(stmt->fileName()));
+    if (gCovForFile == gCovInfo.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    auto gCovForStmt = gCovForFile->second.find(stmt->lineNumber());
+    if (gCovForStmt == gCovForFile->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    const Gcov_info& info = it->second;
+    const Gcov_info& info = gCovForStmt->second;
     double count = 0.0;
 
     switch (stmt->variant()) 
     {  
         case PROC_STAT:
-        if (recLevel <= 5)
         {
-            SgCallStmt *call = (SgCallStmt*) src;
-
-            if (info.getCountCalls() == 0)
-                break;
-
-            SgStatement *tmp = NULL;
-                
-            for (int i = 0; i < file->numberOfFunctions(); i++)
-                if (!strcmp(file->functions(i)->symbol()->identifier(), call->name()->identifier()))
-                    tmp = file->functions(i);
-
-            if (tmp == NULL)
-                break;
-               
-            while (tmp && tmp->variant() != RETURN_STAT)
+            if (recLevel <= 1)
             {
-                count += performTime(file, tmp, gCovInfo, calls, recLevel + 1);
-                tmp = tmp->lexNext();
+                SgCallStmt *call = (SgCallStmt*)src;
+                if (info.getCountCalls() == 0)
+                    break;
+                SgStatement *body = NULL;
+                const char* funcName = call->name()->identifier();
+                auto num = calls.find(string(funcName));
+                // its not a user function
+                if (num == calls.end())
+                   break;
+
+                for (int j = 0; j < project->numberOfFiles(); ++j)
+                {
+                    SgFile& file = project->file(j);
+                    if (SgFile::switchToFile(file.filename()) == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    for (int i = 0; i < file.numberOfFunctions(); ++i)
+                        if (!strcmp(file.functions(i)->symbol()->identifier(), funcName))
+                            body = file.functions(i);
+                }
+                if (body == NULL)
+                    break;
+
+                while (body && body->variant() != RETURN_STAT)
+                {
+                    count += performTime(project, body, gCovInfo, calls, recLevel + 1);
+                    body = body->lexNext();
+                }
+
+                count /= num->second;
             }
+            break;
         }
-        break;
         case IF_NODE:
         case LOGIF_NODE:
         case ELSEIF_NODE:
@@ -93,7 +125,7 @@ double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gC
             int t = 0;
             while (tmp->variant() != CONTROL_END)
             {
-                t += performTime(file, tmp, gCovInfo, calls, recLevel + 1);
+                t += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
                 tmp = tmp->lexNext();
             }
             count += (info.getBranches()[0].getPercent()) * 0.01 * t;
@@ -101,7 +133,7 @@ double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gC
             tmp = ifSt->falseBody();
             while (tmp && tmp->variant() != CONTROL_END)
             {
-                t += performTime(file, tmp, gCovInfo, calls, recLevel + 1);
+                t += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
                 tmp = tmp->lexNext();
             }
             count += (info.getBranches()[1].getPercent()) * 0.01 * t;
@@ -113,7 +145,7 @@ double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gC
             SgStatement* tmp = whileSt->body();
             while (tmp->variant() != CONTROL_END)
             {
-                count += performTime(file, tmp, gCovInfo, calls, recLevel + 1);
+                count += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
                 tmp = tmp->lexNext();
             }
             break;
@@ -124,7 +156,7 @@ double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gC
             SgStatement* tmp = forSt->body();
             while (tmp->variant() != CONTROL_END)
             {
-                count += performTime(file, tmp, gCovInfo, calls, recLevel + 1);
+                count += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
                 tmp = tmp->lexNext();
             }
             break;
@@ -153,49 +185,28 @@ double performTime(SgFile *file, SgStatement *src, const map<int, Gcov_info> &gC
 typedef pair<vector<SpfInterval*>, int> PositionInVector;
 typedef stack<PositionInVector> IntervalStack;
 
-double performIntervalTime(SgFile *file, const SpfInterval *interval, const map<int, Gcov_info> &gCovInfo, map<string, int> &calls)
+double performIntervalTime(SgProject* project, const SpfInterval *interval, const map<string, map<int, Gcov_info>> &gCovInfo, map<string, int> &calls)
 {
     double time = 0.0;
     for (SgStatement *stat = interval->begin; stat != interval->ends[interval->ends.size() - 1]; stat = stat->lexNext())
-        time += performTime(file, stat, gCovInfo, calls, 0);
+        time += performTime(project, stat, gCovInfo, calls, 0);
 
     return time;
-}
-
-int countOfIntervals(const SpfInterval *interval, const SpfInterval *mainInterval)
-{
-    int count = 0;
-    for (auto &item : mainInterval->nested) 
-    {
-        if (item == interval)
-            count++;
-        else
-            count += countOfIntervals(interval, item);
-    }
-
-    return count;
 }
 
 void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const map<string, map<int, Gcov_info>> &gCovInfo, const map<string, vector<FuncInfo*>> &funcInfo)
 {
     double percent = 0.8;
-
+    vector<SpfRegion> regions;
     map<string, int> calls;
     performFuncTime(funcInfo, calls);
-
-    double sumTime = 0.0;
-
-    vector<SpfRegion> regions;
-    if (mainInterval == NULL)
+    if (mainInterval == NULL || calls.size() == 0)
     {
         __spf_print(1, "internal error in analysis, directives will not be generated for this file!\n");
         return;
     }
 
-    //TODO: CORRECT THIS
-    sumTime = 0;// performIntervalTime(file, mainInterval, gCovInfo, calls);
-    __spf_print(1, "time of performing of the whole file is about %.10f s\n", sumTime);
-
+    double sumTime = performIntervalTime(project, mainInterval, gCovInfo, calls);
     double alreadyHavePercent = 0.0;
     int id = 1;
     int i = 0;
@@ -227,16 +238,14 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
             continue;
         }
 
-        //TODO: CORRECT THIS
-        double time = 0;// performIntervalTime(file, interval, gCovInfo, calls);
+        double time = performIntervalTime(project, interval, gCovInfo, calls);
         int count = countOfIntervals(interval, mainInterval);
         if (count != 0) time *= count;
         double percentOfInterval = time / sumTime;
 
-
         if (percentOfInterval + alreadyHavePercent <= percent)
         {
-            __spf_print(1, "Add interval with %f percent, we have %f percent ", percentOfInterval, percentOfInterval + alreadyHavePercent);
+            __spf_print(1, "Add interval with %f percent, we have %f percent\n", percentOfInterval, percentOfInterval + alreadyHavePercent);
             SpfRegion region(id, time, interval->begin, interval->ends[0]);
             region.time = time;
             region.id = id;
