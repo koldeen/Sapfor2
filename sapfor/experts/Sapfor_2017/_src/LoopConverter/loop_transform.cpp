@@ -131,7 +131,7 @@ static void printDepGraph(depGraph *dg)
 
     for (depNode *dn : dg->getNodes())
     {
-        dn->displayDep();
+        //dn->displayDep();
         int out = dn->stmtout != NULL ? dn->stmtout->lineNumber() : -1;
         int in = dn->stmtin != NULL ? dn->stmtin->lineNumber() : -1;
         __spf_print(1, "dep from %d --> %d\n", out, in);

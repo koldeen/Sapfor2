@@ -808,9 +808,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
-        else if (curr_regime == CREATE_PARALLEL_REGIONS)
-            createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
+            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);        
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             set<SgSymbol*> tmp;
@@ -844,13 +842,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-#if 0
             vector<string> include_functions;
             
             createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
-#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
@@ -1527,6 +1523,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             saveIntervals("_intervals.txt", intervals);
     }
+    else if (curr_regime == CREATE_PARALLEL_REGIONS)
+    {
+        SpfInterval* mainInterval = getMainInterval(&project, intervals);
+        createParallelRegions(&project, mainInterval, gCovInfo, allFuncInfo);
+    }
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
@@ -1817,7 +1818,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case LOOPS_SPLITTER:
     case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
-    case REMOVE_DVM_INTERVALS:
+    case REMOVE_DVM_INTERVALS:    
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
@@ -1837,6 +1838,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case RESOLVE_PAR_REGIONS:
+    case CREATE_PARALLEL_REGIONS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
