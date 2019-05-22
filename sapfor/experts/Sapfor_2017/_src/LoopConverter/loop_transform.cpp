@@ -172,10 +172,9 @@ static map<SgSymbol*, ddnature> buildTransformerDependencyMap(SgForStmt *outerLo
     printDepGraph(innerDepGraph);
     __spf_print(1, "Print inner depgraph END\n");
 
-    SgStatement *innerEnddo = innerLoop->lastNodeOfStmt();
     map<SgSymbol*, ddnature> depMap;
 
-    for (SgStatement *stmt = outerLoop->lexNext(); stmt != innerEnddo; stmt = stmt->lexNext())
+    for (SgStatement *stmt = outerLoop->lexNext(); stmt != outerLoop->lastNodeOfStmt(); stmt = stmt->lexNext())
     {
         addToMap(stmt, innerDepGraph, depMap);
         addToMap(stmt, outerDepGraph, depMap);
@@ -202,14 +201,14 @@ static ddnature getOrDefault(const map<SgSymbol*, ddnature> &inMap, SgSymbol *ke
         return it->second;
 };
 
-static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
+static bool validateInvariantStatement(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
 {
     //by type check
     SgStatement* stmt = invBegin;
     bool allAssignmentOrIf = true;
     while (stmt != invEnd && allAssignmentOrIf) 
     {
-        allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgControlEndStmt(stmt));
+        allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgLogIfStmt(stmt) || isSgControlEndStmt(stmt));
         stmt = stmt->lexNext();
     }
 
@@ -266,26 +265,14 @@ static bool validateInvariantStatementBeforeLoop(SgStatement* invBegin, SgStatem
     return false;
 }
 
-static bool validateInvariantStatementAfterLoop(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
-{
-    if (invBegin == invEnd) 
-    {
-        __spf_print(1, "%d : No invariants after loop\n", invBegin->lineNumber());
-        return true; //no after invariant;
-    }
-
-    __spf_print(1, "%d : There are invariants after loop, cannot tighten\n", invBegin->lineNumber());
-    return false; //unknown, why would loop need that
-}
-
 static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddnature> &dependencies) 
 {
     SgStatement* outerEnddo = outerLoop->lastNodeOfStmt();
     SgForStmt* innerLoop = lexNextLoop(outerLoop->lexNext(), outerEnddo);
     if (innerLoop != NULL) 
     {
-        bool beforeValid = validateInvariantStatementBeforeLoop(outerLoop->lexNext(), innerLoop, dependencies);
-        bool afterValid = validateInvariantStatementAfterLoop(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
+        bool beforeValid = validateInvariantStatement(outerLoop->lexNext(), innerLoop, dependencies);
+        bool afterValid = validateInvariantStatement(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
         return beforeValid && afterValid;
     }
     else 
@@ -323,21 +310,8 @@ static int canTighten(SgForStmt* pForLoop)
             nextOuterLoop = NULL;        
         else //inner for loop found
         {
-            //check control ends
-            SgForStmt* innerLoop = isSgForStmt(nextInnerLoop);
-            SgStatement* innerControlEnd = innerLoop->lastNodeOfStmt();
-            if (innerControlEnd->lexNext() == outerLoopControlEnd) 
-            {
-                //controls are tight, can tighten this
-                nestnessLevel++;
-                nextOuterLoop = innerLoop;
-            }
-            else
-            {
-                //TODO: invariants after loop body
-                //cannot tighten loop further, stop here
-                nextOuterLoop = NULL;
-            }
+            nestnessLevel++;
+            nextOuterLoop = isSgForStmt(nextInnerLoop);
         }
     }
     if (nestnessLevel == 1) 
@@ -359,23 +333,17 @@ static SgStatement* sinkIntoNextNearestLoop(SgStatement* pStmt, SgStatement* nex
     return pStmt;
 }
 
-static SgControlEndStmt* lexPrevEnddo(SgStatement* pStmt, SgStatement* end) 
-{
-    SgStatement* pClosestEndDo = pStmt;
-    while (!isSgControlEndStmt(pClosestEndDo) && pClosestEndDo != end)
-        pClosestEndDo = pClosestEndDo->lexPrev();    
-    return isSgControlEndStmt(pClosestEndDo);
-}
-
-static SgStatement* sinkIntoPreviousNearestLoop(SgStatement* pStmt) 
+static SgStatement* sinkIntoPreviousNearestLoop(SgStatement* pStmt, SgStatement* prevLoop, SgStatement* afterStmt) 
 {
     __spf_print(1, "%d : sinkIntoPreviousNearestLoop\n", pStmt->lineNumber());
 
-    SgControlEndStmt * ctrlEnd = lexPrevEnddo(pStmt, NULL);
-    SgForStmt * scope = isSgForStmt(ctrlEnd->controlParent());
-    SgStatement * pStmtCopy = pStmt->extractStmt();
-    ctrlEnd->insertStmtBefore(*pStmtCopy, *scope);
-    return pStmtCopy;
+    if(!isSgIfStmt(pStmt->controlParent()))
+    {
+        SgStatement *extr = pStmt->extractStmt();
+        afterStmt->insertStmtAfter(*extr, *prevLoop);
+    }
+
+    return pStmt;
 }
 
 static void tightenSingleLevel(SgForStmt* outerLoop, SgForStmt* topLevelForLoop) 
@@ -401,20 +369,15 @@ static void tightenSingleLevel(SgForStmt* outerLoop, SgForStmt* topLevelForLoop)
     }
 
     {
-        //move statements before given loop enddo after the inner loop enddo
-
-        //moving these statements is done in normal order,
-        // insertion is done before inner loop enddo
-
-        //begin := statement after closest inner loop enddo
-        SgStatement* begin = innerLoop->lastNodeOfStmt()->lexNext();
-        SgStatement* end = outerLoop->lastNodeOfStmt();
+        SgStatement* begin = outerLoop->lastNodeOfStmt()->lexPrev();
+        SgStatement* end = innerLoop->lastNodeOfStmt();
+        SgStatement* afterStmt = end->lexPrev();
         SgStatement* stmt = begin;
         SgStatement* next;
         while (stmt != end) 
         {
-            next = stmt->lexNext();
-            sinkIntoPreviousNearestLoop(stmt);
+            next = stmt->lexPrev();
+            sinkIntoPreviousNearestLoop(stmt, innerLoop, afterStmt);
             stmt = next;
         }
     }
@@ -422,7 +385,7 @@ static void tightenSingleLevel(SgForStmt* outerLoop, SgForStmt* topLevelForLoop)
 
 static bool tighten(SgForStmt* pForLoop, int level) 
 {
-    if (level > canTighten(pForLoop))     
+    if (level > canTighten(pForLoop))
         //cannot do that
         return false;
     

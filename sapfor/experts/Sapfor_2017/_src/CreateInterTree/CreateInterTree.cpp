@@ -224,7 +224,7 @@ static void calibrateExits(vector<SpfInterval*> fileIntervals, map<int, int> &la
             int variant = interval->ends[i]->variant();
             int &exit_level = interval->exit_levels[i];
 
-            if (variant == RETURN_STAT || variant == STOP_STAT)
+            if (variant == RETURN_STAT || variant == STOP_STAT || variant == EXIT_STMT)
                 exit_level = level;
 
             if (variant == EXIT_STMT)
@@ -295,9 +295,8 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
 
             SpfInterval *inter = new SpfInterval();
             inter->begin = begin;
-            inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
+            inter->lineFile = std::make_pair(begin->lineNumber(), begin->fileName());
             inter->parent = currentInterval;
-            inter->exit_levels.push_back(0);
             inter->tag = getNextTag();
 
             userIntervals.push_back(inter);
@@ -318,7 +317,13 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
         {
             if (currentInterval == NULL)
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            currentInterval->ends.push_back(currentSt->lexPrev());
+            
+            SgStatement* end = currentSt;
+            while(isDVM_stat(end))
+                end = end->lexPrev();
+            
+            currentInterval->ends.push_back(end);
+            currentInterval->exit_levels.push_back(0);
 
             currentInterval = currentInterval->parent;
 
@@ -332,10 +337,10 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
 
 static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt)
 {
-    int currentVar;
-    SgStatement* endStatement = interval->parent ? interval->ends[0] : interval->ends[0]->lexNext();
+    int currentVar = -1;
+    SgStatement* endStatement = interval->parent ? interval->ends[0] : interval->begin->lastNodeOfStmt();
 
-    while (currentSt != endStatement)
+    while (currentSt != endStatement && currentVar != CONTAINS_STMT)
     {
         currentSt = currentSt->lexNext();
         currentVar = currentSt->variant();
@@ -343,16 +348,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
         if (currentSt->fileName() != string(interval->begin->fileName()))
             continue;
 
-        if (currentVar == RETURN_STAT || currentVar == STOP_STAT)
-        {
-            if (endStatement != currentSt)
-            {
-                interval->ends.push_back(currentSt);
-                interval->exit_levels.push_back(0);
-            }
-        }
-
-        if (currentVar == EXIT_STMT)
+        if (currentVar == RETURN_STAT || currentVar == STOP_STAT || currentVar == EXIT_STMT || currentVar == CONTAINS_STMT)
         {
             if (endStatement != currentSt)
             {
@@ -418,15 +414,19 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         func_inters->tag = getNextTag();
 
         // Set ending of the interval.
-        SgStatement *lastNode = func_inters->begin->lastNodeOfStmt();
+        SgStatement *lastNode = func_inters->begin->lastNodeOfStmt()->lexPrev();
+        while (isDVM_stat(lastNode) || isSPF_stat(lastNode))
+            lastNode = lastNode->lexPrev();
+
         SgStatement *prevLastNode = lastNode->lexPrev();
         while (isDVM_stat(prevLastNode) || isSPF_stat(prevLastNode))
             prevLastNode = prevLastNode->lexPrev();
 
-        if (prevLastNode->variant() == RETURN_STAT || prevLastNode->variant() == EXIT_STMT || prevLastNode->variant() == STOP_STAT)
-            func_inters->ends.push_back(prevLastNode->lexPrev());
+        if (lastNode->variant() == RETURN_STAT || lastNode->variant() == EXIT_STMT || lastNode->variant() == STOP_STAT)
+            func_inters->ends.push_back(prevLastNode);
         else
-            func_inters->ends.push_back(lastNode->lexPrev());
+            func_inters->ends.push_back(lastNode);
+
         func_inters->exit_levels.push_back(0);
 
         // Find inner intervals.
