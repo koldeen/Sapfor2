@@ -17,6 +17,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <tuple>
 
 using namespace std;
 
@@ -83,6 +84,23 @@ public:
 	std::vector<LoopGraph *>  updateLoopGraph();
 	void insertDirectives();
 	virtual ~DvmhRegionInsertor();
+};
+
+// Reaching defenitions for every symbol used in the statement
+typedef map<SgSymbol*, set<SgStatement*> > StDefs;
+
+// Keeps reaching defenitions for every statement of the project
+class RDKeeper {
+	/* Finds set of symbols used in the expression. */
+	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
+
+	/* Finds set of symbols used in whole statement containing several expressions. */
+	static set<SgSymbol *> getUsedSymbols(SgStatement* st);
+public:
+	map<SgStatement*, StDefs > defsByStatement;
+
+	RDKeeper(SgFile&);
+	StDefs getDefs(SgStatement *);
 };
 
 // enum DFGType {block, par_loop};

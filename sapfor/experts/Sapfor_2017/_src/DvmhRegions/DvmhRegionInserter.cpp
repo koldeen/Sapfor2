@@ -198,115 +198,77 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 
 void DvmhRegionInsertor::insertActualDirectives() {
 	int funcNum = file.numberOfFunctions();
+	RDKeeper rd = RDKeeper(file);
 
-	for (int i = 0; i < funcNum; ++i)
+	for (auto const& defsByStatement : rd.defsByStatement)
 	{
-		SgStatement *st = file.functions(i);
-		SgStatement *lastNode = st->lastNodeOfStmt();
-		while (st && st != lastNode)
-		{
-			if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st)) {
-				st = st->lexNext();
-				continue;
-			}
+		SgStatement* st = defsByStatement.first;
+		StDefs st_defs = defsByStatement.second;
 
-			DvmhRegion* region = getContainingRegion(st);
-			if (st->variant() == FOR_NODE || isDVM_stat(st))
-			{
-				st = st->lexNext();
-				continue;
-			}
-			const std::map<SymbolKey, std::set<ExpressionValue*> > vars = getReachingDefinitionsExt(st); // todo: c
-			//const std::map<SymbolKey, std::set<SgExpression*> > vars = dummyDefenitions(st);
+		DvmhRegion* region = getContainingRegion(st);
 
-			std::vector<SgSymbol*> toActualise;
-			for (auto& var : vars) {
-				SgSymbol *symbol = (SgSymbol *)var.first.getSymbol();
-				if (!isSgArrayType(symbol->type())) // if var's not an array, skip it
-					continue;
+		std::vector<SgSymbol*> toActualise;
+		for (auto const& elem : st_defs) {
 
-				DIST::Array* arr;
-				try {
-					arr = getArrayFromDeclarated(declaratedInStmt(symbol), var.first.getVarName());
-				}
-				catch (...) {
-					continue;
-				}
-				if (arr->GetNonDistributeFlag()) // if array's not distributed, skip it
-					continue;
-				/*
-				// DEBUG
-				std::cout << "~~~~~~~~~~~~~~~~~~~~~" << std::endl;
-				st->unparsestdout();
-				std::cout << var.first.getVarName() + ": " << std::endl;
-				for (auto &def : var.second) {
-					if (def) {
-						def->unparsestdout();
-					}
-				}
-				std::cout << "********************" << std::endl;
-				// END OF DEBUG
-				*/
-				if (region) {
-					// Searching for defenition not in region
-					bool symbolDeclaredInSequentPart = false;
-					for (auto& defenition : var.second) {
-						auto saveName = current_file->filename();
-
-						auto stEx = SgStatement::getStatmentByExpression(defenition->getExp());
-						if (!stEx) { // couldn't find defenition for statement
-							printf("Unable to find statement for expr:\n");
-							printf("%s\n", defenition->getUnparsed());
-							printInternalError(saveName, st->lineNumber());
-							continue;
-						}
-
-						if (!stEx->switchToFile())
-							printInternalError(saveName, st->lineNumber());
-
-						DvmhRegion* containingRegion = getContainingRegion(stEx);
-						if (!containingRegion) {
-							symbolDeclaredInSequentPart = true;
-							break;
-						}
-
-						if (SgFile::switchToFile(saveName) == -1)
-							printInternalError(saveName, st->lineNumber());
-					}
-					if (symbolDeclaredInSequentPart)
-						region->addToActualisation(symbol);
-				}
-				else {
-					// Searching for defenition in region
-					bool symbolDeclaredInRegion = false;
-					for (auto& defenition : var.second) {
-						auto saveName = current_file->filename();
-						auto stEx = SgStatement::getStatmentByExpression(defenition->getExp());
-						if (!stEx) { // couldn't find defenition for statement
-							printf("Unable to find statement for expr:\n");
-							printf("%s\n", defenition->getUnparsed());
-							printInternalError(saveName, st->lineNumber());
-							continue;
-						}
-						if (!stEx->switchToFile())
-							printInternalError(saveName, st->lineNumber());
-
-						DvmhRegion* containingRegion = getContainingRegion(stEx);
-						if (containingRegion) {
-							symbolDeclaredInRegion = true;
-							break;
-						}
-
-						if (SgFile::switchToFile(saveName) == -1)
-							printInternalError(saveName, st->lineNumber());
-					}
-					if (symbolDeclaredInRegion)
-						toActualise.push_back(symbol);
+			SgSymbol* symbol = elem.first;
+			set<SgStatement*> defs = elem.second;
+			/*
+			// DEBUG
+			std::cout << "~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+			st->unparsestdout();
+			std::cout << symbol.getVarName() + ": " << std::endl;
+			for (auto &def : defs) {
+				if (def) {
+					def->unparsestdout();
 				}
 			}
-			insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
-			st = st->lexNext();
+			std::cout << "********************" << std::endl;
+			// END OF DEBUG
+			*/
+			if (region) {
+				// Searching for defenition not in region
+				bool symbolDeclaredInSequentPart = false;
+				for (auto& def : defs) {
+					auto saveName = current_file->filename();
+
+					if (!def->switchToFile())
+						printInternalError(saveName, st->lineNumber());
+
+					DvmhRegion* containingRegion = getContainingRegion(def);
+					if (!containingRegion) {
+						symbolDeclaredInSequentPart = true;
+						break;
+					}
+
+					if (SgFile::switchToFile(saveName) == -1)
+						printInternalError(saveName, st->lineNumber());
+				}
+				if (symbolDeclaredInSequentPart)
+					region->addToActualisation(symbol);
+			}
+			else {
+				// Searching for defenition in region
+				bool symbolDeclaredInRegion = false;
+				for (auto& def : defs) {
+					auto saveName = current_file->filename();
+
+					if (!def->switchToFile())
+						printInternalError(saveName, st->lineNumber());
+
+					DvmhRegion* containingRegion = getContainingRegion(def);
+					if (containingRegion) {
+						symbolDeclaredInRegion = true;
+						break;
+					}
+
+					if (SgFile::switchToFile(saveName) == -1)
+						printInternalError(saveName, st->lineNumber());
+				}
+				if (symbolDeclaredInRegion)
+					toActualise.push_back(symbol);
+			}
 		}
+		insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
 	}
 
 	for (auto& region : regions) {
@@ -392,14 +354,14 @@ void DvmhRegionInsertor::insertDirectives()
 	mergeRegions();
 	__spf_print(1, "Insert regions\n");
 	insertRegionDirectives();
-	// __spf_print(1, "Insert actuals\n");
-	// insertActualDirectives();
-	vector<DvmhRegion*> l_regions;
-	for (auto &region : regions)
-		l_regions.push_back(&region);
+	 __spf_print(1, "Insert actuals\n");
+	 insertActualDirectives();
+	//vector<DvmhRegion*> l_regions;
+	//for (auto &region : regions)
+	//	l_regions.push_back(&region);
 
-	__spf_print(1, "Constructing Abstract Graph\n");
-	AFlowGraph graph = AFlowGraph(file, l_regions);
+	//__spf_print(1, "Constructing Abstract Graph\n");
+	//AFlowGraph graph = AFlowGraph(file, l_regions);
 }
 
 DvmhRegionInsertor::~DvmhRegionInsertor()
@@ -827,3 +789,57 @@ SgStatement* DvmhRegion::getLastSt() {
 // 	}
 // 	cout << "Graph printed" << endl;
 // }
+
+RDKeeper::RDKeeper(SgFile& file) 
+{
+	// Build CFG
+	SgStatement *st = file.functions(0);
+	GraphsKeeper* graphsKeeper = GraphsKeeper::getGraphsKeeper();
+	ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
+
+	// Find gen for every bb
+
+	// Find defs for every statement
+}
+
+set<SgSymbol *> RDKeeper::getSymbolsFromExpression(SgExpression *exp) 
+{
+	set<SgSymbol *> result;
+
+	if (exp)
+	{
+		if (exp->variant() == ARRAY_REF) {
+			SgSymbol* symbol = exp->symbol();
+			DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+
+			if (!arr->GetNonDistributeFlag()) // if array's distributed add it
+				result.insert(exp->symbol());
+		}
+
+		set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
+		set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
+
+		result.insert(lhsSymbols.begin(), lhsSymbols.end());
+		result.insert(rhsSymbols.begin(), rhsSymbols.end());
+	}
+
+	return result;
+}
+
+set<SgSymbol *> RDKeeper::getUsedSymbols(SgStatement* st) 
+{
+	set<SgSymbol *> result;
+
+	// ignore not executable statements
+	if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
+		return result;
+
+	for (int i = 0; i < 3; ++i) {
+		if (st->expr(i)) {
+			set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
+			result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+		}
+	}
+
+	return result;
+}

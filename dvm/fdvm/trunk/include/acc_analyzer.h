@@ -814,6 +814,11 @@ class CBasicBlock
 #endif
 
 public:
+    // Reaching defenitions for distributed arrays
+    std::map<SgSymbol*, std::set<SgStatement*> > rd_distr_in;
+    std::map<SgSymbol*, std::set<SgStatement*> > rd_distr_out;
+    std::map<SgSymbol*, std::set<SgStatement*> > rd_distr_gen;
+
     inline CBasicBlock(bool t, ControlFlowItem* st, int n, ControlFlowGraph* par, AnalysedCallsList* pr) : 
         temp(t), num(n), start(st), prev(NULL), lexNext(NULL), def(NULL), use(NULL), mrd_in(new VarSet()), mrd_out(new VarSet()), undef(true),
         lv_in(new VarSet()), lv_out(new VarSet()), lv_undef(false), succ(NULL), lexPrev(NULL), prev_status(-1), parent(par), common_def (NULL), 
