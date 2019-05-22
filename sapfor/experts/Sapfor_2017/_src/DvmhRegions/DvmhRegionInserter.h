@@ -101,7 +101,6 @@ public:
 	vector<SgSymbol*> d_arrays;
 	DFGType type;
 	int id;
-	bool isRegion;
 
 	/* Initializes DFGNode (1) from CBasicBlock. */
 	DFGNode(CBasicBlock* bblock);
