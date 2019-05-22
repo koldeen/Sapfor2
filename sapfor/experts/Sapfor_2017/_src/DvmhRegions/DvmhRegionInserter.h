@@ -85,55 +85,55 @@ public:
 	virtual ~DvmhRegionInsertor();
 };
 
-enum DFGType {block, par_loop};
+// enum DFGType {block, par_loop};
 
-/*	Distributed Flow Graph Node.
-		Node represents either:
-		(1) basic block, containing usages of distibuted arrays;
-		(2) set of basic blocks, composing parallel loop.
-*/
-class DFGNode {
-public:
-	vector<CBasicBlock *> initial;
-	vector<DFGNode*> prev;
-	vector<DFGNode*> succ;
-	vector<SgStatement*> content;
-	vector<SgSymbol*> d_arrays;
-	DFGType type;
-	int id;
+// /*	Distributed Flow Graph Node.
+// 		Node represents either:
+// 		(1) basic block, containing usages of distibuted arrays;
+// 		(2) set of basic blocks, composing parallel loop.
+// */
+// class DFGNode {
+// public:
+// 	vector<CBasicBlock *> initial;
+// 	vector<DFGNode*> prev;
+// 	vector<DFGNode*> succ;
+// 	vector<SgStatement*> content;
+// 	vector<SgSymbol*> d_arrays;
+// 	DFGType type;
+// 	int id;
 
-	/* Initializes DFGNode (1) from CBasicBlock. */
-	DFGNode(CBasicBlock* bblock);
+// 	/* Initializes DFGNode (1) from CBasicBlock. */
+// 	DFGNode(CBasicBlock* bblock);
 
-	/* Initializes DFGNode (2) from list of DFGNode's. */
-	DFGNode(vector<DFGNode*> elements);
+// 	/* Initializes DFGNode (2) from list of DFGNode's. */
+// 	DFGNode(vector<DFGNode*> elements);
 
-	/* Finds set of symbols used in the expression. */
-	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
+// 	/* Finds set of symbols used in the expression. */
+// 	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
 
-	/* Finds set of symbols used in whole statement containing several expressions. */
-	static set<SgSymbol *> getUsedSymbols(SgStatement* st);
+// 	/* Finds set of symbols used in whole statement containing several expressions. */
+// 	static set<SgSymbol *> getUsedSymbols(SgStatement* st);
 
-	/* Returns string containing human readable information representing DFGNode. */
-	string getInfo() const;
+// 	/* Returns string containing human readable information representing DFGNode. */
+// 	string getInfo() const;
 
-	/* Links new successor for the DFGNode. Returns false if this successor was already linked. */
-	bool addSucc(DFGNode* new_succ);
+// 	/* Links new successor for the DFGNode. Returns false if this successor was already linked. */
+// 	bool addSucc(DFGNode* new_succ);
 
-	/* Links new predecessor for the DFGNode. Returns false if this predecessor was already linked. */
-	bool addPrev(DFGNode* new_prev);
-};
+// 	/* Links new predecessor for the DFGNode. Returns false if this predecessor was already linked. */
+// 	bool addPrev(DFGNode* new_prev);
+// };
 
-/*	Abstract control flow graph. Consists of linked DFGNodes. */
-class AFlowGraph {
-	map<string, vector<DFGNode*> > fun_graphs;
-	// TODO: memory cleaning
-public:
-	/* Returns DFGNode by function name and node id. */
-	DFGNode* getNode(string fun_name, int id);
+// /*	Abstract control flow graph. Consists of linked DFGNodes. */
+// class AFlowGraph {
+// 	map<string, vector<DFGNode*> > fun_graphs;
+// 	// TODO: memory cleaning
+// public:
+// 	/* Returns DFGNode by function name and node id. */
+// 	DFGNode* getNode(string fun_name, int id);
 
-	/* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
-	AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
-};
+// 	/* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
+// 	AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
+// };
 
 #endif /* SAPFOR_EXPERTS_SAPFOR_2017__SRC_DVMHREGIONS_DVMHREGIONINSERTOR_H_ */
