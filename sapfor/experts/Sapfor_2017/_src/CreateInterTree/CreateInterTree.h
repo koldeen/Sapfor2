@@ -24,7 +24,7 @@ struct SpfInterval
     SpfInterval *parent = NULL;
 
     std::vector<SgStatement*> ends;
-    std::vector<int> exit_levels;        
+    std::vector<int> exit_levels;
     std::vector<SpfInterval*> nested;
 
     //from statistic after execution
