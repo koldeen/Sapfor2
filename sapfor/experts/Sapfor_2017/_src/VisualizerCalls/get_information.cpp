@@ -438,7 +438,7 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     int retSize = -1;
     try
     {
-        printf("SAPFOR: current quality = %d, speed = %d\n", quality_1, quality_2);
+        //printf("SAPFOR: current quality = %d, speed = %d\n", quality_1, quality_2);
         if (quality_1 >= 0 && quality_1 <= 100)
             QUALITY = quality_1;
         else
@@ -518,6 +518,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         if (varLens.size() != parallelRegions.size())
             throw (-6);
 
+        int countOfDist = 0;
         for (int z = 0; z < parallelRegions.size(); ++z)
         {
             auto it = varLens.find(parallelRegions[z]->GetId());
@@ -542,7 +543,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             for (int i = 0; i < dataDirectives.distrRules.size(); ++i)
             {
                 printf("SAPFOR: template address %lld with num %d\n", (int64_t)dataDirectives.distrRules[i].first, i);
-                templateIdx[(int64_t)dataDirectives.distrRules[i].first] = i;
+                templateIdx[(int64_t)dataDirectives.distrRules[i].first] = i;                
             }
 
             for (auto it = varMap.begin(); it != varMap.end(); ++it)
@@ -553,6 +554,12 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
 
                 printf("SAPFOR: found %lld address\n", it->first);
                 currentVariant[itF->second] = it->second;
+
+                for (auto &elem : dataDirectives.distrRules[itF->second].second[it->second].distRule)                    
+                {
+                    if (elem == BLOCK)
+                        countOfDist++;
+                }
             }
             parallelRegions[z]->SetCurrentVariant(currentVariant);
         }
@@ -572,14 +579,23 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             summed.ParallelStat.ReductionCount += predFile.second.ParallelStat.ReductionCount;
             summed.ParallelStat.RemoteCount += predFile.second.ParallelStat.RemoteCount;
             summed.ParallelStat.ShadowCount += predFile.second.ParallelStat.ShadowCount;
-        }
+
+            summed.TotalScoreComm += predFile.second.TotalScoreComm;
+            summed.TotalScoreDist += predFile.second.TotalScoreDist;
+            summed.TotalScorePar += predFile.second.TotalScorePar;
+        }                
         predictRes += summed.to_string();
+        //predictRes += "|" + to_string((summed.TotalScoreComm != 0 ? 1.0 / summed.TotalScoreComm : 0.0 )+ (double)summed.TotalScorePar * 1000 + (countOfDist == 0 ? -5000 : countOfDist));
+        if (countOfDist == 0)
+            predictRes += "|x";
+        else
+            predictRes += "|" + to_string(-1 * (summed.ParallelStat.AcrossCount + summed.ParallelStat.RemoteCount + summed.RedistributeCount + summed.RemoteCount));
+        //predictRes += "|0";
 
         //TODO: need to rewrite to new algo
         /*if (folderName == NULL)
         {
-            SpfInterval *mainIterval = getMainInterval(project, intervals);            
-            const int idxBest = mainIterval->getBestTimeIdx();
+            SpfInterval *mainIterval = getMainInterval(project, intervals);            const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
             int procCount = 1;
             string topo = "";
@@ -600,8 +616,8 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
             sprintf(buf, "%.2f", speedUpBest / procCount * 100.0);
             predictRes += "|" + string(buf) + topo;
         }
-        else*/
-            predictRes += "|0";
+        else
+            predictRes += "|0";*/
 
         copyStringToShort(predictorStats, predictRes);
         retSize = (int)predictRes.size();

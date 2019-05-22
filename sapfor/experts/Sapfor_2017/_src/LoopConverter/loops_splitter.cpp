@@ -34,14 +34,17 @@ static SgForStmt* createNewLoop(LoopGraph *globalLoop)
 
     SgForStmt *curForStmt = (SgForStmt*)graphs[0]->loop->GetOriginal();
     SgForStmt *newGlobalLoop = new SgForStmt(curForStmt->doName(), curForStmt->start(), curForStmt->end(), curForStmt->step(), newLoop);
-
+        
     insertBeforeThis->insertStmtBefore(*newGlobalLoop, *insertBeforeThis->controlParent());
+    //copy attributes
+    if (insertBeforeThis->numberOfAttributes())
+        newGlobalLoop->addAttributeTree(insertBeforeThis->getAttribute(0));
 
     SgStatement *lowestInsertedFor = insertBeforeThis;
-    for (int i = 0; i < globalLoop->perfectLoop; ++i) //РїСЂРѕР№С‚Рё РїРѕ РІСЃРµРј enddo
+    for (int i = 0; i < globalLoop->perfectLoop; ++i) //пройти по всем enddo
         lowestInsertedFor = lowestInsertedFor->lexPrev();
 
-    return (SgForStmt*)lowestInsertedFor->lexPrev(); //СЃР°РјС‹Р№ РІРЅСѓС‚СЂРµРЅРЅРёР№ С†РёРєР»
+    return (SgForStmt*)lowestInsertedFor->lexPrev(); //самый внутренний цикл
 }
 
 static inline bool lineInsideBorder(int lineNumber, pair<SgStatement*, SgStatement*> border)
@@ -190,7 +193,7 @@ static void expandCopyBorders(SgStatement *globalSince, SgStatement *globalTill,
 
 //        printf("linenum of dependency %d\n", lineNumOfDependecy);
 
-        if(since == globalTill) //Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РІРЅРµ РѕСЃРЅРѕРІРЅРѕРіРѕ С†РёРєР»Р°? РЅСѓ СѓР¶ РЅРµС‚.
+        if(since == globalTill) //зависимости вне основного цикла? ну уж нет.
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
 //        printf("added: %d - %d\n", since->lineNumber(), till->lineNumber());
@@ -261,7 +264,7 @@ vector<depGraph*> getDepGraphsFor(vector<LoopGraph*> &loops, LoopGraph *parentGr
 }
 
 bool continueSplitting(SgStatement* globalSince, SgStatement* globalTill, vector<pair<SgStatement*, SgStatement*>>& borders) {
-    //Р•СЃР»Рё РІС‹СЂРµР¶РµРј РѕРїСЏС‚СЊ, РёСЃС…РѕРґРЅС‹Р№ С†РёРєР» РѕСЃС‚Р°РЅРµС‚СЃСЏ РїСѓСЃС‚С‹Рј
+    //Если вырежем опять, исходный цикл останется пустым
     return !(borders.size() == 1 && borders[0].first == globalSince && borders[0].second == globalTill);
 }
 
@@ -269,7 +272,7 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
                               vector<pair<SgStatement*, SgStatement*>>& borders,
                               depGraph* parentDepGraph, map<SgExpression*, string>& collection)
 {
-    //РљР°РєРёРј-С‚Рѕ РѕР±СЂР°Р·РѕРј, РјС‹ РІС‹СЂРµР·Р°Р»Рё РІСЃС‘ РёР· С†РёРєР»Р° Рё С…РѕС‚РёРј РїСЂРѕРґРѕР»Р¶Р°С‚СЊ.
+    //Каким-то образом, мы вырезали всё из цикла и хотим продолжать.
     if(globalSince == globalTill)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -350,7 +353,7 @@ static bool hasIndirectChildLoops(LoopGraph* parentGraph, vector<Messages> &mess
     if(directLoops != parentGraph->children.size())
     {
 #ifdef _WIN32
-        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"Р”Р°РЅРЅС‹Р№ С†РёРєР» СЃРѕРґРµСЂР¶РёС‚ РєРѕСЃРІРµРЅРЅС‹Рµ РїРѕРґС†РёРєР»С‹, РїРѕСЌС‚РѕРјСѓ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ СЂР°Р·РґРµР»РµРЅ", L"This loop has indirect child loops and can not be splitted", 2010));
+        messages.push_back(Messages(ERROR, parentGraph->loop->GetOriginal()->lineNumber(), L"Данный цикл содержит косвенные подциклы, поэтому не может быть разделен", L"This loop has indirect child loops and can not be splitted", 2010));
 #endif
         __spf_print(1, "This loop has indirect child loops and can not be splitted on line %d\n", parentGraph->lineNum);
         return true;
@@ -389,7 +392,7 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
                     wstring strR, strE;
                     __spf_printToLongBuf(strE, L"Can not split this loop because of dependecy: %s", to_wstring(node->displayDepToStr()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(strR, L"РќРµРІРѕР·РјРѕР¶РЅРѕ СЂР°Р·РґРµР»РёС‚СЊ РґР°РЅРЅС‹Р№ С†РёРєР» РёР·-Р·Р° СЃР»РµРґСѓСЋС‰РµР№ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё: %s", to_wstring(node->displayDepToStr()).c_str());
+                    __spf_printToLongBuf(strR, L"Невозможно разделить данный цикл из-за следующей зависимости: %s", to_wstring(node->displayDepToStr()).c_str());
 #endif
                     messages.push_back(Messages(WARR, parentGraph->lineNum, strR, strE, 2009));
                 }
@@ -410,29 +413,29 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasIndirectChildLoops(lowestParentGraph, messages))
         return -1;
 
-    //Р’РµРєС‚РѕСЂ РїР°СЂ since-till, РЅРѕРІС‹Рµ С†РёРєР»С‹ Р±СѓРґСѓС‚ С„РѕСЂРјРёСЂРѕРІР°С‚СЊСЃСЏ РёР· С„СЂР°РіРјРµРЅС‚РѕРІ СЃ since РІРєР»СЋС‡РёС‚РµР»СЊРЅРѕ, РїРѕ till РЅРµ РІРєР»СЋС‡РёС‚РµР»СЊРЅРѕ
+    //Вектор пар since-till, новые циклы будут формироваться из фрагментов с since включительно, по till не включительно
     vector<pair<SgStatement*, SgStatement*>> borders;
-    //Р“СЂР°С„ СЃ Р·Р°РІРёСЃРёРјРѕСЃС‚СЏРјРё
+    //Граф с зависимостями
     const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
     if (lowestParentGraph->hasLimitsToSplit())
     {
 #ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum,
-                            L"РЈ РґР°РЅРЅРѕРіРѕ С†РёРєР»Р° РµСЃС‚СЊ РѕРіСЂР°РЅРёС‡РµРЅРёРµ РЅР° СЂР°СЃРїР°СЂР°Р»Р»РµР»РёРІР°РЅРёРµ (РІ СЃС‚СЂРѕРєРµ " + std::to_wstring(lowestParentGraph->lineNum) + L")",
+                            L"У данного цикла есть ограничение на распараллеливание (в строке " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             L"This loop has limits to parallel (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                             2010));
 #endif
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }
-    //РљРѕР»Р»РµРєС†РёСЏ СЃ РІС‹СЂР°Р¶РµРЅРёСЏРјРё, РєРѕС‚РѕСЂС‹Рµ РїСЂРѕС…РѕРґРёР»Рё unparse
+    //Коллекция с выражениями, которые проходили unparse
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
 #ifdef _WIN32
         messages.push_back(Messages(ERROR, loopGraph->lineNum, 
-                           L"РЈ РґР°РЅРЅРѕРіРѕ С†РёРєР»Р° РµСЃС‚СЊ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё, РєРѕС‚РѕСЂС‹Рµ РЅРµР»СЊР·СЏ РїСЂРѕР°РЅР°Р»РёР·РёСЂРѕРІР°, РїРѕСЌС‚РѕРјСѓ РѕРЅ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ СЂР°Р·РґРµР»РµРЅ (РІ СЃС‚СЂРѕРєРµ " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
+                           L"У данного цикла есть зависимости, которые нельзя проанализировать, поэтому он не может быть разделен (в строке " + std::to_wstring(lowestParentGraph->lineNum) + L")", 
                            L"This loop has unexpected dependencies and can not be splitted (reason: loop on line " + std::to_wstring(lowestParentGraph->lineNum) + L")",
                            2010));
 #endif
@@ -462,14 +465,10 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
         parts.push_back(make_pair(since, since->lastNodeOfStmt()));
 
-//    while (setupSplitBorders(lowestParentGraph, parts, borders, lowestParentDepGraph, collection) && borders.size() > 0)
-//        ;
-
-    //РЎР°Рј РїСЂРѕС†РµСЃСЃ СЂР°Р·РґРµР»РµРЅРёСЏ 
-    //Alexander: РІРµСЃСЊРјРјР° СЃС‚СЂР°РЅРЅС‹Р№ РїСЂРѕС†РµСЃСЃ, РїРѕРїСЂРѕР±РѕРІР°Р» РїРµСЂРµРїРёСЃР°С‚СЊ РёРЅР°С‡Рµ РЅРёР¶Рµ
-    //Ivan: РќРѕСЂРјР°Р»СЊРЅС‹Р№ РїСЂРѕС†РµСЃСЃ. Р‘РµСЂС‘С‚СЃСЏ РїРµСЂРІС‹Р№ РѕРїРµСЂР°С‚РѕСЂ С†РёРєР»Р°, СЌС‚Рѕ РЅР°С‡Р°Р»СЊРЅС‹Р№ С„СЂР°РіРјРµРЅС‚. Р’С‹СЃС‡РёС‚С‹РІР°СЋС‚СЃСЏ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё, С„СЂР°РіРјРµРЅС‚ СЂР°СЃС€РёСЂСЏРµС‚СЃСЏ РЅР° РЅРёС….
-    //РљРѕРіРґР° РІСЃРµ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё СѓРґРѕРІР»РµС‚РІРѕСЂРµРЅС‹, С„СЂР°РіРјРµРЅС‚С‹ РІС‹СЂРµР·Р°СЋС‚СЃСЏ Рё РІСЃС‚Р°РІСЏР»СЋС‚СЃСЏ РІ РЅРѕРІС‹Р№ С†РёРєР». Р—Р°С‚РµРј Р±РµСЂС‘С‚СЃСЏ СЃР»РµРґСѓСЋС‰РёР№ РѕРїРµСЂР°С‚РѕСЂ РёР· РѕСЃС‚Р°РІС€РёС…СЃСЏ.
-    //РџРѕСЃР»РµРґРЅРёР№ СЂР°СЃС€РёСЂРµРЅРЅС‹Р№ С„СЂР°РіРјРµРЅС‚ РЅРµ РІС‹СЂРµР·Р°РµС‚СЃСЏ, Р° РѕСЃС‚Р°С‘С‚СЃСЏ РІ РѕРёСЂРіРёРЅР°Р»СЊРЅРѕРј С†РёРєР»Рµ.
+    //Сам процесс разделения 
+    //Берётся первый оператор цикла, это начальный фрагмент. Высчитываются зависимости, фрагмент расширяется на них.
+    //Когда все зависимости удовлетворены, фрагменты вырезаются и вставялются в новый цикл. Затем берётся следующий оператор из оставшихся.
+    //Последний расширенный фрагмент не вырезается, а остаётся в оиргинальном цикле.
     while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
     {
 /*        printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
@@ -480,31 +479,6 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
         moveStatements(createNewLoop(loopGraph), borders);
         globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();        
     }
-
-    //С‚СѓС‚ РІСЂРѕРґРµ РєР°Рє СѓР¶Рµ РјС‹ РїРѕР»СѓС‡Р°РµРј СЂР°Р·СЋРёРІРєСѓ РІСЃРµРіРѕ С‚РµР»Р°, РѕСЃС‚Р°РµС‚СЃСЏ Р»РёС€СЊ РїРµСЂРµРјРµСЃС‚РёС‚СЊ РѕРїРµСЂР°С‚РѕСЂС‹ РІ РЅСѓР¶РЅС‹Рµ С†РёРєР»С‹
-    //Р°Р»СЊС‚СЂРЅР°С‚РёРІРЅР°СЏ РІРµС‚РєР°, Р±СѓРґРµС‚ СЂР°Р±РѕС‚Р°С‚СЊ РєР°Рє С‚РѕР»СЊРєРѕ Р±СѓРґСѓС‚ РїСЂР°РІРёР»СЊРЅРѕ СЃРґРµР»Р°РЅС‹ РіСЂР°РЅРёС†С‹. 
-/*    if (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection))
-    {
-        for (auto &fragment : borders)
-            printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
-
-        for (auto &fragment : borders)
-        {
-            SgStatement *lastInserted = createNewLoop(loopGraph);
-            SgStatement *toMoveStmt = fragment.first;
-
-            while (toMoveStmt != fragment.second)
-            {
-                //printf("move st from line %d\n", toMoveStmt->lineNumber());
-                SgStatement *st = toMoveStmt;
-                toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
-
-                lastInserted->insertStmtAfter(*st->extractStmt());
-                lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
-            }
-        }
-    }*/
-
     return 0;
 }
 
@@ -536,16 +510,12 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
                 SgExprListExp *listExp = isSgExprListExp(list->lhs()->lhs());
                 checkNull(listExp, convertFileName(__FILE__).c_str(), __LINE__);
                 const int deep = listExp->length();
-                //TODO: use deep!
                 int err = splitLoop(loop, messages, deep);
                 if (err != 0)
                     totalErr = -1;
             }
         }
-    }  
-
+    }
     deleteAllocatedExpressionValues(file->functions(0)->getFileId());
-
-
     return totalErr;
 }

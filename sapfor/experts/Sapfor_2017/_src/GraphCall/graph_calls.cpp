@@ -1707,6 +1707,20 @@ map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
         }
     }
 
+    const int cpOfSt = stIn->controlParent()->variant();
+    //contains of func
+    if (var == PROG_HEDR || var == PROC_HEDR || var == FUNC_HEDR)
+    {
+        for (SgStatement *stat = stIn->controlParent()->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+        {
+            if (stat->variant() == USE_STMT)
+            {
+                fillUseStmt(stat, byUse);
+                useMods.insert(stat->symbol()->identifier());
+            }
+        }
+    }
+
     bool chages = true;
     while (chages)
     {

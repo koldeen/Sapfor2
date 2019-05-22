@@ -1219,6 +1219,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // FISSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
             {
+                attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
 #ifdef _WIN32
@@ -1234,6 +1235,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // PRIVATES_EXPANSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
             {
+                attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
 #ifdef _WIN32
@@ -1445,48 +1447,6 @@ void revertion_spf_dirs(SgFile *file,
 {
     const string fileName(file->filename());
 
-    //set SPF_PRIVATE for arrays
-    /*
-    for (auto &allStats : declaratedArraysSt)
-    {
-        if (allStats.first->fileName() == fileName)
-        {
-            SgStatement *toAttr = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, NULL, NULL, NULL);            
-
-            SgExpression *tmp = new SgExpression(ACC_PRIVATE_OP);
-            SgExpression *exprList = new SgExpression(EXPR_LIST, tmp, NULL, NULL);
-            toAttr->setExpression(0, *exprList);
-            exprList = exprList->lhs();
-
-            exprList->setLhs(new SgExpression(EXPR_LIST));
-            exprList = exprList->lhs();
-
-            int added = 0;
-
-            for (auto &elem : allStats.second)
-            {
-                auto it = declaratedArrays.find(elem);
-                if (it == declaratedArrays.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (it->second.first->GetNonDistributeFlag())
-                {
-                    if (added != 0)
-                    {
-                        exprList->setRhs(new SgExpression(EXPR_LIST));
-                        exprList = exprList->rhs();
-                    }
-
-                    ++added;
-                    exprList->setLhs(*new SgVarRefExp(it->second.first->GetDeclSymbol()));
-                }
-            }
-
-            if (added)
-                allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
-        }
-    } */
-
     for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         SgStatement *st = file->functions(i);
@@ -1543,11 +1503,7 @@ void revertion_spf_dirs(SgFile *file,
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)
-                        {                            
-                            if (elem->variant() == SPF_TRANSFORM_DIR && toAdd->expr(0) ||
-                                elem->variant() != SPF_TRANSFORM_DIR)
-                                st->insertStmtBefore(*toAdd, *st->controlParent());
-                        }
+                            st->insertStmtBefore(*toAdd, *st->controlParent());
                     }
                 }
             }

@@ -318,6 +318,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("popcnt"));
     intrinsicF.insert(string("poppar"));
     intrinsicF.insert(string("real"));
+    intrinsicF.insert(string("reshape"));
     intrinsicF.insert(string("rshft"));
     intrinsicF.insert(string("rshift"));
     intrinsicF.insert(string("sign"));
@@ -334,7 +335,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("tand"));
     intrinsicF.insert(string("tanh"));
     intrinsicF.insert(string("trailz"));
-    intrinsicF.insert(string("trim"));    
+    intrinsicF.insert(string("trim"));
     intrinsicF.insert(string("xor"));
     intrinsicF.insert(string("wtime"));
     intrinsicF.insert(string("zabs"));
@@ -367,7 +368,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("omp_test_lock"));
     intrinsicF.insert(string("omp_test_nest_lock"));
     intrinsicF.insert(string("omp_unset_lock"));
-    intrinsicF.insert(string("omp_unset_nest_lock"));    
+    intrinsicF.insert(string("omp_unset_nest_lock"));
 }
 
 int isIntrinsicFunctionName(char *name)

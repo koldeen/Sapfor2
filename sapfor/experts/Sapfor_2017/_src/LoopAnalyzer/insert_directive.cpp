@@ -1106,22 +1106,22 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
 static vector<SgStatement*> filterAllocateStats(const vector<SgStatement*> &current, const string &array)
 {
     vector<SgStatement*> filtered;
-    set<string> arraySyns;
-    arraySyns.insert(array);
 
     for (auto &stat : current)
     {
+        set<string> arraySyns;
+        arraySyns.insert(array);
+
         auto byUse = moduleRefsByUseInFunction(stat);
         for (auto &elem : byUse)
             if (elem.first == array)
                 for (auto &newElem : elem.second)
                     arraySyns.insert(newElem->identifier());
-    }
 
-    for (auto &syns : arraySyns)
-        for (auto &stat : current)
+        for (auto &syns : arraySyns)
             if (recSymbolFind(stat->expr(0), syns, ARRAY_REF))
-                filtered.push_back(stat);    
+                filtered.push_back(stat);        
+    }
 
     if (filtered.size() != 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

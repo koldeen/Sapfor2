@@ -425,6 +425,8 @@ void correctModuleSymbols(SgFile *file)
 
         for (auto st = stF->lexNext(); st != stF->lastNodeOfStmt(); st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
             if (!isSgExecutableStatement(st))
                 continue;
             for (int z = 0; z < 3; ++z)
@@ -447,6 +449,8 @@ void correctModuleSymbols(SgFile *file)
         {
             for (auto st = stF->lexNext(); st != stF->lastNodeOfStmt(); st = st->lexNext())
             {
+                if (st->variant() == CONTAINS_STMT)
+                    break;
                 if (!isSgExecutableStatement(st))
                     continue;
                 for (int z = 0; z < 3; ++z)
@@ -631,8 +635,16 @@ static SgExpression* replaceStructS(SgExpression *ex, map<SgSymbol*, SgSymbol*> 
                 copySymbol(toCopy, mainS, structS, copy);
             else
                 toCopy = copy[mainS];
+           
+            if (ex->rhs()->variant() == ARRAY_REF)
+                retF = new SgArrayRefExp(*toCopy);
+            else
+                retF = new SgVarRefExp(toCopy);
 
-            retF = new SgVarRefExp(toCopy);
+            if (ex->rhs()->lhs())
+                retF->setLhs(ex->rhs()->lhs()->copy());
+            if (ex->rhs()->rhs())
+                retF->setRhs(ex->rhs()->rhs()->copy());
         }
         else
         {

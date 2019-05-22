@@ -1206,7 +1206,7 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
     map<DIST::Array*, const ArrayInfo*> toAdd;
     for (auto it1 = toConvert.begin(); it1 != toConvert.end(); ++it1)
     {
-        SgSymbol *currentArray = it1->first;
+        SgSymbol *currentArray = OriginalSymbol(it1->first);
         const ArrayInfo *currentInfo = &(it1->second);
         
         DIST::Array *arrayToAdd;
@@ -2477,6 +2477,29 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
     }
 }
 
+static void findReshape(SgStatement *st, set<string> &privates, vector<Messages> &currMessages)
+{
+    if (st->variant() == ASSIGN_STAT)
+    {
+        SgExpression *exL = st->expr(0);
+        SgExpression *exR = st->expr(1);
+
+        if (exR->variant() == FUNC_CALL && exL->variant() == ARRAY_REF)
+        {
+            if (exR->symbol()->identifier() == string("reshape"))
+            {
+                privates.insert(exL->symbol()->identifier());
+#ifdef _WIN32
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за использования RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
+                currMessages.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1047));
+#endif
+            }
+        }
+    }
+}
+
 void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                             map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt, vector<Messages> &currMessages,
                             const vector<ParallelRegion*> &regions)
@@ -2556,7 +2579,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     if (it != privatesByModule.end())
                         privates.insert(it->second.begin(), it->second.end());
                 }
-            }                
+            }
+
+            findReshape(iter, privates, currMessages);
         }
 
         for (auto &elem : reductions)

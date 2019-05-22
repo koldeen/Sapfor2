@@ -7131,6 +7131,12 @@ void SgStatement::addAttribute(int type, void *a, int size)
     }
 }
 
+void SgStatement::addAttributeTree(SgAttribute *firstAtt)
+{
+    if (!firstAtt) 
+        return;
+    SetMappingInTableForBfndAttribute(thebif, firstAtt);
+}
 
 void SgStatement::addAttribute(SgAttribute *att)
 {

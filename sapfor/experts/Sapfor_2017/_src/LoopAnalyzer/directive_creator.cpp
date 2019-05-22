@@ -201,7 +201,18 @@ static bool checkCorrectness(const ParallelDirective &dir,
             if (isAllRulesEqual(AllLinks))
                 links = AllLinks[0];
             else
+            {
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Can not create distributed link",
+                    to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+#ifdef _WIN32
+                __spf_printToLongBuf(bufR, L"Ќевозможно сопоставить выравнивани€ массивов, передаваемых в процедуру",
+                    to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+#endif
+
+                messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
 
             for (int k = 0; k < links.size(); ++k)
             {
