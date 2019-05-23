@@ -27,6 +27,10 @@ static void markNestedIntervals(SpfInterval *interval)
     for (auto &item : interval->nested)
     {
         item->isNested = true;
+
+        if (!item->begin->switchToFile())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         if (item->begin->symbol()->identifier() != NULL)
             markNestedIntervals(item);
     }
@@ -52,24 +56,32 @@ static void performFuncTime(const map<string, vector<FuncInfo*>> &funcInfo, map<
     for (auto &str : funcInfo) 
     {
         count = 0;
-        for (auto &info : str.second) 
+        for (auto *info : str.second)
+        {
             count += (info->callsTo).size();
-
-        if (countFunc.find(str.first) != countFunc.end())
-            countFunc[str.first] += count;
-        else
-            countFunc.insert(make_pair(str.first, count));
+            
+            if (countFunc.find(info->funcName) != countFunc.end())
+                countFunc[info->funcName] += count;
+            else
+                countFunc.insert(make_pair(info->funcName, count));
+        }
     }
 }
 
 double performTime(SgProject* project, SgStatement *src, const map<string, map<int, Gcov_info>> &gCovInfo, map<string, int> &calls, int recLevel)
 {
     SgStatement* stmt = src;
+    
+    if (!src->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     if (!isSgExecutableStatement(stmt))
         return 0.0;
+
     auto gCovForFile = gCovInfo.find(string(stmt->fileName()));
     if (gCovForFile == gCovInfo.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     auto gCovForStmt = gCovForFile->second.find(stmt->lineNumber());
     if (gCovForStmt == gCovForFile->second.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -81,17 +93,17 @@ double performTime(SgProject* project, SgStatement *src, const map<string, map<i
     {  
         case PROC_STAT:
         {
-            if (recLevel <= 1)
+            if (recLevel <= 5)
             {
                 SgCallStmt *call = (SgCallStmt*)src;
                 if (info.getCountCalls() == 0)
                     break;
                 SgStatement *body = NULL;
-                const char* funcName = call->name()->identifier();
-                auto num = calls.find(string(funcName));
+                string funcName(call->name()->identifier());
+                auto num = calls.find(funcName);
                 // its not a user function
-                if (num == calls.end())
-                   break;
+                if (num == calls.end()) 
+                    break;
 
                 for (int j = 0; j < project->numberOfFiles(); ++j)
                 {
@@ -99,9 +111,14 @@ double performTime(SgProject* project, SgStatement *src, const map<string, map<i
                     if (SgFile::switchToFile(file.filename()) == -1)
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                    for (int i = 0; i < file.numberOfFunctions(); ++i)
-                        if (!strcmp(file.functions(i)->symbol()->identifier(), funcName))
+                    for (int i = 0; i < file.numberOfFunctions(); ++i) 
+                    {
+                        if (!strcmp(file.functions(i)->symbol()->identifier(), funcName.c_str()))
+                        {
                             body = file.functions(i);
+                            break;
+                        }
+                    }
                 }
                 if (body == NULL)
                     break;
@@ -109,6 +126,10 @@ double performTime(SgProject* project, SgStatement *src, const map<string, map<i
                 while (body && body->variant() != RETURN_STAT)
                 {
                     count += performTime(project, body, gCovInfo, calls, recLevel + 1);
+                   
+                    if (!body->switchToFile())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                     body = body->lexNext();
                 }
 
@@ -146,6 +167,10 @@ double performTime(SgProject* project, SgStatement *src, const map<string, map<i
             while (tmp->variant() != CONTROL_END)
             {
                 count += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
+                
+                if (!tmp->switchToFile())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                 tmp = tmp->lexNext();
             }
             break;
@@ -157,6 +182,10 @@ double performTime(SgProject* project, SgStatement *src, const map<string, map<i
             while (tmp->variant() != CONTROL_END)
             {
                 count += performTime(project, tmp, gCovInfo, calls, recLevel + 1);
+               
+                if (!tmp->switchToFile())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                 tmp = tmp->lexNext();
             }
             break;
@@ -189,7 +218,12 @@ double performIntervalTime(SgProject* project, const SpfInterval *interval, cons
 {
     double time = 0.0;
     for (SgStatement *stat = interval->begin; stat != interval->ends[interval->ends.size() - 1]; stat = stat->lexNext())
+    {
         time += performTime(project, stat, gCovInfo, calls, 0);
+        if (!stat->switchToFile())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    }
 
     return time;
 }
@@ -199,14 +233,17 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
     double percent = 0.8;
     vector<SpfRegion> regions;
     map<string, int> calls;
+
     performFuncTime(funcInfo, calls);
-    if (mainInterval == NULL || calls.size() == 0)
+    if (mainInterval == NULL)
     {
         __spf_print(1, "internal error in analysis, directives will not be generated for this file!\n");
         return;
     }
 
+   
     double sumTime = performIntervalTime(project, mainInterval, gCovInfo, calls);
+ 
     double alreadyHavePercent = 0.0;
     int id = 1;
     int i = 0;
@@ -272,6 +309,9 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
     i = 0;
     while (i < regions.size()) 
     {
+        if (i > 0 && !regions[i-1].end->switchToFile())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         if (i > 0 && regions[i - 1].end->lexNext() == regions[i].start)
         {
             regions[i - 1].end = regions[i].end;
@@ -285,18 +325,31 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
 
     __spf_print(1, "Coverage of region is %f percent, count of regions is %d\n", alreadyHavePercent, regions.size());
 
-    for (auto& item : regions) 
+    for (auto &item : regions) 
     {
         SgStatement *startRegion = new SgStatement(SPF_PARALLEL_REG_DIR);
         SgStatement *endRegion = new SgStatement(SPF_END_PARALLEL_REG_DIR);
-      
+
+        if (!item.start->switchToFile())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
         startRegion->setSymbol(*(new SgSymbol(VARIABLE_NAME, to_string(item.id).c_str())));
-        endRegion->setSymbol(*(new SgSymbol(VARIABLE_NAME, to_string(item.id).c_str())));
         
-        while (!isSgExecutableStatement(item.start))
-            item.start = item.start->lexNext();
+        SgStatement *st = item.start;
+        while (!isSgExecutableStatement(st))
+            st = st->lexNext();
             
-        item.start->insertStmtBefore(*startRegion);
-        item.end->insertStmtAfter(*endRegion);
+        startRegion->setFileId(st->getFileId());
+        startRegion->setProject(st->getProject());
+        startRegion->setlineNumber(st->lineNumber());
+
+        st->insertStmtBefore(*startRegion, *st->controlParent());
+
+        SgStatement *next = item.end->lexNext();
+        startRegion->setFileId(next->getFileId());
+        startRegion->setProject(next->getProject());
+        startRegion->setlineNumber(next->lineNumber());
+
+        next->insertStmtBefore(*endRegion, *next->controlParent());
     }
 }
