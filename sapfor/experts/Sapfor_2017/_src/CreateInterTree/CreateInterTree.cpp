@@ -29,6 +29,9 @@ static void printTree(SpfInterval* inter, fstream &file, int level)
         return;
     }
 
+    if (!inter->begin->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     for (int i = 0; i < level; i++)
         file << "  ";
     file << "  Begin INTERVAL #" << inter->tag << " (var " << tag[inter->begin->variant()];

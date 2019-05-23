@@ -201,6 +201,7 @@ static bool isDone(const int curr_regime)
 static void updateStatsExprs(const int id, const string &file)
 {    
     auto node1 = current_file->firstStatement();
+
     for (; node1; node1 = node1->lexNext())
         sgStats[node1->thebif] = make_pair(file, id);
     
@@ -784,15 +785,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
             restoreConvertedLoopForParallelLoops(file, true);
         else if (curr_regime == SHADOW_GROUPING)
-        {
-            // TODO: temporary disabled
-            /*
+        {        
+#if 0
             //TODO for all parallel regions
             if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
             {
                 for (int z = 0; z < parallelRegions.size(); ++z)
-                    GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
-            }*/
+                    GroupShadowStep1(file, getObjectForFileFromMap(file_name, allFuncInfo), getObjectForFileFromMap(file_name, loopGraph), parallelRegions[z]->GetAllArraysToModify(), arrayLinksByFuncCalls);
+            }
+#endif
         }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
         {

@@ -272,7 +272,11 @@ static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddn
     if (innerLoop != NULL) 
     {
         bool beforeValid = validateInvariantStatement(outerLoop->lexNext(), innerLoop, dependencies);
-        bool afterValid = validateInvariantStatement(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
+
+        //TODO:
+        //validateInvariantStatement(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
+        bool afterValid = (outerLoop->lastNodeOfStmt() == innerLoop->lastNodeOfStmt()->lexNext());
+
         return beforeValid && afterValid;
     }
     else 

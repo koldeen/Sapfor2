@@ -154,4 +154,5 @@ template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, Loop
 // shadow.cpp
 void devourShadowByRemote(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void transformShadowIfFull(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, DIST::Arrays<int> &allArrays);
+void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, std::vector<LoopGraph*> &loops, DIST::Arrays<int> &allArrays,
+                      std::map<DIST::Array*, std::set<DIST::Array*>> arrayLinksByFuncCalls);

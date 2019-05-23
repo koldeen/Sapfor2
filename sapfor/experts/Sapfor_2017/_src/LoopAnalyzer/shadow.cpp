@@ -12,6 +12,7 @@
 #include "directive_parser.h"
 #include "../Distribution/DvmhDirective_func.h"
 #include "../Utils/SgUtils.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 #include "shadow.h"
 #include "dvm.h"
@@ -381,150 +382,6 @@ void transformShadowIfFull(SgFile *file, const map<DIST::Array*, set<DIST::Array
     }
 }
 
-static SgStatement *getLast(SgStatement *nextStart, SgStatement *st, SgStatement *end)
-{
-    SgStatement *last = st;
-    if (nextStart->lineNumber() > st->lineNumber())
-    {
-        if (nextStart->lineNumber() > end->lineNumber())
-            last = nextStart->controlParent()->lastNodeOfStmt();
-        else
-            last = end;
-    }
-
-    return last;
-}
-
-static void findNext(SgStatement *st, SgStatement *end, vector<pair<ShadowNode*, set<string>>> &next,  const map<void*, ShadowNode*> &allShadowNodes, 
-                     const ShadowNode *currDir, map<int, SgStatement*> &labeledStmts, set<string> arrayAssigns)
-{
-    for (; st != end; st = st->lexNext())
-    {
-        const int var = st->variant();
-        if (var == DVM_PARALLEL_ON_DIR)
-        {
-            next.push_back(make_pair(allShadowNodes.find(st)->second, arrayAssigns));
-            break;
-        }
-        else
-        {
-            if (var == IF_NODE)
-            {
-                SgIfStmt *tmp = (SgIfStmt*)st;
-                SgStatement *last = st;
-                while (last->variant() != CONTROL_END)
-                    last = last->lastNodeOfStmt();
-
-                auto tb = tmp->trueBody();
-                auto fb = tmp->falseBody();
-
-                vector<pair<SgStatement*, SgStatement*>> bounds;
-                if (fb)
-                {
-                    while (fb->variant() != CONTROL_END)
-                    {
-                        if (tmp->variant() == IF_NODE)
-                            bounds.push_back(make_pair(tmp->lexNext(), fb));
-                        else
-                            bounds.push_back(make_pair(tmp, fb));
-
-                        if (fb->variant() == ELSEIF_NODE)
-                        {
-                            tmp = (SgIfStmt*)fb;
-                            tb = tmp->trueBody();
-                            fb = tmp->falseBody();
-                        }
-                        else
-                        {
-                            bounds.push_back(make_pair(fb, last));
-                            fb = last;
-                        }
-                    }
-                }
-
-                if (bounds.size() == 0)
-                    bounds.push_back(make_pair(tmp->lexNext(), last));
-                
-                for (auto &elem : bounds)
-                    findNext(elem.first, elem.second, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-
-                st = st->lastNodeOfStmt();
-            }
-            else if (var == FOR_NODE || var == WHILE_NODE)
-            {
-                findNext(st->lexNext(), st->lastNodeOfStmt(), next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                st = st->lastNodeOfStmt();
-            }
-            else if (var == GOTO_NODE)
-            {
-                SgGotoStmt *gotoS = (SgGotoStmt*)st;
-                int labNum = gotoS->branchLabel()->thelabel->stateno;
-                auto nextStart = labeledStmts[labNum];
-                
-                SgStatement *last = getLast(nextStart, st, end);                
-                findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                
-                break;
-            }
-            else if (var == COMGOTO_NODE)
-            {
-                SgComputedGotoStmt* cgt = (SgComputedGotoStmt*)(st);
-                SgExpression* label = cgt->labelList();
-
-                set<int> uniqLab;
-                while (label)
-                {
-                    uniqLab.insert(((SgLabelRefExp *)(label->lhs()))->label()->thelabel->stateno);
-                    label = label->rhs();
-                }
-
-                for (auto &lab : uniqLab)
-                {
-                    auto nextStart = labeledStmts[lab];
-                    SgStatement *last = getLast(nextStart, st, end);
-                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                }
-                break;
-            }
-            else if (var == CONTROL_END)
-            {
-                auto cp = st->controlParent();
-                if (((SgStatement*)currDir->dir)->controlParent() == cp)
-                {
-                    if (cp->variant() == FOR_NODE || cp->variant() == WHILE_NODE)
-                        findNext(cp->lexNext(), st, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                }
-            }
-            else if (var == ASSIGN_STAT)
-            {
-                if (st->expr(0)->variant() == ARRAY_REF)
-                    arrayAssigns.insert(st->expr(0)->symbol()->identifier());
-            }
-            else if (var == LOGIF_NODE)
-            {
-                findNext(st->lexNext(), st->lexNext()->lexNext(), next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                st = st->lastNodeOfStmt();
-            }
-            else if (var == ARITHIF_NODE)
-            {
-                SgArithIfStmt *arith = (SgArithIfStmt*)st;
-                for (int i = 0; i < 2; ++i)
-                {
-                    auto nextStart = labeledStmts[((SgLabelRefExp*)(arith->label(i)))->label()->thelabel->stateno];
-                    SgStatement *last = getLast(nextStart, st, end);
-                    findNext(nextStart, last, next, allShadowNodes, currDir, labeledStmts, arrayAssigns);
-                }
-                break;
-            }
-            //TODO
-            /*else if (var == SWITCH_NODE)
-            {
-
-            }*/
-        }
-    }
-}
-
 void ShadowNode::moveShadow(pair<pair<string, string>, vector<pair<int, int>>> &shadowIn, set<string> &cornerIn)
 {
     bool found = false;
@@ -562,15 +419,50 @@ void ShadowNode::moveShadow(pair<pair<string, string>, vector<pair<int, int>>> &
     }
 }
 
-void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> &allArrays)
+static void viewGraph(CBasicBlock *first)
+{
+    auto nexts = first->getSucc();
+    auto items = first->getStart();
+    auto itemsEnd = first->getEnd();
+    while (items != itemsEnd)
+    {
+        auto stmt = items->getStatement();
+        if (stmt)
+            printf("%d tag %s\n", stmt->lineNumber(), tag[stmt->variant()]);
+
+        stmt = items->getOriginalStatement();
+        if (stmt)
+            printf("ORIG %d %s\n", stmt->lineNumber(), tag[stmt->variant()]);
+
+        items = items->getNext();
+    }
+    
+    while (nexts)
+    {
+        viewGraph(nexts->block);
+        nexts = nexts->next;
+    }
+}
+
+static GraphsKeeper *graphsKeeper;
+void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, vector<LoopGraph*> &loops, DIST::Arrays<int> &allArrays,
+                      map<DIST::Array*, set<DIST::Array*>> arrayLinksByFuncCalls)
 {
     map<string, FuncInfo*> mapF;
     for (auto &elem : funcs)
         mapF[elem->funcName] = elem;
 
+    map<int, LoopGraph*> mapLoops;
+    createMapLoopGraph(loops, mapLoops);
+
+    //GraphsKeeper *gk = GraphsKeeper::getGraphsKeeper();
+
     for (int f = 0; f < file->numberOfFunctions(); ++f)
     {
         SgStatement *func = file->functions(f);
+        
+        //ControlFlowGraph* CGraph = gk->buildGraph(func)->CGraph;
+        //viewGraph(CGraph->getFirst());
 
         auto it = mapF.find(((SgProgHedrStmt*)func)->nameWithContains());
         if (it == mapF.end())
@@ -595,6 +487,8 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 st = st->lastNodeOfStmt();
             }
+            else if (st->variant() == CONTAINS_STMT)
+                break;
         }
 
         if (currF->allShadowNodes.size() == 0)
@@ -610,7 +504,12 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
                     currF->shadowTree = currF->allShadowNodes[st];
                     break;
                 }
+                else if (st->variant() == CONTAINS_STMT)
+                    break;
             }
+
+            if (currF->shadowTree == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         else
         {
@@ -626,19 +525,24 @@ void GroupShadowStep1(SgFile *file, vector<FuncInfo*> &funcs, DIST::Arrays<int> 
         // set next
         for (auto &elem : currF->allShadowNodes)
         {
-            SgStatement *start = (SgStatement*)elem.first;
-            //            loop           end loop         
-            auto tmp = start->lexNext()->lastNodeOfStmt();           
+            SgForStmt *start = (SgForStmt*) ((SgStatement*)elem.first)->lexNext();
+            
+            auto itLoop = mapLoops.find(start->lineNumber());
+            if (itLoop == mapLoops.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-            set<string> arrayAssigns;
-            for (auto st = start->lexNext(); st != start->lexNext()->lastNodeOfStmt(); st = st->lexNext())
+            set<string> writesTo;
+            for (auto &elem : itLoop->second->usedArraysWrite)
             {
-                if (st->variant() == ASSIGN_STAT)
-                    if (st->expr(0)->variant() == ARRAY_REF)
-                        arrayAssigns.insert(st->expr(0)->symbol()->identifier());
+                set<DIST::Array*> realRef;
+                getRealArrayRefs(elem, elem, realRef, arrayLinksByFuncCalls);
+
+                for (auto &realR : realRef)
+                writesTo.insert(realR->GetShortName());
             }
-            start = tmp->lexNext();
-            findNext(start, func->lastNodeOfStmt(), elem.second->next, currF->allShadowNodes, elem.second, labeledStmts, arrayAssigns);
+            
+            //TODO
+            //findNext(start, func->lastNodeOfStmt(), elem.second->next, currF->allShadowNodes, elem.second, labeledStmts, arrayAssigns);
         }
 
         //check for internal error

@@ -27,6 +27,7 @@ struct SpfInterval
     std::vector<int> exit_levels;
     std::vector<SpfInterval*> nested;
 
+    //TODO: to be delete or rewrite with new predictor
     //from statistic after execution
     int exec_count = 0;
     double exec_time = 0;

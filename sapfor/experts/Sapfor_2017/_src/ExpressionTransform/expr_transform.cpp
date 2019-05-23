@@ -90,15 +90,17 @@ GraphItem* GraphsKeeper::buildGraph(SgStatement* st)
     fs << result->CGraph->GetVisualGraph(&result->calls);
     fs.close();*/
 
-    auto inserted = graphs.insert(make_pair(st->symbol()->identifier(), result));
+    auto inserted = graphs.insert(make_pair(st, result));
     return inserted.first->second;
 }
 
 
-GraphItem* GraphsKeeper::getGraph(const string &funcName)
+GraphItem* GraphsKeeper::getGraph(SgStatement *header)
 {
-
-    GraphItem* res = graphs.find(funcName)->second;
+    auto it = graphs.find(header);
+    if (it == graphs.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    GraphItem* res = graphs.find(header)->second;
     CurrentProject->file(res->file_id);
     return res;
 }
@@ -981,9 +983,10 @@ void BuildUnfilteredReachingDefinitions(ControlFlowGraph* CGraph, map<SymbolKey,
 //    debugStructure(CGraph, filename);
 }
 
-ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header) {
+ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header) 
+{
     auto inDefs = createHeaderInDefs(header);
-    ControlFlowGraph *CGraph = GraphsKeeper::getGraphsKeeper()->getGraph(header->symbol()->identifier())->CGraph;
+    ControlFlowGraph *CGraph = GraphsKeeper::getGraphsKeeper()->getGraph(header)->CGraph;
     BuildUnfilteredReachingDefinitions(CGraph, inDefs, header->getFile()->filename());
     return CGraph;
 }
