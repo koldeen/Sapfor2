@@ -327,11 +327,11 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
 
     for (auto &item : regions) 
     {
-        SgStatement *startRegion = new SgStatement(SPF_PARALLEL_REG_DIR);
-        SgStatement *endRegion = new SgStatement(SPF_END_PARALLEL_REG_DIR);
-
         if (!item.start->switchToFile())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        SgStatement *startRegion = new SgStatement(SPF_PARALLEL_REG_DIR);
+        SgStatement *endRegion = new SgStatement(SPF_END_PARALLEL_REG_DIR);        
 
         startRegion->setSymbol(*(new SgSymbol(VARIABLE_NAME, to_string(item.id).c_str())));
         
@@ -342,6 +342,7 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
         startRegion->setFileId(st->getFileId());
         startRegion->setProject(st->getProject());
         startRegion->setlineNumber(st->lineNumber());
+        startRegion->setFileName(st->fileName());
 
         st->insertStmtBefore(*startRegion, *st->controlParent());
 
@@ -349,6 +350,7 @@ void createParallelRegions(SgProject* project, SpfInterval *mainInterval, const 
         startRegion->setFileId(next->getFileId());
         startRegion->setProject(next->getProject());
         startRegion->setlineNumber(next->lineNumber());
+        startRegion->setFileName(next->fileName());
 
         next->insertStmtBefore(*endRegion, *next->controlParent());
     }
