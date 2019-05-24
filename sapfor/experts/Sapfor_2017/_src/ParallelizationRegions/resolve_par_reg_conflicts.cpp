@@ -1026,26 +1026,31 @@ static void copyFunction(ParallelRegion *region,
         string newFuncName = string(funcSymb->identifier()) + suffix;
 
         // create copy function symbol and copy function for original function
-        newFuncSymb = &(funcSymb->copySubprogram(*(file->firstStatement())));
+        newFuncSymb = &(funcSymb->copySubprogram(*(funcStat->lastNodeOfStmt())));
         newFuncSymb = &newFuncSymb->copy();
         newFuncSymb->changeName(newFuncName.c_str());
-        file->firstStatement()->lexNext()->setSymbol(*newFuncSymb);
+        funcStat->lastNodeOfStmt()->lexNext()->setSymbol(*newFuncSymb);
 
         if (SgFile::switchToFile(func->fileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         // set line numbers
-        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = funcStat->lastNodeOfStmt()->lexNext();
              origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
+            __spf_print(1, "orig %d:\n", origStat->lineNumber()); // DEBUG
+            origStat->unparsestdout(); // DEBUG
+            __spf_print(1, "copy %d:\n", copyStat->lineNumber()); // DEBUG
+            copyStat->unparsestdout(); // DEBUG
+
             copyStat->setlineNumber(origStat->lineNumber());
             BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }
 
         // replace all func calls in copy function
-        Statement *begin = new Statement(file->firstStatement()->lexNext());
-        Statement *end = new Statement(file->firstStatement()->lexNext()->lastNodeOfStmt());
+        Statement *begin = new Statement(funcStat->lastNodeOfStmt()->lexNext());
+        Statement *end = new Statement(funcStat->lastNodeOfStmt()->lexNext()->lastNodeOfStmt());
         pair<Statement*, Statement*> beginEnd = make_pair(begin, end);
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
         ParallelRegionLines newFuncLines(newLines, beginEnd);
@@ -1055,7 +1060,7 @@ static void copyFunction(ParallelRegion *region,
             replaceSymbol(current_file->filename(), newFuncLines, func->funcName, newFuncSymb);
 
         // try to find common-block and add new if common-block exists
-        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = funcStat->lastNodeOfStmt()->lexNext();
              origStat && (!isSgExecutableStatement(origStat) || isSPF_stat(origStat));
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
