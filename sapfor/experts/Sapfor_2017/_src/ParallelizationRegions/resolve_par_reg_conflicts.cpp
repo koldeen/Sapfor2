@@ -78,7 +78,7 @@ static bool isSPF_reg(SgStatement *st)
     return st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR;
 }
 
-static SgStatement* getFuncStat(SgStatement *st)
+static inline SgStatement* getFuncStat(SgStatement *st)
 {
     if (!st)
         return NULL;
@@ -165,7 +165,6 @@ static void createSetOfCalledFuncs(const string &funcName, const map<string, Fun
     }
 }
 
-//TODO: remove commented
 static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMap)
 {
     if (func->funcPointer->variant() != ENTRY_STAT)
@@ -178,7 +177,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
             bool isEntryCovered = false;
             bool isRegion = false;
 
-            // ALEX, TODO: а DVM директивы €вл€еютс€ нужными?
             for (; !isSgExecutableStatement(iterator) && !isSPF_reg(iterator) && iterator->variant() != ENTRY_STAT; iterator = iterator->lexNext())
             {
                 // skip not executable and not necessary statements
@@ -195,9 +193,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
                     isRegion = false;
                     break;
                 case ENTRY_STAT:
-                    //if (entry && isEntryCovered)
-                    //    entry->setIsCoveredByRegion(1);
-
                     entry = getFuncInfo(funcMap, string(iterator->symbol()->identifier()));
                     isEntryCovered = true;
                     break;
@@ -213,9 +208,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
                     break;
                 }
             }
-
-            // ALEX, TODO: а проверка на entry?
-            // SERG, TODO: а нужно? флаг isEntryCovered выставл€етс€ в true, только если встретилс€ entry
         }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -304,7 +296,11 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                     }
 
                     iterator = getFuncStat(iterator);
-                    funcName = iterator->symbol()->identifier();
+                    string containsPrefix = "";
+                    SgStatement *st_cp = iterator->controlParent();
+                    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+                        containsPrefix = st_cp->symbol()->identifier() + string(".");
+                    funcName = containsPrefix + iterator->symbol()->identifier();
 
                     if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
@@ -1023,6 +1019,7 @@ static void copyFunction(ParallelRegion *region,
 {
     if (SgFile::switchToFile(func->fileName) != -1)
     {
+        SgStatement *funcStat = func->funcPointer->GetOriginal();
         SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
         SgSymbol *newFuncSymb = NULL;
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
@@ -1038,8 +1035,8 @@ static void copyFunction(ParallelRegion *region,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         // set line numbers
-        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
-             origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
+        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+             origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
@@ -1053,12 +1050,12 @@ static void copyFunction(ParallelRegion *region,
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
         ParallelRegionLines newFuncLines(newLines, beginEnd);
         replaceFuncCalls(newFuncLines, funcMap, region->GetId());
-        
-        if (func->funcPointer->GetOriginal()->variant() == FUNC_HEDR)
+
+        if (funcStat->variant() == FUNC_HEDR)
             replaceSymbol(current_file->filename(), newFuncLines, func->funcName, newFuncSymb);
 
         // try to find common-block and add new if common-block exists
-        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
              origStat && (!isSgExecutableStatement(origStat) || isSPF_stat(origStat));
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
