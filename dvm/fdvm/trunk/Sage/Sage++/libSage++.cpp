@@ -4183,6 +4183,13 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
         const int var = pt->variant();
         if (var == CONTROL_END)
             return isSgExecutableStatement(pt->controlParent());
+        else if (var == DVM_INHERIT_DIR || var == DVM_ALIGN_DIR || var == DVM_DYNAMIC_DIR ||
+                 var == DVM_DISTRIBUTE_DIR || var == DVM_VAR_DECL || var == DVM_SHADOW_DIR ||
+                 var == DVM_HEAP_DIR || var == DVM_CONSISTENT_DIR || var == DVM_POINTER_DIR ||
+                 var == HPF_TEMPLATE_STAT || var == HPF_PROCESSORS_STAT || var == DVM_TASK_DIR || 
+                 var == DVM_INDIRECT_GROUP_DIR || var == DVM_REMOTE_GROUP_DIR || var == DVM_REDUCTION_GROUP_DIR ||
+                 var == DVM_CONSISTENT_GROUP_DIR || var == DVM_ASYNCID_DIR)
+            return NULL;
         else
             return (SgExecutableStatement*)pt;
 #else
@@ -4221,6 +4228,12 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
             return isSgExecutableStatement(pt->lexPrev());
         if (var == DVM_BARRIER_DIR)
             return (SgExecutableStatement *)pt;
+        if (var == DVM_INHERIT_DIR)
+            return NULL;
+        if (var == DVM_INHERIT_DIR || var == DVM_ALIGN_DIR || var == DVM_DYNAMIC_DIR ||
+            var == DVM_DISTRIBUTE_DIR || var == DVM_VAR_DECL || var == DVM_SHADOW_DIR ||
+            var == DVM_HEAP_DIR || var == DVM_CONSISTENT_DIR || var == DVM_POINTER_DIR)
+            return NULL;
 #endif
         return NULL;
     }

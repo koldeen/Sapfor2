@@ -211,7 +211,6 @@ static void fillInfo(SgStatement *mod, map<string, ModuleInfo> &modsInfo)
 
 static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<string, ModuleInfo> &modsInfo, SgStatement *cp)
 {
-    //string funcName = procS->identifier();
     auto itUse = modsInfo.find(cp->symbol()->identifier());
     if (itUse == modsInfo.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -268,6 +267,17 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
             }
         }
 
+        // find in current module
+        if (filter.size() == 0)
+        {
+            auto funcs = info.functions;
+            for (auto &func : funcs)
+            {
+                if (func == funcName)
+                    filter.insert(make_pair(cp->symbol()->identifier(), func));
+            }
+        }
+
         if (filter.size() == 1)
             callInMod = (*filter.begin()).first;
         else
@@ -276,7 +286,7 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
 
     string newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
 
-    char *lastName = new char[256];
+    char *lastName = new char[512];
     addToCollection(__LINE__, __FILE__, lastName, 2);
     sprintf(lastName, "%s", curr->identifier());
     curr->addAttribute(VARIABLE_NAME, lastName, sizeof(char*));
@@ -325,7 +335,7 @@ void correctModuleProcNames(SgFile *file)
         {
             if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             {
-                char *lastName = new char[256];
+                char *lastName = new char[512];
                 addToCollection(__LINE__, __FILE__, lastName, 2);
                 sprintf(lastName, "%s", st->symbol()->identifier());
                 modsInfo[modName].functions.insert(lastName);
@@ -460,7 +470,19 @@ void correctModuleSymbols(SgFile *file)
     }
 }
 
-static void restoreInFunc(SgExpression *ex)
+static void changeNameAndSwap (SgSymbol *s, char *attrs, set<SgSymbol*> &swaped)
+{
+    if (swaped.find(s) == swaped.end())
+        swaped.insert(s);
+    else
+        return;
+
+    const string prev(s->identifier());
+    s->changeName(attrs);
+    std::copy(prev.c_str(), prev.c_str() + prev.size() + 1, attrs);
+}
+
+static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped)
 {
     if (ex)
     {
@@ -471,17 +493,18 @@ static void restoreInFunc(SgExpression *ex)
             {
                 if (attrs.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                ex->symbol()->changeName(attrs[0]);
+                changeNameAndSwap(ex->symbol(), attrs[0], swaped);
             }
         }
 
-        restoreInFunc(ex->lhs());
-        restoreInFunc(ex->rhs());
+        restoreInFunc(ex->lhs(), swaped);
+        restoreInFunc(ex->rhs(), swaped);
     }
 }
 
 void restoreCorrectedModuleProcNames(SgFile *file)
 {
+    set<SgSymbol*> swaped;
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
 
@@ -498,7 +521,7 @@ void restoreCorrectedModuleProcNames(SgFile *file)
                 const vector<char*> attrs = getAttributes<SgSymbol*, char*>(st->symbol(), set<int>({ VARIABLE_NAME }));
                 if (attrs.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                st->symbol()->changeName(attrs[0]);
+                changeNameAndSwap(st->symbol(), attrs[0], swaped);
             }
         }
     }
@@ -508,6 +531,9 @@ void restoreCorrectedModuleProcNames(SgFile *file)
         SgStatement *func = file->functions(z);
         for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (isSgExecutableStatement(st))
             {
                 if (st->variant() == PROC_STAT)
@@ -517,12 +543,12 @@ void restoreCorrectedModuleProcNames(SgFile *file)
                     {
                         if (attrs.size() != 1)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        st->symbol()->changeName(attrs[0]);
+                        changeNameAndSwap(st->symbol(), attrs[0], swaped);
                     }
                 }
                 else
                     for (int z = 0; z < 3; ++z)
-                        restoreInFunc(st->expr(z));
+                        restoreInFunc(st->expr(z), swaped);
             }
         }
     }

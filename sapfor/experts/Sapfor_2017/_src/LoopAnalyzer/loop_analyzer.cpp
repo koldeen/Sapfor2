@@ -1371,6 +1371,16 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
     return retVal || retL || retR;
 }
 
+static void fillFromModule(SgSymbol* s, const map<string, set<string>>& privatesByModule, set<string>& privates)
+{
+    if (s)
+    {
+        auto it = privatesByModule.find(s->identifier());
+        if (it != privatesByModule.end())
+            privates.insert(it->second.begin(), it->second.end());
+    }
+}
+
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
 void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                   vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
@@ -1451,6 +1461,13 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
             funcName = funcH->symbol()->identifier();
         }
 
+        SgStatement* tmpModFind = st;
+        while (tmpModFind->variant() != GLOBAL)
+        {
+            tmpModFind = tmpModFind->controlParent();
+            if (tmpModFind->variant() == MODULE_STMT)
+                fillFromModule(tmpModFind->symbol(), privatesByModule, privatesVars);
+        }
         commonBlocks.clear();
         getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
         __spf_print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
@@ -2572,16 +2589,17 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             }
 
             if (iter->variant() == USE_STMT)
-            {
-                if (iter->symbol())
-                {
-                    auto it = privatesByModule.find(iter->symbol()->identifier());
-                    if (it != privatesByModule.end())
-                        privates.insert(it->second.begin(), it->second.end());
-                }
-            }
+                fillFromModule(iter->symbol(), privatesByModule, privates);
 
             findReshape(iter, privates, currMessages);
+        }
+
+        SgStatement* tmpModFind = st;
+        while (tmpModFind->variant() != GLOBAL)
+        {
+            tmpModFind = tmpModFind->controlParent();
+            if (tmpModFind->variant() == MODULE_STMT)
+                fillFromModule(tmpModFind->symbol(), privatesByModule, privates);
         }
 
         for (auto &elem : reductions)
@@ -2659,6 +2677,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         set<string> deprecatedByIO;
         set<string> funcParNames;
 
+        fillFromModule(st->symbol(), privatesByModule, privates);
+        
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();

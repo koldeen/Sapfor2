@@ -56,3 +56,4 @@ const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &com
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
 SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig);
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
+void printSymbolTable(SgFile *file);

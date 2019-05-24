@@ -219,8 +219,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
                                         set<string> &allIncludeFiles)
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
-    {
+    {        
         restoreCorrectedModuleProcNames(file);
+
         if (keepSpfDirs)
             revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
         else
@@ -293,6 +294,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             if (folderName != NULL)
                 copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
         }
+
+        //restore of restore
+        restoreCorrectedModuleProcNames(file);
     }
 }
 

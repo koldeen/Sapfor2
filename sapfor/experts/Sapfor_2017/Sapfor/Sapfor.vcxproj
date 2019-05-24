@@ -244,6 +244,8 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_data.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
+    <ClCompile Include="..\_src\CFGraph\CFGraph.cpp" />
+    <ClCompile Include="..\_src\CFGraph\CFG_Variables.cpp" />
     <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\operators.cpp" />
@@ -415,6 +417,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
+    <ClInclude Include="..\_src\CFGraph\CFGraph.h" />
+    <ClInclude Include="..\_src\CFGraph\CFG_Variables.h" />
     <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection_exception.h" />
