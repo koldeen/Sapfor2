@@ -633,16 +633,19 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
         {            
             if (loops[i]->countOfIters == 0 && loops[i]->region)
             {
-                std::wstring bufw;
-                __spf_printToLongBuf(bufw, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 
+                wstring bufE, bufR;
+                __spf_printToLongBuf(bufE, L"Can not calculate count of iterations for this loop, information about iterations in all loops in parallel regions '%s' will be ignored", 
                                      to_wstring(loops[i]->region->GetName()).c_str());
 
-                auto itM = uniqMessages.find(bufw);
+                auto itM = uniqMessages.find(bufE);
                 if (itM == uniqMessages.end())
                 {
-                    uniqMessages.insert(itM, bufw);
-
-                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufw, 1016));
+                    uniqMessages.insert(itM, bufE);
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Невозможно вычислить количество итераций данного цикла, информация о количестве итераций для всех остальных циклов в области распараллеливания '%s' будет проигнорирована",
+                                         to_wstring(loops[i]->region->GetName()).c_str());
+#endif
+                    currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufR, bufE, 1016));
                     __spf_print(1, "Can not calculate count of iterations for loop on line %d, information about iterations in all loops in parallel regions '%s' will be ignored\n", loops[i]->lineNum, loops[i]->region->GetName().c_str());
                 }
                 isNotOkey.insert(loops[i]->region);
@@ -966,7 +969,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
     {
         if (elem->IsAllDeprecated())
         {
-            std::wstring bufw, bufR;
+            wstring bufw, bufR;
             __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
 #ifdef _WIN32
             __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен, так как все его измерения запрещены к распределению",
@@ -1053,7 +1056,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA == trees.end() || itA->second < 0)
                                 {
-                                    std::wstring bufw, bufR;
+                                    wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
@@ -1093,7 +1096,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                 auto itA = trees.find(array);
                                 if (itA == trees.end() || itA->second != treeNum)
                                 {
-                                    std::wstring bufw, bufR;
+                                    wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
@@ -1127,7 +1130,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                     }
                                     if (needToDeprecated)
                                     {
-                                        std::wstring bufw, bufR;
+                                        wstring bufw, bufR;
                                         __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(inCall->GetShortName()).c_str());
 #ifdef _WIN32
                                         __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
@@ -1159,15 +1162,20 @@ void filterArrayInCSRGraph(map<string, vector<LoopGraph*>> &loopGraph, map<strin
     auto arrays = reg->GetAllArrays().GetArrays();
     int count = 0;
     for (auto &array : arrays)
-    {
         if (!array->IsLoopArray() && !array->IsTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
             count++;
-    }
+
     if (count <= 1)
         return;
 
     reg->GetGraphToModify().FindAllArraysTrees(trees, reg->GetAllArrays());
     createMapOfFunc(allFuncs, mapFuncInfo);
+
+    int lastTreesNum = trees.size();
+    for (auto &array : arrays)
+        if (!array->IsLoopArray() && !array->IsTemplate() && array->GetLocation().first != DIST::l_PARAMETER)
+            if (trees.find(array) == trees.end())
+                trees[array] = lastTreesNum++;
 
     if (trees.size())
         for (auto &byFile : loopGraph)

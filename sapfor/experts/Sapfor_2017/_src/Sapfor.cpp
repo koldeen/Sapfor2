@@ -134,7 +134,7 @@ void deleteAllAllocatedData(bool enable)
             delete[]ALGORITHMS_DONE[i];
         delete project;
 
-        deleteGraphsKeeper();
+        GraphsKeeper::deleteGraphsKeeper();
         deletePointerAllocatedData();
     }
 }
@@ -147,7 +147,9 @@ static inline void printDvmActiveDirsErrors()
         for (auto &code : err.second)
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
-            currMessages.push_back(Messages(ERROR, code, L"Active DVM directives are not supported yet", 1020));
+#ifdef _WIN32
+            currMessages.push_back(Messages(ERROR, code, L"Активные DVM-директивы не поддерживаются в данный момент", L"Active DVM directives are not supported yet", 1020));
+#endif
         }
     }
 }
@@ -156,16 +158,16 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "WARR: line %d: %s\n", line, message);
-
-    currM.push_back(Messages(WARR, line, to_wstring(message), group));
+    //TODO
+    currM.push_back(Messages(WARR, line, to_wstring(message), to_wstring(message), group));
 }
 
 extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "NOTE: line %d: %s\n", line, message);
-
-    currM.push_back(Messages(NOTE, line, to_wstring(message), group));
+    //TODO
+    currM.push_back(Messages(NOTE, line, to_wstring(message), to_wstring(message), group));
 }
 
 static bool isDone(const int curr_regime)
@@ -199,6 +201,7 @@ static bool isDone(const int curr_regime)
 static void updateStatsExprs(const int id, const string &file)
 {    
     auto node1 = current_file->firstStatement();
+
     for (; node1; node1 = node1->lexNext())
         sgStats[node1->thebif] = make_pair(file, id);
     
@@ -221,7 +224,16 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (keepSpfDirs)
             revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
         else
-            __spf_print(1, "   ignore SPF REVERT\n");
+        {
+            vector<SgStatement*> toDel;
+            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                if (isSPF_stat(st)) // except sapfor parallel regions and if attributes dont move
+                    if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
+                        toDel.push_back(st);
+
+            for (auto &elem : toDel)
+                elem->deleteStmt();
+        }
 
         if (curr_regime == CORRECT_CODE_STYLE && newVer == NULL)
             newVer = "";
@@ -232,7 +244,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         if (newVer == NULL)
         {
             __spf_print(1, "  ERROR: null file addition name\n");
-            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
+#ifdef _WIN32
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+#endif
             throw(-1);
         }
 
@@ -264,7 +278,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             else
             {
                 __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
-                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Internal error during unparsing process has occurred", 2007));
+#ifdef _WIN32
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+#endif
                 throw(-1);
             }
         }
@@ -315,6 +331,11 @@ static set<string> fillDistributedArrays(const DataDirective &dataDirectives)
     return distrArrays;
 }
 
+static bool comparSort(pair<int, int> left, pair<int, int> right)
+{
+    return (left.second > right.second);
+}
+
 pair<string, int> currProcessing; // file and line
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
@@ -344,6 +365,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
     //for insert and extract dirs
     map<string, string> templateDeclInIncludes;
+
+    //for function checker
+    map<string, pair<string, int>> functionNames;
 
     // **********************************  ///
     /// FIRST STEP - RUN ANALYSIS BY FILES ///
@@ -525,6 +549,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (auto &array : declaratedArrays)
                     array.second.first->ClearShadowSpecs();
             }
+			else
+			{
+				set<int> regNum;
+				for (int z = 0; z < parallelRegions.size(); ++z)
+					regNum.insert(parallelRegions[z]->GetId());
+				insertTemplateModuleUse(file, regNum);
+			}
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
         {
@@ -734,7 +765,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (itFound != loopGraph.end())
                 reverseCreatedNestedLoops(file->filename(), itFound->second);
         }
-        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP)
+        else if (curr_regime == CONVERT_ASSIGN_TO_LOOP) // And MOVE COMPLITE DECLARATION as ASSIGN OPERATORS
             convertFromAssignToLoop(file, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == CONVERT_LOOP_TO_ASSIGN)
         {
@@ -754,15 +785,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN_BACK)
             restoreConvertedLoopForParallelLoops(file, true);
         else if (curr_regime == SHADOW_GROUPING)
-        {
-            // TODO: temporary disabled
-            /*
+        {        
+#if 0
             //TODO for all parallel regions
             if (parallelRegions.size() == 1 && parallelRegions[0]->GetName() == "DEFAULT")
             {
                 for (int z = 0; z < parallelRegions.size(); ++z)
-                    GroupShadowStep1(file, allFuncInfo.find(file_name)->second, parallelRegions[z]->GetAllArraysToModify());
-            }*/
+                    GroupShadowStep1(file, getObjectForFileFromMap(file_name, allFuncInfo), getObjectForFileFromMap(file_name, loopGraph), parallelRegions[z]->GetAllArraysToModify(), arrayLinksByFuncCalls);
+            }
+#endif
         }
         else if (curr_regime == FILL_PARALLEL_REG_FOR_SUBS)
         {
@@ -778,9 +809,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
             fixUseOnlyStmt(file, parallelRegions);
         else if (curr_regime == GCOV_PARSER)
-            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);
-        else if (curr_regime == CREATE_PARALLEL_REGIONS)
-            createParallelRegions(file, getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, gCovInfo), allFuncInfo);
+            parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);        
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
         {
             set<SgSymbol*> tmp;
@@ -814,16 +843,19 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == CREATE_INTER_TREE)
         {
-#if RELEASE_CANDIDATE
             vector<string> include_functions;
             
-            createInterTree(file, getObjectForFileFromMap(file_name, intervals), false);
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals);
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
-#endif
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+        else if (curr_regime == VERIFY_FUNC_DECL)
+        {
+            bool res = FunctionsChecker(file, functionNames, SPF_messages);
+            verifyOK &= res;
+        }
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
     } // end of FOR by files
@@ -872,9 +904,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (error)
                 {
-                    wstring message;
-                    __spf_printToLongBuf(message, L"Can not build align graph from user's DVM directives in this region");
-
+                    wstring messageR, messageE;
+                    __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Невозможно построить дерево выравнивания в данной области распараллеливания, используя пользовательские DVM-директивы");
+#endif
                     for (auto &lines : currReg->GetAllLines())
                     {
                         const auto &vecLines = lines.second;
@@ -885,7 +919,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             if (line.stats.first && line.stats.second)
                             {
-                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), message, 1036));
+                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), messageR, messageE, 1036));
 
                                 __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
                                             fileName.c_str(), line.stats.first->lineNumber());
@@ -961,9 +995,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 
                 if (parallelRegions[z]->GetId() == 0) // DEFAULT
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this project");
-
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данном преокте");
+#endif
                     for (auto &funcByFile : allFuncInfo)
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(funcByFile.first.c_str(), SPF_messages);
@@ -971,21 +1007,23 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         {
                             auto stat = func->funcPointer->GetOriginal();
                             if (stat->variant() == PROG_HEDR)
-                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufw, 3010));
+                                fileM.push_back(Messages(ERROR, stat->lineNumber(), bufR, bufE, 3010));
                         }
                     }
                 }
                 else
                 {
-                    std::wstring bufw;
-                    __spf_printToLongBuf(bufw, L"Can not find arrays or free loops for distribution in this region");
-
+                    wstring bufE, bufR;
+                    __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
+#ifdef _WIN32
+                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данной области распараллеливания");
+#endif
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
                         vector<Messages> &fileM = getObjectForFileFromMap(linesByFile.first.c_str(), SPF_messages);
                         for (auto &lines : linesByFile.second)
                             if (!lines.isImplicit())
-                                fileM.push_back(Messages(ERROR, lines.lines.first, bufw, 3010));
+                                fileM.push_back(Messages(ERROR, lines.lines.first, bufR, bufE, 3010));
                     }
                 }
                 idxToDel.insert(z);
@@ -1021,7 +1059,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
-        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays);
+        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, keepFiles);
         propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
@@ -1067,7 +1105,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
              curr_regime == VERIFY_INCLUDE ||
              curr_regime == VERIFY_DVM_DIRS ||
              curr_regime == VERIFY_EQUIVALENCE ||
-             curr_regime == VERIFY_COMMON)
+             curr_regime == VERIFY_COMMON ||
+             curr_regime == VERIFY_FUNC_DECL)
     {
         if (verifyOK == false)
             throw(-1);
@@ -1109,53 +1148,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                for (auto &array : allArrays.GetArrays())
-                {
-                    auto itF = arraysDone.find(array);
-                    if (itF == arraysDone.end())
-                    {
-                        itF = arraysDone.insert(itF, array);
-                        Symbol *symb = array->GetDeclSymbol();
-                        if (symb)
-                        {
-                            auto &sizeInfo = array->GetSizes();
-                            bool needToUpdate = false;
-                            for (auto &elem : sizeInfo)
-                            {
-                                if (elem.first == elem.second)
-                                {
-                                    needToUpdate = true;
-                                    break;
-                                }
-                            }
+                recalculateArraySizes(arraysDone, allArrays.GetArrays());
 
-                            if (needToUpdate)
-                            {
-                                auto &declInfo = array->GetDeclInfo();
-                                bool wasSelect = false;
-                                for (auto &elem : declInfo)
-                                {
-                                    int fileId = SgFile::switchToFile(elem.first);
-                                    if (fileId != -1)
-                                    {
-                                        SgFile *tmpfile = &(CurrentProject->file(fileId));
-                                        current_file = tmpfile;
-                                        current_file_id = fileId;
-                                        wasSelect = true;
-                                        break;
-                                    }
-                                }
-                                if (!wasSelect)
-                                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                                SgStatement *decl = declaratedInStmt(symb);
-                                vector<pair<int, int>> sizes;
-                                getArraySizes(sizes, symb, decl);
-                                array->SetSizes(sizes);
-                            }
-                        }
-                    }
-                }
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
             }
@@ -1197,10 +1191,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             vector<Messages> &currMessages = getObjectForFileFromMap(place.first.c_str(), SPF_messages);
                             __spf_print(1, "  ERROR: distributed array '%s' in common block '%s' must have declaration in main unit\n", array->GetShortName().c_str(), nameOfCommon.c_str());
 
-                            wstring message;
-                            __spf_printToLongBuf(message, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
+                            wstring messageE, messageR;
+                            __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
-                            currMessages.push_back(Messages(ERROR, place.second, message, 1042));
+#ifdef _WIN32
+                            __spf_printToLongBuf(messageR, L"Распределенный массив '%s' состоящий в common блоке '%s' должен иметь описание в главной программной единице",
+                                                 to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
+#endif
+                            currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
                         }
                         internalExit = 1;
                     }
@@ -1526,6 +1524,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (keepFiles)
             saveIntervals("_intervals.txt", intervals);
     }
+    else if (curr_regime == CREATE_PARALLEL_REGIONS)
+    {
+        SpfInterval* mainInterval = getMainInterval(&project, intervals);
+        createParallelRegions(&project, mainInterval, gCovInfo, allFuncInfo);
+    }
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
@@ -1640,7 +1643,11 @@ static SgProject* createProject(const char *proj_name)
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
 
     for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
         correctModuleProcNames(&(project->file(z)));
+        correctModuleSymbols(&(project->file(z)));
+        replaceStructuresToSimpleTypes(&(project->file(z)));
+    }
 
     Statement::activeConsistentchecker();
     return project;
@@ -1655,7 +1662,11 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     setPassValues();
 
     if (project == NULL)
+    {
         project = createProject(proj_name);
+        //first check correctness
+        runPass(VERIFY_FUNC_DECL, proj_name, folderName);
+    }
         
     //Run dep passes analysis before main pass
     auto itDep = passesDependencies.find((passes)curr_regime);
@@ -1701,6 +1712,37 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 continue;
 
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
+
+			/*
+            for (int z = 0; z < parallelRegions.size(); ++z)
+            {
+                const DataDirective &dirs = parallelRegions[z]->GetDataDir();
+                if (dirs.distrRules.size() > 1)
+                {
+                    __spf_print(1, "New order for templates for region %s\n", parallelRegions[z]->GetName().c_str());
+                    const vector<int> &currVar = parallelRegions[z]->GetCurrentVariant();
+                    for (int p = 0; p < dirs.distrRules.size(); ++p)
+                    {
+                        DIST::Array *templ = dirs.distrRules[p].first;
+                        const DistrVariant &var = dirs.distrRules[p].second[currVar[p]];
+                        vector<pair<int, int>> order(templ->GetDimSize());
+                        auto sizes = templ->GetSizes();
+
+                        for (int d = 0; d < templ->GetDimSize(); ++d)
+                            order[d] = make_pair(d, var.distRule[d] == BLOCK ? (sizes[d].second - sizes[d].first + 1) : (-1 * d));
+                        sort(order.begin(), order.end(), comparSort);
+
+                        vector<int> newOrder;
+                        for (auto &elem : order)
+                            newOrder.push_back(elem.first);
+                        templ->AddNewTemplateDimsOrder(newOrder);
+                        __spf_print(1, "  -- for template '%s': [", templ->GetShortName().c_str());
+                        for (auto &elem : newOrder)
+                            __spf_print(1, " %d", elem);
+                        __spf_print(1, "]\n");
+                    }
+                }
+            } */
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 
@@ -1751,7 +1793,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 for (auto &loop : loopByFile.second)
                     if (loop->directive)
                         loop->directive->cloneOfTemplate = "";
-            clearTemplateClonesData();
+
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 const DataDirective &dataDirectives = parallelRegions[z]->GetDataDir();
@@ -1777,7 +1819,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case LOOPS_SPLITTER:
     case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
-    case REMOVE_DVM_INTERVALS:
+    case REMOVE_DVM_INTERVALS:    
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
@@ -1797,6 +1839,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
         findFunctionsToInclude(true);
         break;
     case RESOLVE_PAR_REGIONS:
+    case CREATE_PARALLEL_REGIONS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
@@ -1840,7 +1883,7 @@ int main(int argc, char **argv)
         int numVar = 0;
 
         out_free_form = 0; // F90 style out
-        //out_upper_case = 1;
+        out_upper_case = 1;
         bool printText = false;
 
         for (int i = 0; i < argc; ++i)
@@ -1849,10 +1892,14 @@ int main(int argc, char **argv)
             switch (curr_arg[0])
             {
             case '-':
-                if( string(curr_arg) == "-threshold")
+                if (string(curr_arg) == "-threshold")
                 {
                     i++;
-                    intervals_threshold = atoll(argv[i]);
+                    intervals_threshold = atoi(argv[i]);
+                }
+                else if (string(curr_arg) == "-removeNestedIntervals")
+                {
+                    removeNestedIntervals = true;
                 }
                 else if (string(curr_arg) == "-p")
                 {

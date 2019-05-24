@@ -384,10 +384,13 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     __spf_print(1, "WARN: coefficient A in A*x+B is not positive for array ref '%s' at line %d, inverse distribution in not supported yet\n", arrayRefString.second.c_str(), line);
                     addInfoToVectors(loopInfo, parentLoops[position], currOrigArrayS, dimNum, coefs, UNREC_OP, numOfSubscriptions, currentW);
 
-                    wstring message;
-                    __spf_printToLongBuf(message, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Коэффициент A в линейном обращении A*x+B к массиву '%s' не может быть отрицательным, так как инверсное распределение не поддерживается", to_wstring(arrayRefString.second).c_str());
+#endif
                     if (line > 0)
-                        currMessages->push_back(Messages(WARR, line, message, 1024));
+                        currMessages->push_back(Messages(WARR, line, messageR, messageE, 1024));
                 }
             }
             else
@@ -916,7 +919,7 @@ static pair<Expression*, Expression*> getElem(SgExpression *exp)
         return make_pair((Expression*)NULL, (Expression*)NULL);
 }
 
-vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     vector<pair<Expression*, Expression*>> retVal;
@@ -1059,6 +1062,100 @@ vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &siz
     return retVal;
 }
 
+void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays)
+{
+    for (auto &array : allArrays)
+    {
+        auto itF = arraysDone.find(array);
+        if (itF == arraysDone.end())
+        {
+            itF = arraysDone.insert(itF, array);
+            Symbol *symb = array->GetDeclSymbol();
+            if (symb)
+            {
+                auto &sizeInfo = array->GetSizes();
+                bool needToUpdate = false;
+                for (auto &elem : sizeInfo)
+                {
+                    if (elem.first == elem.second)
+                    {
+                        needToUpdate = true;
+                        break;
+                    }
+                }
+
+                if (needToUpdate)
+                {
+                    auto &declInfo = array->GetDeclInfo();
+                    bool wasSelect = false;
+                    for (auto &elem : declInfo)
+                    {
+                        int fileId = SgFile::switchToFile(elem.first);
+                        if (fileId != -1)
+                        {
+                            SgFile *tmpfile = &(CurrentProject->file(fileId));
+                            current_file = tmpfile;
+                            current_file_id = fileId;
+                            wasSelect = true;
+                            break;
+                        }
+                    }
+
+                    if (!wasSelect)
+                    {
+                        //try to find in includes
+                        for (int i = CurrentProject->numberOfFiles() - 1; i >= 0; --i)
+                        {                            
+                            SgFile *file = &(CurrentProject->file(i));
+                            current_file_id = i;
+                            current_file = file;
+
+                            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+                            {
+                                for (auto &elem : declInfo)
+                                {
+                                    if (make_pair(string(st->fileName()), st->lineNumber()) == elem)
+                                    {
+                                        wasSelect = true;
+                                        break;
+                                    }
+                                }
+
+                                if (wasSelect)
+                                {
+                                    //wasSelect = false;
+                                    SgStatement *decl = declaratedInStmt(symb);
+                                    vector<pair<int, int>> sizes;
+                                    getArraySizes(sizes, symb, decl);
+                                    array->SetSizes(sizes);
+                                }
+                            }
+
+                            if (wasSelect)
+                                break;                            
+                        }
+
+                        if (!wasSelect)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                    else
+                    {
+                        if (wasSelect)
+                        {
+                            SgStatement *decl = declaratedInStmt(symb);
+                            vector<pair<int, int>> sizes;
+                            getArraySizes(sizes, symb, decl);
+                            array->SetSizes(sizes);
+                        }
+                        else
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    }
+                }
+            }
+        }
+    }
+}
+
 bool isIntrinsic(const char *funName)
 {
     if (intrinsicF.find(funName) == intrinsicF.end())
@@ -1109,7 +1206,7 @@ static void convertOneLoop(LoopGraph *currLoop, map<LoopGraph*, map<DIST::Array*
     map<DIST::Array*, const ArrayInfo*> toAdd;
     for (auto it1 = toConvert.begin(); it1 != toConvert.end(); ++it1)
     {
-        SgSymbol *currentArray = it1->first;
+        SgSymbol *currentArray = OriginalSymbol(it1->first);
         const ArrayInfo *currentInfo = &(it1->second);
         
         DIST::Array *arrayToAdd;
@@ -1207,19 +1304,26 @@ static inline void fillPrivatesFromDecl(SgExpression *ex, set<SgSymbol*> &delcsS
 
     if (ex->variant() == ARRAY_REF)
     {
-        SgSymbol *s = ex->symbol();
-        auto it = delcsSymbViewed.find(s);
-        if (it == delcsSymbViewed.end())
+        SgSymbol *symb = ex->symbol();
+        if (symb->type())
         {
-            delcsSymbViewed.insert(it, s);
-            SgStatement *decl = declaratedInStmt(s);
-
-            auto itD = delcsStatViewed.find(decl);
-            if (itD == delcsStatViewed.end())
+            if (symb->type()->variant() == T_ARRAY)
             {
-                delcsStatViewed.insert(itD, decl);
-                tryToFindPrivateInAttributes(decl, privatesVars);
-                fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                SgSymbol *s = ex->symbol();
+                auto it = delcsSymbViewed.find(s);
+                if (it == delcsSymbViewed.end())
+                {
+                    delcsSymbViewed.insert(it, s);
+                    SgStatement *decl = declaratedInStmt(s);
+
+                    auto itD = delcsStatViewed.find(decl);
+                    if (itD == delcsStatViewed.end())
+                    {
+                        delcsStatViewed.insert(itD, decl);
+                        tryToFindPrivateInAttributes(decl, privatesVars);
+                        fillNonDistrArraysAsPrivate(decl, declaratedArrays, declaratedArraysSt, privatesVars);
+                    }
+                }
             }
         }
     }
@@ -1253,7 +1357,9 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
         {
             retVal = true;
             loopRef->hasNonPureProcedures = true;
-            messagesForFile.push_back(Messages(WARR, line, L"Only pure procedures were supported", 1044));
+#ifdef _WIN32
+            messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+#endif
         }
     }
     bool retL = false, retR = false;
@@ -1370,7 +1476,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 #endif
             if (st == NULL)
             {
-                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#if _WIN32
+                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -1663,9 +1771,12 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                 auto itF = privatesByModule.find(st->symbol()->identifier());
                 if (itF == privatesByModule.end())
                 {
-                    wstring message;
-                    __spf_printToLongBuf(message, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
-                    currMessages->push_back(Messages(ERROR, st->lineNumber(), message, 1028));
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, L"Описание модуля '%s' должено находиться в данном файле", to_wstring(st->symbol()->identifier()).c_str());
+#endif
+                    currMessages->push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1028));
 
                     __spf_print(1, "Module at line %d with name '%s' must be placed in current file\n", st->lineNumber(), st->symbol()->identifier());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1855,7 +1966,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                 {
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Only pure procedures were supported", 1044));
+#ifdef _WIN32
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+#endif
                                 }
                             }
 
@@ -1972,7 +2085,9 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 #endif
             if (st == NULL)
             {
-                currMessages->push_back(Messages(ERROR, 1, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#ifdef _WIN32
+                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+#endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
@@ -2032,9 +2147,16 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
                                      sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
                                      mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
                     else
-                        findArrayRef(parentLoops, st->expr(0), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars, 
-                                     sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays, 
-                                     mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                    {
+                        SgExpression *listEx = st->expr(0);
+                        while (listEx)
+                        {
+                            findArrayRef(parentLoops, listEx->lhs(), st->lineNumber(), LEFT, loopInfo, st->lineNumber(), privatesVars,
+                                         sortedLoopGraph, commonBlocks, declaratedArrays, false, notMappedDistributedArrays,
+                                         mappedDistrbutedArrays, st, NULL, currentWeight, arrayLinksByFuncCalls);
+                            listEx = listEx->rhs();
+                        }
+                    }
                 }
             }
             st = st->lexNext();
@@ -2337,9 +2459,12 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
                     {
                         deprecatedByIO.insert(found, OriginalSymbol(symb)->identifier());
 
-                        wstring message;
-                        __spf_printToLongBuf(message, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
-                        currMessages.push_back(Messages(WARR, line, message, 1037));
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
+#ifdef _WIN32
+                        __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за ограничений ввода/вывода, накладываемых DVM системой", to_wstring(symb->identifier()).c_str());
+#endif
+                        currMessages.push_back(Messages(WARR, line, messageR, messageE, 1037));
 
                         __spf_print(1, "Array '%s' at line %d can not be distributed because of DVM's I/O constraints\n", symb->identifier(), line);
                     }
@@ -2349,6 +2474,29 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
         
         findArrayRefInIO(ex->lhs(), deprecatedByIO, line, currMessages);
         findArrayRefInIO(ex->rhs(), deprecatedByIO, line, currMessages);
+    }
+}
+
+static void findReshape(SgStatement *st, set<string> &privates, vector<Messages> &currMessages)
+{
+    if (st->variant() == ASSIGN_STAT)
+    {
+        SgExpression *exL = st->expr(0);
+        SgExpression *exR = st->expr(1);
+
+        if (exR->variant() == FUNC_CALL && exL->variant() == ARRAY_REF)
+        {
+            if (exR->symbol()->identifier() == string("reshape"))
+            {
+                privates.insert(exL->symbol()->identifier());
+#ifdef _WIN32
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
+                __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за использования RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
+                currMessages.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1047));
+#endif
+            }
+        }
     }
 }
 
@@ -2431,7 +2579,9 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     if (it != privatesByModule.end())
                         privates.insert(it->second.begin(), it->second.end());
                 }
-            }                
+            }
+
+            findReshape(iter, privates, currMessages);
         }
 
         for (auto &elem : reductions)

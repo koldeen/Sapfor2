@@ -318,6 +318,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("popcnt"));
     intrinsicF.insert(string("poppar"));
     intrinsicF.insert(string("real"));
+    intrinsicF.insert(string("reshape"));
     intrinsicF.insert(string("rshft"));
     intrinsicF.insert(string("rshift"));
     intrinsicF.insert(string("sign"));
@@ -334,7 +335,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("tand"));
     intrinsicF.insert(string("tanh"));
     intrinsicF.insert(string("trailz"));
-    intrinsicF.insert(string("trim"));    
+    intrinsicF.insert(string("trim"));
     intrinsicF.insert(string("xor"));
     intrinsicF.insert(string("wtime"));
     intrinsicF.insert(string("zabs"));
@@ -367,7 +368,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("omp_test_lock"));
     intrinsicF.insert(string("omp_test_nest_lock"));
     intrinsicF.insert(string("omp_unset_lock"));
-    intrinsicF.insert(string("omp_unset_nest_lock"));    
+    intrinsicF.insert(string("omp_unset_nest_lock"));
 }
 
 int isIntrinsicFunctionName(char *name)
@@ -740,5 +741,89 @@ SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbo
         stmt = new SgIfStmt(SgEqOp(*new SgVarRefExp(*idxTypeInKernel), *new SgVarRefExp(*new SgSymbol(VARIABLE_NAME, "rt_INT"))),
         *new SgCExpStmt(*funcCall_int), *new SgCExpStmt(*funcCall_llong));
     return stmt;
+}
+
+static string getValue(SgExpression *exp)
+{
+    if (exp == NULL)
+        return "";
+
+    string ret = "";
+    if (exp->symbol())
+    {
+        if (exp->symbol()->identifier())
+            ret = "(" + string(exp->symbol()->identifier()) + ")";
+    }
+    else if (exp->variant() == INT_VAL)
+    {
+        char buf[256];
+        sprintf(buf, "%d", exp->valueInteger());
+        ret = "(" + string(buf) + ")";
+    }
+    else if (exp->variant() == ADD_OP)
+        ret = "(+)";
+    else if (exp->variant() == SUBT_OP)
+        ret = "(-)";
+    else if (exp->variant() == MULT_OP)
+        ret = "(*)";
+    else if (exp->variant() == DIV_OP)
+        ret = "(/)";
+    else if (exp->variant() == MOD_OP)
+        ret = "(mod)";
+    else if (exp->variant() == EXP_OP)
+        ret = "(**)";
+    else if (exp->variant() == KEYWORD_VAL)
+        ret = "(" + string(((SgKeywordValExp*)exp)->value()) + ")";
+    return ret;
+}
+
+static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR, const int currNum, int &allNum)
+{
+    if (exp)
+    {
+        SgExpression *lhs = exp->lhs();
+        SgExpression *rhs = exp->rhs();
+        int lNum, rNum;
+
+        string vCurr = getValue(exp);
+        string vL = getValue(lhs);
+        string vR = getValue(rhs);
+
+        if (lhs && rhs)
+        {
+            lNum = allNum + 1;
+            rNum = allNum + 2;
+            allNum += 2;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+        }
+        else if (lhs)
+        {
+            lNum = allNum + 1;
+            allNum++;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
+        }
+        else if (rhs)
+        {
+            rNum = allNum + 1;
+            allNum++;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+        }
+        if (lhs)
+            recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
+        if (rhs)
+            recExpressionPrint(rhs, lvl + 1, "R", rNum, allNum);
+    }
+}
+
+void recExpressionPrintFdvm(SgExpression *exp)
+{
+    printf("digraph G{\n");
+    int allNum = 0;
+    recExpressionPrint(exp, 0, "L", allNum, allNum);
+    if (allNum == 0 && exp)
+        printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());
+    printf("};\n");
+    fflush(NULL);
 }
 #endif

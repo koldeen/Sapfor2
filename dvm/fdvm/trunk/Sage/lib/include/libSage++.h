@@ -239,6 +239,7 @@ public:
     void addAttribute(int type); //void * is NULL;
     void addAttribute(void *a, int size); //no type specifed;
     void addAttribute(SgAttribute *att);
+    void addAttributeTree(SgAttribute *firstAtt);
     SgAttribute *getAttribute(int i);
     SgAttribute *getAttribute(int i, int type);
 
@@ -3835,7 +3836,10 @@ inline SgExpression *SgType::length()
 }
 
 inline SgExpression *SgType::selector()
-{ return LlndMapping(TYPE_KIND_LEN(thetype)); }
+{
+    PTR_LLND kindExpr = TYPE_KIND_LEN(thetype);
+    return kindExpr ? LlndMapping(TYPE_KIND_LEN(thetype)) : NULL;
+}
 
 // SgLabel--inlines
 inline int SgLabel::id()

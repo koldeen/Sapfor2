@@ -14,9 +14,12 @@
 #include "array_assign_to_loop.h"
 #include "../Utils/SgUtils.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../GraphCall/graph_calls_func.h"
+#include "../VerificationCode/verifications.h"
 
 using std::vector;
 using std::set;
+using std::map;
 using std::pair;
 using std::tuple;
 using std::make_pair;
@@ -102,7 +105,12 @@ static bool fillBounds(SgSymbol *symb, vector<tuple<SgExpression*, SgExpression*
     for ( ; alloc; alloc = alloc->rhs())
     {
         if (alloc->lhs()->variant() == DDOT)
+        {
+            if (alloc->lhs()->lhs() == NULL || alloc->lhs()->rhs() == NULL)
+                return false;
             bounds.push_back(std::make_tuple(alloc->lhs()->lhs()->copyPtr(), alloc->lhs()->rhs()->copyPtr(), (SgExpression*)NULL));
+            
+        }
         else
             bounds.push_back(std::make_tuple(new SgValueExp(1), alloc->lhs()->copyPtr(), (SgExpression*)NULL));
     }
@@ -216,7 +224,7 @@ static bool isNonDistrArray(SgSymbol *symb)
     if (type && type->variant() == T_STRING)
         return false;
 
-    DIST::Array *array = getArrayFromDeclarated(decl, symb->identifier());
+    DIST::Array *array = getArrayFromDeclarated(decl, OriginalSymbol(symb)->identifier());
     checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);    
     return array->GetNonDistributeFlag();    
 }
@@ -328,7 +336,9 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (leftSections.size() != rightSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
+#ifdef _WIN32
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+#endif
     }
     else
     {
@@ -644,7 +654,9 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
         rightSections.size() != assignSections.size())
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"can not convert array assign to loop", 2001));
+#ifdef _WIN32
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+#endif
     }
     else
     {
@@ -1128,8 +1140,15 @@ static vector<SgStatement*> convertFromWhereToLoop(SgStatement *assign, SgFile *
 //                move (create copy) init assigns in DECL before the first executable
 void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 {
-
     int funcNum = file->numberOfFunctions();
+    auto useMapMod = createMapOfModuleUses(file);
+    
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+    map<string, SgStatement*> modMap;
+    for (auto& elem : modules)
+        modMap[elem->symbol()->identifier()] = elem;
+
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
@@ -1139,14 +1158,24 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
         SgStatement *firstExec = NULL;
         SgStatement *controlParFristExec = NULL;
-        for (SgStatement *st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+
+        for (SgStatement* st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+        {
+            const int var = st->variant();
             if (isSgExecutableStatement(st))
                 firstExec = st;
+            if ((var == CONTAINS_STMT || var == PROC_HEDR || var == FUNC_HEDR) && st != file->functions(i))
+                break;
+        }
 
         if (firstExec)
             controlParFristExec = firstExec->controlParent();
 
         vector<SgStatement*> toDel;
+        set<SgStatement*> useMods;
+        map<string, set<SgSymbol*>> byUse = moduleRefsByUseInFunction(st);
+
+        map<string, SgStatement*> derivedTypesDecl = createDerivedTypeDeclMap(st);
         for (; st != lastNode; st = st->lexNext())
         {
             if (st->variant() == CONTAINS_STMT)
@@ -1161,16 +1190,68 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     if (completeInit)
                     {
                         SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
-                        toAdd->setFileId(controlParFristExec->getFileId());
-                        toAdd->setProject(controlParFristExec->getProject());
 
-                        firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+                        if (isDerivedAssign(toAdd))
+                            replaceDerivedAssigns(file, toAdd, firstExec, derivedTypesDecl);
+                        else
+                        {
+                            toAdd->setFileId(controlParFristExec->getFileId());
+                            toAdd->setProject(controlParFristExec->getProject());
 
+                            firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+
+                            toAdd->setlineNumber(getNextNegativeLineNumber());
+                            toAdd->setLocalLineNumber(st->lineNumber());
+                        }
                         toMove.push_back(make_pair(st, toAdd));
-                        toAdd->setlineNumber(getNextNegativeLineNumber());
-                        toAdd->setLocalLineNumber(st->lineNumber());
                     }
                 }
+            }
+
+            if (firstExec && st->variant() == USE_STMT)
+                useMods.insert(st);
+
+            //TODO: change names by use
+            //TODO: create init of decl for all USE map
+            if (firstExec && isSgExecutableStatement(st))
+            {
+                for (auto& elem : useMods)
+                {
+                    auto it = modMap.find(elem->symbol()->identifier());
+                    if (it == modMap.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    for (SgStatement* stM = it->second->lexNext(); stM != it->second->lastNodeOfStmt(); stM = stM->lexNext())
+                    {
+                        if (isSgExecutableStatement(stM))
+                            break;
+                        const int var = stM->variant();
+                        if (var == PROC_HEDR || var == FUNC_HEDR)
+                            break;
+
+                        if (isSgDeclarationStatement(stM))
+                        {
+                            SgVarDeclStmt* declStat = (SgVarDeclStmt*)stM;
+                            for (int k = 0; k < declStat->numberOfSymbols(); ++k)
+                            {
+                                SgExpression* completeInit = declStat->completeInitialValue(k);
+                                if (completeInit)
+                                {
+                                    SgStatement* toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                                    toAdd->setFileId(controlParFristExec->getFileId());
+                                    toAdd->setProject(controlParFristExec->getProject());
+
+                                    firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+
+                                    toMove.push_back(make_pair(elem, toAdd));
+                                    toAdd->setlineNumber(getNextNegativeLineNumber());
+                                    toAdd->setLocalLineNumber(elem->lineNumber());
+                                }
+                            }
+                        }
+                    }
+                }
+                firstExec = NULL;
             }
 
             currProcessing.second = st->lineNumber();

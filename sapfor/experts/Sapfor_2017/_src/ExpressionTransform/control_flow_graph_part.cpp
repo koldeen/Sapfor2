@@ -23,13 +23,14 @@ void showDefs(map<SymbolKey, SgExpression*> *defs);
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs);
 
 static CommonVarsOverseer *overseerPtr = NULL;
-static map<string, ExpressionValue*> allocated;
-static map<SymbolKey, map<ExpressionValue*, SgStatement*>> symbolAndExpToDefinition;
+//static map<string, ExpressionValue*> allocated;
+static map<int, set<ExpressionValue*>> allocated2;
 
+static const char* unknownValueChars = "unknownValue";
 
-static set<SymbolKey> usedSymbolsInStatement(SgStatement *st, bool includeLValue) {
+static set<ExpressionValue> usedVariablesInStatement(SgStatement *st) {
     stack<SgExpression*> toCheck;
-    set<SymbolKey> result;
+    set<ExpressionValue> result;
 
     for(int i=0;i<3;++i)
         if(st->expr(i))
@@ -37,22 +38,37 @@ static set<SymbolKey> usedSymbolsInStatement(SgStatement *st, bool includeLValue
 
     while(!toCheck.empty()) {
         SgExpression* top = toCheck.top();
+
         toCheck.pop();
-        SgSymbol* symbol = top->symbol();
-        if(symbol)
-            result.insert(symbol);
-        else {
-            if(top->rhs())
-                toCheck.push(top->rhs());
-            if(top->lhs())
-                toCheck.push(top->lhs());
-        }
+
+        if(top->variant() == VAR_REF || top->variant() == ARRAY_REF)
+            result.insert(ExpressionValue(top, top->unparse()));
+
+        if (top->rhs())
+            toCheck.push(top->rhs());
+        if (top->lhs())
+            toCheck.push(top->lhs());
     }
     return result;
+
 }
 
 static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>>& result, SgStatement* definition, SgStatement* reachesHere)
 {
+    //this depends on
+    auto found_r = result.find(reachesHere);
+    if (found_r == result.end())
+    {
+        pair<set<SgStatement*>, set<SgStatement*>> newPair;
+        newPair.first = set<SgStatement*>();
+        newPair.second = set<SgStatement*>();
+        newPair.first.insert(definition);
+        result.insert(found_r, make_pair(reachesHere, newPair));
+    }
+    else
+        found_r->second.first.insert(definition);
+
+    //this used in
     auto found_d = result.find(definition);
     if(found_d == result.end())
     {
@@ -64,74 +80,44 @@ static void addDefinitionReachesStatement(map<SgStatement*, pair<set<SgStatement
     }
     else
         found_d->second.second.insert(reachesHere);
-
-    auto found_r = result.find(reachesHere);
-        if(found_r == result.end())
-        {
-            pair<set<SgStatement*>, set<SgStatement*>> newPair;
-            newPair.first = set<SgStatement*>();
-            newPair.second = set<SgStatement*>();
-            newPair.first.insert(definition);
-            result.insert(found_r, make_pair(reachesHere, newPair));
-        }
-    else
-        found_r->second.first.insert(definition);
 }
 
-static bool carefulCheckOfUse(SgStatement* st, SgStatement* definition, SymbolKey& symbol) {
-    if(definition->variant() != ASSIGN_STAT)
-        return true;
+static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValue &symbol, map<SymbolKey, set<ExpressionValue>> &arraysAssingments, vector <ControlFlowItem*> &cfis) {
+    if(cfis.size() == 0)
+        findCFIsForStmt(st, cfis);
 
-    //Нас интересуют операторы присвоения в перменные и массивы.
+    for(ControlFlowItem *cfi : cfis) {
 
-    SgExpression *expDef = definition->expr(0);
-    stack<SgExpression*> toCheck;
-
-    if(st->variant() == ASSIGN_STAT) {
-        SgExpression* lvalue = st->expr(0);
-        if(lvalue->lhs())
-            toCheck.push(lvalue->lhs());
-        if (lvalue->rhs())
-            toCheck.push(lvalue->rhs());
-
-    }
-    else if (st->expr(0))
-        toCheck.push(st->expr(0));
-
-    for(int i=1;i<3;++i)
-        if(st->expr(i))
-            toCheck.push(st->expr(i));
-
-
-    while(!toCheck.empty()) {
-        SgExpression* top = toCheck.top();
-        toCheck.pop();
-        if(top->variant() == VAR_REF && symbol == top->symbol())
-            return true;
-        else if(top->variant() == ARRAY_REF && symbol == top->symbol()) {
-            //Нужно проерить индексы массива. Если там есть константы, то это уточнит анализ.
-            SgExpression *curIndexes = top->lhs();
-            SgExpression *defIndexes = expDef->lhs();
-            while(curIndexes != NULL) {
-                SgExpression *curI = curIndexes->lhs();
-                SgExpression *defI = defIndexes->lhs();
-                if(curIndexes->lhs() == NULL)
-                    break;
-
-                if(curI->variant() == INT_VAL && defI->variant() == INT_VAL &&
-                        ((SgValueExp*)curI)->intValue() != ((SgValueExp*)defI)->intValue())
-                    return false;
-
-                curIndexes = curIndexes->rhs();
-                defIndexes = defIndexes->rhs();
+        AnalysedCallsList *callData = cfi->getCall();
+        SgFunctionCallExp *funcCall = NULL;
+        if (((st = cfi->getStatement()) != NULL) && (st->variant() == PROC_STAT))
+        {
+            SgCallStmt *callStmt = isSgCallStmt(st);
+            for (int i = 0; i < callStmt->numberOfArgs(); ++i)
+            {
+                SgExpression *arg = callStmt->arg(i);
+                if ((arg->variant() == VAR_REF/* || arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
+                    if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
+//                        printf("in %d ", st->lineNumber());
+//                        printf(" %s is required\n", arg->unparse());
+                        return true;
+                    }
+                }
             }
-            return true;
         }
-        else {
-            if(top->rhs())
-                toCheck.push(top->rhs());
-            if(top->lhs())
-                toCheck.push(top->lhs());
+        else if ((funcCall = cfi->getFunctionCall()) != NULL)
+        {
+            for (int i = 0; i < funcCall->numberOfArgs(); ++i)
+            {
+                SgExpression *arg = funcCall->arg(i);
+                if ((arg->variant() == VAR_REF /*|| arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
+                    if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
+//                        printf("in %d ", st->lineNumber());
+//                        printf(" %s is required\n", arg->unparse());
+                        return true;
+                    }
+                }
+            }
         }
     }
 
@@ -139,64 +125,173 @@ static bool carefulCheckOfUse(SgStatement* st, SgStatement* definition, SymbolKe
 }
 
 /**
+ * symbol упоминается в st. Нужно проверить, что значение symbol действительно важно в st.
+ * Например для оператора x = 7; значение x не важно, а для x = x + 2 - важно
+ * symbol - это ExpressionValue из SgExpression у которого есть symbol()
+ */
+static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<SymbolKey, set<ExpressionValue>> &arraysAssingments, vector <ControlFlowItem*> &cfis) {
+    stack<SgExpression*> toCheck;
+
+    if(checkSymbolUsedByProcsAndFuncs(st, symbol, arraysAssingments, cfis)) {
+//        if(st->lineNumber() == 368 || st->lineNumber() == 313)
+//            printf("from func true\n");
+        return true;
+    }
+
+
+
+    SgExpression *lval = st->expr(0);
+    if(lval)
+    {
+        if(st->variant() == ASSIGN_STAT)
+        {
+            if(lval->rhs())
+                toCheck.push(lval->rhs());
+            if(lval->lhs())
+                toCheck.push(lval->lhs());
+        }
+        else
+            toCheck.push(lval);
+    }
+
+    for(int i=1;i<3;++i)
+        if(st->expr(i))
+            toCheck.push(st->expr(i));
+
+    while(!toCheck.empty()) {
+        SgExpression* top = toCheck.top();
+        toCheck.pop();
+        if(top->variant() == VAR_REF)
+            if(symbol.getUnparsed() == top->symbol()->identifier()) {
+//                if(st->lineNumber() == 368 || st->lineNumber() == 313)
+//                    printf("%s == %s is true\n", symbol.getUnparsed().c_str(), top->symbol()->identifier());
+                return true;
+            }
+
+        //TODO arraysAssignments
+/*        if(top->variant() == ARRAY_REF) {
+
+            if(symbol.getUnparsed() == top->unparse())
+                return true;
+        }*/
+
+        SgExpression *rhs = top->rhs();
+        SgExpression *lhs = top->lhs();
+
+        if (rhs && rhs->variant() != FUNC_CALL)
+            toCheck.push(rhs);
+        if (lhs && lhs->variant() != FUNC_CALL)
+            toCheck.push(lhs);
+    }
+
+    return false;
+}
+
+static void updateArraysAssingments(map<SymbolKey, set<ExpressionValue>> &arraysAssingments, map<SymbolKey, set<ExpressionValue*>> &definitions, SgStatement* cur)
+{
+    for(auto it : definitions)
+        for(auto itt : it.second)
+            if(itt->getUnparsed() == unknownValueChars)
+            {
+                auto founded = arraysAssingments.find(it.first);
+                if(founded != arraysAssingments.end()) {
+//                    for(auto fit : founded->second)
+//                       delete fit;
+                    arraysAssingments.erase(it.first);
+                }
+            }
+
+    if(cur->variant() == ASSIGN_STAT)
+    {
+        SgExpression *var = cur->expr(0);
+        if(var->variant() == ARRAY_REF)
+        {
+            auto founded = arraysAssingments.find(var->symbol());
+            string unp = var->unparse();
+            ExpressionValue expVal = ExpressionValue(var, unp);
+            if(founded == arraysAssingments.end())
+                arraysAssingments.insert(founded, make_pair(var->symbol(), set<ExpressionValue>()))->second.insert(expVal  );
+            else
+                founded->second.insert(expVal);
+        }
+    }
+}
+
+/**
  * Построить мап с зависимостями:
  * <Оператор от Х : пара<сет зависящих от Х операторов : сет используюемых в Х операторов>>
  * с since включительно, по till не включительно
  */
-map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachMap(SgStatement *since, SgStatement *till) {
+map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till) {
 
     int sinceLine = since->lineNumber();
     int tillLine = till->lineNumber();
 
     map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> result;
+    map<SymbolKey, set<ExpressionValue>> arraysAssingments;
 
     for(SgStatement* cur = since; cur != till; cur = cur->lexNext())
     {
         auto definitions = getReachingDefinitionsExt(cur);
-        auto usedSymbols = usedSymbolsInStatement(cur, false);
+        updateArraysAssingments(arraysAssingments, definitions, cur);
+        auto usedVariables = usedVariablesInStatement(cur);
+        vector <ControlFlowItem*> cfis;
 
-        for(SymbolKey symbol : usedSymbols)
-        {
-            auto expressions = definitions.find(symbol);
-            if(expressions != definitions.end())
-            {
-                for(ExpressionValue* expValue : expressions->second)
+/*
+                printf("after %d:\n", cur->lineNumber());
+                for(auto it : arraysAssingments)
                 {
-                    SgStatement *def = getDefinitionFor(symbol, expValue);
-                    if(def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine) {
-                        if(carefulCheckOfUse(cur, def, symbol)) {
+                    printf("    %s: ", it.first.getVarName().c_str());
+                    for(auto itt : it.second)
+                        printf("%s, ", itt.getUnparsed().c_str());
+                    printf("\n");
+                }
+*/
+
+        for(auto& var : usedVariables)
+        {
+            if(symbolIsUsed(cur, var, arraysAssingments, cfis))
+            {
+/*                if(cur->lineNumber() == 368 || cur->lineNumber() == 313) {
+                    printf("checking %d %s\n",cur->lineNumber(), cur->unparse());
+                    printf("%s is used\n", var.getUnparsed().c_str());
+               }
+*/
+
+                auto expressions = definitions.find(var.getExp()->symbol());
+                if (expressions != definitions.end())
+                {
+                    for (ExpressionValue* expValue : expressions->second)
+                    {
+                        SgStatement *def = expValue->getFrom();
+                        if (def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine && def->lineNumber() != cur->lineNumber()) {
                             addDefinitionReachesStatement(result, def, cur);
+//                            if(cur->lineNumber() == 368 || cur->lineNumber() == 313)
+//                                printf("connected to %s\n", def->unparse());
                         }
                     }
                 }
             }
         }
     }
+/*
+    for(auto& it : result) {
+        printf("st: %d:\n",it.first->lineNumber());
+        printf("Depends on:\n");
+        for(auto& itt : it.second.first)
+            printf("%d ", itt->lineNumber());
+        printf("\n");
+
+        printf("Used in:\n");
+        for(auto& itt : it.second.second)
+            printf("%d ", itt->lineNumber());
+        printf("\n");
+        printf("\n");
+    }
+*/
 
     return result;
 
-}
-
-
-
-SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value)
-{
-    auto found = symbolAndExpToDefinition.find(symbol);
-    if(found == symbolAndExpToDefinition.end())
-        return NULL;
-    auto ffound = found->second.find(value);
-    if(ffound == found->second.end())
-        return NULL;
-    return ffound->second;
-}
-
-static void saveDefinitionStatement(SymbolKey &var, ExpressionValue *value, SgStatement *defSt)
-{
-    auto found = symbolAndExpToDefinition.find(var);
-    if(found == symbolAndExpToDefinition.end())
-        symbolAndExpToDefinition.insert(found, make_pair(var, map<ExpressionValue*, SgStatement*>()))->second.insert(make_pair(value, defSt));
-    else
-        found->second.insert(make_pair(value, defSt));
 }
 
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
@@ -221,34 +316,53 @@ bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp)
     return result;
 }
 
-ExpressionValue* allocateExpressionValue(SgExpression* newExp)
+ExpressionValue* allocateExpressionValue(SgExpression* newExp, SgStatement* from)
 {
-    string unp = (newExp == NULL) ? "(unknown value)" : string(newExp->unparse());
-    ExpressionValue* newExpVal = NULL;
-    /*auto alloc = allocated.find(unp);
-    if (alloc == allocated.end())
-        newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp)))->second;
-    else
-        newExpVal = alloc->second;*/
+    string unp = (newExp == NULL) ? unknownValueChars : string(newExp->unparse());
 
-    return new ExpressionValue(newExp, unp);
+    int file_id = from == NULL ? current_file_id : from->getFileId();
+    auto allocatedMap = allocated2.find(file_id);
+    if(allocatedMap == allocated2.end())
+        allocatedMap = allocated2.insert(allocatedMap, make_pair(file_id, set<ExpressionValue*>()));
+
+    for(ExpressionValue* expVal : allocatedMap->second)
+        if(expVal->getUnparsed() == unp && expVal->getFrom() == from)
+            return expVal;
+
+    ExpressionValue* newExpVal = new ExpressionValue(newExp, unp, from);
+    allocatedMap->second.insert(newExpVal);
+    return newExpVal;
+
+/*    auto alloc = allocatedMap->second.find(unp);
+    if (alloc == allocatedMap->second.end())
+        newExpVal = allocatedMap->second.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp, from)))->second;
+    else
+        newExpVal = alloc->second;
+*/
+/*    auto alloc = allocated.find(unp);
+    if (alloc == allocated.end())
+        newExpVal = allocated.insert(alloc, make_pair(unp, new ExpressionValue(newExp, unp, from)))->second;
+    else
+        newExpVal = alloc->second;
+*/
+//    return newExpVal;//new ExpressionValue(newExp, unp, from);
 }
 
 void CBasicBlock::addVarToGen(SymbolKey var, SgExpression *value, SgStatement *defSt)
 {
     addVarToKill(var);
-    ExpressionValue* expVal = allocateExpressionValue(value);
+    ExpressionValue* expVal = allocateExpressionValue(value, defSt);
     e_gen.insert(expVal);
     gen.insert(make_pair(var, expVal));
-    saveDefinitionStatement(var, expVal, defSt);
+//    saveDefinitionStatement(var, expVal, defSt);
 }
 
 void CBasicBlock::addVarUnknownToGen(SymbolKey var, SgStatement *defSt) {
     addVarToKill(var);
-    ExpressionValue* expVal = allocateExpressionValue(NULL);
+    ExpressionValue* expVal = allocateExpressionValue(NULL, defSt);
 
     gen.insert(make_pair(var, expVal));
-    saveDefinitionStatement(var, expVal, defSt);
+//    saveDefinitionStatement(var, expVal, defSt);
 }
 
 void CBasicBlock::addVarToKill(const SymbolKey &key)
@@ -266,6 +380,33 @@ void CBasicBlock::addVarToKill(const SymbolKey &key)
             it = e_gen.erase(it);
         else
             ++it;
+}
+
+bool argIsUsed(int i, AnalysedCallsList *callData)
+{
+    // AnalysedCallsList == -1 or -2 if no user procedure/subroutine found
+    if (callData == NULL || (AnalysedCallsList*)(-1) == callData || (AnalysedCallsList*)(-2) == callData)
+        return true;
+
+    int stored = SwitchFile(callData->file_id);
+    SgProcHedrStmt *header = isSgProcHedrStmt(callData->header);
+    SgSymbol *currPar = NULL;
+    if (header)
+        currPar = header->parameter(i);
+    SwitchFile(stored);
+
+    if (header == NULL)
+        return false;
+    if (header->parameter(i) == NULL)
+        return false;
+
+    int attr = currPar->attributes();
+    bool isArgOut = callData->isArgOut(i, NULL);
+    bool isArgIn = callData->isArgIn(i, NULL);
+    if(((attr & (IN_BIT)) || (attr & (INOUT_BIT))) || isArgIn) //argument used in procedure
+        return true;
+    else
+        return false;
 }
 
 bool argIsReplaceable(int i, AnalysedCallsList *callData)
@@ -311,7 +452,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
         {
             SgExpression *arg = callStmt->arg(i);
             if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && (!argIsReplaceable(i, callData)))
-                addVarUnknownToGen(arg->symbol(), cfi->getOriginalStatement());
+                addVarUnknownToGen(arg->symbol(), st);
         }
         varsToKill = overseerPtr->killedVars(callStmt->symbol()->identifier());
     }
@@ -328,7 +469,7 @@ void CBasicBlock::checkFuncAndProcCalls(ControlFlowItem *cfi)
 
     if (varsToKill)
         for (auto var : *varsToKill)
-            addVarUnknownToGen(var, cfi->getOriginalStatement());
+            addVarUnknownToGen(var, cfi->getStatement());
 }
 
 set<SymbolKey>* CBasicBlock::getOutVars()
@@ -513,6 +654,14 @@ const map<SymbolKey, set<ExpressionValue*>> CBasicBlock::getReachedDefinitionsEx
             defs.insert(make_pair(it.first, set<ExpressionValue*>())).first->second.insert(it.second);
     }
 
+/*
+    for(auto it : defs) {
+        printf("%s: ", it.first.getVarName().c_str());
+        for(auto itt : it.second)
+            printf("%s, ", itt->getUnparsed().c_str());
+        printf("\n");
+    }
+*/
     return defs;
 }
 
@@ -693,7 +842,7 @@ void showDefs(map<SymbolKey, SgExpression*> *defs)
 
 static void showDefs(map <SymbolKey, set<SgExpression*>> *defs)
 {
-    printf("Defs: %d\n", defs->size());
+    printf("Defs: %d\n", (int)defs->size());
     for(auto it = defs->begin(); it != defs->end(); ++it)
     {
         printf("--- %s = ", it->first.getVarName().c_str());
@@ -823,7 +972,7 @@ void showDefsOfGraph(ControlFlowGraph *CGraph)
             showDefs(b->getGen());
             printf("\n E Gen");
             showDefs(b->getEGen());
-            printf("\n Kill %d\n ", b->getKill()->size());
+            printf("\n Kill %d\n ", (int)b->getKill()->size());
             for (auto it = b->getKill()->begin(); it != b->getKill()->end(); ++it)
                 printf("%s ", it->getVarName().c_str());
             printf("\n");
@@ -883,13 +1032,23 @@ void ClearCFGInsAndOutsDefs(ControlFlowGraph *CGraph)
 #endif
         if (elem.second->getUnparsed() != "")
             delete elem.second;        
-    }*/
+    }
 #if PRINT_PROF_INFO
     if (allocated.size())
         __spf_print(1, "   count of elem %lld, in MB %f, info %lld in MB %f, elemCount = %d, elemCount1 = %d\n", 
                     countS, (double)countS / 1024. / 1024., memCount, double(memCount) / 1024./1024., elemCount, elemCount1);
 #endif
+*/
     //allocated.clear();
+}
+
+void deleteAllocatedExpressionValues(int file_id) {
+    auto fa = allocated2.find(file_id);
+    if(fa != allocated2.end())
+        for(auto &elem : fa->second)
+            delete elem;
+//            delete elem.second;0
+    allocated2.clear();
 }
 
 //TODO

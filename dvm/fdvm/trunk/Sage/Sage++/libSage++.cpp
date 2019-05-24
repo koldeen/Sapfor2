@@ -1886,8 +1886,8 @@ SgStatement::SgStatement(int variant)
         thebif = (PTR_BFND)newNode(variant);
     SetMappingInTableForBfnd(thebif, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
     unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -1941,8 +1941,8 @@ SgStatement::SgStatement(PTR_BFND bif)
     thebif = bif;
     SetMappingInTableForBfnd(thebif, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
     unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -2554,8 +2554,8 @@ SgSymbol::SgSymbol(int variant, const char *name)
     SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -2575,8 +2575,8 @@ SgSymbol::SgSymbol(int variant)
     SYMB_TYPE(thesymb) = GetAtomicType(T_INT);
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -2588,8 +2588,8 @@ SgSymbol::SgSymbol(PTR_SYMB symb)
     thesymb = symb;
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -2623,8 +2623,8 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_SCOPE(thesymb) = scope.thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
 
-     fileID = -1;
-     project = NULL;
+     fileID = current_file_id;
+     project = CurrentProject;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -2662,8 +2662,8 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
 
      SetMappingInTableForSymb(thesymb, (void *)this);
 
-     fileID = -1;
-     project = NULL;
+     fileID = current_file_id;
+     project = CurrentProject;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -2685,8 +2685,8 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_SCOPE(thesymb) = scope.thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
 
-     fileID = -1;
-     project = NULL;
+     fileID = current_file_id;
+     project = CurrentProject;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -2709,8 +2709,8 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType &t, SgStatement &
      SYMB_SCOPE(thesymb) = (scope == 0) ? 0 : scope->thebif;
      SetMappingInTableForSymb(thesymb, (void *)this);
 
-     fileID = -1;
-     project = NULL;
+     fileID = current_file_id;
+     project = CurrentProject;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);
@@ -4178,7 +4178,17 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
     if (!pt)
         return NULL;
     if (!isADeclBif(BIF_CODE(pt->thebif)))
-        return (SgExecutableStatement *)pt;
+    {
+#if __SPF
+        const int var = pt->variant();
+        if (var == CONTROL_END)
+            return isSgExecutableStatement(pt->controlParent());
+        else
+            return (SgExecutableStatement*)pt;
+#else
+        return (SgExecutableStatement*)pt;
+#endif
+    }
     else
     {
 #if __SPF
@@ -7121,6 +7131,12 @@ void SgStatement::addAttribute(int type, void *a, int size)
     }
 }
 
+void SgStatement::addAttributeTree(SgAttribute *firstAtt)
+{
+    if (!firstAtt) 
+        return;
+    SetMappingInTableForBfndAttribute(thebif, firstAtt);
+}
 
 void SgStatement::addAttribute(SgAttribute *att)
 {
@@ -8384,8 +8400,8 @@ SgStatement::SgStatement(int code, SgLabel *lab, SgSymbol *symb, SgExpression *e
         break;
     }
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
     unparseIgnore = false;
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);
@@ -8554,8 +8570,8 @@ SgSymbol::SgSymbol(int variant, const char *identifier, SgType *type, SgStatemen
     }
     SetMappingInTableForSymb(thesymb, (void *)this);
 
-    fileID = -1;
-    project = NULL;
+    fileID = current_file_id;
+    project = CurrentProject;
 
 #if __SPF
     addToCollection(__LINE__, __FILE__, this, 1);

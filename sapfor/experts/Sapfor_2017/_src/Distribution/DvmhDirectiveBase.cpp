@@ -162,7 +162,7 @@ static inline bool isNonDistributedDim(const vector<tuple<DIST::Array*, int, pai
         return false;
 
     if (get<0>(ruleForShadow[dimN]) == NULL)
-        return false;
+        return true;
 
     //check for distributed in declaration or in redistr. rules
     const tuple<DIST::Array*, int, pair<int, int>> &toCheck = ruleForShadow[dimN];
@@ -324,8 +324,21 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                             }
                             else if (currReadOp->first[k].coefficients.size() > 0)
                             {
-                                shift[k].first = std::abs(minShift) - coeffs.second[k].first;
-                                shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                if (minShift > 0 && maxShift > 0)
+                                {
+                                    shift[k].first = 0;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
+                                else if (minShift < 0 && maxShift < 0)
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = 0;
+                                }
+                                else
+                                {
+                                    shift[k].first = std::abs(minShift) - coeffs.second[k].first;
+                                    shift[k].second = std::abs(maxShift) - coeffs.second[k].second;
+                                }
                             }
                         }
                     }
@@ -475,17 +488,28 @@ void DataDirective::createDirstributionVariants(const vector<DIST::Array*> &arra
     }
 }
 
-string DistrVariantBase::GenRuleBase() const
+string DistrVariantBase::GenRuleBase(const vector<int> &newOrder) const
 {
     string retVal = "";
 
     retVal += "(";
     for (int i = 0; i < distRule.size(); ++i)
     {
-        if (distRule[i] == dist::NONE)
-            retVal += "*";
-        else if (distRule[i] == dist::BLOCK)
-            retVal += "BLOCK";
+        if (newOrder.size() == 0)
+        {
+            if (distRule[i] == dist::NONE)
+                retVal += "*";
+            else if (distRule[i] == dist::BLOCK)
+                retVal += "BLOCK";
+        }
+        else
+        {
+            if (distRule[newOrder[i]] == dist::NONE)
+                retVal += "*";
+            else if (distRule[newOrder[i]] == dist::BLOCK)
+                retVal += "BLOCK";
+        }
+
         if (i != distRule.size() - 1)
             retVal += ",";
     }
@@ -504,7 +528,7 @@ vector<string> DataDirective::GenRule(const vector<int> &rules) const
         if (rules[i] < distrRules[i].second.size())
         {
             string tmp = distrRules[i].first->GetShortName();
-            tmp += distrRules[i].second[rules[i]].GenRuleBase();
+            tmp += distrRules[i].second[rules[i]].GenRuleBase(distrRules[i].first->GetNewTemplateDimsOrder());
             retVal.push_back(tmp);
         }
         else
@@ -540,7 +564,7 @@ vector<string> DataDirective::GenAlignsRules() const
 }
 
 string AlignRuleBase::GenRuleBase() const
-{
+{   
     string retVal = "";
     retVal += "ALIGN " + alignArray->GetShortName() + "(";
     for (int i = 0; i < alignRule.size(); ++i)
@@ -549,16 +573,22 @@ string AlignRuleBase::GenRuleBase() const
         if (i != alignRule.size() - 1)
             retVal += ",";
     }
-
+        
     retVal += ") WITH " + alignWith->GetShortName() + "(";
     vector<string> alignEachDim(alignWith->GetDimSize());
     for (int i = 0; i < alignWith->GetDimSize(); ++i)
         alignEachDim[i] = "*";
 
     for (int i = 0; i < alignRuleWith.size(); ++i)
-    {
         if (alignRuleWith[i].first != -1)
             alignEachDim[alignRuleWith[i].first] = genStringExpr(alignNames[i], alignRuleWith[i].second);
+
+    auto newOrder = alignWith->GetNewTemplateDimsOrder();
+    if (newOrder.size() != 0)
+    {
+        vector<string> alignEachDimNew(alignEachDim);
+        for (int z = 0; z < newOrder.size(); ++z)
+            alignEachDim[z] = alignEachDimNew[newOrder[z]];
     }
 
     for (int i = 0; i < alignWith->GetDimSize(); ++i)

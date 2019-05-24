@@ -85,13 +85,6 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
     return retVal;
 }
 
-#define BAD_POSITION(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
-   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
-   wstring message;\
-   __spf_printToLongBuf(message, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
-   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, 1001)); \
-} while(0)
-
 #ifdef _WIN32
 #define BAD_POSITION_FULL(NEED_PRINT, ERR_TYPE, PLACE_E, PLACE_R, BEFORE_VAR_E, BEFORE_VAR_R, BEFORE_DO_E, BEFORE_DO_R, LINE) do { \
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
@@ -99,6 +92,13 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
    __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %ls %ls %ls", PLACE_R, BEFORE_VAR_R, BEFORE_DO_R); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
+} while(0)
+#else
+#define BAD_POSITION(NEED_PRINT, ERR_TYPE, PLACE, BEFORE_VAR, BEFORE_DO, LINE) do { \
+   __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE, BEFORE_VAR, BEFORE_DO); \
+   wstring message;\
+   __spf_printToLongBuf(message, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE).c_str(), to_wstring(BEFORE_VAR).c_str(), to_wstring(BEFORE_DO).c_str()); \
+   messagesForFile.push_back(Messages(ERR_TYPE, LINE, message, message, 1001)); \
 } while(0)
 #endif
 
@@ -1219,6 +1219,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // FISSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_FISSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_FISSION_OP)))
             {
+                attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
 #ifdef _WIN32
@@ -1234,6 +1235,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             // PRIVATES_EXPANSION
             else if (isSPF_OP(new Statement(attributeStatement), SPF_PRIVATES_EXPANSION_OP) && (count = countSPF_OP(new Statement(st), SPF_TRANSFORM_DIR, SPF_PRIVATES_EXPANSION_OP)))
             {
+                attributeStatement->setLocalLineNumber(-1);
                 if (count > 1 || st->variant() != FOR_NODE)
                 {
 #ifdef _WIN32
@@ -1292,13 +1294,13 @@ bool check_par_reg_dirs(SgFile *file, vector<Messages> &messagesForFile)
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
         while (st != lastNode)
-        {
-            currProcessing.second = NULL;
+        {            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;
@@ -1327,13 +1329,13 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
         while (st != lastNode)
-        {
-            currProcessing.second = NULL;
+        {            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
+            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;
@@ -1445,48 +1447,6 @@ void revertion_spf_dirs(SgFile *file,
 {
     const string fileName(file->filename());
 
-    //set SPF_PRIVATE for arrays
-    /*
-    for (auto &allStats : declaratedArraysSt)
-    {
-        if (allStats.first->fileName() == fileName)
-        {
-            SgStatement *toAttr = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, NULL, NULL, NULL);            
-
-            SgExpression *tmp = new SgExpression(ACC_PRIVATE_OP);
-            SgExpression *exprList = new SgExpression(EXPR_LIST, tmp, NULL, NULL);
-            toAttr->setExpression(0, *exprList);
-            exprList = exprList->lhs();
-
-            exprList->setLhs(new SgExpression(EXPR_LIST));
-            exprList = exprList->lhs();
-
-            int added = 0;
-
-            for (auto &elem : allStats.second)
-            {
-                auto it = declaratedArrays.find(elem);
-                if (it == declaratedArrays.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (it->second.first->GetNonDistributeFlag())
-                {
-                    if (added != 0)
-                    {
-                        exprList->setRhs(new SgExpression(EXPR_LIST));
-                        exprList = exprList->rhs();
-                    }
-
-                    ++added;
-                    exprList->setLhs(*new SgVarRefExp(it->second.first->GetDeclSymbol()));
-                }
-            }
-
-            if (added)
-                allStats.first->addAttribute(SPF_ANALYSIS_DIR, toAttr, sizeof(SgStatement));
-        }
-    } */
-
     for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         SgStatement *st = file->functions(i);
@@ -1543,11 +1503,7 @@ void revertion_spf_dirs(SgFile *file,
                         SgStatement *toAdd = &(data->copy());
 
                         if (toAdd)
-                        {                            
-                            if (elem->variant() == SPF_TRANSFORM_DIR && toAdd->expr(0) ||
-                                elem->variant() != SPF_TRANSFORM_DIR)
-                                st->insertStmtBefore(*toAdd, *st->controlParent());
-                        }
+                            st->insertStmtBefore(*toAdd, *st->controlParent());
                     }
                 }
             }

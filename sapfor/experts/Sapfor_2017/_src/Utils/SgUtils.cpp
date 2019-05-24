@@ -39,6 +39,7 @@ using std::vector;
 using std::string;
 using std::make_pair;
 using std::make_tuple;
+using std::wstring;
 
 const char *tag[];
 
@@ -677,9 +678,12 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             if (itM == SPF_messages.end())
                 itM = SPF_messages.insert(itM, make_pair(start->fileName(), vector<Messages>()));
 
-            std::wstring bufw;
-            __spf_printToLongBuf(bufw, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
-            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufw, 1017));
+            wstring bufE, bufR;
+            __spf_printToLongBuf(bufE, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"Ќевозможно найти определение дл€ символа '%s' в данной области видимости", to_wstring(toFind->identifier()).c_str());
+#endif
+            itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufR, bufE, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         return NULL;
@@ -1268,22 +1272,27 @@ int printDefUseSets(const char *fileName, const map<string, vector<DefUseList>> 
     return 0;
 }
 
-static bool isDefVar(const int paramPosition, const string &funcName, map<string, vector<DefUseList>> &defUseByFunctions)
+static bool isDefUseVar(const int paramPosition, const string &funcName, map<string, vector<DefUseList>> &defUseByFunctions, bool defined)
 {
     auto founded = defUseByFunctions.find(funcName);
     if(founded == defUseByFunctions.end())
-        return true; //No information. Argument can be changed.
+        return true; //No information. Argument can be defined or used.
 
     vector<DefUseList>& curDefUse = founded->second;
-    bool isDef = false;
+    bool isDefUse = false;
 
     for (int i = 0; i < curDefUse.size(); ++i)
     {
         if (paramPosition == curDefUse[i].getParameterPositionInFunction())
         {
-            if (curDefUse[i].isDef())
+            if (defined && curDefUse[i].isDef())
             {
-                isDef = true;
+                isDefUse = true;
+                break;
+            }
+            else if(!defined && curDefUse[i].isUse())
+            {
+                isDefUse = true;
                 break;
             }
             else
@@ -1291,14 +1300,14 @@ static bool isDefVar(const int paramPosition, const string &funcName, map<string
                 const string calledFuncName = curDefUse[i].getParamOfFunction();
                 if (!calledFuncName.empty())
                 {
-                    isDef = isDefVar(curDefUse[i].getParameterPosition(), calledFuncName, defUseByFunctions);
-                    if (isDef)
+                    isDefUse = isDefUseVar(curDefUse[i].getParameterPosition(), calledFuncName, defUseByFunctions, defined);
+                    if (isDefUse)
                         break;
                 }
             }
         }
     }
-    return isDef;
+    return isDefUse;
 }
 
 static SgExpression* makeList(const vector<SgExpression*> &list)
@@ -1357,7 +1366,11 @@ void constructDefUseStep2(SgFile *file, map<string, vector<DefUseList>> &defUseB
             int currAttr = header->parameter(i)->attributes();
             if ((currAttr & OUT_BIT) == 0 && (currAttr & INOUT_BIT) == 0 && (currAttr & IN_BIT) == 0)
             {
-                if (isDefVar(i, header->symbol()->identifier(), defUseByFunctions))
+                bool isDef = isDefUseVar(i, header->symbol()->identifier(), defUseByFunctions, true);
+                bool isUse = isDefUseVar(i, header->symbol()->identifier(), defUseByFunctions, false);
+                if(isDef && isUse)
+                    header->parameter(i)->setAttribute(INOUT_BIT);
+                else if (isDef)
                     header->parameter(i)->setAttribute(OUT_BIT);
                 else
                     header->parameter(i)->setAttribute(IN_BIT);
@@ -1685,3 +1698,74 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 }
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
+
+SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig)
+{
+    if (byUse.size())
+    {
+        auto it = byUse.find(orig->identifier());
+        if (it == byUse.end())
+            return orig;
+        else
+        {
+            if (it->second.size() == 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            map<string, SgSymbol*> byName;
+            for (auto& elem : it->second)
+                byName[elem->identifier()] = elem;
+            return byName.begin()->second;
+        }
+    }
+    else
+        return orig;
+}
+
+map<string, set<string>> createMapOfModuleUses(SgFile *file)
+{
+	map<string, set<string>> retValMap;
+
+	vector<SgStatement*> modules;
+	findModulesInFile(file, modules);
+
+	for (int z = 0; z < modules.size(); ++z)
+	{
+		SgStatement *curr = modules[z];
+        string modName = curr->symbol()->identifier();
+        for (SgStatement *st = curr->lexNext(); st != curr->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == USE_STMT)
+                retValMap[modName].insert(st->symbol()->identifier());
+            else if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+                break;
+        }
+	}
+
+    bool repeat = true;
+    while (repeat)
+    {
+        repeat = false;
+        for (auto &elem : retValMap)
+        {
+            set<string> toAdd(elem.second);
+            for (auto &inUse : elem.second)
+            {
+                auto it = retValMap.find(inUse);
+                if (it != retValMap.end())
+                {
+                    for (auto &inUseToAdd : it->second)
+                    {
+                        if (toAdd.find(inUseToAdd) == toAdd.end())
+                        {
+                            toAdd.insert(inUseToAdd);
+                            repeat = true;
+                        }
+                    }
+                }
+            }
+            elem.second = toAdd;
+        }
+    }
+
+    return retValMap;
+}

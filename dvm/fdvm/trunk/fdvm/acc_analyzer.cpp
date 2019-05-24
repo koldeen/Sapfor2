@@ -330,8 +330,8 @@ void Private_Vars_Analyzer(SgStatement* start)
     std::fstream fs;
     fs.open("graph.txt", std::fstream::out);
     fs << CGraph->GetVisualGraph(&calls);
-    fs.close();*/    
-
+    fs.close();
+    */
     currentProcedure->graph->getPrivate();
 #if ACCAN_DEBUG
     calls.printControlFlows();
@@ -354,6 +354,7 @@ CallData::~CallData()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     /*
     for (AnalysedCallsList* l = calls_list; l != NULL;) 
@@ -377,6 +378,7 @@ CommonData::~CommonData()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (CommonDataItem* i = list; i != NULL;) {
         for (CommonVarInfo* info = i->info; info != NULL;) {
@@ -394,6 +396,7 @@ ControlFlowGraph::~ControlFlowGraph()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     while (common_def != NULL) 
     {
@@ -431,7 +434,9 @@ CBasicBlock::~CBasicBlock()
 {
 #if __SPF
     removeFromCollection(this);
-#endif
+    return;
+#endif    
+
     CommonVarSet* d = getCommonDef();
     while (d != NULL) 
     {
@@ -499,6 +504,7 @@ doLoops::~doLoops()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (doLoopItem *it = first; it != NULL; ) 
     {
@@ -512,6 +518,7 @@ PrivateDelayedItem::~PrivateDelayedItem()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     if (delay)
         delete delay;
@@ -523,6 +530,7 @@ VarSet::~VarSet()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     for (VarItem* it = list; it != NULL;) 
     {
@@ -544,7 +552,7 @@ CommonVarSet::CommonVarSet(const CommonVarSet& c)
         next = NULL;
 
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 22);
 #endif
 }
 
@@ -744,10 +752,7 @@ int ControlFlowItem::GetLineNumber()
 
 bool CBasicBlock::IsEmptyBlock()
 {
-    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {
-        if (it->getStatement() != NULL && it->getStatement()->lineNumber() == 54) {
-            printf("test");
-        }
+    for (ControlFlowItem* it = start; it != NULL && (it->isLeader() == false || it == start); it = it->getNext()) {        
         if (!it->IsEmptyCFI())
             return false;
     }
@@ -1303,14 +1308,21 @@ static ControlFlowItem* getControlFlowList(SgStatement *firstSt, SgStatement *la
     SgStatement *stmt;
     for (stmt = firstSt; (
         stmt != lastSt
-        && stmt->variant() != CONTROL_END && stmt->variant() != CONTAINS_STMT
+        && stmt->variant() != CONTAINS_STMT
         && (lastSt != NULL || stmt->variant() != ELSEIF_NODE)
         && (lastSt != NULL || stmt->variant() != CASE_NODE)
         && (lastSt != NULL || stmt->variant() != DEFAULT_NODE));
         stmt = stmt->lexNext())
     {
+        if (stmt->variant() == CONTROL_END)
+        {
+            if (isSgExecutableStatement(stmt))
+                break;
+        }
+
         cur = processOneStatement(&stmt, &pred, &list, cur, loops, calls, commons);
-        if (cur == NULL){
+        if (cur == NULL)
+        {
             clearList(list);
             return NULL;
         }
@@ -1527,6 +1539,7 @@ DoLoopDataList::~DoLoopDataList()
 {
 #if __SPF
     removeFromCollection(this);
+    return;
 #endif
     while (list != NULL) {
         DoLoopDataItem* t = list->next;
@@ -1876,7 +1889,7 @@ ControlFlowGraph::ControlFlowGraph(bool t, bool m, ControlFlowItem* list, Contro
 #endif
 {
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 30);
 #endif
     int n = 0;
     ControlFlowItem* orig = list;
@@ -3448,7 +3461,7 @@ bool GetExpressionAndCoefficientOfBound(SgExpression* exp, SgExpression** end, i
 CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CVarEntryInfo(s)
 {
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 16);
 #endif
     // TODO: need to check all alhorithm!!
     disabled = true;
@@ -3528,7 +3541,7 @@ CArrayVarEntryInfo::CArrayVarEntryInfo(SgSymbol *s, int sub, int ds, const vecto
                                        : CVarEntryInfo(s), subscripts(sub), disabled(ds)
 { 
 #if __SPF
-    addToCollection(__LINE__, __FILE__, this, 1);
+    addToCollection(__LINE__, __FILE__, this, 16);
 #endif
     if (sub > 0) 
         data = d;

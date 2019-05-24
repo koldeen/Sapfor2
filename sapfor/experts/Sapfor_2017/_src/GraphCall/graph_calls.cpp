@@ -622,6 +622,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         SgStatement *st_cp = st->controlParent();
         if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
             containsPrefix = st_cp->symbol()->identifier() + string(".");
+        else if (st_cp->variant() == INTERFACE_STMT)
+            continue;
         
         string currFunc = "";
         if (st->variant() == PROG_HEDR)
@@ -1002,14 +1004,30 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                         bool type2 = func->funcParams.parametersT[parNum] == ARRAY_T;
 
                         string add = "";
+                        wstring addW = L"";
                         if (type1)
+                        {
                             add += "(as out argument";
+#ifdef _WIN32
+                            addW += L"(как выходной аргумент";
+#endif
+                        }
                         if (type2)
                         {
                             if (type1)
+                            {
                                 add += ", as array in function)";
+#ifdef _WIN32
+                                addW += L", как массив в функции)";
+#endif
+                            }
                             else
+                            {
                                 add += "(as array in function)";
+#ifdef _WIN32
+                                addW += L"(как массив в функции)";
+#endif
+                            }
                         }
                         else
                             add += ")";
@@ -1024,20 +1042,26 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 {
                                     if (loop)
                                     {
-                                        std::wstring bufw;
-                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
+                                        wstring bufE, bufR;
+                                        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
-
-                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' в цикле на строке %d %s",
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), addW.c_str());
+#endif
+                                        messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s\n", func->funcName.c_str(), symb->identifier(), loop->lineNumber(), add.c_str());
                                     }
                                     else
                                     {
-                                        std::wstring bufw;
-                                        __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
+                                        wstring bufE, bufR;
+                                        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
-
-                                        messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' %s",
+                                                             to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), addW.c_str());
+#endif
+                                        messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                         __spf_print(1, "Function '%s' needs to be inlined due to non private array reference '%s' %s\n", func->funcName.c_str(), symb->identifier(), add.c_str());
                                     }
                                 }
@@ -1068,15 +1092,22 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     inFunction->DeprecateAllDims();
                                     inFunction->SetNonDistributeFlag(DIST::NO_DISTR);
 
-                                    std::wstring bufw;
-                                    if (inFunction->GetDimSize() == 1)
-                                        __spf_printToLongBuf(bufw, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
+                                    wstring bufE, bufR;
+                                    if (inFunction->GetDimSize() == 1)                                    
+                                        __spf_printToLongBuf(bufE, L"First dimension of array '%s' were deprecated to distributon due to function call '%s'", 
                                                              to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
                                     else
-                                        __spf_printToLongBuf(bufw, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
+                                        __spf_printToLongBuf(bufE, L"First %d dimensions of array '%s' were deprecated to distributon due to function call '%s'", 
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
-
-                                    messages.push_back(Messages(NOTE, statLine, bufw, 1040));
+#ifdef _WIN32
+                                    if (inFunction->GetDimSize() == 1)                                    
+                                        __spf_printToLongBuf(bufR, L"Первое измерение массива '%s' запрещено к распределению из-за передачи в функцию '%s'", 
+                                                             to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+                                    else
+                                        __spf_printToLongBuf(bufR, L"Первые %d измерений массива '%s' запрещены к распределению из-за передачи к функцию '%s'", 
+                                                             inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
+#endif
+                                    messages.push_back(Messages(NOTE, statLine, bufR, bufE, 1040));
                                 }
                             }
                         }
@@ -1093,11 +1124,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 if (mainArray->GetDimSize() != inFunction->GetDimSize() && 
                                     !(inFunction->GetNonDistributeFlag() && !mainArray->GetNonDistributeFlag()))
                                 {
-                                    std::wstring bufw;
-                                    __spf_printToLongBuf(bufw, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
-                                             to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
-
-                                    messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+                                    wstring bufE, bufR;
+                                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
+                                                         to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
+#ifdef _WIN32
+                                    __spf_printToLongBuf(bufR, L"Требуется подставить функцию '%s' из-за разной размерности массива %s', передаваемого в качестве параметра: размерность формального параметра = %d и фактического параметра = %d",
+                                                         to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize());
+#endif
+                                    messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                     __spf_print(1, "Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'\n", 
                                                     func->funcName.c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), symb->identifier());
                                     ret = true;
@@ -1105,11 +1139,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                             }
                             else
                             {
-                                std::wstring bufw;
-                                __spf_printToLongBuf(bufw, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
+                                wstring bufE, bufR;
+                                __spf_printToLongBuf(bufE, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
-
-                                messages.push_back(Messages(ERROR, statLine, bufw, 1013));
+#ifdef _WIN32
+                                __spf_printToLongBuf(bufR, L"Обнаружено несоответствие типов в функции '%s' в формальном и фактическом параметре для массива '%s'\n",
+                                                     to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
+#endif
+                                messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
                                 __spf_print(1, "Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", func->funcName.c_str(), symb->identifier());
                                 ret = true;
                             }
@@ -1615,48 +1652,118 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
     }
 }
 
+static void fillUseStmt(SgStatement *stat, map<string, set<SgSymbol*>> &byUse)
+{
+    if (stat->variant() != USE_STMT)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgExpression* ex = stat->expr(0);
+    if (ex && ex->variant() == ONLY_NODE)
+    {
+        for (auto exI = ex->lhs(); exI; exI = exI->rhs())
+        {
+            if (exI->lhs()->variant() == RENAME_NODE)
+            {
+                SgExpression* ren = exI->lhs();
+                if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+            }
+        }
+    }
+    else if (ex && ex->lhs())
+    {
+        for (auto exI = ex; exI; exI = exI->rhs())
+        {
+            if (exI->lhs()->variant() == RENAME_NODE)
+            {
+                SgExpression* ren = exI->lhs();
+                if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
+                    byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
+            }
+        }
+    }
+}
+
 map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 {
+    map<string, set<SgSymbol*>> byUse;
     int var = stIn->variant();
     while (var != PROG_HEDR && var != PROC_HEDR && var != FUNC_HEDR)
     {
         stIn = stIn->controlParent();
+        if (stIn == NULL)
+            return byUse;
         var = stIn->variant();
     }
+    
+    auto mapOfUses = createMapOfModuleUses(stIn->getFile());
+    set<string> useMods;
 
-    map<string, set<SgSymbol*>> byUse;
     for (SgStatement *stat = stIn->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
     {
         if (stat->variant() == USE_STMT)
         {
-            SgExpression *ex = stat->expr(0);
-            if (ex && ex->variant() == ONLY_NODE)
+            fillUseStmt(stat, byUse);
+            useMods.insert(stat->symbol()->identifier());
+        }
+    }
+
+    const int cpOfSt = stIn->controlParent()->variant();
+    //contains of func
+    if (var == PROG_HEDR || var == PROC_HEDR || var == FUNC_HEDR)
+    {
+        for (SgStatement *stat = stIn->controlParent()->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
+        {
+            if (stat->variant() == USE_STMT)
             {
-                for (auto exI = ex->lhs(); exI; exI = exI->rhs())
-                {
-                    if (exI->lhs()->variant() == RENAME_NODE)
-                    {
-                        SgExpression *ren = exI->lhs();
-                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
-                    }
-                }
-            }
-            else if (ex && ex->lhs())
-            {
-                for (auto exI = ex; exI; exI = exI->rhs())
-                {
-                    if (exI->lhs()->variant() == RENAME_NODE)
-                    {
-                        SgExpression *ren = exI->lhs();
-                        if (ren->lhs()->symbol() && ren->rhs() && ren->rhs()->symbol())
-                            byUse[ren->rhs()->symbol()->identifier()].insert(ren->lhs()->symbol());
-                    }
-                }
+                fillUseStmt(stat, byUse);
+                useMods.insert(stat->symbol()->identifier());
             }
         }
     }
 
+    bool chages = true;
+    while (chages)
+    {
+        chages = false;
+        set<string> newUseMods(useMods);
+        for (auto &elem : useMods)
+        {
+            auto it = mapOfUses.find(elem);
+            if (it != mapOfUses.end())
+            {
+                for (auto &elem2 : it->second)
+                {
+                    if (newUseMods.find(elem2) == newUseMods.end())
+                    {
+                        newUseMods.insert(elem2);
+                        chages = true;
+                    }
+                }
+            }
+        }
+        useMods = newUseMods;
+    }
+
+    vector<SgStatement*> modules;
+    findModulesInFile(stIn->getFile(), modules);
+    for (auto &mod : modules)
+    {
+        if (useMods.find(mod->symbol()->identifier()) != useMods.end())
+        {
+            for (SgStatement *stat = mod->lexNext(); stat != mod->lastNodeOfStmt(); stat = stat->lexNext())
+            {
+                const int var = stat->variant();
+                if (var == USE_STMT)
+                {
+                    fillUseStmt(stat, byUse);
+                    useMods.insert(stat->symbol()->identifier());
+                }
+                else if (var == PROC_HEDR || var == FUNC_HEDR)
+                    break;
+            }
+        }
+    }
     return byUse;
 }
 

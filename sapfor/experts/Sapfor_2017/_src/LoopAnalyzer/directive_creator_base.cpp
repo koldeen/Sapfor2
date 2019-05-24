@@ -31,6 +31,7 @@ using std::make_pair;
 using std::make_tuple;
 using std::get;
 using std::string;
+using std::wstring;
 
 struct MapToArray
 {
@@ -637,10 +638,15 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
 
                                 if (!statusOk)
                                 {
-                                    std::wstring bufw;
-                                    __spf_printToLongBuf(bufw, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
+                                    wstring bufE, bufR;
+                                    __spf_printToLongBuf(bufE, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
                                                          to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
-                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufw, 4011));
+#ifdef  _WIN32
+                                    __spf_printToLongBuf(bufR, L"У массивов '%s' и '%s' разные правила выравнивания согласно обращению на запись в в данном цикле",
+                                                         to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
+#endif 
+
+                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufR, bufE, 4011));
                                     sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
                                     break;
                                 }
@@ -704,16 +710,16 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     getRealArrayRefs(mainArray.arrayRef, mainArray.arrayRef, realArrayRef, arrayLinksByFuncCalls);
 
                     set<DIST::Array*> templateLink;
-                    vector<const vector<pair<int, int>>*> allRules;
-                    vector<const vector<int>*> allLinks;
+                    vector<vector<pair<int, int>>> allRules;
+                    vector<vector<int>> allLinks;
 
                     for (auto &array : realArrayRef)
                     {
                         DIST::Array *toAdd = array->GetTemplateArray(currReg->GetId());
                         if (toAdd)
                             templateLink.insert(toAdd);
-                        allRules.push_back(&(array->GetAlignRulesWithTemplate(currReg->GetId())));
-                        allLinks.push_back(&(array->GetLinksWithTemplate(currReg->GetId())));
+                        allRules.push_back(array->GetAlignRulesWithTemplate(currReg->GetId()));
+                        allLinks.push_back(array->GetLinksWithTemplate(currReg->GetId()));
                     }
 
                     if (!isAllRulesEqual(allRules))
@@ -722,8 +728,8 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                     /*if (templateLink.size() != 1)
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__); */
 
-                    const vector<pair<int, int>> &rules = *allRules[0];
-                    const vector<int> &links = *allLinks[0];
+                    const vector<pair<int, int>> &rules = allRules[0];
+                    const vector<int> &links = allLinks[0];
 
                     mainArray.arrayRef = *templateLink.begin();
                     mainArray.mainAccess = DIST::Fx(mainArray.mainAccess, rules[mainArray.dimentionPos]);

@@ -79,7 +79,7 @@ struct omegaContIter;
 /* define the maximum length of a data dependence vector */
 #define maxCommonNest 6   /* (32 bits - 6 used in dddir.h) / 4 bits per dd */
 
-typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature; 
+typedef enum { ddflow, ddanti, ddoutput, ddreduce, dd_unknown, ddnovalue } ddnature; 
 
 
 /* define the type "a_access", which identifies an array access,

@@ -32,6 +32,8 @@ void convertGlobalMessagesBuffer(short *&result, int *&resultSize);
 void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<std::string, std::map<int, std::set<std::string>>> &commentsToInclude, const char *folderName, bool keepSpfDirs, int removeDvmDirs = 0);
 
 std::string splitDirective(const std::string &in);
+std::string splitDirectiveFull(const std::string &in_);
+
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
 
 bool isSPF_comment(const std::string &bufStr);
@@ -47,7 +49,7 @@ unsigned getUniqArrayId();
 
 bool isAllRulesEqualWithoutArray(const std::vector<std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>>> &allRules);
 bool isAllRulesEqual(const std::vector<std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>>> &allRules);
-bool isAllRulesEqual(const std::vector<const std::vector<std::pair<int, int>>*> &allRules);
+bool isAllRulesEqual(const std::vector<std::vector<std::pair<int, int>>> &allRules);
 bool isAllRulesEqual(const std::vector<std::vector<int>> &allRules);
 
 int getNextNegativeLineNumber();

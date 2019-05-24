@@ -22,6 +22,7 @@ public:
     PredictorStats()
     {
         ParallelCount = RemoteCount = RedistributeCount = IntervalCount = 0;
+        TotalScorePar = TotalScoreComm = TotalScoreDist = 0;
     }
      
     ParallelStats ParallelStat;
@@ -29,6 +30,9 @@ public:
     int RemoteCount;
     int RedistributeCount;
     int IntervalCount;
+    int TotalScoreComm;
+    int TotalScorePar;
+    int TotalScoreDist;
 
     std::string to_string()
     {

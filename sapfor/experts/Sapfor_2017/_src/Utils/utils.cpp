@@ -27,6 +27,9 @@
 #include "../Distribution/Array.h"
 #include "../Distribution/Arrays.h"
 #include "../DynamicAnalysis/gcov_info.h"
+#if __SPF
+#include "acc_analyzer.h"
+#endif
 
 using std::map;
 using std::pair;
@@ -421,6 +424,31 @@ string splitDirective(const string &in_)
     return out + lastEnd;
 }
 
+string splitDirectiveFull(const string &in_)
+{
+    if (in_ == "")
+        return "";
+
+    string in(in_);
+    string lastEnd = "";
+    if (in[in.size() - 1] == '\n')
+    {
+        in.erase(in.begin() + in_.size() - 1);
+        lastEnd = "\n";
+    }
+
+    string out = "";
+    vector<string> splited;
+    splitString(in_, '\n', splited);
+    for (int z = 0; z < splited.size(); ++z)
+    {
+        if (z != 0)
+            out += "\n";
+        out += splitDirective(splited[z]);
+    }
+    return out + lastEnd;
+}
+
 extern void ExitFromOmegaTest(const int c) { throw c; }
 
 void sortFilesBySize(const char *proj_name)
@@ -525,8 +553,19 @@ void uniteVectors(const vector<pair<pair<string, string>, vector<pair<int, int>>
 
 // pointer -> type of alloc function
 static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollection;
+static bool deleteInProgress = false;
+static void* currentPointer = NULL;
+static set<void*> deleted;
 
 // type == 0 -> free, type == 1 -> delete, type == 2 -> delete[]
+// acc_analyzer.h: ControlFlowItem = 3, doLoopItem = 4, doLoops = 5, LabelCFI = 6, CLAStatementItem = 7
+//   VarItem = 8, VarSet = 9, DoLoopDataItem = 10, DoLoopDataList = 11
+//   CVarEntryInfo = 12, CScalarVarEntryInfo = 13, CRecordVarEntryInfo = 14
+//   ArraySubscriptData = 15, CArrayVarEntryInfo = 16, BasicBlockItem = 17,  
+//   CallAnalysisLog = 18, CExprList = 19, SymbolKey = 20, CBasicBlock = 21
+//   CommonVarSet = 22, AnalysedCallsList = 23, CallData = 24, CommonVarInfo = 25
+//   CommonDataItem = 26, CommonData = 27, PrivateDelayedItem = 28, ActualDelayedData = 29
+//   ControlFlowGraph = 30
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type)
 {
     pointerCollection.insert(std::make_pair(pointer, std::make_tuple(type, line, file)));
@@ -534,28 +573,43 @@ extern "C" void addToCollection(const int line, const char *file, void *pointer,
 
 extern "C" void removeFromCollection(void *pointer)
 {
-    if (pointerCollection.size() == 0)
-        return;
-    auto it = pointerCollection.find(pointer);
-    if (it != pointerCollection.end())
-        pointerCollection.erase(it);
+    if (deleteInProgress)
+    {
+        if (pointer != currentPointer)
+            deleted.insert(pointer);
+    }
+    else
+    {
+        if (pointerCollection.size() == 0)
+            return;
+
+        auto it = pointerCollection.find(pointer);
+        if (it != pointerCollection.end())
+            pointerCollection.erase(it);
+    }
 }
 
 void deletePointerAllocatedData()
 {
     int leaks = 0;
     int failed = 0;
-    /*vector<pair<void*, int>> pointers;
-    for (auto &pointer : pointerCollection)
-        pointers.push_back(std::make_pair(pointer.first, std::get<0>(pointer.second)));*/
+    deleteInProgress = true;
+    deleted.clear();
+    int maxS = -1;
 
-//TODO:
-//#pragma omp parallel for reduction (+: failed, leaks)
-//    for (int z = 0; z < pointers.size(); ++z)
     for (auto &elem : pointerCollection)
     {
-        //const pair<void*, int> &pointer = pointers[z];
+        maxS = std::max(maxS, (int)deleted.size());
+
+        auto itD = deleted.find(elem.first);
+        if (deleted.find(elem.first) != deleted.end())
+        {            
+            deleted.erase(itD);
+            continue;
+        }
+
         const pair<void*, int> pointer = std::make_pair(elem.first, std::get<0>(elem.second));
+        currentPointer = pointer.first;
         //printf("%d %s\n", std::get<1>(elem.second), std::get<2>(elem.second));
         //fflush(NULL);
         if (pointer.second == 0)
@@ -588,12 +642,63 @@ void deletePointerAllocatedData()
             else
                 failed++;
         }
+        else if (pointer.second >= 3 && pointer.second <= 30)
+        {
+            if (pointer.first)
+            {
+                switch (pointer.second)
+                {
+#if __SPF
+                case 3: delete (ControlFlowItem*)pointer.first; break;
+                case 4: delete (doLoopItem*)pointer.first; break;
+                case 5: delete (doLoops*)pointer.first; break;
+                case 6: delete (LabelCFI*)pointer.first; break;
+                case 7: delete (CLAStatementItem*)pointer.first; break;
+                case 8: delete (VarItem*)pointer.first; break;
+                case 9: delete (VarSet*)pointer.first; break;
+                case 10: delete (DoLoopDataItem*)pointer.first; break;
+                case 11: delete (DoLoopDataList*)pointer.first; break;
+                case 12: delete (CVarEntryInfo*)pointer.first; break;
+                case 13: delete (CScalarVarEntryInfo*)pointer.first; break;
+                case 14: delete (CRecordVarEntryInfo*)pointer.first; break;
+                case 15: delete (ArraySubscriptData*)pointer.first; break;
+                case 16: delete (CArrayVarEntryInfo*)pointer.first; break;
+                case 17: delete (BasicBlockItem*)pointer.first; break;
+                case 18: delete (CallAnalysisLog*)pointer.first; break;
+                case 19: delete (CExprList*)pointer.first; break;
+                case 20: delete (SymbolKey*)pointer.first; break;
+                case 21: delete (CBasicBlock*)pointer.first; break;
+                case 22: delete (CommonVarSet*)pointer.first; break;
+                case 23: delete (AnalysedCallsList*)pointer.first; break;
+                case 24: delete (CallData*)pointer.first; break;
+                case 25: delete (CommonVarInfo*)pointer.first; break;
+                case 26: delete (CommonDataItem*)pointer.first; break;
+                case 27: delete (CommonData*)pointer.first; break;
+                case 28: delete (PrivateDelayedItem*)pointer.first; break;
+                case 29: delete (ActualDelayedData*)pointer.first; break;
+                case 30: delete (ControlFlowGraph*)pointer.first; break;
+#endif
+                default:
+                    break;
+                }
+
+                leaks++;
+            }
+            else
+                failed++;
+        }
     }
 
     if (leaks > 0)
         printf("SAPFOR: detected %d leaks of memory\n", leaks);
     if (failed > 0)
         printf("SAPFOR: detected failed %d leaks of memory\n", failed);
+    printf("SAPFOR: deleted set size %d, maxS = %d\n", (int)deleted.size(), maxS);
+
+    pointerCollection.clear();
+    deleted.clear();
+    deleteInProgress = false;
+    currentPointer = NULL;
 }
 
 static unsigned arrayIdCounter = 0;
@@ -641,7 +746,7 @@ static bool isAllRulesEqual_p(T rules)
     else
     {
         for (auto &elem : rules)
-            if (*elem != *rules[0])
+            if (elem != rules[0])
                 return false;
         return true;
     }
@@ -662,7 +767,7 @@ bool isAllRulesEqual(const vector<vector<int>> &allRules)
     return isAllRulesEqual_l(allRules);
 }
 
-bool isAllRulesEqual(const vector<const vector<pair<int, int>>*> &allRules)
+bool isAllRulesEqual(const vector<vector<pair<int, int>>> &allRules)
 {
     return isAllRulesEqual_p(allRules);
 }
@@ -750,5 +855,6 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 
 template vector<Messages>& getObjectForFileFromMap(const char *fileName, map<string, vector<Messages>>&);
 template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<string, vector<LoopGraph*>>&);
+template vector<FuncInfo*>& getObjectForFileFromMap(const char *fileName, map<string, vector<FuncInfo*>>&);
 template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);

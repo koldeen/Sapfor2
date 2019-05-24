@@ -57,6 +57,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   45 "function's argument '%s' does not have declaration statement"
 //   46 "mismatch of count formal and actual parameters "
 //   47 "inconsistent array use"
+//   48 "the same function name in different places was found"
+
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -97,7 +99,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 
 struct Messages
 {
-public:
+private:
     //explicit Messages(const typeMessage type, const int line, const std::string &value_) : Messages(type, line, value_, 0) { }
     explicit Messages(const typeMessage type, const int line, const std::wstring &value_, const int group) : type(type), line(line), group(group)
     {

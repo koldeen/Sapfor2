@@ -21,7 +21,6 @@ enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
 // loop_analyzer.cpp
-std::vector<std::pair<Expression*, Expression*>> getArraySizes(std::vector<std::pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl);
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
 void loopAnalyzer(SgFile *file, 
@@ -65,6 +64,7 @@ void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, 
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
                             const std::vector<ParallelRegion*> &regions);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
+void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DIST::Array*> &allArrays);
 
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
@@ -113,6 +113,8 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
                                            const std::vector<Statement*> &reDistrRulesAfter,
                                            const std::vector<Statement*> &reAlignRules);
 
+void insertTemplateModuleUse(SgFile* file, const std::set<int> &regNum);
+
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);
 bool check_par_reg_dirs(SgFile *file, std::vector<Messages> &messagesForFile);
@@ -152,4 +154,5 @@ template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, Loop
 // shadow.cpp
 void devourShadowByRemote(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 void transformShadowIfFull(SgFile *file, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, DIST::Arrays<int> &allArrays);
+void GroupShadowStep1(SgFile *file, std::vector<FuncInfo*> &funcs, std::vector<LoopGraph*> &loops, DIST::Arrays<int> &allArrays,
+                      std::map<DIST::Array*, std::set<DIST::Array*>> arrayLinksByFuncCalls);

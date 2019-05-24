@@ -13520,6 +13520,16 @@ SgSymbol *Rename(SgSymbol *ar, SgStatement *stmt)
  return(ar);
 }
 
+void updateUseStatementWithOnly(SgStatement *st_use, SgSymbol *s_func)
+{
+  SgExpression *clause = st_use->expr(0);
+  if(clause && clause->variant() == ONLY_NODE)
+  {
+    SgExpression *only_list = AddElementToList(clause->lhs(),new SgVarRefExp(s_func));
+    clause->setLhs(only_list);
+  } 
+}
+
 void GenCallForUSE(SgStatement *hedr,SgStatement *where_st)
 {SgSymbol *smod;
  SgStatement *call;
@@ -13528,6 +13538,7 @@ void GenCallForUSE(SgStatement *hedr,SgStatement *where_st)
   if((attrm=DVM_PROC_IN_MODULE(smod)) && attrm->symb){
        call = new SgCallStmt(*attrm->symb);
        where_st->insertStmtBefore(*call);
+       updateUseStatementWithOnly(hedr,attrm->symb);
   }
 }
 

@@ -20,12 +20,12 @@ using namespace std;
 static vector<Messages> *currMessages;
 static set<int> allLables;
 
-static void copyLabelAndComentsToNext(SgStatement *curr)
+static void copyLabelAndComents(SgStatement *from, SgStatement *to)
 {
-    if (curr->hasLabel())
-        curr->lexNext()->setLabel(*curr->label());
-    if (curr->comments())
-        curr->lexNext()->setComments(curr->comments());
+    if (from->hasLabel())
+        to->setLabel(*from->label());
+    if (from->comments())
+        to->setComments(from->comments());
 }
 
 static SgLabel* getUniqLabel(unsigned was)
@@ -121,25 +121,66 @@ static vector<SgStatement*> convertComGoto(SgStatement *curr)
     return { assignCond, replace };
 }
 
+static pair<SgStatement*, SgStatement*> convertForall(SgStatement *st)
+{
+    if (st->variant() != FORALL_NODE && st->variant() != FORALL_STAT)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgForStmt *ret = NULL;
+    SgExpression *ex = st->expr(0);
+    SgExpression *cond = st->expr(1);
+    vector<pair<SgSymbol*, tuple<SgExpression*, SgExpression*, SgExpression*>>> loops;
+
+    while (ex)
+    {
+        if (ex->lhs()->variant() != FORALL_OP)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        SgExpression *left = ex->lhs();
+        if (left->lhs()->lhs()->variant() == DDOT)
+            loops.push_back(make_pair(left->symbol(), make_tuple(left->lhs()->lhs()->lhs(), left->lhs()->lhs()->rhs(), left->lhs()->rhs())));
+        else
+            loops.push_back(make_pair(left->symbol(), make_tuple(left->lhs()->lhs(), left->lhs()->rhs(), (SgExpression*)NULL)));
+        ex = ex->rhs();
+    }
+
+    SgStatement *insertPoint = NULL;
+    for (int z = loops.size() - 1; z >= 0; --z)
+    {
+        if (z == loops.size() - 1)
+        {
+            SgIfStmt *condIf = cond == NULL ? NULL : new SgIfStmt(*cond);
+            ret = new SgForStmt(loops[z].first, get<0>(loops[z].second), get<1>(loops[z].second), get<2>(loops[z].second), condIf);
+            if (condIf)
+                insertPoint = condIf;
+            else
+                insertPoint = ret;
+        }
+        else
+            ret = new SgForStmt(loops[z].first, get<0>(loops[z].second), get<1>(loops[z].second), get<2>(loops[z].second), ret);
+    }
+    return make_pair(ret, insertPoint);
+}
+
 template<vector<SgStatement*> funcConv(SgStatement*)>
-static void convert(SgStatement *&curr, const string &message)
+static void convert(SgStatement *&curr, const wstring &messageR, const wstring &messageE)
 {
     const int lineNum = curr->lineNumber();
     vector<SgStatement*> replaceSt = funcConv(curr);
 
     for (int k = (int)replaceSt.size() - 1; k >= 0; --k)
         curr->insertStmtAfter(*(replaceSt[k]), *curr->controlParent());
-    copyLabelAndComentsToNext(curr);
+    copyLabelAndComents(curr, curr->lexNext());
 
     SgStatement *toDel = curr;
     curr = curr->lexNext();
     toDel->deleteStmt();
 
-    char buf[512];
-    sprintf(buf, (message + " on line %d\n").c_str(), lineNum);
-    addToGlobalBufferAndPrint(buf);
+    //TODO
+    //char buf[512];
+    //sprintf(buf, (to_string(messageE) + " on line %d\n").c_str(), lineNum);
+    //addToGlobalBufferAndPrint(buf);
         
-    currMessages->push_back(Messages(NOTE, lineNum, to_wstring(message), 2002));
+    currMessages->push_back(Messages(NOTE, lineNum, messageR, messageE, 2002));
 }
 
 static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfLoops)
@@ -184,14 +225,21 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
     //TODO: add ASSIGN GOTO
     while (curr != lastNode)
     {
+        wstring bufR = L"";
         if (curr->variant() == ARITHIF_NODE)
         {
-            convert<convertArithIf>(curr, "convert arithmetic IF to simple IF");            
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"Арефметический IF был преобразован в IF-ENDIF");
+#endif
+            convert<convertArithIf>(curr, L"convert arithmetic IF to simple IF", bufR);
             continue;
         }
         else if (curr->variant() == COMGOTO_NODE)
         {
-            convert<convertComGoto>(curr, "convert computed GOTO to simple IF");
+#ifdef _WIN32
+            __spf_printToLongBuf(bufR, L"ВЫчисляемый GOTO был преобразован в IF-ENDIF");
+#endif
+            convert<convertComGoto>(curr, L"convert computed GOTO to simple IF", bufR);
             continue;
         }
         else if (curr->variant() == ASSGOTO_NODE)
@@ -219,8 +267,9 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
                 char buf[512];
                 sprintf(buf, "ERROR: can not convert to END DO loop on line %d\n", lineNum);
                 addToGlobalBufferAndPrint(buf);
-
-                currMessages->push_back(Messages(ERROR, lineNum, L"can not convert to END DO loop", 2003));
+#ifdef _WIN32
+                currMessages->push_back(Messages(ERROR, lineNum, L"Невозможно автоматически преобразовать цикл в END DO формат", L"can not convert to END DO loop", 2003));
+#endif
             }
         }
 
@@ -229,8 +278,9 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
             char buf[512];
             sprintf(buf, "convert to END DO loop on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
-
-            currMessages->push_back(Messages(NOTE, lineNum, L"convert to END DO loop", 2004));
+#ifdef _WIN32
+            currMessages->push_back(Messages(NOTE, lineNum, L"Невозможно автоматически преобразовать цикл в END DO формат", L"convert to END DO loop", 2004));
+#endif
         }
     }
 }
@@ -304,5 +354,64 @@ void ConverToEndDo(SgFile *file, vector<Messages> &messagesForFile)
 
         for (auto &loop : toProcessLoops)
             tryToConverLoop(loop.second, endOfLoops);
+
+        // convert FORALL
+        bool repeat = true;
+        while (repeat)
+        {
+            repeat = false;
+            vector<SgStatement*> toDel;
+            st = file->functions(i);
+            while (st != lastNode)
+            {
+                currProcessing.second = st->lineNumber();
+                if (st->variant() == CONTAINS_STMT)
+                    break;
+
+                if (st->variant() == FORALL_STAT || st->variant() == FORALL_NODE)
+                {                    
+                    pair<SgStatement*, SgStatement*> newSt = convertForall(st);
+                    checkNull(newSt.first, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    st->insertStmtBefore(*newSt.first, *st->controlParent());
+                    copyLabelAndComents(st, newSt.first);
+
+                    SgStatement *start = st->lexNext();
+                    SgStatement *end = st->lastNodeOfStmt();
+                    for (; start != end; )
+                    {
+                        SgStatement *copy = start->copyPtr();
+                        if (copy->variant() == FORALL_STAT || copy->variant() == FORALL_NODE)
+                            repeat = true;
+                        newSt.second->lastNodeOfStmt()->insertStmtBefore(*copy, *newSt.second);
+                        copyLabelAndComents(start, copy);
+
+                        if (start->variant() != IF_NODE)
+                        {
+                            start = start->lastNodeOfStmt();
+                            start = start->lexNext();
+                        }
+                        else
+                        {
+                            while (start->variant() != CONTROL_END)
+                                start = start->lastNodeOfStmt();
+                            start = start->lexNext();
+                        }
+                    }
+
+                    if (st->variant() == FORALL_STAT)
+                    {
+                        SgStatement *copy = st->lexNext()->copyPtr();
+                        newSt.second->lastNodeOfStmt()->insertStmtBefore(*copy, *newSt.second);
+                        copyLabelAndComents(start, copy);
+                    }
+                    toDel.push_back(st);
+                }
+                st = st->lexNext();
+            }
+
+            for (auto &elem : toDel)
+                elem->deleteStmt();
+        }
     }
 }

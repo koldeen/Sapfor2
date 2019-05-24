@@ -48,9 +48,11 @@ struct GraphItem {
 
 class GraphsKeeper {
 private:
-    std::map<std::string, GraphItem*> graphs;
+    std::map<SgStatement*, GraphItem*> graphs;
+    GraphsKeeper(): graphs(std::map<SgStatement*, GraphItem*>()) {}
 public:
-    GraphsKeeper(): graphs(std::map<std::string, GraphItem*>()) {}
+    static GraphsKeeper* getGraphsKeeper();
+    static void deleteGraphsKeeper();
     ~GraphsKeeper()
     {
         for (auto &it : graphs)
@@ -63,7 +65,7 @@ public:
     }
 
     GraphItem* buildGraph(SgStatement* st);
-    GraphItem* getGraph(const std::string &funcName);
+    GraphItem* getGraph(SgStatement *header);
     CBasicBlock* findBlock(SgStatement* stmt);
 };
 
@@ -102,10 +104,8 @@ public:
     }
 };
 
-std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMap(SgStatement *since, SgStatement *till);
-//const std::map<SymbolKey, std::set<SgExpression*>> getReachingDefinitions(SgStatement* stmt);
+std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till);
 const std::map<SymbolKey, std::set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt);
-SgStatement* getDefinitionFor(const SymbolKey& symbol,  ExpressionValue* value);
 void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
 void ClearCFGInsAndOutsDefs(ControlFlowGraph*);
@@ -113,9 +113,12 @@ bool valueWithRecursion(const SymbolKey&, SgExpression*);
 bool valueWithFunctionCall(SgExpression*);
 bool valueWithArrayReference(SgExpression *exp);
 bool argIsReplaceable(int i, AnalysedCallsList* callData);
+bool argIsUsed(int i, AnalysedCallsList* callData);
 bool symbolInExpression(const SymbolKey &symbol, SgExpression *exp);
 void showDefs(std::map<SymbolKey, std::set<ExpressionValue>> *defs);
 void showDefs(std::map<SymbolKey, SgExpression*> *defs);
 void showDefsOfGraph(ControlFlowGraph *CGraph);
 void debugStructure(ControlFlowGraph *CGraph, const std::string &filename);
-ExpressionValue* allocateExpressionValue(SgExpression* newExp);
+bool findCFIsForStmt(SgStatement *st, std::vector <ControlFlowItem*> &cfis);
+std::map<SymbolKey, std::set<ExpressionValue*>> createHeaderInDefs(SgStatement *header);
+ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header);
