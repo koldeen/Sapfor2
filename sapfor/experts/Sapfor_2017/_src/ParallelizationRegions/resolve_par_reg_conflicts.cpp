@@ -916,10 +916,14 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         SgStatement *newDecl = NULL;
 
         // TODO: check new array name
-        
-        while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
-            decl = decl->lexNext();
-        decl = decl->lexPrev();
+
+        // for what? to skip .h stats?
+        if (decl->fileName() != fileName)
+        {
+            while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
+                decl = decl->lexNext();
+            decl = decl->lexPrev();
+        }
 
         newArrSymb = &arrSymb->copy();
         newArrSymb->changeName(newArrName.c_str());
