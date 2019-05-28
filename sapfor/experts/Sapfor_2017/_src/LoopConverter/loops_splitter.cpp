@@ -323,7 +323,9 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
 
 static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &fragments)
 {
-    SgStatement *lastInserted = newLoop;
+    SgStatement *lastInserted = newLoop->lastNodeOfStmt();
+    SgStatement* cp = lastInserted->controlParent();
+
     for (auto &fragment : fragments)
     {
         SgStatement *toMoveStmt = fragment.first;
@@ -333,8 +335,7 @@ static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, S
             SgStatement *st = toMoveStmt;
             toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
 
-            lastInserted->insertStmtAfter(*st->extractStmt());
-            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
+            lastInserted->insertStmtBefore(*st->extractStmt(), *cp);
         }
     }
 }

@@ -11,7 +11,7 @@
 
 using namespace std;
 
-static vector<CFG_VarItem> removeFromList(const set<int> &nums, const vector<CFG_VarItem> &list)
+vector<CFG_VarItem> removeFromList(const set<int> &nums, const vector<CFG_VarItem> &list)
 {
     //TODO: REMOVE
     vector<CFG_VarItem> retVal;
@@ -159,20 +159,6 @@ const CFG_VarItem* CFG_VarSet::GetArrayRef(const CFG_ArrayVarEntryInfo* info) co
         }
     }
     return NULL;
-}
-
-void CFG_VarSet::RemoveDoubtfulCommonVars(CFG_CallData* call)
-{
-    set<int> toDel;
-    for (int z = 0; z < list.size(); ++z)
-    {
-        auto it = list[z];
-        CommonDataItem* d = pCommons->IsThisCommonVar(it, call);
-        if (d && pCommons->CanHaveNonScalarVars(d)) 
-            toDel.insert(z);
-    }
-
-    list = removeFromList(toDel, list);
 }
 
 bool CFG_VarSet::RecordBelong(const CFG_VarEntryInfo* rec) const

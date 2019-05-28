@@ -188,10 +188,13 @@ public:
     inline SgStatement *lastExecutable();
     inline SgStatement *lastNodeOfStmt();
     inline SgStatement *nodeBefore();
-    inline void insertStmtBefore(SgStatement &s);
     inline void insertStmtBefore(SgStatement &s, SgStatement &cp);
-    void insertStmtAfter(SgStatement &s);
     void insertStmtAfter(SgStatement &s, SgStatement &cp);
+#ifndef __SPF
+    //DEPRECATED IN SAPFOR!!
+    inline void insertStmtBefore(SgStatement& s) { insertBfndBeforeIn(s.thebif, thebif, NULL); }
+    inline void insertStmtAfter(SgStatement& s) { insertBfndListIn(s.thebif, thebif, NULL); }
+#endif
     inline SgStatement *extractStmt();
     inline SgStatement *extractStmtBody();
     inline void replaceWithStmt(SgStatement &s);
@@ -3351,14 +3354,6 @@ inline SgStatement *SgStatement::nodeBefore()
     checkConsistence();
 #endif
     return BfndMapping(getNodeBefore(thebif)); 
-}
-
-inline void SgStatement::insertStmtBefore(SgStatement &s)
-{
-#ifdef __SPF
-    checkConsistence();
-#endif
-    insertBfndBeforeIn(s.thebif,thebif,NULL); 
 }
 
 inline void SgStatement::insertStmtBefore(SgStatement &s,SgStatement &cp )

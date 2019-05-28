@@ -97,6 +97,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 // 40xx LOW LEVEL WARNINGS
 //   01 
 
+extern int langOfMessages;
 struct Messages
 {
 private:
@@ -121,7 +122,8 @@ private:
         //TODO: convert to upper case for test between '___'
     }
 public:
-    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : Messages(type, line, rus, group) { }
+    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : 
+        Messages(type, line, (langOfMessages == 1) ? rus : eng, group) { }
 
     std::wstring toString()
     {

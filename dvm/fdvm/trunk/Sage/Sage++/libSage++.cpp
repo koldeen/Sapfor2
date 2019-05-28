@@ -1919,14 +1919,6 @@ SgStatement::~SgStatement()
     RemoveFromTableBfnd((void *)this);
 }
 
-void SgStatement::insertStmtAfter(SgStatement &s)
-{
-#ifdef __SPF
-    checkConsistence();
-#endif
-    insertBfndListIn(s.thebif,thebif,NULL); 
-}
-
 void SgStatement::insertStmtAfter(SgStatement &s,SgStatement &cp)
 {
 #ifdef __SPF
@@ -5910,7 +5902,7 @@ void SgSymbol::declareTheSymbol(SgStatement &st)
 #ifdef __SPF   
        addToCollection(__LINE__, __FILE__, s, 1);
 #endif
-       st.insertStmtAfter(*s);
+       st.insertStmtAfter(*s, *s->controlParent());
        }
  }
 

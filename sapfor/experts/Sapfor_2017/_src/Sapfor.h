@@ -8,6 +8,7 @@ extern int consoleMode;
 extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
 extern int maxShadowWidth;
+extern int langOfMessages;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -129,6 +130,7 @@ enum optionNames {
     PARALLIZE_FREE_LOOPS,
     MAX_SHADOW_WIDTH,
     OUTPUT_UPPER,
+    TRANSLATE_MESSAGES,
     EMPTY_OPTION
 };
 

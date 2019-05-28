@@ -52,6 +52,7 @@ static void setOptions(const int *options)
     parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = options[MAX_SHADOW_WIDTH];
     out_upper_case = options[OUTPUT_UPPER];
+    langOfMessages = options[TRANSLATE_MESSAGES];
 }
 
 static int strLen(const short *shString)

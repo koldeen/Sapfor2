@@ -71,7 +71,11 @@ void Inliner(graph_node *gtop)
     top_last_declaration = top_first_executable->lexPrev();
 
     newst = new SgStatement(CONT_STAT);
+#if __SPF
+    insertBfndListIn(newst->thebif, top_last_declaration->thebif, NULL);
+#else
     top_last_declaration->insertStmtAfter(*newst);
+#endif
     top_first_executable = newst;
 
     MakeDeclarationForTempVarsInTop();  //finish cleaning
@@ -1289,7 +1293,11 @@ void MakeDeclarationStmtInTop(SgSymbol *s)
 {
     SgStatement *st;
     st = s->makeVarDeclStmt();
+#if __SPF
+    insertBfndListIn(st->thebif, top_last_declaration->thebif, NULL);
+#else
     top_last_declaration->insertStmtAfter(*st);
+#endif
     top_last_declaration = st;
     if (IS_ALLOCATABLE(s)) {
         SgDeclarationStatement *allocatableStmt = new SgDeclarationStatement(ALLOCATABLE_STMT);
@@ -1297,7 +1305,11 @@ void MakeDeclarationStmtInTop(SgSymbol *s)
         SgExprListExp *list = new SgExprListExp(*expr);
         allocatableStmt->setExpression(0, *list);
         allocatableStmt->setControlParent(top_last_declaration->controlParent());
+#if __SPF
+        insertBfndListIn(allocatableStmt->thebif, top_last_declaration->thebif, NULL);
+#else
         top_last_declaration->insertStmtAfter(*allocatableStmt);
+#endif
         top_last_declaration = allocatableStmt;
     }
 }
@@ -1309,11 +1321,19 @@ void MakeDeclarationStmtsForConstant(SgSymbol *s)
     eel = new SgExprListExp(*new SgRefExp(CONST_REF, *((SgConstantSymb *)s)));
     eel->setRhs(NULL);
     st->setExpression(0, *eel);
+#if __SPF
+    insertBfndListIn(st->thebif, top_last_declaration->thebif, NULL);
+#else
     top_last_declaration->insertStmtAfter(*st);
+#endif
     //top_header -> insertStmtAfter(*st);
     st = s->makeVarDeclStmt();
     //top_header -> insertStmtAfter(*st);
+#if __SPF
+    insertBfndListIn(st->thebif, top_last_declaration->thebif, NULL);
+#else
     top_last_declaration->insertStmtAfter(*st);
+#endif
     top_last_declaration = st->lexNext();
 }
 // SgConstantSymb * sc =  isSgConstantSymb(e->symbol());
@@ -1485,7 +1505,11 @@ void RemapCommonBlocks(SgStatement *header)
             TranslateExpressionList(bl->block->lhs());
             //bl->block->lhs()->unparsestdout();
             com = DeclaringCommonBlock(bl->block); //creating new COMMON statement and inserting one in top routine
+#if __SPF
+            insertBfndListIn(com->thebif, top_last_declaration->thebif, NULL);
+#else
             top_last_declaration->insertStmtAfter(*com);
+#endif
             top_last_declaration = com;
         }
         else
@@ -2391,7 +2415,11 @@ void InsertBlockAfter(SgStatement *after, SgStatement *first, SgStatement *heade
     if ((prevst = last->lexPrev()) && prevst->variant() == CONT_STAT && !(prevst->hasLabel()))
         prevst->extractStmt();
     header->extractStmt();
+#if __SPF
+    insertBfndListIn(first->thebif, after->thebif, NULL);
+#else
     after->insertStmtAfter(*first);
+#endif
     last->extractStmt();  //extract  END
 
 }
@@ -2411,8 +2439,17 @@ void InsertNewStatementBefore(SgStatement *stat, SgStatement *current) {
        // change by construction IF () THEN <current> ENDIF and
        // then insert statement before current statement
         st->setVariant(IF_NODE);
+#if __SPF
+        insertBfndListIn((new SgStatement(CONTROL_END))->thebif, current->thebif, NULL);
+#else
         current->insertStmtAfter(*new SgStatement(CONTROL_END));
+#endif
+
+#if __SPF
+        insertBfndListIn(stat->thebif, st->thebif, NULL);
+#else
         st->insertStmtAfter(*stat);
+#endif
         return;
     }
 

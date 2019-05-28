@@ -253,7 +253,7 @@ static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclarati
     SgStatement *newDeclaration = originalDeclaration->copyPtr();
 
     newDeclaration->setExpression(0, newExprList);
-    firstStmtOfFile->insertStmtAfter(*newDeclaration);
+    firstStmtOfFile->insertStmtAfter(*newDeclaration, *firstStmtOfFile->controlParent());
 
     return newDeclaration;
 }

@@ -164,4 +164,6 @@ public:
     }
     void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) { def->AddToSet(this, st); }
 };
+
+std::vector<CFG_VarItem> removeFromList(const std::set<int> &nums, const std::vector<CFG_VarItem> &list);
 #endif
