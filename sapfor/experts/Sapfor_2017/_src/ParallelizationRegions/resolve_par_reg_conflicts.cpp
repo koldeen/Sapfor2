@@ -1044,11 +1044,6 @@ static void copyFunction(ParallelRegion *region,
              origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
-            __spf_print(1, "orig %d:\n", origStat->lineNumber()); // DEBUG
-            origStat->unparsestdout(); // DEBUG
-            __spf_print(1, "copy %d:\n", copyStat->lineNumber()); // DEBUG
-            copyStat->unparsestdout(); // DEBUG
-
             copyStat->setlineNumber(origStat->lineNumber());
             BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }
@@ -1153,7 +1148,7 @@ static void copyFunction(ParallelRegion *region,
 
         // move copy function to original function
         newFuncStat = file->firstStatement()->lexNext()->extractStmt();
-        funcStat->insertStmtBefore(*newFuncStat);
+        funcStat->insertStmtBefore(*newFuncStat, *funcStat->controlParent());
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
