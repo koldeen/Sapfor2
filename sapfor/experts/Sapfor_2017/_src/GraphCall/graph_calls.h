@@ -145,11 +145,18 @@ struct FuncInfo
         return result;
     }
 
-    std::string getFuncNameByRegion(int regionId)
+    std::string getFuncNameWithContainsByRegion(const int regionId)
     {
         if (regionId && callRegions.size() > 1 && callRegions.find(regionId) != callRegions.end())
             return funcName + "_r" + std::to_string(regionId);
         return funcName;
+    }
+
+    std::string getFuncNameByRegion(const std::string &shortName, const int regionId)
+    {
+        if (regionId && callRegions.size() > 1 && callRegions.find(regionId) != callRegions.end())
+            return shortName + "_r" + std::to_string(regionId);
+        return shortName;
     }
 
     void removeNonDistrArrays()

@@ -586,18 +586,32 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &lin
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void recReplaceFuncCalls(SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, int regionId)
+static inline string getContains(SgStatement *funcSt)
+{
+    string containsName;
+    SgStatement *st_cp = funcSt->controlParent();
+    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+        containsName = st_cp->symbol()->identifier() + std::string(".");
+    return containsName;
+}
+
+static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, const int regionId)
 {
     if (exp)
     {
         if (exp->variant() == FUNC_CALL)
         {
+            SgStatement *externFuncSt = getFuncStat(st);
+            SgProcHedrStmt *procH = (SgProcHedrStmt*)externFuncSt;
+            string contains = getContains(procH);
+
             string funcName = exp->symbol()->identifier();
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string fullFuncName = contains + funcName;
+            FuncInfo *func = getFuncInfo(funcMap, fullFuncName);
 
             if (func)
             {
-                string newFuncName = func->getFuncNameByRegion(regionId);
+                string newFuncName = func->getFuncNameByRegion(funcName, regionId);
                 SgSymbol *newSymb = new SgSymbol(exp->symbol()->variant());
                 newSymb->changeName(newFuncName.c_str());
                 exp->setSymbol(*newSymb);
@@ -607,8 +621,8 @@ static void recReplaceFuncCalls(SgExpression *exp, const ParallelRegionLines &li
             }
         }
 
-        recReplaceFuncCalls(exp->rhs(), lines, funcMap, regionId);
-        recReplaceFuncCalls(exp->lhs(), lines, funcMap, regionId);
+        recReplaceFuncCalls(st, exp->rhs(), lines, funcMap, regionId);
+        recReplaceFuncCalls(st, exp->lhs(), lines, funcMap, regionId);
     }
 }
 
@@ -620,12 +634,17 @@ static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string,
     {
         if (st->variant() == PROC_STAT)
         {
+            SgStatement *externFuncSt = getFuncStat(st);
+            SgProcHedrStmt *procH = (SgProcHedrStmt*)externFuncSt;
+            string contains = getContains(procH);
+
             string funcName = st->symbol()->identifier();
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string fullFuncName = contains + funcName;
+            FuncInfo *func = getFuncInfo(funcMap, fullFuncName);
             
             if (func)
             {
-                string newFuncName = func->getFuncNameByRegion(regionId);
+                string newFuncName = func->getFuncNameByRegion(funcName, regionId);
                 SgSymbol *newSymb = new SgSymbol(st->symbol()->variant());
                 newSymb->changeName(newFuncName.c_str());
                 st->setSymbol(*newSymb);
@@ -633,7 +652,7 @@ static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string,
         }
 
         for (int i = 0; i < 3; ++i)
-            recReplaceFuncCalls(st->expr(i), lines, funcMap, regionId);
+            recReplaceFuncCalls(st, st->expr(i), lines, funcMap, regionId);
     }
 }
 
