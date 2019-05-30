@@ -59,7 +59,7 @@ string removeString(const string &toRemove, const string &inStr)
     return outStr;
 }
 
-void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
+void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
 {
     bool changesDone = false;
     map<string, FuncInfo*> mapFuncInfo;
@@ -71,7 +71,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
         for (auto &it : mapFuncInfo)
         {
             FuncInfo *currInfo = it.second;
-            for (auto &funcCall : currInfo->funcsCalledFromThis)
+            for(auto &funcCall : currInfo->funcsCalledFromThis)
             {
                 // Find pointer to info of called function
                 auto itCalledFunc = mapFuncInfo.find(funcCall.CalledFuncName);
@@ -79,6 +79,22 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
                 if (itCalledFunc != mapFuncInfo.end())
                 {
                     FuncInfo *calledFunc = itCalledFunc->second;
+
+                    // check for io usage
+                    if (calledFunc->usesIO && !currInfo->usesIO) 
+                    {
+                        currInfo->usesIO = true;
+                        changesDone = true;
+                    }
+
+                    // check for pureness
+                    if (!calledFunc->isPure && currInfo->isPure) 
+                    {
+                       currInfo->isPure = false;
+                       changesDone = true;
+                    }
+
+                    // check for using parameter as index
 
                     // Iterate through all pars of the call
                     int parNo = 0;

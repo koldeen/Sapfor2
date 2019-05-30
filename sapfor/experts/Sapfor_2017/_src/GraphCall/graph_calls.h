@@ -111,6 +111,8 @@ struct FuncInfo
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
 
+    bool usesIO; // same for IO usage as stated below
+    bool isPure; // does this func or funcs called from this have common block[s]
     bool doNotInline;
     bool doNotAnalyze;
     bool needToInline;

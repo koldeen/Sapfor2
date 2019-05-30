@@ -1788,3 +1788,16 @@ void printSymbolTable(SgFile *file)
         printf("[%d] %s type %d (%s)\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "");
     }
 }
+
+SgStatement* getFuncStat(SgStatement *st)
+{
+    if (!st)
+        return NULL;
+
+    SgStatement *iterator = st;
+
+    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+        iterator = iterator->controlParent();
+
+    return iterator;
+}

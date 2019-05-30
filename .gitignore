@@ -1,4 +1,5 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
+*.o
 sapfor/experts/Sapfor_2017/.idea/
 sapfor/experts/Sapfor_2017/cmake-build-debug/
 sapfor/experts/Sapfor_2017/.vs/
@@ -56,4 +57,5 @@ sapfor/experts/Sapfor_2017/SageLib/SageLib.vcxproj.user
 sapfor/experts/Sapfor_2017/Inliner/Inliner.vcxproj.user
 sapfor/experts/Sapfor_2017/TransformUtils/TransformUtils.vcxproj.user
 sapfor/experts/Sapfor_2017/Parser/Parser.vcxproj.user
-sapfor/experts/Sapfor_2017/.vscode/*
+.vscode/*
+.vs/

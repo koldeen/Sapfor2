@@ -53,6 +53,7 @@
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "DvmhRegions/DvmhRegionInserter.h"
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
 
@@ -459,7 +460,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
         }
         else if (curr_regime == CALL_GRAPH2)
+        {
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
+
+            // Set additional info in loopGraph, which requires function graph analysis
+            auto itLoopGraphFound = loopGraph.find(file_name);
+            auto itFuncGraphFound = allFuncInfo.find(file_name);
+            if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end())
+            {
+                DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
+                regionInsertor.updateLoopGraph();
+            }
+        }
         else if (curr_regime == LOOP_GRAPH)
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
@@ -855,6 +867,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+        else if (curr_regime == INSERT_REGIONS) 
+        {
+            auto itLoopGraphFound = loopGraph.find(file_name);
+            auto itFuncGraphFound = allFuncInfo.find(file_name);
+            if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end())
+            {
+                DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
+                regionInsertor.insertDirectives();
+            }
+        }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {
             bool res = FunctionsChecker(file, functionNames, SPF_messages);
@@ -1769,6 +1791,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
+
+            runAnalysis(*project, INSERT_REGIONS, false);
 
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 
