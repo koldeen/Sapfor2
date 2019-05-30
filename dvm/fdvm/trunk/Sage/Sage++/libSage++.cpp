@@ -1995,28 +1995,6 @@ SgLabel *SgStatement::label()
     return pt;
 }
 
-
-
-void  SgStatement::setControlParent(SgStatement &s)
-{
-#ifdef __SPF
-    checkConsistence();
-#endif
-    BIF_CP(thebif) = s.thebif; 
-}
-
-void  SgStatement::setControlParent(SgStatement *s)
-{
-#ifdef __SPF
-    checkConsistence();
-#endif
-    if (s != 0)
-        BIF_CP(thebif) = s->thebif;
-
-    else
-        BIF_CP(thebif) = 0;
-}
-
 void SgStatement::setExpression(int i, SgExpression &e)
 {
 #ifdef __SPF

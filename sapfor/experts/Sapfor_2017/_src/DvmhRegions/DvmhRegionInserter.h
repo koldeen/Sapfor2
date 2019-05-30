@@ -1,3 +1,4 @@
+#pragma once
 /*
  * DvmhRegionIsertor.h
  *
@@ -19,58 +20,52 @@
 #include <algorithm>
 #include <tuple>
 
-using namespace std;
-
-#ifndef NULL
-#define NULL   ((void *) 0)
-#endif
-
-#ifndef SAPFOR_EXPERTS_SAPFOR_2017__SRC_DVMHREGIONS_DVMHREGIONINSERTOR_H_
-#define SAPFOR_EXPERTS_SAPFOR_2017__SRC_DVMHREGIONS_DVMHREGIONINSERTOR_H_
-
-struct LoopCheckResults {
+struct LoopCheckResults 
+{
 	bool usesIO;
 	bool hasImpureCalls;
 
-	LoopCheckResults();
-
-	LoopCheckResults(bool, bool);
+	LoopCheckResults() : usesIO(false), hasImpureCalls(false) { }
+	LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
 };
 
-struct DvmhRegion {
-	std::vector<LoopGraph *> loops;
+struct DvmhRegion 
+{
+	std::vector<LoopGraph*> loops;
 
-	string fun_name;
+	std::string fun_name;
 	std::vector<SgSymbol*> needActualisation;
 	std::vector<SgSymbol*> needActualisationAfter;
-	DvmhRegion();
-	DvmhRegion(LoopGraph *loopNode, string fun_name);
-	bool isInRegion(SgStatement *);
-	SgStatement* getFirstSt();
-	SgStatement* getLastSt();
 
-	bool addToActualisation(SgSymbol* s) {
-		for (auto present : needActualisation) {
-			if (s == present) {
-				return false;
-			}
-		}
+    DvmhRegion() { }
+	DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
+
+	bool isInRegion(SgStatement *);
+	SgStatement* getFirstSt() const;
+	SgStatement* getLastSt() const;
+
+	bool addToActualisation(SgSymbol* s) 
+    {
+		for (auto &present : needActualisation) 
+			if (s == present) 
+				return false;		
 
 		needActualisation.push_back(s);
 		return true;
 	}
 };
 
-class DvmhRegionInsertor {
-	SgFile &file;
-	std::vector<LoopGraph *> loopGraph;
-	std::vector<FuncInfo*> funcGraph;
-	std::vector<DvmhRegion> regions;
+class DvmhRegionInsertor 
+{
+	SgFile *file;
+	const std::vector<LoopGraph*> &loopGraph;
+	const std::vector<FuncInfo*> &funcGraph;
+	std::vector<DvmhRegion*> regions;
 
 	DvmhRegion* getContainingRegion(SgStatement *);
 	void printFuncName(SgStatement *);
-	void findEdgesForRegions(std::vector<LoopGraph *>);
-	bool hasLimitsToDvmhParallel(LoopGraph *);
+	void findEdgesForRegions(const std::vector<LoopGraph*>&);
+	bool hasLimitsToDvmhParallel(const LoopGraph*) const;
 	void insertActualDirectives();
 	void insertRegionDirectives();
 	void insertActualDirectiveBefore(SgStatement *, std::vector<SgSymbol*>, int);
@@ -80,26 +75,32 @@ class DvmhRegionInsertor {
 	LoopCheckResults updateLoopNode(LoopGraph *);
 
 public:
-	DvmhRegionInsertor(SgFile *, std::vector<LoopGraph *>, std::vector<FuncInfo *>);
-	std::vector<LoopGraph *>  updateLoopGraph();
+
+	DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&, const std::vector<FuncInfo*>&);
+	void updateLoopGraph();
 	void insertDirectives();
-	virtual ~DvmhRegionInsertor();
+    ~DvmhRegionInsertor()
+    {
+        for (auto& reg : regions)
+            delete reg;
+    }
 };
 
 // Reaching defenitions for every symbol used in the statement
-typedef map<SgSymbol*, set<SgStatement*> > StDefs;
+typedef std::map<SgSymbol*, std::set<SgStatement*>> StDefs;
 
 // Keeps reaching defenitions for every statement of the project
-class RDKeeper {
+class RDKeeper 
+{
 	/* Finds set of symbols used in the expression. */
-	static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
+	static std::set<SgSymbol*> getSymbolsFromExpression(SgExpression *exp);
 
 	/* Finds set of symbols used in whole statement containing several expressions. */
-	static set<SgSymbol *> getUsedSymbols(SgStatement* st);
+	static std::set<SgSymbol*> getUsedSymbols(SgStatement* st);
 public:
-	map<SgStatement*, StDefs > defsByStatement;
+    std::map<SgStatement*, StDefs > defsByStatement;
 
-	RDKeeper(SgFile&);
+	RDKeeper(SgFile*);
 	StDefs getDefs(SgStatement *);
 };
 
@@ -132,8 +133,8 @@ public:
 // 	/* Finds set of symbols used in whole statement containing several expressions. */
 // 	static set<SgSymbol *> getUsedSymbols(SgStatement* st);
 
-// 	/* Returns string containing human readable information representing DFGNode. */
-// 	string getInfo() const;
+// 	/* Returns std::string containing human readable information representing DFGNode. */
+// 	std::string getInfo() const;
 
 // 	/* Links new successor for the DFGNode. Returns false if this successor was already linked. */
 // 	bool addSucc(DFGNode* new_succ);
@@ -144,14 +145,12 @@ public:
 
 // /*	Abstract control flow graph. Consists of linked DFGNodes. */
 // class AFlowGraph {
-// 	map<string, vector<DFGNode*> > fun_graphs;
+// 	std::map<std::string, std::vector<DFGNode*> > fun_graphs;
 // 	// TODO: memory cleaning
 // public:
 // 	/* Returns DFGNode by function name and node id. */
-// 	DFGNode* getNode(string fun_name, int id);
+// 	DFGNode* getNode(std::string fun_name, int id);
 
 // 	/* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
 // 	AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
 // };
-
-#endif /* SAPFOR_EXPERTS_SAPFOR_2017__SRC_DVMHREGIONS_DVMHREGIONINSERTOR_H_ */

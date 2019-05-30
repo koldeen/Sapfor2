@@ -132,6 +132,18 @@ private:
     static void updateStatsByExpression(SgStatement *where, SgExpression *what);
 
     void checkConsistence();
+
+#ifdef __SPF
+    // DEPRECATED IN SAPFOR!!
+    inline void setControlParent(SgStatement& s) { BIF_CP(thebif) = s.thebif; };
+    inline void setControlParent(SgStatement* s)
+    {
+        if (s != 0)
+            BIF_CP(thebif) = s->thebif;
+        else
+            BIF_CP(thebif) = 0;
+    }
+#endif
 public:
     PTR_BFND thebif;
     SgStatement(int variant);
@@ -172,9 +184,19 @@ public:
     inline SgStatement *controlParent(); // the enclosing control statement
 
     inline void setLexNext(SgStatement &s); // change the lexical ordering
-    void setControlParent(SgStatement &s); // change the control parent.
-    void setControlParent(SgStatement *s); // change the control parent.
 
+#ifndef __SPF
+    // change the control parent.
+    // DEPRECATED IN SAPFOR!!
+    inline void setControlParent(SgStatement& s) { BIF_CP(thebif) = s.thebif; };
+    inline void setControlParent(SgStatement* s)
+    {
+        if (s != 0)
+            BIF_CP(thebif) = s->thebif;
+        else
+            BIF_CP(thebif) = 0;
+    }
+#endif
   // Access statement using the tree structure
   // Describe BLOB lists here?
 
