@@ -74,11 +74,11 @@ void DvmhRegionInsertor::insertRegionDirectives()
 		}
 		regionStartSt->setComments(statementBefore->comments());
 		statementBefore->setComments("");
-		statementBefore->insertStmtBefore(*regionStartSt);
+		statementBefore->insertStmtBefore(*regionStartSt, *statementBefore->controlParent());
 
 		SgStatement *regionEndSt = new SgStatement(ACC_END_REGION_DIR);
 		SgStatement *lastStOfTheLoop = region.getLastSt();
-		lastStOfTheLoop->insertStmtAfter(*regionEndSt);
+		lastStOfTheLoop->insertStmtAfter(*regionEndSt, *region.getFirstSt()->controlParent());
 	}
 }
 
@@ -410,7 +410,7 @@ void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vecto
 	}
 
 	actualizingSt->setExpression(0, *t.rhs());
-	st->insertStmtBefore(*actualizingSt);
+	st->insertStmtBefore(*actualizingSt, *st->controlParent());
 	/*
 	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 	getActualSt->unparsestdout();
