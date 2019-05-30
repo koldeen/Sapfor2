@@ -12,6 +12,16 @@
 class CFG_BasicBlock;
 struct CFG_BasicBlockItem;
 class CFG_ControlFlowItem;
+struct CFG_IntrinsicSubroutineData;
+class CFG_ControlFlowGraph;
+struct CFG_CallData;
+class CFG_VarSet;
+struct CFG_CommonVarInfo;
+class CFG_PrivateDelayedItem;
+struct CFG_CallAnalysisLog;
+class CFG_VarEntryInfo;
+class CFG_ArrayVarEntryInfo;
+struct CFG_ActualDelayedData;
 
 struct CFG_BasicBlockItem
 {
@@ -35,34 +45,12 @@ static int getNumberOfArguments(bool isF, void* f)
     return pc->numberOfArgs();
 }
 
-static SgExpression* CheckIntrinsicParameterFlag(const char* name, int arg, SgExpression* p, unsigned char flag)
-{
-    const CFG_IntrinsicSubroutineData* info = isAnIntrinsicSubroutine(name);
-    if (!info)
-        return NULL; //better avoid this
-    for (int i = 0; i < info->args; i++) 
-    {
-        const CFG_IntrinsicParameterData* pd = &(info->parameters[i]);
-        if (pd->index == arg + 1)
-            return (pd->status & flag) != 0 ? p : NULL;
-        SgKeywordArgExp* kw = isSgKeywordArgExp(p);
-        if (kw)
-        {
-            SgExpression* a = kw->arg();
-            SgExpression* val = kw->value();
-            if (strcmp(a->unparse(), pd->name) == 0) 
-                return (pd->status & flag) != 0 ? val : NULL;            
-        }
-    }
-    return NULL;
-}
-
 class CFG_BasicBlock
 {
     int num;
     CFG_ControlFlowGraph* parent;
     CFG_ControlFlowItem* start;
-    CFG_CallData *proc;
+    const CFG_CallData *proc;
     std::vector<CFG_BasicBlockItem> prev;
     std::vector<CFG_BasicBlockItem> succ;
     CFG_BasicBlock* lexNext;
@@ -83,7 +71,7 @@ class CFG_BasicBlock
     bool lv_undef;    
     char prev_status;
     bool temp;        
-    std::vector<CFG_PrivateDelayedItem> privdata;
+    CFG_PrivateDelayedItem *privdata;
     CFG_VarEntryInfo* findentity;
     std::string visname;
     std::string visunparse;
@@ -117,12 +105,7 @@ class CFG_BasicBlock
 #endif*/
 
 public:
-    inline CFG_BasicBlock(bool t, CFG_ControlFlowItem* st, int n, CFG_ControlFlowGraph* par, CFG_CallData *pr) :
-        temp(t), num(n), start(st), prev(NULL), lexNext(NULL), def(NULL), use(NULL), mrd_in(new CFG_VarSet()), mrd_out(new CFG_VarSet()), undef(true),
-        lv_in(new CFG_VarSet()), lv_out(new CFG_VarSet()), lv_undef(false), succ(NULL), lexPrev(NULL), prev_status(-1), parent(par), common_def(NULL),
-        common_use(NULL), old_mrd_in(NULL), old_mrd_out(NULL), old_lv_in(NULL), old_lv_out(NULL), privdata(NULL), findentity(NULL), proc(pr)
-    { }
-
+    CFG_BasicBlock(bool t, CFG_ControlFlowItem* st, int n, CFG_ControlFlowGraph* par, const CFG_CallData *pr);
     ~CFG_BasicBlock();
 
     inline const std::vector<CFG_CommonVarInfo>& GetCommonDef() const { return common_def; }
@@ -134,153 +117,23 @@ public:
     void AddToPrev(CFG_BasicBlock* pr, bool, bool, CFG_ControlFlowItem*);
     void AddToSucc(CFG_BasicBlock* su, bool, bool, CFG_ControlFlowItem*);
 
-    inline CFG_VarSet* GetDef()
-    {
-        if (def == NULL)
-        {
-            def = new CFG_VarSet();
-            use = new CFG_VarSet();
-            SetDefAndUse();
-        }
-        return def;
-    }
-
-    inline CFG_VarSet* GetUse()
-    {
-        if (use == NULL)
-        {
-            use = new CFG_VarSet();
-            def = new CFG_VarSet();
-            SetDefAndUse();
-        }
-        return use;
-    }
+    CFG_VarSet* GetDef();
+    CFG_VarSet* GetUse();
 
     CFG_VarSet* GetMrdIn(bool);
 
-    inline CFG_VarSet* GetMrdOut(bool la)
-    {
-        if (mrd_out == NULL)
-        {
-            CFG_VarSet* res = new CFG_VarSet();
-            res->Unite(GetMrdIn(la), la);
-            res->Unite(GetDef(), la);
-            mrd_out = res;
-        }
-        return mrd_out;
-    }
+    CFG_VarSet* GetMrdOut(bool la);
+    CFG_VarSet* GetLVIn();
+    CFG_VarSet* GetLVOut();
+    bool StepMrdIn(bool la);
+    bool StepMrdOut(bool la);
+    bool StepLVIn();
+    bool StepLVOut();
+    CFG_ControlFlowItem* ContainsParloopStart() const;
+    CFG_ControlFlowItem* ContainsParloopEnd() const;
 
-    inline CFG_VarSet* GetLVIn()
-    {
-        if (lv_in == NULL)
-        {
-            CFG_VarSet* res = new CFG_VarSet();
-            res->Unite(GetLVOut(), false);
-            res->Minus(GetDef());
-            res->Unite(GetUse(), false);
-            lv_in = res;
-        }
-        return lv_in;
-    }
-
-    inline CFG_VarSet* GetLVOut()
-    {
-        if (lv_out == NULL)
-        {
-            CFG_VarSet* res = new CFG_VarSet();            
-            for (auto &p : succ)
-            {
-                CFG_BasicBlock* b = p.block;
-                if (b != NULL && !b->lv_undef)
-                    res->Unite(b->GetLVIn(), false);                
-            }
-            lv_out = res;
-        }
-        return lv_out;
-    }
-
-    inline bool StepMrdIn(bool la)
-    {
-        if (old_mrd_in)
-            delete old_mrd_in;
-
-        old_mrd_in = mrd_in;
-        mrd_in = NULL;
-        GetMrdIn(la);
-        return (mrd_in->Equal(old_mrd_in));
-    }
-
-    inline bool StepMrdOut(bool la)
-    {
-        if (old_mrd_out)
-            delete old_mrd_out;
-
-        old_mrd_out = mrd_out;
-        mrd_out = NULL;
-        GetMrdOut(la);
-        undef = false;
-        return (mrd_out->Equal(old_mrd_out));        
-    }
-
-    inline bool StepLVIn()
-    {
-        if (old_lv_in)
-            delete old_lv_in;
-
-        old_lv_in = lv_in;
-        lv_in = NULL;
-        GetLVIn();
-        return (lv_in->Equal(old_lv_in));
-    }
-
-    inline bool StepLVOut()
-    {
-        if (old_lv_out)
-            delete old_lv_out;
-
-        old_lv_out = lv_out;
-        lv_out = NULL;
-        GetLVOut();
-        lv_undef = false;        
-        return (lv_out->Equal(old_lv_out));
-    }
-
-    inline CFG_ControlFlowItem* containsParloopStart() const
-    {
-        CFG_ControlFlowItem* p = start;
-        while (p != NULL && (p == start || !p->IsLeader())) 
-        {
-            if (p->IsParloopStart())
-                return p;
-            p = p->GetNext();
-        }
-        return NULL;
-    }
-
-    inline CFG_ControlFlowItem* containsParloopEnd() const
-    {
-        CFG_ControlFlowItem* p = start;
-        while (p != NULL && (p == start || !p->IsLeader())) 
-        {
-            if (p->IsParloopEnd())
-                return p;
-            p = p->GetNext();
-        }
-        return NULL;
-    }
-
-    inline  CFG_ControlFlowItem* getStart() const { return start; }
-    inline  CFG_ControlFlowItem* getEnd() const
-    {
-        CFG_ControlFlowItem* p = start;
-        CFG_ControlFlowItem* end = p;
-        while (p != NULL && (p == start || !p->IsLeader())) 
-        {
-            end = p;
-            p = p->GetNext();
-        }
-        return end;
-    }
+    inline  CFG_ControlFlowItem* GetStart() const { return start; }
+    CFG_ControlFlowItem* GetEnd() const;
 
     inline CFG_BasicBlock* GetLexNext() { return lexNext; }
     inline CFG_BasicBlock* GetLexPrev() { return lexPrev; }
@@ -289,8 +142,8 @@ public:
     inline std::vector<CFG_BasicBlockItem>& GetSuccToMod() { return succ; }
     inline CFG_VarSet* GetLiveIn() { return lv_in; }
     inline int GetNum() { return num; }
-    inline void SetDelayedData(const std::vector<CFG_PrivateDelayedItem> &p) { privdata = p; }
-    inline const std::vector<CFG_PrivateDelayedItem>& GetDelayedData() const { return privdata; }
+    inline void SetDelayedData(CFG_PrivateDelayedItem *p) { privdata = p; }
+    inline CFG_PrivateDelayedItem* GetDelayedData() const { return privdata; }
 
     inline void Print() const
     {
@@ -368,29 +221,7 @@ public:
         }
     }
 
-    inline void ProcessIntrinsicProcedure(bool isF, int narg, void* f, const char* name)
-    {
-        for (int i = 0; i < narg; i++) 
-        {
-            SgExpression* ar = getProcedureArgument(isF, f, i);
-            if (isAnIntrinsicSubroutine(name)) 
-            {
-                SgExpression* v = CheckIntrinsicParameterFlag(name, i, ar, INTRINSIC_IN);
-                if (v) 
-                {
-                    std::set<SgExpression*> tmp;
-                    AddExprToUse(v, tmp);
-                }
-            }
-            else 
-            {
-                std::set<SgExpression*> tmp;
-                AddExprToUse(ar, tmp);
-            }
-            AddOneExpressionToDef(CheckIntrinsicParameterFlag(name, i, ar, INTRINSIC_OUT), NULL, NULL);
-        }
-    }
-
+    void ProcessIntrinsicProcedure(bool isF, int narg, void* f, const char* name);
     void ProcessUserProcedure(bool isFun, void* call, const CFG_CallData *c);
 
     inline void ProcessProcedureWithoutBody(bool isF, void* f, bool out) 
@@ -415,56 +246,13 @@ public:
         return pc->name();
     }
 
-    inline void PrivateAnalysisForAllCalls()
-    {
-        CFG_ControlFlowItem* p = start;
-        while (p != NULL && (p == start || !p->IsLeader())) 
-        {
-            CFG_CallData* c = p->GetCall();
-            //TODO:
-            //const char* oic = is_correct;
-            //const char* fpn = failed_proc_name;
-            //is_correct = NULL;
-            //failed_proc_name = NULL;
-            if (c != NULL && c != (CFG_CallData*)(-1) && c != (CFG_CallData*)(-2) && c->header != NULL && !c->hasBeenAnalysed)
-            {
-                c->hasBeenAnalysed = true;
-                int stored_fid = SwitchFile(c->file_id);
-                c->graph->PrivateAnalyzer();
-                SwitchFile(stored_fid);
-            }
-            //TODO:
-            //is_correct = oic;
-            //failed_proc_name = fpn;
-            p = p->GetNext();
-        }
-    }
+    void PrivateAnalysisForAllCalls();
 
-    ActualDelayedData* GetDelayedDataForCall(CallAnalysisLog*);
+    CFG_ActualDelayedData* GetDelayedDataForCall(CFG_CallAnalysisLog*);
 
-    inline bool IsVarDefinedAfterThisBlock(CFG_VarEntryInfo* var, bool os)
-    {
-        findentity = var;
-        if (def->Belongs(var, os)) 
-        {
-            findentity = NULL;
-            return true;
-        }
-        
-        for (auto &p : succ)
-        {
-            CFG_BasicBlock* b = p.block;
-            if (b->ShouldThisBlockBeCheckedAgain(var) && b->IsVarDefinedAfterThisBlock(var, os)) 
-            {
-                findentity = NULL;
-                return true;
-            }         
-        }
-        findentity = NULL;
-        return false;
-    }
+    bool IsVarDefinedAfterThisBlock(CFG_VarEntryInfo* var, bool os);
 
-    bool ShouldThisBlockBeCheckedAgain(CFG_VarEntryInfo* var) { return findentity && var && *var == *findentity; }
+    bool ShouldThisBlockBeCheckedAgain(CFG_VarEntryInfo* var);
 
     inline std::string GetGraphVisDescription()
     {
@@ -476,44 +264,11 @@ public:
         return visname;
     }
 
-    inline std::string GetGraphVisData()
-    {
-        if (visunparse.length() != 0)
-            return visunparse;
-        std::string result;
-        for (CFG_ControlFlowItem* it = start; it != NULL && (it->IsLeader() == false || it == start); it = it->GetNext()) 
-        {
-            if (it->GetStatement() != NULL) 
-            {
-                int ln = it->GetLineNumber();
-                char tmp[16];
-                sprintf(tmp, "%d: ", ln);
-                result += tmp;
-                result += it->GetStatement()->unparse();
-            }
-        }
-        visunparse = result;
-        return result;
-    }
-
-    bool IsEmptyBlock() const
-    {
-        for (CFG_ControlFlowItem* it = start; it != NULL && (it->IsLeader() == false || it == start); it = it->GetNext()) 
-        {
-            if (!it->IsEmptyCFI())
-                return false;
-        }
-        return true;
-    }
-
+    std::string GetGraphVisData();
+    bool IsEmptyBlock() const;
     std::string GetEdgesForBlock(const std::string &name, bool original, const std::string&);
-
-    inline void AddUniqObjects(std::set<CFG_ControlFlowItem*> &pointers) const
-    {
-        for (CFG_ControlFlowItem *it = start; it != NULL; it = it->GetNext())
-            pointers.insert(it);
-    }
-
+    void AddUniqObjects(std::set<CFG_ControlFlowItem*> &pointers) const;
+    
     /*
 #ifdef __SPF
     AnalysedCallsList* getProc() { return proc; }

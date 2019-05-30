@@ -1119,7 +1119,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         SgStatement *mainUnit = findMainUnit(&project);
         if (mainUnit)
+        {
+#if NEW_CFG
+            PrivateAnalyzerForMain(mainUnit);
+#endif
             Private_Vars_Analyzer(mainUnit);
+        }
         else
         {
             for (int i = n - 1; i >= 0; --i)

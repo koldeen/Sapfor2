@@ -1,3 +1,4 @@
+#define _LEAK_
 #include "../Utils/leak_detector.h"
 #if NEW_CFG
 #include <algorithm>
@@ -11,14 +12,16 @@
 
 using namespace std;
 
-vector<CFG_VarItem> removeFromList(const set<int> &nums, const vector<CFG_VarItem> &list)
+vector<CFG_VarItem*> removeFromList(const set<int> &nums, const vector<CFG_VarItem*> &list)
 {
     //TODO: REMOVE
-    vector<CFG_VarItem> retVal;
+    vector<CFG_VarItem*> retVal;
     for (int z = 0; z < list.size(); ++z)
     {
         if (nums.find(z) == nums.end())
             retVal.push_back(list[z]);
+        else
+            delete list[z];
     }
 
     return retVal;
@@ -62,13 +65,13 @@ bool CFG_VarSet::Equal(CFG_VarSet* p2) const
 
     for (auto& p : list)
     {
-        if (!p2->Belongs(p.var) && (p.var->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(p.var))->HasActiveElements()))
+        if (!p2->Belongs(p->Var()) && (p->Var()->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(p->Var()))->HasActiveElements()))
             return false;
     }
 
     for (auto& p : p2->list)
     {
-        if (!Belongs(p.var) && (p.var->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(p.var))->HasActiveElements()))
+        if (!Belongs(p->Var()) && (p->Var()->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(p->Var()))->HasActiveElements()))
             return false;
     }
     return true;
@@ -90,17 +93,17 @@ void CFG_VarSet::AddToSet(const CFG_VarEntryInfo* var, SgStatement* source, CFG_
             added = true;
         else 
         {
-            CFG_ArrayVarEntryInfo* fv = (CFG_ArrayVarEntryInfo*)p->var;
+            CFG_ArrayVarEntryInfo* fv = (CFG_ArrayVarEntryInfo*)p->Var();
             *fv += *av;
         }
     }
 
     if (added)
     {
-        CFG_VarItem p;
-        p.var = var->Clone();
-        p.ov = ov;        
-        p.file_id = current_file_id;
+        CFG_VarItem *p = new CFG_VarItem();
+        p->AddNewVar(var->Clone());
+        p->AddOVar(ov);
+        p->SetFile(current_file_id);
         list.push_back(p);
     }
 }
@@ -110,13 +113,14 @@ void CFG_VarSet::Remove(const CFG_VarEntryInfo* var)
     int z;
     for (z = 0; z < list.size(); ++z)
     {
-        if (var == list[z].var)
+        if (var == list[z]->Var())
             break;
     }
     
     if (z < list.size())
     {
         //TODO: REMOVE
+        delete list[z];
         list.erase(list.begin() + z);
     }    
 }
@@ -125,10 +129,10 @@ const CFG_VarItem* CFG_VarSet::Belongs(const CFG_VarEntryInfo* var, bool os) con
 {
     for (auto& elem : list)
     {
-        if ((*elem.var == *var))
-            return &elem;
-        if (os && OriginalSymbol(elem.var->GetSymbol()) == OriginalSymbol(var->GetSymbol()))
-            return &elem;
+        if ((*elem->Var() == *var))
+            return elem;
+        if (os && OriginalSymbol(elem->Var()->GetSymbol()) == OriginalSymbol(var->GetSymbol()))
+            return elem;
     }    
     return NULL;
 }
@@ -137,12 +141,12 @@ const CFG_VarItem* CFG_VarSet::Belongs(SgSymbol* s, bool os) const
 {
     for (auto& elem : list)
     {
-        if ((elem.var->GetSymbol() == s))
-            if (elem.var->GetVarType() == VAR_REF_ARRAY_EXP)
-                return ((CFG_ArrayVarEntryInfo*)(elem.var))->HasActiveElements() ? &elem : NULL;
+        if ((elem->Var()->GetSymbol() == s))
+            if (elem->Var()->GetVarType() == VAR_REF_ARRAY_EXP)
+                return ((CFG_ArrayVarEntryInfo*)(elem->Var()))->HasActiveElements() ? elem : NULL;
         
-        if (os && OriginalSymbol(elem.var->GetSymbol()) == OriginalSymbol(s))
-            return &elem;
+        if (os && OriginalSymbol(elem->Var()->GetSymbol()) == OriginalSymbol(s))
+            return elem;
     }
     return NULL;
 }
@@ -151,11 +155,11 @@ const CFG_VarItem* CFG_VarSet::GetArrayRef(const CFG_ArrayVarEntryInfo* info) co
 {
     for (auto& it : list)
     {
-        CFG_VarEntryInfo* v = it.var;
+        CFG_VarEntryInfo* v = it->Var();
         if (v->GetVarType() == VAR_REF_ARRAY_EXP) 
         {
             if (OriginalSymbol(info->GetSymbol()) == OriginalSymbol(v->GetSymbol()))
-                return &it;
+                return it;
         }
     }
     return NULL;
@@ -171,7 +175,7 @@ bool CFG_VarSet::RecordBelong(const CFG_VarEntryInfo* rec) const
 
     for (auto &p : list)
     {
-        if (*lm == *(p.var->GetLeftmostParent()))
+        if (*lm == *(p->Var()->GetLeftmostParent()))
             return true;
     }
     return false;
@@ -181,8 +185,8 @@ void CFG_VarSet::Print() const
 {
     for (auto &l : list)
     {
-        if (l.var->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(l.var))->HasActiveElements())
-            printf("%s ", l.var->GetSymbol()->identifier());
+        if (l->Var()->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(l->Var()))->HasActiveElements())
+            printf("%s ", l->Var()->GetSymbol()->identifier());
     }
     putchar('\n');
 }
@@ -192,16 +196,19 @@ void CFG_VarSet::LeaveOnlyRecords()
     set<int> toDel;
     for (int z = 0; z < list.size(); ++z)
     {
-        auto p = list[z];
-        if (p.var->GetVarType() == VAR_REF_RECORD_EXP) 
+        CFG_VarItem *p = list[z];
+        if (p->Var()->GetVarType() == VAR_REF_RECORD_EXP)
         {
-            const CFG_VarEntryInfo* rrec = p.var->GetLeftmostParent();
-            CFG_VarEntryInfo* old = p.var;
+            const CFG_VarEntryInfo* rrec = p->Var()->GetLeftmostParent();
+            CFG_VarEntryInfo* old = p->Var();
             if (old->RemoveReference())
+            {
+                p->AddNewVar(NULL);
                 delete old;
+            }
 
             if (!Belongs(rrec))
-                p.var = (CFG_VarEntryInfo*)rrec;
+                p->AddVar((CFG_VarEntryInfo*)rrec);
             else
                 toDel.insert(z);
         }
@@ -213,26 +220,24 @@ void CFG_VarSet::Unite(const CFG_VarSet* set, bool la)
 {    
     for(auto &arg2 : set->list)
     {
-        const CFG_VarItem* n = Belongs(arg2.var);
+        const CFG_VarItem* n = Belongs(arg2->Var());
         if (n == NULL)
         {
-            CFG_VarItem n;
-            if (arg2.var->GetVarType() == VAR_REF_ARRAY_EXP)
-                n.var = arg2.var->Clone();
+            CFG_VarItem *n = new CFG_VarItem();
+            if (arg2->Var()->GetVarType() == VAR_REF_ARRAY_EXP)
+                n->AddNewVar(arg2->Var()->Clone());
             else 
-            {
-                n.var = arg2.var;
-                n.var->AddReference();
-            }
-            n.ov = arg2.ov;
-            n.file_id = arg2.file_id;
+                n->AddVar(arg2->Var());
+
+            n->AddOVar(arg2->Ov());
+            n->SetFile(arg2->GetFile());
 
             list.push_back(n);
         }
         else 
         {
-            if (n->var->GetVarType() == VAR_REF_ARRAY_EXP) 
-                *(CFG_ArrayVarEntryInfo*)(n->var) += *(CFG_ArrayVarEntryInfo*)(arg2.var);
+            if (n->Var()->GetVarType() == VAR_REF_ARRAY_EXP) 
+                *(CFG_ArrayVarEntryInfo*)(n->Var()) += *(CFG_ArrayVarEntryInfo*)(arg2->Var());
         }
     }
 }
@@ -242,8 +247,8 @@ void CFG_VarSet::Intersect(const CFG_VarSet* set, bool la, bool array_mode = fal
     std::set<int> toDel;
     for (int z = 0; z < list.size(); ++z)
     {
-        auto p = list[z];
-        const CFG_VarItem* n = set->Belongs(p.var);
+        CFG_VarItem *p = list[z];
+        const CFG_VarItem* n = set->Belongs(p->Var());
         if (n == NULL)
         {
             if (!array_mode) 
@@ -251,12 +256,12 @@ void CFG_VarSet::Intersect(const CFG_VarSet* set, bool la, bool array_mode = fal
         }
         else 
         {
-            if (p.var->GetVarType() == VAR_REF_ARRAY_EXP) 
+            if (p->Var()->GetVarType() == VAR_REF_ARRAY_EXP)
             {
                 if (!array_mode)
-                    *(CFG_ArrayVarEntryInfo*)(p.var) *= *(CFG_ArrayVarEntryInfo*)(n->var);
+                    *(CFG_ArrayVarEntryInfo*)(p->Var()) *= *(CFG_ArrayVarEntryInfo*)(n->Var());
                 else
-                    *(CFG_ArrayVarEntryInfo*)(p.var) += *(CFG_ArrayVarEntryInfo*)(n->var);
+                    *(CFG_ArrayVarEntryInfo*)(p->Var()) += *(CFG_ArrayVarEntryInfo*)(n->Var());
             }
         }
     }
@@ -290,7 +295,7 @@ void CFG_VarSet::PossiblyAffectArrayEntry(const CFG_ArrayVarEntryInfo* var) cons
 {
     const CFG_VarItem* it = GetArrayRef(var);
     if (it)
-        ((CFG_ArrayVarEntryInfo*)(it->var))->ProcessChangesToUsedEntry(var);
+        ((CFG_ArrayVarEntryInfo*)(it->Var()))->ProcessChangesToUsedEntry(var);
 }
 
 void CFG_ArrayVarEntryInfo::ProcessChangesToUsedEntry(const CFG_ArrayVarEntryInfo* var)
@@ -499,13 +504,13 @@ void CFG_VarSet::Minus(const CFG_VarSet* set, bool complete)
     std::set<int> toDel;
     for (int z = 0; z < list.size(); ++z)
     {
-        auto p = list[z];
+        CFG_VarItem *p = list[z];
 
-        const CFG_VarItem *d = set->Belongs(p.var);
-        if (d && (p.var->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(d->var))->HasActiveElements()))
+        const CFG_VarItem *d = set->Belongs(p->Var());
+        if (d && (p->Var()->GetVarType() != VAR_REF_ARRAY_EXP || ((CFG_ArrayVarEntryInfo*)(d->Var()))->HasActiveElements()))
         {
-            if (p.var->GetVarType() == VAR_REF_ARRAY_EXP && !complete) 
-                *(CFG_ArrayVarEntryInfo*)(p.var) -= *(CFG_ArrayVarEntryInfo*)(d->var);
+            if (p->Var()->GetVarType() == VAR_REF_ARRAY_EXP && !complete)
+                *(CFG_ArrayVarEntryInfo*)(p->Var()) -= *(CFG_ArrayVarEntryInfo*)(d->Var());
             else
                 toDel.insert(z);            
         }
@@ -521,7 +526,7 @@ void CFG_VarSet::MinusFinalize(const CFG_VarSet* set, bool complete)
     for (int z = 0; z < list.size(); ++z)
     {
         auto p = list[z];
-        if (set->RecordBelong(p.var))
+        if (set->RecordBelong(p->Var()))
             toDel.insert(z);
     }
     list = removeFromList(toDel, list);
@@ -533,7 +538,7 @@ void CFG_ArrayVarEntryInfo::RegisterUsage(const CFG_VarSet* def, CFG_VarSet* use
     CFG_ArrayVarEntryInfo* add = this;
 
     if (it != NULL)
-        add = *this - *(CFG_ArrayVarEntryInfo*)(it->var);
+        add = *this - *(CFG_ArrayVarEntryInfo*)(it->Var());
 
     if (use != NULL && add != NULL && add->HasActiveElements())
         use->AddToSet(add, st);
@@ -651,5 +656,12 @@ CFG_ArrayVarEntryInfo::CFG_ArrayVarEntryInfo(SgSymbol* s, int sub, int ds, const
 {
     if (sub > 0)
         data = d;
+}
+
+CFG_VarSet::~CFG_VarSet()
+{
+    for (auto &elem : list)
+        delete elem;
+    list.clear();
 }
 #endif

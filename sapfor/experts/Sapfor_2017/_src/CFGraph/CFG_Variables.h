@@ -7,6 +7,8 @@
 class CFG_VarEntryInfo;
 class CFG_VarSet;
 class CFG_ArrayVarEntryInfo;
+struct CFG_DoLoopDataItem;
+struct CFG_CallData;
 
 struct CFG_ArraySubscriptData;
 struct CFG_VarItem;
@@ -31,18 +33,9 @@ struct CFG_ArraySubscriptData
     CFG_ArraySubscriptData() : loop(NULL), left_bound(NULL), right_bound(NULL) { }    
 };
 
-struct CFG_VarItem
-{
-    CFG_VarEntryInfo* var;
-    CFG_VarEntryInfo* ov;
-    int file_id;
-
-    CFG_VarItem() : var(NULL), ov(NULL), file_id(-1) { }
-};
-
 class CFG_VarSet
 {
-    std::vector<CFG_VarItem> list;
+    std::vector<CFG_VarItem*> list;
 
 public:
     void AddToSet(const CFG_VarEntryInfo*, SgStatement*, CFG_VarEntryInfo* ov = NULL);
@@ -61,9 +54,10 @@ public:
     int Count() const { return list.size(); }
     void Print() const;
     void Remove(const CFG_VarEntryInfo*);
-    const std::vector<CFG_VarItem>& GetList() const { return list; }
+    const std::vector<CFG_VarItem*>& GetList() const { return list; }
 
     inline bool isEmpty() const { return list.size() == 0; }
+    ~CFG_VarSet();
 };
 
 class CFG_VarEntryInfo
@@ -72,7 +66,11 @@ class CFG_VarEntryInfo
     int references;
 
 public:
-    CFG_VarEntryInfo(SgSymbol* s) : symbol(s), references(1) { }
+    CFG_VarEntryInfo(SgSymbol* s) : symbol(s), references(1) 
+    {
+        //printf("add ref 1 for %lld %s\n", (void*)symbol, symbol->identifier());
+        //fflush(NULL);
+    }
 
     virtual ~CFG_VarEntryInfo() { }
     virtual CFG_eVariableType GetVarType() const = 0;
@@ -83,11 +81,18 @@ public:
     virtual void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) = 0;
     SgSymbol* GetSymbol() const { return symbol; }
     virtual bool operator==(const CFG_VarEntryInfo& rhs) const = 0;
-    void AddReference() { references++; }
+    void AddReference()
+    { 
+        references++; 
+        //printf("add ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
+        //fflush(NULL);
+    }
     bool RemoveReference() 
     { 
-        --references; 
-        return references == 0; 
+        --references;
+        //printf("rem ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
+        //fflush(NULL);
+        return (references == 0);
     }
     void SwitchSymbol(SgSymbol* s) { symbol = s; }
 };
@@ -133,7 +138,10 @@ public:
         if (def == NULL || !def->Belongs(this))
             use->AddToSet(this, st);
     }
-    void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) { def->AddToSet(this, st); }
+    void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) 
+    { 
+        def->AddToSet(this, st); 
+    }
 };
 
 class CFG_RecordVarEntryInfo : public CFG_VarEntryInfo
@@ -165,5 +173,56 @@ public:
     void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) { def->AddToSet(this, st); }
 };
 
-std::vector<CFG_VarItem> removeFromList(const std::set<int> &nums, const std::vector<CFG_VarItem> &list);
+struct CFG_VarItem
+{
+private:
+    CFG_VarEntryInfo* var;
+    CFG_VarEntryInfo* ov;
+    int file_id;
+
+public:
+    CFG_VarItem() : var(NULL), ov(NULL), file_id(-1) { }
+    inline void AddNewVar(CFG_VarEntryInfo *v) { var = v; }
+    inline void AddNewOVar(CFG_VarEntryInfo *v) { ov = v; }
+    inline void AddVar(CFG_VarEntryInfo *v) { var = v; if (v) v->AddReference();}
+    inline void AddOVar(CFG_VarEntryInfo *v) { ov = v; if (v) v->AddReference(); }
+    inline void AddAllVar(CFG_VarEntryInfo *v, CFG_VarEntryInfo *ov) { AddVar(v); AddOVar(ov); }
+    inline CFG_VarEntryInfo* Var() const { return var; }
+    inline CFG_VarEntryInfo* Ov() const { return ov; }
+    inline void SetFile(const int f) { file_id = f; }
+    inline int GetFile() const { return file_id; }
+
+    inline CFG_VarItem(const CFG_VarItem &copy)
+    {
+        var = copy.Var();
+        if (var)
+            var->AddReference();
+        ov = copy.Ov();
+        if (ov)
+            ov->AddReference();
+    }
+
+    ~CFG_VarItem()     
+    {
+        if (ov)
+        {
+            if (ov->RemoveReference())
+            {
+                delete ov;
+                ov = NULL;
+            }
+        }
+
+        if (var)
+        {
+            if (var->RemoveReference())
+            {
+                delete var;
+                var = NULL;
+            }
+        }
+    }
+};
+
+std::vector<CFG_VarItem*> removeFromList(const std::set<int> &nums, const std::vector<CFG_VarItem*> &list);
 #endif

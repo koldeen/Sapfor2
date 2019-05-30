@@ -7,3 +7,4 @@
 
 extern void Private_Vars_Analyzer(SgStatement* start);
 void PrivateAnalyzer(SgFile *file, std::vector<FuncInfo*> &funcs);
+void PrivateAnalyzerForMain(SgStatement* start);
