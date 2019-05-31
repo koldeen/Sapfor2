@@ -616,7 +616,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
 
         if (declaratedAsPure && !hasIntent && ((SgProgHedrStmt*)header)->numberOfParameters())
         {
-#if __SPF
+#if _WIN32
             messagesForFile.push_back(Messages(ERROR, header->lineNumber(), L"Неверное объявление PURE функции - отсутствуют операторы INTENT", L"Wrong pure declaration - INTENT mismatch", 4002));
 #endif
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -632,7 +632,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
             {
                 for (auto &line : lines)
                 {
-#if __SPF
+#if _WIN32
                     messagesForFile.push_back(Messages(WARR, line, L"Функция не является функцией без побочных эффектов из-за наличия данного оператора", L"Function is impure due to this operator usage", 1049));
 #endif
                 }

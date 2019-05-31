@@ -1,7 +1,7 @@
 #include "private_arrays_breeder.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
-#include "../Utils/Utils.h"
+#include "../Utils/utils.h"
 #include "../Utils/errors.h"
 #include "../LoopAnalyzer/directive_parser.h"
 

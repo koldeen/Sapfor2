@@ -271,7 +271,7 @@ SAPFOR_OBJ = private_analyzer.o utils.o SgUtils.o Sapfor.o CorrectVarDecl.o Incl
 			 dep_analyzer.o remote_access.o VerifySageStructures.o loop_transform.o PredictScheme.o control_flow_graph_part.o \
 			 shadow.o private_arrays_breeder.o resolve_par_reg_conflicts.o loops_splitter.o loops_combiner.o CreateInterTree.o gcov_info.o gCov_parser.o \
 			 graph_calls_base.o directive_creator_base.o PredictorModel.o createParallelRegions.o \
-			 expand_extract_reg.o RationalNum.o Array.o DvmhRegionInsertor.o
+			 expand_extract_reg.o RationalNum.o Array.o DvmhRegionInserter.o
 
 $(BINDIR)/Sapfor: $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a
 	$(CXX) -fopenmp -o $(BINDIR)/Sapfor $(SAPFOR_OBJ) $(LIBDIR)/libSage++.a $(LIBDIR)/SageNewSrc.a $(LIBDIR)/SageOldSrc.a $(LIBDIR)/libPred.a
@@ -454,8 +454,8 @@ private_arrays_breeder.o: $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.c
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/private_arrays_breeder.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loops_splitter.o: $(REPO_SPF_BASE)LoopConverter/loops_splitter.cpp $(REPO_SPF_BASE)LoopConverter/loops_splitter.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loops_splitter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
-DvmhRegionInsertor.o: $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.cpp $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.h
-	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInsertor.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
+DvmhRegionInserter.o: $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInserter.cpp $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInserter.h
+	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)DvmhRegions/DvmhRegionInserter.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 loops_combiner.o: $(REPO_SPF_BASE)LoopConverter/loops_combiner.cpp $(REPO_SPF_BASE)LoopConverter/loops_combiner.h
 	$(CXX) $(CFLAGS) -c  -std=$(STD) $(REPO_SPF_BASE)LoopConverter/loops_combiner.cpp -I$(DVMINCLUDE) -I$(SAGE_INCL_DIR) -I$(LIB_INCL)
 
