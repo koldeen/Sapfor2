@@ -1,6 +1,7 @@
 #include "private_arrays_breeder.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/Utils.h"
 #include "../Utils/errors.h"
 #include "../LoopAnalyzer/directive_parser.h"
 
@@ -23,7 +24,11 @@ static char* constructNewArrayName(const char* oldName)
         newName = name + std::to_string(n);
 
     char* newNameChar = (char*)malloc((newName.size() + 1) * sizeof(char));
-    strcpy(newNameChar, newName.c_str());
+    addToCollection(__LINE__, __FILE__, newNameChar, 0);
+    if (newNameChar)
+        strcpy(newNameChar, newName.c_str());
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     return newNameChar;
 }
 
@@ -260,8 +265,8 @@ static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclarati
 
 static SgExpression* constructBoundCall(bool upBound, SgSymbol *array, int dim) {
 
-    char* boundName = (char*)malloc(7 * sizeof(char));
-    upBound ? strcpy(boundName, "ubound") : strcpy(boundName, "lbound");
+    const char* boundName = NULL;
+    upBound ? boundName = "ubound": boundName = "lbound";
 
     SgSymbol boundS = SgSymbol(FUNCTION_NAME, boundName);
 
@@ -281,7 +286,7 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     for (int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
+        dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), NULL);
         curLoop = curLoop->children[0];
     }
 
@@ -372,7 +377,6 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
         }
     }
 
-
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
     SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
     SgSymbol *newArraySymbol = alterArrayDeclaration(copiedOriginalArrayDeclaration, arraySymbol, dimensions);
@@ -420,7 +424,6 @@ static SgSymbol *findSymbol(LoopGraph*  forLoop, const char* arrayName)
     }
     return NULL;
 }
-
 
 //Вычислять размер массива с учётом шага цикла - //TODO
 int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgSymbol*> &doForThisPrivates, vector<Messages> &messages)

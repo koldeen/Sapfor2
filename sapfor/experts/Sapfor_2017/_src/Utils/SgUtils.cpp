@@ -1090,11 +1090,11 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
             list.second.push_back(elem);
 }
 
-void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
+void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo, vector<Messages> &messages)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
     vector<LoopGraph*> tmpL;
-    functionAnalyzer(file, curFileFuncInfo, tmpL);
+    functionAnalyzer(file, curFileFuncInfo, tmpL, messages);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);

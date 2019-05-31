@@ -110,9 +110,8 @@ struct FuncInfo
 
     std::vector<int> linesOfIO;
     std::vector<int> linesOfStop;
-
-    bool usesIO; // same for IO usage as stated below
-    bool isPure; // does this func or funcs called from this have common block[s]
+    
+    bool isPure; // does this func or funcs called from this have common block[s] and have no side effects
     bool doNotInline;
     bool doNotAnalyze;
     bool needToInline;
@@ -126,15 +125,17 @@ struct FuncInfo
     //
 
     FuncInfo() :
-        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false) { }
+        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isPure(false), isMain(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
-        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false) { }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
+        isPure(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
-        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false) { fileName = pointer->fileName(); }
+        doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
+        isPure(false) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {
@@ -160,8 +161,10 @@ struct FuncInfo
         for (auto &elem : allUsedArrays)
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
                 newUsedArrays.insert(elem);
-        allUsedArrays = newUsedArrays;        
+        allUsedArrays = newUsedArrays;
     }
+
+    bool usesIO() const { return (linesOfIO.size() != 0 || linesOfStop.size() != 0); }
 };
 
 struct CallV

@@ -457,21 +457,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = allFuncInfo.find(file_name);
             if (it == allFuncInfo.end())
-                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
+                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == CALL_GRAPH2)
-        {
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
-
-            // Set additional info in loopGraph, which requires function graph analysis
-            auto itLoopGraphFound = loopGraph.find(file_name);
-            auto itFuncGraphFound = allFuncInfo.find(file_name);
-            if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end())
-            {
-                DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
-                regionInsertor.updateLoopGraph();
-            }
-        }
         else if (curr_regime == LOOP_GRAPH)
             loopGraphAnalyzer(file, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, intervals), getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == VERIFY_ENDDO)
@@ -793,7 +782,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALCULATE_STATS_SCHEME)
             processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
-            constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
+            constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == DEF_USE_STAGE2)
             constructDefUseStep2(file, defUseByFunctions);
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN)
@@ -817,7 +806,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (it == subs_allFuncInfo.end())
             {
                 vector<LoopGraph*> tmp;
-                functionAnalyzer(file, subs_allFuncInfo, tmp, true);
+                functionAnalyzer(file, subs_allFuncInfo, tmp, getObjectForFileFromMap(file_name, SPF_messages), true);
             }
 
             fillRegionLines(file, subs_parallelRegions);
@@ -867,15 +856,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
-        else if (curr_regime == INSERT_REGIONS) 
+        else if (curr_regime == INSERT_REGIONS)
         {
-            auto itLoopGraphFound = loopGraph.find(file_name);
-            auto itFuncGraphFound = allFuncInfo.find(file_name);
-            if (itLoopGraphFound != loopGraph.end() && itFuncGraphFound != allFuncInfo.end())
-            {
-                DvmhRegionInsertor regionInsertor(file, itLoopGraphFound->second, itFuncGraphFound->second);
-                regionInsertor.insertDirectives();
-            }
+            DvmhRegionInsertor regionInsertor(file, getObjectForFileFromMap(file_name, loopGraph));
+            regionInsertor.insertDirectives();
         }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {
@@ -1096,6 +1080,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             saveIntervals("_intervals_united.txt", intervals);
         }
         updateLoopIoAndStopsByFuncCalls(loopGraph, allFuncInfo);
+    }
+    else if (curr_regime == CALL_GRAPH2)
+    {
+        map<string, FuncInfo*> allFuncs;
+        createMapOfFunc(allFuncInfo, allFuncs);
+
+        //for each file of grapgLoop
+        for (auto &loopGraphInFile : loopGraph)
+        {
+            DvmhRegionInsertor regionInsertor(NULL, loopGraphInFile.second);
+            regionInsertor.updateLoopGraph(allFuncs);
+        }
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {

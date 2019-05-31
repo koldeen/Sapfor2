@@ -326,12 +326,12 @@ void Private_Vars_Analyzer(SgStatement* start)
     commons.MarkEndOfCommon(currentProcedure);
 
     //test: graphvis
-    /*
-    std::fstream fs;
-    fs.open("graph.txt", std::fstream::out);
+    
+    /*std::fstream fs;
+    fs.open("graph_old.txt", std::fstream::out);
     fs << CGraph->GetVisualGraph(&calls);
-    fs.close();
-    */
+    fs.close();*/
+    
     currentProcedure->graph->getPrivate();
 #if ACCAN_DEBUG
     calls.printControlFlows();

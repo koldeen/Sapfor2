@@ -482,8 +482,9 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
             if (itLoop == sortedLoopGraph.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             ifUnknownFound = true;
-            if (side == LEFT)
+            if (side == LEFT && (currRegime == DATA_DISTR || currRegime == COMP_DISTR))
                 itLoop->second->hasUnknownArrayAssigns = true;
+
             itLoop->second->hasUnknownDistributedMap = true;
             canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
         }
@@ -1344,29 +1345,37 @@ static void changeLoopWeight(double &currentWeight, const map<int, LoopGraph*> &
         currentWeight /= loopIt->second->countOfIters;
 }
 
-static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line)
+static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line, const map<string, FuncInfo*> &funcByName)
 {
     bool retVal = false;
 
     if (ex == NULL)
         return retVal;
 
-    if (ex->variant() == FUNC_CALL && !IsPureProcedureACC(ex->symbol()))
+    if (ex->variant() == FUNC_CALL)
     {
         if (isIntrinsicFunctionName(ex->symbol()->identifier()) == 0)
         {
-            retVal = true;
-            loopRef->hasNonPureProcedures = true;
+            auto itF = funcByName.find(ex->symbol()->identifier());
+            bool isPure = false; 
+            if (itF != funcByName.end())
+                isPure = itF->second->isPure;
+
+            if (!isPure)
+            {
+                retVal = true;
+                loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-            messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+                messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются функции только без побочных эффектов", L"Only pure procedures were supported", 1044));
 #endif
+            }
         }
     }
     bool retL = false, retR = false;
     if (ex->lhs())
-        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line);
+        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line, funcByName);
     if (ex->rhs())
-        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line);;
+        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line, funcByName);
 
     return retVal || retL || retR;
 }
@@ -1979,18 +1988,25 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 
                             if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
                             {
-                                if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                                checkNull(isSgCallStmt(start), convertFileName(__FILE__).c_str(), __LINE__);
+
+                                auto itF = funcByName.find(isSgCallStmt(start)->name()->identifier());
+                                bool isPure = false;
+                                if (itF != funcByName.end())
+                                    isPure = itF->second->isPure;
+
+                                if (!isPure)
                                 {
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются процедуры только без побочных эффектов", L"Only pure procedures were supported", 1044));
 #endif
                                 }
                             }
 
                             for (int z = 1; z < 3; ++z)
-                                if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
+                                if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber(), funcByName))
                                     hasNonPureProcedures = true;
                         }
 

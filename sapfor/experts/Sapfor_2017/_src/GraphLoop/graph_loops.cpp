@@ -309,11 +309,11 @@ bool checkRegionEntries(SgStatement *begin,
     return noError;
 }
 
-bool hasThisIds(SgStatement *loop, vector<int> &lines, const set<int> &IDs)
+bool hasThisIds(SgStatement *start, vector<int> &lines, const set<int> &IDs)
 {
     bool has = false;
-    SgStatement *end = loop->lastNodeOfStmt();
-    SgStatement *curr = loop;
+    SgStatement *end = start->lastNodeOfStmt();
+    SgStatement *curr = start;
     
     while (curr != end)
     {

@@ -782,7 +782,7 @@ static SgStatement* firstExec(SgStatement *in, const string &currF)
 
 //NOTE: this function inserts also local templates for parallel loop without distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
-                                        map<string, string> templateDeclInIncludes,
+                                        const map<string, string> &templateDeclInIncludes,
                                         const vector<string> &distrRules, const vector<vector<dist>> &distrRulesSt, 
                                         const DIST::Arrays<int> &allArrays,
                                         const bool extractDir, const int regionId,
@@ -879,7 +879,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     auto inIncl = templateDeclInIncludes.find(fullDecl);
                     if (inIncl != templateDeclInIncludes.end())
                     {
-                        auto hasInThisFunc = includes.find(inIncl->first);
+                        auto hasInThisFunc = includes.find(inIncl->second);
                         if (hasInThisFunc != includes.end())
                             needToInsert = false;
                     }
@@ -1151,8 +1151,11 @@ static inline void addStringToComments(const vector<string> &toInsert, map<strin
     if (place == currF->second.end())
         place = currF->second.insert(place, make_pair(line, set<string>()));
 
-    for (auto str : toInsert)
+    for (auto &str : toInsert)
     {
+        if (str == "")
+            continue;
+
         bool needToInsert = true;        
         for (auto &elem : currF->second)
         {
@@ -1192,7 +1195,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               const DIST::Arrays<int> &allArrays,
                               DIST::GraphCSR<int, double, attrType> &reducedG,
                               map<string, map<int, set<string>>> &commentsToInclude,
-                              map<string, string> templateDeclInIncludes,
+                              map<string, string> &templateDeclInIncludes,
                               const bool extractDir, vector<Messages> &messagesForFile,
                               const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                               const int regionId)
@@ -1455,14 +1458,15 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 else
                                 {
                                     addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
-                                    templateDeclInIncludes[st->fileName()] = templDecl;
+                                    if (templDecl != "")
+                                        templateDeclInIncludes[templDecl] = st->fileName();
                                 }
                             }
                         }
                     }
                 }
 
-                string toInsert = "!DVM$ DYNAMIC ";                
+                string toInsert = "!DVM$ DYNAMIC ";
                 vector<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
@@ -1481,7 +1485,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                             dynamicArraysAdded.insert(array->GetShortName());
                             toInsertArrays.push_back(array->GetShortName());
                         }
-                    }                    
+                    }
                 }
 
                 int z = 0;

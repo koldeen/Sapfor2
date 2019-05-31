@@ -605,7 +605,65 @@ static void fillInOut(FuncInfo *currF, SgStatement *start, SgStatement *last)
     }
 }
 
-void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, vector<LoopGraph*> &loops, bool dontFillFuncParam)
+//TODO: check common block and module use
+static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vector<Messages> &messagesForFile)
+{
+    if (!currInfo->isMain)
+    {
+        vector<int> lines;
+        bool hasIntent = hasThisIds(header, lines, { INTENT_STMT });
+        bool declaratedAsPure = (header->symbol()->attributes() & PURE_BIT);
+
+        if (declaratedAsPure && !hasIntent && ((SgProgHedrStmt*)header)->numberOfParameters())
+        {
+#if __SPF
+            messagesForFile.push_back(Messages(ERROR, header->lineNumber(), L"Неверное объявление PURE функции - отсутствуют операторы INTENT", L"Wrong pure declaration - INTENT mismatch", 4002));
+#endif
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+
+        if (currInfo->commonBlocks.size() == 0)
+        {
+            lines.clear();
+            bool has = hasThisIds(header, lines, { DATA_DECL, SAVE_DECL, USE_STMT });
+            if (!has || declaratedAsPure)
+                currInfo->isPure = true;
+            else
+            {
+                for (auto &line : lines)
+                {
+#if __SPF
+                    messagesForFile.push_back(Messages(WARR, line, L"Функция не является функцией без побочных эффектов из-за наличия данного оператора", L"Function is impure due to this operator usage", 1049));
+#endif
+                }
+            }
+        }
+        else if (declaratedAsPure)            
+            currInfo->isPure = true;        
+    }
+    else
+        currInfo->isPure = true;
+}
+
+static void fillCommons(FuncInfo *currInfo, const map<string, vector<SgExpression*>> &commonBlocks)
+{
+    for (auto &item : commonBlocks)
+    {
+        auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
+        for (auto& list : item.second)
+        {
+            SgExpression* expr_list = list->lhs();
+            while (expr_list != NULL)
+            {
+                SgExpression* var = expr_list->lhs();
+                expr_list = expr_list->rhs();
+                inserted.first->second.insert(var->symbol()->identifier());
+            }
+        }
+    }
+}
+
+void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo, vector<LoopGraph*> &loops, vector<Messages> &messagesForFile, bool dontFillFuncParam)
 {
     map<int, LoopGraph*> mapLoopGraph;
     createMapLoopGraph(loops, mapLoopGraph);
@@ -666,21 +724,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
         hasThisIds(st, currInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
         hasThisIds(st, currInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
         currInfo->isMain = (st->variant() == PROG_HEDR);
-
-        for(auto &item : commonBlocks)
-        {
-            auto inserted = currInfo->commonBlocks.insert(make_pair(item.first, set<string>()));
-            for(auto& list : item.second)
-            {
-                SgExpression* expr_list = list->lhs();
-                while(expr_list != NULL)
-                {
-                    SgExpression* var = expr_list->lhs();
-                    expr_list = expr_list->rhs();
-                    inserted.first->second.insert(var->symbol()->identifier());
-                }
-            }
-        }
+        fillCommons(currInfo, commonBlocks);
+        fillFunctionPureStatus(st, currInfo, messagesForFile);
 
         if (st->variant() != PROG_HEDR) 
         {
@@ -798,6 +843,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                 FuncInfo *entryInfo = new FuncInfo(entryName, make_pair(st->lineNumber(), lastNode->lineNumber()), new Statement(st));
                 hasThisIds(st, entryInfo->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT });
                 hasThisIds(st, entryInfo->linesOfStop, { STOP_STAT, PAUSE_NODE });
+                fillCommons(entryInfo, commonBlocks);
+                fillFunctionPureStatus(st, entryInfo, messagesForFile);
 
                 if (!dontFillFuncParam)
                     fillFuncParams(entryInfo, commonBlocks, st);

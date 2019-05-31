@@ -371,7 +371,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("omp_unset_nest_lock"));
 }
 
-int isIntrinsicFunctionName(char *name)
+int isIntrinsicFunctionName(const char *name)
 {
     if (!name)
         return 0;
