@@ -1,6 +1,7 @@
 #include "private_arrays_breeder.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Utils/SgUtils.h"
+#include "../Utils/utils.h"
 #include "../Utils/errors.h"
 #include "../LoopAnalyzer/directive_parser.h"
 
@@ -23,8 +24,23 @@ static char* constructNewArrayName(const char* oldName)
         newName = name + std::to_string(n);
 
     char* newNameChar = (char*)malloc((newName.size() + 1) * sizeof(char));
-    strcpy(newNameChar, newName.c_str());
+    addToCollection(__LINE__, __FILE__, newNameChar, 0);
+    if (newNameChar)
+        strcpy(newNameChar, newName.c_str());
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     return newNameChar;
+}
+
+static const string constructNewBoundName(const char* oldName, int loopLineNumber, const char *add)
+{
+    string name(oldName), newName;
+    name += "_loop_" + std::to_string(loopLineNumber);
+    name += add;// start ? "_start" : "_end";
+    newName = name;
+    for(int n = 0; ifSymbolExists(current_file, newName); ++n)
+        newName = name + "_" + std::to_string(n);
+    return newName;
 }
 
 static SgSymbol* createNewArrayNameSymbol(SgExpression* declaration)
@@ -253,15 +269,15 @@ static SgStatement* createNewDeclarationStatemnet(SgStatement *originalDeclarati
     SgStatement *newDeclaration = originalDeclaration->copyPtr();
 
     newDeclaration->setExpression(0, newExprList);
-    firstStmtOfFile->insertStmtAfter(*newDeclaration);
+    firstStmtOfFile->insertStmtAfter(*newDeclaration, *firstStmtOfFile->controlParent());
 
     return newDeclaration;
 }
 
 static SgExpression* constructBoundCall(bool upBound, SgSymbol *array, int dim) {
 
-    char* boundName = (char*)malloc(7 * sizeof(char));
-    upBound ? strcpy(boundName, "ubound") : strcpy(boundName, "lbound");
+    const char* boundName = NULL;
+    upBound ? boundName = "ubound": boundName = "lbound";
 
     SgSymbol boundS = SgSymbol(FUNCTION_NAME, boundName);
 
@@ -281,7 +297,7 @@ static SgExpression* constructArrayAllocationExp(LoopGraph *forLoop, SgExpressio
     for (int i = 0; i < depthOfBreed; ++i)
     {
         SgForStmt *loopStmt = (SgForStmt*)(curLoop->loop->GetOriginal());
-        dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), (SgSymbol*)NULL);
+        dimensions[depthOfBreed - 1 - i] = new SgExpression(DDOT, loopStmt->start()->copyPtr(), loopStmt->end()->copyPtr(), NULL);
         curLoop = curLoop->children[0];
     }
 
@@ -348,6 +364,78 @@ static vector<SgExpression*> insertAllocDealloc(LoopGraph *forLoop, SgStatement 
     return lowBounds;
 }
 
+static bool containsFunctionCall(SgExpression *exp) 
+{
+    bool retVal = false;
+
+    if (exp)
+    {
+        if (exp->variant() == FUNC_CALL)
+            retVal = true;
+
+        if (exp->lhs())
+            retVal = retVal || containsFunctionCall(exp->lhs());
+        if (exp->rhs())
+            retVal = retVal || containsFunctionCall(exp->rhs());
+    }
+    return retVal;
+}
+
+static SgSymbol* createVarDeclaration(SgForStmt* loopStmt, const char *add)
+{
+    SgSymbol *doName = loopStmt->doName();
+    SgSymbol *newName = new SgSymbol(VARIABLE_NAME, constructNewBoundName(doName->identifier(), loopStmt->lineNumber(), add).c_str(), doName->type(), NULL);
+
+    SgStatement *decl = declaratedInStmt(doName);
+
+    SgExpression *names = decl->expr(0);
+
+    SgStatement* newDecl = decl->copyPtr();
+    newDecl->setExpression(0, new SgExpression(EXPR_LIST, new SgVarRefExp(newName), NULL, NULL));
+    decl->insertStmtAfter(*newDecl, *decl->controlParent());
+
+    return newName;
+}
+
+static SgStatement* createBoundVariableAssign(SgSymbol *varName, SgExpression *value)
+{
+    SgAssignStmt *assign = new SgAssignStmt(*new SgVarRefExp(varName), *value);
+    return assign;
+}
+
+static void replaceFunctionBounds(SgExpression *ex, SgForStmt* loopStmt, SgForStmt* topLoopStmt, const string &kind)
+{
+    if (containsFunctionCall(ex))
+    {
+        SgSymbol* newStart = createVarDeclaration(loopStmt, kind.c_str());
+        SgStatement* assignment = createBoundVariableAssign(newStart, ex);
+
+        topLoopStmt->insertStmtBefore(*assignment, *topLoopStmt->controlParent());
+        if (kind == "_start")
+            loopStmt->setStart(*assignment->expr(0));
+        if (kind == "_end")
+            loopStmt->setEnd(*assignment->expr(0));
+        if (kind == "_step")
+            loopStmt->setStep(*assignment->expr(0));
+    }
+}
+
+static void replaceFunctionBounds(LoopGraph *forLoop, int depthOfBreed)
+{
+    LoopGraph *curLoop = forLoop;
+    SgForStmt *topLoopStmt = (SgForStmt*) (curLoop->loop->GetOriginal());
+    for (int i = 0; i < depthOfBreed; ++i)
+    {
+        SgForStmt *loopStmt = (SgForStmt*) (curLoop->loop->GetOriginal());
+        
+        replaceFunctionBounds(loopStmt->start(), loopStmt, topLoopStmt, "_start");
+        replaceFunctionBounds(loopStmt->end(), loopStmt, topLoopStmt, "_end");
+        replaceFunctionBounds(loopStmt->step(), loopStmt, topLoopStmt, "_step");
+        
+        curLoop = curLoop->children[0];
+    }
+}
+
 static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBreed)
 {
     if(depthOfBreed < 0 || depthOfBreed > forLoop->perfectLoop)
@@ -372,6 +460,7 @@ static void breedArray(LoopGraph *forLoop, SgSymbol *arraySymbol, int depthOfBre
         }
     }
 
+    replaceFunctionBounds(forLoop, depthOfBreed);
 
     SgStatement *originalDeclaration = declaratedInStmt(arraySymbol);
     SgStatement *copiedOriginalArrayDeclaration = createNewDeclarationStatemnet(originalDeclaration, arraySymbol);
@@ -420,7 +509,6 @@ static SgSymbol *findSymbol(LoopGraph*  forLoop, const char* arrayName)
     }
     return NULL;
 }
-
 
 //Вычислять размер массива с учётом шага цикла - //TODO
 int breedArrays(SgFile *file, std::vector<LoopGraph*> &loopGraphs, const set<SgSymbol*> &doForThisPrivates, vector<Messages> &messages)

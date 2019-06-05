@@ -58,7 +58,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   46 "mismatch of count formal and actual parameters "
 //   47 "inconsistent array use"
 //   48 "the same function name in different places was found"
-
+//   49 "reasons of non pure function" 
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -96,7 +96,9 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
+//   02 Wrong pure declaration - INTENT mismatch
 
+extern int langOfMessages;
 struct Messages
 {
 private:
@@ -121,7 +123,8 @@ private:
         //TODO: convert to upper case for test between '___'
     }
 public:
-    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : Messages(type, line, rus, group) { }
+    explicit Messages(const typeMessage type, const int line, const std::wstring &rus, const std::wstring &eng, const int group) : 
+        Messages(type, line, (langOfMessages == 1) ? rus : eng, group) { }
 
     std::wstring toString()
     {

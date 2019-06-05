@@ -59,7 +59,7 @@ string removeString(const string &toRemove, const string &inStr)
     return outStr;
 }
 
-void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
+void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const here
 {
     bool changesDone = false;
     map<string, FuncInfo*> mapFuncInfo;
@@ -71,7 +71,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
         for (auto &it : mapFuncInfo)
         {
             FuncInfo *currInfo = it.second;
-            for (auto &funcCall : currInfo->funcsCalledFromThis)
+            for(auto &funcCall : currInfo->funcsCalledFromThis)
             {
                 // Find pointer to info of called function
                 auto itCalledFunc = mapFuncInfo.find(funcCall.CalledFuncName);
@@ -80,6 +80,14 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
                 {
                     FuncInfo *calledFunc = itCalledFunc->second;
 
+                    // check for pureness
+                    if (!calledFunc->isPure && currInfo->isPure) 
+                    {
+                       currInfo->isPure = false;
+                       changesDone = true;
+                    }
+
+                    // check for using parameter as index
                     // Iterate through all pars of the call
                     int parNo = 0;
 
@@ -104,6 +112,37 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo)
                 }
                 //else // Error! No funcInfo of called func
                 //     ;
+            }
+        }
+    } while (changesDone);
+
+    // check for io usage
+    do
+    {
+        changesDone = false;
+        for (auto &it : mapFuncInfo)
+        {
+            FuncInfo *currInfo = it.second;
+            for (auto &funcCall : currInfo->detailCallsFrom)
+            {
+                auto itCalledFunc = mapFuncInfo.find(funcCall.first);
+                if (itCalledFunc != mapFuncInfo.end())
+                {
+                    FuncInfo *calledFunc = itCalledFunc->second;
+                    if (calledFunc->linesOfIO.size())
+                    {
+                        const int lineOfCall = funcCall.second;
+                        bool no = true;
+                        for (auto &z : currInfo->linesOfIO)
+                            if (z == lineOfCall)
+                                no = false;
+                        if (no)
+                        {
+                            currInfo->linesOfIO.push_back(lineOfCall);
+                            changesDone = true;
+                        }
+                    }
+                }
             }
         }
     } while (changesDone);
@@ -238,7 +277,7 @@ int CreateFuncInfo(const char *fileName, const map<string, vector<FuncInfo*>> &f
         funcOut += "FILE " + byFile.first + ":\n";
         for (auto &func : byFile.second)
         {
-            funcOut += "  FUNCTION '" + func->funcName + "'\n";
+            funcOut += "  FUNCTION '" + func->funcName + "' " + (func->isPure ? " is PURE" : "is IMPURE") +  "\n";
             char buf[256];
             sprintf(buf, "    LINES [%d, %d] \n", func->linesNum.first, func->linesNum.second);
             funcOut += buf;

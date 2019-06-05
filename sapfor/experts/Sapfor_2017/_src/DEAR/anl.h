@@ -192,7 +192,7 @@ int isDoEndStmt_f90(SgStatement *stmt);
 SgStatement * lastStmtOfDo(SgStatement *stdo);
 void ProgramStructure(SgFile *file);
 int Usage(SgExpression *e);
-int isIntrinsicFunctionName(char *name);
+int isIntrinsicFunctionName(const char *name);
 SgStatement *NextExecStat(SgStatement *stmt);
 SgStatement *ParentOfDo(SgStatement *dost);
 int control_list1(SgExpression *e, SgExpression *ioc[]);

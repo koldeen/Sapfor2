@@ -211,7 +211,6 @@ static void fillInfo(SgStatement *mod, map<string, ModuleInfo> &modsInfo)
 
 static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<string, ModuleInfo> &modsInfo, SgStatement *cp)
 {
-    //string funcName = procS->identifier();
     auto itUse = modsInfo.find(cp->symbol()->identifier());
     if (itUse == modsInfo.end())
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -268,6 +267,17 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
             }
         }
 
+        // find in current module
+        if (filter.size() == 0)
+        {
+            auto funcs = info.functions;
+            for (auto &func : funcs)
+            {
+                if (func == funcName)
+                    filter.insert(make_pair(cp->symbol()->identifier(), func));
+            }
+        }
+
         if (filter.size() == 1)
             callInMod = (*filter.begin()).first;
         else
@@ -276,14 +286,89 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
 
     string newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
 
-    char *lastName = new char[256];
+    char *lastName = new char[512];
     addToCollection(__LINE__, __FILE__, lastName, 2);
     sprintf(lastName, "%s", curr->identifier());
     curr->addAttribute(VARIABLE_NAME, lastName, sizeof(char*));
     curr->changeName(newName.c_str());
 }
 
-static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *cp, const map<string, ModuleInfo> &modsInfo)
+static void moduleUses(SgStatement *st, set<string> &ret)
+{
+    while (st)
+    {
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        if (isSgExecutableStatement(st))
+            break;
+        if (st->variant() == USE_STMT)
+            ret.insert(st->symbol()->identifier());
+        st = st->lexNext();
+    }
+}
+
+//TODO: need to additional check of function name
+static void extendCheckAndFindProcName(map<string, set<string>> &containsFuncs, const set<string> &globalFuncs, 
+                                       const map<string, set<string>> &moduleFuncs, SgStatement *st, SgSymbol *procS,
+                                       set<SgSymbol*> &changed)
+{
+    SgStatement *currCP = st->controlParent();
+    while (currCP->variant() != PROG_HEDR && currCP->variant() != FUNC_HEDR && currCP->variant() != PROC_HEDR)
+        currCP = currCP->controlParent();
+
+    SgStatement *realCP = currCP;
+    if (realCP->controlParent()->variant() != GLOBAL)
+        realCP = realCP->controlParent();
+
+    const string currName = procS->identifier();
+
+    const string parentName = realCP->symbol()->identifier();
+    auto itP = containsFuncs.find(parentName);
+    //XXX
+    if (itP == containsFuncs.end())
+        itP = containsFuncs.insert(itP, make_pair(parentName, set<string>()));
+
+    //in local scope
+    auto itL = itP->second.find(currName);
+    if (itL != itP->second.end())
+        return;
+
+    //in global scope
+    auto itG = globalFuncs.find(currName);
+    if (itG != globalFuncs.end())
+        return;
+
+    set<string> foundInMod;
+    set<string> modUses;
+    moduleUses(currCP, modUses);
+    if (currCP != realCP)
+        moduleUses(realCP, modUses);
+
+    // in module, XXX, TODO
+    for (auto &mod : moduleFuncs)
+    {
+        if (mod.second.find(currName) != mod.second.end())
+            if (modUses.find(mod.first) != modUses.end())
+                foundInMod.insert(mod.first);
+    }
+
+    if (foundInMod.size() > 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else if (foundInMod.size() == 0)
+        return;
+
+    char *lastName = new char[512];
+    addToCollection(__LINE__, __FILE__, lastName, 2);
+    sprintf(lastName, "%s", procS->identifier());
+
+    procS->changeName((*foundInMod.begin() + "::" + procS->identifier()).c_str());
+    procS->addAttribute(VARIABLE_NAME, lastName, sizeof(char*));
+    changed.insert(procS);
+}
+
+static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatement *cp, const map<string, ModuleInfo> &modsInfo,
+                                     map<string, set<string>> &containsFuncs, const set<string> &globalFuncs, 
+                                     const map<string, set<string>> &moduleFuncs, set<SgSymbol*> &changed)
 {
     if (ex)
     {
@@ -300,14 +385,16 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *cp, const ma
                         ex->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
                         ex->setSymbol(*procS);
                     }
+                    else if (changed.find(procS) == changed.end())
+                        extendCheckAndFindProcName(containsFuncs, globalFuncs, moduleFuncs, st, procS, changed);
                 }
                 else
                     changeNameOfModuleFunc(procS->identifier(), ex->symbol(), modsInfo, cp);
             }
         }
 
-        correctModuleProcNamesEx(ex->lhs(), cp, modsInfo);
-        correctModuleProcNamesEx(ex->rhs(), cp, modsInfo);
+        correctModuleProcNamesEx(ex->lhs(), st, cp, modsInfo, containsFuncs, globalFuncs, moduleFuncs, changed);
+        correctModuleProcNamesEx(ex->rhs(), st, cp, modsInfo, containsFuncs, globalFuncs, moduleFuncs, changed);
     }
 }
 
@@ -317,6 +404,46 @@ void correctModuleProcNames(SgFile *file)
     findModulesInFile(file, modules);
         
     map<string, ModuleInfo> modsInfo;
+    map<string, set<string>> moduleFuncs;
+    map<string, set<string>> containsFuncs;
+
+    for (auto &mod : modules)
+        moduleFuncs[mod->symbol()->identifier()] = set<string>();
+
+    for (int z = 0; z < file->numberOfFunctions(); ++z)
+    {
+        SgStatement *func = file->functions(z);
+        SgStatement *cp = func->controlParent();
+        if (cp->variant() == MODULE_STMT)
+        {
+            set<string> &curr = moduleFuncs[cp->symbol()->identifier()];
+            string key = func->symbol()->identifier();
+            auto it = curr.find(key);
+            if (it != curr.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            curr.insert(it, key);
+        }
+        else if (cp->variant() == PROC_HEDR || cp->variant() == FUNC_HEDR || cp->variant() == PROG_HEDR)
+        {
+            SgStatement *cpcp = cp->controlParent();
+            string keyF = "";
+            if (cpcp->variant() == GLOBAL)
+                keyF = cp->symbol()->identifier();
+            else if (cpcp->variant() == MODULE_STMT)
+                keyF = string(cpcp->symbol()->identifier()) + "::" + cp->symbol()->identifier();
+
+            auto itF = containsFuncs.find(keyF);
+            if (itF == containsFuncs.end())
+                itF = containsFuncs.insert(itF, make_pair(keyF, set<string>()));
+
+            string keyAdd = func->symbol()->identifier();
+            auto it = itF->second.find(keyAdd);
+            if (it != itF->second.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            itF->second.insert(it, keyAdd);
+        }
+    }
+
     for (auto &mod : modules)
     {
         fillInfo(mod, modsInfo);
@@ -325,7 +452,7 @@ void correctModuleProcNames(SgFile *file)
         {
             if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
             {
-                char *lastName = new char[256];
+                char *lastName = new char[512];
                 addToCollection(__LINE__, __FILE__, lastName, 2);
                 sprintf(lastName, "%s", st->symbol()->identifier());
                 modsInfo[modName].functions.insert(lastName);
@@ -335,15 +462,36 @@ void correctModuleProcNames(SgFile *file)
             }
         }
     }
-
+    
     if (modules.size() == 0)
         return;
 
+    map<string, set<string>> moduleMapUse;
+    moduleMapUse = createMapOfModuleUses(file);
+
+    set<string> globalFuncs;
+    for (int z = 0; z < file->numberOfFunctions(); ++z)
+    {
+        SgStatement *func = file->functions(z);
+        if (func->controlParent()->variant() == GLOBAL)
+        {
+            string key = func->symbol()->identifier();
+            auto it = globalFuncs.find(key);
+            if (it != globalFuncs.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            globalFuncs.insert(it, key);
+        }
+    }
+
+    set<SgSymbol*> changed;
     for (int z = 0; z < file->numberOfFunctions(); ++z)
     {
         SgStatement *func = file->functions(z);
         for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (isSgExecutableStatement(st))
             {
                 SgStatement *cp = st->controlParent();
@@ -362,7 +510,9 @@ void correctModuleProcNames(SgFile *file)
                                 //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), st->symbol()->identifier(), procS->identifier());
                                 st->symbol()->addAttribute(VARIABLE_NAME, procS, sizeof(SgSymbol));
                                 st->setSymbol(*procS);
-                            }
+                            }                           
+                            else if (changed.find(procS) == changed.end())
+                                extendCheckAndFindProcName(containsFuncs, globalFuncs, moduleFuncs, st, procS, changed);
                         }
                         else
                             changeNameOfModuleFunc(procS->identifier(), st->symbol(), modsInfo, cp);
@@ -370,7 +520,7 @@ void correctModuleProcNames(SgFile *file)
                 }
                 else
                     for (int z = 0; z < 3; ++z)
-                        correctModuleProcNamesEx(st->expr(z), cp, modsInfo);
+                        correctModuleProcNamesEx(st->expr(z), st, cp, modsInfo, containsFuncs, globalFuncs, moduleFuncs, changed);
             }
         }
     }
@@ -460,7 +610,19 @@ void correctModuleSymbols(SgFile *file)
     }
 }
 
-static void restoreInFunc(SgExpression *ex)
+static void changeNameAndSwap (SgSymbol *s, char *attrs, set<SgSymbol*> &swaped)
+{
+    if (swaped.find(s) == swaped.end())
+        swaped.insert(s);
+    else
+        return;
+
+    const string prev(s->identifier());
+    s->changeName(attrs);
+    std::copy(prev.c_str(), prev.c_str() + prev.size() + 1, attrs);
+}
+
+static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped)
 {
     if (ex)
     {
@@ -471,17 +633,18 @@ static void restoreInFunc(SgExpression *ex)
             {
                 if (attrs.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                ex->symbol()->changeName(attrs[0]);
+                changeNameAndSwap(ex->symbol(), attrs[0], swaped);
             }
         }
 
-        restoreInFunc(ex->lhs());
-        restoreInFunc(ex->rhs());
+        restoreInFunc(ex->lhs(), swaped);
+        restoreInFunc(ex->rhs(), swaped);
     }
 }
 
 void restoreCorrectedModuleProcNames(SgFile *file)
 {
+    set<SgSymbol*> swaped;
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);
 
@@ -498,7 +661,7 @@ void restoreCorrectedModuleProcNames(SgFile *file)
                 const vector<char*> attrs = getAttributes<SgSymbol*, char*>(st->symbol(), set<int>({ VARIABLE_NAME }));
                 if (attrs.size() != 1)
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                st->symbol()->changeName(attrs[0]);
+                changeNameAndSwap(st->symbol(), attrs[0], swaped);
             }
         }
     }
@@ -508,6 +671,9 @@ void restoreCorrectedModuleProcNames(SgFile *file)
         SgStatement *func = file->functions(z);
         for (SgStatement *st = func->lexNext(); st != func->lastNodeOfStmt(); st = st->lexNext())
         {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             if (isSgExecutableStatement(st))
             {
                 if (st->variant() == PROC_STAT)
@@ -517,12 +683,12 @@ void restoreCorrectedModuleProcNames(SgFile *file)
                     {
                         if (attrs.size() != 1)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                        st->symbol()->changeName(attrs[0]);
+                        changeNameAndSwap(st->symbol(), attrs[0], swaped);
                     }
                 }
                 else
                     for (int z = 0; z < 3; ++z)
-                        restoreInFunc(st->expr(z));
+                        restoreInFunc(st->expr(z), swaped);
             }
         }
     }

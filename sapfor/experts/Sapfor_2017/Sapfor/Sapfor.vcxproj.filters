@@ -97,6 +97,9 @@
     <Filter Include="Файлы исходного кода\Predictor\Lib">
       <UniqueIdentifier>{8a9f25f9-4be2-4293-b54e-fe213e0d91e4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Файлы исходного кода\CFGraph">
+      <UniqueIdentifier>{886a4ba7-d1be-453e-8364-74b811336330}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\_src\Distribution\DvmhDirective.cpp">
@@ -524,6 +527,18 @@
     </ClCompile>
     <ClCompile Include="..\_src\Distribution\Array.cpp">
       <Filter>Файлы исходного кода\Distribution</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFGraph.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFG_Variables.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFG_BasicBlock.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFG_Common.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1048,6 +1063,18 @@
     </ClInclude>
     <ClInclude Include="..\_src\Utils\RationalNum.h">
       <Filter>Файлы исходного кода\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFGraph.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFG_Variables.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFG_BasicBlock.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFG_Common.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

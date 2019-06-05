@@ -482,8 +482,9 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
             if (itLoop == sortedLoopGraph.end())
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             ifUnknownFound = true;
-            if (side == LEFT)
+            if (side == LEFT && (currRegime == DATA_DISTR || currRegime == COMP_DISTR))
                 itLoop->second->hasUnknownArrayAssigns = true;
+
             itLoop->second->hasUnknownDistributedMap = true;
             canNotMapToLoop.push_back(parentLoops[i]->lineNumber());
         }
@@ -1005,7 +1006,6 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                     else
                     {
                         SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs()->copyPtr());
-
                         if (result->lhs())
                         {
                             err = CalculateInteger(result->lhs(), tmpRes);
@@ -1344,31 +1344,49 @@ static void changeLoopWeight(double &currentWeight, const map<int, LoopGraph*> &
         currentWeight /= loopIt->second->countOfIters;
 }
 
-static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line)
+static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Messages> &messagesForFile, const int line, const map<string, FuncInfo*> &funcByName)
 {
     bool retVal = false;
 
     if (ex == NULL)
         return retVal;
 
-    if (ex->variant() == FUNC_CALL && !IsPureProcedureACC(ex->symbol()))
+    if (ex->variant() == FUNC_CALL)
     {
         if (isIntrinsicFunctionName(ex->symbol()->identifier()) == 0)
         {
-            retVal = true;
-            loopRef->hasNonPureProcedures = true;
+            auto itF = funcByName.find(ex->symbol()->identifier());
+            bool isPure = false; 
+            if (itF != funcByName.end())
+                isPure = itF->second->isPure;
+
+            if (!isPure)
+            {
+                retVal = true;
+                loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-            messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+                messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются функции только без побочных эффектов", L"Only pure procedures were supported", 1044));
 #endif
+            }
         }
     }
     bool retL = false, retR = false;
     if (ex->lhs())
-        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line);
+        retL = hasNonPureFunctions(ex->lhs(), loopRef, messagesForFile, line, funcByName);
     if (ex->rhs())
-        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line);;
+        retR = hasNonPureFunctions(ex->rhs(), loopRef, messagesForFile, line, funcByName);
 
     return retVal || retL || retR;
+}
+
+static void fillFromModule(SgSymbol* s, const map<string, set<string>>& privatesByModule, set<string>& privates)
+{
+    if (s)
+    {
+        auto it = privatesByModule.find(s->identifier());
+        if (it != privatesByModule.end())
+            privates.insert(it->second.begin(), it->second.end());
+    }
 }
 
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
@@ -1451,6 +1469,13 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
             funcName = funcH->symbol()->identifier();
         }
 
+        SgStatement* tmpModFind = st;
+        while (tmpModFind->variant() != GLOBAL)
+        {
+            tmpModFind = tmpModFind->controlParent();
+            if (tmpModFind->variant() == MODULE_STMT)
+                fillFromModule(tmpModFind->symbol(), privatesByModule, privatesVars);
+        }
         commonBlocks.clear();
         getCommonBlocksRef(commonBlocks, st, st->lastNodeOfStmt());
         __spf_print(PRINT_PROF_INFO, "  number of common blocks %d\n", (int)commonBlocks.size());
@@ -1962,18 +1987,25 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 
                             if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
                             {
-                                if (!IsPureProcedureACC(isSgCallStmt(start)->name()))
+                                checkNull(isSgCallStmt(start), convertFileName(__FILE__).c_str(), __LINE__);
+
+                                auto itF = funcByName.find(isSgCallStmt(start)->name()->identifier());
+                                bool isPure = false;
+                                if (itF != funcByName.end())
+                                    isPure = itF->second->isPure;
+
+                                if (!isPure)
                                 {
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются только <<чистые>> процедуры", L"Only pure procedures were supported", 1044));
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются процедуры только без побочных эффектов", L"Only pure procedures were supported", 1044));
 #endif
                                 }
                             }
 
                             for (int z = 1; z < 3; ++z)
-                                if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber()))
+                                if (hasNonPureFunctions(start->expr(z), loopRef, messagesForFile, start->lineNumber(), funcByName))
                                     hasNonPureProcedures = true;
                         }
 
@@ -2572,16 +2604,33 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             }
 
             if (iter->variant() == USE_STMT)
-            {
-                if (iter->symbol())
-                {
-                    auto it = privatesByModule.find(iter->symbol()->identifier());
-                    if (it != privatesByModule.end())
-                        privates.insert(it->second.begin(), it->second.end());
-                }
-            }
+                fillFromModule(iter->symbol(), privatesByModule, privates);
 
             findReshape(iter, privates, currMessages);
+        }
+
+        SgStatement* tmpModFind = st;
+        while (tmpModFind->variant() != GLOBAL)
+        {
+            tmpModFind = tmpModFind->controlParent();
+            if (tmpModFind->variant() == MODULE_STMT)
+                fillFromModule(tmpModFind->symbol(), privatesByModule, privates);
+        }
+
+        SgStatement *currF = st;
+        SgStatement *contains = isSgProgHedrStmt(currF->controlParent());
+        if (contains)
+        {
+            for (SgStatement *loc = contains; loc; loc = loc->lexNext())
+            {
+                if (isSgExecutableStatement(loc))
+                    break;
+                if (loc->variant() == CONTAINS_STMT)
+                    break;
+
+                if (loc->variant() == USE_STMT)
+                    fillFromModule(loc->symbol(), privatesByModule, privates);
+            }
         }
 
         for (auto &elem : reductions)
@@ -2659,6 +2708,8 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         set<string> deprecatedByIO;
         set<string> funcParNames;
 
+        fillFromModule(st->symbol(), privatesByModule, privates);
+        
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();

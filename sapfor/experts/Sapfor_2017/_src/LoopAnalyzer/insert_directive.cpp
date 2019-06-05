@@ -548,9 +548,12 @@ static string createFullTemplateDir(const tuple<string, string, string> &templDi
 
 struct templateDir
 {
+    templateDir() { isTemplateInModule = false; }
+
     pair<string, vector<SgStatement*>> templDecl;
     pair<string, vector<SgStatement*>> templDist;
     pair<string, SgStatement*> templDyn;
+    bool isTemplateInModule;
 };
 
 static pair<templateDir, string>
@@ -604,7 +607,7 @@ static pair<templateDir, string>
     templateDir retDir;
 
     int templIdx = findTeplatePosition(templ, dataDir);
-    
+
     auto templDecl = genTemplateDelc(templ, templ->GetShortName(), file, module, isMain);
     retDir.templDecl.first = templDecl.first;
     retDir.templDecl.second.push_back(templDecl.second);
@@ -618,6 +621,10 @@ static pair<templateDir, string>
     auto templDist = genTemplateDistr(templ, templ->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, isMain || module != NULL, file);
     retDir.templDist.first = templDist.first;
     retDir.templDist.second.push_back(templDist.second);
+
+    if (templ->GetLocation().first == DIST::l_MODULE)
+        retDir.isTemplateInModule = true;
+
     for (auto &elem : allClones)
     {
         vector<vector<dist>> tmpRuleSt = { elem.first };
@@ -775,7 +782,7 @@ static SgStatement* firstExec(SgStatement *in, const string &currF)
 
 //NOTE: this function inserts also local templates for parallel loop without distributed arrays!
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,
-                                        map<string, string> templateDeclInIncludes,
+                                        const map<string, string> &templateDeclInIncludes,
                                         const vector<string> &distrRules, const vector<vector<dist>> &distrRulesSt, 
                                         const DIST::Arrays<int> &allArrays,
                                         const bool extractDir, const int regionId,
@@ -872,7 +879,7 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     auto inIncl = templateDeclInIncludes.find(fullDecl);
                     if (inIncl != templateDeclInIncludes.end())
                     {
-                        auto hasInThisFunc = includes.find(inIncl->first);
+                        auto hasInThisFunc = includes.find(inIncl->second);
                         if (hasInThisFunc != includes.end())
                             needToInsert = false;
                     }
@@ -913,14 +920,9 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                         }
                     }
 
-                    if (needToInsert && includedToThisFile.find(fullDecl) == includedToThisFile.end())
+                    if (needToInsert)
                     {
                         SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
-                        
-                        /*if (extractDir)
-                            extractComments(nextSt, fullDecl);
-                        else
-                            nextSt->addComment(fullDecl.c_str());*/
                         if (!extractDir)
                         {
                             auto cp = nextSt->controlParent();
@@ -968,17 +970,12 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
                     auto templDecl = genTemplateDelc(array, array->GetShortName(), file, (SgStatement*)-1, true);
                     auto templDist = genTemplateDistr(array, array->GetShortName(), distrRules, distrRulesSt, regionId, templIdx, true, file);
                     
-                    const string fullDecl = createFullTemplateDir(make_tuple(templDecl.first, templDist.first, ""));
-                    SgStatement *nextSt = firstExec(st->lexNext(), st->fileName());
-
-                    if (includedToThisFile.find(fullDecl) == includedToThisFile.end())
+                    SgStatement* nextSt = firstExec(st->lexNext(), st->fileName());
+                    if (!extractDir)
                     {
-                        if (!extractDir)
-                        {
-                            auto cp = nextSt->controlParent();
-                            nextSt->insertStmtBefore(*templDist.second, *cp);
-                            nextSt->insertStmtBefore(*templDecl.second, *cp);
-                        }
+                        auto cp = nextSt->controlParent();
+                        nextSt->insertStmtBefore(*templDist.second, *cp);
+                        nextSt->insertStmtBefore(*templDecl.second, *cp);
                     }
                 }
             }
@@ -1037,6 +1034,15 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
 			cp->variant() != PROC_HEDR &&
 			cp->variant() != FUNC_HEDR)
 			continue;
+        else
+        {
+            //check for module
+            if (cp->variant() == PROC_HEDR || cp->variant() == FUNC_HEDR)
+            {
+                if (cp->controlParent()->variant() == MODULE_STMT)
+                    continue;
+            }
+        }
 
 		set<SgSymbol*> refs;
 		set<string> modUse;
@@ -1145,8 +1151,11 @@ static inline void addStringToComments(const vector<string> &toInsert, map<strin
     if (place == currF->second.end())
         place = currF->second.insert(place, make_pair(line, set<string>()));
 
-    for (auto str : toInsert)
+    for (auto &str : toInsert)
     {
+        if (str == "")
+            continue;
+
         bool needToInsert = true;        
         for (auto &elem : currF->second)
         {
@@ -1186,7 +1195,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                               const DIST::Arrays<int> &allArrays,
                               DIST::GraphCSR<int, double, attrType> &reducedG,
                               map<string, map<int, set<string>>> &commentsToInclude,
-                              map<string, string> templateDeclInIncludes,
+                              map<string, string> &templateDeclInIncludes,
                               const bool extractDir, vector<Messages> &messagesForFile,
                               const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
                               const int regionId)
@@ -1348,18 +1357,18 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     dynamicArraysLocal.insert(dirWithArray.first);
                                 dynamicArrays.insert(dirWithArray.first);
                                 dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
-
-                                if (templateDelc.find(templDecl) == templateDelc.end())
-                                    templateDelc.insert(templDecl);
-                                else
-                                    templDecl = "";
                                     
                                 // don't insert template decl for inherit arrays in functions
                                 //TODO: need to correct in case of use local arrays in functions
-                                /*if (templDir.second == "!DVM$ INHERIT\n")
+                                if (templDir.second == "!DVM$ INHERIT\n" && templDir.first.isTemplateInModule)
                                     templDecl = "";
-                                else*/
-                                { 
+                                else
+                                {
+                                    if (templateDelc.find(templDecl) == templateDelc.end())
+                                        templateDelc.insert(templDecl);
+                                    else
+                                        templDecl = "";
+
                                     if (templDecl != "")
                                         templDecl = createFullTemplateDir(make_tuple(templDir.first.templDecl.first, templDir.first.templDist.first, templDir.first.templDyn.first));
                                 }
@@ -1449,14 +1458,15 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 else
                                 {
                                     addStringToComments({ templDecl, toInsert }, commentsToInclude, st->fileName(), st->lineNumber());
-                                    templateDeclInIncludes[st->fileName()] = templDecl;
+                                    if (templDecl != "")
+                                        templateDeclInIncludes[templDecl] = st->fileName();
                                 }
                             }
                         }
                     }
                 }
 
-                string toInsert = "!DVM$ DYNAMIC ";                
+                string toInsert = "!DVM$ DYNAMIC ";
                 vector<string> toInsertArrays;
                 for (auto &array : dynamicArraysLocal)
                 {
@@ -1475,7 +1485,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                             dynamicArraysAdded.insert(array->GetShortName());
                             toInsertArrays.push_back(array->GetShortName());
                         }
-                    }                    
+                    }
                 }
 
                 int z = 0;

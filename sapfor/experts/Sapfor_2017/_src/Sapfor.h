@@ -8,6 +8,7 @@ extern int consoleMode;
 extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
 extern int maxShadowWidth;
+extern int langOfMessages;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -109,6 +110,7 @@ enum passes {
     LOOPS_SPLITTER,
     LOOPS_COMBINER,
     CHECK_PAR_REG_DIR,
+    INSERT_REGIONS,
     CREATE_PARALLEL_REGIONS,
 
     EMPTY_PASS
@@ -129,6 +131,7 @@ enum optionNames {
     PARALLIZE_FREE_LOOPS,
     MAX_SHADOW_WIDTH,
     OUTPUT_UPPER,
+    TRANSLATE_MESSAGES,
     EMPTY_OPTION
 };
 
@@ -206,6 +209,7 @@ static void setPassValues()
     passNames[REMOVE_DVM_DIRS_TO_COMMENTS] = "REMOVE_DVM_DIRS_TO_COMMENTS";
     passNames[REVERT_SPF_DIRS] = "REVERT_SPF_DIRS";
     passNames[CLEAR_SPF_DIRS] = "CLEAR_SPF_DIRS";
+    passNames[INSERT_REGIONS] = "INSERT_REGIONS";
     passNames[RESTORE_LOOP_FROM_ASSIGN] = "RESTORE_LOOP_FROM_ASSIGN";
     passNames[RESTORE_LOOP_FROM_ASSIGN_BACK] = "RESTORE_LOOP_FROM_ASSIGN_BACK";
     passNames[INLINE_PROCEDURES] = "INLINE_PROCEDURES";

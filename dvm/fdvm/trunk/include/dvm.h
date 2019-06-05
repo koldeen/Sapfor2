@@ -2020,7 +2020,7 @@ SgFunctionCallExp *cudaKernelCall(SgSymbol *skernel, SgExpression *specs, SgExpr
 void DeclareDoVars(SgType *indexType);
 SgExpression *CreateArrayDummyList(SgType *indexType);
 SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbol *s_loop_ref, SgSymbol *idxTypeInKernel, SgSymbol *s_blocks);
-int isIntrinsicFunctionName(char *name);
+int isIntrinsicFunctionName(const char *name);
 void addNumberOfFileToAttribute(SgProject *project);
 void recExpressionPrintFdvm(SgExpression *exp);
 

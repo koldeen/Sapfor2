@@ -62,9 +62,11 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
             bool hasDependency = false;
             for (int i = 1; i < node->knowndist.size(); ++i) {
 /*                if((node->typedep == ARRAYDEP) && (node->kinddep == 0)) //FLOW
-                    continue;
-                if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
                     continue;*/
+//                if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
+//                    continue;
+//                if((node->typedep == ARRAYDEP) && (node->kinddep == 3)) //REDUCE
+//                    continue;
                 //ANTI and REDUCE
                 hasDependency |= (node->knowndist[i] == 0) || ((node->knowndist[i] == 1) && (node->distance[i] != 0));
 //                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
@@ -323,7 +325,9 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
 
 static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, SgStatement*>> &fragments)
 {
-    SgStatement *lastInserted = newLoop;
+    SgStatement *lastInserted = newLoop->lastNodeOfStmt();
+    SgStatement* cp = lastInserted->controlParent();
+
     for (auto &fragment : fragments)
     {
         SgStatement *toMoveStmt = fragment.first;
@@ -333,8 +337,7 @@ static void moveStatements(SgForStmt *newLoop, const vector<pair<SgStatement*, S
             SgStatement *st = toMoveStmt;
             toMoveStmt = toMoveStmt->lastNodeOfStmt()->lexNext();
 
-            lastInserted->insertStmtAfter(*st->extractStmt());
-            lastInserted = lastInserted->lexNext()->lastNodeOfStmt();
+            lastInserted->insertStmtBefore(*st->extractStmt(), *cp);
         }
     }
 }
@@ -490,11 +493,7 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
     int totalErr = 0;
 
     for (int i = 0; i < file->numberOfFunctions(); ++i)
-    {
         ControlFlowGraph* cfg = BuildUnfilteredReachingDefinitionsFor(file->functions(i));
- //       if(string(file->filename()) == "z_solve.f")
- //           showDefsOfGraph(cfg);
-    }
 
     for (auto &loopPair : mapLoopGraph)
     {

@@ -138,11 +138,19 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 {
                     __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
 #if _WIN32
-                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"Опретор EQUIVALENCE не поддерживается на данный момент", L"An equivalence operator is not supported yet", 1038));
+                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"Оператор EQUIVALENCE не поддерживается на данный момент", L"An equivalence operator is not supported yet", 1038));
 #endif
                 }
             }
 
+            if (st->variant() == PAUSE_NODE)
+            {
+                checkOK = false;
+                __spf_print(1, "The PAUSE operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
+#if _WIN32
+                currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), L"Оператор PAUSE является запрещенным в параллельной программе", L"An PAUSE operator is deprecated to parallel", 1038));
+#endif
+            }
             st = st->lexNext();
         }
     }

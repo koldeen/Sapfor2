@@ -53,6 +53,7 @@
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
+#include "DvmhRegions/DvmhRegionInserter.h"
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
 
@@ -219,8 +220,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
                                         set<string> &allIncludeFiles)
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
-    {
+    {        
         restoreCorrectedModuleProcNames(file);
+
         if (keepSpfDirs)
             revertion_spf_dirs(file, declaratedArrays, declaratedArraysSt);
         else
@@ -293,6 +295,9 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             if (folderName != NULL)
                 copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
         }
+
+        //restore of restore
+        restoreCorrectedModuleProcNames(file);
     }
 }
 
@@ -452,7 +457,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto it = allFuncInfo.find(file_name);
             if (it == allFuncInfo.end())
-                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph));
+                functionAnalyzer(file, allFuncInfo, getObjectForFileFromMap(file_name, loopGraph), getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == CALL_GRAPH2)
             checkForRecursion(file, allFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
@@ -777,7 +782,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CALCULATE_STATS_SCHEME)
             processFileToPredict(file, getObjectForFileFromMap(file_name, allPredictorStats));
         else if (curr_regime == DEF_USE_STAGE1)
-            constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo);
+            constructDefUseStep1(file, defUseByFunctions, temporaryAllFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         else if (curr_regime == DEF_USE_STAGE2)
             constructDefUseStep2(file, defUseByFunctions);
         else if (curr_regime == RESTORE_LOOP_FROM_ASSIGN)
@@ -801,7 +806,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (it == subs_allFuncInfo.end())
             {
                 vector<LoopGraph*> tmp;
-                functionAnalyzer(file, subs_allFuncInfo, tmp, true);
+                functionAnalyzer(file, subs_allFuncInfo, tmp, getObjectForFileFromMap(file_name, SPF_messages), true);
             }
 
             fillRegionLines(file, subs_parallelRegions);
@@ -851,6 +856,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == INSERT_INTER_TREE)
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
+        else if (curr_regime == INSERT_REGIONS)
+        {
+            DvmhRegionInsertor regionInsertor(file, getObjectForFileFromMap(file_name, loopGraph));
+            regionInsertor.insertDirectives();
+        }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {
             bool res = FunctionsChecker(file, functionNames, SPF_messages);
@@ -1071,6 +1081,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         updateLoopIoAndStopsByFuncCalls(loopGraph, allFuncInfo);
     }
+    else if (curr_regime == CALL_GRAPH2)
+    {
+        map<string, FuncInfo*> allFuncs;
+        createMapOfFunc(allFuncInfo, allFuncs);
+
+        //for each file of grapgLoop
+        for (auto &loopGraphInFile : loopGraph)
+        {
+            DvmhRegionInsertor regionInsertor(NULL, loopGraphInFile.second);
+            regionInsertor.updateLoopGraph(allFuncs);
+        }
+    }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
         for (auto &comment : commentsToInclude)
@@ -1115,7 +1137,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         SgStatement *mainUnit = findMainUnit(&project);
         if (mainUnit)
+        {
+            //PrivateAnalyzerForMain(mainUnit);
             Private_Vars_Analyzer(mainUnit);
+        }
         else
         {
             for (int i = n - 1; i >= 0; --i)
@@ -1761,6 +1786,8 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
             runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
+            runAnalysis(*project, INSERT_REGIONS, false);
+
             runAnalysis(*project, CALCULATE_STATS_SCHEME, false);
 
             //TODO: need to rewrite this to new algo 
@@ -2039,9 +2066,11 @@ int main(int argc, char **argv)
     }
 
     deleteAllAllocatedData(withDel);
+
 #if _WIN32 && _DEBUG
     if (leakMemDump)
     {
+        printf("START PRINT\n");
         _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
         _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
         _CrtDumpMemoryLeaks();

@@ -96,7 +96,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < callStmt->numberOfArgs(); ++i)
             {
                 SgExpression *arg = callStmt->arg(i);
-                if ((arg->variant() == VAR_REF/* || arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -110,7 +110,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < funcCall->numberOfArgs(); ++i)
             {
                 SgExpression *arg = funcCall->arg(i);
-                if ((arg->variant() == VAR_REF /*|| arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -169,11 +169,11 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
             }
 
         //TODO arraysAssignments
-/*        if(top->variant() == ARRAY_REF) {
+        if(top->variant() == ARRAY_REF) {
 
             if(symbol.getUnparsed() == top->unparse())
                 return true;
-        }*/
+        }
 
         SgExpression *rhs = top->rhs();
         SgExpression *lhs = top->lhs();

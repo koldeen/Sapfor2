@@ -132,6 +132,18 @@ private:
     static void updateStatsByExpression(SgStatement *where, SgExpression *what);
 
     void checkConsistence();
+
+#ifdef __SPF
+    // DEPRECATED IN SAPFOR!!
+    inline void setControlParent(SgStatement& s) { BIF_CP(thebif) = s.thebif; };
+    inline void setControlParent(SgStatement* s)
+    {
+        if (s != 0)
+            BIF_CP(thebif) = s->thebif;
+        else
+            BIF_CP(thebif) = 0;
+    }
+#endif
 public:
     PTR_BFND thebif;
     SgStatement(int variant);
@@ -172,9 +184,19 @@ public:
     inline SgStatement *controlParent(); // the enclosing control statement
 
     inline void setLexNext(SgStatement &s); // change the lexical ordering
-    void setControlParent(SgStatement &s); // change the control parent.
-    void setControlParent(SgStatement *s); // change the control parent.
 
+#ifndef __SPF
+    // change the control parent.
+    // DEPRECATED IN SAPFOR!!
+    inline void setControlParent(SgStatement& s) { BIF_CP(thebif) = s.thebif; };
+    inline void setControlParent(SgStatement* s)
+    {
+        if (s != 0)
+            BIF_CP(thebif) = s->thebif;
+        else
+            BIF_CP(thebif) = 0;
+    }
+#endif
   // Access statement using the tree structure
   // Describe BLOB lists here?
 
@@ -188,10 +210,13 @@ public:
     inline SgStatement *lastExecutable();
     inline SgStatement *lastNodeOfStmt();
     inline SgStatement *nodeBefore();
-    inline void insertStmtBefore(SgStatement &s);
     inline void insertStmtBefore(SgStatement &s, SgStatement &cp);
-    void insertStmtAfter(SgStatement &s);
     void insertStmtAfter(SgStatement &s, SgStatement &cp);
+#ifndef __SPF
+    //DEPRECATED IN SAPFOR!!
+    inline void insertStmtBefore(SgStatement& s) { insertBfndBeforeIn(s.thebif, thebif, NULL); }
+    inline void insertStmtAfter(SgStatement& s) { insertBfndListIn(s.thebif, thebif, NULL); }
+#endif
     inline SgStatement *extractStmt();
     inline SgStatement *extractStmtBody();
     inline void replaceWithStmt(SgStatement &s);
@@ -2507,9 +2532,17 @@ public:
   // the attributes are: PARAMETER_OP | PUBLIC_OP |
   //    PRIVATE_OP | ALLOCATABLE_OP | EXTERNAL_OP |
   //    OPTIONAL_OP | POINTER_OP | SAVE_OP TARGET_OP
-#if 0
-  SgExpression &attribute(int i);
-#endif
+
+  inline SgExpression* attribute(int i)
+  {
+      SgExpression* ex = LlndMapping(BIF_LL3(thebif));
+      if (ex->variant() != EXPR_LIST)
+          return NULL;
+
+      SgExprListExp* list = (SgExprListExp*)ex;
+      return list->elem(i);
+  }
+
   inline int numberOfSymbols();  // the number of variables declared;        
   inline SgSymbol *symbol(int i);
   
@@ -3351,14 +3384,6 @@ inline SgStatement *SgStatement::nodeBefore()
     checkConsistence();
 #endif
     return BfndMapping(getNodeBefore(thebif)); 
-}
-
-inline void SgStatement::insertStmtBefore(SgStatement &s)
-{
-#ifdef __SPF
-    checkConsistence();
-#endif
-    insertBfndBeforeIn(s.thebif,thebif,NULL); 
 }
 
 inline void SgStatement::insertStmtBefore(SgStatement &s,SgStatement &cp )

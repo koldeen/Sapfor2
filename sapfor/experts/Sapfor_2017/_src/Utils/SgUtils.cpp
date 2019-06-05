@@ -355,9 +355,19 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
     {
         if (symb->identifier() == toFind)
         {
-            if (symb->scope() == scope)
-                if (symb->type() && symb->type()->equivalentToType(type))
-                    return symb;
+            bool scopeC = false;
+            bool typeC = false;
+            if (scope)
+                scopeC = (symb->scope() == scope);
+            else
+                scopeC = true;
+
+            if (type)
+                typeC = (symb->type() && symb->type()->equivalentToType(type));
+            else
+                typeC = true;
+            if (scopeC && typeC)
+                return symb;
         }
         symb = symb->next();
     }
@@ -517,11 +527,11 @@ void findModulesInFile(SgFile *file, vector<SgStatement*> &modules)
 
 void getModulesAndFunctions(SgFile *file, vector<SgStatement*> &modulesAndFunctions)
 {
+    findModulesInFile(file, modulesAndFunctions);
+
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
         modulesAndFunctions.push_back(file->functions(i));
-
-    findModulesInFile(file, modulesAndFunctions);
 }
 
 bool isSPF_comment(const int var)
@@ -1080,11 +1090,11 @@ static void inline addToLists(map<string, vector<DefUseList>> &currentLists, con
             list.second.push_back(elem);
 }
 
-void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo)
+void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseByFunctions, map<string, vector<FuncInfo*>> &allFuncInfo, vector<Messages> &messages)
 {
     map<string, vector<FuncInfo*>> curFileFuncInfo;
     vector<LoopGraph*> tmpL;
-    functionAnalyzer(file, curFileFuncInfo, tmpL);
+    functionAnalyzer(file, curFileFuncInfo, tmpL, messages);
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);
@@ -1768,4 +1778,26 @@ map<string, set<string>> createMapOfModuleUses(SgFile *file)
     }
 
     return retValMap;
+}
+
+void printSymbolTable(SgFile *file)
+{
+    for (auto s = file->firstSymbol(); s; s = s->next())
+    {
+        auto t = s->type();
+        printf("[%d] %s type %d (%s)\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "");
+    }
+}
+
+SgStatement* getFuncStat(SgStatement *st)
+{
+    if (!st)
+        return NULL;
+
+    SgStatement *iterator = st;
+
+    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+        iterator = iterator->controlParent();
+
+    return iterator;
 }

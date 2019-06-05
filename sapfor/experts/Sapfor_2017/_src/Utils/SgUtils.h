@@ -40,7 +40,7 @@ SgStatement* findMainUnit(SgProject *proj);
 template<typename IN_TYPE, typename OUT_TYPE>
 const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
 
-void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
+void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messages);
 void constructDefUseStep2(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);
 std::set<std::string> getAllDefVars(const std::string &funcName);
 std::set<std::string> getAllUseVars(const std::string &funcName);
@@ -54,5 +54,9 @@ bool ifSymbolExists(SgFile *file, const std::string &symbName);
 const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &commonBlocks, const DIST::Array *array);
 
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
+
 SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig);
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
+void printSymbolTable(SgFile *file);
+SgStatement* getFuncStat(SgStatement *st);
+
