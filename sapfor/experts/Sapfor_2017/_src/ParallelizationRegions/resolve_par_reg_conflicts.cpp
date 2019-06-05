@@ -152,7 +152,6 @@ static void createSetOfCalledFuncs(const string &funcName, const map<string, Fun
     }
 }
 
-//TODO: remove commented
 static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMap)
 {
     if (func->funcPointer->variant() != ENTRY_STAT)
@@ -181,9 +180,6 @@ static void fillRegionCover(FuncInfo *func, const map<string, FuncInfo*> &funcMa
                     isRegion = false;
                     break;
                 case ENTRY_STAT:
-                    //if (entry && isEntryCovered)
-                    //    entry->setIsCoveredByRegion(1);
-
                     entry = getFuncInfo(funcMap, string(iterator->symbol()->identifier()));
                     isEntryCovered = true;
                     break;
@@ -287,7 +283,11 @@ void fillRegionArrays(vector<ParallelRegion*> &regions,
                     }
 
                     iterator = getFuncStat(iterator);
-                    funcName = iterator->symbol()->identifier();
+                    string containsPrefix = "";
+                    SgStatement *st_cp = iterator->controlParent();
+                    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+                        containsPrefix = st_cp->symbol()->identifier() + string(".");
+                    funcName = containsPrefix + iterator->symbol()->identifier();
 
                     if (regionLines.isImplicit())
                         iterator = SgStatement::getStatementByFileAndLine(fileLines.first, regionLines.lines.first);
@@ -573,18 +573,32 @@ static void replaceSymbol(const string &fileName, const ParallelRegionLines &lin
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-static void recReplaceFuncCalls(SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, int regionId)
+static inline string getContains(SgStatement *funcSt)
+{
+    string containsName;
+    SgStatement *st_cp = funcSt->controlParent();
+    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+        containsName = st_cp->symbol()->identifier() + std::string(".");
+    return containsName;
+}
+
+static void recReplaceFuncCalls(SgStatement *st, SgExpression *exp, const ParallelRegionLines &lines, const map<string, FuncInfo*> &funcMap, const int regionId)
 {
     if (exp)
     {
         if (exp->variant() == FUNC_CALL)
         {
+            SgStatement *externFuncSt = getFuncStat(st);
+            SgProcHedrStmt *procH = (SgProcHedrStmt*)externFuncSt;
+            string contains = getContains(procH);
+
             string funcName = exp->symbol()->identifier();
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string fullFuncName = contains + funcName;
+            FuncInfo *func = getFuncInfo(funcMap, fullFuncName);
 
             if (func)
             {
-                string newFuncName = func->getFuncNameByRegion(regionId);
+                string newFuncName = func->getFuncNameByRegion(funcName, regionId);
                 SgSymbol *newSymb = new SgSymbol(exp->symbol()->variant());
                 newSymb->changeName(newFuncName.c_str());
                 exp->setSymbol(*newSymb);
@@ -594,8 +608,8 @@ static void recReplaceFuncCalls(SgExpression *exp, const ParallelRegionLines &li
             }
         }
 
-        recReplaceFuncCalls(exp->rhs(), lines, funcMap, regionId);
-        recReplaceFuncCalls(exp->lhs(), lines, funcMap, regionId);
+        recReplaceFuncCalls(st, exp->rhs(), lines, funcMap, regionId);
+        recReplaceFuncCalls(st, exp->lhs(), lines, funcMap, regionId);
     }
 }
 
@@ -607,12 +621,17 @@ static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string,
     {
         if (st->variant() == PROC_STAT)
         {
+            SgStatement *externFuncSt = getFuncStat(st);
+            SgProcHedrStmt *procH = (SgProcHedrStmt*)externFuncSt;
+            string contains = getContains(procH);
+
             string funcName = st->symbol()->identifier();
-            FuncInfo *func = getFuncInfo(funcMap, funcName);
+            string fullFuncName = contains + funcName;
+            FuncInfo *func = getFuncInfo(funcMap, fullFuncName);
             
             if (func)
             {
-                string newFuncName = func->getFuncNameByRegion(regionId);
+                string newFuncName = func->getFuncNameByRegion(funcName, regionId);
                 SgSymbol *newSymb = new SgSymbol(st->symbol()->variant());
                 newSymb->changeName(newFuncName.c_str());
                 st->setSymbol(*newSymb);
@@ -620,7 +639,7 @@ static void replaceFuncCalls(const ParallelRegionLines &lines, const map<string,
         }
 
         for (int i = 0; i < 3; ++i)
-            recReplaceFuncCalls(st->expr(i), lines, funcMap, regionId);
+            recReplaceFuncCalls(st, st->expr(i), lines, funcMap, regionId);
     }
 }
 
@@ -903,10 +922,14 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
         SgStatement *newDecl = NULL;
 
         // TODO: check new array name
-        
-        while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
-            decl = decl->lexNext();
-        decl = decl->lexPrev();
+
+        // for what? to skip .h stats?
+        if (decl->fileName() != fileName)
+        {
+            while (!isSgExecutableStatement(decl) || isSPF_stat(decl) && !isSPF_reg(decl))
+                decl = decl->lexNext();
+            decl = decl->lexPrev();
+        }
 
         newArrSymb = &arrSymb->copy();
         newArrSymb->changeName(newArrName.c_str());
@@ -1006,6 +1029,8 @@ static void copyFunction(ParallelRegion *region,
 {
     if (SgFile::switchToFile(func->fileName) != -1)
     {
+        SgStatement *funcStat = func->funcPointer->GetOriginal();
+        SgStatement *newFuncStat = NULL;
         SgSymbol *funcSymb = func->funcPointer->GetOriginal()->symbol();
         SgSymbol *newFuncSymb = NULL;
         SgFile *file = func->funcPointer->GetOriginal()->getFile();
@@ -1021,8 +1046,8 @@ static void copyFunction(ParallelRegion *region,
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
         // set line numbers
-        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
-             origStat != func->funcPointer->GetOriginal()->lastNodeOfStmt()->lexNext();
+        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
+             origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
             copyStat->setlineNumber(origStat->lineNumber());
@@ -1036,12 +1061,12 @@ static void copyFunction(ParallelRegion *region,
         pair<int, int> newLines = make_pair(beginEnd.first->lineNumber(), beginEnd.second->lineNumber());
         ParallelRegionLines newFuncLines(newLines, beginEnd);
         replaceFuncCalls(newFuncLines, funcMap, region->GetId());
-        
-        if (func->funcPointer->GetOriginal()->variant() == FUNC_HEDR)
+
+        if (funcStat->variant() == FUNC_HEDR)
             replaceSymbol(current_file->filename(), newFuncLines, func->funcName, newFuncSymb);
 
         // try to find common-block and add new if common-block exists
-        for (auto origStat = func->funcPointer->GetOriginal(), copyStat = file->firstStatement()->lexNext();
+        for (auto origStat = funcStat, copyStat = file->firstStatement()->lexNext();
              origStat && (!isSgExecutableStatement(origStat) || isSPF_stat(origStat));
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
@@ -1126,6 +1151,10 @@ static void copyFunction(ParallelRegion *region,
                 break;
             }
         }
+
+        // move copy function to original function
+        newFuncStat = file->firstStatement()->lexNext()->extractStmt();
+        funcStat->insertStmtBefore(*newFuncStat, *funcStat->controlParent());
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

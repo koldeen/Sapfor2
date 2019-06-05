@@ -57,26 +57,50 @@ static inline void extendRegionInfo(SgStatement *st, map<string, pair<Statement*
     }
 }
 
-static void findFuncCalls(SgExpression *ex, set<string> &calls)
+static void findFuncCalls(SgExpression *ex, set<string> &calls, const string &prefix)
 {
     if (ex == NULL)
         return;
 
+    // TODO: CHECK PREFIX
     if (ex->variant() == FUNC_CALL)
         calls.insert(ex->symbol()->identifier());
 
-    findFuncCalls(ex->lhs(), calls);
-    findFuncCalls(ex->rhs(), calls);
+    findFuncCalls(ex->lhs(), calls, prefix);
+    findFuncCalls(ex->rhs(), calls, prefix);
+}
+
+static inline SgStatement* getParentStat(SgStatement *st)
+{
+    if (!st)
+        return NULL;
+
+    SgStatement *iterator = st;
+
+    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+        iterator = iterator->controlParent();
+
+    while (iterator->controlParent()->variant() == PROG_HEDR || iterator->controlParent()->variant() == PROC_HEDR || iterator->controlParent()->variant() == FUNC_HEDR)
+        iterator = iterator->controlParent();
+
+    return iterator;
 }
 
 static void updateRegionInfo(SgStatement *st, map<string, pair<Statement*, Statement*>> &startEnd, map<string, pair<int, int>> &lines_,
                              set<string> &funcCallFromReg)
 {
+    // TODO: CHECK PREFIX
+    string containsPrefix = "";
+    SgStatement *st_ps = getParentStat(st);
+    string funcName = st_ps->symbol()->identifier(); // DEBUG
+    if (st_ps->variant() == PROC_HEDR || st_ps->variant() == PROG_HEDR || st_ps->variant() == FUNC_HEDR)
+        containsPrefix = st_ps->symbol()->identifier() + string(".");
+
     extendRegionInfo(st, startEnd, lines_);
     if (st->variant() == PROC_STAT)
-        funcCallFromReg.insert(st->symbol()->identifier());
+        funcCallFromReg.insert(containsPrefix + st->symbol()->identifier());
     for (int z = 0; z < 3; ++z)
-        findFuncCalls(st->expr(z), funcCallFromReg);
+        findFuncCalls(st->expr(z), funcCallFromReg, containsPrefix);
 }
 
 static void fillArrayNamesInReg(set<string> &usedArrayInRegion, SgExpression *exp)
@@ -222,7 +246,13 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                 regionName = data->symbol()->identifier();
                 if (funcs)
                 {
-                    auto itFunc = mapFuncs.find(file->functions(i)->symbol()->identifier());
+                    string containsPrefix = "";
+                    SgStatement *st_cp = file->functions(i)->controlParent();
+                    if (st_cp->variant() == PROC_HEDR || st_cp->variant() == PROG_HEDR || st_cp->variant() == FUNC_HEDR)
+                        containsPrefix = st_cp->symbol()->identifier() + string(".");
+                    string funcName = containsPrefix + file->functions(i)->symbol()->identifier();
+
+                    auto itFunc = mapFuncs.find(funcName);
                     if (itFunc != mapFuncs.end())
                     {
                         itFunc->second->inRegion = 3;
