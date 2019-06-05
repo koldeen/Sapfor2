@@ -262,15 +262,21 @@ void CFG_BasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st, CF
 {
     CFG_VarEntryInfo* var = NULL;
     SgVarRefExp* r;
-    if ((r = isSgVarRefExp(ex)))
+    if (r = isSgVarRefExp(ex))
         var = new CFG_ScalarVarEntryInfo(r->symbol());
     SgArrayRefExp* ar;
     if ((ar = isSgArrayRefExp(ex))) 
     {
         if (!v)
+        {
+            if (var)
+                delete var;
             var = new CFG_ArrayVarEntryInfo(ar->symbol(), ar);
+        }
         else 
         {
+            if (var)
+                delete var;
             var = v->Clone();
             var->SwitchSymbol(ar->symbol());
         }
@@ -278,7 +284,12 @@ void CFG_BasicBlock::AddOneExpressionToUse(SgExpression* ex, SgStatement* st, CF
 
     SgRecordRefExp* rr;
     if ((rr = isSgRecordRefExp(ex)))
+    {
+        if (var)
+            delete var;
         var = addRecordVarRef(rr);
+    }
+
     if (var) 
     {
         var->RegisterUsage(def, use, st);
@@ -293,16 +304,27 @@ void CFG_BasicBlock::AddOneExpressionToDef(SgExpression* ex, SgStatement* st, CF
     SgVarRefExp* r;
     if ((r = isSgVarRefExp(ex)))
         var = new CFG_ScalarVarEntryInfo(r->symbol());
+
     SgRecordRefExp* rr;
-    if ((rr = isSgRecordRefExp(ex)))
+    if (rr = isSgRecordRefExp(ex))
+    {
+        if (var)
+            delete var;
         var = addRecordVarRef(rr);
+    }
     SgArrayRefExp* ar;
     if ((ar = isSgArrayRefExp(ex))) 
     {
         if (!v)
+        {
+            if (var)
+                delete var;
             var = new CFG_ArrayVarEntryInfo(ar->symbol(), ar);
+        }
         else 
         {
+            if (var)
+                delete var;
             var = v->Clone();
             var->SwitchSymbol(ar->symbol());
         }
@@ -319,7 +341,10 @@ void CFG_BasicBlock::ProcessUserProcedure(bool isFun, void* call, const CFG_Call
     if (c != (CFG_CallData*)(-1) && c != (CFG_CallData*)(-2) && c != NULL && c->graph != NULL)
     {
         int stored_file_id = SwitchFile(c->file_id);
-        c->graph->GetPrivate(); //all sets actually
+        CFG_VarSet *privL = c->graph->GetPrivate(); //all sets actually
+        //not used
+        delete privL;
+
         SgStatement *cp = c->header->controlParent();
         SwitchFile(stored_file_id);
 

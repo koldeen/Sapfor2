@@ -270,7 +270,7 @@ bool checkRegionEntries(SgStatement *begin,
         wstring messageE, messageR;
         __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by GOTO", to_wstring(regIdent->identifier()).c_str());
 #ifdef _WIN32
-        __spf_printToLongBuf(messageR, L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором GOTO", to_wstring(regIdent->identifier()).c_str());
+        __spf_printToLongBuf(messageR, R11, to_wstring(regIdent->identifier()).c_str());
 #endif
         getObjectForFileFromMap(begin->fileName(), SPF_messages).push_back(Messages(ERROR, begin->lineNumber(), messageR, messageE, 1001));
 
@@ -293,7 +293,7 @@ bool checkRegionEntries(SgStatement *begin,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"wrong parallel region position: there are several entries in fragment '%s' caused by ENTRY", to_wstring(reg->GetName()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Не правильная расстановка области распараллеливания: есть несколько входов во фрагмент '%s', вызванные оператором ENTRY", to_wstring(reg->GetName()).c_str());
+                __spf_printToLongBuf(messageR, R10, to_wstring(reg->GetName()).c_str());
 #endif
                 getObjectForFileFromMap(func->fileName.c_str(), SPF_messages).push_back(Messages(ERROR, funcSt->lineNumber(), messageR, messageE, 1001));
 

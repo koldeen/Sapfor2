@@ -90,7 +90,7 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
    __spf_print(1, "bad directive position on line %d, it can be placed only %s %s %s\n", LINE, PLACE_E, BEFORE_VAR_E, BEFORE_DO_E); \
    wstring messageE, messageR;\
    __spf_printToLongBuf(messageE, L"bad directive position, it can be placed only %s %s %s", to_wstring(PLACE_E).c_str(), to_wstring(BEFORE_VAR_E).c_str(), to_wstring(BEFORE_DO_E).c_str()); \
-   __spf_printToLongBuf(messageR, L"Неверное расположение директивы: можно располагать только %ls %ls %ls", PLACE_R, BEFORE_VAR_R, BEFORE_DO_R); \
+   __spf_printToLongBuf(messageR, R1, PLACE_R, BEFORE_VAR_R, BEFORE_DO_R); \
    messagesForFile.push_back(Messages(ERR_TYPE, LINE, messageR, messageE, 1001)); \
 } while(0)
 #else
@@ -173,7 +173,7 @@ static bool checkPrivate(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Переменная '%s' не используется в цикле", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R21, to_wstring(privElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
@@ -183,7 +183,7 @@ static bool checkPrivate(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Переменная '%s' не изменяется в цикле", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R23, to_wstring(privElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -252,7 +252,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Переменная '%s' не используется в цикле", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R22, to_wstring(setElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
@@ -262,7 +262,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Переменная '%s' не изменяется в цикле", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R24, to_wstring(setElem->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -323,7 +323,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but must be 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Размерность массива '%s' %d, а должна быть 1", to_wstring(arraySymbol->identifier()).c_str(), dim);
+                    __spf_printToLongBuf(messageR, R25, to_wstring(arraySymbol->identifier()).c_str(), dim);
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1004));
 
@@ -337,7 +337,7 @@ static bool checkReduction(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"type of array '%s' but must be INTEGER", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Тип массива '%s' долежен быть INTEGER", to_wstring(arraySymbol->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R26, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1005));
 
@@ -351,7 +351,7 @@ static bool checkReduction(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"type of variable '%s' must be array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Типом переменной '%s' должен быть массив", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, R27, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
 
@@ -396,7 +396,7 @@ static bool checkReduction(SgStatement *st,
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"array size can't be computed");
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Размер массива не может быть вычислен");
+                            __spf_printToLongBuf(messageR, R30);
 #endif
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1007));
 
@@ -410,7 +410,7 @@ static bool checkReduction(SgStatement *st,
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"size of array '%s' is %d, but you enter %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Размер массива '%s' %d, а вы вводите %d", to_wstring(arraySymbol->identifier()).c_str(), size, count);
+                            __spf_printToLongBuf(messageR, R31, to_wstring(arraySymbol->identifier()).c_str(), size, count);
 #endif
                             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
 
@@ -460,7 +460,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Переменная '%s' не является массивом", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, R28, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
@@ -475,7 +475,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Массив '%s' является приватным", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, R33, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                 retVal = false;
@@ -498,7 +498,7 @@ static bool checkShadowAcross(SgStatement *st,
                     __spf_printToLongBuf(messageE, L"dimention of array '%s' is %d, but you enter %d",
                                          to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Размерность массива '%s' %d, а вы вводите %d",
+                    __spf_printToLongBuf(messageR, R32,
                                          to_wstring(arraySymbol->identifier()).c_str(), arrayType->dimension(), (int)arrayDisc.size());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1008));
@@ -512,7 +512,7 @@ static bool checkShadowAcross(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"variable '%s' is not array", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Переменная '%s' не является массивом", to_wstring(arraySymbol->identifier()).c_str());
+                __spf_printToLongBuf(messageR, R29, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1006));
                 retVal = false;
@@ -635,7 +635,7 @@ static bool checkRemote(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"array '%s' is private", to_wstring(arraySymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Массив '%s' является приватным", to_wstring(arraySymbol->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R34, to_wstring(arraySymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1009));
                     retVal = false;
@@ -683,7 +683,7 @@ static bool checkRemote(SgStatement *st,
                                 wstring messageE, messageR;
                                 __spf_printToLongBuf(messageE, L"bad directive expression: too many DO variables");
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Неверное выражение: слишком много переменных цикла");
+                                __spf_printToLongBuf(messageR, R2);
 #endif
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
@@ -724,7 +724,7 @@ static bool checkRemote(SgStatement *st,
                                 wstring messageE, messageR;
                                 __spf_printToLongBuf(messageE, L"bad directive expression: only a * i + b");
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Неверное выражение: возможно только вида a * i + b");
+                                __spf_printToLongBuf(messageR, R3);
 #endif
                                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1001));
                                 retVal = false;
@@ -873,7 +873,7 @@ static bool checkParallelRegions(SgStatement *st,
                     __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s', but got 'SPF PARALLEL_REG_DIR'",
                                          to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR', а была получена 'SPF PARALLEL_REG_DIR'",
+                    __spf_printToLongBuf(messageR, R4,
                                          to_wstring(identSymbol->identifier()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -894,7 +894,7 @@ static bool checkParallelRegions(SgStatement *st,
                         __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s' at the same scope",
                                              to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'",
+                        __spf_printToLongBuf(messageR, R5,
                                              to_wstring(identSymbol->identifier()).c_str());
 #endif
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -914,7 +914,7 @@ static bool checkParallelRegions(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF END PARALLEL_REG_DIR' for identificator '%s'",
                                      to_wstring(identSymbol->identifier()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Неверное расположение директивы: для области '%s' ожидается 'SPF END PARALLEL_REG_DIR'",
+                __spf_printToLongBuf(messageR, R6,
                                      to_wstring(identSymbol->identifier()).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
@@ -941,7 +941,7 @@ static bool checkParallelRegions(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR', but got 'SPF END PARALLEL_REG_DIR'");
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR', а была получена 'SPF END PARALLEL_REG_DIR'");
+                    __spf_printToLongBuf(messageR, R7);
 #endif
                     messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
@@ -959,7 +959,7 @@ static bool checkParallelRegions(SgStatement *st,
                         wstring messageE, messageR;
                         __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR' at the same scope");
 #ifdef _WIN32
-                        __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR' в той же области видимости");
+                        __spf_printToLongBuf(messageR, R8);
 #endif
                         messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 
@@ -977,7 +977,7 @@ static bool checkParallelRegions(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"bad directive position: expected 'SPF PARALLEL_REG_DIR'");
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Неверное расположение директивы: ожидается 'SPF PARALLEL_REG_DIR'");
+                __spf_printToLongBuf(messageR, R9);
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1001));
 

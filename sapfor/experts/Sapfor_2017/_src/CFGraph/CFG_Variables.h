@@ -81,19 +81,8 @@ public:
     virtual void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st) = 0;
     SgSymbol* GetSymbol() const { return symbol; }
     virtual bool operator==(const CFG_VarEntryInfo& rhs) const = 0;
-    void AddReference()
-    { 
-        references++; 
-        //printf("add ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
-        //fflush(NULL);
-    }
-    bool RemoveReference() 
-    { 
-        --references;
-        //printf("rem ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
-        //fflush(NULL);
-        return (references == 0);
-    }
+    void AddReference();
+    bool RemoveReference();
     void SwitchSymbol(SgSymbol* s) { symbol = s; }
 };
 
@@ -120,13 +109,14 @@ public:
     void RegisterDefinition(CFG_VarSet* def, const CFG_VarSet* use, SgStatement* st);
     bool HasActiveElements() const;
     void MakeInactive();
-    void ProcessChangesToUsedEntry(const CFG_ArrayVarEntryInfo*);        
+    void ProcessChangesToUsedEntry(const CFG_ArrayVarEntryInfo*);
+    ~CFG_ArrayVarEntryInfo();
 };
 
 class CFG_ScalarVarEntryInfo : public CFG_VarEntryInfo
 {
 public:
-    CFG_ScalarVarEntryInfo(SgSymbol* s) : CFG_VarEntryInfo(s) { }
+    CFG_ScalarVarEntryInfo(SgSymbol* s);
     
     CFG_eVariableType GetVarType() const { return VAR_REF_VAR_EXP; }
     CFG_VarEntryInfo* Clone(SgSymbol* s) const { return new CFG_ScalarVarEntryInfo(s); }
@@ -142,6 +132,8 @@ public:
     { 
         def->AddToSet(this, st); 
     }
+
+    ~CFG_ScalarVarEntryInfo();
 };
 
 class CFG_RecordVarEntryInfo : public CFG_VarEntryInfo

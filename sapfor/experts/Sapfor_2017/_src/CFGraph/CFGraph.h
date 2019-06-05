@@ -385,7 +385,17 @@ struct CFG_CallAnalysisLog
     { }
 };
 
+struct CFG_GRAPH
+{  
+    CFG_Call *calls;
+    CFG_CommonData *commons;
+    CFG_DoLoopDataList *doloopList;
+    CFG_ControlFlowGraph *graph;
+};
+
 // FUNCTIONS
+void SetUpVars(CFG_CommonData* commons, CFG_Call *calls, const CFG_CallData *m, CFG_DoLoopDataList* list);
 const CFG_IntrinsicSubroutineData* isAnIntrinsicSubroutine(const char* name);
 CFG_ControlFlowGraph* GetControlFlowGraphWithCalls(bool main, SgStatement* start, CFG_Call* calls, CFG_CommonData* commons);
+CFG_GRAPH* buildCFG(SgStatement *mainUnit);
 #endif

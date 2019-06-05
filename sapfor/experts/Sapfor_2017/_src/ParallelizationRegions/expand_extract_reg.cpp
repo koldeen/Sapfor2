@@ -108,7 +108,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad directive position: it can be placed only after all DATA statements");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: можно выбирать строки только в исполняемой части кода");
+            __spf_printToLongBuf(bufwR, R12);
 #endif
             messagesForFile.push_back(Messages(ERROR, errorLine, bufwR, bufwE, 1001));
 
@@ -123,7 +123,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: end line %d must be greater or equel begin line %d", endLine, startLine);
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: начало не может быть больше конца");
+            __spf_printToLongBuf(bufwR, R13);
 #endif
             messagesForFile.push_back(Messages(ERROR, endLine, bufwR, bufwE, 1001));
 
@@ -141,7 +141,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: begin and end lines can not be placed at differect regions");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: начало и конец при расширении не могут лежать в разных областях");
+            __spf_printToLongBuf(bufwR, R14);
 #endif
             messagesForFile.push_back(Messages(ERROR, endLine, bufwR, bufwE, 1001));
 
@@ -169,7 +169,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: begin and end lines can not be placed at region implicit lines");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное положение строки: начало и конец не могут быть в неявных фрагментах");
+            __spf_printToLongBuf(bufwR, R15);
 #endif
             messagesForFile.push_back(Messages(ERROR, errorLine, bufwR, bufwE, 1001));
 
@@ -192,7 +192,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: begin and end lines can not be placed at different functions");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное положение строк: начало и конец не могут быть в разных функциях");
+            __spf_printToLongBuf(bufwR, R16);
 #endif
             messagesForFile.push_back(Messages(ERROR, errorLine, bufwR, bufwE, 1001));
 
@@ -236,7 +236,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: begin and end lines can not include fragments of different regions at extending operation");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: выделенный фрагмент при расширении не должен включать фрагменты разных областей");
+            __spf_printToLongBuf(bufwR, R17);
 #endif
             messagesForFile.push_back(Messages(ERROR, startLine, bufwR, bufwE, 1001));
 
@@ -349,7 +349,7 @@ bool expandExtractReg(const string &fileName,
                     std::wstring bufwE, bufwR;
                     __spf_printToLongBuf(bufwE, L"bad lines position: expected lines with the same scope for creating region fragment");
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: начало и конец должны быть в одной области видимости");
+                    __spf_printToLongBuf(bufwR, R18);
 #endif
                     messagesForFile.push_back(Messages(ERROR, endLine, bufwR, bufwE, 1001));
 
@@ -373,7 +373,7 @@ bool expandExtractReg(const string &fileName,
                     std::wstring bufwE, bufwR;
                     __spf_printToLongBuf(bufwE, L"bad lines %d-%d position: can not extend region fragments with different scope", startLine, endLine);
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufwR, L"Неправильное расположение строк %d-%d: нельзя объединить фрагменты в разных областях видимости", startLine, endLine);
+                    __spf_printToLongBuf(bufwR, R19, startLine, endLine);
 #endif
                     messagesForFile.push_back(Messages(ERROR, endLine, bufwR, bufwE, 1001));
 
@@ -452,7 +452,7 @@ bool expandExtractReg(const string &fileName,
             std::wstring bufwE, bufwR;
             __spf_printToLongBuf(bufwE, L"bad lines position: expected lines with the same control parent");
 #ifdef _WIN32
-            __spf_printToLongBuf(bufwR, L"Неправильное расположение строк: начало и конец должны быть в одной области видимости");
+            __spf_printToLongBuf(bufwR, R20);
 #endif
             messagesForFile.push_back(Messages(ERROR, errorLine, bufwR, bufwE, 1001));
 

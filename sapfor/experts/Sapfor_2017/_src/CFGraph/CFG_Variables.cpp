@@ -12,6 +12,13 @@
 
 using namespace std;
 
+#define DEBUG_ALLOC 0
+
+#if DEBUG_ALLOC
+static vector<CFG_ArrayVarEntryInfo*> allocA;
+static vector<CFG_ScalarVarEntryInfo*> allocS;
+#endif
+
 vector<CFG_VarItem*> removeFromList(const set<int> &nums, const vector<CFG_VarItem*> &list)
 {
     //TODO: REMOVE
@@ -578,6 +585,9 @@ void CFG_ArrayVarEntryInfo::MakeInactive()
 
 CFG_ArrayVarEntryInfo::CFG_ArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CFG_VarEntryInfo(s)
 {
+#if DEBUG_ALLOC
+    allocA.push_back(this);
+#endif
     // TODO: need to check all alhorithm!!
     disabled = true;
 
@@ -654,6 +664,9 @@ CFG_ArrayVarEntryInfo::CFG_ArrayVarEntryInfo(SgSymbol* s, SgArrayRefExp* r) : CF
 
 CFG_ArrayVarEntryInfo::CFG_ArrayVarEntryInfo(SgSymbol* s, int sub, int ds, const vector<CFG_ArraySubscriptData>& d) : CFG_VarEntryInfo(s), subscripts(sub), disabled(ds)
 {
+#if DEBUG_ALLOC
+    allocA.push_back(this);
+#endif
     if (sub > 0)
         data = d;
 }
@@ -663,5 +676,46 @@ CFG_VarSet::~CFG_VarSet()
     for (auto &elem : list)
         delete elem;
     list.clear();
+}
+
+void CFG_VarEntryInfo::AddReference()
+{
+    references++;
+    //printf("add ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
+    //fflush(NULL);
+}
+bool CFG_VarEntryInfo::RemoveReference()
+{
+    --references;
+    //printf("rem ref: %d for %lld %s\n", references, (void*)symbol, symbol->identifier());
+    //fflush(NULL);
+    return (references == 0);
+}
+
+CFG_ScalarVarEntryInfo::~CFG_ScalarVarEntryInfo()
+{
+#if DEBUG_ALLOC
+    auto it = std::find(allocS.begin(), allocS.end(), this);
+    if (it == allocS.end())
+        printf("");
+    allocS.erase(it);
+#endif
+}
+
+CFG_ArrayVarEntryInfo::~CFG_ArrayVarEntryInfo()
+{
+#if DEBUG_ALLOC
+    auto it = std::find(allocA.begin(), allocA.end(), this);
+    if (it == allocA.end())
+        printf("");
+    allocA.erase(it);
+#endif
+}
+
+CFG_ScalarVarEntryInfo::CFG_ScalarVarEntryInfo(SgSymbol* s) : CFG_VarEntryInfo(s) 
+{
+#if DEBUG_ALLOC
+    allocS.push_back(this);
+#endif
 }
 #endif

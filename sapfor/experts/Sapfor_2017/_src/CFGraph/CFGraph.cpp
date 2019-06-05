@@ -566,8 +566,12 @@ CFG_ControlFlowItem* CFG_DoLoops::EndLoop(CFG_ControlFlowItem* last)
 
 CFG_PrivateDelayedItem::~CFG_PrivateDelayedItem()
 {
-    if (delay)
-        delete delay;
+    if (delay) delete delay;
+    if (detected) delete detected;
+    if (original) delete original;
+    if (lp) delete lp;
+
+    if (next) delete next;
 }
 
 CFG_ControlFlowGraph::CFG_ControlFlowGraph(bool t, bool m, CFG_ControlFlowItem* list, CFG_ControlFlowItem* end) :
@@ -1241,4 +1245,57 @@ void CFG_PrivateDelayedItem::MoveFromPrivateToLastPrivate(CFG_VarEntryInfo* var)
     }
 }
 
+void SetUpVars(CFG_CommonData* commons, CFG_Call *calls, const CFG_CallData *m, CFG_DoLoopDataList* list)
+{
+    G_pCommons = commons;
+    G_pCalls = calls;
+    G_currentProcedure = m;
+    G_mainProcedure = G_currentProcedure;
+    G_doLoopList = list;
+}
+
+CFG_GRAPH* buildCFG(SgStatement *mainUnit)
+{
+    if (mainUnit->variant() != PROG_HEDR)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    CFG_GRAPH *result = new CFG_GRAPH();
+
+    CFG_Call *calls = new CFG_Call();
+    CFG_CommonData *commons = new CFG_CommonData();
+    CFG_DoLoopDataList *doloopList = new CFG_DoLoopDataList();
+    SetUpVars(commons, calls, calls->AddHeader(mainUnit, false, mainUnit->symbol(), current_file_id), doloopList);
+
+    //stage 1: preparing graph data
+    CFG_ControlFlowGraph* CGraph = GetControlFlowGraphWithCalls(true, mainUnit, calls, commons);
+    calls->AssociateGraphWithHeader(mainUnit, CGraph);
+    commons->MarkEndOfCommon(G_currentProcedure);
+
+    //DEBUG: graphvis
+    /*
+    std::fstream fs;
+    fs.open("graph.txt", std::fstream::out);
+    fs << CGraph->GetVisualGraph(&calls);
+    fs.close();
+    */
+
+    CFG_VarSet *list = G_currentProcedure->graph->GetPrivate();
+
+    //DEBUG
+    //calls.PrintControlFlows();
+
+    //stage 2: data flow analysis
+    CGraph->PrivateAnalyzer();
+    
+    result->calls = calls;
+    result->commons = commons;
+    result->doloopList = doloopList;
+    result->graph = CGraph;
+    
+    if (G_privateDelayedList)
+        delete G_privateDelayedList;
+    G_privateDelayedList = NULL;
+
+    return result;
+}
 #endif
