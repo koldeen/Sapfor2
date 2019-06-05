@@ -2532,9 +2532,17 @@ public:
   // the attributes are: PARAMETER_OP | PUBLIC_OP |
   //    PRIVATE_OP | ALLOCATABLE_OP | EXTERNAL_OP |
   //    OPTIONAL_OP | POINTER_OP | SAVE_OP TARGET_OP
-#if 0
-  SgExpression &attribute(int i);
-#endif
+
+  inline SgExpression* attribute(int i)
+  {
+      SgExpression* ex = LlndMapping(BIF_LL3(thebif));
+      if (ex->variant() != EXPR_LIST)
+          return NULL;
+
+      SgExprListExp* list = (SgExprListExp*)ex;
+      return list->elem(i);
+  }
+
   inline int numberOfSymbols();  // the number of variables declared;        
   inline SgSymbol *symbol(int i);
   

@@ -1304,7 +1304,7 @@ void MakeDeclarationStmtInTop(SgSymbol *s)
         SgVarRefExp *expr = new SgVarRefExp(s);
         SgExprListExp *list = new SgExprListExp(*expr);
         allocatableStmt->setExpression(0, *list);
-#if __SPF
+#if __SPF        
         BIF_CP(allocatableStmt->thebif) = top_last_declaration->controlParent()->thebif;
 #else
         allocatableStmt->setControlParent(top_last_declaration->controlParent());
