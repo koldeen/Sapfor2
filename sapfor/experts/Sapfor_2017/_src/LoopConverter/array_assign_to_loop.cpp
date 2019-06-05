@@ -1228,24 +1228,33 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         const int var = stM->variant();
                         if (var == PROC_HEDR || var == FUNC_HEDR)
                             break;
-
+                        
                         if (isSgDeclarationStatement(stM))
                         {
                             SgVarDeclStmt* declStat = (SgVarDeclStmt*)stM;
-                            for (int k = 0; k < declStat->numberOfSymbols(); ++k)
+                            bool ifHasParameterAttr = false;
+                            
+                            for (int z = 0; z < declStat->numberOfAttributes(); ++z)
+                                if (declStat->attribute(z)->variant() == PARAMETER_OP)
+                                    ifHasParameterAttr = true;
+
+                            if (ifHasParameterAttr)
                             {
-                                SgExpression* completeInit = declStat->completeInitialValue(k);
-                                if (completeInit)
+                                for (int k = 0; k < declStat->numberOfSymbols(); ++k)
                                 {
-                                    SgStatement* toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
-                                    toAdd->setFileId(controlParFristExec->getFileId());
-                                    toAdd->setProject(controlParFristExec->getProject());
+                                    SgExpression* completeInit = declStat->completeInitialValue(k);
+                                    if (completeInit)
+                                    {
+                                        SgStatement* toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                                        toAdd->setFileId(controlParFristExec->getFileId());
+                                        toAdd->setProject(controlParFristExec->getProject());
 
-                                    firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
+                                        firstExec->insertStmtBefore(*toAdd, *controlParFristExec);
 
-                                    toMove.push_back(make_pair(elem, toAdd));
-                                    toAdd->setlineNumber(getNextNegativeLineNumber());
-                                    toAdd->setLocalLineNumber(elem->lineNumber());
+                                        toMove.push_back(make_pair(elem, toAdd));
+                                        toAdd->setlineNumber(getNextNegativeLineNumber());
+                                        toAdd->setLocalLineNumber(elem->lineNumber());
+                                    }
                                 }
                             }
                         }

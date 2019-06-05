@@ -1756,7 +1756,7 @@ map<string, set<SgSymbol*>> moduleRefsByUseInFunction(SgStatement *stIn)
 
     const int cpOfSt = stIn->controlParent()->variant();
     //contains of func
-    if (var == PROG_HEDR || var == PROC_HEDR || var == FUNC_HEDR)
+    if (cpOfSt == PROG_HEDR || cpOfSt == PROC_HEDR || cpOfSt == FUNC_HEDR)
     {
         for (SgStatement *stat = stIn->controlParent()->lexNext(); !isSgExecutableStatement(stat); stat = stat->lexNext())
         {

@@ -1138,9 +1138,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         SgStatement *mainUnit = findMainUnit(&project);
         if (mainUnit)
         {
-#if NEW_CFG
-            PrivateAnalyzerForMain(mainUnit);
-#endif
+            //PrivateAnalyzerForMain(mainUnit);
             Private_Vars_Analyzer(mainUnit);
         }
         else
@@ -2068,9 +2066,11 @@ int main(int argc, char **argv)
     }
 
     deleteAllAllocatedData(withDel);
+
 #if _WIN32 && _DEBUG
     if (leakMemDump)
     {
+        printf("START PRINT\n");
         _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
         _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
         _CrtDumpMemoryLeaks();

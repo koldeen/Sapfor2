@@ -24,15 +24,6 @@ void PrivateAnalyzer(SgFile *file, vector<FuncInfo*> &funcs)
 }
 
 #if NEW_CFG
-static void SetUpVars(CFG_CommonData* commons, CFG_Call *calls, const CFG_CallData *m, CFG_DoLoopDataList* list)
-{
-    G_pCommons = commons;
-    G_pCalls = calls;
-    G_currentProcedure = m;
-    G_mainProcedure = G_currentProcedure;
-    G_doLoopList = list;
-}
-
 static void FillCFGSets(CFG_ControlFlowGraph* graph)
 {
     graph->PrivateAnalyzer();
@@ -84,7 +75,7 @@ void PrivateAnalyzerForMain(SgStatement* start)
     fs.close();
     */
 
-    G_currentProcedure->graph->GetPrivate();
+    CFG_VarSet *list = G_currentProcedure->graph->GetPrivate();
 
     //DEBUG
     //calls.PrintControlFlows();

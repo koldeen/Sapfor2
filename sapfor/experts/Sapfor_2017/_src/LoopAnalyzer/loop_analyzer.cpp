@@ -1006,7 +1006,6 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                     else
                     {
                         SgExpression *result = ReplaceArrayBoundSizes(alloc->lhs()->copyPtr());
-
                         if (result->lhs())
                         {
                             err = CalculateInteger(result->lhs(), tmpRes);
@@ -2616,6 +2615,22 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
             tmpModFind = tmpModFind->controlParent();
             if (tmpModFind->variant() == MODULE_STMT)
                 fillFromModule(tmpModFind->symbol(), privatesByModule, privates);
+        }
+
+        SgStatement *currF = st;
+        SgStatement *contains = isSgProgHedrStmt(currF->controlParent());
+        if (contains)
+        {
+            for (SgStatement *loc = contains; loc; loc = loc->lexNext())
+            {
+                if (isSgExecutableStatement(loc))
+                    break;
+                if (loc->variant() == CONTAINS_STMT)
+                    break;
+
+                if (loc->variant() == USE_STMT)
+                    fillFromModule(loc->symbol(), privatesByModule, privates);
+            }
         }
 
         for (auto &elem : reductions)

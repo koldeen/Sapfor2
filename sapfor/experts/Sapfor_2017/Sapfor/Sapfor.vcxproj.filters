@@ -534,6 +534,12 @@
     <ClCompile Include="..\_src\CFGraph\CFG_Variables.cpp">
       <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFG_BasicBlock.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\_src\CFGraph\CFG_Common.cpp">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1062,6 +1068,12 @@
       <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClInclude>
     <ClInclude Include="..\_src\CFGraph\CFG_Variables.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFG_BasicBlock.h">
+      <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\CFGraph\CFG_Common.h">
       <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClInclude>
   </ItemGroup>

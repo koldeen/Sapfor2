@@ -62,9 +62,11 @@ static void setupOpenDependencies(set<int>& openDependencies, const vector<pair<
             bool hasDependency = false;
             for (int i = 1; i < node->knowndist.size(); ++i) {
 /*                if((node->typedep == ARRAYDEP) && (node->kinddep == 0)) //FLOW
-                    continue;
-                if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
                     continue;*/
+//                if((node->typedep == ARRAYDEP) && (node->kinddep == 2)) //OUTPUT
+//                    continue;
+//                if((node->typedep == ARRAYDEP) && (node->kinddep == 3)) //REDUCE
+//                    continue;
                 //ANTI and REDUCE
                 hasDependency |= (node->knowndist[i] == 0) || ((node->knowndist[i] == 1) && (node->distance[i] != 0));
 //                hasDependency |= (node->knowndist[i] != 0) || ((node->knowndist[i] == 0) && !(node->distance[i] & DEPZERO));
@@ -491,11 +493,7 @@ int splitLoops(SgFile *file, vector<LoopGraph*> &loopGraphs, vector<Messages> &m
     int totalErr = 0;
 
     for (int i = 0; i < file->numberOfFunctions(); ++i)
-    {
         ControlFlowGraph* cfg = BuildUnfilteredReachingDefinitionsFor(file->functions(i));
- //       if(string(file->filename()) == "z_solve.f")
- //           showDefsOfGraph(cfg);
-    }
 
     for (auto &loopPair : mapLoopGraph)
     {

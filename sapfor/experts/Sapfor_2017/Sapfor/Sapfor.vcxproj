@@ -61,7 +61,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -206,11 +206,11 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;__SPF;</PreprocessorDefinitions>
       <AdditionalOptions>-I. -I..\..\..\..\dvm\fdvm\trunk\Sage\lib\include -I..\..\..\..\dvm\fdvm\trunk\Sage\h -I..\..\..\..\dvm\fdvm\trunk\include /D "SYS5" /D "YYDEBUG" %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <Optimization>Disabled</Optimization>
-      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
-      <IntrinsicFunctions>false</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalIncludeDirectories>..\_src\DEAR\dep_h\test;..\_src\DEAR\dep_h;..\_src\DEAR\additional;..\_src\DEAR\additional\exception;..\_src\DEAR\additional\expression\h;..\_src\DEAR\additional\collection;..\_src\DEAR\additional\math;..\_src\DEAR\dep_h\loop;..\_src\DEAR\dep_h\mu;..\_src\DEAR\dep_h\test\array;..\_src\DEAR\dep_h\test\dependence;..\_src\DEAR\dep_h\test\routine;</AdditionalIncludeDirectories>
       <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
@@ -245,6 +245,8 @@
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\acc_utilities.cpp" />
     <ClCompile Include="..\..\..\..\dvm\fdvm\trunk\fdvm\calls.cpp" />
     <ClCompile Include="..\_src\CFGraph\CFGraph.cpp" />
+    <ClCompile Include="..\_src\CFGraph\CFG_BasicBlock.cpp" />
+    <ClCompile Include="..\_src\CFGraph\CFG_Common.cpp" />
     <ClCompile Include="..\_src\CFGraph\CFG_Variables.cpp" />
     <ClCompile Include="..\_src\CreateInterTree\CreateInterTree.cpp" />
     <ClCompile Include="..\_src\DEAR\additional\expression\cpp\expr_language.cpp" />
@@ -418,6 +420,8 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\..\dvm\fdvm\trunk\include\acc_analyzer.h" />
     <ClInclude Include="..\_src\CFGraph\CFGraph.h" />
+    <ClInclude Include="..\_src\CFGraph\CFG_BasicBlock.h" />
+    <ClInclude Include="..\_src\CFGraph\CFG_Common.h" />
     <ClInclude Include="..\_src\CFGraph\CFG_Variables.h" />
     <ClInclude Include="..\_src\CreateInterTree\CreateInterTree.h" />
     <ClInclude Include="..\_src\DEAR\additional\collection\collection.h" />
