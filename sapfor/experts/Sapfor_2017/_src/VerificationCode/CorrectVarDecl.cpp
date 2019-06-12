@@ -737,7 +737,7 @@ bool checkArgumentsDeclaration(SgProject *project,
                                 wstring messageE, messageR;
                                 __spf_printToLongBuf(messageE, L"function's argument '%s' does not have declaration statement", to_wstring(symb->identifier()).c_str());
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Аргумент '%s' функции '%s' не имеет оператора описания",
+                                __spf_printToLongBuf(messageR, R81,
                                                      to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
 #endif
 

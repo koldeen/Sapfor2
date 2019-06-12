@@ -242,7 +242,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"array ref '%s' has more than one loop's variables", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-            __spf_printToLongBuf(messageE, L"Обращение к массиву '%s' содержит более одной индексной переменной циклов", to_wstring(arrayRefString.second).c_str());
+            __spf_printToLongBuf(messageE, R54, to_wstring(arrayRefString.second).c_str());
 #endif
             if (currLine > 0)
                 currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
@@ -282,7 +282,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"array ref '%s' does not have loop variables", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                    __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' не содержит итерационных переменных циклов", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, R55, to_wstring(arrayRefString.second).c_str());
 #endif
                     if (currLine > 0)
                         currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));
@@ -295,7 +295,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"array ref '%s' has indirect access", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                __spf_printToLongBuf(messageR, L"Обращение к массиву '%s' имеет косвенную адресацию", to_wstring(arrayRefString.second).c_str());
+                __spf_printToLongBuf(messageR, R56, to_wstring(arrayRefString.second).c_str());
 #endif
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1022));
@@ -336,7 +336,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"can not calculate index expression for array ref '%s'", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-                __spf_printToLongBuf(messageR, L"Невозможно вычислить индексное выражение в обращении к массиву '%s'", to_wstring(arrayRefString.second).c_str());
+                __spf_printToLongBuf(messageR, R57, to_wstring(arrayRefString.second).c_str());
 #endif
                 if (currLine > 0)
                     currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1023));
@@ -387,7 +387,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"coefficient A in A*x+B is not positive for array ref '%s', inverse distribution in not supported yet", to_wstring(arrayRefString.second).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Коэффициент A в линейном обращении A*x+B к массиву '%s' не может быть отрицательным, так как инверсное распределение не поддерживается", to_wstring(arrayRefString.second).c_str());
+                    __spf_printToLongBuf(messageR, R58, to_wstring(arrayRefString.second).c_str());
 #endif
                     if (line > 0)
                         currMessages->push_back(Messages(WARR, line, messageR, messageE, 1024));
@@ -502,7 +502,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"can not map write to array '%s' to this loop", to_wstring(arrayRefS).c_str());
 #if _WIN32
-                __spf_printToLongBuf(messageR, L"Невозможно сопоставить обращение к массиву на запись '%s' с данными циклом", to_wstring(arrayRefS).c_str());
+                __spf_printToLongBuf(messageR, R59, to_wstring(arrayRefS).c_str());
 #endif
                 if (line > 0)
                     currMessages->push_back(Messages(WARR, line, messageR, messageE, 1025));
@@ -780,7 +780,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                             wstring messageE, messageR;
                             __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
 #if _WIN32
-                            __spf_printToLongBuf(messageR, L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом", to_wstring(symb->identifier()).c_str());
+                            __spf_printToLongBuf(messageR, R61, to_wstring(symb->identifier()).c_str());
 #endif
                             if (loop->lineNumber() > 0)
                                 currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
@@ -810,7 +810,7 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                                     wstring messageE, messageR;
                                     __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
 #if _WIN32
-                                    __spf_printToLongBuf(messageR, L"Обнаружен оператор записи в нераспределенный массив '%s', связанный с данным циклом", to_wstring(symb->identifier()).c_str());
+                                    __spf_printToLongBuf(messageR, R60, to_wstring(symb->identifier()).c_str());
 #endif
                                     if (loop->lineNumber() > 0)
                                         currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
@@ -1365,7 +1365,7 @@ static bool hasNonPureFunctions(SgExpression *ex, LoopGraph *loopRef, vector<Mes
                 retVal = true;
                 loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-                messagesForFile.push_back(Messages(WARR, line, L"Поддерживаются функции только без побочных эффектов", L"Only pure procedures were supported", 1044));
+                messagesForFile.push_back(Messages(WARR, line, R79, L"Only pure procedures were supported", 1044));
 #endif
             }
         }
@@ -1395,6 +1395,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                   const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const map<SgStatement*, set<tuple<int, string, string>>> &declaratedArraysSt,
                   const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                  const map<SgStatement*, vector<DefUseList>> &defUseByPlace,
                   bool skipDeps, vector<LoopGraph*> *loopGraph)
 {
     currMessages = &messagesForFile;
@@ -1502,7 +1503,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
             if (st == NULL)
             {
 #if _WIN32
-                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+                currMessages->push_back(Messages(ERROR, 1, R128, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
 #endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
@@ -1602,7 +1603,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                     if (currReg)
                                     {
                                         const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-                                        const DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraph();
+                                        DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
                                         const DataDirective &data = currReg->GetDataDir();
                                         const vector<int> &currVar = currReg->GetCurrentVariant();
 
@@ -1799,7 +1800,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"Module with name '%s' must be placed in current file", to_wstring(st->symbol()->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Описание модуля '%s' должено находиться в данном файле", to_wstring(st->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R62, to_wstring(st->symbol()->identifier()).c_str());
 #endif
                     currMessages->push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1028));
 
@@ -1870,7 +1871,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                     string fName = file->functions(i)->symbol()->identifier();
                     sendMessage_2lvl(wstring(L"обработка цикла ") + std::to_wstring(idx) + L"/" + std::to_wstring(convertedLoopInfo.size()));
 #endif
-                    tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                    tryToFindDependencies(loop.first, allLoops, funcWasInit, file, regions, currMessages, collection, funcByName, defUseByPlace);
                 }
             }
 
@@ -1917,7 +1918,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                 {
                     if (loopLine > 0)
                     {
-                        tryToFindDependencies(sortedLoopGraph[loopLine], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName);
+                        tryToFindDependencies(sortedLoopGraph[loopLine], allLoops, funcWasInit, file, regions, currMessages, collection, funcByName, defUseByPlace);
                         sortedLoopGraph[loopLine]->withoutDistributedArrays = true;
                     }
                 }
@@ -1999,7 +2000,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                     hasNonPureProcedures = true;
                                     loopRef->hasNonPureProcedures = true;
 #ifdef _WIN32
-                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), L"Поддерживаются процедуры только без побочных эффектов", L"Only pure procedures were supported", 1044));
+                                    messagesForFile.push_back(Messages(WARR, start->lineNumber(), R80, L"Only pure procedures were supported", 1044));
 #endif
                                 }
                             }
@@ -2118,7 +2119,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
             if (st == NULL)
             {
 #ifdef _WIN32
-                currMessages->push_back(Messages(ERROR, 1, L"Внутренняя ошибка анализа, распараллеливание не будет выполнено для данного файла!", L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
+                currMessages->push_back(Messages(ERROR, 1, R128, L"internal error in analysis, parallel directives will not be generated for this file!", 3008));
 #endif
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
@@ -2494,7 +2495,7 @@ static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, cons
                         wstring messageE, messageR;
                         __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of DVM's I/O constraints", to_wstring(symb->identifier()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за ограничений ввода/вывода, накладываемых DVM системой", to_wstring(symb->identifier()).c_str());
+                        __spf_printToLongBuf(messageR, R68, to_wstring(symb->identifier()).c_str());
 #endif
                         currMessages.push_back(Messages(WARR, line, messageR, messageE, 1037));
 
@@ -2524,7 +2525,7 @@ static void findReshape(SgStatement *st, set<string> &privates, vector<Messages>
 #ifdef _WIN32
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
-                __spf_printToLongBuf(messageR, L"Массив '%s' не может быть распределен из-за использования RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
+                __spf_printToLongBuf(messageR, R90, to_wstring(exL->symbol()->identifier()).c_str());
                 currMessages.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1047));
 #endif
             }

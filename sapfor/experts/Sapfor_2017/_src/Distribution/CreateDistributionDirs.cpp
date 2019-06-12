@@ -61,7 +61,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(bufR, L"Невозможно определить размеры массива '%s'", to_wstring(array->GetShortName()).c_str());
+                        __spf_printToLongBuf(bufR, R37, to_wstring(array->GetShortName()).c_str());
 #endif
                         getObjectForFileFromMap(declF.c_str(), allMessages).push_back(Messages(ERROR, declL, bufR, bufE, 1012));
                     }
@@ -505,8 +505,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"detected distributed and non distributed array links by function's calls for array '%s'\n", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(bufR, L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n",
-                                             to_wstring(array->GetShortName()).c_str());
+                        __spf_printToLongBuf(bufR, R140, to_wstring(array->GetShortName()).c_str());
 #endif
                         getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
                     }
@@ -530,7 +529,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                                 {
                                     __spf_printToLongBuf(bufE, L"detected distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
 #ifdef _WIN32
-                                    __spf_printToLongBuf(bufR, L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufR, R141, to_wstring(realR->GetShortName()).c_str());
 #endif
                                 }
                                 getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufE, 3020));
@@ -564,8 +563,7 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Array
                 std::wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"different align rules for array %s was found\n", to_wstring(array.first->GetName()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(bufR, L"Для массива '%s' не удается найти единого распределения, внутренняя ошибка системы.\n",
-                    to_wstring(array.first->GetName()).c_str());
+                __spf_printToLongBuf(bufR, R142, to_wstring(array.first->GetName()).c_str());
 #endif
                 for (auto &declPlace : array.first->GetDeclInfo())
                     getObjectForFileFromMap(declPlace.first.c_str(), SPF_messages).push_back(Messages(ERROR, declPlace.second, bufR, bufE, 3020));

@@ -168,7 +168,7 @@ const map<SymbolKey, set<ExpressionValue*>> getReachingDefinitionsExt(SgStatemen
     return b->getReachedDefinitionsExt(stmt);
 }
 
-static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev)
+static void revertReplacements(map<SgStatement*, vector<SgExpression*>> &toRev, bool constant = false)
 {
     for (auto &toReplace : toRev)
     {
@@ -195,12 +195,12 @@ void revertReplacements(const string &filename, bool back)
         if (tmpF != replacementsInFiles.end())
             revertReplacements(tmpF->second);
         if (constF != replacementsOfConstsInFiles.end())
-            revertReplacements(constF->second);
+            revertReplacements(constF->second, true);
     }
     else
     {        
         if (constF != replacementsOfConstsInFiles.end())
-            revertReplacements(constF->second);
+            revertReplacements(constF->second, true);
         if (tmpF != replacementsInFiles.end())
             revertReplacements(tmpF->second);
     }    
@@ -1064,13 +1064,14 @@ static void replaceConstants(const string &file, SgStatement *st)
         if (isSgExecutableStatement(currS))
         {
             vector<SgExpression*> toRepl = { NULL, NULL, NULL };
-            vector<SgExpression*> original = { currS->expr(0), currS->expr(1), currS->expr(2) };
+            vector<SgExpression*> original = { NULL, NULL, NULL };
+
             for (int i = 0; i < 3; ++i)
             {
                 if (findConstRef(currS->expr(i)))
                 {
-                    SgExpression *copy = currS->expr(i)->copyPtr();
-                    copy = ReplaceConstant(copy);
+                    original[i] = currS->expr(i)->copyPtr();
+                    SgExpression *copy = ReplaceConstant(original[i]);
                     calculate(copy);
                     toRepl[i] = copy;
                     currS->setExpression(i, *copy);
@@ -1184,4 +1185,20 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
     }
 
     deleteAllocatedExpressionValues(file->functions(0)->getFileId());
+}
+
+void runPrivateAnalysis(SgStatement *main)
+{
+    if (main->variant() != PROG_HEDR)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    GraphsKeeper *gk = GraphsKeeper::getGraphsKeeper();
+
+    GraphItem *gItem = gk->getGraph(main);
+    ControlFlowGraph *graph = gItem->CGraph;
+    if (gItem->privateDone == false)
+    {
+        graph->privateAnalyzer();
+        gItem->privateDone = true;
+    }
 }

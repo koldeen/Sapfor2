@@ -53,7 +53,7 @@ bool IncludeChecker(SgFile *file, const string &fileName, vector<Messages> &curr
                     wstring currE, currR;
                     __spf_printToLongBuf(currE, L"Include '%s' has executable operators", to_wstring(st->fileName()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(currR, L"¬ключаемый файл '%s' содержит исполн€емые операторы, что запрещено к распараллеливанию в системе SAPFOR", to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(currR, R52, to_wstring(st->fileName()).c_str());
 #endif
                     currMessages.push_back(Messages(ERROR, lastLine, currR, currE, 1019));
                     checkOK = false;

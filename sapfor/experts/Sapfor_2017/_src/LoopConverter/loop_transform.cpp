@@ -436,8 +436,13 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 
                 wchar_t buf[256];
-                //sprintf(buf, "loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
-                //messages.push_back(Messages(NOTE, current->lineNum, buf, 2005));
+#ifdef _WIN32
+                std::wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Loops on lines %d and %d were combined", current->lineNum, firstChild->lineNum);
+                __spf_printToLongBuf(messageR, R100, current->lineNum, firstChild->lineNum);
+                
+                messages.push_back(Messages(NOTE, current->lineNum, messageR, messageE, 2005));
+#endif
             }
         }
     }

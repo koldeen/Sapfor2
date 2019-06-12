@@ -59,4 +59,4 @@ SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse,
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
 void printSymbolTable(SgFile *file);
 SgStatement* getFuncStat(SgStatement *st);
-
+std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapbyPlace();

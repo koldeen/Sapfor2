@@ -31,8 +31,9 @@ void loopAnalyzer(SgFile *file,
                   const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo,
                   const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
                   const std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt,
-                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, bool skipDeps,
-                  std::vector<LoopGraph*> *loopGraph = NULL);
+                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, 
+                  const std::map<SgStatement*, std::vector<DefUseList>> &defUseByPlace,
+                  bool skipDeps, std::vector<LoopGraph*> *loopGraph = NULL);
 void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile, 
                          const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, 
                          REGIME regime);
@@ -69,7 +70,8 @@ void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DI
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
                            std::set<SgStatement*> &funcWasInit, SgFile *file, std::vector<ParallelRegion*> regions, std::vector<Messages> *currMessages,
-                           std::map<SgExpression*, std::string> &collection, const std::map<std::string, FuncInfo*> &allFuncs);
+                           std::map<SgExpression*, std::string> &collection, const std::map<std::string, FuncInfo*> &allFuncs,
+                           const std::map<SgStatement*, std::vector<DefUseList>> &defUseByPlace);
 depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const std::set<std::string> *privVars = NULL);
 
 // allocations_prepoc.cpp
@@ -138,7 +140,7 @@ void addRemotesToDir(const std::pair<SgForStmt*, LoopGraph*> *under_dvm_dir, con
 void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> &under_dvm_dir,
                             const DIST::Arrays<int> &allArrays,
                             const std::map<SgForStmt*, std::map<SgSymbol*, ArrayInfo>> &loopInfo,
-                            const DIST::GraphCSR<int, double, attrType> &reducedG,
+                            DIST::GraphCSR<int, double, attrType> &reducedG,
                             const DataDirective &data,
                             const std::vector<int> &currVar,
                             const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,

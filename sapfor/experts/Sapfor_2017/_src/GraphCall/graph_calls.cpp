@@ -285,7 +285,7 @@ static void doMacroExpand(SgStatement *parent, SgExpression *parentEx, SgExpress
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"substitute statement function with name '%s'", to_wstring(funcName).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Была выполнена подстановка макроса с именем '%s'", to_wstring(funcName).c_str());
+            __spf_printToLongBuf(messageR, R101, to_wstring(funcName).c_str());
 #endif
             messages.push_back(Messages(NOTE, parent->lineNumber(), messageR, messageE, 2006));
         }
@@ -617,7 +617,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
         if (declaratedAsPure && !hasIntent && ((SgProgHedrStmt*)header)->numberOfParameters())
         {
 #if _WIN32
-            messagesForFile.push_back(Messages(ERROR, header->lineNumber(), L"Неверное объявление PURE функции - отсутствуют операторы INTENT", L"Wrong pure declaration - INTENT mismatch", 4002));
+            messagesForFile.push_back(Messages(ERROR, header->lineNumber(), R143, L"Wrong pure declaration - INTENT mismatch", 4002));
 #endif
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
@@ -633,7 +633,7 @@ static void fillFunctionPureStatus(SgStatement *header, FuncInfo *currInfo, vect
                 for (auto &line : lines)
                 {
 #if _WIN32
-                    messagesForFile.push_back(Messages(WARR, line, L"Функция не является функцией без побочных эффектов из-за наличия данного оператора", L"Function is impure due to this operator usage", 1049));
+                    messagesForFile.push_back(Messages(WARR, line, R93, L"Function is impure due to this operator usage", 1049));
 #endif
                 }
             }
@@ -931,7 +931,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
         wstring bufR, bufE;
         __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
 #ifdef _WIN32
-        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается количество формальных и фактических параметров", to_wstring(def->funcName).c_str());
+        __spf_printToLongBuf(bufR, R38, to_wstring(def->funcName).c_str());
 #endif
         if (needToAddErrors)
         {
@@ -956,7 +956,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                     wstring bufR, bufE;
                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как отличается тип фактического и формального %d-го параметра", to_wstring(def->funcName).c_str(), i);
+                    __spf_printToLongBuf(bufR, R39, to_wstring(def->funcName).c_str(), i);
 #endif
                     if (needToAddErrors)
                     {
@@ -977,7 +977,7 @@ static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, 
                     wstring bufR, bufE;
                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s', так как можно передавать массивы только целиком", to_wstring(def->funcName).c_str());
+                    __spf_printToLongBuf(bufR, R40, to_wstring(def->funcName).c_str());
 #endif
                     if (needToAddErrors)
                     {
@@ -1092,7 +1092,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' under loop on line %d %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), to_wstring(add).c_str());
 #ifdef _WIN32
-                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' в цикле на строке %d %s",
+                                        __spf_printToLongBuf(bufR, R41,
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), loop->lineNumber(), addW.c_str());
 #endif
                                         messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
@@ -1104,7 +1104,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                         __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to non private array reference '%s' %s", 
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), to_wstring(add).c_str());
 #ifdef _WIN32
-                                        __spf_printToLongBuf(bufR, L"Требуется выполнить подстановку функции '%s' из-за обращения к неприватному массиву '%s' %s",
+                                        __spf_printToLongBuf(bufR, R42,
                                                              to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), addW.c_str());
 #endif
                                         messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
@@ -1147,10 +1147,10 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
 #ifdef _WIN32
                                     if (inFunction->GetDimSize() == 1)                                    
-                                        __spf_printToLongBuf(bufR, L"Первое измерение массива '%s' запрещено к распределению из-за передачи в функцию '%s'", 
+                                        __spf_printToLongBuf(bufR, R73, 
                                                              to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
                                     else
-                                        __spf_printToLongBuf(bufR, L"Первые %d измерений массива '%s' запрещены к распределению из-за передачи к функцию '%s'", 
+                                        __spf_printToLongBuf(bufR, R72, 
                                                              inFunction->GetDimSize(), to_wstring(symb->identifier()).c_str(), to_wstring(func->funcName).c_str());
 #endif
                                     messages.push_back(Messages(NOTE, statLine, bufR, bufE, 1040));
@@ -1174,7 +1174,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different dimension sizes in formal (size = %d) and actual(size = %d) parameters for array reference '%s'", 
                                                          to_wstring(func->funcName).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize(), to_wstring(symb->identifier()).c_str());
 #ifdef _WIN32
-                                    __spf_printToLongBuf(bufR, L"Требуется подставить функцию '%s' из-за разной размерности массива %s', передаваемого в качестве параметра: размерность формального параметра = %d и фактического параметра = %d",
+                                    __spf_printToLongBuf(bufR, R43,
                                                          to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str(), inFunction->GetDimSize(), mainArray->GetDimSize());
 #endif
                                     messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
@@ -1189,7 +1189,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                                 __spf_printToLongBuf(bufE, L"Type mismatch in function '%s' in formal and actual parameters for array reference '%s'\n", 
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
 #ifdef _WIN32
-                                __spf_printToLongBuf(bufR, L"Обнаружено несоответствие типов в функции '%s' в формальном и фактическом параметре для массива '%s'\n",
+                                __spf_printToLongBuf(bufR, R44,
                                                      to_wstring(func->funcName).c_str(), to_wstring(symb->identifier()).c_str());
 #endif
                                 messages.push_back(Messages(ERROR, statLine, bufR, bufE, 1013));
@@ -1276,7 +1276,7 @@ static bool processParameterList(SgExpression *parList, SgForStmt *loop, const F
             __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to use of loop's symbol on line %d as index of an array inside this call, in parameter num %d", 
                                  to_wstring(func->funcName).c_str(), loop->lineNumber(), idx);
 #if _WIN32
-            __spf_printToLongBuf(bufR, L"Необходимо подставить функцию '%s', так как через параметр %d передается итерационная переменная цикла на строке %d и она используется в индексном выражении в обращении к массиву в теле этой функции",
+            __spf_printToLongBuf(bufR, R45,
                 to_wstring(func->funcName).c_str(), idx, loop->lineNumber());
 #endif
             if (needToAddErrors)
@@ -1658,7 +1658,7 @@ static bool hasRecursionChain(vector<FuncInfo*> currentChainCalls, const FuncInf
                 wstring bufE, bufR;
                 __spf_printToLongBuf(bufE, L"Found recursive chain calls: %s, this function will be ignored", to_wstring(chain).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(bufR, L"Была найдена рекурсивная цепочка вызовов: %s, данная функция исключена из рассмотрения", to_wstring(chain).c_str());
+                __spf_printToLongBuf(bufR, R46, to_wstring(chain).c_str());
 #endif
                 messagesForFile.push_back(Messages(ERROR, currentChainCalls[0]->linesNum.first, bufR, bufE, 1014));
                 break;

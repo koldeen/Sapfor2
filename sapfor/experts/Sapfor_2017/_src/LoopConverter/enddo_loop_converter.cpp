@@ -229,7 +229,7 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
         if (curr->variant() == ARITHIF_NODE)
         {
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"Арефметический IF был преобразован в IF-ENDIF");
+            __spf_printToLongBuf(bufR, R96);
 #endif
             convert<convertArithIf>(curr, L"convert arithmetic IF to simple IF", bufR);
             continue;
@@ -237,7 +237,7 @@ static void tryToCorrectLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOf
         else if (curr->variant() == COMGOTO_NODE)
         {
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"ВЫчисляемый GOTO был преобразован в IF-ENDIF");
+            __spf_printToLongBuf(bufR, R97);
 #endif
             convert<convertComGoto>(curr, L"convert computed GOTO to simple IF", bufR);
             continue;
@@ -268,7 +268,7 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
                 sprintf(buf, "ERROR: can not convert to END DO loop on line %d\n", lineNum);
                 addToGlobalBufferAndPrint(buf);
 #ifdef _WIN32
-                currMessages->push_back(Messages(ERROR, lineNum, L"Невозможно автоматически преобразовать цикл в END DO формат", L"can not convert to END DO loop", 2003));
+                currMessages->push_back(Messages(ERROR, lineNum, R98, L"can not convert to END DO loop", 2003));
 #endif
             }
         }
@@ -279,7 +279,7 @@ static void tryToConverLoop(SgForStmt *&forSt, map<SgForStmt*, SgLabel*> &endOfL
             sprintf(buf, "convert to END DO loop on line %d\n", lineNum);
             addToGlobalBufferAndPrint(buf);
 #ifdef _WIN32
-            currMessages->push_back(Messages(NOTE, lineNum, L"Невозможно автоматически преобразовать цикл в END DO формат", L"convert to END DO loop", 2004));
+            currMessages->push_back(Messages(NOTE, lineNum, R99 , L"convert to END DO loop", 2004));
 #endif
         }
     }

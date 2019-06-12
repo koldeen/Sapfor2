@@ -337,7 +337,7 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
 #ifdef _WIN32
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), R94, L"can not convert array assign to loop", 2001));
 #endif
     }
     else
@@ -655,7 +655,7 @@ static vector<SgStatement*> convertFromStmtToLoop(SgStatement *assign, SgFile *f
     {
         __spf_print(1, "WARN: can not convert array assign to loop on line %d\n", assign->lineNumber());
 #ifdef _WIN32
-        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), L"Невозможно автоматически преобразовать данное присваивание к циклу", L"can not convert array assign to loop", 2001));
+        messagesForFile.push_back(Messages(WARR, assign->lineNumber(), R95, L"can not convert array assign to loop", 2001));
 #endif
     }
     else

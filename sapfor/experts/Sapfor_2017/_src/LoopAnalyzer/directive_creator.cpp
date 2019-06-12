@@ -103,7 +103,11 @@ static bool isOnlyTopPerfect(LoopGraph *current, const vector<pair<DIST::Array*,
                             }
 
                             if (dimPos == -1)
-                                return false;
+                            {
+                                found = true; //continue;
+                                break;
+                            }
+
                             if (distribution[k].second->distRule[dimPos] != NONE)
                                 return false;
                             found = true;
@@ -206,7 +210,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                 __spf_printToLongBuf(bufE, L"Can not create distributed link",
                     to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 #ifdef _WIN32
-                __spf_printToLongBuf(bufR, L"Невозможно сопоставить выравнивания массивов, передаваемых в процедуру",
+                __spf_printToLongBuf(bufR, R127,
                     to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 #endif
 
@@ -234,7 +238,7 @@ static bool checkCorrectness(const ParallelDirective &dir,
                     __spf_printToLongBuf(bufE, L"Can not create distributed link for array '%s': dim size of this array is '%d' and it is not equal '%d'", 
                                          to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Невозможно создать с шаблоном для массива '%s': размерность массива '%d' и это не равно '%d'",
+                    __spf_printToLongBuf(bufR, R126,
                                          to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
 #endif
 

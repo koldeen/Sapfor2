@@ -642,7 +642,7 @@ static void isAllOk(const vector<LoopGraph*> &loops, vector<Messages> &currMessa
                 {
                     uniqMessages.insert(itM, bufE);
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Невозможно вычислить количество итераций данного цикла, информация о количестве итераций для всех остальных циклов в области распараллеливания '%s' будет проигнорирована",
+                    __spf_printToLongBuf(bufR, R48,
                                          to_wstring(loops[i]->region->GetName()).c_str());
 #endif
                     currMessages.push_back(Messages(NOTE, loops[i]->lineNum, bufR, bufE, 1016));
@@ -935,8 +935,7 @@ static void checkArraysMapping(vector<LoopGraph*> &loopList, map<DIST::Array*, v
                         __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to different writes to %d dimension, this dimension will deprecated",
                                              to_wstring(elem.first->GetShortName()).c_str(), z + 1);
 #ifdef _WIN32
-                        __spf_printToLongBuf(bufR, L"%d измерение массива '%s' не может быть распределено из-за различных отображений на циклы в операциях присваиваний",
-                                                   z + 1,to_wstring(elem.first->GetShortName()).c_str());
+                        __spf_printToLongBuf(bufR, R85, z + 1,to_wstring(elem.first->GetShortName()).c_str());
 #endif
                         messages.push_back(Messages(ERROR, topLine, bufR, bufw, 1047));
                         elem.first->DeprecateDimension(z);                        
@@ -972,8 +971,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
             wstring bufw, bufR;
             __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed due to all dimensions will deprecated", to_wstring(elem->GetShortName()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен, так как все его измерения запрещены к распределению",
-                                        to_wstring(elem->GetShortName()).c_str());
+            __spf_printToLongBuf(bufR, R86, to_wstring(elem->GetShortName()).c_str());
 #endif
             for (auto &decl : elem->GetDeclInfo())
                 getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufw, 1047));
@@ -1059,8 +1057,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                     wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-                                    __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
-                                                                to_wstring(array->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufR, R87, to_wstring(array->GetShortName()).c_str());
 #endif
                                     getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
                                     deprecated.insert(array);
@@ -1099,8 +1096,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                     wstring bufw, bufR;
                                     __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-                                    __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
-                                                               to_wstring(array->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufR, R88, to_wstring(array->GetShortName()).c_str());
 #endif
                                     getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
                                     deprecated.insert(array);
@@ -1133,8 +1129,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
                                         wstring bufw, bufR;
                                         __spf_printToLongBuf(bufw, L"Array '%s' can not be distributed", to_wstring(inCall->GetShortName()).c_str());
 #ifdef _WIN32
-                                        __spf_printToLongBuf(bufR, L"Массив '%s' не может быть распределен",
-                                                                    to_wstring(inCall->GetShortName()).c_str());
+                                        __spf_printToLongBuf(bufR, R89, to_wstring(inCall->GetShortName()).c_str());
 #endif
                                         getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
                                         deprecated.insert(inCall);

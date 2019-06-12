@@ -125,6 +125,37 @@ depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const set<stri
     return depg;
 }
 
+//TODO: remove?
+static int isOnlyDef(SgStatement *loopSt, const map<SgStatement*, vector<DefUseList>> &defUseByPlace, const string &symb)
+{
+    SgStatement *last = loopSt->lastNodeOfStmt();
+    bool wasFoundSome = false;
+    int count = 0;
+    for (auto st = loopSt; st != last; st = st->lexNext())
+    {
+        auto it = defUseByPlace.find(st);
+        if (it != defUseByPlace.end())
+        {
+            for (auto &elem : it->second)
+            {
+                if (elem.getVar() == symb)
+                {
+                    wasFoundSome = true;
+                    if (elem.isUse())
+                        return -1;
+                    if (elem.isDef())
+                        count++;
+                }
+            }
+        }
+    }
+
+    if (!wasFoundSome)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    return count;
+}
+
 // try to find dependencies: reductions and privates for scalar 
 //                           and regular and other for arrrays
 //TODO: add optimization - dont call omega test for arrays many times
@@ -132,7 +163,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                            set<SgStatement*> &funcWasInit, SgFile *file, vector<ParallelRegion*> regions,
                            vector<Messages> *currMessages,
                            map<SgExpression*, string> &collection,
-                           const map<string, FuncInfo*> &allFuncs)
+                           const map<string, FuncInfo*> &allFuncs, const map<SgStatement*, vector<DefUseList>> &defUseByPlace)
 {
     auto it = allLoops.find(currLoop->lineNum);
     if (it == allLoops.end())
@@ -294,18 +325,8 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
 
                     break;
                 case PRIVATEDEP:
-                    /*if (staticPrivateAnalysis == 0)
-                    {
-                        if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
-                            privatesToAdd.push_back(currNode);
-                    }
-                    else
-                    {
-                        if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
-                            unknownScalarDep.push_back(currNode);
-                    }*/
                     if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
-                        privatesToAdd.push_back(currNode);
+                        unknownScalarDep.push_back(currNode);// privatesToAdd.push_back(currNode);
                     break;
                 case REDUCTIONDEP:
                     if (privVars.find(currNode->varin->symbol()->identifier()) == privVars.end())
@@ -336,7 +357,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"unknown scalar dependencies by '%s' (try to specify its type)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Неизвестная зависимость по скалярной переменной '%s' (попробуйте вручную специфицировать ее тип)", to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R112, to_wstring(unknownScalarDep[k]->varin->symbol()->identifier()).c_str());
 #endif
                     currMessages->push_back(Messages(WARR, unknownScalarDep[k]->stmtin->lineNumber(), messageR, messageE, 3005));
 
@@ -360,5 +381,5 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
     }
     
     for (int k = 0; k < currLoop->children.size(); ++k)
-        tryToFindDependencies(currLoop->children[k], allLoops, funcWasInit, file, regions, currMessages, collection, allFuncs);
+        tryToFindDependencies(currLoop->children[k], allLoops, funcWasInit, file, regions, currMessages, collection, allFuncs, defUseByPlace);
 }

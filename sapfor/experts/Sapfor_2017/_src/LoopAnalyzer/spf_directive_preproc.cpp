@@ -527,7 +527,7 @@ static bool checkShadowAcross(SgStatement *st,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"only positive numbers are supported");
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Разрешены только положительные числа");
+                    __spf_printToLongBuf(messageR, R35);
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1010));
                     retVal = false;
@@ -756,9 +756,9 @@ static bool checkRemote(SgStatement *st,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"no such expression '%s' on loop", to_wstring(remElem.second->unparse()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Нет такого выражения '%s' в цикле", to_wstring(remElem.second->unparse()).c_str());
+                __spf_printToLongBuf(messageR, R36, to_wstring(remElem.second->unparse()).c_str());
 #endif
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1111));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1011));
                 retVal = false;
             }
         }
@@ -815,7 +815,7 @@ static bool checkParallelRegions(SgStatement *st,
                                 __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated on line %d",
                                                      to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #ifdef _WIN32
-                                __spf_printToLongBuf(messageR, L"Неверное имя области: имя '%s' уже объявлено на строке %d",
+                                __spf_printToLongBuf(messageR, R63,
                                                      to_wstring(identSymbol->identifier()).c_str(), iterator->lineNumber());
 #endif
                                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1031));
@@ -845,7 +845,7 @@ static bool checkParallelRegions(SgStatement *st,
                             __spf_printToLongBuf(messageE, L"wrong parallel region identifier: variable '%s' was declarated in common block '%s'",
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Неверное имя области: имя '%s' уже объявлено в common-блоке '%s'",
+                            __spf_printToLongBuf(messageR, R64,
                                                  to_wstring(identSymbol->identifier()).c_str(), to_wstring(commonBlockPair.first).c_str());
 #endif
                             messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1032));
@@ -1038,7 +1038,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"bad directive expression: expected list of variables");
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается список переменных");
+            __spf_printToLongBuf(messageR, R76);
 #endif
             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
 
@@ -1061,7 +1061,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive expression: expected %d nested loops on line %d but got %d",
                                      (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается %d тесновложенных циклов на строке %d, но их всего %d",
+                __spf_printToLongBuf(messageR, R77,
                                      (int)vars.size(), attributeStatement->lineNumber(), forSt->isPerfectLoopNest());
 #endif
                 messagesForFile.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1043));
@@ -1082,7 +1082,7 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
                 __spf_printToLongBuf(messageE, L"bad directive expression: expected variable '%s' at %d position",
                                      to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Неверное выражение в директиве: ожидается переменная '%s' на позиции %d",
+                __spf_printToLongBuf(messageR, R78,
                                      to_wstring(forSt->doName()->identifier()).c_str(), i + 1);
 #endif
                 messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1043));
@@ -1568,7 +1568,7 @@ void addAcrossToLoops(LoopGraph *topLoop,
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"add across dependencies by array '%s' to loop", to_wstring(arrayS->identifier()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(messageR, L"Добавлена across-зависимость к массиву '%s' в цикле", to_wstring(arrayS->identifier()).c_str());
+            __spf_printToLongBuf(messageR, R108, to_wstring(arrayS->identifier()).c_str());
 #endif
             currMessages.push_back(Messages(NOTE, topLoop->lineNum, messageR, messageE, 3001));
 
@@ -1650,7 +1650,7 @@ void addPrivatesToLoops(LoopGraph *topLoop,
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"add private scalar '%s' to loop on line %d", to_wstring(identifier).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, L"Добавлен приватный скаляр '%s' к циклу на строке %d", to_wstring(identifier).c_str(), topLoop->lineNum);
+                __spf_printToLongBuf(messageR, R109, to_wstring(identifier).c_str(), topLoop->lineNum);
 #endif
                 currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3002));
 
@@ -1775,7 +1775,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     __spf_printToLongBuf(messageE, L"add reduction scalar '%s' with operation '%s' to loop on line %d", 
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Добавлена редукционная переменная '%s' с типом операции '%s' к циклу на строке %d",
+                    __spf_printToLongBuf(messageR, R110,
                                          to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str(), to_wstring(oper).c_str(), topLoop->lineNum);
 #endif
                     currMessages.push_back(Messages(NOTE, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3003));
@@ -1788,7 +1788,7 @@ void addReductionsToLoops(LoopGraph *topLoop,
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"unknown type of reduction scalar '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Неизвестный тип редукционной операции по скаляру '%s'", to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R111, to_wstring(addForCurrLoop[k]->varin->symbol()->identifier()).c_str());
 #endif
                     currMessages.push_back(Messages(WARR, addForCurrLoop[k]->stmtin->lineNumber(), messageR, messageE, 3004));
 

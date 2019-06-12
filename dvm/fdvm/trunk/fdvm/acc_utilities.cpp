@@ -306,6 +306,10 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("max1"));
     intrinsicF.insert(string("merge_bits"));
     intrinsicF.insert(string("min"));
+#ifdef __SPF
+    intrinsicF.insert(string("minval"));
+    intrinsicF.insert(string("maxval"));
+#endif
     intrinsicF.insert(string("min0"));
     intrinsicF.insert(string("min1"));
     intrinsicF.insert(string("mod"));

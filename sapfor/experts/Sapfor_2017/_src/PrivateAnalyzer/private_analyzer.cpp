@@ -24,11 +24,6 @@ void PrivateAnalyzer(SgFile *file, vector<FuncInfo*> &funcs)
 }
 
 #if NEW_CFG
-static void FillCFGSets(CFG_ControlFlowGraph* graph)
-{
-    graph->PrivateAnalyzer();
-}
-
 static void ClearMemoryAfterDelay(CFG_ActualDelayedData* d)
 {
     while (d != NULL) 
@@ -81,7 +76,7 @@ void PrivateAnalyzerForMain(SgStatement* start)
     //calls.PrintControlFlows();
 
     //stage 2: data flow analysis
-    FillCFGSets(CGraph);
+    CGraph->PrivateAnalyzer();
     //stage 3: fulfilling loop data
     FillPrivates(CGraph);
 

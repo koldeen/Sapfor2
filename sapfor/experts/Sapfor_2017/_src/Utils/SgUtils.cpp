@@ -691,7 +691,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
             wstring bufE, bufR;
             __spf_printToLongBuf(bufE, L"Can not find declaration for symbol '%s' in current scope", to_wstring(toFind->identifier()).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"Ќевозможно найти определение дл€ символа '%s' в данной области видимости", to_wstring(toFind->identifier()).c_str());
+            __spf_printToLongBuf(bufR, R49, to_wstring(toFind->identifier()).c_str());
 #endif
             itM->second.push_back(Messages(ERROR, toFind->scope()->lineNumber(), bufR, bufE, 1017));
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1257,6 +1257,17 @@ const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const stri
     for (auto &elem : defUseByFunctions[funcName])
         if (elem.getVar() == varName)
             retVal.push_back(elem);    
+
+    return retVal;
+}
+
+map<SgStatement*, vector<DefUseList>> createDefUseMapbyPlace()
+{
+    map<SgStatement*, vector<DefUseList>> retVal;
+
+    for (auto &byFunc : defUseByFunctions)
+        for (auto &elem : byFunc.second)
+            retVal[elem.getPlace()].push_back(elem);
 
     return retVal;
 }

@@ -492,7 +492,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
             wstring bufE, bufR;
             __spf_printToLongBuf(bufE, L"Added remote access for array ref '%s' can significantly reduce performance", to_wstring(remoteExp).c_str());
 #ifdef _WIN32
-            __spf_printToLongBuf(bufR, L"Добаленный REMOTE_ACCESS для обращения к массиву '%s' может привести к сильному замедлению", to_wstring(remoteExp).c_str());
+            __spf_printToLongBuf(bufR, R129, to_wstring(remoteExp).c_str());
 #endif
             messages.push_back(Messages(WARR, line, bufR, bufE, 3009));
         }
@@ -502,7 +502,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
 void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> &under_dvm_dir,
                             const DIST::Arrays<int> &allArrays,
                             const map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo,
-                            const DIST::GraphCSR<int, double, attrType> &reducedG,
+                            DIST::GraphCSR<int, double, attrType> &reducedG,
                             const DataDirective &data,
                             const vector<int> &currVar,
                             const map<int, pair<SgForStmt*, pair<set<string>, set<string>>>> &allLoops,
@@ -528,9 +528,18 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
             if (realRefArrayOnDir.size() != 1)
             {
-                __spf_print(1, "not supported yet\n");
-                //return;
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                vector<vector<tuple<DIST::Array*, int, pair<int, int>>>> allRules(realRefArrayOnDir.size());
+                int tmpIdx = 0;
+                for (auto& array : realRefArrayOnDir)
+                    reducedG.GetAlignRuleWithTemplate(array, allArrays, allRules[tmpIdx++], regionId);
+
+                if (!isAllRulesEqual(allRules))
+                {
+                    __spf_print(1, "not supported yet\n");                 
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+                else
+                    arrayRefOnDir = *(realRefArrayOnDir.begin());
             }
             else
                 arrayRefOnDir = *(realRefArrayOnDir.begin());

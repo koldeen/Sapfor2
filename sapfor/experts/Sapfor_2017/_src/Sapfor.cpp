@@ -149,7 +149,7 @@ static inline void printDvmActiveDirsErrors()
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
 #ifdef _WIN32
-            currMessages.push_back(Messages(ERROR, code, L"Активные DVM-директивы не поддерживаются в данный момент", L"Active DVM directives are not supported yet", 1020));
+            currMessages.push_back(Messages(ERROR, code, R53, L"Active DVM directives are not supported yet", 1020));
 #endif
         }
     }
@@ -247,7 +247,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         {
             __spf_print(1, "  ERROR: null file addition name\n");
 #ifdef _WIN32
-            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+            getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, R102, L"Internal error during unparsing process has occurred", 2007));
 #endif
             throw(-1);
         }
@@ -281,7 +281,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             {
                 __spf_print(1, "ERROR: can not create file '%s'\n", fout_name.c_str());
 #ifdef _WIN32
-                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, L"Возникла непредвиденная ситуация во время генерации выходного текста", L"Internal error during unparsing process has occurred", 2007));
+                getObjectForFileFromMap(file_name, SPF_messages).push_back(Messages(ERROR, 1, R103, L"Internal error during unparsing process has occurred", 2007));
 #endif
                 throw(-1);
             }
@@ -424,7 +424,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             vector<Messages> tmp;
             loopAnalyzer(file, parallelRegions, createdArrays, tmp, DATA_DISTR,
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, true, &(loopGraph.find(file_name)->second));
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(), true, &(loopGraph.find(file_name)->second));
         }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
         {
@@ -435,7 +435,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
                              false, &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -447,7 +447,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls,
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
                          false, &(itFound->second));
 
             currProcessing.second = 0;
@@ -624,7 +624,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, 
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
                          false, &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -917,7 +917,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     wstring messageR, messageE;
                     __spf_printToLongBuf(messageE, L"Can not build align graph from user's DVM directives in this region");
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, L"Невозможно построить дерево выравнивания в данной области распараллеливания, используя пользовательские DVM-директивы");
+                    __spf_printToLongBuf(messageR, R67);
 #endif
                     for (auto &lines : currReg->GetAllLines())
                     {
@@ -1008,7 +1008,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this project");
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данном преокте");
+                    __spf_printToLongBuf(bufR, R130);
 #endif
                     for (auto &funcByFile : allFuncInfo)
                     {
@@ -1026,7 +1026,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Can not find arrays or free loops for distribution in this region");
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Не обнаружены массивы или свободные циклы для распределения в данной области распараллеливания");
+                    __spf_printToLongBuf(bufR, R131);
 #endif
                     for (auto &linesByFile : parallelRegions[z]->GetAllLines())
                     {
@@ -1220,7 +1220,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                             __spf_printToLongBuf(messageE, L"distributed array '%s' in common block '%s' must have declaration in main unit", 
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
 #ifdef _WIN32
-                            __spf_printToLongBuf(messageR, L"Распределенный массив '%s' состоящий в common блоке '%s' должен иметь описание в главной программной единице",
+                            __spf_printToLongBuf(messageR, R75,
                                                  to_wstring(array->GetShortName()).c_str(), to_wstring(nameOfCommon).c_str());
 #endif
                             currMessages.push_back(Messages(ERROR, place.second, messageR, messageE, 1042));
@@ -1553,6 +1553,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         SpfInterval* mainInterval = getMainInterval(&project, intervals);
         createParallelRegions(&project, mainInterval, gCovInfo, allFuncInfo);
+    }
+    else if (curr_regime == SUBST_EXPR)
+    {
+        /*SgStatement *mainUnit = findMainUnit(&project);
+        if (mainUnit)
+            runPrivateAnalysis(mainUnit);
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
 
 #if _WIN32

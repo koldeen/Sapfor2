@@ -50,7 +50,7 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
 #if _WIN32
-                    currMessages.push_back(Messages(ERROR, st->lineNumber(), L"Данный цикл не в END DO формате", L"This loop does not have END DO format", 1018));
+                    currMessages.push_back(Messages(ERROR, st->lineNumber(), R51, L"This loop does not have END DO format", 1018));
 #endif                    
                     checkOK = false;
                 }
@@ -60,7 +60,7 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
             {
                 __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());
 #if _WIN32
-                currMessages.push_back(Messages(ERROR, st->lineNumber(), L"Данный цикл не в END DO формате", L"This loop does not have END DO format", 1018));
+                currMessages.push_back(Messages(ERROR, st->lineNumber(), R50, L"This loop does not have END DO format", 1018));
 #endif          
                 checkOK = false;
             }
@@ -138,7 +138,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 {
                     __spf_print(1, "The equivalence operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
 #if _WIN32
-                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), L"Оператор EQUIVALENCE не поддерживается на данный момент", L"An equivalence operator is not supported yet", 1038));
+                    currMessages[st->fileName()].push_back(Messages(WARR, st->lineNumber(), R70, L"An equivalence operator is not supported yet", 1038));
 #endif
                 }
             }
@@ -148,7 +148,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
                 checkOK = false;
                 __spf_print(1, "The PAUSE operator is not supported yet at line %d of file %s\n", st->lineNumber(), st->fileName());
 #if _WIN32
-                currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), L"Оператор PAUSE является запрещенным в параллельной программе", L"An PAUSE operator is deprecated to parallel", 1038));
+                currMessages[st->fileName()].push_back(Messages(ERROR, st->lineNumber(), R69, L"An PAUSE operator is deprecated to parallel", 1038));
 #endif
             }
             st = st->lexNext();
@@ -225,7 +225,7 @@ bool CommonBlockChecker(SgFile *file, const string &fileName, const map<string, 
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
 #if _WIN32
-                    __spf_printToLongBuf(messageR, L"Переменные '%s' и '%s' находятся в одной области ассоциации (common block '%s'), но имеют разные типы (файлы - %s:%d и %s:%d)",
+                    __spf_printToLongBuf(messageR, R71,
                         to_wstring(vars[i].getName()).c_str(), to_wstring(vars[j].getName()).c_str(), to_wstring(block.first).c_str(),
                         to_wstring(vars[i].getDeclarated()->fileName()).c_str(), vars[i].getDeclarated()->lineNumber(),
                         to_wstring(vars[j].getDeclarated()->fileName()).c_str(), vars[j].getDeclarated()->lineNumber());
@@ -267,7 +267,7 @@ bool FunctionsChecker(SgFile *file, map<string, pair<string, int>> &funcNames, m
                                                 to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(),
                                                 it->second.second, to_wstring(file->filename()).c_str(), st->lineNumber());
 
-                __spf_printToLongBuf(messageR, L"Функция '%s' с одинаковым именем была объявлена в более, чем одном месте: в файле '%s':%d и '%s':%d",
+                __spf_printToLongBuf(messageR, R92,
                                                 to_wstring(funcName).c_str(), to_wstring(it->second.first).c_str(), 
                                                 it->second.second, to_wstring(file->filename()).c_str(), st->lineNumber());
 

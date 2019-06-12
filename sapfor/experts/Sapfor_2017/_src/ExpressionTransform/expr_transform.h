@@ -37,12 +37,13 @@ enum REPLACE_PTR_TYPE { SG_EXPRESSION, SG_STATEMENT };
 void revertReplacements(const std::string &filename, bool back = false);
 
 struct GraphItem {
-    GraphItem(): CGraph(NULL), file_id(-1), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()) {}
+    GraphItem(): CGraph(NULL), file_id(-1), calls(CallData()), commons(CommonData()), dldl(DoLoopDataList()), privateDone(false) {}
     int file_id;
     ControlFlowGraph* CGraph;
     CallData calls;
     CommonData commons;
     DoLoopDataList dldl;
+    bool privateDone;
     ~GraphItem() { if(CGraph) delete CGraph; }
 };
 
@@ -122,3 +123,4 @@ void debugStructure(ControlFlowGraph *CGraph, const std::string &filename);
 bool findCFIsForStmt(SgStatement *st, std::vector <ControlFlowItem*> &cfis);
 std::map<SymbolKey, std::set<ExpressionValue*>> createHeaderInDefs(SgStatement *header);
 ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header);
+void runPrivateAnalysis(SgStatement *main);

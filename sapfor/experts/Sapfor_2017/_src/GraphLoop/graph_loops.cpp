@@ -417,7 +417,7 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
         wstring bufE, bufR;
         __spf_printToLongBuf(bufE, L"Array '%s' can not be distributed", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-        __spf_printToLongBuf(bufR, L"ћассив '%s' не может быть распределен", to_wstring(array->GetShortName()).c_str());
+        __spf_printToLongBuf(bufR, R91, to_wstring(array->GetShortName()).c_str());
 #endif
         messages.push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 1047));
         array->SetNonDistributeFlag(DIST::SPF_PRIV);
@@ -605,19 +605,23 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 }
                 newLoop->lineNumAfterLoop = afterLoop->lineNumber();
 
+                vector<int> tmpLines;
+
                 newLoop->fileName = st->fileName();
                 newLoop->perfectLoop = ((SgForStmt*)st)->isPerfectLoopNest();
                 newLoop->hasGoto = hasGoto(st, st->lastNodeOfStmt(), newLoop->linesOfInternalGoTo, newLoop->linesOfExternalGoTo, labelsRef);
                 newLoop->hasPrints = hasThisIds(st, newLoop->linesOfIO, { WRITE_STAT, READ_STAT, OPEN_STAT, CLOSE_STAT, PRINT_STAT } ); // FORMAT_STAT
                 newLoop->hasStops = hasThisIds(st, newLoop->linesOfStop, { STOP_STAT, PAUSE_NODE });
+                newLoop->hasDvmIntervals = hasThisIds(st, tmpLines, { DVM_INTERVAL_DIR, DVM_ENDINTERVAL_DIR, DVM_EXIT_INTERVAL_DIR });
                 newLoop->hasNonRectangularBounds = hasNonRect(((SgForStmt*)st), parentLoops, messages);
+
                 auto itTime = mapIntervals.find(newLoop->lineNum);
                 if (itTime != mapIntervals.end() && itTime->second->exec_time != 0)
                     newLoop->executionTimeInSec = itTime->second->exec_time / itTime->second->exec_count;
                 else if (mapIntervals.size())
                 {
 #ifdef _WIN32
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, L"Ќевозможно считать DVM-статистику дл€ получени€ времен", L"Can not find execution time in statistic", 3016));
+                    messages.push_back(Messages(NOTE, newLoop->lineNum, R137, L"Can not find execution time in statistic", 3016));
 #endif
                 }
 

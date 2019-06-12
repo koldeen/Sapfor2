@@ -116,7 +116,7 @@ static void fillDef(SgExpression *ex, vector<SgExpression*> &useL, vector<SgExpr
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+                    __spf_printToLongBuf(bufR, R82, to_wstring(currInfo->funcName).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, currLine, bufR, bufE, 1046));
                     throw -991;
@@ -253,7 +253,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                         wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+                        __spf_printToLongBuf(bufR, R83, to_wstring(currInfo->funcName).c_str());
 #endif
                         messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufR, bufE, 1046));
                         throw -991;
@@ -501,7 +501,7 @@ static void defUseVar(SgStatement *stmt, SgStatement *func, SgExpression **def, 
                     wstring bufE, bufR;
                     __spf_printToLongBuf(bufE, L"Count of formal and actual parameters are not equal for function call '%s'", to_wstring(currInfo->funcName).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, L"Количество формальных и фактических параметров не одинаково для вызова данной функции '%s'", to_wstring(currInfo->funcName).c_str());
+                    __spf_printToLongBuf(bufR, R84, to_wstring(currInfo->funcName).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, stmt->lineNumber(), bufR, bufE, 1046));
                     throw -991;

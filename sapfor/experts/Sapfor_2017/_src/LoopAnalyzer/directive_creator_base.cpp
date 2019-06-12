@@ -642,11 +642,10 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
                                     __spf_printToLongBuf(bufE, L"arrays '%s' and '%s' have different align rules in this loop according to their write accesses",
                                                          to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
 #ifdef  _WIN32
-                                    __spf_printToLongBuf(bufR, L"У массивов '%s' и '%s' разные правила выравнивания согласно обращению на запись в в данном цикле",
-                                                         to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufR, R132, to_wstring(array1->GetShortName()).c_str(), to_wstring(array2->GetShortName()).c_str());
 #endif 
 
-                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufR, bufE, 4011));
+                                    messages.push_back(Messages(WARR, loopInfo.first->lineNum, bufR, bufE, 3011));
                                     sortedLoopGraph[loopInfo.first->lineNum]->hasDifferentAlignRules = true;
                                     break;
                                 }
