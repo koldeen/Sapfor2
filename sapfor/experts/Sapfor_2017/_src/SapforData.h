@@ -79,6 +79,7 @@ std::set<passes> passesIgnoreStateDone;
 
 //for files info
 std::map<std::string, int> lineInfo; // file -> lines count
+std::map<std::string, std::pair<std::set<int>, std::set<int>>> dirsInfo; // file -> dirs <lines SPF, lines DVM> count
 std::map<std::string, std::set<std::string>> includeDependencies; // file -> includes
 //
 

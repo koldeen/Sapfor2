@@ -4152,7 +4152,13 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
 #if __SPF
         const int var = pt->variant();
         if (var == CONTROL_END)
-            return isSgExecutableStatement(pt->controlParent());
+        {
+            SgStatement *cp = pt->controlParent();
+            if (cp->variant() == PROG_HEDR || cp->variant() == PROC_HEDR || cp->variant() == FUNC_HEDR)
+                return (SgExecutableStatement*)pt;
+            else
+                return isSgExecutableStatement(cp);
+        }
         else if (var == DVM_INHERIT_DIR || var == DVM_ALIGN_DIR || var == DVM_DYNAMIC_DIR ||
                  var == DVM_DISTRIBUTE_DIR || var == DVM_VAR_DECL || var == DVM_SHADOW_DIR ||
                  var == DVM_HEAP_DIR || var == DVM_CONSISTENT_DIR || var == DVM_POINTER_DIR ||

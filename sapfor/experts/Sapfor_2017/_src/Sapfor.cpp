@@ -155,20 +155,18 @@ static inline void printDvmActiveDirsErrors()
     }
 }
 
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group)
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const wchar_t* messageR, const char* messageE, const int group)
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
-    __spf_print(1, "WARR: line %d: %s\n", line, message);
-    //TODO
-    currM.push_back(Messages(WARR, line, to_wstring(message), to_wstring(message), group));
+    __spf_print(1, "WARR: line %d: %s\n", line, messageE);
+    currM.push_back(Messages(WARR, line, messageR, to_wstring(messageE), group));
 }
 
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group)
+extern "C" void printLowLevelNote(const char *fileName, const int line, const wchar_t *messageR, const char *messageE, const int group)
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
-    __spf_print(1, "NOTE: line %d: %s\n", line, message);
-    //TODO
-    currM.push_back(Messages(NOTE, line, to_wstring(message), to_wstring(message), group));
+    __spf_print(1, "NOTE: line %d: %s\n", line, messageE);
+    currM.push_back(Messages(NOTE, line, messageR, to_wstring(messageE), group));
 }
 
 static bool isDone(const int curr_regime)
@@ -743,6 +741,21 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 if (it == lineInfo.end())
                     it = lineInfo.insert(it, make_pair(fName, 0));
                 it->second = std::max(it->second, line);
+
+                if (isSPF_stat(st))
+                {
+                    auto itD = dirsInfo.find(fName);
+                    if (itD == dirsInfo.end())
+                        itD = dirsInfo.insert(itD, make_pair(fName, make_pair(set<int>(), set<int>())));
+                    itD->second.first.insert(line);
+                }
+                if (isDVM_stat(st))
+                {
+                    auto itD = dirsInfo.find(fName);
+                    if (itD == dirsInfo.end())
+                        itD = dirsInfo.insert(itD, make_pair(fName, make_pair(set<int>(), set<int>())));
+                    itD->second.second.insert(line);
+                }
                 st = st->lexNext();
             }
         }

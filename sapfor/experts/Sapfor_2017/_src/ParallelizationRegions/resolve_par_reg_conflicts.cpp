@@ -226,7 +226,7 @@ static void recursiveFill(SgStatement *st,
                 checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
                 checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
 
-                if (!array->GetNonDistributeFlag())
+                if (!array->GetNonDistributeFlag() || array->GetLocation().first == DIST::l_PARAMETER)
                 {
                     auto commonBlock = isArrayInCommon(commonBlocks, array);
                     if (commonBlock)
@@ -1488,6 +1488,24 @@ bool checkRegionsResolving(const vector<ParallelRegion*> &regions,
     return error;
 }
 
+//check: A = B
+static bool isArrayAssign(SgStatement *st)
+{
+    if (st->variant() != ASSIGN_STAT)
+        return false;
+    if (st->expr(0)->variant() != ARRAY_REF)
+        return false;
+    if (st->expr(1)->variant() != ARRAY_REF)
+        return false;
+
+    if (st->expr(0)->lhs() != NULL || st->expr(0)->rhs() != NULL)
+        return false;
+    if (st->expr(1)->lhs() != NULL || st->expr(1)->rhs() != NULL)
+        return false;
+
+    return true;
+}
+
 int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     bool error = false;
@@ -1778,51 +1796,50 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
                         SgStatement *start = NULL;
                         SgStatement *end = lines.stats.first->GetOriginal()->lexPrev()->lexPrev();
 
-                        for (SgStatement *st = end; st && st->lineNumber() < 0; st = st->lexPrev())
+                        for (SgStatement *st = end; st && st->lineNumber() < 0 && isArrayAssign(st); st = st->lexPrev())
                             start = st;
 
-                        if (start)
-                        {
-                            // DVM INTERVAL N
-                            SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
-                            SgExprListExp *newNode = new SgExprListExp();
-                            int val = getIntervalNumber(current_file_id, lines.stats.first->GetOriginal()->lexPrev()->lineNumber(), region->GetId());
-                            SgValueExp *valNode = new SgValueExp(val);
-                            newNode->setLhs(valNode);
-                            interval->setExpression(0, *newNode);
-                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
-                            start->insertStmtBefore(*interval, *start->controlParent());
+                        // DVM END INTERVAL
+                        SgStatement *interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                        interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
+                        end->insertStmtAfter(*interval, *end->controlParent());
 
-                            // DVM END INTERVAL
-                            interval = new SgStatement(DVM_ENDINTERVAL_DIR);
-                            interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
+                        // DVM INTERVAL N
+                        interval = new SgStatement(DVM_INTERVAL_DIR);
+                        SgExprListExp *newNode = new SgExprListExp();
+                        int val = getIntervalNumber(current_file_id, lines.stats.first->GetOriginal()->lexPrev()->lineNumber(), region->GetId());                        
+                        newNode->setLhs(new SgValueExp(val));
+                        interval->setExpression(0, *newNode);
+                        interval->setlineNumber(lines.stats.first->GetOriginal()->lineNumber());
+                        if (start)
+                            start->insertStmtBefore(*interval, *start->controlParent());
+                        else
                             end->insertStmtAfter(*interval, *end->controlParent());
-                        }
+
 
                         // create DVM INTERVAL after region
                         start = lines.stats.second->GetOriginal()->lexNext()->lexNext();
                         end = NULL;
 
-                        for (SgStatement *st = start; st && !st->lineNumber(); st = st->lexNext())
+                        for (SgStatement *st = start; st && !st->lineNumber() && isArrayAssign(st); st = st->lexNext())
                             end = st;
 
-                        if (end)
-                        {
-                            // DVM INTERVAL N
-                            SgStatement *interval = new SgStatement(DVM_INTERVAL_DIR);
-                            SgExprListExp *newNode = new SgExprListExp();
-                            int val = getIntervalNumber(current_file_id, lines.stats.second->GetOriginal()->lexNext()->lineNumber(), region->GetId());
-                            SgValueExp *valNode = new SgValueExp(val);
-                            newNode->setLhs(valNode);
-                            interval->setExpression(0, *newNode);
-                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
-                            start->insertStmtBefore(*interval, *start->controlParent());
+                        // DVM INTERVAL N
+                        interval = new SgStatement(DVM_INTERVAL_DIR);
+                        newNode = new SgExprListExp();
+                        val = getIntervalNumber(current_file_id, lines.stats.second->GetOriginal()->lexNext()->lineNumber(), region->GetId());
+                        newNode->setLhs(new SgValueExp(val));
+                        interval->setExpression(0, *newNode);
+                        interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
+                        start->insertStmtBefore(*interval, *start->controlParent());
 
-                            // DVM END INTERVAL
-                            interval = new SgStatement(DVM_ENDINTERVAL_DIR);
-                            interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
+                        // DVM END INTERVAL
+                        interval = new SgStatement(DVM_ENDINTERVAL_DIR);
+                        interval->setlineNumber(lines.stats.second->GetOriginal()->lineNumber());
+                        if (end)
                             end->insertStmtAfter(*interval, *end->controlParent());
-                        }
+                        else
+                            start->insertStmtBefore(*interval, *start->controlParent());
                     }
                 }
             }

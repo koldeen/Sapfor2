@@ -1272,7 +1272,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     conv = convertFromSumToLoop(st, file, messagesForFile);
                 else
                 {
-                    if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP)
+                    if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP || st->expr(1)->variant() == SUBT_OP)
                         conv = convertFromStmtToLoop(st, file, messagesForFile);
                     else
                     {

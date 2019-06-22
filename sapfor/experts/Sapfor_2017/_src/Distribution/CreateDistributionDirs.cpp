@@ -335,7 +335,7 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
 }
 
 
-static void createNewAlignRule(DIST::Array *alignArray, DIST::Arrays<int> &allArrays,
+static void createNewAlignRule(DIST::Array *alignArray, const DIST::Arrays<int> &allArrays,
                                vector<tuple<DIST::Array*, int, pair<int, int>>> &rules,
                                DataDirective &dataDirectives)
 {
@@ -435,7 +435,7 @@ static string printRule(const vector<tuple<DIST::Array*, int, pair<int, int>>> &
 }
 
 typedef vector<vector<tuple<DIST::Array*, int, attrType>>> AssignType;
-int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
+int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
                     const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, map<string, vector<Messages>> &SPF_messages)
 {
     set<DIST::Array*> distArrays;

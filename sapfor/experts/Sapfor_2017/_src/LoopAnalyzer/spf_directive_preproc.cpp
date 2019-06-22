@@ -782,7 +782,9 @@ static bool checkParallelRegions(SgStatement *st,
 {
     bool retVal = true;
 
-    if (isSgExecutableStatement(st->lexNext()) || st->lexNext()->variant() == ENTRY_STAT)
+    bool execNext = isSgExecutableStatement(st->lexNext());
+
+    if (execNext || st->lexNext()->variant() == ENTRY_STAT)
     {
         if (st->variant() == SPF_PARALLEL_REG_DIR)
         {
@@ -988,9 +990,9 @@ static bool checkParallelRegions(SgStatement *st,
     else
     {
 #ifdef _WIN32
-        BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "all DATA statements", L"всех операторов DATA", st->lineNumber());
+        BAD_POSITION_FULL(1, ERROR, "after", L"после", "", L"", "all declaration statements", L"всех операторов объявления", st->lineNumber());
 #else
-        BAD_POSITION(1, ERROR, "after", "", "all DATA statements", st->lineNumber());
+        BAD_POSITION(1, ERROR, "after", "", "all declaration statements", st->lineNumber());
 #endif
         retVal = false;
     }

@@ -9,8 +9,8 @@
 #define PRIVATE_ANALYSIS_NO_RECURSION_ANALYSIS 653
 
 #ifdef __SPF
-extern "C" void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group);
-extern "C" void printLowLevelNote(const char *fileName, const int line, const char *message, const int group);
+extern "C" void printLowLevelWarnings(const char *fileName, const int line, const wchar_t* messageR, const char* messageE, const int group);
+extern "C" void printLowLevelNote(const char *fileName, const int line, const wchar_t *messageR, const char *messageE, const int group);
 
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type);
 extern "C" void removeFromCollection(void *pointer);

@@ -1666,6 +1666,19 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                 cond = false;
                         }
 
+                        // detect operator: A[(:,:,:)] = F(X[(:,:,:)], Y[(:,:,:)], Z[(:,:,:)], ...)
+                        //TODO: check right part
+                        if (st->expr(0)->variant() == ARRAY_REF)
+                        {
+                            SgExpression *left = st->expr(0);
+                            set<SgSymbol*> ddots;
+                            vector<SgExpression*> dummy;
+                            fillVars(st->expr(0), { DDOT }, ddots, dummy);
+
+                            if ((left->lhs() == NULL && left->rhs() == NULL ) || ddots.size() != 0)
+                                cond = false;
+                        }
+
                         if (cond)
                         {
                             const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();

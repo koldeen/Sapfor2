@@ -746,17 +746,18 @@ bool isDVM_stat(SgStatement *st)
     const int var = st->variant();
 
     //for details see dvm_tag.h
-    if ((var >= 128 && var <= 129) ||
-        (var >= 146 && var <= 149) ||
-        (var >= 211 && var <= 224) ||
-        (var >= 247 && var <= 249) ||
-        (var >= 605 && var < 626) ||
-        (var > 626 && var <= 634) ||
-        (var >= 900 && var <= 949) ||
-        (var == 277 || var == 299) ||
-        (var == 296) ||
-        (var >= 705 && var == 740))
-        ret = true;
+    if ((var >= DVM_INTERVAL_DIR && var <= DVM_ENDINTERVAL_DIR) ||
+        (var >= DVM_DEBUG_DIR && var <= DVM_TRACEOFF_DIR) ||
+        (var >= DVM_PARALLEL_ON_DIR && var <= DVM_SHADOW_DIR) ||
+        (var >= DVM_NEW_VALUE_DIR && var <= DVM_POINTER_DIR) ||
+        (var >= DVM_TASK_REGION_DIR && var < FORALL_STAT) ||
+        (var > FORALL_STAT && var <= DVM_SHADOW_ADD_DIR) ||
+        (var >= ACC_REGION_DIR && var <= ACC_ASYNC_OP) ||
+        (var == DVM_DISTRIBUTE_DIR || var == DVM_REDISTRIBUTE_DIR) ||
+        (var == HPF_TEMPLATE_STAT) ||
+        (var >= BLOCK_OP && var <= STAGE_OP) || 
+        (var >= INDIRECT_OP && var <= SHADOW_NAMES_OP))
+            ret = true;
     return ret;
 }
 
@@ -766,7 +767,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= 950 && var <= 958)
+    if (var >= SPF_ANALYSIS_DIR && var <= SPF_FISSION_OP)
         ret = true;
     return ret;
 }

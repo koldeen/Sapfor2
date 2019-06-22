@@ -169,11 +169,12 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
             }
 
         //TODO arraysAssignments
+        /*
         if(top->variant() == ARRAY_REF) {
 
             if(symbol.getUnparsed() == top->unparse())
                 return true;
-        }
+        }*/
 
         SgExpression *rhs = top->rhs();
         SgExpression *lhs = top->lhs();

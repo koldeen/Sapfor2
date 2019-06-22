@@ -9,6 +9,7 @@ extern int parallizeFreeLoops;
 extern int automaticDeprecateArrays;
 extern int maxShadowWidth;
 extern int langOfMessages;
+extern bool removeNestedIntervals;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -132,6 +133,8 @@ enum optionNames {
     MAX_SHADOW_WIDTH,
     OUTPUT_UPPER,
     TRANSLATE_MESSAGES,
+    KEEP_LOOPS_CLOSE_NESTING,
+    KEEP_GCOV,
     EMPTY_OPTION
 };
 

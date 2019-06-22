@@ -426,7 +426,17 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
             prevLastNode = prevLastNode->lexPrev();
 
         if (lastNode->variant() == RETURN_STAT || lastNode->variant() == EXIT_STMT || lastNode->variant() == STOP_STAT)
-            func_inters->ends.push_back(prevLastNode);
+        {
+            bool cond = false;
+            if (lastNode->lexNext()->variant() == CONTROL_END)
+                if (isSgProgHedrStmt(lastNode->lexNext()->controlParent()))
+                    cond = true;
+
+            if (cond)
+                func_inters->ends.push_back(lastNode);
+            else
+                func_inters->ends.push_back(prevLastNode);
+        }
         else
             func_inters->ends.push_back(lastNode);
 

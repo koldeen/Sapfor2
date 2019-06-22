@@ -1218,6 +1218,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
     if (dvmhModule)
         dvmhModuleSt[dvmhModule] = set<string>();
 
+    currProcessing.first = file->filename();
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
@@ -1248,6 +1249,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             
             if (st->variant() == CONTAINS_STMT)
                 break;
+            currProcessing.second = st->lineNumber();
 
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT || currV == COMM_STAT)

@@ -32,6 +32,7 @@
 #include "../Predictor/PredictScheme.h"
 #include "../DynamicAnalysis/gcov_info.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
+#include "../Distribution/CreateDistributionDirs.h"
 
 using std::string;
 using std::wstring;
@@ -41,6 +42,7 @@ using std::vector;
 using std::pair;
 using std::tuple;
 using std::to_string;
+using std::make_pair;
 
 static void setOptions(const int *options)
 {
@@ -53,6 +55,7 @@ static void setOptions(const int *options)
     maxShadowWidth = options[MAX_SHADOW_WIDTH];
     out_upper_case = options[OUTPUT_UPPER];
     langOfMessages = options[TRANSLATE_MESSAGES];
+    removeNestedIntervals = (options[KEEP_LOOPS_CLOSE_NESTING] == 1);
 }
 
 static int strLen(const short *shString)
@@ -422,9 +425,7 @@ static void printDeclArraysState()
 }
 
 extern vector<ParallelRegion*> parallelRegions;
-extern uint64_t currentAvailMemory;
-extern int QUALITY;
-extern int SPEED;
+// UNUSED: availMemory, quality_1, quality_2
 int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                              short *&outputMessage, int *&outputMessageSize, uint64_t availMemory, int quality_1, int quality_2, int onlyAnalysis)
 {
@@ -434,26 +435,13 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
     clearGlobalMessagesBuffer();
     setOptions(options);
 
-    //use only 80% of available memory
-    currentAvailMemory = availMemory * 0.8;
     int retSize = -1;
     try
     {
-        //printf("SAPFOR: current quality = %d, speed = %d\n", quality_1, quality_2);
-        if (quality_1 >= 0 && quality_1 <= 100)
-            QUALITY = quality_1;
-        else
-            QUALITY = 0;
-        
-        if (quality_2 >= 0 && quality_2 <= 100)
-            SPEED = quality_2;
-        else
-            SPEED = 0;
-
         if (onlyAnalysis)
             runPassesForVisualizer(projName, { LOOP_ANALYZER_DATA_DIST_S1 });
         else
-            runPassesForVisualizer(projName, { CREATE_DISTR_DIRS });
+            runPassesForVisualizer(projName, { CREATE_TEMPLATE_LINKS });
 
         string resVal = "";
         resVal += to_string(parallelRegions.size());
@@ -462,6 +450,118 @@ int SPF_GetArrayDistribution(int winHandler, int *options, short *projName, shor
 
         copyStringToShort(result, resVal);
         retSize = (int)resVal.size() + 1;
+    }
+    catch (int ex)
+    {
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL with code %d\n", retSize);
+    MessageManager::setWinHandler(-1);
+    return retSize;
+}
+
+extern map<string, vector<Messages>> SPF_messages;
+extern map<DIST::Array*, set<DIST::Array*>> arrayLinksByFuncCalls;
+
+//toModify[0] = size, toModify[1] arrayAddr, all triplets to modify for each dims
+//ex: toModify A[1*J + 1]: [0] = 4, [1] = x000A, [2] = 0, [3] = 1, [4] = 1
+int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize,
+                                int regId, int64_t *toModify)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    printDeclArraysState();
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retSize = 0;
+    try
+    {
+        if (toModify == NULL || regId < 0)
+            throw (-22);
+
+        ParallelRegion *reg = NULL;
+        for (int k = 0; k < parallelRegions.size(); ++k)
+        {
+            if (regId == parallelRegions[k]->GetId())
+            {
+                reg = parallelRegions[k];
+                break;
+            }
+        }
+
+        if (reg == NULL)
+            throw (-23);
+
+        map<DIST::Array*, vector<pair<bool, pair<int, int>>>> data;
+        auto arrays = reg->GetAllArrays().GetArrays();
+        for (int z = 1; z < *toModify; ++z)
+        {
+            int64_t addr = toModify[z];
+            auto it = arrays.find((DIST::Array*)addr);
+            if (it == arrays.end())
+                throw (-24);
+
+            if ((*it)->IsLoopArray())
+                throw (-26);
+            if ((*it)->IsTemplate())
+                throw (-27);
+
+            auto it2 = data.find(*it);
+            if (it2 != data.end())
+                throw (-25);
+
+            it2 = data.insert(it2, make_pair(*it, vector<pair<bool, pair<int, int>>>()));
+            for (int k = z + 1; k < z + 1 + 3 * (*it)->GetDimSize(); k *= 3)
+                it2->second[toModify[k]] = make_pair(true, make_pair((int)toModify[k + 1], (int)toModify[k + 2]));
+            z += (*it)->GetDimSize();
+        }
+
+        //check equal
+        bool needToRecalc = false;
+        for (auto &elem : data)
+        {
+            auto oldRules = elem.first->GetAlignRulesWithTemplate(regId);
+            for (int z = 0; z < oldRules.size(); ++z)
+            {
+                if (oldRules[z] == elem.second[z].second)
+                    elem.second[z].first = false;
+                else
+                    needToRecalc = true;
+            }
+        }
+        
+        DIST::GraphCSR<int, double, attrType> &reducedG = reg->GetReducedGraphToModify();
+        const DIST::Arrays<int> &allArrays = reg->GetAllArrays();
+        DataDirective &dataDirectives = reg->GetDataDirToModify();
+
+        // recalculate links
+        if (needToRecalc)
+        {
+            reducedG.cleanCacheLinks();
+            dataDirectives.alignRules.clear();
+
+            // modify reduced graph
+            
+            createAlignDirs(reducedG, allArrays, dataDirectives, reg->GetId(), arrayLinksByFuncCalls, SPF_messages);
+        }
+
+        __spf_print(1, "*** NEW RULES FOR PARALLEL REGION '%s':\n", reg->GetName().c_str());
+        auto result = dataDirectives.GenAlignsRules();
+
+        for (int i = 0; i < result.size(); ++i)
+            __spf_print(1, "  %s\n", result[i].c_str());
     }
     catch (int ex)
     {
@@ -513,7 +613,7 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         for (int i = 0, k = 0; i < *varLen; i += 3, ++k)
         {
             printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
-            varLens[(int)variants[i + 2]].push_back(std::make_pair(variants[i], variants[i + 1]));
+            varLens[(int)variants[i + 2]].push_back(make_pair(variants[i], variants[i + 1]));
         }
 
         if (varLens.size() != parallelRegions.size())
@@ -820,6 +920,7 @@ int SPF_GetAllDeclaratedArrays(int winHandler, int *options, short *projName, sh
 }
 
 extern map<string, int> lineInfo;
+extern map<string, pair<set<int>, set<int>>> dirsInfo;
 int SPF_GetFileLineInfo(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                          short *&outputMessage, int *&outputMessageSize)
 {
@@ -838,7 +939,12 @@ int SPF_GetFileLineInfo(int winHandler, int *options, short *projName, short *&r
         {
             if (it != lineInfo.begin())
                 resVal += "@";
-            resVal += it->first + "@" + to_string(it->second);
+
+            auto itD = dirsInfo.find(it->first);
+            if (itD == dirsInfo.end())
+                resVal += it->first + "@" + to_string(it->second) + "_0_0";
+            else
+                resVal += it->first + "@" + to_string(it->second) + "_" + to_string(itD->second.first.size()) + "_" + to_string(itD->second.second.size());
         }
 
         copyStringToShort(result, resVal);
