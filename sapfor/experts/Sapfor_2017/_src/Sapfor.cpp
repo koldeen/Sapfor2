@@ -1148,7 +1148,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRIVATE_ANALYSIS_SPF)
     {
-        SgStatement *mainUnit = findMainUnit(&project);
+        SgStatement *mainUnit = findMainUnit(&project, SPF_messages);
         if (mainUnit)
         {
             //PrivateAnalyzerForMain(mainUnit);
@@ -1207,7 +1207,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             __spf_print(1, "*** FOR PARALLEL REGION '%s':\n", parallelRegions[z]->GetName().c_str());
             result = dataDirectives.GenAlignsRules();
 
-            SgStatement *mainUnit = findMainUnit(&project);
+            SgStatement *mainUnit = findMainUnit(&project, SPF_messages);
+
             map<string, vector<SgExpression*>> commonBlocks;
             checkNull(mainUnit, convertFileName(__FILE__).c_str(), __LINE__);
             getCommonBlocksRef(commonBlocks, mainUnit, mainUnit->lastNodeOfStmt());
@@ -1485,7 +1486,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             }
         }
                         
-        SpfInterval *mainIterval = getMainInterval(&project, intervals);
+        SpfInterval *mainIterval = getMainInterval(&project, intervals, SPF_messages);
         topologies.clear();
         if (maxSizeDist)
         {
@@ -1564,7 +1565,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == CREATE_PARALLEL_REGIONS)
     {
-        SpfInterval* mainInterval = getMainInterval(&project, intervals);
+        SpfInterval* mainInterval = getMainInterval(&project, intervals, SPF_messages);
         createParallelRegions(&project, mainInterval, gCovInfo, allFuncInfo);
     }
     else if (curr_regime == SUBST_EXPR)
@@ -1694,6 +1695,9 @@ static SgProject* createProject(const char *proj_name)
         correctModuleSymbols(&(project->file(z)));
         replaceStructuresToSimpleTypes(&(project->file(z)));
     }
+
+    //check main unit
+    findMainUnit(project, SPF_messages);
 
     Statement::activeConsistentchecker();
     return project;

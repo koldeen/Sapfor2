@@ -1071,6 +1071,7 @@ static void replaceConstants(const string &file, SgStatement *st)
                 if (findConstRef(currS->expr(i)))
                 {
                     original[i] = currS->expr(i)->copyPtr();
+
                     SgExpression *copy = ReplaceConstant(original[i]);
                     calculate(copy);
                     toRepl[i] = copy;

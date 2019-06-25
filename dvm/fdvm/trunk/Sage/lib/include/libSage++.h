@@ -423,6 +423,7 @@ friend SgExpression &SgBitNumbOp( SgExpression &lhs, SgExpression &rhs);
   void addAttribute(SgAttribute *att);
   SgAttribute *getAttribute(int i);
   SgAttribute *getAttribute(int i,int type);
+  void addAttributeTree(SgAttribute* firstAtt);
 };
 
 class SgSymbol{

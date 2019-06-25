@@ -7343,6 +7343,12 @@ void SgExpression::addAttribute(SgAttribute *att)
       }
 }
 
+void SgExpression::addAttributeTree(SgAttribute* firstAtt)
+{
+    if (!firstAtt)
+        return;
+    SetMappingInTableForLlndAttribute(thellnd, firstAtt);
+}
 
 void SgExpression::addAttribute(int type)
 {

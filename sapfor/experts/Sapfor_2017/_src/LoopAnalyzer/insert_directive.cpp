@@ -1188,6 +1188,40 @@ static string getFullArrayName(SgSymbol *symb)
     return fullArrayName;
 }
 
+static vector<SgExpression*> createVarListFromDecl(const int currV, SgStatement *st)
+{
+    vector<SgExpression*> varList;
+    if (currV == COMM_STAT)
+    {
+        map<string, vector<SgExpression*>> commonBlocks;
+        getCommonBlocksRef(commonBlocks, st, st->lexNext());
+        for (auto &elem : commonBlocks)
+        {
+            for (auto &commList : elem.second)
+            {
+                SgExpression *list = commList->lhs();
+                while (list)
+                {
+                    varList.push_back(list->lhs());
+                    list = list->rhs();
+                }
+            }
+        }
+    }
+    else
+    {
+        SgVarDeclStmt *varDecl = (SgVarDeclStmt*)st;
+        SgExpression *varL = varDecl->varList();
+        while (varL)
+        {
+            varList.push_back(varL->lhs());
+            varL = varL->rhs();
+        }
+    }
+
+    return varList;
+}
+
 void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDirective &dataDir, 
                               const set<string> &distrArrays, const vector<string> &distrRules, 
                               const vector<vector<dist>> &distrRulesSt,
@@ -1254,34 +1288,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT || currV == COMM_STAT)
             {
-                vector<SgExpression*> varList;
-                if (currV == COMM_STAT)
-                {
-                    map<string, vector<SgExpression*>> commonBlocks;
-                    getCommonBlocksRef(commonBlocks, st, st->lexNext());
-                    for (auto &elem : commonBlocks)
-                    {
-                        for (auto &commList : elem.second)
-                        {
-                            SgExpression *list = commList->lhs();                            
-                            while (list)
-                            {
-                                varList.push_back(list->lhs());
-                                list = list->rhs();
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    SgVarDeclStmt *varDecl = (SgVarDeclStmt*)st;
-                    SgExpression *varL = varDecl->varList();
-                    while (varL)
-                    {
-                        varList.push_back(varL->lhs());
-                        varL = varL->rhs();
-                    }
-                }
+                auto varList = createVarListFromDecl(currV, st);
 
                 set<DIST::Array*> dynamicArrays;
                 set<DIST::Array*> dynamicArraysLocal;
@@ -1606,17 +1613,16 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                 break;
 
             const int currV = st->variant();
-            if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT)
+            if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT || currV == COMM_STAT)
             {
-                SgVarDeclStmt *varDecl = (SgVarDeclStmt*)st;
-                SgExpression *varList = varDecl->varList();
-                
+                auto varList = createVarListFromDecl(currV, st);
+                                
                 set<DIST::Array*> declaratedDistrArrays;
-                while (varList)
+                for (auto &varExpr : varList)
                 {
-                    if (varList->lhs()->variant() == ARRAY_REF)
+                    if (varExpr->variant() == ARRAY_REF)
                     {
-                        SgSymbol *currSymb = OriginalSymbol(varList->lhs()->symbol());
+                        SgSymbol *currSymb = OriginalSymbol(varExpr->symbol());
                         const string fullArrayName = getFullArrayName(currSymb);
 
                         if (distrArrays.find(fullArrayName) != distrArrays.end())
@@ -1627,7 +1633,6 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
                                 declaratedDistrArrays.insert(itArr->second.first);
                         }
                     }
-                    varList = varList->rhs();
                 }
 
                 vector<pair<SgExpression*, SgExpression*>> shadowsSpecs;

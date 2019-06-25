@@ -35,10 +35,13 @@ void getCommonBlocksRef(std::map<std::string, std::vector<SgExpression*>> &commo
 
 std::tuple<int, std::string, std::string> getFromUniqTable(SgSymbol *symb);
 std::tuple<int, std::string, std::string> getUniqName(const std::map<std::string, std::vector<SgExpression*>> &commonBlocks, SgStatement *decl, SgSymbol *symb);
-SgStatement* findMainUnit(SgProject *proj);
+SgStatement* findMainUnit(SgProject *proj, std::map<std::string, std::vector<Messages>>& SPF_messages);
 
 template<typename IN_TYPE, typename OUT_TYPE>
 const std::vector<OUT_TYPE> getAttributes(IN_TYPE st, const std::set<int> dataType);
+
+template<typename IN_TYPE>
+void deleteAttributes(IN_TYPE st, const std::set<int> dataType);
 
 void constructDefUseStep1(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions, std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::vector<Messages> &messages);
 void constructDefUseStep2(SgFile *file, std::map<std::string, std::vector<DefUseList>> &defUseByFunctions);

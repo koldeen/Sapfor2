@@ -471,9 +471,9 @@ static void LogIftoIfThen(SgStatement *stmt)
         control->addAttribute(OMP_MARK);
 }
 
-static void insertTree(SpfInterval* interval)
+static void insertTree(SpfInterval* interval, const string &fileName)
 {
-    if (interval->ifInclude)
+    if (interval->ifInclude && interval->begin->fileName() == fileName)
     {
         SgStatement* beg_inter = new SgStatement(DVM_INTERVAL_DIR);
         SgExpression* expr = new SgValueExp(interval->tag);
@@ -526,14 +526,15 @@ static void insertTree(SpfInterval* interval)
     }
 
     for (int i = 0; i < interval->nested.size(); i++)
-        insertTree(interval->nested[i]);
+        insertTree(interval->nested[i], fileName);
 }
 
 void insertIntervals(SgFile *file, const vector<SpfInterval*> &fileIntervals)
 {
+    const string currFile = file->filename();
     removeUserIntervals(file);
     for (auto &interval : fileIntervals)
-        insertTree(interval);
+        insertTree(interval, currFile);
 }
 
 //Profiling funcs
@@ -694,9 +695,9 @@ void aggregatePredictedTimes(vector<SpfInterval*> &itervals)
     }
 }
 
-SpfInterval* getMainInterval(SgProject *project, const map<string, vector<SpfInterval*>> &intervals)
+SpfInterval* getMainInterval(SgProject *project, const map<string, vector<SpfInterval*>> &intervals, map<string, vector<Messages>> &SPF_messages)
 {
-    SgStatement *mainUnit = findMainUnit(project);
+    SgStatement *mainUnit = findMainUnit(project, SPF_messages);
     SpfInterval *mainIterval = NULL;
     checkNull(mainUnit, convertFileName(__FILE__).c_str(), __LINE__);
 

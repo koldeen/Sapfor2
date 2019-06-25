@@ -59,7 +59,7 @@ void insertIntervals(SgFile*, const std::vector<SpfInterval*>&);
 void createMapOfinterval(std::map<int, SpfInterval*> &mapIntervals, const std::vector<SpfInterval*> &intervals);
 void initTimeForIntervalTree(const int numOfTopologies, std::vector<SpfInterval*> &intervals);
 void aggregatePredictedTimes(std::vector<SpfInterval*> &itervals);
-SpfInterval* getMainInterval(SgProject *project, const std::map<std::string, std::vector<SpfInterval*>> &intervals);
+SpfInterval* getMainInterval(SgProject *project, const std::map<std::string, std::vector<SpfInterval*>> &intervals, std::map<std::string, std::vector<Messages>>& SPF_messages);
 void uniteIntervalsBetweenProcCalls(std::map<std::string, std::vector<SpfInterval*>> &intervals, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 SpfInterval* findNearestUp(const std::map<SgStatement*, SpfInterval*> &intervals, SgStatement *st);
 SpfInterval* findNearestDown(const std::map<SgStatement*, SpfInterval*> &intervals, SgStatement *st);

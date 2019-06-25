@@ -913,10 +913,11 @@ tuple<int, string, string> getFromUniqTable(SgSymbol *symb)
     return localIt->second;
 }
 
-SgStatement* findMainUnit(SgProject *proj)
+SgStatement* findMainUnit(SgProject *proj, map<string, vector<Messages>> &SPF_messages)
 {
     SgStatement *mainUnit = NULL;
-    
+
+    vector<SgStatement*> mainUnits;
     for (int i = proj->numberOfFiles() - 1; i >= 0; --i)
     {
         SgFile *file = &(proj->file(i));
@@ -924,20 +925,36 @@ SgStatement* findMainUnit(SgProject *proj)
         current_file = file;
         const char *file_name = file->filename();
 
-        
         for (int k = 0; k < file->numberOfFunctions(); ++k)
         {
             SgStatement *func = file->functions(k);
             if (func->variant() == PROG_HEDR)
             {
                 mainUnit = func;
-                break;
+                mainUnits.push_back(func);
             }
         }
-
-        if (mainUnit)
-            break;
     }
+
+    if (mainUnits.size() != 1)
+    {
+        for (auto& elem : mainUnits)
+        {
+            vector<Messages>& currMessages = getObjectForFileFromMap(elem->fileName(), SPF_messages);
+
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"more than one main unit was found");
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, R146);
+#endif
+            currMessages.push_back(Messages(ERROR, elem->lineNumber(), messageR, messageE, 1050));
+        }
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+    
+    if (!mainUnit->switchToFile())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     return mainUnit;
 }
 
@@ -958,7 +975,39 @@ const vector<OUT_TYPE> getAttributes(IN_TYPE st, const set<int> dataType)
     return outData;
 }
 
+template<typename IN_TYPE>
+void deleteAttributes(IN_TYPE st, const set<int> dataType)
+{
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        int idxDel = -1;
+        for (int i = 0; i < st->numberOfAttributes(); ++i)
+        {
+            SgAttribute* attr = st->getAttribute(i);
+            const int type = st->attributeType(i);
+            if (dataType.find(type) != dataType.end())
+            {
+                if (attr->getAttributeData())
+                {
+                    idxDel = i;
+                    break;
+                }
+            }
+        }
+
+        if (idxDel != -1)
+        {
+            st->deleteAttribute(idxDel);
+            changed = true;
+        }
+    }
+}
+
 template const vector<SgSymbol*> getAttributes(SgSymbol *st, const set<int> dataType);
+template const vector<SgSymbol*> getAttributes(SgStatement* st, const set<int> dataType);
+template const vector<SgSymbol*> getAttributes(SgExpression* st, const set<int> dataType);
 template const vector<char*> getAttributes(SgSymbol *st, const set<int> dataType);
 template const vector<SgStatement*> getAttributes(SgStatement *st, const set<int> dataType);
 template const vector<SgExpression*> getAttributes(SgExpression *st, const set<int> dataType);
@@ -966,6 +1015,9 @@ template const vector<SgStatement*> getAttributes(SgExpression *st, const set<in
 template const vector<DIST::Array*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<int*> getAttributes(SgExpression *st, const set<int> dataType);
 template const vector<FuncInfo*> getAttributes(SgStatement *st, const set<int> dataType);
+
+template void deleteAttributes(SgStatement* st, const set<int> dataType);
+template void deleteAttributes(SgExpression* st, const set<int> dataType);
 
 static int isParameterOneOfThese(const string& name, const vector<string>& names)
 {
