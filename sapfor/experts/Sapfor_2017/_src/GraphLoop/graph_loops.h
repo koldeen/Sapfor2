@@ -29,7 +29,7 @@ private:
 public:
     LoopGraph()
     {
-        lineNumAfterLoop = lineNum = -1;
+        lineNumAfterLoop = lineNum = altLineNum = -1;
         perfectLoop = 0;
         hasGoto = false;
         hasPrints = false;
@@ -92,44 +92,45 @@ public:
     void addConflictMessages(std::vector<Messages> *messages)
     {
 #ifdef _WIN32
+        const int line = altLineNum > 0 ? altLineNum : lineNum;
         if (hasUnknownArrayDep)
-            messages->push_back(Messages(NOTE, lineNum, R113, L"unknown array dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R113, L"unknown array dependency prevents parallelization of this loop", 3006));
 
         if (hasUnknownScalarDep)
-            messages->push_back(Messages(NOTE, lineNum, R114, L"unknown scalar dependency prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R114, L"unknown scalar dependency prevents parallelization of this loop", 3006));
 
         if (hasGoto)
-            messages->push_back(Messages(NOTE, lineNum, R115, L"internal/external goto operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R115, L"internal/external goto operations prevent parallelization of this loop", 3006));
 
         if (hasPrints)
-            messages->push_back(Messages(NOTE, lineNum, R116, L"IO operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R116, L"IO operations prevent parallelization of this loop", 3006));
 
         if (hasStops)
-            messages->push_back(Messages(NOTE, lineNum, R117, L"stop operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R117, L"stop operations prevent parallelization of this loop", 3006));
 
         if (hasConflicts.size() != 0)
-            messages->push_back(Messages(NOTE, lineNum, R118, L"conflict writes operations prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R118, L"conflict writes operations prevent parallelization of this loop", 3006));
 
         if (hasUnknownArrayAssigns)
-            messages->push_back(Messages(NOTE, lineNum, R119, L"unknown array reference for writes prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R119, L"unknown array reference for writes prevent parallelization of this loop", 3006));
 
         if (hasNonRectangularBounds)
-            messages->push_back(Messages(NOTE, lineNum, R144, L"non rectangular bounds prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R144, L"non rectangular bounds prevent parallelization of this loop", 3006));
 
         if (hasIndirectAccess)
-            messages->push_back(Messages(NOTE, lineNum, R120, L"indirect access by distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R120, L"indirect access by distributed array prevents parallelization of this loop", 3006));
 
         if (hasWritesToNonDistribute)
-            messages->push_back(Messages(NOTE, lineNum, R121, L"writes to non distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R121, L"writes to non distributed array prevents parallelization of this loop", 3006));
 
         if (hasDifferentAlignRules)
-            messages->push_back(Messages(NOTE, lineNum, R122, L"different aligns between writes to distributed array prevents parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R122, L"different aligns between writes to distributed array prevents parallelization of this loop", 3006));
 
         if (hasNonPureProcedures)
-            messages->push_back(Messages(NOTE, lineNum, R123, L"non pure procedures prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R123, L"non pure procedures prevent parallelization of this loop", 3006));
 
         if (hasDvmIntervals)
-            messages->push_back(Messages(NOTE, lineNum, R145, L"DVM intervals prevent parallelization of this loop", 3006));
+            messages->push_back(Messages(NOTE, line, R145, L"DVM intervals prevent parallelization of this loop", 3006));
 #endif
     }
 
@@ -262,6 +263,7 @@ public:
     }
 public:
     int lineNum;
+    int altLineNum;
     int lineNumAfterLoop;
     std::string fileName;
     int perfectLoop;

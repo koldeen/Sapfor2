@@ -31,6 +31,7 @@
 #include "../DynamicAnalysis/gCov_parser_func.h"
 
 #include "../GraphCall/graph_calls_func.h"
+#include "..//LoopConverter/array_assign_to_loop.h"
 
 using std::vector;
 using std::map;
@@ -565,7 +566,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
         else if (st->variant() == FUNC_HEDR)
         {
             SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());            
+            __spf_print(DEBUG, "*** Function <%s> started at line %d / %s\n", funcH->symbol()->identifier(), st->lineNumber(), st->fileName());
         }
 
         SgStatement *lastNode = st->lastNodeOfStmt();
@@ -595,6 +596,16 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
             {
                 LoopGraph *newLoop = new LoopGraph();
                 newLoop->lineNum = st->lineNumber();
+                if (newLoop->lineNum < 0)
+                {
+                    if (st->localLineNumber() > 0)
+                    {
+                        SgStatement *copied = SgStatement::getStatementByFileAndLine(st->fileName(), st->localLineNumber());
+                        checkNull(copied, convertFileName(__FILE__).c_str(), __LINE__);
+                        if (notDeletedVectorAssign(copied))
+                            newLoop->altLineNum = st->localLineNumber();
+                    }
+                }
 
                 SgStatement *afterLoop = st->lastNodeOfStmt()->lexNext();
                 //< 0 was appear after CONVERT_ASSIGN_TO_LOOP pass

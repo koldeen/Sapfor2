@@ -242,7 +242,7 @@ static vector<SgStatement*> convertFromAssignToLoop(SgStatement *assign, SgFile 
     if (assign->expr(0)->variant() != ARRAY_REF || assign->expr(1)->variant() != ARRAY_REF)
         return result;
 
-    if (isNonDistrArray(assign->expr(0)->symbol()) || isNonDistrArray(assign->expr(1)->symbol()))
+    if (isNonDistrArray(assign->expr(0)->symbol()) && isNonDistrArray(assign->expr(1)->symbol()))
         return result;
 
     SgArrayRefExp *leftPart = (SgArrayRefExp*)assign->expr(0);
@@ -1159,19 +1159,18 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
         SgStatement *firstExec = NULL;
         SgStatement *controlParFristExec = NULL;
 
-        for (SgStatement* st = file->functions(i); st != lastNode && !firstExec; st = st->lexNext())
+        for (SgStatement* st1 = file->functions(i); st1 != lastNode && !firstExec; st1 = st1->lexNext())
         {
-            const int var = st->variant();
-            if (isSgExecutableStatement(st))
-                firstExec = st;
-            if ((var == CONTAINS_STMT || var == PROC_HEDR || var == FUNC_HEDR) && st != file->functions(i))
+            const int var = st1->variant();
+            if (isSgExecutableStatement(st1))
+                firstExec = st1;
+            if ((var == CONTAINS_STMT || var == PROC_HEDR || var == FUNC_HEDR) && st1 != file->functions(i))
                 break;
         }
 
         if (firstExec)
             controlParFristExec = firstExec->controlParent();
 
-        vector<SgStatement*> toDel;
         set<SgStatement*> useMods;
         map<string, set<SgSymbol*>> byUse = moduleRefsByUseInFunction(st);
 
@@ -1325,9 +1324,6 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                             conv[i]->setProject(currProj);
                         }
                     }
-
-                    if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
-                        toDel.push_back(st);
                 }
             }
         }
@@ -1339,10 +1335,18 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             if (comments)
                 move.second->setComments(comments);
         }
-
-        for (auto &del : toDel)
-            del->deleteStmt();
     }
+}
+
+bool notDeletedVectorAssign(SgStatement *st)
+{
+    if (!st)
+        return false;
+    if (!st->expr(1))
+        return false;
+
+    return (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP || st->expr(1)->variant() == SUBT_OP || 
+            st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"));
 }
 
 static bool isUnderParallelLoop(SgStatement *st)
@@ -1428,7 +1432,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                 }
                 else
                 {
-                    if (data->lineNumber() < 0 && isUnderParallelLoop(st))
+                    if (data->lineNumber() < 0 && (isUnderParallelLoop(st) || notDeletedVectorAssign(st)))
                     {
                         toMove.push_back(make_pair(st, data));
                         st->insertStmtAfter(*data, *st->controlParent());

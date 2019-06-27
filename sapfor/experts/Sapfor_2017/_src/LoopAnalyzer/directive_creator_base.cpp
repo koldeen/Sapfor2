@@ -696,7 +696,7 @@ void createParallelDirectives(const map<LoopGraph*, map<DIST::Array*, const Arra
             if (!hasConflict &&
                 mainArray.arrayRef != NULL && mainArray.dimentionPos != -1 &&
                 !sortedLoopGraph[loopInfo.first->lineNum]->hasLimitsToParallel() &&
-                loopInfo.first->lineNum > 0)
+                (loopInfo.first->lineNum > 0 || (loopInfo.first->lineNum < 0 && loopInfo.first->altLineNum > 0)))
             {
                 DIST::Array *mainArrayOfLoop = mainArray.arrayRef;
                 pair<int, int> mainAccess = mainArray.mainAccess;

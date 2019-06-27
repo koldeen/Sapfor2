@@ -159,7 +159,13 @@ extern "C" void printLowLevelWarnings(const char *fileName, const int line, cons
 {
     vector<Messages> &currM = getObjectForFileFromMap(fileName, SPF_messages);
     __spf_print(1, "WARR: line %d: %s\n", line, messageE);
-    currM.push_back(Messages(WARR, line, messageR, to_wstring(messageE), group));
+	if (!messageE)
+		printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+	if (messageR)
+		currM.push_back(Messages(WARR, line, messageR, to_wstring(messageE), group));
+	else
+		currM.push_back(Messages(WARR, line, to_wstring(messageE), to_wstring(messageE), group));
 }
 
 extern "C" void printLowLevelNote(const char *fileName, const int line, const wchar_t *messageR, const char *messageE, const int group)

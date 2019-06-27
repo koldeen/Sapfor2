@@ -519,7 +519,7 @@ int variant;
 }
 
 #ifdef __SPF
-extern void printLowLevelWarnings(const char *fileName, const int line, const char *message, const int group);
+extern void printLowLevelWarnings(const char *fileName, const int line, const wchar_t* messageR, const char *message, const int group);
 #endif
 /***************************************************************************/
 void Message(char *s, int l)
@@ -532,7 +532,8 @@ void Message(char *s, int l)
 #ifdef __SPF
     if (l == 0)
         l = 1;
-    printLowLevelWarnings(cur_file->filename, l, s, 4001);
+
+    printLowLevelWarnings(cur_file->filename, l, NULL, s, 4001);
 #endif
 }
 

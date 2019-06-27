@@ -1334,7 +1334,31 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                 // insert parallel dir
                 pair<string, vector<Expression*>> dir = 
                     parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, loop->loop, regionId, arrayLinksByFuncCalls);
-                toInsert.push_back(make_pair(loop->lineNum, dir));
+
+                if (loop->lineNum < 0)
+                {
+                    if (loop->altLineNum == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    SgStatement* parent = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->altLineNum);
+                    checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+                    toInsert.push_back(make_pair(parent->lineNumber(), dir));
+                }
+                else
+                    toInsert.push_back(make_pair(loop->lineNum, dir));
+                /*SgStatement *result = new SgStatement(DVM_PARALLEL_ON_DIR, NULL, NULL, NULL, NULL, NULL);
+                for (int i = 0; i < 3; ++i)
+                    if (dir.second[i])
+                        result->setExpression(i, *dir.second[i]);
+                if (loop->lineNum < 0)
+                {
+                    if (loop->altLineNum == -1)
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    SgStatement *parent = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->altLineNum);
+                    checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+                    parent->insertStmtAfter(*result, *parent->controlParent());
+                }
+                else
+                    loop->loop->insertStmtBefore(*result, *loop->loop->controlParent());*/
             }
         }
         else //TODO: add checker for indexing in this loop

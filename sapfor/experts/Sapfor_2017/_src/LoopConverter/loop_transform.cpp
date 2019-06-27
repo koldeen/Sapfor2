@@ -123,6 +123,76 @@ static ddnature fromDepNode(depNode *node)
     return dd_unknown;
 }
 
+static void displayDep(const depNode *dn)
+{
+    SgExpression *ex1, *ex2;
+    int i;
+    ddnature nature;
+    ex1 = dn->varin;
+    ex2 = dn->varout;
+
+
+    if (!dn->typedep)
+    {
+        __spf_print(1, "UNKNOWN DATA DEPENDENCE\n");
+        return;
+    }
+
+    if (dn->typedep == ARRAYDEP)
+    {
+        nature = (ddnature)dn->kinddep;
+        __spf_print(1, "------> ");
+        switch (nature)
+        {
+        case ddflow:
+            __spf_print(1, "FLOW dependence between ");
+            break;
+        case ddanti:
+            __spf_print(1, "ANTI dependence between ");
+            break;
+        case ddoutput:
+            __spf_print(1, "OUTPUT dependence between ");
+            break;
+        case ddreduce:
+            __spf_print(1, "REDUCE dependence between ");
+            break;
+        }
+        
+        __spf_print(1, "%s", ex1->unparse());
+        __spf_print(1, " (line %d) and ", dn->stmtin->lineNumber());
+        __spf_print(1, "%s", ex2->unparse());
+        __spf_print(1, " (line %d) with vector (", dn->stmtout->lineNumber());
+        for (i = 1; i <= dn->lenghtvect; i++)
+        {
+            if (dn->knowndist[i])
+                __spf_print(1, "%d", dn->distance[i]);
+            else
+            {
+                if (dn->distance[i] & DEPZERO)
+                    __spf_print(1, "0");
+                if (dn->distance[i] & DEPGREATER)
+                    __spf_print(1, "+");
+                if (dn->distance[i] & DEPLESS)
+                    __spf_print(1, "-");
+            }
+
+            if (i < dn->lenghtvect)
+                __spf_print(1, ", ");
+        }
+        __spf_print(1, ")\n");
+    }
+    else
+    {
+        __spf_print(1, "------> ");
+        __spf_print(1, "This is a Scalar Dep on ");
+        __spf_print(1, "%s", ex1->unparse());
+        if (dn->typedep == PRIVATEDEP)
+            __spf_print(1, " and variable can be PRIVATE");
+        if (dn->typedep == REDUCTIONDEP)
+            __spf_print(1, " and variable can be REDUCTION with kind %d", dn->kinddep);
+        __spf_print(1, "\n");
+    }
+}
 
 static void printDepGraph(depGraph *dg) 
 {
@@ -131,10 +201,10 @@ static void printDepGraph(depGraph *dg)
 
     for (depNode *dn : dg->getNodes())
     {
-        //dn->displayDep();
-        int out = dn->stmtout != NULL ? dn->stmtout->lineNumber() : -1;
+        displayDep(dn);
+        /*int out = dn->stmtout != NULL ? dn->stmtout->lineNumber() : -1;
         int in = dn->stmtin != NULL ? dn->stmtin->lineNumber() : -1;
-        __spf_print(1, "dep from %d --> %d\n", out, in);
+        __spf_print(1, "dep from %d --> %d\n", out, in);*/
     }
 }
 
@@ -142,16 +212,22 @@ static void addToMap(SgStatement *stmt, depGraph *depGraph, map<SgSymbol*, ddnat
 {
     depNode *node = NULL;
 
-    for (depNode *dn : depGraph->getNodes())
-        if(dn->stmtin == stmt && dn->stmtout == NULL)
+    for (auto &dn : depGraph->getNodes())
+    {
+        //TODO: process ARRAYDEP!
+        if (dn->typedep > ARRAYDEP && dn->stmtin == stmt)
         {
             node = dn;
             break;
         }
+    }
 
     if (node != NULL)
     {
         ddnature type = fromDepNode(node);
+        if (node->typedep == SCALARDEP)
+            type = ddoutput;
+
         SgSymbol *symbol = node->varin->symbol();
 
         auto it = depMap.find(symbol);
@@ -272,7 +348,6 @@ static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddn
     if (innerLoop != NULL) 
     {
         bool beforeValid = validateInvariantStatement(outerLoop->lexNext(), innerLoop, dependencies);
-
         //TODO:
         //validateInvariantStatement(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
         bool afterValid = (outerLoop->lastNodeOfStmt() == innerLoop->lastNodeOfStmt()->lexNext());
@@ -280,7 +355,7 @@ static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddn
         return beforeValid && afterValid;
     }
     else 
-        return false;    
+        return false;
 }
 
 static int canTighten(SgForStmt* pForLoop, const map<SgSymbol*, ddnature> &dependencies) 
@@ -428,10 +503,8 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
                 outerTightened = tighten(outerLoop, 2);
                 LoopGraph *firstChild = current->children.at(0);
 
-                if (outerTightened) 
-                {
+                if (outerTightened)
                     firstChild->perfectLoop = ((SgForStmt *) firstChild->loop)->isPerfectLoopNest();
-                }
 
                 __spf_print(1, "createNestedLoops for loop at %d. Tighten success: %d\n", current->lineNum, outerTightened);
 

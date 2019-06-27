@@ -536,8 +536,8 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                         else if (templ != curr)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
+
                     //check array's alignment
-                    
                     for (int z = 0; z < wasFound.size() && ok; ++z)
                     {
                         if (wasFound[z])
