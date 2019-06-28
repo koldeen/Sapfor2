@@ -561,9 +561,9 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                     __spf_print(1, "  -> %s\n", printRule(rule).c_str());
 
                 std::wstring bufE, bufR;
-                __spf_printToLongBuf(bufE, L"different align rules for array %s was found\n", to_wstring(array.first->GetName()).c_str());
+                __spf_printToLongBuf(bufE, L"different align rules for array %s were found\n", to_wstring(array.first->GetShortName()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(bufR, R142, to_wstring(array.first->GetName()).c_str());
+                __spf_printToLongBuf(bufR, R142, to_wstring(array.first->GetShortName()).c_str());
 #endif
                 for (auto &declPlace : array.first->GetDeclInfo())
                     getObjectForFileFromMap(declPlace.first.c_str(), SPF_messages).push_back(Messages(ERROR, declPlace.second, bufR, bufE, 3020));

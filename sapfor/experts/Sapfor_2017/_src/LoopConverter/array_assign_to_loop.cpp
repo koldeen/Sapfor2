@@ -1425,7 +1425,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                     if (data->lineNumber() > 0)
                     {
                         toMove.push_back(make_pair(st, data));
-                        st->insertStmtAfter(*data, *st->controlParent());
+                        st->lexPrev()->insertStmtAfter(*data, *st->controlParent());
 
                         data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
                     }
@@ -1437,8 +1437,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                         toMove.push_back(make_pair(st, data));
                         st->insertStmtAfter(*data, *st->controlParent());
 
-                        data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
-
+                        //data->addAttribute(ASSIGN_STAT, st, sizeof(SgStatement*));
                         if (data->variant() == FOR_NODE)
                         {
                             for (auto st_loc = data; st_loc != data->lastNodeOfStmt(); st_loc = st_loc->lexNext())
@@ -1447,8 +1446,6 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                         }
                         else if (data->variant() == ASSIGN_STAT)
                         {
-                            data->unparsestdout();
-                            data->lexNext()->unparsestdout();
                             if (data->lexNext()->variant() == FOR_NODE)
                             {
                                 for (auto st_loc = data->lexNext(); st_loc != data->lexNext()->lastNodeOfStmt(); st_loc = st_loc->lexNext())

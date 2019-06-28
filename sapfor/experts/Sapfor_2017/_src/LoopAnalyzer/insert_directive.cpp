@@ -197,7 +197,9 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
                     var == HPF_TEMPLATE_STAT || 
                     var == DVM_ALIGN_DIR ||
                     var == DVM_DISTRIBUTE_DIR || 
-                    var == DVM_VAR_DECL)
+                    var == DVM_VAR_DECL ||
+                    var == ACC_REGION_DIR || var == ACC_END_REGION_DIR || 
+                    var == ACC_ACTUAL_DIR || var == ACC_GET_ACTUAL_DIR)
                 {
                     toDel.push_back(st);
 

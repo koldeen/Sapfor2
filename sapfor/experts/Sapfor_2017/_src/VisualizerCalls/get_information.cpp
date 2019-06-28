@@ -696,7 +696,8 @@ int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, sho
         //TODO: need to rewrite to new algo
         /*if (folderName == NULL)
         {
-            SpfInterval *mainIterval = getMainInterval(project, intervals);            const int idxBest = mainIterval->getBestTimeIdx();
+            SpfInterval *mainIterval = getMainInterval(project, intervals);
+            const int idxBest = mainIterval->getBestTimeIdx();
             double speedUpBest = 1;
             int procCount = 1;
             string topo = "";

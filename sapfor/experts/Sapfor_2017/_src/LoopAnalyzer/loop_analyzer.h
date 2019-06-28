@@ -65,7 +65,7 @@ void getAllDeclaratedArrays(SgFile *file, std::map<std::tuple<int, std::string, 
                             std::map<SgStatement*, std::set<std::tuple<int, std::string, std::string>>> &declaratedArraysSt, std::vector<Messages> &currMessages,
                             const std::vector<ParallelRegion*> &regions);
 void insertSpfAnalysisBeforeParalleLoops(const std::vector<LoopGraph*> &loops);
-void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DIST::Array*> &allArrays);
+void recalculateArraySizes(std::set<DIST::Array*> &arraysDone, const std::set<DIST::Array*> &allArrays, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
 // dep_analyzer.cpp
 void tryToFindDependencies(LoopGraph *currLoop, const std::map<int, std::pair<SgForStmt*, std::pair<std::set<std::string>, std::set<std::string>>>> &allLoops,
@@ -76,6 +76,7 @@ depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const std::set
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
+void move_allocates_interproc(const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
 
 // insert_directive.cpp
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,

@@ -920,7 +920,8 @@ static pair<Expression*, Expression*> getElem(SgExpression *exp)
         return make_pair((Expression*)NULL, (Expression*)NULL);
 }
 
-static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl)
+static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl, 
+                                                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     vector<pair<Expression*, Expression*>> retVal;
@@ -984,11 +985,42 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
                                 SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
                                 if (arrayRef != NULL)
                                 {
-                                    if (string(OriginalSymbol(arrayRef->symbol())->identifier()) == string(symb->identifier()))
+                                    SgSymbol *origS = OriginalSymbol(arrayRef->symbol());
+                                    DIST::Array *currArray = getArrayFromDeclarated(declaratedInStmt(origS), origS->identifier());
+
+                                    string toCmp = string(origS->identifier());
+                                    //TODO: extend 
+                                    if (currArray && currArray->GetLocation().first == DIST::l_PARAMETER)
                                     {
-                                        consistInAllocates++;
-                                        alloc = list->lhs()->lhs();
-                                        break;
+                                        auto it = arrayLinksByFuncCalls.find(currArray);
+                                        if (it != arrayLinksByFuncCalls.end())
+                                        {
+                                            bool found = false;
+                                            for (auto &elem : it->second)
+                                            {
+                                                if (elem->GetLocation().first != DIST::l_PARAMETER)
+                                                {
+                                                    if (elem->GetShortName() == string(symb->identifier()))
+                                                    {
+                                                        consistInAllocates++;
+                                                        alloc = list->lhs()->lhs();
+                                                        found = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (found)
+                                                break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (toCmp == string(symb->identifier()))
+                                        {
+                                            consistInAllocates++;
+                                            alloc = list->lhs()->lhs();
+                                            break;
+                                        }
                                     }
                                 }
                                 list = list->rhs();
@@ -1062,7 +1094,7 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
     return retVal;
 }
 
-void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays)
+void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     for (auto &array : allArrays)
     {
@@ -1126,7 +1158,7 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                                     //wasSelect = false;
                                     SgStatement *decl = declaratedInStmt(symb);
                                     vector<pair<int, int>> sizes;
-                                    getArraySizes(sizes, symb, decl);
+                                    getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls);
                                     array->SetSizes(sizes);
                                 }
                             }
@@ -1144,7 +1176,7 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                         {
                             SgStatement *decl = declaratedInStmt(symb);
                             vector<pair<int, int>> sizes;
-                            getArraySizes(sizes, symb, decl);
+                            getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls);
                             array->SetSizes(sizes);
                         }
                         else
@@ -2438,8 +2470,9 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
 
                     itNew = declaratedArrays.insert(itNew, make_pair(uniqKey, make_pair(arrayToAdd, new DIST::ArrayAccessInfo())));
 
-                    vector<pair<int, int>> sizes;
-                    auto sizesExpr = getArraySizes(sizes, symb, decl);
+                    vector<pair<int, int>> sizes; 
+                    map<DIST::Array*, set<DIST::Array*>> arrayLinksByFuncCallsNotReady;
+                    auto sizesExpr = getArraySizes(sizes, symb, decl, arrayLinksByFuncCallsNotReady);
                     arrayToAdd->SetSizes(sizes);
                     arrayToAdd->SetSizesExpr(sizesExpr);                    
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;

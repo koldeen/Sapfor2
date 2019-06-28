@@ -836,8 +836,8 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
     else if ((funcCall = cfi->getFunctionCall()) != NULL) //functionCall
     {
         st = cfi->getOriginalStatement();
-        for(int i=0;i<3;++i)
-            if(st->expr(i)) // TODO: search for expression?
+        for (int i = 0; i < 3; ++i)
+            if (st->expr(i))// TODO: search for expression?
                 createBackup(st, i);
         args = funcCall->lhs();
         lineNumber = st->lineNumber();
@@ -1049,6 +1049,28 @@ static bool findConstRef(SgExpression *ex)
     return ret;
 }
 
+/*static void copyAttributes(SgExpression *ex, SgExpression *copy)
+{
+    if (ex && copy)
+    {
+        if (ex->numberOfAttributes())
+            copy->addAttributeTree(ex->getAttribute(0));
+        copyAttributes(ex->lhs(), copy->lhs());
+        copyAttributes(ex->rhs(), copy->rhs());
+    }
+}*/
+
+static void replaceOrigFuncSymbols(SgExpression* ex, SgExpression* copy)
+{
+    if (ex && copy)
+    {
+        if (ex->variant() == FUNC_CALL)
+            copy->setSymbol(ex->symbol());
+        replaceOrigFuncSymbols(ex->lhs(), copy->lhs());
+        replaceOrigFuncSymbols(ex->rhs(), copy->rhs());
+    }
+}
+
 static void replaceConstants(const string &file, SgStatement *st)
 {
     auto it = replacementsOfConstsInFiles.find(file);
@@ -1080,7 +1102,11 @@ static void replaceConstants(const string &file, SgStatement *st)
             }
 
             if (toRepl[0] || toRepl[1] || toRepl[2])
+            {
                 it->second[currS] = original;
+                for (int z = 0; z < 3; ++z)
+                    replaceOrigFuncSymbols(currS->expr(z), original[z]);
+            }
         }
     }
 }

@@ -224,7 +224,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
                                         set<string> &allIncludeFiles)
 {
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
-    {        
+    {
         restoreCorrectedModuleProcNames(file);
 
         if (keepSpfDirs)
@@ -1099,13 +1099,15 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             saveIntervals("_intervals_united.txt", intervals);
         }
         updateLoopIoAndStopsByFuncCalls(loopGraph, allFuncInfo);
+
+        move_allocates_interproc(arrayLinksByFuncCalls);
     }
     else if (curr_regime == CALL_GRAPH2)
     {
         map<string, FuncInfo*> allFuncs;
         createMapOfFunc(allFuncInfo, allFuncs);
 
-        //for each file of grapgLoop
+        //for each file of graphLoop
         for (auto &loopGraphInFile : loopGraph)
         {
             DvmhRegionInsertor regionInsertor(NULL, loopGraphInFile.second);
@@ -1192,7 +1194,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                recalculateArraySizes(arraysDone, allArrays.GetArrays());
+                recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls);
 
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;

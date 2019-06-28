@@ -2118,7 +2118,7 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
         else
             expanded_log = is_correct;
 #if __SPF && _WIN32
-        Warning("Private analysis is not conducted for loop: '%s'", L"Анализ приватных переменных невозможнет для данного цикла из-за: '%s'", 
+        Warning("Private analysis is not conducted for loop: '%s'", L"Анализ приватных переменных невозможен для данного цикла из-за: '%s'", 
                  expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
 #else
         Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
@@ -2163,7 +2163,7 @@ bool ControlFlowGraph::ProcessOneParallelLoop(ControlFlowItem* lstart, CBasicBlo
                 expanded_log = is_correct;
 
 #if __SPF && _WIN32
-            Warning("Private analysis is not conducted for loop: '%s'", L"Анализ приватных переменных невозможнет для данного цикла из-за: '%s'", 
+            Warning("Private analysis is not conducted for loop: '%s'", L"Анализ приватных переменных невозможен для данного цикла из-за: '%s'", 
                      expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());
 #else
             Warning("Private analysis is not conducted for loop: '%s'", expanded_log ? expanded_log : "", PRIVATE_ANALYSIS_NOT_CONDUCTED, lstart->getPrivateListStatement());

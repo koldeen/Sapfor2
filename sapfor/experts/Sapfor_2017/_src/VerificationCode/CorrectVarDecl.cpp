@@ -366,6 +366,7 @@ static void extendCheckAndFindProcName(map<string, set<string>> &containsFuncs, 
     changed.insert(procS);
 }
 
+static map<SgSymbol*, SgSymbol*> byUseMapping;
 static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatement *cp, const map<string, ModuleInfo> &modsInfo,
                                      map<string, set<string>> &containsFuncs, const set<string> &globalFuncs, 
                                      const map<string, set<string>> &moduleFuncs, set<SgSymbol*> &changed)
@@ -382,9 +383,10 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatem
                     SgSymbol* toSwap = ex->symbol();
                     if (toSwap != procS)
                     {
-                        //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
+                        printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
                         //ex->addAttribute(VARIABLE_NAME, toSwap, sizeof(SgSymbol));
                         ex->setSymbol(*procS);
+                        byUseMapping[procS] = toSwap;
                     }
                     else if (changed.find(procS) == changed.end())
                         extendCheckAndFindProcName(containsFuncs, globalFuncs, moduleFuncs, st, procS, changed);
@@ -652,14 +654,13 @@ static void restoreInFunc(SgExpression *ex, set<SgSymbol*> &swaped, const map<Sg
 }
 
 void restoreCorrectedModuleProcNames(SgFile *file)
-{
-    map<SgSymbol*, SgSymbol*> byUseMapping;
-    for (SgSymbol *elem = file->firstSymbol(); elem; elem = elem->next())
+{    
+    /*for (SgSymbol *elem = file->firstSymbol(); elem; elem = elem->next())
     {
         SgSymbol *procS = OriginalSymbol(elem);
         if (procS != elem)
             byUseMapping[procS] = elem;
-    }
+    }*/
     
     set<SgSymbol*> swaped;
     vector<SgStatement*> modules;

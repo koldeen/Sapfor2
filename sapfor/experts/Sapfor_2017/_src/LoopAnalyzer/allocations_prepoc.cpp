@@ -12,6 +12,7 @@
 #include "../Utils/errors.h"
 
 using std::set;
+using std::map;
 using std::string;
 
 void preprocess_allocates(SgFile *file)
@@ -63,6 +64,69 @@ void preprocess_allocates(SgFile *file)
                 }
             }
             st = st->lexNext();
+        }
+    }
+}
+
+//TODO: extend ALLOC/DEALLOC moving
+//TODO: add support of different files
+// only one level of call is supported
+void move_allocates_interproc(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+{
+    for (auto &array : arrayLinksByFuncCalls)
+    {
+        if (array.first->GetLocation().first == DIST::l_PARAMETER)
+        {
+            //check one level of calls
+            bool ok = true;
+            for (auto &elem : array.second)
+                if (elem->GetLocation().first == DIST::l_PARAMETER)
+                    ok = false;
+
+            //move to all real arrays
+            if (ok)
+            {
+                auto allPlaces = array.first->GetDeclInfo();
+                for (auto &place : allPlaces)
+                {
+                    if (SgFile::switchToFile(place.first) != -1)
+                    {
+                        SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
+                        checkNull(decl, convertFileName(__FILE__).c_str(), __LINE__);
+
+                        map<SgStatement*, set<SgStatement*>> needToAdd;
+                        for (auto &data : getAttributes<SgStatement*, SgStatement*>(decl, set<int>{ ALLOCATE_STMT }))
+                        {
+                            for (auto &realArray : array.second)
+                            {
+                                auto allPlacesR = realArray->GetDeclInfo();
+                                for (auto &placeR : allPlacesR)
+                                {
+                                    //the same file
+                                    if (placeR.first == place.first)
+                                    {
+                                        SgStatement* declR = SgStatement::getStatementByFileAndLine(placeR.first, placeR.second);
+                                        checkNull(declR, convertFileName(__FILE__).c_str(), __LINE__);
+
+                                        needToAdd[declR].insert(data);                                        
+                                    }
+                                }
+                            }
+                        }
+
+                        for (auto& toAdd : needToAdd)
+                        {
+                            for (auto& list : toAdd.second)
+                            {
+                                char buf[256];
+                                toAdd.first->addAttribute(list->variant(), list, sizeof(SgStatement*));
+                                sprintf(buf, "  [INTERPROC] attribute is added to declaration on line %d\n", toAdd.first->lineNumber());
+                                addToGlobalBufferAndPrint(buf);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
