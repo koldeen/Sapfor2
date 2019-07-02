@@ -893,11 +893,6 @@ static bool findLoopVarInParameter(SgExpression *ex, const string &loopSymb)
             if (ident == loopSymb)
                 retVal = true;
         }
-
-        if (ex->lhs())
-            retVal = retVal || findLoopVarInParameter(ex->lhs(), loopSymb);
-        if (ex->rhs())
-            retVal = retVal || findLoopVarInParameter(ex->rhs(), loopSymb);
     }
     return retVal;
 }

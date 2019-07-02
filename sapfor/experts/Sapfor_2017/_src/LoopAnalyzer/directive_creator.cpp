@@ -207,11 +207,9 @@ static bool checkCorrectness(const ParallelDirective &dir,
             else
             {
                 wstring bufE, bufR;
-                __spf_printToLongBuf(bufE, L"Can not create distributed link",
-                    to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                __spf_printToLongBuf(bufE, L"Can not create distributed link");
 #ifdef _WIN32
-                __spf_printToLongBuf(bufR, R127,
-                    to_wstring(dir.arrayRef2->GetShortName()).c_str(), dir.arrayRef2->GetDimSize(), (int)links.size());
+                __spf_printToLongBuf(bufR, R127);
 #endif
 
                 messages.push_back(Messages(ERROR, loopLine, bufR, bufE, 3007));

@@ -540,6 +540,9 @@
     <ClCompile Include="..\_src\CFGraph\CFG_Common.cpp">
       <Filter>Файлы исходного кода\CFGraph</Filter>
     </ClCompile>
+    <ClCompile Include="..\_src\LoopConverter\uniq_call_chain_dup.cpp">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_src\Distribution\Array.h">
@@ -1075,6 +1078,9 @@
     </ClInclude>
     <ClInclude Include="..\_src\CFGraph\CFG_Common.h">
       <Filter>Файлы исходного кода\CFGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_src\LoopConverter\uniq_call_chain_dup.h">
+      <Filter>Файлы исходного кода\CodeConverter</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

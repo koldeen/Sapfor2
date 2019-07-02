@@ -49,6 +49,7 @@
 #include "LoopConverter/private_arrays_breeder.h"
 #include "LoopConverter/loops_splitter.h"
 #include "LoopConverter/loops_combiner.h"
+#include "LoopConverter/uniq_call_chain_dup.h"
 #include "Predictor/PredictScheme.h"
 #include "Predictor/PredictorModel.h"
 #include "ExpressionTransform/expr_transform.h"
@@ -1088,7 +1089,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
-        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, keepFiles);
+        createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, SPF_messages, keepFiles);
         propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
 
@@ -1398,11 +1399,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S0)
     {
         checkArraysMapping(loopGraph, SPF_messages, arrayLinksByFuncCalls);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
 
         for (int z = 0; z < parallelRegions.size(); ++z)        
             filterArrayInCSRGraph(loopGraph, allFuncInfo, parallelRegions[z], arrayLinksByFuncCalls, SPF_messages);
-        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
 
         for (auto &loopByFile : loopGraph)
             for (auto &loop : loopByFile.second)
@@ -1584,6 +1585,11 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
+    else if (curr_regime == DUPLICATE_FUNCTIONS)
+    {
+        duplicateFunctions(allFuncInfo);
+    }
+
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
@@ -1697,17 +1703,21 @@ static SgProject* createProject(const char *proj_name)
     parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
 
+    Statement::activeConsistentchecker();
+
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
-        correctModuleProcNames(&(project->file(z)));
-        correctModuleSymbols(&(project->file(z)));
-        replaceStructuresToSimpleTypes(&(project->file(z)));
+        SgFile* file = &(project->file(z));
+        current_file = file;
+        current_file_id = z;
+
+        correctModuleProcNames(file);
+        correctModuleSymbols(file);
+        replaceStructuresToSimpleTypes(file);
     }
 
     //check main unit
     findMainUnit(project, SPF_messages);
-
-    Statement::activeConsistentchecker();
     return project;
 }
 

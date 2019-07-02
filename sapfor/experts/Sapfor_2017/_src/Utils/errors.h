@@ -59,6 +59,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   47 "inconsistent array use"
 //   48 "the same function name in different places was found"
 //   49 "reasons of non pure function" 
+//   50
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -387,6 +388,7 @@ static const wchar_t *R92 = L"Функция '%s' с одинаковым именем была объявлена в 
 static const wchar_t *R93 = L"Функция не является функцией без побочных эффектов из-за наличия данного оператора";
 //1050
 static const wchar_t *R146 = L"Найдена более, чем одна главная программная единица (PROGRAM)";
+static const wchar_t* R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
 
 //2001
 static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";

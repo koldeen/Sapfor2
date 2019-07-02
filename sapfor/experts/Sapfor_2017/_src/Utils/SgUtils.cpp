@@ -949,6 +949,25 @@ SgStatement* findMainUnit(SgProject *proj, map<string, vector<Messages>> &SPF_me
 #endif
             currMessages.push_back(Messages(ERROR, elem->lineNumber(), messageR, messageE, 1050));
         }
+
+        if (mainUnits.size() == 0)
+        {
+            for (int i = proj->numberOfFiles() - 1; i >= 0; --i)
+            {
+                SgFile* file = &(proj->file(i));
+                current_file_id = i;
+                current_file = file;
+                const char* file_name = file->filename();
+
+                vector<Messages> &currMessages = getObjectForFileFromMap(file_name, SPF_messages);
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"main unit not found");
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, R147);
+#endif
+                currMessages.push_back(Messages(ERROR, file->firstStatement()->lineNumber(), messageR, messageE, 1050));
+            }            
+        }
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
     
