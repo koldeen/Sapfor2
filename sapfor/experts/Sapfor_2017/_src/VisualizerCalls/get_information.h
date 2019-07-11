@@ -29,6 +29,7 @@ extern "C" { __declspec(dllexport) int SPF_PrivateExpansion(int winHandler, int 
 extern "C" { __declspec(dllexport) int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_RemoveDvmIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *fileNameToMod, int *toModifyLines, int &size, int *&sizes, short *&newFilesNames, short *&newFiles); }
+extern "C" { __declspec(dllexport) int SPF_DuplicateFunctionChains(int winHandler, int* options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 
 extern "C" { __declspec(dllexport) void SPF_deleteAllAllocatedData(); }
 extern "C" { __declspec(dllexport) int  SPF_SetDistributionFlagToArray(char *key, int flag); }

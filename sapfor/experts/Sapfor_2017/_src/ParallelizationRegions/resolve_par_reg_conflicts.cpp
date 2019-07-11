@@ -1,3 +1,5 @@
+#include "../Utils/leak_detector.h"
+
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -56,6 +58,7 @@ static int getIntervalNumber(const int fileId, const int lineNumber, const int r
 // array -> common-block
 static map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
 
+//TODO: remove? not used in this file
 static bool checkSymbName(const string &symbName)
 {
     bool found = false;
@@ -1050,6 +1053,9 @@ static void copyFunction(ParallelRegion *region,
              origStat != funcStat->lastNodeOfStmt()->lexNext();
              origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
         {
+            if (copyStat->variant() != origStat->variant())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
             copyStat->setlineNumber(origStat->lineNumber());
             BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
         }

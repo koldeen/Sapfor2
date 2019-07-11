@@ -632,7 +632,7 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 else if (mapIntervals.size())
                 {
 #ifdef _WIN32
-                    messages.push_back(Messages(NOTE, newLoop->lineNum, R137, L"Can not find execution time in statistic", 3016));
+                    //messages.push_back(Messages(NOTE, newLoop->lineNum, R137, L"Can not find execution time in statistic", 3016));
 #endif
                 }
 

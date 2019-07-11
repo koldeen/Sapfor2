@@ -91,6 +91,8 @@ struct FuncInfo
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
     std::vector<std::pair<void*, int>> pointerDetailCallsFrom; // <pointer, SG_VAR> SgStatement for PROC_STAT and SgExpression for FUNC_CALL
+    std::vector<void*> parentForPointer; // parent SgStatement* of FUNC_CALL
+
     std::vector<FuncParam> actualParams;
     std::map<std::string, std::set<std::string>> commonBlocks;
 
@@ -124,18 +126,21 @@ struct FuncInfo
     bool isIndirect() { return inRegion == 3; }
     //
 
+    std::vector<FuncInfo*> fullCopiesOfThisFunction;
+
     FuncInfo() :
-        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isPure(false), isMain(false) { }
+        doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), 
+        deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false) { }
+        isPure(false), shadowTree(NULL) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false) { fileName = pointer->fileName(); }
+        isPure(false), shadowTree(NULL) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {
@@ -181,7 +186,7 @@ struct CallV
     bool isMain;
     int inRegion;
 
-    CallV() : inRegion(0) { }
+    CallV() : inRegion(0), isMain(false) { }
 
     CallV(const std::string &fName) :
         fName(fName), fileName(""), isMain(false), inRegion(0)
@@ -198,3 +203,4 @@ struct CallV
 };
 
 void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, std::map<std::string, std::vector<Messages>> &SPF_messages);
+void removeDistrStateFromDeadFunctions(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaratedArrays);

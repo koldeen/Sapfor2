@@ -194,7 +194,7 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
     }
 }
 
-static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
+static void findFuncCalls(SgStatement *parent, SgExpression *curr, vector<FuncInfo*> &entryProcs, const int line, 
                           const map<string, vector<SgExpression*>> &commonBlocks, const set<string> &macroNames,
                           const vector<SgStatement*> &containsFunctions, const string &prefix)
 {
@@ -208,15 +208,17 @@ static void findFuncCalls(SgExpression *curr, vector<FuncInfo*> &entryProcs, con
             proc->callsFrom.insert(nameOfCallFunc);
             proc->detailCallsFrom.push_back(make_pair(nameOfCallFunc, line));
             proc->pointerDetailCallsFrom.push_back(make_pair(curr, FUNC_CALL));
+            proc->parentForPointer.push_back(parent);
+
             proc->actualParams.push_back(FuncParam());
             processActualParams(curr->lhs(), commonBlocks, &proc->actualParams.back());
         }
     }
 
     if (curr->lhs())
-        findFuncCalls(curr->lhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
+        findFuncCalls(parent, curr->lhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
     if (curr->rhs())
-        findFuncCalls(curr->rhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
+        findFuncCalls(parent, curr->rhs(), entryProcs, line, commonBlocks, macroNames, containsFunctions, prefix);
 }
 
 static void findReplaceSymbolByExpression(SgExpression *parentEx, SgExpression *findIn, int pos, 
@@ -813,6 +815,8 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
                     proc->callsFrom.insert(pureNameOfCallFunc);
                     proc->detailCallsFrom.push_back(make_pair(pureNameOfCallFunc, st->lineNumber()));
                     proc->pointerDetailCallsFrom.push_back(make_pair(st, PROC_STAT));
+                    proc->parentForPointer.push_back(st);
+
                     proc->actualParams.push_back(FuncParam());
                     if (!dontFillFuncParam)
                         processActualParams(st->expr(0), commonBlocks, &proc->actualParams.back());
@@ -835,7 +839,7 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
 
             for (int i = 0; i < 3; ++i)
                 if (st->expr(i) && !dontFillFuncParam)
-                    findFuncCalls(st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames, containsFunctions, prefix);
+                    findFuncCalls(st, st->expr(i), entryProcs, st->lineNumber(), commonBlocks, macroNames, containsFunctions, prefix);
 
             if (st->variant() == ENTRY_STAT)
             {
@@ -1872,6 +1876,66 @@ void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+//TODO: inmprove checker
+void detectCopies(map<string, vector<FuncInfo*>> &allFuncInfo)
+{
+    map<string, FuncInfo*> mapOfFunc;
+    createMapOfFunc(allFuncInfo, mapOfFunc);
+
+    for (auto& byFile : allFuncInfo)
+    {
+        for (auto& func : byFile.second)
+        {
+            string name = func->funcName;
+            auto offset = name.rfind("_spf_");
+            if (offset != string::npos)
+            {
+                string orig = name.substr(0, offset);
+                auto it = mapOfFunc.find(orig);
+                if (it != mapOfFunc.end())
+                    it->second->fullCopiesOfThisFunction.push_back(func);
+            }
+        }
+    }
+}
+
+void removeDistrStateFromDeadFunctions(const map<string, vector<FuncInfo*>>& allFuncInfo, 
+                                       const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaratedArrays)
+{
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(allFuncInfo, funcByName);
+
+    // remove distr state of arrays from dead functions
+    for (auto& elem : declaratedArrays)
+    {
+        DIST::Array* array = elem.second.first;
+        if (array->GetLocation().first == DIST::l_PARAMETER)
+        {
+            if (array->GetNonDistributeFlag() == false)
+            {
+                auto declInfo = array->GetDeclInfo();
+                auto place = *declInfo.begin();
+                if (SgFile::switchToFile(place.first) == -1)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                SgStatement *st = SgStatement::getStatementByFileAndLine(place.first, place.second);
+                checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+
+                SgProgHedrStmt *hedr = isSgProgHedrStmt(getFuncStat(st));
+                checkNull(hedr, convertFileName(__FILE__).c_str(), __LINE__);
+
+                const string funcName = hedr->nameWithContains();
+
+                auto it = funcByName.find(funcName.c_str());
+                if (it == funcByName.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (it->second->deadFunction)
+                    array->SetNonDistributeFlag(DIST::NO_DISTR);
             }
         }
     }

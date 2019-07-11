@@ -71,7 +71,7 @@ void preprocess_allocates(SgFile *file)
 //TODO: extend ALLOC/DEALLOC moving
 //TODO: add support of different files
 // only one level of call is supported
-void move_allocates_interproc(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+void moveAllocatesInterproc(const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     for (auto &array : arrayLinksByFuncCalls)
     {

@@ -281,7 +281,13 @@ static void changeNameOfModuleFunc(string funcName, SgSymbol *curr, const map<st
         if (filter.size() == 1)
             callInMod = (*filter.begin()).first;
         else
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        {
+            //XXX
+            if (funcName.find("::") != string::npos)
+                return;
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
     }
 
     string newName = (byUseName == "" ? callInMod + "::" + string(curr->identifier()) : byUseName);
@@ -383,7 +389,7 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatem
                     SgSymbol* toSwap = ex->symbol();
                     if (toSwap != procS)
                     {
-                        printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
+                        //printf(":: var %d, line %d, change %s -> %s\n", st->variant(), st->lineNumber(), toSwap->identifier(), procS->identifier());
                         //ex->addAttribute(VARIABLE_NAME, toSwap, sizeof(SgSymbol));
                         ex->setSymbol(*procS);
                         byUseMapping[procS] = toSwap;

@@ -685,9 +685,6 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                 addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
                         }
 
-                        if (writesInLoop.size() == 0)
-                            continue;
-
                         // and check regular acceses
                         for (auto &regAccess : currArrayInfo->arrayAccess)
                         {
@@ -741,6 +738,10 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
 
                             const pair<int, int> &alignRuleRead = alignRuleWithTempl[i];
                             bool wasAdd = false;
+
+
+                            if (writesInLoop.size() == 0)
+                                continue;
 
                             // try to check all writes with ...
                             for (int k = 0; k < writesInLoop.size() && !wasAdd; ++k)

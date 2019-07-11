@@ -76,7 +76,7 @@ depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const std::set
 
 // allocations_prepoc.cpp
 void preprocess_allocates(SgFile *file);
-void move_allocates_interproc(const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
+void moveAllocatesInterproc(const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);
 
 // insert_directive.cpp
 void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &dataDir,

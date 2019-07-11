@@ -689,7 +689,7 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
     }
 
     map<string, FuncInfo*> funcByName;
-    createMapOfFunc(allFuncInfo, funcByName);    
+    createMapOfFunc(allFuncInfo, funcByName);
     aggregateUsedArrays(funcByName, arrayLinksByFuncCalls);
 
     //debug dump

@@ -1101,7 +1101,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         updateLoopIoAndStopsByFuncCalls(loopGraph, allFuncInfo);
 
-        move_allocates_interproc(arrayLinksByFuncCalls);
+        moveAllocatesInterproc(arrayLinksByFuncCalls);
+
+        removeDistrStateFromDeadFunctions(allFuncInfo, declaratedArrays);
+        propagateArrayFlags(arrayLinksByFuncCalls, declaratedArrays, SPF_messages);
     }
     else if (curr_regime == CALL_GRAPH2)
     {
@@ -1114,6 +1117,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             DvmhRegionInsertor regionInsertor(NULL, loopGraphInFile.second);
             regionInsertor.updateLoopGraph(allFuncs);
         }
+
+        detectCopies(allFuncInfo);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {
@@ -1586,9 +1591,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
     else if (curr_regime == DUPLICATE_FUNCTIONS)
-    {
-        duplicateFunctions(allFuncInfo);
-    }
+        duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
 
 
 #if _WIN32
@@ -1908,8 +1911,10 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case CHECK_FUNC_TO_INCLUDE:
         findFunctionsToInclude(true);
         break;
+        // all these cases run UNPARSE_FILE after 
     case RESOLVE_PAR_REGIONS:
     case CREATE_PARALLEL_REGIONS:
+    case DUPLICATE_FUNCTIONS:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)

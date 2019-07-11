@@ -1046,6 +1046,14 @@ int SPF_CorrectCodeStylePass(int winHandler, int *options, short *projName, shor
     return simpleTransformPass(CORRECT_CODE_STYLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+int SPF_DuplicateFunctionChains(int winHandler, int* options, short* projName, short* folderName, short*& output,
+                                int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(DUPLICATE_FUNCTIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
 int SPF_ResolveParallelRegionConflicts(int winHandler, int *options, short *projName, short *folderName, short *&output,
                                        int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
