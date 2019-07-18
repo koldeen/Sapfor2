@@ -31,7 +31,7 @@ namespace Analyzer
 
 			bool operator== (MemoryUnit& mu)
 			{
-				if (typeid (mu) != typeid (ScalarUnit)) return false;
+				//if (typeid (mu) != typeid (ScalarUnit)) return false;
 
 				return MemoryUnit::operator == (mu);				
 			}

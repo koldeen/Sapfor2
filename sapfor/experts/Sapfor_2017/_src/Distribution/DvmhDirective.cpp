@@ -186,6 +186,14 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
+static map<string, Symbol*> setToMapWithSortByStr(const set<Symbol*> &setIn)
+{
+    map<string, Symbol*> retMap;
+    for (auto& elem : setIn)
+        retMap[elem->identifier()] = elem;
+    return retMap;
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -288,14 +296,14 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
             directive += ", PRIVATE(";
             int k = 0;
-            for (auto &privVar : privates)
+            for (auto &privVar : setToMapWithSortByStr(privates))
             {
                 if (k != 0)
-                    directive += "," + string(privVar->identifier());
+                    directive += "," + string(privVar.second->identifier());
                 else
-                    directive += privVar->identifier();
+                    directive += privVar.second->identifier();
 
-                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar));
+                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar.second));
                 p->setLhs(varExpr);
                 if (k != privates.size() - 1)
                     p = createAndSetNext(RIGHT, EXPR_LIST, p);

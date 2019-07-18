@@ -316,6 +316,12 @@ static pair<int, int> getCoefsOfSubscript(SgExpression *exp, SgSymbol *doName, i
         else
             err = -1;
         break;
+    case UNARY_ADD_OP:
+        if (lErr != -1)
+            result = make_pair(+lRes.first, lRes.second);
+        else
+            err = -1;
+        break;
     case MULT_OP:
         if (lErr != -1 && rErr != -1)
         {
@@ -429,6 +435,15 @@ int CalculateInteger(SgExpression *expr, int &result)
             if (err.first != -1)
             {
                 result = -res.first;
+                return 0;
+            }
+            else
+                return -1;
+            break;
+        case UNARY_ADD_OP:
+            if (err.first != -1)
+            {
+                result = res.first;
                 return 0;
             }
             else

@@ -115,6 +115,8 @@ enum passes {
     CREATE_PARALLEL_REGIONS,
 
     DUPLICATE_FUNCTIONS,
+    REMOVE_COPIES,
+    RESTORE_COPIES,
     EMPTY_PASS
 };
 
@@ -233,6 +235,8 @@ static void setPassValues()
     passNames[REMOVE_DVM_INTERVALS] = "REMOVE_DVM_INTERVALS";
     passNames[VERIFY_FUNC_DECL] = "VERIFY_FUNC_DECL";
     passNames[DUPLICATE_FUNCTIONS] = "DUPLICATE_FUNCTIONS";
+    passNames[REMOVE_COPIES] = "REMOVE_COPIES";
+    passNames[RESTORE_COPIES] = "RESTORE_COPIES";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

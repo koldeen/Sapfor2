@@ -886,6 +886,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             bool res = FunctionsChecker(file, functionNames, SPF_messages);
             verifyOK &= res;
         }
+        else if (curr_regime == REMOVE_COPIES)
+            removeCopies(file, getObjectForFileFromMap(file_name, allFuncInfo));
+        else if (curr_regime == RESTORE_COPIES)
+            restoreCopies(file);
 
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
     } // end of FOR by files
@@ -1592,7 +1596,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == DUPLICATE_FUNCTIONS)
         duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
-
+    else if (curr_regime == REMOVE_COPIES)
+        replaceNewNames(allFuncInfo);
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;
@@ -1840,9 +1845,13 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             /*if (!folderName && !consoleMode || predictOn)
                 runAnalysis(*project, PREDICT_SCHEME, false); */
 
+            runAnalysis(*project, REMOVE_COPIES, false);
+
             if (folderName || consoleMode)
                 runAnalysis(*project, UNPARSE_FILE, true, additionalName.c_str(), folderName);
             
+            runAnalysis(*project, RESTORE_COPIES, false);
+
             runPass(EXTRACT_PARALLEL_DIRS, proj_name, folderName);
             runPass(EXTRACT_SHADOW_DIRS, proj_name, folderName);
             runPass(REVERSE_CREATED_NESTED_LOOPS, proj_name, folderName);

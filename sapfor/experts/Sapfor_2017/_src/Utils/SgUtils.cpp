@@ -1884,3 +1884,54 @@ SgStatement* getFuncStat(SgStatement *st)
 
     return iterator;
 }
+
+SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool withAttributes, bool withComment, bool withSameLines)
+{
+    if (toDup == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    if (isSgProgHedrStmt(toDup) == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* global = toDup;
+    while (global->variant() != GLOBAL)
+        global = global->controlParent();
+
+    SgSymbol* orig = toDup->symbol();
+    SgSymbol* copied = &orig->copySubprogram(*global);
+    
+    copied->changeName(newName.c_str());
+
+    //move 
+    SgStatement* toMove = global->lexNext()->extractStmt();
+    toDup->insertStmtBefore(*toMove, *toDup->controlParent());
+
+    map<SgStatement*, SgStatement*> origCopySt;
+    map<SgExpression*, SgExpression*> origCopyEx;
+
+    // set line numbers, pointer to attributes and comments
+    for (auto origStat = toDup, copyStat = toMove;
+        origStat != toDup->lastNodeOfStmt()->lexNext();
+        origStat = origStat->lexNext(), copyStat = copyStat->lexNext())
+    {
+        if (copyStat->variant() != origStat->variant())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (withSameLines)
+        {
+            copyStat->setlineNumber(origStat->lineNumber());
+            BIF_FILE_NAME(copyStat->thebif) = BIF_FILE_NAME(origStat->thebif);
+        }
+
+        if (withAttributes)
+            if (origStat->numberOfAttributes() > 0)
+                copyStat->addAttributeTree(origStat->getAttribute(0));
+
+        if (withComment)
+        {
+            if (origStat->comments())
+                copyStat->setComments(origStat->comments());
+        }
+    }
+
+    return toMove;
+}

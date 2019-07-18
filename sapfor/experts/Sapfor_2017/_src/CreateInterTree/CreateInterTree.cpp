@@ -819,8 +819,8 @@ void uniteIntervalsBetweenProcCalls(map<string, vector<SpfInterval*>> &intervals
                 if (!intvl->begin->switchToFile())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                auto funcSt = intvl->begin;
-                const string name = intvl->begin->symbol()->identifier();
+                SgStatement *funcSt = intvl->begin->controlParent();
+                const string name = funcSt->symbol()->identifier();
                 auto currF = getFunc(funcSt->fileName(), funcSt->lineNumber(), allFuncs);
                 for (auto &callsTo : currF->callsTo)
                 {

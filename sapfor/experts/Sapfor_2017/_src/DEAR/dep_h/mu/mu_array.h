@@ -102,7 +102,7 @@ namespace Analyzer
 
 			bool operator== (MemoryUnit& mu)
 			{
-				if (typeid (mu) != typeid (ArrayUnit)) return false;
+				//if (typeid (mu) != typeid (ArrayUnit)) return false;
 
 				if (dimsNumber != ((ArrayUnit&)mu).dimsNumber) return false;
 				for (int i = 0; i < varsNum; i++)

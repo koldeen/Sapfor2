@@ -1373,7 +1373,8 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                 //TODO: need to correct in case of use local arrays in functions
                                 if (templDir.second == "!DVM$ INHERIT\n" && templDir.first.isTemplateInModule)
                                     templDecl = "";
-                                else
+                                else if (dirWithArray.first->GetLocation().first == DIST::l_LOCAL || 
+                                         dirWithArray.first->GetLocation().first == DIST::l_COMMON)
                                 {
                                     if (templateDelc.find(templDecl) == templateDelc.end())
                                         templateDelc.insert(templDecl);
@@ -1383,6 +1384,8 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     if (templDecl != "")
                                         templDecl = createFullTemplateDir(make_tuple(templDir.first.templDecl.first, templDir.first.templDist.first, templDir.first.templDyn.first));
                                 }
+                                else
+                                    templDecl = "";
 
                                 if (!strcmp(st->fileName(), fin_name))
                                 {
@@ -1394,7 +1397,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                         getRealArrayRefs(dirWithArray.first, dirWithArray.first, realRefs, arrayLinksByFuncCalls);
                                         for (auto &elem : realRefs)
                                         {                                            
-                                            if (elem->GetTemplateArray(regionId)->GetLocation().first == DIST::arrayLocType::l_MODULE)
+                                            if (elem->GetTemplateArray(regionId)->GetLocation().first == DIST::l_MODULE)
                                             {
                                                 templDecl = "";
                                                 break;

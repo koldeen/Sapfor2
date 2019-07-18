@@ -407,6 +407,9 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                     if (origStat->numberOfAttributes() > 0)
                         copyStat->addAttributeTree(origStat->getAttribute(0));
                     origCopySt[origStat] = copyStat;
+                    if (origStat->comments())
+                        copyStat->setComments(origStat->comments());
+
                     for (int z = 0; z < 3; ++z)
                         fillOrigCopyEx(origStat->expr(z), copyStat->expr(z), origCopyEx);
                 }
@@ -533,4 +536,200 @@ void duplicateFunctions(const map<string, vector<FuncInfo*>> &allFuncs, const ma
             toCopyVec.push_back(inG);
 
     copyGroup(mapOfFunc, toCopyVec, funcInfoOfCall);
+}
+
+static map<FuncInfo*, set<FuncInfo*>> getUniq—opies(const vector<FuncInfo*> &toCmp)
+{
+    map<string, set<FuncInfo*>> dict;
+    string cmpName = "testCmpName";
+    for (auto& elem : toCmp)
+    {
+        SgSymbol *s = elem->funcPointer->GetOriginal()->symbol();
+        string saveName = s->identifier();
+        s->changeName(cmpName.c_str());
+        dict[elem->funcPointer->GetOriginal()->unparse()].insert(elem);
+        s->changeName(saveName.c_str());
+    }
+
+    map<FuncInfo*, set<FuncInfo*>> uniq;
+    for (auto& elem : dict)
+    {
+        auto it = elem.second.begin();
+        FuncInfo* base = *it;
+        for (it++; it != elem.second.end(); it++)
+            uniq[base].insert(*it);
+    }
+
+    return uniq;
+}
+
+static map<string, set<FuncInfo*>> removed;
+static map<string, set<SgStatement*>> copied;
+static map<string, string> newNamesOfUniqCopies;
+static map<SgSymbol*, pair<string, string>> replaced;
+
+static void removeThisFunctions(const string &file, const map<FuncInfo*, set<FuncInfo*>> &uniqCopies, const vector<FuncInfo*>& toRem)
+{
+    for (auto& rem : toRem)
+    {
+        if (uniqCopies.find(rem) == uniqCopies.end() && removed[file].find(rem) == removed[file].end())
+        {
+            SgStatement* orig = rem->funcPointer->GetOriginal();
+            SgStatement* last = orig->lastNodeOfStmt();
+            while (orig != last)
+            {
+                orig->setVariant(orig->variant() * -1);
+                orig = orig->lexNext();
+            }
+
+            removed[file].insert(rem);
+        }
+    }
+}
+
+static void removeThisFunctions(const string& file, FuncInfo* toRem)
+{
+    vector<FuncInfo*> tmp = { toRem };
+    map<FuncInfo*, set<FuncInfo*>> info;
+    removeThisFunctions(file, info, tmp);
+}
+
+static void restoreFunctions(const string &file)
+{
+    for (auto& elem : removed[file])
+    {
+        SgStatement* orig = elem->funcPointer->GetOriginal();
+        SgStatement* last = orig->lastNodeOfStmt();
+        while (orig != last)
+        {
+            orig->setVariant(orig->variant() * -1);
+            orig = orig->lexNext();
+        }
+    }
+    removed[file].clear();
+}
+
+static void createCopies(const string &file, const string &baseName, const  map<FuncInfo*, set<FuncInfo*>> &uniqCopies)
+{
+    int newNum = 0;
+    for (auto& toCopy : uniqCopies)
+    {
+        const string newName = newNum > 0 ? baseName + "_spfr_" + to_string(newNum) : baseName;
+        ++newNum;
+
+        SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), newName, true, true);
+        copied[toCopy.first->funcPointer->GetOriginal()->fileName()].insert(duplicated);
+        newNamesOfUniqCopies[toCopy.first->funcName] = newName;
+        for (auto &theSame : toCopy.second)
+            newNamesOfUniqCopies[theSame->funcName] = newName;
+
+        removeThisFunctions(file, toCopy.first);
+    }
+}
+
+void removeCopies(SgFile *file, const vector<FuncInfo*> &funcs)
+{
+    string fileS = file->filename();
+    for (auto& func : funcs)
+    {
+        if (func->fullCopiesOfThisFunction.size())
+        {
+            map<FuncInfo*, set<FuncInfo*>> uniqCopies = getUniq—opies(func->fullCopiesOfThisFunction);
+            if (uniqCopies.size() == func->fullCopiesOfThisFunction.size())
+                continue;
+
+            removeThisFunctions(fileS, uniqCopies, func->fullCopiesOfThisFunction);
+            removeThisFunctions(fileS, func);
+            createCopies(fileS, func->funcName, uniqCopies);
+        }
+    }
+}
+
+static void doReplacements(SgSymbol* s, map<SgSymbol*, pair<string, string>> &replaced)
+{
+    auto itR = replaced.find(s);
+    if (itR == replaced.end())
+    {
+        auto it = newNamesOfUniqCopies.find(s->identifier());
+        if (it != newNamesOfUniqCopies.end())
+        {
+            s->changeName(it->second.c_str());
+            replaced.insert(itR, make_pair(s, *it));
+        }
+    }
+}
+
+static void doReplacements(SgExpression* ex, map<SgSymbol*, pair<string, string>> *replaced)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            SgSymbol* s = ex->symbol();
+            if (replaced)
+                doReplacements(s, *replaced);
+            else
+                doReplacements(s, ::replaced);
+        }
+
+        doReplacements(ex->lhs(), replaced);
+        doReplacements(ex->rhs(), replaced);
+    }
+}
+
+static void doReplacements(SgStatement* st, SgStatement* last, map<SgSymbol*, pair<string, string>> *replaced = NULL)
+{
+    while (st != last)
+    {
+        if (st->variant() == PROC_STAT)
+        {
+            SgSymbol *s = st->symbol();
+            if (replaced)
+                doReplacements(s, *replaced);
+            else
+                doReplacements(s, ::replaced);
+        }
+        for (int z = 0; z < 3; ++z)
+            doReplacements(st->expr(z), replaced);
+
+        st = st->lexNext();
+    }
+}
+
+void replaceNewNames(const map<string, vector<FuncInfo*>> &allFuncs)
+{
+    for (auto& byfile : allFuncs)
+    {
+        if (SgFile::switchToFile(byfile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        for (auto& func : byfile.second)
+        {
+            if (func->funcPointer->GetOriginal()->variant() < 0)
+                continue;
+            SgStatement* p = func->funcPointer->GetOriginal();
+            doReplacements(p, p->lastNodeOfStmt());
+        }
+
+        map<SgSymbol*, pair<string, string>> replaced_tmp;
+        if (copied.find(byfile.first) != copied.end())
+        {
+            for (auto& func : copied[byfile.first])
+                doReplacements(func, func->lastNodeOfStmt(), &replaced_tmp);
+        }
+    }
+}
+
+void restoreCopies(SgFile* file)
+{
+    restoreFunctions(file->filename());
+
+    for (auto& elem : copied[file->filename()])
+        elem->deleteStmt();
+    copied[file->filename()].clear();
+
+    for (auto& elem : replaced)
+        elem.first->changeName(elem.second.second.c_str());
+    replaced.clear();
+    newNamesOfUniqCopies.clear();
 }
