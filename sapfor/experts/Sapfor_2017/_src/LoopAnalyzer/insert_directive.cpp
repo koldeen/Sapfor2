@@ -1389,7 +1389,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                 if (!strcmp(st->fileName(), fin_name))
                                 {
-                                    if (modulesAndFuncs[i]->variant() == PROG_HEDR)
+                                    if (isMain)
                                         templDecl = "";
                                     else
                                     {

@@ -505,8 +505,8 @@ namespace Distribution
         double globalSum = 0;
 
 
-        string FullName = "_full_graph_reg" + std::to_string(regionNum) + ".txt";
-        string ReducedName = "_reduced_graph_reg" + std::to_string(regionNum) + ".txt";
+        string FullName = "_graph_full_reg" + std::to_string(regionNum) + ".txt";
+        string ReducedName = "_graph_reduced_reg" + std::to_string(regionNum) + ".txt";
         //__spf_print(1, "flag keepFiles %d, flag onlyGraph %d\n", keepFiles, onlyGraph);
             
         if (keepFiles)
@@ -526,7 +526,6 @@ namespace Distribution
 
             //new algorithm with optimal strategy
             G.RemoveMultipleArcsOptimal();
-
 #if TEST
             string ArrayFileName = "_save_arrays_reg" + std::to_string(regionNum) + ".txt";
             string GraphFileName = "_save_full_graph_reg" + std::to_string(regionNum) + ".txt";

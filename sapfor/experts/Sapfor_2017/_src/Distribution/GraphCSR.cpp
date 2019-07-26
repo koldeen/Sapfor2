@@ -1314,7 +1314,37 @@ namespace Distribution
                     //if has W-W links, set arc with maximum weight
                     if (hasWW)
                     {
-                        bool eqSet = false;
+                        set<int> uniqMaxIds;
+                        for (int k = 0; k < idx.size(); ++k)
+                            if (maxW == weights[idx[k]])
+                                uniqMaxIds.insert(k);
+                        int exceptIdx = -1;
+                        if (uniqMaxIds.size() == 0)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        else if (uniqMaxIds.size() == 1)
+                            exceptIdx = *uniqMaxIds.begin();
+                        else
+                        {
+                            int minDistToZero = 2147483647; // INT_MAX
+                            for (auto& elem : uniqMaxIds)
+                            {
+                                int sum = abs(0 - attributes[idx[elem]].second.second) + abs(0 - attributes[idx[elem]].first.second);
+                                if (minDistToZero > sum)
+                                {
+                                    minDistToZero = sum;
+                                    exceptIdx = elem;
+                                }
+                            }
+                        }
+
+                        if (exceptIdx < 0 || exceptIdx >= idx.size())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        for (int k = 0; k < idx.size(); ++k)
+                            if (k != exceptIdx)
+                                toDel.push_back(idx[k]);
+
+                        /*bool eqSet = false;
                         for (int k = 0; k < idx.size(); ++k)
                         {
                             if (maxW == weights[idx[k]])
@@ -1326,7 +1356,7 @@ namespace Distribution
                             }
                             else
                                 toDel.push_back(idx[k]);
-                        }
+                        }*/
                     }
                 }
             }            
@@ -1395,21 +1425,27 @@ namespace Distribution
             const int dimSize = (*it)->GetDimSize();
             const string arrayName = (*it)->GetName();
             string verts = "";
+            bool allNotDefined = true;
             for (int i = 0; i < dimSize; ++i)
             {
                 vType retVal;
                 allArrays.GetVertNumber(*it, i, retVal);
                 char buf[32];
-                if (retVal < localIdx.size())
+                if (retVal < localIdx.size() && retVal >= 0)
+                {
                     sprintf(buf, "%d", localIdx[retVal]);
+                    if (localIdx[retVal] != -1)
+                        allNotDefined = false;
+                }
                 else
                     sprintf(buf, "%d", -1);
                 verts += buf;
                 verts += " ";
             }
-            //if (dimSize > 1)
+
+            if (!allNotDefined)
             {
-                fprintf(out, "subgraph cluster%s {\n", arrayName.c_str());
+                fprintf(out, "subgraph cluster_%s {\n", arrayName.c_str());
                 for (int k = 0; k < dimSize; ++k)
                     fprintf(out, "\"%s.%d\"\n", arrayName.c_str(), k);
                 fprintf(out, "label = \"array %s (%s)\" \n", arrayName.c_str(), verts.c_str());

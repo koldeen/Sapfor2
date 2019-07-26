@@ -208,6 +208,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
         
     SgForStmt *loopG = (SgForStmt *)loop->GetOriginal();
+
     map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(loop->GetOriginal());
     const int nested = loopG->isPerfectLoopNest();
     vector<SgSymbol*> loopSymbs;

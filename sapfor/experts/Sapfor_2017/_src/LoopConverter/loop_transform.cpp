@@ -285,6 +285,16 @@ static bool validateInvariantStatement(SgStatement* invBegin, SgStatement* invEn
     while (stmt != invEnd && allAssignmentOrIf) 
     {
         allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgLogIfStmt(stmt) || isSgControlEndStmt(stmt));
+        SgStatement* ass = isSgAssignStmt(stmt);
+        //TODO:
+        if (ass)
+        {
+            if (ass->expr(0)->variant() == ARRAY_REF)
+            {
+                allAssignmentOrIf = false;
+                break;
+            }
+        }
         stmt = stmt->lexNext();
     }
 

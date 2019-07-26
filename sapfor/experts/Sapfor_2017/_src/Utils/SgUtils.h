@@ -61,6 +61,6 @@ std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
 SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig);
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
 void printSymbolTable(SgFile *file);
-SgStatement* getFuncStat(SgStatement *st);
+SgStatement* getFuncStat(SgStatement *st, const std::set<int> additional = std::set<int>());
 std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapbyPlace();
 SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true);

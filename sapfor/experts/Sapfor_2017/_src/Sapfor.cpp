@@ -274,6 +274,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
             __spf_print(1, "  try to find file <%s>\n", file_name);
             __spf_print(1, "  in set %d, result %d\n", (int)filesToInclude.size(), filesToInclude.find(file_name) != filesToInclude.end());
         }
+
         if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
         {
             FILE *fOut = fopen(fout_name.c_str(), "w");
@@ -886,8 +887,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             bool res = FunctionsChecker(file, functionNames, SPF_messages);
             verifyOK &= res;
         }
-        else if (curr_regime == REMOVE_COPIES)
-            removeCopies(file, getObjectForFileFromMap(file_name, allFuncInfo));
         else if (curr_regime == RESTORE_COPIES)
             restoreCopies(file);
 
@@ -1215,7 +1214,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 if (keepFiles)
                 {
                     char fName[256];
-                    sprintf(fName, "_reduced_graph_with_templ_reg%d.txt", parallelRegions[z]->GetId());
+                    sprintf(fName, "_graph_reduced_with_templ_reg%d.txt", parallelRegions[z]->GetId());
                     reducedG.CreateGraphWiz(fName, vector<tuple<int, int, attrType>>(), allArrays, true);
                 }
                 createAlignDirs(reducedG, allArrays, dataDirectives, parallelRegions[z]->GetId(), arrayLinksByFuncCalls, SPF_messages);
@@ -1597,7 +1596,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == DUPLICATE_FUNCTIONS)
         duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
     else if (curr_regime == REMOVE_COPIES)
-        replaceNewNames(allFuncInfo);
+        removeCopies(allFuncInfo);
 
 #if _WIN32
     timeForPass = omp_get_wtime() - timeForPass;

@@ -207,7 +207,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
     //insert comment
     int lineBefore = -1;
 
-    map<string, vector<pair<int, int>> > insertedIncludeFiles;
+    map<string, set<SgStatement*>> insertedIncludeFiles;
     map<int, pair<int, int>> placesForInsert;
 
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
@@ -256,7 +256,10 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                             (prev->variant() == DVM_PARALLEL_ON_DIR || 
                              prev->variant() == SPF_ANALYSIS_DIR || 
                              prev->variant() == SPF_TRANSFORM_DIR ||
-                             prev->variant() == DVM_INTERVAL_DIR))
+                             prev->variant() == DVM_INTERVAL_DIR || 
+                             prev->variant() == ACC_REGION_DIR || 
+                             prev->variant() == DVM_REALIGN_DIR ||
+                             prev->variant() == DVM_REDISTRIBUTE_DIR))
                         {
                             locSt = prev;
                             change = true;
@@ -276,10 +279,15 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         {
             auto found = placesForInsert.find(st->id());
             if (found != placesForInsert.end())
-            {
-                if (ifIntervalExists(it.second.second, found->second))
+            {                
+                SgStatement* parent = getFuncStat(st, { BLOCK_DATA, MODULE_STMT });
+                checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+
+                if (ifIntervalExists(it.second.second, found->second) && insertedIncludeFiles[it.first].find(parent) == insertedIncludeFiles[it.first].end())
                 {
                     allIncludeFiles.insert(it.first);
+                    insertedIncludeFiles[it.first].insert(parent);
+
                     if (st->comments())
                     {
                         string comments = st->comments();
@@ -1872,14 +1880,27 @@ void printSymbolTable(SgFile *file)
     }
 }
 
-SgStatement* getFuncStat(SgStatement *st)
+static bool checkAdd(const int var, const set<int> &additional)
+{
+    if (additional.size())
+    {
+        if (additional.find(var) == additional.end())
+            return true;
+        else
+            return false;
+    }
+    else
+        return true;
+}
+
+SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
 {
     if (!st)
         return NULL;
 
     SgStatement *iterator = st;
-
-    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR)
+    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR && 
+           checkAdd(iterator->variant(), additional))
         iterator = iterator->controlParent();
 
     return iterator;

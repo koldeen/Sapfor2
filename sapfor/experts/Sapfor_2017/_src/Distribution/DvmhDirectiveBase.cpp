@@ -283,7 +283,11 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
 
                                 if (result.first == loopRule.first)
                                 {
-                                    const int currShift = result.second - loopRule.second;
+                                    const int absShift = abs(result.second - loopRule.second);
+                                    const int signShift = (result.second - loopRule.second) > 0 ? 1 : -1;
+
+                                    const int currShift = signShift * (absShift / currRuleShadow.first + ((absShift % currRuleShadow.first) != 0));
+
                                     minShift = std::min(minShift, currShift);
                                     maxShift = std::max(maxShift, currShift);
 
