@@ -634,6 +634,7 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         {
             SgStatement *startSt = current->loop->GetOriginal();
             SgStatement *cp = startSt->controlParent();
+            int nestedLvl = 1;
             while (cp)
             {                
                 if (cp->variant() == FOR_NODE)
@@ -644,10 +645,13 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
                     if (itL == loopGraph.end())
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     if (itL->second->directiveForLoop != NULL || itL->second->directive != NULL)
-                        return needToSkip;                    
+                        return needToSkip;
+                    nestedLvl = itL->second->perfectLoop;
+                    if (nestedLvl > 1)
+                        return needToSkip;
                 }
                 cp = cp->controlParent();
-            }            
+            }
         }
     }
 

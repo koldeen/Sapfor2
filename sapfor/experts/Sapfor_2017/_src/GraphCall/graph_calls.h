@@ -53,6 +53,14 @@ struct FuncParam
             return (inout_types[num] & OUT_BIT) != 0;
     }
 
+    bool isArgInOut(const int num) const
+    {
+        if (num >= countOfPars)
+            return false;
+        else
+            return isArgIn(num) && isArgOut(num);
+    }
+
     std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;

@@ -113,6 +113,7 @@ private:
     void analyzeAssignments(int blockIndex, SgStatement* stmt);
     void buildCFG();
     void setupSubstitutes();
+    void analyzeAssignments(SgExpression* ex, const int blockIndex);
 
 public:
     const std::vector<BasicBlock>& getBlocks() const { return blocks; }

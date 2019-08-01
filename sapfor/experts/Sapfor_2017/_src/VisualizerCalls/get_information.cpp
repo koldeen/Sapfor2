@@ -504,58 +504,92 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
         if (reg == NULL)
             throw (-23);
 
-        map<DIST::Array*, vector<pair<bool, pair<int, int>>>> data;
+        map<DIST::Array*, vector<pair<int, int>>> data;
         auto arrays = reg->GetAllArrays().GetArrays();
-        for (int z = 1; z < *toModify; ++z)
+        int countOfArray = 0;
+        for (auto& elem : arrays)
+            if (elem->IsArray())
+                ++countOfArray;
+
+        int z = 1;
+        int last = *toModify;
+
+        set<DIST::Array*> templates;
+        for ( ; z < last; ++z)
         {
             int64_t addr = toModify[z];
             auto it = arrays.find((DIST::Array*)addr);
             if (it == arrays.end())
                 throw (-24);
 
-            if ((*it)->IsLoopArray())
+            DIST::Array* array = *it;
+            DIST::Array* templ = array->GetTemplateArray(regId);
+            if (!templ)
+                throw (-30);
+            templates.insert(templ);
+
+            if (array->IsLoopArray())
                 throw (-26);
-            if ((*it)->IsTemplate())
+            if (array->IsTemplate())
                 throw (-27);
 
-            auto it2 = data.find(*it);
+            auto it2 = data.find(array);
             if (it2 != data.end())
                 throw (-25);
 
-            it2 = data.insert(it2, make_pair(*it, vector<pair<bool, pair<int, int>>>()));
-            for (int k = z + 1; k < z + 1 + 3 * (*it)->GetDimSize(); k *= 3)
-                it2->second[toModify[k]] = make_pair(true, make_pair((int)toModify[k + 1], (int)toModify[k + 2]));
-            z += (*it)->GetDimSize();
+            it2 = data.insert(it2, make_pair(array, vector<pair<int, int>>()));
+            ++z;
+            int k = z;
+            for ( ; k < z + 3 * array->GetDimSize(); k += 3)
+                it2->second[toModify[k]] = make_pair((int)toModify[k + 1], (int)toModify[k + 2]);
+            z = k;
         }
+        if (z != last)
+            throw (-28);
 
-        //check equal
-        bool needToRecalc = false;
-        for (auto &elem : data)
-        {
-            auto oldRules = elem.first->GetAlignRulesWithTemplate(regId);
-            for (int z = 0; z < oldRules.size(); ++z)
-            {
-                if (oldRules[z] == elem.second[z].second)
-                    elem.second[z].first = false;
-                else
-                    needToRecalc = true;
-            }
-        }
-        
         DIST::GraphCSR<int, double, attrType> &reducedG = reg->GetReducedGraphToModify();
-        const DIST::Arrays<int> &allArrays = reg->GetAllArrays();
+        DIST::Arrays<int> &allArrays = reg->GetAllArraysToModify();
         DataDirective &dataDirectives = reg->GetDataDirToModify();
 
-        // recalculate links
-        if (needToRecalc)
-        {
-            reducedG.cleanCacheLinks();
-            dataDirectives.alignRules.clear();
+        if (countOfArray != data.size())
+            throw (-29);
 
-            // modify reduced graph
-            
-            createAlignDirs(reducedG, allArrays, dataDirectives, reg->GetId(), arrayLinksByFuncCalls, SPF_messages);
+        // recalculate links
+        reducedG.cleanCacheLinks();
+        dataDirectives.alignRules.clear();
+
+        map<DIST::Array*, vector<pair<int, int>>> toDelete;
+        toDelete = data;
+        for (auto& elem : templates)
+            toDelete.insert(make_pair(elem, vector<pair<int, int>>()));
+        reducedG.RemoveAllEdgesFromGraph(toDelete, allArrays);
+
+        // add new rules and modify reduced graph
+        for (auto& arrayP : data)
+        {
+            DIST::Array* array = arrayP.first;
+            auto links = array->GetLinksWithTemplate(regId);
+            auto templ = array->GetTemplateArray(regId);
+            if (!templ)
+                throw (-32);
+
+            for (int z = 0; z < links.size(); ++z)
+            {
+                if (links[z] != -1)
+                    array->AddLinkWithTemplate(z, links[z], templ, arrayP.second[z], regId);
+                else
+                {
+                    if (arrayP.second[z].first != -1)
+                        throw (-31);
+
+                    int err = DIST::AddArrayAccess(reducedG, allArrays, array, templ, make_pair(z, links[z]), 1.0, make_pair(make_pair(1, 0), arrayP.second[z]), WW_link);
+                    if (err != 0)
+                        throw (-33);
+                }
+            }
         }
+
+        createAlignDirs(reducedG, allArrays, dataDirectives, reg->GetId(), arrayLinksByFuncCalls, SPF_messages);
 
         __spf_print(1, "*** NEW RULES FOR PARALLEL REGION '%s':\n", reg->GetName().c_str());
         auto result = dataDirectives.GenAlignsRules();

@@ -4062,7 +4062,7 @@ void Call(SgSymbol *s, SgExpression *e)
     {
         if (!IsPureProcedure(s) || IS_BY_USE(s))
         {
-            Warning(" Call of the procedure %s in a region, which is not  pure or is module procedure", s->identifier(), 580, cur_st);
+            Warning(" Call of the procedure '%s' in a region, which is not pure or is module procedure", s->identifier(), 580, cur_st);
             doNotForCuda();
         }
     }

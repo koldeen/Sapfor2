@@ -5,6 +5,10 @@ using std::map;
 using std::string;
 using std::vector;
 using std::pair;
+using std::set;
+using std::stack;
+using std::deque;
+using std::make_pair;
 
 #define TRACE 0
 
@@ -12,10 +16,10 @@ using std::pair;
 struct PrivateArrayInfo
 {
     char *name;
-    std::vector<int> ddot;
+    vector<int> ddot;
     int dimSize;
-    std::vector<SgExpression*> ddotExp;
-    std::vector<SgExpression*> correctExp;
+    vector<SgExpression*> ddotExp;
+    vector<SgExpression*> correctExp;
     int typeRed;
     reduction_operation_list *rsl;
 };
@@ -76,15 +80,21 @@ extern void __poppar_handler(SgExpression *expr, SgExpression *&retExp, const ch
 extern void __modulo_handler(SgExpression *expr, SgExpression *&retExp, const char *name, int);
 
 // local 
-static std::map<string, FunctionParam> handlersOfFunction;
-static std::set<int> supportedVars;
-static std::map<string, SgSymbol*> fTableOfSymbols;
-static std::vector<PrivateArrayInfo> arrayInfo;
-static std::set<long> labels_num;
-static std::map<string, std::vector<SgLabel*> > labelsExitCycle;
-static std::set<int> unSupportedVars;
+static map<string, FunctionParam> handlersOfFunction;
+static set<int> supportedVars;
+static map<string, SgSymbol*> fTableOfSymbols;
+static vector<PrivateArrayInfo> arrayInfo;
+static set<long> labels_num;
+static map<string, vector<SgLabel*> > labelsExitCycle;
+static set<int> unSupportedVars;
 static int cond_generator;
 static SgStatement* curTranslateStmt;
+
+static map<SgStatement*, vector<SgStatement*> > insertBefore;
+static map<SgStatement*, vector<SgStatement*> > insertAfter;
+static map<SgStatement*, SgStatement*> replaced;
+static int arrayGenNum;
+
 #if TRACE
 static int lvl_convert_st = 0;
 #endif
@@ -140,7 +150,7 @@ static bool inNewVars(const char *name)
 
 static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *tmpR)
 {
-    std::stack<SgExpression*> allArraySub;
+    stack<SgExpression*> allArraySub;
     if (tmp)
     {
         if (isSgArrayType(tmp->type()))
@@ -205,7 +215,7 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
 
 void swapDimentionsInprivateList(void)
 {
-    std::stack<SgExpression*> allArraySub;
+    stack<SgExpression*> allArraySub;
     SgExpression *tmp = private_list;
     arrayInfo.clear();
 
@@ -303,7 +313,7 @@ static void setControlLexNext(SgStatement* &currentSt)
 }
 
 // create lables for EXIT and CYCLE statemets
-static void createNewLabel(std::vector<SgStatement*> &labSt, std::vector<SgLabel*> &lab, const char *name)
+static void createNewLabel(vector<SgStatement*> &labSt, vector<SgLabel*> &lab, const char *name)
 {
     char *str_cont = new char[64];
     str_cont[0] = '\0';
@@ -478,9 +488,9 @@ SgStatement* getInterfaceForCall(SgSymbol* s)
 SgExpression* switchArgumentsByKeyword(SgExpression *funcCall, SgStatement *funcInterface)
 {
     //get list of arguments names
-    std::vector<string> listArgsNames;
+    vector<string> listArgsNames;
     SgFunctionSymb *s = (SgFunctionSymb *)funcInterface->symbol();
-    std::vector<SgExpression*> resultExprCall(s->numberOfParameters(), (SgExpression *)NULL);
+    vector<SgExpression*> resultExprCall(s->numberOfParameters(), (SgExpression *)NULL);
     int useKeywords = false;
     int useOptional = false;
     int useArray = false;
@@ -702,6 +712,123 @@ void createNewFCall(SgExpression *expr, SgExpression *&retExp, const char *name,
         ((SgFunctionCallExp*)retExp)->addArg(*expr);
 }
 
+static SgExpression* convertDvmAssign(SgExpression *copy, const vector<pair<SgSymbol*, SgSymbol*> >& symbs)
+{
+    SgExpression* list = copy->lhs()->lhs();
+    
+    stack<SgExpression*> pointersToMul;
+    while (list)
+    {
+        if (list->variant() == MULT_OP)
+            pointersToMul.push(list);
+        else if (list->rhs() && list->rhs()->variant() == MULT_OP)
+            pointersToMul.push(list->rhs());
+        list = list->lhs();
+    }
+    for (int z = 0; z < symbs.size(); ++z)
+    {
+        SgSymbol* curr = symbs[z].first;
+        SgExpression* exp = pointersToMul.top();
+        pointersToMul.pop();
+        exp->setRhs(&(*exp->rhs() + *new SgVarRefExp(curr)));
+    }
+    return copy;
+}
+
+static SgForStmt* createFor(const vector<int>& dimSizes, const vector<pair<SgSymbol*, SgSymbol*> >& symbs, SgStatement *inner)
+{
+    SgForStmt* forSt = NULL;
+    for (int z = 0; z < dimSizes.size(); ++z)
+    {
+        SgSymbol* s = symbs[z].first;
+        SgSymbol* s_decl = symbs[z].second;
+
+        SgExpression* start = &SgAssignOp(*new SgVarRefExp(*s_decl), *new SgValueExp(0));
+        SgExpression* end = &(*new SgVarRefExp(*s) < *new SgValueExp(dimSizes[z]));
+        SgExpression* step = new SgUnaryExp(PLUSPLUS_OP, *new SgVarRefExp(*s));
+
+        forSt = new SgForStmt(start, end, step, forSt == NULL ? inner : forSt);
+    }
+    return forSt;
+}
+
+static pair<SgSymbol*, pair<vector<SgStatement*>, vector<SgStatement*> > > createForCopy(const vector<int> &dimSizes, SgExpression *dvmArray, bool in, bool out)
+{    
+    SgType* base = dvmArray->symbol()->type()->baseType();
+    SgForStmt* forSt = NULL, *forStInv = NULL;
+    SgStatement* inner = NULL;
+
+    vector<SgStatement*> ret;
+    vector<SgStatement*> retInv;
+
+    vector<pair<SgSymbol*, SgSymbol*> > symbs(dimSizes.size());
+
+    int total = 1;
+    for (int z = 0; z < dimSizes.size(); ++z)
+        total *= dimSizes[z];
+
+    SgArrayType* arrT = new SgArrayType(*base);
+    arrT->addDimension(new SgValueExp(total));
+
+    char buf[256];
+    sprintf(buf, "%d", arrayGenNum++);
+    SgSymbol* array = new SgSymbol(VARIABLE_NAME, (string("_tfm_arr_") + buf).c_str(), arrT, NULL);
+
+    for (int z = 0; z < dimSizes.size(); ++z)
+    {
+        sprintf(buf, "%d", z);
+        SgSymbol* s = new SgSymbol(VARIABLE_NAME, (string("_tfm__") + buf).c_str());
+        SgSymbol* s_decl = new SgSymbol(VARIABLE_NAME, (string("int _tfm__") + buf).c_str());
+        symbs[z] = make_pair(s, s_decl);
+    }
+
+    SgArrayRefExp* arrayRef = new SgArrayRefExp(*array);
+    SgExpression* subs = new SgVarRefExp(symbs[0].first);
+    int dumS = 1;
+    for (int z = 1; z < symbs.size(); ++z)
+    {
+        subs = &(*subs + (*new SgValueExp(dumS * dimSizes[symbs.size() - z]) * *new SgVarRefExp(symbs[1].first)));
+        dumS *= dimSizes[symbs.size() - z];
+    }
+    
+    arrayRef->addSubscript(*subs);
+    ret.push_back(makeSymbolDeclaration(array));
+
+    if (in)
+    {
+        inner = new SgAssignStmt(*arrayRef, *convertDvmAssign(&dvmArray->copy(), symbs));
+        forSt = createFor(dimSizes, symbs, inner);
+        ret.push_back(forSt);
+    }
+
+    if (out)
+    {
+        inner = new SgAssignStmt(*convertDvmAssign(&dvmArray->copy(), symbs), arrayRef->copy());
+        forStInv = createFor(dimSizes, symbs, inner);
+        retInv.push_back(forStInv);
+    }
+    
+    return make_pair(array, make_pair(ret, retInv));
+}
+
+static vector<int> fillBitsOfArgs(SgProgHedrStmt *hedr)
+{
+    vector<int> bitsOfArgs;
+    for (int z = 0; z < hedr->numberOfParameters(); ++z)
+    {
+        SgSymbol *par = hedr->parameter(z);
+        int attr = par->attributes();
+        if (attr & IN_BIT)
+            bitsOfArgs.push_back(IN_BIT);
+        else if (attr & OUT_BIT)
+            bitsOfArgs.push_back(OUT_BIT);
+        else 
+            bitsOfArgs.push_back(INOUT_BIT);
+    }
+
+    return bitsOfArgs;
+}
+
 static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
 {
     bool ret = true;
@@ -710,23 +837,29 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
 
     vector<SgType*> *prototype = NULL;
     int num = 0;
-    SgExpression *tmp = listArgs;
+    SgExpression* tmp = listArgs;
     while (tmp)
     {
         num++;
         tmp = tmp->rhs();
     }
-
+    
     map <string, vector<vector<SgType*> > >::iterator it = interfaceProcedures.find(name);
     bool canFoundinterface = !(it == interfaceProcedures.end());
 
     //try to find function on current file
+    //TODO: add support of many files
+    //TODO: module functions with the same name
+    vector<int> argsBits;
     if (canFoundinterface == false)
     {
         for (graph_node *ndl = node_list; ndl; ndl = ndl->next)
         {
-            if (string(ndl->name) == name)
+            if (ndl->name == name && current_file == ndl->file)
+            {
                 CreateIntefacePrototype(ndl->st_header);
+                argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
+            }
         }
 
         it = interfaceProcedures.find(name);
@@ -737,6 +870,12 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
             Error("Can not find interface for procedure %s", name.c_str(), 900, first_do_par);
             ret = false;
         }            
+    }
+    else
+    {
+        for (graph_node* ndl = node_list; ndl; ndl = ndl->next)
+            if (ndl->name == name && current_file == ndl->file)
+                argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
     }
     
     if (canFoundinterface)
@@ -761,10 +900,10 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
         }
         else //Match here
         {
-            SgExpression *tmp = listArgs;
-            for (int i = 0; i < num; ++i, tmp = tmp->rhs())
+            SgExpression *argInCall = listArgs;
+            for (int i = 0; i < num; ++i, argInCall = argInCall->rhs())
             {                                
-                if (tmp->lhs() == NULL)
+                if (argInCall->lhs() == NULL)
                 {
                     Error("Internal inconsistency in F->C convertation", "", 900, first_do_par);
                     ret = false;
@@ -772,27 +911,28 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                 }
                 
                 SgType *typeInCall;
-                if (tmp->lhs()->symbol()) // simple argument
-                    typeInCall = tmp->lhs()->symbol()->type();
+                if (argInCall->lhs()->symbol()) // simple argument
+                    typeInCall = argInCall->lhs()->symbol()->type();
                 else                      // expression
-                    typeInCall = tmp->lhs()->type();
+                    typeInCall = argInCall->lhs()->type();
                 SgType *typeInProt = (*prototype)[i];
+                SgType* typeInProtSave = (*prototype)[i];
                 
-                int countOfSubscr = 0;
-                if (tmp->lhs()->variant() == ARRAY_REF)
+                int countOfSubscrInCall = 0;
+                int dimSizeInProt = 0;
+                if (argInCall->lhs()->variant() == ARRAY_REF)
                 {                    
-                    SgExpression *subs = tmp->lhs()->lhs();
+                    SgExpression *subs = argInCall->lhs()->lhs();
                     while (subs)
                     {
-                        countOfSubscr++;
+                        countOfSubscrInCall++;
                         subs = subs->rhs();
                     }
 
-                    if (countOfSubscr == 0)
+                    SgArrayType* inCall = isSgArrayType(typeInCall);
+                    SgArrayType* inProt = isSgArrayType(typeInProt);
+                    if (countOfSubscrInCall == 0)
                     {
-                        SgArrayType *inCall = isSgArrayType(typeInCall);
-                        SgArrayType *inProt = isSgArrayType(typeInProt);
-
                         if (inCall == NULL || inProt == NULL) // inconsistency
                             typeInCall = NULL;
                         else if (inCall->dimension() != inProt->dimension())
@@ -802,18 +942,22 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     }
                     else
                     {
-                        //TODO: not supported yet
-                        SgArrayType *arrType = isSgArrayType(typeInCall);
-                        if (arrType)
+                        //TODO: not supported yet                        
+                        if (inCall && inProt)
                         {
-                            if (arrType->dimension() != countOfSubscr)
-                                typeInCall = NULL;
+                            if (inCall->dimension() != inProt->dimension()) // TODO
+                            {   //TODO: check for non distributed
+                                typeInCall = typeInProt;
+                                dimSizeInProt = inProt->dimension();
+                            }
                             else
                             {
                                 if (isSgArrayType(typeInProt)) // inconsistency
                                     typeInCall = NULL;
-                                else if (arrType->dimension() - countOfSubscr == 0)
+                                else if (inCall->dimension() - countOfSubscrInCall == 0)
                                     typeInCall = typeInProt;
+                                else // TODO
+                                    typeInCall = NULL;
                             }
                         }
                         else if (isSgArrayType(typeInProt)) // inconsistency
@@ -885,21 +1029,72 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                     Error(buf, "", 900, first_do_par);
                     ret = false;
                 }
-                else if (tmp->lhs()->variant() == ARRAY_REF)
+                else if (argInCall->lhs()->variant() == ARRAY_REF)
                 {
-                    if (countOfSubscr == 0)
+                    if (countOfSubscrInCall == 0)
                     {
-                        SgArrayRefExp *arr = (SgArrayRefExp*)(tmp->lhs());
+                        SgArrayRefExp *arr = (SgArrayRefExp*)(argInCall->lhs());
                         SgType *type = arr->symbol()->type();
                         if (type->hasBaseType())
-                            tmp->setLhs(*new SgCastExp(*C_PointerType(C_Type(type->baseType())), *arr));
+                            argInCall->setLhs(*new SgCastExp(*C_PointerType(C_Type(type->baseType())), *arr));
                         else
-                            tmp->setLhs(*new SgCastExp(*C_PointerType(C_Type(type)), *arr));
+                            argInCall->setLhs(*new SgCastExp(*C_PointerType(C_Type(type)), *arr));
                     }
                     else
                     {
-                        SgExpression *arrayRef = tmp->lhs();
-                        convertExpr(arrayRef, arrayRef);
+                        if (dimSizeInProt == 0)
+                        {
+                            SgExpression* arrayRef = argInCall->lhs();
+                            convertExpr(arrayRef, arrayRef);
+                        }
+                        else
+                        {
+                            if (options.isOn(AUTO_TFM))
+                            {
+                                //TODO: ranges, ex. (-1:2)
+
+                                SgArrayType* arrT = isSgArrayType(typeInProtSave);
+                                int dim = arrT->dimension();
+                                vector<int> dimSizes(dim);
+                                for (int z = 0; z < dim; ++z)
+                                    dimSizes[z] = -1;
+
+                                int dimTotal = 1;
+                                for (int z = 0; z < dim; ++z)
+                                {
+                                    if (arrT->sizeInDim(z)->isInteger())
+                                        dimTotal *= dimSizes[z] = arrT->sizeInDim(z)->valueInteger();
+                                    else
+                                        dimTotal = -1;
+                                }
+
+                                if (dimTotal != -1)
+                                {
+                                    std::reverse(dimSizes.begin(), dimSizes.end());
+                                    bool ifIn = true;
+                                    bool ifOut = true;
+                                    pair<SgSymbol*, pair<vector<SgStatement*>, vector<SgStatement*> > > conv = createForCopy(dimSizes, argInCall->lhs(), ifIn, ifOut);
+
+                                    if ( (argsBits[i] & IN_BIT) || (argsBits[i] & INOUT_BIT))
+                                        for (int z = 0; z < conv.second.first.size(); ++z)
+                                            insertBefore[curTranslateStmt].push_back(conv.second.first[z]);
+
+                                    if ((argsBits[i] & OUT_BIT) || (argsBits[i] & INOUT_BIT))
+                                        for (int z = 0; z < conv.second.second.size(); ++z)
+                                            insertAfter[curTranslateStmt].push_back(conv.second.second[z]);
+
+                                    argInCall->setLhs(*new SgArrayRefExp(*conv.first));
+                                }
+                                else
+                                {
+                                    char buf[256];
+                                    sprintf(buf, "Unsupported variant of '%s' procedure call", name.c_str());
+                                    Error(buf, "", 900, first_do_par);
+                                }
+                            }
+                            else
+                                argInCall->setLhs(SgAddrOp(*argInCall->lhs()));
+                        }
                     }
                 }
             }
@@ -1131,7 +1326,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
 
                 if (dim > 0 && expr->lhs()) // DIM > 0 && ARRAY_REF is not under CALL
                 {
-                    std::stack<SgExpression*> allArraySub;
+                    stack<SgExpression*> allArraySub;
                     //swap subscripts and correct exps
 
                     SgExpression *tmp = expr->lhs();
@@ -1160,7 +1355,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
                     if (arrayInfo[idx].typeRed == 1)
                     {
                         // revert order of subscr
-                        std::stack<SgExpression*> allArraySub;
+                        stack<SgExpression*> allArraySub;
                         SgExpression *tmp = expr->lhs();
                         for (int i = 0; i < dim; ++i)
                         {
@@ -1237,7 +1432,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
     }
 }
 
-static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> &retSts, std::vector < std::stack < SgStatement*> > &copyBlock, int countOfCopy, int lvl)
+static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retSts, vector < stack < SgStatement*> > &copyBlock, int countOfCopy, int lvl)
 {
     bool needReplace = false;
     SgStatement *labSt = NULL;
@@ -1330,7 +1525,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         SgExpression *cond = st->expr(0);
         convertExpr(cond, cond);
         SgStatement *body = ((SgLogIfStmt*)st)->body();
-        std::pair<SgStatement*, SgStatement*> t;
+        pair<SgStatement*, SgStatement*> t;
 #if TRACE
         printfSpaces(lvl_convert_st);
         printf("convert logicif node\n");
@@ -1356,10 +1551,10 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         if (!fb)
         {
             SgStatement *tmp = st->lexNext();
-            std::stack<SgStatement*> bodySts;
+            stack<SgStatement*> bodySts;
             while (st->lastNodeOfStmt() != tmp)
             {
-                std::pair<SgStatement*, SgStatement*> convSt;
+                pair<SgStatement*, SgStatement*> convSt;
 #if TRACE
                 printfSpaces(lvl_convert_st);
                 printf("convert if node\n");
@@ -1381,7 +1576,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
             if (tmp->variant() == CONTROL_END)
             {
-                std::pair<SgStatement*, SgStatement*> convSt;
+                pair<SgStatement*, SgStatement*> convSt;
                 convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
                 if (convSt.second)
                     bodySts.push(convSt.second);
@@ -1407,12 +1602,12 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         }
         else
         {
-            std::stack<std::stack<SgStatement*> > bodySts;
-            std::stack<SgStatement*> bodyFalse;
-            std::stack<SgExpression*> conds;
+            stack<stack<SgStatement*> > bodySts;
+            stack<SgStatement*> bodyFalse;
+            stack<SgExpression*> conds;
             SgStatement *fb_ControlEnd = NULL;
 
-            std::stack<SgStatement*> t;
+            stack<SgStatement*> t;
             SgExpression *cond = ((SgIfStmt*)st)->conditional();
             convertExpr(cond, cond);
             conds.push(cond);
@@ -1458,12 +1653,12 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
                     SgExpression *cond = ((SgIfStmt*)tb)->conditional();
                     convertExpr(cond, cond);
                     conds.push(cond);
-                    t = std::stack<SgStatement*>();
+                    t = stack<SgStatement*>();
                     tb = tb->lexNext();
                 }
                 else if (tb->variant() != CONTROL_END)
                 {
-                    std::pair<SgStatement*, SgStatement*> tmp;
+                    pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
                     printfSpaces(lvl_convert_st);
                     printf("convert if node\n");
@@ -1489,7 +1684,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
             while (fb != fb_ControlEnd)
             {
-                std::pair<SgStatement*, SgStatement*> tmp;
+                pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
                 printfSpaces(lvl_convert_st);
                 printf("convert if node\n");
@@ -1511,7 +1706,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
             if (fb->variant() == CONTROL_END)
             {
-                std::pair<SgStatement*, SgStatement*> tmp;
+                pair<SgStatement*, SgStatement*> tmp;
                 convertStmt(fb, tmp, copyBlock, countOfCopy, lvl + 1);
                 if (tmp.second)
                     bodyFalse.push(tmp.second);
@@ -1544,7 +1739,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
             int cond1 = bodySts.size();
             for (int i = 0; i < cond1; ++i)
             {
-                std::stack<SgStatement*> tmpS = bodySts.top();
+                stack<SgStatement*> tmpS = bodySts.top();
                 int cond2;
                 bodySts.pop();
                 if (i == 0)
@@ -1602,7 +1797,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         SgSymbol *newVar = new SgSymbol(VARIABLE_NAME, getNewCycleVar(it->identifier()));
         SgFunctionCallExp *abs_f = new SgFunctionCallExp(*createNewFunctionSymbol("abs"));
         SgFunctionCallExp *abs_f1 = new SgFunctionCallExp(*createNewFunctionSymbol("abs"));
-        std::stack<SgStatement*> bodySt;
+        stack<SgStatement*> bodySt;
 
 
         if (((SgForStmt *)st)->step())
@@ -1617,7 +1812,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
         while (inDo != lastNode)
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
             printfSpaces(lvl_convert_st);
             printf("convert for node\n");
@@ -1639,7 +1834,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
         if (lastNode->variant() != CONTROL_END)
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
             printfSpaces(lvl_convert_st);
             printf("convert for node\n");
@@ -1658,7 +1853,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         }
         else
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
             convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
             if (tmp.second)
                 bodySt.push(tmp.second);
@@ -1695,8 +1890,8 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
         if (cycleName)
         {
-            std::vector<SgLabel*> labs;
-            std::vector<SgStatement*> labsSt;
+            vector<SgLabel*> labs;
+            vector<SgStatement*> labsSt;
             createNewLabel(labsSt, labs, cycleName->identifier());
 
             bodySt.push(labsSt[0]);
@@ -1746,14 +1941,14 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
             cycleName = isSgVarRefExp(st->expr(2))->symbol();
 
         SgExpression *conditional = ((SgWhileStmt *)st)->conditional();
-        std::stack<SgStatement*> bodySt;
+        stack<SgStatement*> bodySt;
         SgStatement *inDo = ((SgWhileStmt *)st)->body();
         SgStatement *lastNode = ((SgWhileStmt *)st)->lastNodeOfStmt();
 
 
         while (inDo != lastNode)
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
             printfSpaces(lvl_convert_st);
             printf("convert while node\n");
@@ -1775,7 +1970,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
         if (lastNode->variant() != CONTROL_END)
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
             printfSpaces(lvl_convert_st);
             printf("convert while node\n");
@@ -1794,7 +1989,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         }
         else
         {
-            std::pair<SgStatement*, SgStatement*> tmp;
+            pair<SgStatement*, SgStatement*> tmp;
             (void)convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
             if (tmp.second)
                 bodySt.push(tmp.second);
@@ -1807,8 +2002,8 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         retSt = new SgWhileStmt(conditional, NULL);
         if (cycleName)
         {
-            std::vector<SgLabel*> labs;
-            std::vector<SgStatement*> labsSt;
+            vector<SgLabel*> labs;
+            vector<SgStatement*> labsSt;
             createNewLabel(labsSt, labs, cycleName->identifier());
 
             bodySt.push(labsSt[0]);
@@ -1834,14 +2029,14 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
     {
         SgStatement *tmp = NULL;
         SgStatement *lastNode = st->lastNodeOfStmt();
-        std::stack<SgStatement*> bodySt;
+        stack<SgStatement*> bodySt;
 
         SgExpression *select = ((SgSwitchStmt*)st)->selector();
         convertExpr(select, select);
         ((SgSwitchStmt*)st)->setSelector(*select);
 
         //extract default body
-        std::deque<SgStatement*> bodyQueue;
+        deque<SgStatement*> bodyQueue;
         SgStatement *newIfStmt = NULL;
         tmp = ((SgSwitchStmt*)st)->defOption();
         if (tmp != NULL)
@@ -1853,7 +2048,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
             st->deleteStmt();
             while (tmp->variant() != CASE_NODE && tmp->variant() != CONTROL_END)
             {
-                std::pair<SgStatement*, SgStatement*> convSt;
+                pair<SgStatement*, SgStatement*> convSt;
 #if TRACE
                 printfSpaces(lvl_convert_st);
                 printf("convert switch node\n");
@@ -1876,7 +2071,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
             }
             if (tmp->variant() == CONTROL_END)
             {
-                std::pair<SgStatement*, SgStatement*> convSt;
+                pair<SgStatement*, SgStatement*> convSt;
                 (void)convertStmt(tmp, convSt, copyBlock, countOfCopy, lvl + 1);
                 if (convSt.second)
                     bodyQueue.push_back(convSt.second);
@@ -1902,7 +2097,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
             if (newIfStmt == NULL)
                 newIfStmt = new SgIfStmt(*new SgValueExp(0), *new SgStatement(1), 2);
 
-            std::pair<SgStatement*, SgStatement*> convSt;
+            pair<SgStatement*, SgStatement*> convSt;
 #if TRACE
             printfSpaces(lvl_convert_st);
             printf("convert switch node\n");
@@ -1926,7 +2121,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 
             while (tmp != lastNode)
             {
-                std::pair<SgStatement*, SgStatement*> convSt;
+                pair<SgStatement*, SgStatement*> convSt;
 #if TRACE
                 printfSpaces(lvl_convert_st);
                 printf("convert switch node\n");
@@ -2052,7 +2247,7 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
 #endif
 
         int i = 0;
-        std::vector<SgLabel*> labs;
+        vector<SgLabel*> labs;
         while (labList)
         {
             SgLabel *lab = ((SgLabelRefExp *)(labList->lhs()))->label();
@@ -2127,8 +2322,8 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         SgSymbol *constrName = ((SgExitStmt*)st)->constructName();
         if (constrName)
         {
-            std::vector<SgLabel*> labs;
-            std::vector<SgStatement*> labsSt;
+            vector<SgLabel*> labs;
+            vector<SgStatement*> labsSt;
             createNewLabel(labsSt, labs, constrName->identifier());
 
             retSt = new SgGotoStmt(*labs[1]);
@@ -2152,8 +2347,8 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
         SgSymbol *constrName = ((SgCycleStmt*)st)->constructName();
         if (constrName)
         {
-            std::vector<SgLabel*> labs;
-            std::vector<SgStatement*> labsSt;
+            vector<SgLabel*> labs;
+            vector<SgStatement*> labsSt;
             createNewLabel(labsSt, labs, constrName->identifier());
 
             retSt = new SgGotoStmt(*labs[0]);
@@ -2196,18 +2391,18 @@ static bool convertStmt(SgStatement* &st, std::pair<SgStatement*, SgStatement*> 
     if (lvl > 0)
     {
         if (labSt && retSt)
-            retSts = std::make_pair<SgStatement*, SgStatement*>(&retSt->copy(), &labSt->copy());
+            retSts = make_pair<SgStatement*, SgStatement*>(&retSt->copy(), &labSt->copy());
         else if (labSt)
-            retSts = std::make_pair<SgStatement*, SgStatement*>(NULL, &labSt->copy());
+            retSts = make_pair<SgStatement*, SgStatement*>(NULL, &labSt->copy());
         else if (retSt)
-            retSts = std::make_pair<SgStatement*, SgStatement*>(&retSt->copy(), NULL);
+            retSts = make_pair<SgStatement*, SgStatement*>(&retSt->copy(), NULL);
         else
-            retSts = std::make_pair<SgStatement*, SgStatement*>(NULL, NULL);
+            retSts = make_pair<SgStatement*, SgStatement*>(NULL, NULL);
     }
     else
     {
         if (retSt)
-            retSts = std::make_pair<SgStatement*, SgStatement*>(&retSt->copy(), NULL);
+            retSts = make_pair<SgStatement*, SgStatement*>(&retSt->copy(), NULL);
     }
     return needReplace;
 }
@@ -2559,13 +2754,13 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
 #endif
 
     SgStatement *copyFSt = Stmt;
-    std::vector<std::stack<SgStatement*> > copyBlock;
+    vector<stack<SgStatement*> > copyBlock;
     labelsExitCycle.clear();
     labels_num.clear();
     cond_generator = 0;
     unSupportedVars.clear();
     bool needReplace = false;
-    std::pair<SgStatement*, SgStatement*> tmp;
+    pair<SgStatement*, SgStatement*> tmp;
 
 #if TRACE
     printfSpaces(lvl_convert_st);
@@ -2590,7 +2785,7 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
         copyFSt->deleteStmt();
     }
         
-    for (std::set<int>::iterator i = unSupportedVars.begin(); i != unSupportedVars.end(); i++)
+    for (set<int>::iterator i = unSupportedVars.begin(); i != unSupportedVars.end(); i++)
         printf("  [EXPR ERROR: %s, line %d, %d] unsupported variant of node: %s\n", __FILE__, __LINE__, first_do_par->lineNumber(), tag[*i]);
     if (unSupportedVars.size() != 0)
         Error("Internal inconsistency in F->C onvertation", "", 900, first_do_par);
@@ -2603,7 +2798,7 @@ void Translate_Fortran_To_C(SgStatement *Stmt)
 }
 
 
-void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, std::vector<std::stack<SgStatement*> > &copyBlock, int countOfCopy)
+void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, vector<stack<SgStatement*> > &copyBlock, int countOfCopy)
 {
 #if TRACE
     printf("START: CONVERTION OF BODY ON LINE %d\n", number_of_loop_line);
@@ -2611,19 +2806,23 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, std::
 #endif
 
     SgStatement *copyFSt = firstStmt->lexNext();
-    std::vector<SgStatement*> forRemove;        
+    vector<SgStatement*> forRemove;        
     labelsExitCycle.clear();
     labels_num.clear();
     unSupportedVars.clear();
+    insertAfter.clear();
+    insertBefore.clear();
+    replaced.clear();
     cond_generator = 0;
+    arrayGenNum = 0;
 
     if (countOfCopy)
-        copyBlock = std::vector<std::stack< SgStatement*> >(countOfCopy);
+        copyBlock = vector<stack< SgStatement*> >(countOfCopy);
 
     while (copyFSt != lastStmt)
     {
         bool needReplace = false;
-        std::pair<SgStatement*, SgStatement*> tmp;
+        pair<SgStatement*, SgStatement*> tmp;
 #if TRACE
         printfSpaces(lvl_convert_st);
         printf("convert Stmt\n");
@@ -2644,6 +2843,7 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, std::
                     tmp.first->addComment(comm);
                                
                 copyFSt->insertStmtBefore(*tmp.first, *copyFSt->controlParent());
+                replaced[tmp.first] = copyFSt;
                 for (int i = 0; i < countOfCopy; ++i)
                     copyBlock[i].push(&tmp.first->copy());
             }
@@ -2659,13 +2859,36 @@ void Translate_Fortran_To_C(SgStatement *firstStmt, SgStatement *lastStmt, std::
     for (size_t i = 0; i < forRemove.size(); ++i)
         forRemove[i]->deleteStmt();
 
-    for (std::set<int>::iterator i = unSupportedVars.begin(); i != unSupportedVars.end(); i++)
+    for (set<int>::iterator i = unSupportedVars.begin(); i != unSupportedVars.end(); i++)
         printf("  [EXPR ERROR: %s, line %d, %d] unsupported variant of node: %s\n", __FILE__, __LINE__, first_do_par->lineNumber(), tag[*i]);
     if (unSupportedVars.size() != 0)
         Error("Internal inconsistency in F->C onvertation", "", 900, first_do_par);
 
     correctLabelsUse(firstStmt->lexNext(), lastStmt);
 
+    if (options.isOn(AUTO_TFM))
+    {
+        SgStatement* copyFSt = firstStmt->lexNext();
+        if (insertAfter.size() || insertBefore.size())
+        {
+            while (copyFSt != lastStmt)
+            {
+                SgStatement* key = (replaced.find(copyFSt) != replaced.end()) ? replaced[copyFSt] : copyFSt;
+                if (insertAfter.find(key) != insertAfter.end())
+                {
+                    for (int z = 0; z < insertAfter[key].size(); ++z)
+                        copyFSt->insertStmtAfter(*insertAfter[key][z]);
+                }
+                if (insertBefore.find(key) != insertBefore.end())
+                {
+                    for (int z = 0; z < insertBefore[key].size(); ++z)
+                        copyFSt->insertStmtBefore(*insertBefore[key][z]);
+                }
+                copyFSt = copyFSt->lexNext();
+            }
+        }
+    }
+    
 #if TRACE
     lvl_convert_st -= 2;
     printf("END: CONVERTION OF BODY ON LINE %d\n", number_of_loop_line);

@@ -1113,6 +1113,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     {
         map<string, FuncInfo*> allFuncs;
         createMapOfFunc(allFuncInfo, allFuncs);
+        completeFillOfArrayUsageBetweenProc(loopGraph, allFuncInfo);
 
         //for each file of graphLoop
         for (auto &loopGraphInFile : loopGraph)

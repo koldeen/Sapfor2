@@ -44,6 +44,8 @@ public:
         hasDifferentAlignRules = false;
         hasNonPureProcedures = false;
         hasDvmIntervals = false;
+        hasImpureCalls = false;
+        hasStops = false;
         directive = NULL;
         oldDirective = NULL;
         directiveForLoop = NULL;

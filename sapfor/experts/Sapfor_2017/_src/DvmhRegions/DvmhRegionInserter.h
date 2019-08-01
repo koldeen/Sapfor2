@@ -29,14 +29,16 @@ struct LoopCheckResults
     LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
 };
 
-struct DvmhRegion 
+class DvmhRegion 
 {
+private:
     std::vector<LoopGraph*> loops;
 
     std::string fun_name;
-    std::vector<SgSymbol*> needActualisation;
-    std::vector<SgSymbol*> needActualisationAfter;
+    std::set<std::string> needActualisation;
+    std::set<std::string> needActualisationAfter;
 
+public:
     DvmhRegion() { }
     DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
 
@@ -44,15 +46,30 @@ struct DvmhRegion
     SgStatement* getFirstSt() const;
     SgStatement* getLastSt() const;
 
-    bool addToActualisation(SgSymbol* s) 
+    bool addToActualisation(const std::string &s) 
     {
-        for (auto &present : needActualisation) 
-            if (s == present) 
-                return false;       
-
-        needActualisation.push_back(s);
+        if (needActualisation.find(s) != needActualisation.end())
+            return false;
+        else
+            needActualisation.insert(s);
         return true;
     }
+
+    bool addToActualisationAfter(const std::string &s)
+    {
+        if (needActualisationAfter.find(s) != needActualisationAfter.end())
+            return false;
+        else
+            needActualisationAfter.insert(s);
+        return true;
+    }
+
+    void addLoop(LoopGraph* newLoop) { loops.push_back(newLoop); }
+    const std::string& getFunName() const { return fun_name; }
+    void setFunName(const std::string& newName) { fun_name = newName; }
+    const std::vector<LoopGraph*>& getLoops() const { return loops; }
+    const std::set<std::string>& getActualisation() const {return needActualisation; }
+    const std::set<std::string>& getActualisationAfter() const { return needActualisationAfter; }
 };
 
 class DvmhRegionInsertor 
@@ -67,9 +84,8 @@ class DvmhRegionInsertor
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirectiveBefore(SgStatement *, std::vector<SgSymbol*>, int);
+    void insertActualDirective(SgStatement*, const std::set<std::string>&, int, bool, bool empty = false);
     void mergeRegions();
-    //void insertActualForRedistribute();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
 

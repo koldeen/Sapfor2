@@ -1733,7 +1733,7 @@ void SgStatement::checkConsistence()
         const int var = variant();
         if (var < 950) // not SPF DIRS
         {
-            unparsestdout();
+            //unparsestdout();
             char buf[512];
             sprintf(buf, "Internal error at line %d and file libSage++.cpp, file id was inconsistent: current id = %d, was id = %d\n", __LINE__, current_file_id, fileID);
             addToGlobalBufferAndPrint(buf);

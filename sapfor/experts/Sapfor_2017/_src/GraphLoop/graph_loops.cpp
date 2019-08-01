@@ -520,7 +520,6 @@ static void findArrayRef(SgExpression *exp, bool isWirte, set<DIST::Array*> &all
     }
 }
 
-//TODO: add IPO analysis
 static void findArrayRefs(LoopGraph *loop)
 {
     for (SgStatement *st = loop->loop->lexNext(); st != loop->loop->lastNodeOfStmt(); st = st->lexNext())
@@ -939,4 +938,73 @@ vector<std::tuple<DIST::Array*, vector<long>, pair<string, int>>> findAllSingleR
     return retVal;
 }
 
+static void processFuncParameters(LoopGraph *loop, SgExpression *list, const FuncInfo* func)
+{
+    int parNum = 0;
+    while (list)
+    {
+        if (list->lhs() && list->lhs()->variant() == ARRAY_REF)
+        {
+            SgSymbol* arrayS = list->lhs()->symbol();
+            DIST::Array* array = getArrayFromDeclarated(declaratedInStmt(arrayS), arrayS->identifier());
+            checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+
+            if (array->GetNonDistributeFlag() == false)            
+                if (func->funcParams.isArgOut(parNum))
+                    loop->usedArraysWrite.insert(array);            
+        }
+        ++parNum;
+        list = list->rhs();
+    }
+}
+
+static void processExpression(SgExpression *ex, LoopGraph* loop, const map<string, FuncInfo*> &funcByName)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            const string funcName = ex->symbol()->identifier();
+            auto itF = funcByName.find(funcName);
+            if (itF != funcByName.end())
+                processFuncParameters(loop, ex->lhs(), itF->second);
+        }
+        processExpression(ex->lhs(), loop, funcByName);
+        processExpression(ex->rhs(), loop, funcByName);
+    }
+}
+
+void completeFillOfArrayUsageBetweenProc(const map<string, vector<LoopGraph*>>& loopGraph, const map<string, vector<FuncInfo*>>& allFuncInfo)
+{
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(allFuncInfo, funcByName);
+
+    for (auto& byFile : loopGraph)
+    {
+        map<int, LoopGraph*> loopsMap;
+        createMapLoopGraph(byFile.second, loopsMap);
+
+        if (SgFile::switchToFile(byFile.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        for (auto& loop : loopsMap)
+        {
+            SgStatement* start = loop.second->loop->GetOriginal();
+            SgStatement* end = start->lastNodeOfStmt();
+
+            for (SgStatement* st = start; st != end; st = st->lexNext())
+            {
+                if (st->variant() == PROC_STAT)
+                {
+                    const string funcName = st->symbol()->identifier();
+                    auto itF = funcByName.find(funcName);
+                    if (itF != funcByName.end())
+                        processFuncParameters(loop.second, st->expr(0), itF->second);
+                }
+                for (int z = 0; z < 3; ++z)
+                    processExpression(st->expr(z), loop.second, funcByName);
+            }
+        }
+    }
+}
 #undef DEBUG

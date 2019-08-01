@@ -150,6 +150,7 @@ namespace Distribution
         int GetConflictCycles(const std::vector<Cycle<vType, wType, attrType>> &cycles, const Arrays<vType> &allArrays, std::vector<std::pair<int, int>> &indexOfConflict, bool needPrint);
         void RemoveMultipleArcsByWeights();
         void RemoveMultipleArcsOptimal();
+        void RemoveVerticesByWeight();
         int CreateGraphWiz(const char *fileName, const std::vector<std::tuple<vType, vType, attrType>> &toDelArcs, const Arrays<vType> &allArrays, const bool onlyTree);
         void RemovedEdges(const std::vector<std::tuple<vType, vType, attrType>> &toDelArcs, const Arrays<vType> &allArrays);
         void HighlightLinks();
@@ -184,6 +185,7 @@ namespace Distribution
                 ret += weights[z] / 2.0;
             return ret;
         }
+        void RemoveAllEdgesFromGraph(const std::map<Array*, std::vector<std::pair<int, int>>>& toDel, const Arrays<vType>& allArrays);
     };
 
     std::pair<int, int> Fx(const std::pair<int, int> &x, const std::pair<int, int> &F);

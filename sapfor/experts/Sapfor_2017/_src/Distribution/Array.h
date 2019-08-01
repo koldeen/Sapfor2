@@ -257,6 +257,7 @@ namespace Distribution
         void SetTemplateFlag(const bool templFlag) { isTemplFlag = templFlag; }
         bool IsTemplate() const { return isTemplFlag; }
         bool IsLoopArray() const { return isLoopArrayFlag; }
+        bool IsArray() const { return !isTemplFlag && !isLoopArrayFlag; }
         void SetLoopArray(const bool flag) { isLoopArrayFlag = flag; }
         void SetSizesExpr(const VECTOR<PAIR<Expression*, Expression*>> &_sizesExpr)
         {
@@ -267,7 +268,7 @@ namespace Distribution
             }
         }
 
-        int AddLinkWithTemplate(const int dimNum, const int value, Array *templateArray_, const PAIR<int, int> &rule, const int regionId)
+        int AddLinkWithTemplate(const int dimNum, const int dimTempl, Array *templateArray_, const PAIR<int, int> &rule, const int regionId)
         {
             int err = 0;
             if (dimNum >= dimSize)
@@ -275,7 +276,7 @@ namespace Distribution
             else
             {
                 TemplateLink *currLink = getTemlateInfo(regionId);
-                currLink->AddRule(dimNum, value, rule, templateArray_);
+                currLink->AddRule(dimNum, dimTempl, rule, templateArray_);
             }
             return err;
         }

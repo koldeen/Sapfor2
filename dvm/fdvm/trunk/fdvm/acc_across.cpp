@@ -2,6 +2,8 @@
 #include "aks_structs.h"
 #include "acc_data.h"
 
+using namespace std;
+
 // all flags
 #define LongT C_DvmType()
 #define debugMode 0
@@ -12,7 +14,7 @@ extern reduction_operation_list *red_struct_list;
 extern symb_list *shared_list, *acc_func_list;
 extern symb_list *RGname_list;
 extern symb_list *acc_call_list;
-extern std::vector<SgSymbol *> loopVars;
+extern vector<SgSymbol *> loopVars;
 
 // extern functions
 extern SgStatement *Create_C_Function(SgSymbol*);
@@ -22,8 +24,8 @@ extern SgSymbol *GpuHeaderSymbolInAdapter(SgSymbol *, SgStatement *);
 extern SgSymbol *GpuBaseSymbolInAdapter(SgSymbol *, SgStatement *);
 extern SgExpression *CudaReplicate(SgSymbol *, SgSymbol *, SgSymbol *, SgSymbol *);
 extern SgStatement *IncludeLine(char*);
-extern void optimizeLoopBodyForOne(std::vector<newInfo> &allNewInfo);
-extern void searchIdxs(std::vector<acrossInfo> &allInfo, SgExpression *st);
+extern void optimizeLoopBodyForOne(vector<newInfo> &allNewInfo);
+extern void searchIdxs(vector<acrossInfo> &allInfo, SgExpression *st);
 
 // local functions
 ArgsForKernel **Create_C_Adapter_Function_Across_variants(SgSymbol*, SgSymbol*, const int, const int, const int, SageSymbols**, SageSymbols**);
@@ -43,10 +45,10 @@ static bool createBodyKernel = false;
 static bool createConvert_XY = true;
 static const int numLoopVars = 16;
 static bool ifReadLvlMode = false;
-static std::vector <std::stack <SgStatement*> > copyOfBody;
-static std::vector<SgSymbol*> allRegNames;
+static vector <stack <SgStatement*> > copyOfBody;
+static vector<SgSymbol*> allRegNames;
 static unsigned countOfCopies;
-static std::vector<ParamsForAllVariants> allVariants;
+static vector<ParamsForAllVariants> allVariants;
 
 static const char *funcDvmhConvXYfortVer = "       attributes(device) subroutine dvmh_convert_XY_int(x,y,Rx,Ry,slash,idx)\n      implicit none\n      integer ,value:: x\n      integer ,value:: y\n      integer ,value:: Rx\n      integer ,value:: Ry\n      integer ,value:: slash\n      integer ,device:: idx  \n	  \n      if(slash .eq. 0) then\n	     if(Rx .eq. Ry) then\n		    if(x + y .lt. Rx) then\n			   idx = y + (1+x+y)*(x+y)/2\n            else\n			   idx = Rx*(Rx-1)+x-(2*Rx-x-y-1)*(2*Rx-x-y-2)/2\n            endif		 \n         elseif(Rx .lt. Ry) then\n		    if(x + y .lt. Rx) then\n               idx = y + ((1+x+y)*(x+y)) / 2\n            elseif(x + y .lt. Ry) then\n               idx = ((1+Rx)*Rx) / 2 + Rx - x - 1 + Rx * (x+y-Rx)\n            else\n               idx = Rx*Ry-Ry+y-(((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2))/2)\n            endif\n         else\n		    if(x + y .lt. Ry) then\n                idx = x + (1+x+y)*(x+y) / 2\n            elseif(x + y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + (Ry-y-1) + Ry * (x+y-Ry)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2)/2)\n            endif\n         endif\n      else\n	     if(Rx .eq. Ry) then\n            if(x + Rx-1-y .lt. Rx) then\n                idx = Rx-1-y + (x+Rx-y)*(x+Rx-1-y)/2\n            else\n                idx = Rx*(Rx-1) + x - (Rx-x+y)*(Rx-x+y-1)/2\n            endif\n         elseif(Rx .lt. Ry) then\n            if(x + Ry-1-y .lt. Rx) then		\n                idx = Ry-1-y + ((x+Ry-y)*(x+Ry-1-y)) / 2\n            elseif(x + Ry-1-y .lt. Ry) then\n                idx = ((1+Rx)*Rx)/2+Rx-x-1+Rx*(x+Ry-1-y-Rx)\n            else\n                idx = Rx*Ry-1-y-(((Rx+y-x)*(Rx+y-x-1))/2)\n            endif\n         else\n            if(x + Ry-1-y .lt. Ry) then\n                idx = x + (1+x+Ry-1-y)*(x+Ry-1-y)/2\n            elseif(x + Ry-1-y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + y + Ry * (x-y-1)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+y-x)*(Rx+y-x-1)/2)\n            endif\n         endif\n      endif\n      end subroutine\n";
 static const char *funcDvmhConvXYfortVerLong = "       attributes(device) subroutine dvmh_convert_XY_llong(x,y,Rx,Ry,slash,idx)\n      implicit none\n      integer*8 ,value:: x\n      integer*8 ,value:: y\n      integer*8 ,value:: Rx\n      integer*8 ,value:: Ry\n      integer*8 ,value:: slash\n      integer*8 ,device:: idx  \n	  \n      if(slash .eq. 0) then\n	     if(Rx .eq. Ry) then\n		    if(x + y .lt. Rx) then\n			   idx = y + (1+x+y)*(x+y)/2\n            else\n			   idx = Rx*(Rx-1)+x-(2*Rx-x-y-1)*(2*Rx-x-y-2)/2\n            endif		 \n         elseif(Rx .lt. Ry) then\n		    if(x + y .lt. Rx) then\n               idx = y + ((1+x+y)*(x+y)) / 2\n            elseif(x + y .lt. Ry) then\n               idx = ((1+Rx)*Rx) / 2 + Rx - x - 1 + Rx * (x+y-Rx)\n            else\n               idx = Rx*Ry-Ry+y-(((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2))/2)\n            endif\n         else\n		    if(x + y .lt. Ry) then\n                idx = x + (1+x+y)*(x+y) / 2\n            elseif(x + y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + (Ry-y-1) + Ry * (x+y-Ry)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+Ry-y-x-1)*(Rx+Ry-y-x-2)/2)\n            endif\n         endif\n      else\n	     if(Rx .eq. Ry) then\n            if(x + Rx-1-y .lt. Rx) then\n                idx = Rx-1-y + (x+Rx-y)*(x+Rx-1-y)/2\n            else\n                idx = Rx*(Rx-1) + x - (Rx-x+y)*(Rx-x+y-1)/2\n            endif\n         elseif(Rx .lt. Ry) then\n            if(x + Ry-1-y .lt. Rx) then		\n                idx = Ry-1-y + ((x+Ry-y)*(x+Ry-1-y)) / 2\n            elseif(x + Ry-1-y .lt. Ry) then\n                idx = ((1+Rx)*Rx)/2+Rx-x-1+Rx*(x+Ry-1-y-Rx)\n            else\n                idx = Rx*Ry-1-y-(((Rx+y-x)*(Rx+y-x-1))/2)\n            endif\n         else\n            if(x + Ry-1-y .lt. Ry) then\n                idx = x + (1+x+Ry-1-y)*(x+Ry-1-y)/2\n            elseif(x + Ry-1-y .lt. Rx) then\n                idx = (1+Ry)*Ry/2 + y + Ry * (x-y-1)\n            else\n                idx = Rx*Ry-Rx+x-((Rx+y-x)*(Rx+y-x-1)/2)\n            endif\n         endif\n      endif\n      end subroutine\n" ;
@@ -426,7 +428,7 @@ static int countBit(int num)
     return ret;
 }
 
-static void generateAllBitmasks(int dep, int all, std::vector<int> &out)
+static void generateAllBitmasks(int dep, int all, vector<int> &out)
 {
     if (dep == all)
         out.push_back(pow(all) - 1);
@@ -441,7 +443,7 @@ static void generateAllBitmasks(int dep, int all, std::vector<int> &out)
     }
 }
 
-static void GetAllCombinations2(std::vector<ParamsForAllVariants> &allVariants, SgSymbol *sadapter, SgSymbol *kernel_symb, int numAcr, int sizeOfAllSymb, SageSymbols *allSymb)
+static void GetAllCombinations2(vector<ParamsForAllVariants> &allVariants, SgSymbol *sadapter, SgSymbol *kernel_symb, int numAcr, int sizeOfAllSymb, SageSymbols *allSymb)
 {
     int *bitmask = new int[(unsigned)sizeOfAllSymb];
 
@@ -499,7 +501,7 @@ static void GetAllCombinations2(std::vector<ParamsForAllVariants> &allVariants, 
     delete[]bitmask;
 }
 
-static void GetAllVariants2(std::vector<ParamsForAllVariants> &allVariants, SgSymbol *sadapter, SgSymbol *kernel_symb)
+static void GetAllVariants2(vector<ParamsForAllVariants> &allVariants, SgSymbol *sadapter, SgSymbol *kernel_symb)
 {
     int allDims = 0, acrossV = 0;
 
@@ -518,79 +520,78 @@ static void GetAllVariants2(std::vector<ParamsForAllVariants> &allVariants, SgSy
 
     // correct dependencies lvl only for ACROSS with one dep
     SgStatement *st = loop_body;
-    SgExpression *tmp;
-
-    tmp = dvm_parallel_dir->expr(1);
-    std::vector<acrossInfo> allInfo;
+    
+    SgExpression* dvmDir = dvm_parallel_dir->expr(1);
+    vector<acrossInfo> allInfo;
     bool nextStep = true;
     loopVars.clear();
 
-    while (tmp)
+    while (dvmDir)
     {
-        SgExpression *t = tmp->lhs();
+        SgExpression *t = dvmDir->lhs();
         if (t->variant() == ACROSS_OP)
         {
-            std::vector<SgExpression *> toAnalyze;
-            if (t->lhs()->variant() == EXPR_LIST)
-                toAnalyze.push_back(t->lhs());
-            else
+            vector<SgExpression*> toAnalyze;
+            SgExpression* list = t->lhs();
+            while (list)
             {
-                if (t->lhs()->variant() == DDOT)
-                    toAnalyze.push_back(t->lhs()->rhs());
-
-                if (t->rhs())
-                    if (t->rhs()->variant() == DDOT)
-                        toAnalyze.push_back(t->rhs()->rhs());
+                if (list->lhs()->variant() == ARRAY_REF)
+                    toAnalyze.push_back(list->lhs());
+                else if (list->lhs()->variant() == ARRAY_OP)
+                {
+                    if (list->lhs()->lhs()->variant() == ARRAY_REF)
+                        toAnalyze.push_back(list->lhs()->lhs());
+                }
+                list = list->rhs();
             }
             
             for (int i = 0; i < toAnalyze.size(); ++i)
             {
-                t = toAnalyze[i];
-                while (t)
-                {
-                    acrossInfo tmpI;
-                    tmpI.nameOfArray = t->lhs()->symbol()->identifier();
-                    tmpI.symbol = t->lhs()->symbol();
-                    tmpI.allDim = 0;
-                    tmpI.widthL = 0;
-                    tmpI.widthR = 0;
-                    tmpI.acrossPos = 0;
-                    tmpI.acrossNum = 0;
-                    SgExpression *tt = t->lhs()->lhs();
-                    int position = 0;
-                    while (tt)
-                    {
-                        bool here = true;
-                        if (tt->lhs()->lhs()->valueInteger() != 0)
-                        {
-                            tmpI.acrossPos = position;
-                            tmpI.acrossNum++;
-                            tmpI.widthL = (-1) * tt->lhs()->lhs()->valueInteger();
-                            here = false;
-                        }
-                        if (tt->lhs()->rhs()->valueInteger() != 0)
-                        {
-                            tmpI.acrossPos = position;
-                            if (here)
-                                tmpI.acrossNum++;
-                            tmpI.widthR = tt->lhs()->rhs()->valueInteger();
-                        }
-                        position++;
-                        tt = tt->rhs();
-                    }
-                    for (int i = 0; i < position; ++i)
-                    {
-                        tmpI.dims.push_back(0);
-                        tmpI.symbs.push_back(NULL);
-                    }
-                    allInfo.push_back(tmpI);
+                SgExpression* array = toAnalyze[i];
 
-                    t = t->rhs();
+                acrossInfo tmpI;
+                tmpI.nameOfArray = array->symbol()->identifier();
+                tmpI.symbol = array->symbol();
+                tmpI.allDim = 0;
+                tmpI.widthL = 0;
+                tmpI.widthR = 0;
+                tmpI.acrossPos = 0;
+                tmpI.acrossNum = 0;
+
+                SgExpression* tt = array->lhs();
+                int position = 0;
+                while (tt)
+                {
+                    bool here = true;
+                    if (tt->lhs()->lhs()->valueInteger() != 0)
+                    {
+                        tmpI.acrossPos = position;
+                        tmpI.acrossNum++;
+                        tmpI.widthL = (-1) * tt->lhs()->lhs()->valueInteger();
+                        here = false;
+                    }
+
+                    if (tt->lhs()->rhs()->valueInteger() != 0)
+                    {
+                        tmpI.acrossPos = position;
+                        if (here)
+                            tmpI.acrossNum++;
+                        tmpI.widthR = tt->lhs()->rhs()->valueInteger();
+                    }
+                    position++;
+                    tt = tt->rhs();
                 }
+
+                for (int i = 0; i < position; ++i)
+                {
+                    tmpI.dims.push_back(0);
+                    tmpI.symbs.push_back(NULL);
+                }
+                allInfo.push_back(tmpI);
             }
             break;
         }
-        tmp = tmp->rhs();
+        dvmDir = dvmDir->rhs();
     }
 
     for (size_t i = 0; i < allInfo.size(); ++i)
@@ -604,20 +605,18 @@ static void GetAllVariants2(std::vector<ParamsForAllVariants> &allVariants, SgSy
     
     if (nextStep)
     {
-        tmp = dvm_parallel_dir->expr(2);
-        while (tmp)
+        SgExpression* dvmDir = dvm_parallel_dir->expr(2);
+        while (dvmDir)
         {
-            loopVars.push_back(tmp->lhs()->symbol());
-            tmp = tmp->rhs();
+            loopVars.push_back(dvmDir->lhs()->symbol());
+            dvmDir = dvmDir->rhs();
         }
 
         while (st)
         {
-            if (st->variant() == ASSIGN_STAT)
-            {
-                searchIdxs(allInfo, st->expr(0));
-                searchIdxs(allInfo, st->expr(1));
-            }
+            for (int i = 0; i < 3; ++i)
+                if (st->expr(i))
+                    searchIdxs(allInfo, st->expr(i));
             st = st->lexNext();
         }
 
@@ -632,7 +631,7 @@ static void GetAllVariants2(std::vector<ParamsForAllVariants> &allVariants, SgSy
 
         if (nextStep)
         {
-            std::vector<char*> uniqSymbs;
+            vector<char*> uniqSymbs;
 
             uniqSymbs.push_back(allInfo[0].symbs[allInfo[0].acrossPos]->identifier() );
             for (size_t i = 1; i < allInfo.size(); ++i)
@@ -660,7 +659,7 @@ static void GetAllVariants2(std::vector<ParamsForAllVariants> &allVariants, SgSy
         GetAllCombinations2(allVariants, sadapter, kernel_symb, i, allDims, allSymb);
 }
 
-/*void printAllVars(std::vector<ParamsForAllVariants> &vectorT)
+/*void printAllVars(vector<ParamsForAllVariants> &vectorT)
 {
     for (size_t i = 0; i < vectorT.size(); ++i)
     {
@@ -687,12 +686,13 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
     // clear information
     allRegNames.clear(); 
 
-    SgStatement *st_hedr, *st_end, *first_exec, *stmt, **cuda_kernel = NULL;
+    SgStatement *st_hedr, *st_end, *first_exec, *stmt;
+    vector<SgStatement*> cuda_kernel;
     SgExpression *fe, *ae, *el, *arg_list;
     SgType *typ;
     SgSymbol *s_loop_ref, *sarg, *s;
     symb_list *sl;
-    std::vector<SgSymbol *> argsForVariantFunction;
+    vector<SgSymbol *> argsForVariantFunction;
 
     setDvmDebugLvl();
 
@@ -702,7 +702,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
     GetAllVariants2(allVariants, sadapter, kernel_symb);
     mywarn("  end: getAllVars");
 
-    cuda_kernel = new SgStatement*[countKernels];    
+    cuda_kernel.resize(countKernels);
 
     if (options.isOn(ONE_THREAD))
     {
@@ -746,7 +746,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
                 tmpStr = tmpStr->next;
             }
             
-            std::string kernel_symbNew = kernel_symb->identifier();
+            string kernel_symbNew = kernel_symb->identifier();
             if (rtTypes[t] == rt_INT)
                 kernel_symbNew += "_int";
             else if (rtTypes[t] == rt_LONG)
@@ -779,9 +779,8 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
         for (size_t i = 0; i < allVariants.size(); ++i)
         {
             if (allVariants[i].acrossV != 1)
-            {
                 ifOne = false;
-            }
+
             if ((unsigned)allVariants[i].acrossV == countOfCopies + 1)
                 countOfCopies++;
         }
@@ -806,7 +805,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
                 if (options.isOn(AUTO_TFM))
                     currentLoop = new Loop(loop_body, true);
 
-                std::string kernel_symb = tmp.s_kernel_symb->identifier();
+                string kernel_symb = tmp.s_kernel_symb->identifier();
                 if (rtTypes[k] == rt_INT)
                     kernel_symb += "_int";
                 else if (rtTypes[k] == rt_LONG)
@@ -862,7 +861,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
 
                 for (unsigned k = 0; k < countKernels; ++k)
                 {
-                    std::string kernel_symb = tmp.s_kernel_symb->identifier();
+                    string kernel_symb = tmp.s_kernel_symb->identifier();
                     if (rtTypes[k] == rt_INT)
                         kernel_symb += "_int";
                     else if (rtTypes[k] == rt_LONG)
@@ -967,8 +966,8 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
         SgWhileStmt *whileSt1 = NULL;
 
         SgIfStmt *if_st;
-        std::vector<std::vector<int> > allVarForIfBlock;
-        std::vector<SgFunctionCallExp *> allFuncCalls;
+        vector<vector<int> > allVarForIfBlock;
+        vector<SgFunctionCallExp *> allFuncCalls;
 
         for (size_t k = 0; k < allVariants.size(); ++k)
         {
@@ -977,7 +976,7 @@ ArgsForKernel *Create_C_Adapter_Function_Across(SgSymbol *sadapter)
             if ((size_t)allVariants[k].acrossV > allVarForIfBlock.size() &&
                 (allVariants[k].type == 1 || allVariants[k].type == 3 || allVariants[k].type == 7 || allVariants[k].type > 14))
             {
-                std::vector<int> tmp;
+                vector<int> tmp;
                 generateAllBitmasks(allVariants[k].acrossV, allVariants[k].allDims, tmp);
                 allVarForIfBlock.push_back(tmp);
                 funcCall = new SgFunctionCallExp(*createNewFunctionSymbol(allVariants[k].nameOfNewSAdapter));
@@ -1185,7 +1184,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_OneThread(SgSymbol *sadapter, S
     SgSymbol *s_blocks, *s_threads, *s_dev_num, *s_tmp_var, *idxTypeInKernel;
     SgType *typ;
     SgFunctionCallExp *funcCall;
-    std::vector<char*> dvm_array_headers;
+    vector<char*> dvm_array_headers;
     int ln, num, uses_num, has_red_array, use_device_num, num_of_red_arrays = 0;
 
     // init block
@@ -1713,7 +1712,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
     SgSymbol *idxTypeInKernel;
     SgType *typ;
     SgFunctionCallExp *funcCall, *funcCallKernel;
-    std::vector<char*> dvm_array_headers;
+    vector<char*> dvm_array_headers;
     int ln, num, uses_num, has_red_array, use_device_num, num_of_red_arrays;
 
     // init block
@@ -2368,8 +2367,8 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
         stmt = new SgCExpStmt(SgAssignOp(*new SgVarRefExp(*shared_mem), *new SgValueExp(0)));
     st_end->insertStmtBefore(*stmt, *st_hedr);
 
-    std::string define_name_int = kernel_symb->identifier();
-    std::string define_name_long = kernel_symb->identifier();
+    string define_name_int = kernel_symb->identifier();
+    string define_name_long = kernel_symb->identifier();
     
     define_name_int += "_int_regs";
     define_name_long += "_llong_regs";
@@ -4061,31 +4060,31 @@ SgExpression *CreateKernelDummyListAcross(ArgsForKernel *argsKer, SgType *idxTyp
     // + 'blocks'
     if (argsKer->symb.size() < 3)
     {
-        for (std::list<SgSymbol*>::iterator it = argsKer->sizeVars.begin(); it != argsKer->sizeVars.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->sizeVars.begin(); it != argsKer->sizeVars.end(); ++it)
         {
             ae = new SgExprListExp(*new SgVarRefExp(*it));
             arg_list = AddListToList(arg_list, ae);
         }
     }
 
-    for (std::list<SgSymbol*>::iterator it = argsKer->acrossS.begin(); it != argsKer->acrossS.end(); ++it)
+    for (list<SgSymbol*>::iterator it = argsKer->acrossS.begin(); it != argsKer->acrossS.end(); ++it)
     {
         ae = new SgExprListExp(*new SgVarRefExp(*it));
         arg_list = AddListToList(arg_list, ae);
     }
-    for (std::list<SgSymbol*>::iterator it = argsKer->notAcrS.begin(); it != argsKer->notAcrS.end(); ++it)
-    {
-        ae = new SgExprListExp(*new SgVarRefExp(*it));
-        arg_list = AddListToList(arg_list, ae);
-    }
-    
-    for (std::list<SgSymbol*>::iterator it = argsKer->idxAcross.begin(); it != argsKer->idxAcross.end(); ++it)
+    for (list<SgSymbol*>::iterator it = argsKer->notAcrS.begin(); it != argsKer->notAcrS.end(); ++it)
     {
         ae = new SgExprListExp(*new SgVarRefExp(*it));
         arg_list = AddListToList(arg_list, ae);
     }
     
-    for (std::list<SgSymbol*>::iterator it = argsKer->idxNotAcross.begin(); it != argsKer->idxNotAcross.end(); ++it)
+    for (list<SgSymbol*>::iterator it = argsKer->idxAcross.begin(); it != argsKer->idxAcross.end(); ++it)
+    {
+        ae = new SgExprListExp(*new SgVarRefExp(*it));
+        arg_list = AddListToList(arg_list, ae);
+    }
+    
+    for (list<SgSymbol*>::iterator it = argsKer->idxNotAcross.begin(); it != argsKer->idxNotAcross.end(); ++it)
     {
         ae = new SgExprListExp(*new SgVarRefExp(*it));
         arg_list = AddListToList(arg_list, ae);
@@ -4107,7 +4106,7 @@ SgExpression *CreateKernelDummyListAcross(ArgsForKernel *argsKer, SgType *idxTyp
 
     if (argsKer->symb.size() >= 3)
     {
-        for (std::list<SgSymbol*>::iterator it = argsKer->sizeVars.begin(); it != argsKer->sizeVars.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->sizeVars.begin(); it != argsKer->sizeVars.end(); ++it)
         {
             ae = new SgExprListExp(*new SgVarRefExp(*it));
             arg_list = AddListToList(arg_list, ae);
@@ -4271,7 +4270,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, S
         mywarn("strat: inserting loop body");
 #endif
 
-    std::vector<SgSymbol*> forDeclarationInKernel;
+    vector<SgSymbol*> forDeclarationInKernel;
 
 
     {
@@ -4311,7 +4310,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, S
         {
             //get info of arrays in private and locvar lists
             swapDimentionsInprivateList();
-            std::vector < std::stack < SgStatement*> > zero = std::vector < std::stack < SgStatement*> >(0);
+            vector < stack < SgStatement*> > zero = vector < stack < SgStatement*> >(0);
             Translate_Fortran_To_C(inner_for_st, inner_for_st->lastNodeOfStmt(), zero, 0);
         }
                 
@@ -4577,13 +4576,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
         int idx_exprs = 0;
         int count_of_dims = argsKer->nSymb.size() + argsKer->symb.size();
 
-        std::list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
-        std::list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
-        std::list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
-        std::list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
-        std::list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
-        std::list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
-        std::list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
+        list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
+        list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
+        list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
+        list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
+        list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
+        list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
+        list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
 
 
         leftExprs = new SgExpression*[count_of_dims];
@@ -4831,13 +4830,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
         leftExprs = new SgExpression*[count_of_dims];
         rightExprs = new SgExpression*[count_of_dims];
 
-        std::list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
-        std::list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
-        std::list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
-        std::list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
-        std::list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
-        std::list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
-        std::list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
+        list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
+        list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
+        list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
+        list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
+        list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
+        list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
+        list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
 
         e = &(*new SgVarRefExp(*itAcrS) - *new SgVarRefExp(*tid) * *new SgVarRefExp(*itIdxAcr));
         st = AssignStatement(*new SgVarRefExp((*itAcr)->symb), *e);
@@ -5014,13 +5013,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
         SgSymbol *max_z, *se, *emax, *emin, *v1, *v2, *v3, *min_ij, *swap_ij, *i, *j;
         SgSymbol **num_elems;
         SgIfStmt *if_st3;
-        std::list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
-        std::list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
-        std::list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
-        std::list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
-        std::list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
-        std::list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
-        std::list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
+        list<SageSymbols*>::iterator itAcr = argsKer->symb.begin();
+        list<SageSymbols*>::iterator it = argsKer->nSymb.begin();
+        list<SgSymbol*>::iterator itAcrS = argsKer->acrossS.begin();
+        list<SgSymbol*>::iterator itS = argsKer->notAcrS.begin();
+        list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
+        list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
+        list<SgSymbol*>::iterator itIdx = argsKer->idxNotAcross.begin();
 
         SgExpression **leftExprs, **rightExprs;
         int idx_exprs = 0;
@@ -5273,13 +5272,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
 #endif
 
     SgStatement *currStForInsetGetXY = cur_in_kernel;
-    std::vector<SgSymbol*> forDeclarationInKernel;
-    std::set<char *> uniqueNames;
+    vector<SgSymbol*> forDeclarationInKernel;
+    set<char *> uniqueNames;
     
     // create, insert, optimize and convert loop_body into kernel
     {
         SgStatement *stk, *last;
-        std::vector<newInfo> allNewInfo;
+        vector<newInfo> allNewInfo;
         
         if (argsKer->symb.size() == 1)
         {
@@ -5296,7 +5295,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
 
         if (argsKer->symb.size() == 1 && allNewInfo.size() != 0 && options.isOn(GPU_O0)) //insert needed assigns
         {
-            std::list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
+            list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
             SgIfStmt *ifSt = new SgIfStmt(*new SgVarRefExp(*itIdxAcr) > *new SgValueExp(0), *&allNewInfo[0].loadsBeforePlus[0]->copy(), *&allNewInfo[0].loadsBeforeMinus[0]->copy());
             for (size_t i = 0; i < allNewInfo.size(); ++i)
             {
@@ -5352,7 +5351,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
 
         if (argsKer->symb.size() == 1 && allNewInfo.size() != 0 && options.isOn(GPU_O0)) //insert needed assigns
         {
-            std::list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
+            list<SgSymbol*>::iterator itIdxAcr = argsKer->idxAcross.begin();
             SgIfStmt *ifSt = new SgIfStmt(*new SgVarRefExp(*itIdxAcr) > *new SgValueExp(0), *&allNewInfo[0].loadsInForPlus[0]->copy(), *&allNewInfo[0].loadsInForMinus[0]->copy());
 
             for (size_t i = 0; i < allNewInfo.size(); ++i)
@@ -5408,8 +5407,8 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
         {
             if (acrossNum != 1)
             {
-                std::map<SgSymbol*, Array*>& arrays = currentLoop->getArrays();
-                std::string funcDvmhConvXYname_type = funcDvmhConvXYname;
+                map<SgSymbol*, Array*>& arrays = currentLoop->getArrays();
+                string funcDvmhConvXYname_type = funcDvmhConvXYname;
                 if (!options.isOn(C_CUDA))
                 {
                     if (strcmp(idxTypeInKernel->symbol()->identifier(), indexTypeInKernel(rt_INT)->symbol()->identifier()) == 0)
@@ -5419,13 +5418,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                     else if (strcmp(idxTypeInKernel->symbol()->identifier(), indexTypeInKernel(rt_LLONG)->symbol()->identifier()) == 0)
                         funcDvmhConvXYname_type += "_llong";
                 }
-                for (std::map<SgSymbol*, Array*>::iterator it = arrays.begin(); it != arrays.end(); ++it)
+                for (map<SgSymbol*, Array*>::iterator it = arrays.begin(); it != arrays.end(); ++it)
                 {
                     Array* array = it->second;
-                    std::set<SgSymbol*>& privateList = currentLoop->getPrivateList();
+                    set<SgSymbol*>& privateList = currentLoop->getPrivateList();
                     if (privateList.find(it->first) == privateList.end())
                     {
-                        for (std::map<std::string, Access*>::iterator it2 = array->getAccesses().begin(); it2 != array->getAccesses().end(); ++it2)
+                        for (map<string, Access*>::iterator it2 = array->getAccesses().begin(); it2 != array->getAccesses().end(); ++it2)
                             analyzeArrayIndxs(array->getSymbol(), it2->second->getSubscripts());
                         int numSymb = 0;
                         for (size_t i1 = 0; i1 < argsKer->arrayNames.size(); ++i1)
@@ -5442,13 +5441,13 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                             new SgVarRefExp(argsKer->otherVars[8 * numSymb + 6]));
                         SgIfStmt* ifSt = NULL, *if1case = NULL, *if2case = NULL;
                         TfmInfo& tfmInfo = array->getTfmInfo();
-                        std::map<SgStatement*, std::vector<SgFunctionCallExp*> >& ifCalls = tfmInfo.ifCalls;
-                        std::map<SgStatement*, std::vector<SgFunctionCallExp*> >& elseCalls = tfmInfo.elseCalls;
+                        map<SgStatement*, vector<SgFunctionCallExp*> >& ifCalls = tfmInfo.ifCalls;
+                        map<SgStatement*, vector<SgFunctionCallExp*> >& elseCalls = tfmInfo.elseCalls;
                         SgSymbol* x_axis = argsKer->otherVars[8 * numSymb];
                         SgSymbol* y_axis = argsKer->otherVars[8 * numSymb + 3];
                         int tfsDim1 = tfmInfo.transformDims[0];
                         int tfsDim2 = tfmInfo.transformDims[1];
-                        for (std::map<SgStatement*, std::vector<SgFunctionCallExp*> >::iterator it = ifCalls.begin(); it != ifCalls.end(); ++it)
+                        for (map<SgStatement*, vector<SgFunctionCallExp*> >::iterator it = ifCalls.begin(); it != ifCalls.end(); ++it)
                         {
                             if (it->first == NULL)
                                 continue;
@@ -5536,8 +5535,8 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
 #endif
         if (acrossNum != 1)
         {
-            std::map<SgSymbol*, Array*>& arrays = currentLoop->getArrays();
-            std::string funcDvmhConvXYname_type = funcDvmhConvXYname;
+            map<SgSymbol*, Array*>& arrays = currentLoop->getArrays();
+            string funcDvmhConvXYname_type = funcDvmhConvXYname;
             if (!options.isOn(C_CUDA))
             {
                 if (strcmp(idxTypeInKernel->symbol()->identifier(), indexTypeInKernel(rt_INT)->symbol()->identifier()) == 0)
@@ -5547,10 +5546,10 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                 else if (strcmp(idxTypeInKernel->symbol()->identifier(), indexTypeInKernel(rt_LLONG)->symbol()->identifier()) == 0)
                     funcDvmhConvXYname_type += "_llong";
             }
-            for (std::map<SgSymbol*, Array*>::iterator it = arrays.begin(); it != arrays.end(); ++it)
+            for (map<SgSymbol*, Array*>::iterator it = arrays.begin(); it != arrays.end(); ++it)
             {
                 Array *array = it->second;
-                std::set<SgSymbol*>& privateList = currentLoop->getPrivateList();
+                set<SgSymbol*>& privateList = currentLoop->getPrivateList();
                 if (privateList.find(it->first) == privateList.end())
                 {
                     int numSymb = 0;
@@ -5562,8 +5561,8 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                     }
                     SgIfStmt* ifSt = NULL, *if1case = NULL, *if2case = NULL;
                     TfmInfo& tfmInfo = array->getTfmInfo();
-                    std::vector<SgFunctionCallExp*>& ifCalls = tfmInfo.ifCalls[NULL];
-                    std::vector<SgFunctionCallExp*>& elseCalls = tfmInfo.elseCalls[NULL];
+                    vector<SgFunctionCallExp*>& ifCalls = tfmInfo.ifCalls[NULL];
+                    vector<SgFunctionCallExp*>& elseCalls = tfmInfo.elseCalls[NULL];
                     SgSymbol* x_axis = argsKer->otherVars[8 * numSymb];
                     SgSymbol* y_axis = argsKer->otherVars[8 * numSymb + 3];
                     int tfsDim1 = tfmInfo.transformDims[0];
@@ -5600,11 +5599,11 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                     if (ifSt != NULL)
                         currStForInsetGetXY->insertStmtAfter(*ifSt);
 
-                    std::vector<SgStatement*>& zeroSt = tfmInfo.zeroSt;
+                    vector<SgStatement*>& zeroSt = tfmInfo.zeroSt;
                     for (size_t k = 0; k < zeroSt.size(); ++k)
                         currStForInsetGetXY->insertStmtAfter(zeroSt[k]->copy());
 
-                    std::vector<SgSymbol*>& coef = tfmInfo.coefficients;
+                    vector<SgSymbol*>& coef = tfmInfo.coefficients;
                     for (unsigned z = 0; z < coef.size(); ++z)
                         forDeclarationInKernel.push_back(&(coef[z]->copy()));
                 }
@@ -5679,7 +5678,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                     SgSymbol *redGrid = new SgSymbol(VARIABLE_NAME, tmp_list->red_grid->identifier());
                     redGrid->setType(*new SgArrayType(*tmp_list->red_grid->type()));
 
-                    std::list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
+                    list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
                     it_sizeV++;
                     it_sizeV++;
                     it_sizeV++;
@@ -5701,7 +5700,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
                 }
                 else
                 {
-                    std::list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
+                    list<SgSymbol*>::iterator it_sizeV = argsKer->sizeVars.begin();
                     it_sizeV++;
                     it_sizeV++;
                     it_sizeV++;
@@ -5829,35 +5828,35 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
 
     if (!options.isOn(C_CUDA))
     {
-        for (std::list<SgSymbol*>::iterator it1 = argsKer->sizeVars.begin(); it1 != argsKer->sizeVars.end(); ++it1)
+        for (list<SgSymbol*>::iterator it1 = argsKer->sizeVars.begin(); it1 != argsKer->sizeVars.end(); ++it1)
         {
             st = (*it1)->makeVarDeclStmt();
             st->setExpression(2, *new SgExprListExp(*new SgExpression(ACC_VALUE_OP)));
             kernel_st->insertStmtAfter(*st);
         }
 
-        for (std::list<SgSymbol*>::iterator it = argsKer->acrossS.begin(); it != argsKer->acrossS.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->acrossS.begin(); it != argsKer->acrossS.end(); ++it)
         {
             st = (*it)->makeVarDeclStmt();
             st->setExpression(2, *new SgExprListExp(*new SgExpression(ACC_VALUE_OP)));
             kernel_st->insertStmtAfter(*st);
         }
 
-        for (std::list<SgSymbol*>::iterator it = argsKer->notAcrS.begin(); it != argsKer->notAcrS.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->notAcrS.begin(); it != argsKer->notAcrS.end(); ++it)
         {
             st = (*it)->makeVarDeclStmt();
             st->setExpression(2, *new SgExprListExp(*new SgExpression(ACC_VALUE_OP)));
             kernel_st->insertStmtAfter(*st);
         }
         
-        for (std::list<SgSymbol*>::iterator it = argsKer->idxAcross.begin(); it != argsKer->idxAcross.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->idxAcross.begin(); it != argsKer->idxAcross.end(); ++it)
         {
             st = (*it)->makeVarDeclStmt();
             st->setExpression(2, *new SgExprListExp(*new SgExpression(ACC_VALUE_OP)));
             kernel_st->insertStmtAfter(*st);
         }
         
-        for (std::list<SgSymbol*>::iterator it = argsKer->idxNotAcross.begin(); it != argsKer->idxNotAcross.end(); ++it)
+        for (list<SgSymbol*>::iterator it = argsKer->idxNotAcross.begin(); it != argsKer->idxNotAcross.end(); ++it)
         {
             st = (*it)->makeVarDeclStmt();
             st->setExpression(2, *new SgExprListExp(*new SgExpression(ACC_VALUE_OP)));

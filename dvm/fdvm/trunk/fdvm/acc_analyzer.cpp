@@ -643,6 +643,7 @@ std::string GetActualCondition(ControlFlowItem** pItem) {
         }
         eit = eit->GetPrev();
     }
+    return res;
 }
 
 std::string CBasicBlock::GetEdgesForBlock(std::string name, bool original, std::string modifier)

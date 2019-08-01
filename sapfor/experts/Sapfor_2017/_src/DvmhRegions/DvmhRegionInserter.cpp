@@ -59,7 +59,7 @@ void DvmhRegionInsertor::insertRegionDirectives()
 {
     for (auto &region : regions)
     {
-        if (region->loops.size() == 0)
+        if (region->getLoops().size() == 0)
             continue;
 
         SgStatement *regionStartSt = new SgStatement(ACC_REGION_DIR);
@@ -165,9 +165,9 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 }
 
 // Finds the closest variable's defenition (test only)
-// static std::map<SymbolKey, std::set<SgExpression*> > dummyDefenitions(SgStatement* st)
+// static map<SymbolKey, set<SgExpression*> > dummyDefenitions(SgStatement* st)
 // {
-//  std::map<SymbolKey, std::set<SgExpression*> > result;
+//  map<SymbolKey, set<SgExpression*> > result;
 
 //  set<SgSymbol*> usedSymbols = getUsedSymbols(st);
 
@@ -175,7 +175,7 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 //  {
 //      SgStatement* prev = st->lexPrev();
 
-//      std::set<SgExpression*> defs;
+//      set<SgExpression*> defs;
 //      while (prev)
 //      {
 //          if (SymbDefinedIn(var, prev)) {
@@ -194,6 +194,8 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 
 void DvmhRegionInsertor::insertActualDirectives() 
 {
+    //TODO: rewrite
+#if 0
     int funcNum = file->numberOfFunctions();
     RDKeeper rd = RDKeeper(file);
 
@@ -271,22 +273,40 @@ void DvmhRegionInsertor::insertActualDirectives()
                     toActualise.push_back(symbol);
             }
         }
-        insertActualDirectiveBefore(st, toActualise, ACC_GET_ACTUAL_DIR);
+        insertActualDirective(st, toActualise, ACC_GET_ACTUAL_DIR, true);
+    }
+#endif
+
+    //TODO: improve and optimize
+    for (auto& region : regions)
+    {
+        for (auto& loop : region->getLoops())
+        {
+            for (auto& array : loop->usedArrays)
+            {
+                region->addToActualisation(array->GetShortName());
+                if (loop->usedArraysWrite.find(array) != loop->usedArraysWrite.end())
+                    region->addToActualisationAfter(array->GetShortName());
+            }
+        }
     }
 
     for (auto& region : regions)
     {
-        if (region->loops.size() > 0) 
-            insertActualDirectiveBefore(region->getFirstSt()->lexPrev()->lexPrev(), region->needActualisation, ACC_ACTUAL_DIR);
+        if (region->getLoops().size())
+        {
+            insertActualDirective(region->getFirstSt()->lexPrev()->lexPrev(), region->getActualisation(), ACC_ACTUAL_DIR, true, true);
+            insertActualDirective(region->getLastSt()->lexNext(), region->getActualisationAfter(), ACC_GET_ACTUAL_DIR, false, true);
+        }
     }
 }
 
 static bool compareByStart(const DvmhRegion *a, const DvmhRegion *b)
 {
-    if (a->loops.size() < 1 || b->loops.size() < 1)
+    if (a->getLoops().size() < 1 || b->getLoops().size() < 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-    return a->loops[0]->loop->lineNumber() < b->loops[0]->loop->lineNumber();
+    return a->getLoops()[0]->loop->lineNumber() < b->getLoops()[0]->loop->lineNumber();
 }
 
 static bool areNeighbours(const DvmhRegion *first, const DvmhRegion *second)
@@ -312,16 +332,16 @@ void DvmhRegionInsertor::mergeRegions()
     DvmhRegion *regionPrev = regions[0];
 
     bool isFirst = true;
-    for (auto& loop : regions[0]->loops)
-        newRegion->loops.push_back(loop);
+    for (auto& loop : regions[0]->getLoops())
+        newRegion->addLoop(loop);
 
     for (auto& region : regions)
     {
-        if (newRegion->fun_name == "" && region->loops.size() > 0) 
+        if (newRegion->getFunName() == "" && region->getLoops().size() > 0) 
         {
-            SgStatement* func_st = getFuncStat(region->loops[0]->loop);
+            SgStatement* func_st = getFuncStat(region->getLoops()[0]->loop);
             string fun_name = func_st->symbol()->identifier();
-            newRegion->fun_name = fun_name;
+            newRegion->setFunName(fun_name);
         }
         //printf("Merge number %d\n", i++);
         if (isFirst) // skip first region
@@ -338,10 +358,12 @@ void DvmhRegionInsertor::mergeRegions()
         }
 
         regionPrev = region;
-        for (auto& loop : region->loops)
-            newRegion->loops.push_back(loop);
-        for (auto& s : region->needActualisation)
+        for (auto& loop : region->getLoops())
+            newRegion->addLoop(loop);
+        for (auto& s : region->getActualisation())
             newRegion->addToActualisation(s);
+        for (auto& s : region->getActualisationAfter())
+            newRegion->addToActualisationAfter(s);
     }
     newRegions.push_back(newRegion);
 
@@ -356,14 +378,16 @@ void DvmhRegionInsertor::insertDirectives()
 {
     __spf_print(1, "Find edges for regions\n");
     findEdgesForRegions(loopGraph);
+
     __spf_print(1, "Merging regions\n");
     mergeRegions();
+
     __spf_print(1, "Insert regions\n");
     insertRegionDirectives();
-     __spf_print(1, "Insert actuals\n");
 
-     //TODO
-    // insertActualDirectives();
+     __spf_print(1, "Insert actuals\n");
+    insertActualDirectives();
+
     //vector<DvmhRegion*> l_regions;
     //for (auto &region : regions)
     //  l_regions.push_back(&region);
@@ -398,26 +422,36 @@ DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st)
     return NULL;
 }
 
-void DvmhRegionInsertor::insertActualDirectiveBefore(SgStatement *st, std::vector<SgSymbol*> symbols, int directive) 
+void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string> &symbols, int varinat, bool before, bool empty)
 {
-    if (symbols.size() < 1 || !st)
+    if (!st || (varinat != ACC_ACTUAL_DIR && varinat != ACC_GET_ACTUAL_DIR) || (!empty && (symbols.size() == 0)))
         return;
 
-    SgStatement *actualizingSt = new SgStatement(directive);
+    SgStatement *actualizingSt = new SgStatement(varinat);
 
-    SgExprListExp t;
-    for (auto symbol : symbols) {
-        SgExpression *expr = new SgVarRefExp(symbol);
-        t.append(*expr);
+    SgExprListExp *t = new SgExprListExp();
+    for (auto &symbol : symbols) 
+    {
+        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, symbol));
+        t->append(*expr);
     }
 
-    actualizingSt->setExpression(0, *t.rhs());
-    st->insertStmtBefore(*actualizingSt, *st->controlParent());
-    /*
-    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    getActualSt->unparsestdout();
-    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-    */
+    if (symbols.size())
+        actualizingSt->setExpression(0, t->rhs());
+    else
+        actualizingSt->setExpression(0, t);
+
+    if (before)
+    {
+        st->insertStmtBefore(*actualizingSt, *st->controlParent());
+        if (st->comments())
+        {
+            actualizingSt->addComment(st->comments());
+            st->delComments();
+        }
+    }
+    else
+        st->insertStmtAfter(*actualizingSt, *st->controlParent());
 }
 
 SgStatement* DvmhRegion::getFirstSt() const 
@@ -434,360 +468,7 @@ SgStatement* DvmhRegion::getLastSt() const
     return loops.back()->loop->lastNodeOfStmt();
 }
 
-// /* AFlowGraph*/
-// DFGNode::DFGNode(CBasicBlock* bblock) {
-//  initial.push_back(bblock);
-//  type = block;
-//  id = bblock->getNum();
-//  // Fill containing statements
-//  ControlFlowItem* cfi = bblock->getStart();
-//  while (cfi && cfi->getBBno() == bblock->getNum()) 
-//  {
-//      SgStatement *st = cfi->getStatement();
-//      if (st) {
-//          content.push_back(st);
-
-//          // Fill used distributed arrays
-//          set<SgSymbol*> symbols = getUsedSymbols(st); 
-//          // TODO: append used symbols in func call
-//          for (auto symbol: symbols) {
-//              try {
-//                  DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-//                  if (arr && !arr->GetNonDistributeFlag())
-//                      d_arrays.push_back(symbol);
-//              }
-//              catch (...) {
-//                  cout << "Disribute array assertion having some fun." << endl;
-//              }
-//          }
-//      }
-
-//      cfi = cfi->getNext();
-//  }
-// }
-
-// DFGNode::DFGNode(vector<DFGNode*> elements) {
-//  if (elements.size() == 0)
-//      return;
-
-//  // Add all initial bblocks of all element-nodes to the new one
-//  for (auto node : elements) {
-//      initial.insert(initial.end(), node->initial.begin(), node->initial.end()); // TODO: control duplicates
-//      content.insert(content.end(), node->content.begin(), node->content.end());
-//      d_arrays.insert(d_arrays.end(), node->d_arrays.begin(), node->d_arrays.end());      
-//  }
-
-//  // Add predecessors of first element-node to the new one
-//  for (auto pred : elements.front()->prev)
-//      prev.push_back(pred);
-//  // Successors
-//  for (auto succ_b : elements.back()->succ)
-//      succ.push_back(succ_b);
-    
-//  type = par_loop;
-//  id = elements.front()->id;
-// }
-
-// set<SgSymbol *> DFGNode::getSymbolsFromExpression(SgExpression *exp) 
-// {
-//  set<SgSymbol *> result;
-
-//  if (exp)
-//  {
-//      if (exp->variant() == ARRAY_REF) 
-//          result.insert(exp->symbol());
-
-//      set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
-//      set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
-
-//      result.insert(lhsSymbols.begin(), lhsSymbols.end());
-//      result.insert(rhsSymbols.begin(), rhsSymbols.end());
-//  }
-
-//  return result;
-// }
-
-// set<SgSymbol *> DFGNode::getUsedSymbols(SgStatement* st) 
-// {
-//  set<SgSymbol *> result;
-
-//  // ignore not executable statements
-//  if (!isSgExecutableStatement(st)) {
-//      return result;
-//  }
-
-//  for (int i = 0; i < 3; ++i) {
-//      if (st->expr(i)) {
-//          set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-//          result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-//      }
-//  }
-
-//  return result;
-// }
-
-// string DFGNode::getInfo() const
-// {
-//  string s_content = "";
-//  for (auto st: content)
-//      s_content = s_content + st->unparse() + "\n";
-
-//  string s_d_arrays = "";
-//  for (auto arr: d_arrays)
-//      s_d_arrays = s_d_arrays + string(arr->identifier()) + " , ";
-
-//  string s_prev = "";
-//  for (auto node: prev)
-//      s_prev = s_prev + to_string(node->id) + " , ";
-
-//  string s_succ = "";
-//  for (auto node: succ)
-//      s_succ = s_succ + to_string(node->id) + " , ";
-
-//  string info = "id ["        + to_string(id)         + "]\n" +\
-//              + "type ["      + to_string(type)       + "]\n" +\
-//              + "content["    + s_content             + "]\n" +\
-//              + "prev["       + s_prev                + "]\n" +\
-//              + "succ["       + s_succ                + "]\n" +\
-//              + "d_arrays["   + s_d_arrays            + "]\n";
-//  return info;
-// }
-
-// bool DFGNode::addSucc(DFGNode* new_succ) 
-// {
-//  for (auto old_succ : succ)
-//      if (old_succ == new_succ || old_succ->id == new_succ->id)
-//          return false;
-//  succ.push_back(new_succ);
-//  return true;
-// }
-
-// bool DFGNode::addPrev(DFGNode* new_prev) 
-// {
-//  for (auto old_prev : prev)
-//      if (old_prev == new_prev || old_prev->id == new_prev->id)
-//          return false;
-    
-//  prev.push_back(new_prev);
-//  return true;
-// }
-
-// DFGNode* AFlowGraph::getNode(string fun_name, int id)
-// {
-//  auto check = fun_graphs.find(fun_name);
-//  if (check == fun_graphs.end())
-//      return NULL;
-    
-//  vector<DFGNode*> graph = fun_graphs[fun_name];
-//  for (auto node: graph) 
-//  {
-//      if (node->id == id)
-//          return node;
-//  }
-
-//  return NULL;
-// }
-
-// AFlowGraph::AFlowGraph(SgFile file, vector<DvmhRegion*> regions) 
-// {
-//  // Build initial full CFG
-//  SgStatement *st = file.functions(0);
-//  GraphsKeeper* graphsKeeper = GraphsKeeper::getGraphsKeeper();
-//  ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
-
-//  // Build initial abstract CFG
-//  int funcNum = file.numberOfFunctions();
-//  // Convert all bblocks to nodes
-//  for (int i = 0; i < funcNum; ++i)
-//  {
-//      vector<DFGNode*> fun_graph;
-//      string func_name = file.functions(i)->symbol()->identifier();
-//      ControlFlowGraph* CGraph = graphsKeeper->getGraph(func_name)->CGraph;
-//      if (!CGraph) 
-//      {
-//          cout << "Failed to find graph for function " << func_name << endl;
-//          continue;
-//      }
-
-//      CBasicBlock* bb = CGraph->getFirst();
-//      while (bb) 
-//      {
-//          fun_graph.push_back(new DFGNode(bb));
-//          bb = bb->getLexNext();
-//      }
-//      fun_graphs[func_name] = fun_graph;
-//  }
-//  // Link nodes
-//  for (int i = 0; i < funcNum; ++i)
-//  {
-//      string func_name = file.functions(i)->symbol()->identifier();
-//      ControlFlowGraph* CGraph = graphsKeeper->getGraph(func_name)->CGraph;
-//      if (!CGraph) 
-//      {
-//          cout << "Failed to find graph for function " << func_name << endl;
-//          continue;
-//      }
-
-//      CBasicBlock* bb = CGraph->getFirst();
-//      while (bb) 
-//      {
-//          DFGNode* node = getNode(func_name, bb->getNum());
-//          if (!node) {
-//              cout << "Node not found" << endl;
-//              bb = bb->getLexNext();
-//              continue;
-//          }
-
-//          BasicBlockItem* succ = bb->getSucc();
-//          while (succ) {
-//              DFGNode* succ_node = getNode(func_name, succ->block->getNum());
-//              if (!succ_node) {
-//                  cout << "Succ node not found" << endl;
-//                  succ = succ->next;
-//                  continue;
-//              }
-
-//              node->succ.push_back(succ_node);
-//              succ = succ->next;
-//          }
-//          BasicBlockItem* prev = bb->getPrev();
-//          while (prev) {
-//              DFGNode* prev_node = getNode(func_name, prev->block->getNum());
-//              if (!prev_node) {
-//                  cout << "Prev node not found" << endl;
-//                  prev = prev->next;
-//                  continue;
-//              }
-
-//              node->prev.push_back(prev_node);
-//              prev = prev->next;
-//          }
-
-//          // cout << node->getInfo(); // debug
-//          // cout << "___________" << endl;
-//          bb = bb->getLexNext();
-//      }
-//  }
-//  /*
-//  // Join nodes, composing regions
-//  vector<DFGNode*> region_nodes;
-//  for (auto region : regions)
-//  {
-//      auto fun_graph = fun_graphs[region->fun_name];
-//      // Accumulate all nodes composing region
-//      vector<DFGNode*> elements;
-//      bool firstPassed = false;
-//      auto firstNodeIt = fun_graph.end(); // initialisation
-//      DFGNode* firstBlock;
-//      for (auto loop : region->loops)
-//      {
-//          SgStatement* st = loop->loop;
-//          SgStatement* end = loop->loop->lastNodeOfStmt();
-//          while (st && st != end)
-//          {
-//              CBasicBlock* bb = graphsKeeper->findBlock(st);
-//              if (bb)
-//              {
-//                  DFGNode* node = getNode(region->fun_name, bb->getNum());
-//                  elements.push_back(node);
-//                  auto it = find(fun_graph.begin(), fun_graph.end(), node);
-
-//                  if (!firstPassed) // Save first block, to insert region node on it's place
-//                  {
-//                      firstNodeIt = it;
-//                      firstBlock = node;
-//                      firstPassed = true;
-//                  }
-//                  else
-//                      fun_graph.erase(it);
-//              } else
-//              {
-//                  cout << "Failed to find bblock for statement:" << endl;
-//                  st->unparsestdout();
-//              }
-
-//              st = st->lexNext();
-//          }
-//      }
-//      DFGNode* region_node = new DFGNode(elements);
-
-//      // Set links to the new node
-//      DFGNode* lastBlock = elements.back();
-//      for (auto node : fun_graph)
-//      {
-//          // Found region's last basic block in some node's predecessors => replace this bond 
-//          auto it = find(node->prev.begin(), node->prev.end(), lastBlock);
-//          if (it != node->prev.end())
-//          {
-//              int idx = it - node->prev.begin();
-//              node->prev[idx] = region_node;
-//          }
-//          // Found region's first block in some node's successors => replace this bond
-//          it = find(node->succ.begin(), node->succ.end(), firstBlock);
-//          if (it != node->succ.end())
-//          {
-//              int idx = it - node->succ.begin();
-//              node->succ[idx] = region_node;
-//          }
-//      }
-
-//      // Push new node
-//      auto it = fun_graph.insert(firstNodeIt, region_node);
-//      fun_graph.erase(it+1);
-//      fun_graphs[region->fun_name] = fun_graph;
-//  }
-    
-//  // Remove verticies which doesn't reference destributed arrays
-//  for (auto graph: fun_graphs) {
-//      vector<DFGNode*> shrinked_graph;
-//      for (auto node: graph.second) {
-//          if (node->d_arrays.size() > 0 || node->type == par_loop) {
-//              shrinked_graph.push_back(node);
-//              continue;
-//          }
-            
-//          // link successors with predecessors directly
-//          for (auto prev_node: node->prev) {
-//              for (auto succ_node: node->succ) {
-//                  prev_node->addSucc(succ_node);
-//                  succ_node->addPrev(prev_node);
-//              }
-//          }
-//          for (auto prev_node: node->prev) {
-//              // delete node itself from succ of its predecessor  
-//              auto node_in_succ = find(prev_node->succ.begin(), prev_node->succ.end(), node);
-//              if (node_in_succ == prev_node->succ.end()) {
-//                  cout << "cannot find node in succ of its predecessor" << endl;
-//                  continue;
-//              }
-//              prev_node->succ.erase(node_in_succ);
-//          }
-//          for (auto succ_node: node->succ) {
-//              // delete node itself from prev of its successor    
-//              auto node_in_prev = find(succ_node->prev.begin(), succ_node->prev.end(), node);
-//              if (node_in_prev == succ_node->prev.end()) {
-//                  cout << "cannot find node in prev of its successor" << endl;
-//                  continue;
-//              }
-//              succ_node->prev.erase(node_in_prev);
-//          }
-
-//          delete(node);
-//      }
-//      fun_graphs[graph.first] = shrinked_graph;
-//  }
-//  */
-//  //Debug print
-//  for (auto graph: fun_graphs) {
-//      cout << "Graph for function: " << graph.first << endl;
-//      for (auto node: graph.second) {
-//          cout << node->getInfo(); // debug
-//          cout << "___________" << endl;
-//      }
-//  }
-//  cout << "Graph printed" << endl;
-// }
-
+//TODO: need to remove or rewrite RDKeeper 
 RDKeeper::RDKeeper(SgFile *file) 
 {
     // Build CFG

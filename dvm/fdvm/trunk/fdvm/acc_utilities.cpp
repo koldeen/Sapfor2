@@ -781,12 +781,12 @@ static string getValue(SgExpression *exp)
     return ret;
 }
 
-static void recExpressionPrint(SgExpression *exp, const int lvl, const char *LR, const int currNum, int &allNum)
+static void recExpressionPrint(SgExpression* exp, const int lvl, const char* LR, const int currNum, int& allNum)
 {
     if (exp)
     {
-        SgExpression *lhs = exp->lhs();
-        SgExpression *rhs = exp->rhs();
+        SgExpression* lhs = exp->lhs();
+        SgExpression* rhs = exp->rhs();
         int lNum, rNum;
 
         string vCurr = getValue(exp);

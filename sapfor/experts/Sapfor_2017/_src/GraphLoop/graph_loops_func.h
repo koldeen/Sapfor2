@@ -15,3 +15,4 @@ std::map<DIST::Array*, std::vector<long>> fillRemoteInParallel(Statement *st);
 bool hasThisIds(SgStatement *loop, std::vector<int> &lines, const std::set<int> &IDs);
 bool checkRegionEntries(SgStatement *begin, SgStatement *end, const std::map<std::string, FuncInfo*> &funcMap, const std::vector<ParallelRegion*> &parallelRegions, std::map<std::string, std::vector<Messages>> &SPF_messages);
 bool recSymbolFind(SgExpression *ex, const std::string &symb, const int var);
+void completeFillOfArrayUsageBetweenProc(const std::map<std::string, std::vector<LoopGraph*>>& loopGraph, const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo);

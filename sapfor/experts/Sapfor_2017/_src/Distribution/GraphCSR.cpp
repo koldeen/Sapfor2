@@ -1231,21 +1231,53 @@ namespace Distribution
 
     template<typename vType, typename wType, typename attrType>
     void GraphCSR<vType, wType, attrType>::
+        RemoveVerticesByWeight()
+    {
+        for (vType v = 0; v < numVerts; ++v)
+        {
+            int removed = 0;
+            for (vType k = neighbors[v], k1 = neighbors[v]; k < neighbors[v + 1]; ++k)
+            {
+                if (weights[k1] == -1)
+                {
+                    edges.erase(edges.begin() + k1);
+                    weights.erase(weights.begin() + k1);
+                    linkType.erase(linkType.begin() + k1);
+                    attributes.erase(attributes.begin() + k1);
+                    removed++;
+                }
+                else
+                    k1++;
+            }
+
+            for (int t = v + 1; t < numVerts + 1; ++t)
+                neighbors[t] -= removed;
+        }
+
+        // correct graph information 
+        numEdges = (vType)edges.size();
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    void GraphCSR<vType, wType, attrType>::
         RemoveMultipleArcsOptimal()
     {
         vector<vType> toDel;
         for (vType v = 0; v < numVerts; ++v)
         {
-            map<vType, pair<int, vector<int>>> numLinks;
+            map<vType, pair<int, vector<vType>>> numLinks;
             
             for (vType k = neighbors[v]; k < neighbors[v + 1]; ++k)
             {
                 const vType e = edges[k];
-                auto it = numLinks.find(e);
-                if (it == numLinks.end())
-                    it = numLinks.insert(it, make_pair(e, make_pair(0, vector<int>())));
-                it->second.first++;
-                it->second.second.push_back(k);
+                if (v < e)
+                {
+                    auto it = numLinks.find(e);
+                    if (it == numLinks.end())
+                        it = numLinks.insert(it, make_pair(e, make_pair(0, vector<int>())));
+                    it->second.first++;
+                    it->second.second.push_back(k);
+                }
             }
 
             for (auto it = numLinks.begin(); it != numLinks.end(); ++it)
@@ -1253,7 +1285,7 @@ namespace Distribution
                 //has multiple arcs
                 if (it->second.first > 1)
                 {
-                    const vector<int> &idx = it->second.second;
+                    const vector<vType> &idx = it->second.second;
                     bool hasWW = false;
                     int maxIdxW = -1;
                     double maxW = -1;
@@ -1296,6 +1328,19 @@ namespace Distribution
                                     {
                                         if (maxW == weights[idx[k]] && idxS == k)
                                         {
+                                            for (vType n = neighbors[edges[idx[k]]]; n < neighbors[edges[idx[k]] + 1]; ++n)
+                                            {
+                                                if (edges[n] == v &&
+                                                    attributes[n].first == attributes[idx[k]].second &&
+                                                    attributes[n].second == attributes[idx[k]].first &&
+                                                    linkType[n] == linkType[idx[k]])
+                                                {
+                                                    attributes[n].first.second = needBoundH;
+                                                    attributes[n].second.second = needBoundL;
+                                                    break;
+                                                }
+                                            }
+
                                             attributes[idx[k]].first.second = needBoundL;
                                             attributes[idx[k]].second.second = needBoundH;
                                         }
@@ -1344,6 +1389,7 @@ namespace Distribution
                             if (k != exceptIdx)
                                 toDel.push_back(idx[k]);
 
+                        //OLD ALGORITHM
                         /*bool eqSet = false;
                         for (int k = 0; k < idx.size(); ++k)
                         {
@@ -1359,36 +1405,35 @@ namespace Distribution
                         }*/
                     }
                 }
-            }            
+            }
         }
 
         for (vType k = 0; k < toDel.size(); ++k)
             weights[toDel[k]] = -1;
 
-        //remove        
+        // add reverse arcs
         for (vType v = 0; v < numVerts; ++v)
         {
-            int removed = 0;
-            for (vType k = neighbors[v], k1 = neighbors[v]; k < neighbors[v + 1]; ++k)
+            for (vType k = neighbors[v]; k < neighbors[v + 1]; ++k)
             {
-                if (weights[k1] == -1)
+                if (weights[k] == -1 && v < edges[k])
                 {
-                    edges.erase(edges.begin() + k1);
-                    weights.erase(weights.begin() + k1);
-                    linkType.erase(linkType.begin() + k1);
-                    attributes.erase(attributes.begin() + k1);
-                    removed++;
+                    for (vType z = neighbors[edges[k]]; z < neighbors[edges[k] + 1]; ++z)
+                    {
+                        if (edges[z] == v &&
+                            attributes[z].first == attributes[k].second && 
+                            attributes[z].second == attributes[k].first &&
+                            linkType[z] == linkType[k])
+                        {
+                            weights[z] = -1;
+                            break;
+                        }
+                    }
                 }
-                else
-                    k1++;
             }
-
-            for (int t = v + 1; t < numVerts + 1; ++t)
-                neighbors[t] -= removed;
         }
 
-        // correct graph information 
-        numEdges = (vType)edges.size();
+        RemoveVerticesByWeight();
     }
 
     template<typename vType, typename wType, typename attrType>
@@ -2183,6 +2228,58 @@ namespace Distribution
             }
         }
         return toDel;
+    }
+
+    template<typename vType, typename wType, typename attrType>
+    void GraphCSR<vType, wType, attrType>::
+        RemoveAllEdgesFromGraph(const map<Array*, vector<pair<int, int>>> &toDel, const Arrays<vType>& allArrays)
+    {
+        for (auto& arrayP : toDel)
+        {
+            Array* array = arrayP.first;
+            checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+            if (!array->IsArray() && !array->IsTemplate())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            vector<vType> arrayVerts;
+            int err = allArrays.GetAllVertNumber(array, arrayVerts);
+            if (err != 0)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            for (int i = 0; i < arrayVerts.size(); ++i)
+            {
+                const vType currV = localIdx[arrayVerts[i]];
+                // if current vertex has links
+                if (currV != -1)
+                {
+                    for (int k = neighbors[currV]; k < neighbors[currV + 1]; ++k)
+                    {
+                        const vType V2 = edges[k];
+                        Array* arrayTo = allArrays.GetArrayByVertex(globalIdx[V2]);
+                        checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+
+                        bool needToDel = true;
+                        if (arrayTo->IsArray())
+                        {
+                            if (toDel.find(arrayTo) == toDel.end())
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        }
+                        else // tepmlate
+                        {
+                            if (toDel.find(arrayTo) == toDel.end())
+                                needToDel = false;
+                        }
+
+                        //remove
+                        if (needToDel)
+                            weights[k] = -1;
+                    }
+                }
+            }
+        }
+
+        //remove from graph
+        RemoveVerticesByWeight();
     }
 
     template class GraphCSR<int, double, attrType>;

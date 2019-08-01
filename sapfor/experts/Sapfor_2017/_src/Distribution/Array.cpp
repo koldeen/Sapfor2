@@ -121,9 +121,9 @@ namespace Distribution
         return retVal;
     }
 
-    void TemplateLink::AddRule(const int dimNum, int value, const pair<int, int> &rule, Array *templateArray_)
+    void TemplateLink::AddRule(const int dimNum, int dimTempl, const pair<int, int> &rule, Array *templateArray_)
     {
-        linkWithTemplate[dimNum] = value;
+        linkWithTemplate[dimNum] = dimTempl;
         alignRuleWithTemplate[dimNum] = rule;
         templateArray = templateArray_;
     }
