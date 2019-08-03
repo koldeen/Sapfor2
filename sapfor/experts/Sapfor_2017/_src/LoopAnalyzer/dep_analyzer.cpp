@@ -174,6 +174,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         localAllLoopMap.insert(make_pair(elem.first, elem.second.first));
 
     ParallelRegion *currReg = getRegionByLine(regions, it->second.first->fileName(), currLoop->lineNum);
+
     if (currReg && currLoop->hasLimitsToParallel() == false)
     {
         SgForStmt *currLoopRef = it->second.first;
@@ -187,7 +188,7 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         const set<string> &privVars = it->second.second.first;
         const set<string> &nonDistrArrays = it->second.second.second;
         
-        SgStatement *func = currLoopRef->controlParent();
+        SgStatement *func = getFuncStat(currLoopRef);
         if (funcWasInit.find(func) == funcWasInit.end())
         {
             funcWasInit.insert(func);

@@ -465,19 +465,27 @@ static inline bool isArrayRefHasDifferentVars(SgExpression *ex, set<string> &var
 }
 
 static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*> &uniqRemotes, 
-                                 set<SgArrayRefExp*> &addedRemotes, vector<Messages> &messages, const int line)
+                                 set<SgArrayRefExp*> &addedRemotes, vector<Messages> &messages, const int line, bool withConv = true)
 {
     //TODO: tmp solution, convert all links to arrRef(:,:,:) 
-    SgArrayRefExp *copyExpr = (SgArrayRefExp*)&(expr->copy());
-    SgExpression *subs = copyExpr->subscripts();
+    SgArrayRefExp* copyExpr = NULL;
     
-    set<string> tmp;
-    const bool isSimple = isSimpleRef(subs);
-    //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
-    if (!isSimple) // && !isDiffInSubs)
-        converToDDOT(subs);
+    bool isSimple = false;
+    if (withConv)
+    {
+        copyExpr = (SgArrayRefExp*) & (expr->copy());
+        SgExpression* subs = copyExpr->subscripts();
 
-    string remoteExp(copyExpr->unparse());    
+        set<string> tmp;
+        isSimple = isSimpleRef(subs);
+        //const bool isDiffInSubs = isArrayRefHasDifferentVars(subs, tmp);
+        if (!isSimple) // && !isDiffInSubs)
+            converToDDOT(subs);
+    }
+    else
+        copyExpr = expr;
+
+    string remoteExp(copyExpr->unparse());
     auto rem = uniqRemotes.find(remoteExp);
     if (rem == uniqRemotes.end())
     {
@@ -523,6 +531,9 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         DIST::Array *arrayRefOnDir = THIRD(under_dvm_dir)->arrayRef;
         set<DIST::Array*> realRefArrayOnDir;
 
+        set<DIST::Array*> usedArrays = SECOND(under_dvm_dir)->usedArrays;
+        set<DIST::Array*> usedArraysWrite = SECOND(under_dvm_dir)->usedArraysWrite;
+
         if (!arrayRefOnDir->IsTemplate())
         {
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
@@ -566,6 +577,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             }
         }
 
+        set<DIST::Array*> doneInLoop;
         // for all array accesses in loop
         for (auto it = currInfo.begin(); it != currInfo.end(); ++it)
         {
@@ -573,6 +585,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
             DIST::Array *arrayRef = GetArrayByShortName(allArrays, tmpS);
             if (!arrayRef)
                 continue;
+            doneInLoop.insert(arrayRef);
 
             auto itInfo = currInfo.find(tmpS);
             if (itInfo == currInfo.end())
@@ -781,6 +794,27 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                         }
                     }
                 } // main check
+            }
+        }
+
+
+        for (auto& usedArr : usedArrays)
+        {
+            if (doneInLoop.find(usedArr) == doneInLoop.end() && usedArraysWrite.find(usedArr) == usedArraysWrite.end())
+            {
+                SgExpression* ex = new SgExpression(EXPR_LIST);
+                SgExpression* p = ex;
+                for (int z = 0; z < usedArr->GetDimSize(); ++z)
+                {
+                    p->setLhs(new SgExpression(DDOT));
+                    if (z != usedArr->GetDimSize() - 1)
+                    {
+                        p->setRhs(new SgExpression(EXPR_LIST));
+                        p = p->rhs();
+                    }
+                }
+                SgArrayRefExp* newRem = new SgArrayRefExp(*findSymbolOrCreate(current_file, usedArr->GetShortName()), *ex);
+                addRemoteLink(newRem, uniqRemotes, addedRemotes, messages, -1, false);
             }
         }
 

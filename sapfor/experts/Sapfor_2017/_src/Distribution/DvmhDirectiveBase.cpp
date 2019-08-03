@@ -145,7 +145,7 @@ static inline int findRule(const int alingDim, const vector<tuple<DIST::Array*, 
     {
         if (get<1>(rule[i]) == alingDim)
         {
-            retVal = make_pair(i, get<2>(rule[i]));
+            retVal = make_pair(alingDim, get<2>(rule[i]));
             return 0;
         }
     }
@@ -269,6 +269,9 @@ static inline string calculateShifts(DIST::GraphCSR<int, double, attrType> &redu
                     int err = findRule(get<1>(ruleForShadow[k]), ruleForOn, currRuleOn);
                     if (err == 0)
                     {
+                        if (currRuleOn.first >= parallelOnRule.size())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
                         const pair<int, int> loopRule = DIST::Fx(parallelOnRule[currRuleOn.first].second, currRuleOn.second);
 
                         if (loopRule.first != 0)
