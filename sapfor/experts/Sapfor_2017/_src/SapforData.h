@@ -35,6 +35,7 @@ int maxShadowWidth = 50; // in percent
 int intervals_threshold = 100; // threshold for intervals
 bool removeNestedIntervals = false; // nested intervals removal flag
 int langOfMessages = 1; // 0 - ENG, 1 - RUS
+int mpiProgram = 0; // detected mpi calls
 
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph

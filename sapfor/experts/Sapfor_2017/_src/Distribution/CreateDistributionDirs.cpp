@@ -54,14 +54,20 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         int declL = place.second;
 
                         char buf[256];
-                        sprintf(buf, "More information is required about sizes of array '%s', decl line %d, decl file %s\n", array->GetShortName().c_str(), declL, declF.c_str());
+                        if (array->IsLoopArray())
+                            sprintf(buf, "More information is required about sizes of loop '%s', decl line %d, decl file %s\n", array->GetShortName().c_str(), declL, declF.c_str());
+                        else
+                            sprintf(buf, "More information is required about sizes of array '%s', decl line %d, decl file %s\n", array->GetShortName().c_str(), declL, declF.c_str());
                         addToGlobalBufferAndPrint(buf);
                         arraysWithErrors.insert(array->GetShortName());
                         
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());
 #ifdef _WIN32
-                        __spf_printToLongBuf(bufR, R37, to_wstring(array->GetShortName()).c_str());
+                        if (array->IsLoopArray())
+                            __spf_printToLongBuf(bufR, R149, to_wstring(array->GetShortName()).c_str());
+                        else
+                            __spf_printToLongBuf(bufR, R37, to_wstring(array->GetShortName()).c_str());
 #endif
                         getObjectForFileFromMap(declF.c_str(), allMessages).push_back(Messages(ERROR, declL, bufR, bufE, 1012));
                     }
@@ -127,11 +133,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     if (distArray->IsLoopArray())
         for (int z = 0; z < templ->GetDimSize(); ++z)
             templ->SetMappedDim(z);
-
-    vector<pair<int, int>> initTemplSize(distArray->GetDimSize());
-    for (int i = 0; i < distArray->GetDimSize(); ++i)
-        initTemplSize[i] = make_pair((int)INT_MAX, (int)INT_MIN);
-    templ->SetSizes(initTemplSize, true);
+    templ->SetDimSizesToMaxMin(true);
 
     bool ifRemAll = false;
 #if WITH_REMOVE

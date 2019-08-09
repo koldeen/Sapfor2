@@ -311,17 +311,6 @@ public:
             userDvmRealignDirs.insert(userDvmRealignDirs.end(), dirs.begin(), dirs.end());
         else if (type == DVM_REDISTRIBUTE_DIR)
             userDvmRedistrDirs.insert(userDvmRedistrDirs.end(), dirs.begin(), dirs.end());
-
-        if (type == DVM_DISTRIBUTE_DIR ||
-            type == DVM_ALIGN_DIR ||
-            type == DVM_SHADOW_DIR ||
-            type == DVM_REALIGN_DIR ||
-            type == DVM_REDISTRIBUTE_DIR ||
-            type == DVM_VAR_DECL)
-        {
-            for (auto &dir : dirs)
-                dir->extractStmt();
-        }
     }
 
     const std::vector<Statement*>* GetUsersDirecites(const int type) const
@@ -348,6 +337,16 @@ public:
                userDvmRealignDirs.size() != 0 ||
                userDvmRedistrDirs.size() != 0;
     }
+#if __SPF
+    void ClearUserDirs()
+    {
+        ClearVector(userDvmDistrDirs);
+        ClearVector(userDvmAlignDirs);
+        ClearVector(userDvmShadowDirs);
+        ClearVector(userDvmRealignDirs);
+        ClearVector(userDvmRedistrDirs);
+    }
+#endif
 private:
     int regionId;
     //name in program
@@ -381,6 +380,20 @@ private:
     std::vector<Statement*> userDvmShadowDirs;
     std::vector<Statement*> userDvmRealignDirs;
     std::vector<Statement*> userDvmRedistrDirs;
+
+#if __SPF
+    void ClearVector(std::vector<Statement*> &toRem)
+    {
+        for (auto& elem : toRem)
+        {
+            if (SgFile::switchToFile(elem->fileName()))
+                ;// printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            else
+                elem->deleteStmt();
+        }
+        toRem.clear();
+    }
+#endif
 };
 
 ParallelRegion* getRegionById(const std::vector<ParallelRegion*> &regions, const int regionId);

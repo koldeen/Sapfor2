@@ -33,6 +33,7 @@
 #include "../DynamicAnalysis/gcov_info.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
 #include "../Distribution/CreateDistributionDirs.h"
+#include "../LoopAnalyzer/loop_analyzer.h"
 
 using std::string;
 using std::wstring;
@@ -49,9 +50,10 @@ static void setOptions(const int *options)
     //staticShadowAnalysis = options[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = options[STATIC_PRIVATE_ANALYSIS];
     out_free_form = options[FREE_FORM];
-    keepDvmDirectives = 0;// options[KEEP_DVM_DIRECTIVES];
+    keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
-    parallizeFreeLoops = options[PARALLIZE_FREE_LOOPS];
+    //mpiProgram = options[MPI_PROGRAM];
+    parallizeFreeLoops = (mpiProgram == 1) ? 1 : options[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = options[MAX_SHADOW_WIDTH];
     out_upper_case = options[OUTPUT_UPPER];
     langOfMessages = options[TRANSLATE_MESSAGES];
@@ -506,10 +508,18 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
 
         map<DIST::Array*, vector<pair<int, int>>> data;
         auto arrays = reg->GetAllArrays().GetArrays();
-        int countOfArray = 0;
+        set<DIST::Array*> realRefsArrays;
         for (auto& elem : arrays)
+        {
             if (elem->IsArray())
-                ++countOfArray;
+            {
+                set<DIST::Array*> realRefs;
+                getRealArrayRefs(elem, elem, realRefs, arrayLinksByFuncCalls);
+                realRefsArrays.insert(realRefs.begin(), realRefs.end());
+            }
+        }
+
+        int countOfArray = realRefsArrays.size();
 
         int z = 1;
         int last = *toModify;
@@ -524,7 +534,7 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
 
             DIST::Array* array = *it;
             DIST::Array* templ = array->GetTemplateArray(regId);
-            if (!templ)
+            if (!templ || !templ->IsTemplate())
                 throw (-30);
             templates.insert(templ);
 
@@ -538,11 +548,15 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
                 throw (-25);
 
             it2 = data.insert(it2, make_pair(array, vector<pair<int, int>>()));
+            it2->second.resize(array->GetDimSize());
+            std::fill(it2->second.begin(), it2->second.end(), make_pair(0, 0));
+
             ++z;
             int k = z;
             for ( ; k < z + 3 * array->GetDimSize(); k += 3)
-                it2->second[toModify[k]] = make_pair((int)toModify[k + 1], (int)toModify[k + 2]);
-            z = k;
+                if (toModify[k] != -1)
+                    it2->second[toModify[k]] = make_pair((int)toModify[k + 1], (int)toModify[k + 2]);
+            z = k - 1;
         }
         if (z != last)
             throw (-28);
@@ -561,7 +575,10 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
         map<DIST::Array*, vector<pair<int, int>>> toDelete;
         toDelete = data;
         for (auto& elem : templates)
+        {
             toDelete.insert(make_pair(elem, vector<pair<int, int>>()));
+            elem->SetDimSizesToMaxMin(true);
+        }
         reducedG.RemoveAllEdgesFromGraph(toDelete, allArrays);
 
         // add new rules and modify reduced graph
@@ -576,15 +593,16 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
             for (int z = 0; z < links.size(); ++z)
             {
                 if (links[z] != -1)
-                    array->AddLinkWithTemplate(z, links[z], templ, arrayP.second[z], regId);
-                else
                 {
-                    if (arrayP.second[z].first != -1)
-                        throw (-31);
-
+                    array->AddLinkWithTemplate(z, links[z], templ, arrayP.second[z], regId);
                     int err = DIST::AddArrayAccess(reducedG, allArrays, array, templ, make_pair(z, links[z]), 1.0, make_pair(make_pair(1, 0), arrayP.second[z]), WW_link);
                     if (err != 0)
                         throw (-33);
+                }
+                else
+                {
+                    if (arrayP.second[z].first != 0)
+                        throw (-31);                    
                 }
             }
         }
@@ -596,6 +614,20 @@ int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, s
 
         for (int i = 0; i < result.size(); ++i)
             __spf_print(1, "  %s\n", result[i].c_str());
+
+        // clear user directives from all loops
+        for (auto& byFile : loopGraph)
+        {
+            if (SgFile::switchToFile(byFile.first) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            for (auto& loop : byFile.second)
+                loop->clearUserDirectives();
+        }
+
+        // clear other dirs
+        set<int> varsToClear = { ACC_REGION_DIR, ACC_END_REGION_DIR, ACC_ACTUAL_DIR, ACC_GET_ACTUAL_DIR, 
+                                 DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_INHERIT_DIR, DVM_DYNAMIC_DIR };
+        removeStatementsFromAllproject(varsToClear);
     }
     catch (int ex)
     {

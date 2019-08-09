@@ -35,6 +35,6 @@ extern "C" { __declspec(dllexport) void SPF_deleteAllAllocatedData(); }
 extern "C" { __declspec(dllexport) int  SPF_SetDistributionFlagToArray(char *key, int flag); }
 
 //CODE MODIFICATION
-int SPF_ModifyArrayDistribution(int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, int regId, int64_t *toModify);
+extern "C" { __declspec(dllexport) int SPF_ModifyArrayDistribution(int winHandler, int* options, short* projName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize, int regId, int64_t* toModify); }
 
 void createNeededException();

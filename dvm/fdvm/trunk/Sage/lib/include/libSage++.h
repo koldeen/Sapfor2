@@ -292,11 +292,7 @@ public:
             return false;
 
         if (current_file_id != fileID)
-        {
             SgFile *file = &(project->file(fileID));
-            current_file_id = fileID;
-            current_file = file;
-        }
         return true;
     }
 
@@ -493,11 +489,7 @@ public:
           return false;
 
       if (current_file_id != fileID)
-      {
           SgFile *file = &(project->file(fileID));
-          current_file_id = fileID;
-          current_file = file;
-      }
       return true;
   }
 

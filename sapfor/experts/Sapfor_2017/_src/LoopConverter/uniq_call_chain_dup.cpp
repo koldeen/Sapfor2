@@ -614,6 +614,22 @@ static void restoreFunctions(const string &file)
     removed[file].clear();
 }
 
+static string clearName(const string &in)
+{
+    if (in.find('.') == string::npos)
+        return in;
+    else
+    {
+        string ret = in;
+        auto it = ret.rfind('.');
+        if (it == string::npos)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        ret = ret.substr(it + 1);
+        return ret;
+    }
+}
+
 static void createCopies(const string &file, const string &baseName, const  map<FuncInfo*, set<FuncInfo*>> &uniqCopies)
 {
     int newNum = 0;
@@ -622,7 +638,7 @@ static void createCopies(const string &file, const string &baseName, const  map<
         const string newName = newNum > 0 ? baseName + "_spfr_" + to_string(newNum) : baseName;
         ++newNum;
 
-        SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), newName, true, true);
+        SgStatement* duplicated = duplicateProcedure(toCopy.first->funcPointer->GetOriginal(), clearName(newName), true, true);
         copied[toCopy.first->funcPointer->GetOriginal()->fileName()].insert(duplicated);
         newNamesOfUniqCopies[toCopy.first->funcName] = newName;
         for (auto &theSame : toCopy.second)
@@ -642,6 +658,20 @@ static void doReplacements(SgSymbol* s, map<SgSymbol*, pair<string, string>> &re
         {
             s->changeName(it->second.c_str());
             replaced.insert(itR, make_pair(s, *it));
+        }
+        else // for modules and contains?
+        {
+            vector<string> toReplace;
+            string ident = s->identifier();
+            for (auto& elem : newNamesOfUniqCopies)
+                if (clearName(elem.first) == ident)
+                    toReplace.push_back(elem.second);
+
+            if (toReplace.size() == 1)
+            {
+                s->changeName(clearName(toReplace[0]).c_str());
+                replaced.insert(itR, make_pair(s, make_pair(ident, toReplace[0])));
+            }
         }
     }
 }
@@ -671,6 +701,7 @@ static void doReplacements(SgStatement* st, SgStatement* last, map<SgSymbol*, pa
         if (st->variant() == PROC_STAT)
         {
             SgSymbol *s = st->symbol();
+
             if (replaced)
                 doReplacements(s, *replaced);
             else

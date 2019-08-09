@@ -548,6 +548,21 @@ namespace Distribution
 
         VECTOR<int> GetNewTemplateDimsOrder() const { return templateDimsOrder; }
 
+        void SetDimSizesToMaxMin(bool notCopyToExpr = false)
+        {            
+            for (int i = 0; i < dimSize; ++i)
+                sizes[i] = std::make_pair((int)INT_MAX, (int)INT_MIN);
+
+            if (!notCopyToExpr)
+            {
+                for (int i = 0; i < sizesExpr.size(); ++i)
+                {
+                    sizesExpr[i].first.second.first = sizes[i].first;
+                    sizesExpr[i].second.second.first = sizes[i].second;
+                }
+            }
+        }
+
         ~Array() 
         {
             for (auto &templ : templateInfo)

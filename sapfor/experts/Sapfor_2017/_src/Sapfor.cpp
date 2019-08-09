@@ -89,6 +89,16 @@ void deleteAllAllocatedData(bool enable)
 {
     if (enable)
     {
+        for (auto& toDel : declaratedArrays)
+        {
+            if (!toDel.second.first->IsTemplate())
+            {
+                delete toDel.second.first;
+                delete toDel.second.second;
+            }
+        }
+        declaratedArrays.clear();
+
         for (int i = 0; i < parallelRegions.size(); ++i)
             delete parallelRegions[i];
         parallelRegions.clear();
@@ -121,13 +131,6 @@ void deleteAllAllocatedData(bool enable)
         for (auto &toDel : depInfoForLoopGraph)
             delete toDel.second;
         depInfoForLoopGraph.clear();
-
-        for (auto &toDel : declaratedArrays)
-        {
-            delete toDel.second.first;
-            delete toDel.second.second;
-        }
-        declaratedArrays.clear();
 
         commentsToInclude.clear();
         SPF_messages.clear();
@@ -299,7 +302,15 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 
             // copy includes that have not changed
             if (folderName != NULL)
-                copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, curr_regime == REMOVE_DVM_DIRS ? 1 : curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS ? 2 : 0);
+            {
+                int removeDvmDirs = 0;
+                if (curr_regime == REMOVE_DVM_DIRS)
+                    removeDvmDirs = 1;
+                else if (curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
+                    removeDvmDirs = 2;
+
+                copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, removeDvmDirs);
+            }
         }
 
         //restore of restore
@@ -395,8 +406,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
-        current_file_id = i;
-        current_file = file;
         updateStatsExprs(current_file_id, file->filename());
     }
     currProcessing.first = ""; currProcessing.second = -1;
@@ -407,8 +416,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createNeededException();
 #endif
         SgFile *file = &(project.file(i));
-        current_file_id = i;
-        current_file = file;
 
         toSendStrMessage = file->filename();
 #ifdef _WIN32
@@ -947,19 +954,41 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                         const auto &vecLines = lines.second;
                         const string &fileName = lines.first;
 
-                        auto messages = getObjectForFileFromMap(fileName.c_str(), SPF_messages);
+                        auto &messages = getObjectForFileFromMap(fileName.c_str(), SPF_messages);
                         for (auto &line : vecLines)
                         {
-                            if (line.stats.first && line.stats.second)
+                            if ((line.stats.first && line.stats.second) || currReg->GetId() == 0)
                             {
-                                messages.push_back(Messages(ERROR, line.stats.first->lineNumber(), messageR, messageE, 1036));
+                                messages.push_back(Messages(ERROR, line.lines.first, messageR, messageE, 1036));
 
                                 __spf_print(1, "Can not build align graph from user's DVM directives in this region in '%s': %d\n",
-                                            fileName.c_str(), line.stats.first->lineNumber());
+                                            fileName.c_str(), line.lines.first);
                             }
                         }
                     }
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+                else
+                {
+                    currReg->ClearUserDirs();
+
+                    set<int> varsToClear = { DVM_DYNAMIC_DIR, DVM_INHERIT_DIR };
+                    removeStatementsFromAllproject(varsToClear);
+
+                    //TODO: need to add template clones, so remove all dirs!
+                    // clear user directives from all loops
+                    for (auto& byFile : loopGraph)
+                    {
+                        if (SgFile::switchToFile(byFile.first) == -1)
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                        for (auto& loop : byFile.second)
+                            loop->clearUserDirectives();
+                    }
+                    // clear other dirs
+                    set<int> varsToClear1 = { ACC_REGION_DIR, ACC_END_REGION_DIR, ACC_ACTUAL_DIR, ACC_GET_ACTUAL_DIR,
+                                              DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_VAR_DECL, HPF_TEMPLATE_STAT };
+                    removeStatementsFromAllproject(varsToClear1);
                 }
             }
 
@@ -1092,6 +1121,18 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             CreateCallGraphViz("_callGraph.txt", allFuncInfo, V, E);
         }
         findDeadFunctionsAndFillCallTo(allFuncInfo, SPF_messages);
+        bool detected = detectMpiCalls(allFuncInfo, SPF_messages);
+        if (detected)
+        {
+            mpiProgram = 1;
+            parallizeFreeLoops = 1;
+            for (auto& array : declaratedArrays)
+            {
+                if (array.second.first->GetNonDistributeFlagVal() == DIST::DISTR)
+                    array.second.first->SetNonDistributeFlag(DIST::NO_DISTR);
+            }
+        }
+
         createLinksBetweenFormalAndActualParams(allFuncInfo, arrayLinksByFuncCalls, declaratedArrays, SPF_messages, keepFiles);
         propagateWritesToArrays(allFuncInfo);
         updateFuncInfo(allFuncInfo);
@@ -1180,8 +1221,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 createNeededException();
 #endif
                 SgFile *file = &(project.file(i));
-                current_file_id = i;
-                current_file = file;
 
                 auto funcForFile = allFuncInfo.find(file->filename());
                 if (funcForFile != allFuncInfo.end())
@@ -1363,9 +1402,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 createNeededException();
 #endif
                 SgFile *file = &(project.file(i));
-                current_file_id = i;
-                current_file = file;
-
                 if (file->mainProgram())
                 {
                     string fileName = file->filename();
@@ -1534,9 +1570,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int i = n - 1; i >= 0; --i)
                 {
                     SgFile *file = &(project.file(i));
-                    current_file_id = i;
-                    current_file = file;
-
                     auto fountInfo = findAllDirectives(file, getObjectForFileFromMap(file->filename(), loopGraph), parallelRegions[z]->GetId());
                     parallelDirs.insert(fountInfo.begin(), fountInfo.end());
 
@@ -1716,8 +1749,6 @@ static SgProject* createProject(const char *proj_name)
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
         SgFile* file = &(project->file(z));
-        current_file = file;
-        current_file_id = z;
 
         correctModuleProcNames(file);
         correctModuleSymbols(file);
@@ -1788,37 +1819,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 continue;
 
             string additionalName = selectAddNameOfVariant(i, maxDimsIdx, maxDimsIdxReg, currentVariants);
-
-			/*
-            for (int z = 0; z < parallelRegions.size(); ++z)
-            {
-                const DataDirective &dirs = parallelRegions[z]->GetDataDir();
-                if (dirs.distrRules.size() > 1)
-                {
-                    __spf_print(1, "New order for templates for region %s\n", parallelRegions[z]->GetName().c_str());
-                    const vector<int> &currVar = parallelRegions[z]->GetCurrentVariant();
-                    for (int p = 0; p < dirs.distrRules.size(); ++p)
-                    {
-                        DIST::Array *templ = dirs.distrRules[p].first;
-                        const DistrVariant &var = dirs.distrRules[p].second[currVar[p]];
-                        vector<pair<int, int>> order(templ->GetDimSize());
-                        auto sizes = templ->GetSizes();
-
-                        for (int d = 0; d < templ->GetDimSize(); ++d)
-                            order[d] = make_pair(d, var.distRule[d] == BLOCK ? (sizes[d].second - sizes[d].first + 1) : (-1 * d));
-                        sort(order.begin(), order.end(), comparSort);
-
-                        vector<int> newOrder;
-                        for (auto &elem : order)
-                            newOrder.push_back(elem.first);
-                        templ->AddNewTemplateDimsOrder(newOrder);
-                        __spf_print(1, "  -- for template '%s': [", templ->GetShortName().c_str());
-                        for (auto &elem : newOrder)
-                            __spf_print(1, " %d", elem);
-                        __spf_print(1, "]\n");
-                    }
-                }
-            } */
 
             runPass(CREATE_PARALLEL_DIRS, proj_name, folderName);
 

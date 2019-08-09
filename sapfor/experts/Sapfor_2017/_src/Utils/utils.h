@@ -36,7 +36,8 @@ std::string splitDirectiveFull(const std::string &in_);
 
 void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
 
-bool isSPF_comment(const std::string &bufStr);
+bool isSPF_comment(const std::string& bufStr);
+bool isDVM_comment(const std::string& bufStr);
 
 void sortFilesBySize(const char *proj_name);
 
@@ -73,3 +74,5 @@ void printStackTrace();
 
 template<typename objT>
 objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);
+
+bool isMpiFunction(const std::string& func);

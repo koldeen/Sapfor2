@@ -294,10 +294,22 @@ bool isSPF_comment(const string &bufStr)
     bool spfStart = false;
     if (bufStr.size() > 6)
         spfStart = (bufStr[0] == '!' || bufStr[0] == 'c') &&
-        bufStr[1] == '$' && bufStr[2] == 's' &&
-        bufStr[3] == 'p' && bufStr[4] == 'f';
+                    bufStr[1] == '$' && bufStr[2] == 's'  &&
+                    bufStr[3] == 'p' && bufStr[4] == 'f';
 
     return spfStart;
+}
+
+bool isDVM_comment(const string& bufStr)
+{
+    bool dvmStart = false;
+    if (bufStr.size() > 6)
+    {
+        dvmStart = (bufStr[0] == '!' || bufStr[0] == 'c') &&
+                    bufStr[1] == 'd' && bufStr[2] == 'v'  &&
+                    bufStr[3] == 'm' && bufStr[4] == '$';
+    }
+    return dvmStart;
 }
 
 void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int, set<string>>> &commentsToInclude, 
@@ -331,7 +343,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
             
             while (!feof(oldFile))
             {
-                char buf[16384];
+                char buf[8192];
                 char *res = fgets(buf, 16384, oldFile);
                 if (res == NULL)
                     break;
@@ -345,7 +357,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                     if (spfStart)
                         bufStr = "\n";                    
                 }
-                //remove DVM dirs or //save DVM dirs as comment
+                //remove DVM dirs or save DVM dirs as comment
                 if (removeDvmDirs == 1 || removeDvmDirs == 2)
                 {
                     if (bufStr[0] == '!' || bufStr[0] == 'c')
@@ -353,7 +365,7 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                         if (bufStr[1] == 'd' && bufStr[2] == 'v' && bufStr[3] == 'm' && bufStr[4] == '$')
                         {
                             if (removeDvmDirs == 1)
-                                bufStr = "\n";
+                                bufStr = "";
                             else if (removeDvmDirs == 2)
                                 bufStr.insert(1, " ");
                         }
@@ -364,7 +376,10 @@ void copyIncludes(const set<string> &allIncludeFiles, const map<string, map<int,
                 if (bufStr.find("include") != string::npos)
                     fputs(orig.c_str(), copyFile);
                 else
-                    fputs(bufStr.c_str(), copyFile);
+                {
+                    if (bufStr != "")
+                        fputs(bufStr.c_str(), copyFile);
+                }
             }
             fclose(oldFile);
             fclose(copyFile);
@@ -858,3 +873,115 @@ template vector<LoopGraph*>& getObjectForFileFromMap(const char *fileName, map<s
 template vector<FuncInfo*>& getObjectForFileFromMap(const char *fileName, map<string, vector<FuncInfo*>>&);
 template map<int, Gcov_info>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, Gcov_info>>&);
 template map<int, double>& getObjectForFileFromMap(const char *fileName, map<string, std::map<int, double>>&);
+
+static set<string> mpiFunctions;
+bool isMpiFunction(const string& func)
+{
+    if (mpiFunctions.size() == 0)
+    {
+        mpiFunctions.insert("mpi_address");
+        mpiFunctions.insert("mpi_allgather");
+        mpiFunctions.insert("mpi_allgatherv");
+        mpiFunctions.insert("mpi_allreduce");
+        mpiFunctions.insert("mpi_alltoall");
+        mpiFunctions.insert("mpi_alltoallv");
+        mpiFunctions.insert("mpi_barrier");
+        mpiFunctions.insert("mpi_bcast");
+        mpiFunctions.insert("mpi_bsend");
+        mpiFunctions.insert("mpi_bsend_init");
+        mpiFunctions.insert("mpi_buffer_attach");
+        mpiFunctions.insert("mpi_buffer_detach");
+        mpiFunctions.insert("mpi_cart_coords");
+        mpiFunctions.insert("mpi_cart_create");
+        mpiFunctions.insert("mpi_cart_get");
+        mpiFunctions.insert("mpi_cart_rank");
+        mpiFunctions.insert("mpi_cart_shift");
+        mpiFunctions.insert("mpi_cart_sub");
+        mpiFunctions.insert("mpi_cartdim_get");
+        mpiFunctions.insert("mpi_comm_create");
+        mpiFunctions.insert("mpi_comm_dup");
+        mpiFunctions.insert("mpi_comm_free");
+        mpiFunctions.insert("mpi_comm_group");
+        mpiFunctions.insert("mpi_comm_rank");
+        mpiFunctions.insert("mpi_comm_size");
+        mpiFunctions.insert("mpi_comm_split");
+        mpiFunctions.insert("mpi_dims_create");
+        mpiFunctions.insert("mpi_finalize");
+        mpiFunctions.insert("mpi_gather");
+        mpiFunctions.insert("mpi_gatherv");
+        mpiFunctions.insert("mpi_get_count");
+        mpiFunctions.insert("mpi_get_processor_name");
+        mpiFunctions.insert("mpi_graph_create");
+        mpiFunctions.insert("mpi_graph_get");
+        mpiFunctions.insert("mpi_graph_neighbors");
+        mpiFunctions.insert("mpi_graph_neighbors_count");
+        mpiFunctions.insert("mpi_graphdims_get");
+        mpiFunctions.insert("mpi_group_compare");
+        mpiFunctions.insert("mpi_group_difference");
+        mpiFunctions.insert("mpi_group_excl");
+        mpiFunctions.insert("mpi_group_free");
+        mpiFunctions.insert("mpi_group_incl");
+        mpiFunctions.insert("mpi_group_intersection");
+        mpiFunctions.insert("mpi_group_rank");
+        mpiFunctions.insert("mpi_group_size");
+        mpiFunctions.insert("mpi_group_translate_ranks");
+        mpiFunctions.insert("mpi_group_union");
+        mpiFunctions.insert("mpi_ibsend");
+        mpiFunctions.insert("mpi_init");
+        mpiFunctions.insert("mpi_initialized");
+        mpiFunctions.insert("mpi_iprobe");
+        mpiFunctions.insert("mpi_irecv");
+        mpiFunctions.insert("mpi_irsend");
+        mpiFunctions.insert("mpi_isend");
+        mpiFunctions.insert("mpi_issend");
+        mpiFunctions.insert("mpi_op_create");
+        mpiFunctions.insert("mpi_op_free");
+        mpiFunctions.insert("mpi_pack");
+        mpiFunctions.insert("mpi_pack_size");
+        mpiFunctions.insert("mpi_probe");
+        mpiFunctions.insert("mpi_recv");
+        mpiFunctions.insert("mpi_recv_init");
+        mpiFunctions.insert("mpi_reduce");
+        mpiFunctions.insert("mpi_reduce_scatter");
+        mpiFunctions.insert("mpi_request_free");
+        mpiFunctions.insert("mpi_rsend");
+        mpiFunctions.insert("mpi_rsend_init");
+        mpiFunctions.insert("mpi_scan");
+        mpiFunctions.insert("mpi_scatter");
+        mpiFunctions.insert("mpi_scatterv");
+        mpiFunctions.insert("mpi_send");
+        mpiFunctions.insert("mpi_send_init");
+        mpiFunctions.insert("mpi_sendrecv");
+        mpiFunctions.insert("mpi_sendrecv_replace");
+        mpiFunctions.insert("mpi_ssend");
+        mpiFunctions.insert("mpi_ssend_init");
+        mpiFunctions.insert("mpi_start");
+        mpiFunctions.insert("mpi_startall");
+        mpiFunctions.insert("mpi_test");
+        mpiFunctions.insert("mpi_testall");
+        mpiFunctions.insert("mpi_testany");
+        mpiFunctions.insert("mpi_testsome");
+        mpiFunctions.insert("mpi_topo_test");
+        mpiFunctions.insert("mpi_type_commit");
+        mpiFunctions.insert("mpi_type_contiguous");
+        mpiFunctions.insert("mpi_type_extent");
+        mpiFunctions.insert("mpi_type_free");
+        mpiFunctions.insert("mpi_type_hindexed");
+        mpiFunctions.insert("mpi_type_hvector");
+        mpiFunctions.insert("mpi_type_indexed");
+        mpiFunctions.insert("mpi_type_lb");
+        mpiFunctions.insert("mpi_type_size");
+        mpiFunctions.insert("mpi_type_struct");
+        mpiFunctions.insert("mpi_type_ub");
+        mpiFunctions.insert("mpi_type_vector");
+        mpiFunctions.insert("mpi_unpack");
+        mpiFunctions.insert("mpi_wait");
+        mpiFunctions.insert("mpi_waitall");
+        mpiFunctions.insert("mpi_waitany");
+        mpiFunctions.insert("mpi_waitsome");
+        mpiFunctions.insert("mpi_wtick");
+        mpiFunctions.insert("mpi_wtime");
+    }
+
+    return mpiFunctions.find(func) != mpiFunctions.end();
+}

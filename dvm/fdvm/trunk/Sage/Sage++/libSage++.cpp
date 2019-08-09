@@ -1597,16 +1597,19 @@ SgFile &SgProject::file(int i)
         return *pt;
     }
     pt = GetMappingInTableForFile(file);
-    if (pt)
-        return *pt;
-    else
+    if (!pt)
     {
         pt = new SgFile(FILE_FILENAME(file));
 #ifdef __SPF   
         addToCollection(__LINE__, __FILE__, pt, 1);
 #endif
-        return *pt;
+
     }
+
+    current_file_id = i;
+    current_file = pt;
+
+    return *pt;
 }
 
 

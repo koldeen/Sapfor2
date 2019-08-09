@@ -711,3 +711,34 @@ void createLinksBetweenFormalAndActualParams(map<string, vector<FuncInfo*>> &all
         printf("%s %s flag %s\n", array->GetShortName(), array->GetName(), flagS.c_str());
     }*/
 }
+
+bool detectMpiCalls(const map<string, vector<FuncInfo*>>& allFuncInfo, map<string, vector<Messages>>& SPF_messages)
+{
+    bool retVal = false;
+
+    map<string, FuncInfo*> funcByName;
+    createMapOfFunc(allFuncInfo, funcByName);
+
+    for (auto& byFile : allFuncInfo)
+    {
+        for (auto& func : byFile.second)
+        {
+            for (auto& callsFromThis : func->detailCallsFrom)
+            {
+                if (isMpiFunction(callsFromThis.first) && funcByName.find(callsFromThis.first) == funcByName.end())
+                {
+                    retVal = true;
+
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"Detected mpi call, turn on special regime of paralyzing");
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, R148);
+#endif
+                    SPF_messages[byFile.first].push_back(Messages(NOTE, callsFromThis.second, messageR, messageE, 1051));
+                }
+            }
+        }
+    }
+
+    return retVal;
+}

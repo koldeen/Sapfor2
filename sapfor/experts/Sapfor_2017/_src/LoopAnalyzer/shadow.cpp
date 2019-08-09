@@ -282,7 +282,7 @@ void devourShadowByRemote(SgFile *file, const map<DIST::Array*, set<DIST::Array*
 {
     for (SgStatement *stat = file->firstStatement(); stat; stat = stat->lexNext())
     {
-        if (stat->variant() == DVM_PARALLEL_ON_DIR)
+        if (stat->variant() == DVM_PARALLEL_ON_DIR && stat->lineNumber() == 0) // except user dirs
         {
             devourShadow(stat->expr(1), stat);
             replaceShadowByRemote(stat->expr(1), stat, arrayLinksByFuncCalls);
@@ -294,7 +294,7 @@ void transformShadowIfFull(SgFile *file, const map<DIST::Array*, set<DIST::Array
 {
     for (SgStatement *first = file->firstStatement(); first; first = first->lexNext())
     {
-        if (first->variant() == DVM_PARALLEL_ON_DIR)
+        if (first->variant() == DVM_PARALLEL_ON_DIR && first->lineNumber() == 0) // except user dirs
         {
             SgExpression *spec = first->expr(1);
             if (spec)

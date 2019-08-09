@@ -59,7 +59,8 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   47 "inconsistent array use"
 //   48 "the same function name in different places was found"
 //   49 "reasons of non pure function" 
-//   50
+//   50 "count of PROGRAM unit"
+//   51 "Detected mpi call, turn on special regime of paralyzing"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -289,6 +290,7 @@ static const wchar_t *R35 = L"Разрешены только положительные числа";
 static const wchar_t *R36 = L"Нет такого выражения '%s' в цикле";
 //1012
 static const wchar_t *R37 = L"Невозможно определить размеры массива '%s'";
+static const wchar_t* R149 = L"Невозможно определить размеры цикла '%s'";
 //1013
 static const wchar_t *R38 = L"Требуется выполнить подстановку функции '%s', так как отличается количество формальных и фактических параметров";
 static const wchar_t *R39 = L"Требуется выполнить подстановку функции '%s', так как отличается тип фактического и формального %d-го параметра";
@@ -389,6 +391,8 @@ static const wchar_t *R93 = L"Функция не является функцией без побочных эффектов
 //1050
 static const wchar_t *R146 = L"Найдена более, чем одна главная программная единица (PROGRAM)";
 static const wchar_t* R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
+//1051
+static const wchar_t* R148 = L"Обнаружены вызовы MPI-функций, включен режим специальный режим распараллеливания MPI-программ";
 
 //2001
 static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";

@@ -263,6 +263,18 @@ public:
         for (auto &ch : children)
             ch->removeNonDistrArrays();
     }
+
+    void clearUserDirectives()
+    {
+        if (userDvmDirective)
+        {
+            userDvmDirective->GetOriginal()->deleteStmt();
+            userDvmDirective = NULL;
+        }
+        for (auto& ch : children)
+            ch->clearUserDirectives();
+    }
+
 public:
     int lineNum;
     int altLineNum;

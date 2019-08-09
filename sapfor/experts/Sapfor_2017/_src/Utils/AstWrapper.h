@@ -14,8 +14,11 @@ public:
 
 class Statement : public SgStatement, public Base<SgStatement*>
 {
+private:
+    std::string includedToFile;
 public:
-    explicit Statement(SgStatement *init) : SgStatement(*init), Base(init) { }
+    explicit Statement(SgStatement* init) : SgStatement(*init), Base(init) { includedToFile = current_file->filename(); }
+    const std::string& GetFileNameIncludedTo() const { return includedToFile; }
 };
 
 class Expression : public SgExpression, public Base<SgExpression*>

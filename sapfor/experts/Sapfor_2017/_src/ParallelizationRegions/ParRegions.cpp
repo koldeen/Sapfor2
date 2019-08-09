@@ -202,17 +202,23 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
         createMapOfFunc(*funcs, mapFuncs);
 
     //fill default
-    SgStatement *st = file->firstStatement();
-    ParallelRegion *defaultR = regions[0];
-    pair<int, int> lines(st->lineNumber(), 0);
-
-    while (st)
+    ParallelRegion* defaultR = regions[0];
+    pair<int, int> lines;
+    //pair<SgStatement*, SgStatement*> startEndDef(NULL, NULL);
     {
-        st = st->lastNodeOfStmt();
-        lines.second = st->lineNumber();
+        SgStatement* st = file->firstStatement();
         st = st->lexNext();
-    }
+        lines = make_pair(st->lineNumber(), 0);
+        //startEndDef.first = st;
 
+        while (st)
+        {
+            st = st->lastNodeOfStmt();
+            lines.second = st->lineNumber();
+            //startEndDef.second = st;
+            st = st->lexNext();
+        }
+    }
     defaultR->AddLines(lines, file->filename());
 
     map<int, LoopGraph*> allLoopsInFile;
@@ -329,9 +335,19 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                     fillArrayNamesInReg(usedArrayInRegion, st->expr(i));
             }
 
+            
             switch (st->variant())
             {
             case DVM_VAR_DECL:
+            {
+                string unparsed = st->unparse();
+                convertToLower(unparsed);
+                if (unparsed.find("distribute") != string::npos)
+                    userDvmDistrDirs.push_back(new Statement(st));
+                else if (unparsed.find("align") != string::npos)
+                    userDvmAlignDirs.push_back(new Statement(st));
+            }
+                break;
             case DVM_DISTRIBUTE_DIR:
                 userDvmDistrDirs.push_back(new Statement(st));
                 break;
@@ -364,6 +380,13 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
 
             st = st->lexNext();
         }
+
+        //for default
+        defaultR->AddUserDirectives(userDvmDistrDirs, DVM_DISTRIBUTE_DIR);
+        defaultR->AddUserDirectives(userDvmAlignDirs, DVM_ALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmShadowDirs, DVM_SHADOW_DIR);
+        defaultR->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
     }
 }
 
@@ -630,6 +653,14 @@ static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
                 }
                 retVal.second.second = ex->lhs()->valueInteger() * minus;
             }
+            else if (ex->lhs()->variant() == VAR_REF && ex->rhs()->variant()) // X +- b
+            {
+                retVal.first = ex->lhs()->symbol()->identifier();
+                retVal.second.first = 1;
+                retVal.second.second = ex->rhs()->valueInteger() * minus;
+            }
+            else
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         }
         else if (ex->variant() == KEYWORD_VAL)
         {
@@ -671,6 +702,9 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
         int t = 0;
         for (auto &dir : userDvmAlignDirs)
         {
+            if (SgFile::switchToFile(dir->GetFileNameIncludedTo()) == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
             vector<DIST::Array*> alignArrays;
             
             vector<pair<string, pair<int, int>>> alignTemplate;
@@ -704,34 +738,29 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
 
             if (dir->expr(1))
                 fillTemplate(dir->expr(1), alignTemplate);
+            else if (dir->variant() == DVM_VAR_DECL)
+                fillTemplate(dir->expr(2)->lhs()->lhs(), alignTemplate);
             else
                 return true;
 
             if (dir->expr(2))
             {
                 SgExpression *ex = dir->expr(2);
-                if (ex->variant() == ARRAY_REF && ex->symbol())
+                if (ex->variant() == EXPR_LIST && ex->lhs()->variant() == ALIGN_OP)
+                    ex = ex->lhs()->rhs();
+
+                if (ex && ex->variant() == ARRAY_REF && ex->symbol())
                 {
                     alignWithArray = getArrayFromDeclarated(declaratedInStmt(ex->symbol()), ex->symbol()->identifier());
                     if (alignWithArray == NULL)
                         return true;
                     fillTemplate(ex->lhs(), alignWithTemplate);
                 }
+                else
+                    return true;
             }
             else
                 return true;
-                        
-            /*dir->unparsestdout();
-            printf("DIR #%d\n", t++);
-            for (int i = 0; i < 3; ++i)
-            {
-                if (dir->expr(i))
-                {
-                    printf(" EXP #%d\n", i);
-                    recExpressionPrint(dir->expr(i));
-                }
-            }
-            printf("\n");*/
 
             for (int i = 0; i < alignTemplate.size(); ++i)
             {
@@ -739,8 +768,8 @@ bool buildGraphFromUserDirectives(const vector<Statement*> &userDvmAlignDirs, DI
                 {
                     int dimT = getTemplateDemention(alignTemplate[i].first, alignWithTemplate);
                     if (dimT == -1)
-                        return true;
-                    //AddArrayAccess(G, allArrays, fromSymb, toSymb, make_pair(dimFrom, dimTo), currWeight, make_pair(from->writeOps[dimFrom].coefficients[z], to->writeOps[dimTo].coefficients[z1]), WW_link);
+                        continue;
+                    
                     for (auto &arrays : realAlignArrayRefsSet)
                         DIST::AddArrayAccess(G, allArrays, arrays, alignWithArray, make_pair(i, dimT), 1.0, make_pair(make_pair(1, 0), alignWithTemplate[dimT].second), WW_link);
                 }

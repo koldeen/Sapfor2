@@ -10,6 +10,7 @@ extern int automaticDeprecateArrays;
 extern int maxShadowWidth;
 extern int langOfMessages;
 extern bool removeNestedIntervals;
+extern int mpiProgram;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -138,6 +139,7 @@ enum optionNames {
     TRANSLATE_MESSAGES,
     KEEP_LOOPS_CLOSE_NESTING,
     KEEP_GCOV,
+    MPI_PROGRAM,
     EMPTY_OPTION
 };
 

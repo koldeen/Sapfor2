@@ -62,7 +62,9 @@ using std::wstring;
 
 static REGIME currRegime = UNDEF;
 static vector<Messages> *currMessages;
+
 extern int parallizeFreeLoops;
+extern int mpiProgram;
 
 static bool hasArrayAccessInSubscr(SgExpression *exp)
 {
@@ -773,18 +775,21 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                     const string key = string(OriginalSymbol(currExp->symbol())->identifier());
                     if (loopsPrivates.find(key) == loopsPrivates.end())
                     {
-                        for (auto &loop : parentLoops)
+                        if (mpiProgram == 0)
                         {
-                            __spf_print(1, "WARN: write to non distributed array '%s' in loop on line %d\n", symb->identifier(), loop->lineNumber());
+                            for (auto& loop : parentLoops)
+                            {
+                                __spf_print(1, "WARN: write to non distributed array '%s' in loop on line %d\n", symb->identifier(), loop->lineNumber());
 
-                            wstring messageE, messageR;
-                            __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
+                                wstring messageE, messageR;
+                                __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
 #if _WIN32
-                            __spf_printToLongBuf(messageR, R61, to_wstring(symb->identifier()).c_str());
+                                __spf_printToLongBuf(messageR, R61, to_wstring(symb->identifier()).c_str());
 #endif
-                            if (loop->lineNumber() > 0)
-                                currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
-                            sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                                if (loop->lineNumber() > 0)
+                                    currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
+                                sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                            }
                         }
                     }
                     else if (loopsRedUnited.find(key) == loopsRedUnited.end())
@@ -803,20 +808,23 @@ static void findArrayRef(const vector<SgForStmt*> &parentLoops, SgExpression *cu
                         if (wasMapped)
                         {
                             int z = 0;
-                            for (auto &loop : parentLoops)
+                            if (mpiProgram == 0)
                             {
-                                if (tmpLoopInfo.find(loop) != tmpLoopInfo.end() && matched[z])
+                                for (auto& loop : parentLoops)
                                 {
-                                    wstring messageE, messageR;
-                                    __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
+                                    if (tmpLoopInfo.find(loop) != tmpLoopInfo.end() && matched[z])
+                                    {
+                                        wstring messageE, messageR;
+                                        __spf_printToLongBuf(messageE, L"write to non distributed array '%s' in this loop", to_wstring(symb->identifier()).c_str());
 #if _WIN32
-                                    __spf_printToLongBuf(messageR, R60, to_wstring(symb->identifier()).c_str());
+                                        __spf_printToLongBuf(messageR, R60, to_wstring(symb->identifier()).c_str());
 #endif
-                                    if (loop->lineNumber() > 0)
-                                        currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
-                                    sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                                        if (loop->lineNumber() > 0)
+                                            currMessages->push_back(Messages(WARR, loop->lineNumber(), messageR, messageE, 1026));
+                                        sortedLoopGraph[loop->lineNumber()]->hasWritesToNonDistribute = true;
+                                    }
+                                    ++z;
                                 }
-                                ++z;
                             }
                         }
                     }
@@ -1126,8 +1134,6 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                         if (fileId != -1)
                         {
                             SgFile *tmpfile = &(CurrentProject->file(fileId));
-                            current_file = tmpfile;
-                            current_file_id = fileId;
                             wasSelect = true;
                             break;
                         }
@@ -1139,8 +1145,6 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                         for (int i = CurrentProject->numberOfFiles() - 1; i >= 0; --i)
                         {                            
                             SgFile *file = &(CurrentProject->file(i));
-                            current_file_id = i;
-                            current_file = file;
 
                             for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
                             {
@@ -1422,6 +1426,7 @@ static void fillFromModule(SgSymbol* s, const map<string, set<string>>& privates
 }
 
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
+
 void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int, string, string>, DIST::Array*> &createdArrays,
                   vector<Messages> &messagesForFile, REGIME regime, const map<string, vector<FuncInfo*>> &AllfuncInfo,
                   const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
@@ -2024,11 +2029,13 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
 
                         for (SgStatement *start = loopSt->lexNext(); start != loopSt->lastNodeOfStmt(); start = start->lexNext())
                         {
+                            //TODO: detect write in proc calls
                             if (start->variant() == ASSIGN_STAT)
                             {
                                 if (start->expr(0)->variant() == ARRAY_REF)
                                     if (privates.find(start->expr(0)->symbol()->identifier()) == privates.end())
-                                        hasWritesToArray = true;
+                                        if (mpiProgram == 0)
+                                            hasWritesToArray = true;
                             }
 
                             if (start->variant() == PROC_STAT && isIntrinsicFunctionName(start->symbol()->identifier()) == 0)
@@ -2512,7 +2519,12 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                 {
                     const string tmp(decl->unparse());
                     if (tmp.find("!DVM$ TEMPLATE") != string::npos)
+                    {
                         itNew->second.first->SetTemplateFlag(true);
+                        //TODO: analyze align mapping
+                        for (int z = 0; z < itNew->second.first->GetDimSize(); ++z)
+                            itNew->second.first->SetMappedDim(z);
+                    }
                 }
             }
         }
