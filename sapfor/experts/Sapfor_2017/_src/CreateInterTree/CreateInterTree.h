@@ -12,6 +12,8 @@
 
 struct SpfInterval
 {
+    int userIntervalLine;
+
     int tag = 0;
     long long calls_count = 0;
     bool ifInclude = true;
@@ -21,7 +23,7 @@ struct SpfInterval
 
     SgStatement *begin;
     std::pair<int, std::string> lineFile;
-    SpfInterval *parent = NULL;
+    SpfInterval *parent;
 
     std::vector<SgStatement*> ends;
     std::vector<int> exit_levels;
@@ -33,6 +35,14 @@ struct SpfInterval
     double exec_time = 0;
     std::vector<double> predictedTimes;
     std::vector<double> predictedRemoteTimes;
+
+
+    SpfInterval(int line)
+    {
+        userIntervalLine = line;
+        begin = NULL;
+        parent = NULL;
+    }
 
     int getBestTimeIdx()
     {
@@ -52,7 +62,7 @@ struct SpfInterval
 };
 
 void saveIntervals(const std::string &fileName, std::map<std::string, std::vector<SpfInterval*>> &intervals);
-void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool);
+void createInterTree(SgFile*, std::vector<SpfInterval*>&, bool, std::vector<Messages>&);
 void assignCallsToFile(const std::string&, std::vector<SpfInterval*>&);
 void removeNodes(int, std::vector<SpfInterval*>&, std::vector<std::string>&);
 void insertIntervals(SgFile*, const std::vector<SpfInterval*>&);

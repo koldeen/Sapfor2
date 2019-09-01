@@ -88,6 +88,47 @@ static void filterInsertMap(map<int, vector<vector<Expression*>>> &toInsertMap)
     }
 }
 
+static void correctKeyLine(SgFile *file, map<int, vector<vector<Expression*>>> &toInsertMap)
+{
+    set<int> lines;
+    vector<int> lines_v;
+
+    for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->lineNumber() > 0)
+            lines.insert(st->lineNumber());
+    }
+
+    for (auto &l : lines)
+        lines_v.push_back(l);
+
+    map<int, vector<vector<Expression*>>> newMap;
+    for (auto &elem : toInsertMap)
+    {
+        if (std::find(lines_v.begin(), lines_v.end(), elem.first) != lines_v.end())
+            newMap[elem.first] = elem.second;
+        else
+        {
+            int lineNext = -1;
+            for (int z = 0; z < lines_v.size(); ++z)
+            {
+                if (lines_v[z] > elem.first)
+                {
+                    lineNext = lines_v[z];
+                    break;
+                }
+            }
+
+            if (lineNext == -1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            newMap[lineNext] = elem.second;
+        }
+    }
+
+    toInsertMap = newMap;
+}
+
 void removeStatementsFromAllproject(const set<int> &variants)
 {
     for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
@@ -114,26 +155,42 @@ void removeStatementsFromAllproject(const set<int> &variants)
         for (SgStatement* st = stF; st; st = st->lexNext())
         {
             const int var = st->variant();
-            if (variants.find(var) != variants.end())
+            bool templateMod = false;
+            if (var == MODULE_STMT)
             {
+                string ident = st->symbol()->identifier();
+                convertToLower(ident);
+                if (ident == "dvmh_template_mod")
+                    templateMod = true;
+            }
+
+            bool useMod = false;
+            if (var == USE_STMT && st->symbol()->identifier() == string("dvmh_template_mod"))
+                useMod = true;
+
+            if (variants.find(var) != variants.end() || templateMod || useMod)
                 toDel.push_back(st);
 
-                //move comment to next statement
-                if (st->comments())
-                {
-                    char* comms = st->comments();
-                    string comments(comms);
-                    st->delComments();
-
-                    SgStatement* next = st->lexNext();
-                    if (next)
-                        next->addComment(comments.c_str());
-                }
-            }
+            if (var == MODULE_STMT && templateMod)
+                st = st->lastNodeOfStmt();
         }
 
         for (int k = 0; k < toDel.size(); ++k)
-            toDel[k]->deleteStmt();
+        {
+            //move comment to next statement
+            if (toDel[k]->comments())
+            {
+                char* comms = toDel[k]->comments();
+                string comments(comms);
+                toDel[k]->delComments();
+
+                SgStatement* next = toDel[k]->lexNext();
+                if (next)
+                    next->addComment(comments.c_str());
+            }
+
+            toDel[k]->deleteStmt();            
+        }
     }
 }
 
@@ -165,6 +222,8 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
     }
 
     filterInsertMap(toInsertMap);
+    correctKeyLine(file, toInsertMap);
+
     vector<SgStatement*> toDel;
 
     vector<SgStatement*> modulesAndFuncs;

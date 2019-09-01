@@ -2446,8 +2446,36 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                     __spf_print(1, "Wrong type size for array %s\n", symb->identifier());
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
-
+                
                 SgStatement *decl = declaratedInStmt(symb);
+                if (decl->variant() == DVM_VAR_DECL || decl->variant() == HPF_TEMPLATE_STAT)
+                {
+                    const string tmp(decl->unparse());
+                    if (tmp.find("!DVM$ TEMPLATE") != string::npos)
+                    {
+                        auto sTemp = symb->identifier();
+                        tuple<int, string, string> uniqKey;
+                        bool found = false;
+                        for (auto& elem : declaratedArrays)
+                        {
+                            if (elem.second.first->GetShortName() == sTemp)
+                            {
+                                uniqKey = elem.first;
+                                found = true;
+                            }
+                        }
+
+                        if (found)
+                        {
+                            auto itDecl = declaratedArraysSt.find(decl);
+                            if (itDecl == declaratedArraysSt.end())
+                                itDecl = declaratedArraysSt.insert(itDecl, make_pair(decl, set<tuple<int, string, string>>()));
+                            itDecl->second.insert(uniqKey);
+
+                            return;
+                        }
+                    }
+                }
 
                 auto uniqKey = getUniqName(commonBlocks, decl, symb);
                 pair<DIST::arrayLocType, string> arrayLocation;
@@ -2515,7 +2543,7 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                     itDecl = declaratedArraysSt.insert(itDecl, make_pair(decl, set<tuple<int, string, string>>()));
                 itDecl->second.insert(uniqKey);
 
-                if (decl->variant() == DVM_VAR_DECL)
+                if (decl->variant() == DVM_VAR_DECL || decl->variant() == HPF_TEMPLATE_STAT)
                 {
                     const string tmp(decl->unparse());
                     if (tmp.find("!DVM$ TEMPLATE") != string::npos)

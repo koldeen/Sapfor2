@@ -312,7 +312,7 @@ const int Logical_8 = 12;
 #define TASK_HPS_ARRAY(A) (*((SgSymbol **)(ORIGINAL_SYMBOL(A))->attributeValue(0,TSK_HPS_ARRAY)))
 #define TASK_AUTO(A) ((A)->attributeValue(0,TSK_AUTO))
 #define RTS2_OBJECT(A) ((A)->attributeValue(0,RTS2_CREATED))
-#define AR_COEFFICIENTS(A)  ((coeffs *) (ORIGINAL_SYMBOL(A))->attributeValue(0,ARRAY_COEF))
+#define AR_COEFFICIENTS(A)  ( (A)->attributeValue(0,ARRAY_COEF) ?  (coeffs *) (A)->attributeValue(0,ARRAY_COEF) : (coeffs *) (ORIGINAL_SYMBOL(A))->attributeValue(0,ARRAY_COEF))
 #define MAX_DVM   maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm  
 #define FREE_DVM(A)  maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm;  ndvm-=A  
 #define SET_DVM(A)   maxdvm = (maxdvm < ndvm) ? ndvm-1 : maxdvm;  ndvm=A  
@@ -889,6 +889,8 @@ void TemplateDeclarationTest(SgStatement *stmt);
 int DeferredShape(SgExpression *eShape);
 void Template_Create(SgStatement *stmt);
 void Template_Delete(SgStatement *stmt);
+void RenamingDvmArraysByUse(SgStatement *stmt);
+
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);

@@ -61,6 +61,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   49 "reasons of non pure function" 
 //   50 "count of PROGRAM unit"
 //   51 "Detected mpi call, turn on special regime of paralyzing"
+//   52 "error in user DVM intervals"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -314,7 +315,7 @@ static const wchar_t *R51 = L"Данный цикл не в END DO формате";
 //1019
 static const wchar_t *R52 = L"Включаемый файл '%s' содержит исполняемые операторы, что запрещено к распараллеливанию в системе SAPFOR";
 //1020
-static const wchar_t *R53 = L"Активные DVM-директивы не поддерживаются в данный момент";
+static const wchar_t *R53 = L"Активные DVM-директивы не поддерживаются (необходимо включить опцию <<Учитывать DVM-директивы>>)";
 //1021
 static const wchar_t *R54 = L"Обращение к массиву '%s' содержит более одной индексной переменной циклов";
 static const wchar_t *R55 = L"Обращение к массиву '%s' не содержит итерационных переменных циклов";
@@ -393,6 +394,8 @@ static const wchar_t *R146 = L"Найдена более, чем одна главная программная едини
 static const wchar_t* R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
 //1051
 static const wchar_t* R148 = L"Обнаружены вызовы MPI-функций, включен режим специальный режим распараллеливания MPI-программ";
+//1052
+static const wchar_t* R150 = L"Ошибка в расстановке пользовательских интервалов - не удалось найти конец интервала";
 
 //2001
 static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";

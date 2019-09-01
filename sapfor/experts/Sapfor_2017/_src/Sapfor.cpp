@@ -153,7 +153,7 @@ static inline void printDvmActiveDirsErrors()
         {
             __spf_print(1, "  ERROR: at line %d: Active DVM directives are not supported yet\n", code);
 #ifdef _WIN32
-            currMessages.push_back(Messages(ERROR, code, R53, L"Active DVM directives are not supported yet", 1020));
+            currMessages.push_back(Messages(ERROR, code, R53, L"Active DVM directives are not supported (turn on DVM-directive support option)", 1020));
 #endif
         }
     }
@@ -878,7 +878,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             vector<string> include_functions;
             
-            createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals);
+            createInterTree(file, getObjectForFileFromMap(file_name, intervals), removeNestedIntervals, getObjectForFileFromMap(file_name, SPF_messages));
             assignCallsToFile(consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, intervals));
             removeNodes(intervals_threshold, getObjectForFileFromMap(file_name, intervals), include_functions);
         }
@@ -939,6 +939,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     bool ret = buildGraphFromUserDirectives(*(currReg->GetUsersDirecites(DVM_ALIGN_DIR)), G, allArrays, arrayLinksByFuncCalls);
                     error = error || ret;
                 }
+                else if (currReg->GetUsersDirecites(DVM_DISTRIBUTE_DIR)->size())
+                    error = false;
                 else
                     error = true;
 
@@ -987,7 +989,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     }
                     // clear other dirs
                     set<int> varsToClear1 = { ACC_REGION_DIR, ACC_END_REGION_DIR, ACC_ACTUAL_DIR, ACC_GET_ACTUAL_DIR,
-                                              DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_VAR_DECL, HPF_TEMPLATE_STAT };
+                                              DVM_SHADOW_DIR, DVM_REALIGN_DIR, DVM_REDISTRIBUTE_DIR, DVM_VAR_DECL, HPF_TEMPLATE_STAT, DVM_REMOTE_ACCESS_DIR };
                     removeStatementsFromAllproject(varsToClear1);
                 }
             }

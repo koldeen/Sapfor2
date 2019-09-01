@@ -71,6 +71,7 @@ int opt_base, opt_loop_range; //set on by compiler options (code optimization op
 SgExpression *sum_dvm = NULL;
 int dvm_const_ref;
 int unparse_functions;
+int privateall = 0;
 
 extern SgStatement *parallel_dir;
 extern int iacross;
@@ -1018,6 +1019,18 @@ SgSymbol *IOstatSymbol()
   return (IOstat);
 }
 
+SgStatement  *doPublicStmtForDvmModuleProcedure(SgSymbol *smod)
+{
+  mod_attr *attrm;
+  SgStatement *st = NULL;
+  
+  if((attrm=DVM_PROC_IN_MODULE(smod)) && attrm->symb){
+    st = new SgStatement(PUBLIC_STMT);
+    st->setExpression(0, *new SgExprListExp(*new SgVarRefExp(*attrm->symb)));
+  }
+  return (st);
+}
+
 void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
 {
 //lstat is not equal lstat2 only for MODULE:
@@ -1303,6 +1316,10 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
      com->setExpression(0,*eeq);
      lstat->insertStmtAfter(*com);            
   }
+// declaring dvm-procedure for module as public
+   if(IN_MODULE && privateall && (st=doPublicStmtForDvmModuleProcedure(cur_func->symbol())))
+     lstat->insertStmtAfter(*st);
+
 } //endif !only_debug
 
 // declare  mask for registration (only in module)
@@ -1559,28 +1576,48 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
    symb_list *sl;
    coeffs * c;
    int i,rank,i0;
+   SgExpression *eepub, *lpub=NULL;
    st =fdvm[0]->makeVarDeclStmt();// creates INTEGER name, then name is removed
    el = NULL;
    for(sl=dsym; sl; sl=sl->next) {
      c = ((coeffs *) sl->symb-> attributeValue(0,ARRAY_COEF));
      if(!c->use) 
        continue;
+     int flag_public = IN_MODULE && privateall && sl->symb->attributes() & PUBLIC_BIT ? 1 : 0;
      rank=Rank(sl->symb);
      i0 = opt_base ? 1 : 2;
      if(opt_loop_range) i0=0;
      for(i=i0;i<=rank;i++){
        eel = new SgExprListExp(* new SgVarRefExp(*(c->sc[i])));
+       eepub = flag_public ? &eel->copy() : NULL;
        eel->setRhs(el);
        el = eel;
+       if(flag_public)
+       {         
+         eepub->setRhs(lpub);
+         lpub = eepub;
+       }
      } 
-       eel = new SgExprListExp(* new SgVarRefExp(*(c->sc[rank+2])));
-       eel->setRhs(el);
-       el = eel;
+     eel = new SgExprListExp(* new SgVarRefExp(*(c->sc[rank+2])));
+     eepub = flag_public ? &eel->copy() : NULL;
+     eel->setRhs(el);
+     el = eel;
+     if(flag_public)
+     {
+       eepub->setRhs(lpub);
+       lpub = eepub;
+     }
+
    }
    if(el){
      st -> setExpression(0,*el);
      if(len_DvmType)
        st->expr(1)->setType(tlen);  
+     lstat -> insertStmtAfter(*st);
+   }
+   if(lpub){
+     st = new SgStatement(PUBLIC_STMT);
+     st->setExpression(0,*lpub);
      lstat -> insertStmtAfter(*st);
    }
    }
@@ -1672,6 +1709,7 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
    st =fdvm[0]->makeVarDeclStmt();// creates INTEGER name, then name is removed
    el = NULL;
    for(sl=dsym; sl; sl=sl->next) {
+        if(IS_BY_USE(sl->symb)) continue;
          //if(!isSgArrayType(sl->symb->type())) //for POINTER       
          // sl->symb ->setType(* new SgArrayType(*SgTypeInt()));
       ///if(IS_TEMPLATE(sl->symb) && !RTS2_OBJECT(sl->symb)) { 
@@ -1928,6 +1966,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
   dbif_not_cond = 0;
   last_dvm_entry = NULL;
   allocated_list = NULL;
+  privateall = 0;
   //if(ACC_program)
   InitializeInFuncACC();
   all_replicated = isInternalOrModuleProcedure(func) ? 0 : 1;
@@ -1994,6 +2033,9 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
         if(IN_MAIN_PROGRAM && isSgVarDeclStmt(stmt))          
              DeleteSaveAttribute(stmt);
 
+	if(IN_MODULE && stmt->variant() == PRIVATE_STMT && !stmt->expr(0))
+             privateall = 1; 
+
         // deleting distributed arrays from variable list of declaration
         // statement and testing are there any group names
         if( isSgVarDeclStmt(stmt) || isSgVarListDeclStmt(stmt)) {
@@ -2034,6 +2076,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
           all_replicated=0; 
           if(stmt->lexPrev() != func && stmt->lexPrev()->variant()!=USE_STMT) 
             err("Misplaced USE statement", 639, stmt); 
+          RenamingDvmArraysByUse(stmt); 
           continue;
         }
 
@@ -2045,7 +2088,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
 
         continue;             
       }
-     
+
     if ((stmt->variant() == FORMAT_STAT))        // || (stmt->variant() == DATA_DECL))
        {// printf("  ");
 	 // printVariantName(stmt->variant()); //for debug
@@ -5946,6 +5989,31 @@ stmt_list  *delFromStmtList(stmt_list *pstmt)
     return (pstmt);
 }
 
+void RenamingDvmArraysByUse(SgStatement *stmt)
+{
+   SgSymbol *ar;
+  SgExpression *e = stmt->expr(0), *el;
+  
+  if(e && e->variant()==ONLY_NODE)
+    e = e->lhs();
+  for(el=e; el; el=el->rhs())
+  {
+    ar = el->lhs()->lhs()->symbol(); 
+    if(!IS_DVM_ARRAY(ar)) continue;
+    // if(el->lhs()->rhs())
+    if(strcmp(ar->identifier(),ORIGINAL_SYMBOL(ar)->identifier())) //case of renaming in a use statement
+    {  //printf("%s  %s  SCOPE: %s\n", ar->identifier(),ORIGINAL_SYMBOL(ar)->identifier(),ar->scope()->symbol()->identifier());
+      //adding the distributed array symbol 'ar' to symb_list 'dsym'
+      if(!(ar->attributes() & DVM_POINTER_BIT))
+        AddDistSymbList(ar);
+      // creating variables used for optimisation array references in parallel loop
+      coeffs *scoef  = new coeffs;
+      CreateCoeffs(scoef,ar);
+      // adding the attribute (ARRAY_COEF) to distributed array symbol
+      ar->addAttribute(ARRAY_COEF, (void*) scoef, sizeof(coeffs));
+    }
+  }
+}
 
 void ArrayHeader (SgSymbol *ar,int ind)
 {
@@ -5961,7 +6029,8 @@ void ArrayHeader (SgSymbol *ar,int ind)
   SgType *btype;
 
   if(IS_BY_USE(ar)) 
-    return;
+     return;
+  
 
   if(HEADER(ar)) {
      Err_g("Illegal aligning of '%s'", ar->identifier(),126);

@@ -15,6 +15,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops.h"
 #include "../Distribution/Distribution.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using std::vector;
 using std::string;
@@ -195,6 +196,53 @@ static void setExplicitFlag(const string &name, const map<string, FuncInfo*> &ma
         it->second->inRegion = 1;
 }
 
+static void fillDvmDirs(SgStatement *st, vector<Statement*> &userDvmDistrDirs, vector<Statement*> &userDvmAlignDirs,
+                        vector<Statement*> &userDvmShadowDirs, vector<Statement*> &userDvmRealignDirs, vector<Statement*> &userDvmRedistrDirs,
+                        const bool &regionStarted, const map<int, LoopGraph*> &allLoopsInFile)
+{
+    switch (st->variant())
+    {
+    case DVM_VAR_DECL:
+    {
+        string unparsed = st->unparse();
+        convertToLower(unparsed);
+        if (unparsed.find("distribute") != string::npos)
+            userDvmDistrDirs.push_back(new Statement(st));
+        else if (unparsed.find("align") != string::npos)
+            userDvmAlignDirs.push_back(new Statement(st));
+    }
+    break;
+    case DVM_DISTRIBUTE_DIR:
+        userDvmDistrDirs.push_back(new Statement(st));
+        break;
+    case DVM_ALIGN_DIR:
+        userDvmAlignDirs.push_back(new Statement(st));
+        break;
+    case DVM_SHADOW_DIR:
+        userDvmShadowDirs.push_back(new Statement(st));
+        break;
+    case DVM_REALIGN_DIR:
+        if (regionStarted)
+            userDvmRealignDirs.push_back(new Statement(st));
+        break;
+    case DVM_REDISTRIBUTE_DIR:
+        if (regionStarted)
+            userDvmRedistrDirs.push_back(new Statement(st));
+        break;
+    case DVM_PARALLEL_ON_DIR:
+        if (st->lexNext()->variant() == FOR_NODE)
+        {
+            SgForStmt* forStat = (SgForStmt*)(st->lexNext());
+            auto it = allLoopsInFile.find(forStat->lineNumber());
+            if (it != allLoopsInFile.end())
+                it->second->userDvmDirective = new Statement(st);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops, vector<FuncInfo*> *funcs)
 {
     map<string, FuncInfo*> mapFuncs;
@@ -335,50 +383,35 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
                     fillArrayNamesInReg(usedArrayInRegion, st->expr(i));
             }
 
-            
-            switch (st->variant())
-            {
-            case DVM_VAR_DECL:
-            {
-                string unparsed = st->unparse();
-                convertToLower(unparsed);
-                if (unparsed.find("distribute") != string::npos)
-                    userDvmDistrDirs.push_back(new Statement(st));
-                else if (unparsed.find("align") != string::npos)
-                    userDvmAlignDirs.push_back(new Statement(st));
-            }
-                break;
-            case DVM_DISTRIBUTE_DIR:
-                userDvmDistrDirs.push_back(new Statement(st));
-                break;
-            case DVM_ALIGN_DIR:
-                userDvmAlignDirs.push_back(new Statement(st));
-                break;
-            case DVM_SHADOW_DIR:
-                userDvmShadowDirs.push_back(new Statement(st));
-                break;
-            case DVM_REALIGN_DIR:
-                if (regionStarted)
-                    userDvmRealignDirs.push_back(new Statement(st));
-                break;
-            case DVM_REDISTRIBUTE_DIR:
-                if (regionStarted)
-                    userDvmRedistrDirs.push_back(new Statement(st));
-                break;
-            case DVM_PARALLEL_ON_DIR:
-                if (st->lexNext()->variant() == FOR_NODE)
-                {
-                    SgForStmt *forStat = (SgForStmt*)(st->lexNext());
-                    auto it = allLoopsInFile.find(forStat->lineNumber());
-                    if (it != allLoopsInFile.end())
-                        it->second->userDvmDirective = new Statement(st);
-                }
-                break;
-            default:
-                break;
-            }
-
+            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, regionStarted, allLoopsInFile);
             st = st->lexNext();
+        }
+
+        //for default
+        defaultR->AddUserDirectives(userDvmDistrDirs, DVM_DISTRIBUTE_DIR);
+        defaultR->AddUserDirectives(userDvmAlignDirs, DVM_ALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmShadowDirs, DVM_SHADOW_DIR);
+        defaultR->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
+    }
+
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+    regionStarted = false;
+
+    for (auto& mod : modules)
+    {
+        vector<Statement*> userDvmDistrDirs;
+        vector<Statement*> userDvmAlignDirs;
+        vector<Statement*> userDvmShadowDirs;
+        vector<Statement*> userDvmRealignDirs;
+        vector<Statement*> userDvmRedistrDirs;
+
+        for (SgStatement* st = mod->lexNext(); st; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, regionStarted, allLoopsInFile);
         }
 
         //for default
@@ -607,17 +640,27 @@ int printParalleRegions(const char *fileName, vector<ParallelRegion*> &regions)
     return 0;
 }
 
+static int getIntVal(SgExpression *ex)
+{
+    SgExpression* calc = CalculateInteger(ex);
+    if (calc->variant() == INT_VAL)
+        return calc->valueInteger();
+    else
+        return 0;
+}
+
 static void fillMultOp(SgExpression *ex, pair<string, pair<int, int>> &retVal)
 {
-    if (ex->lhs()->variant() == INT_VAL || ex->lhs()->variant() == MINUS_OP) // -+a * X
+    const int var = ex->lhs()->variant();
+    if (var == INT_VAL || var == CONST_REF || var == MINUS_OP) // -+a * X
     {
-        retVal.first = ex->rhs()->symbol()->identifier();
-        retVal.second.first = ex->lhs()->valueInteger();
+        retVal.first = ex->rhs()->symbol()->identifier();        
+        retVal.second.first = getIntVal(ex->lhs());        
     }
-    else if (ex->lhs()->variant() == VAR_REF) // X * -+a
+    else if (var == VAR_REF) // X * -+a
     {
         retVal.first = ex->lhs()->symbol()->identifier();
-        retVal.second.first = ex->rhs()->valueInteger();
+        retVal.second.first = getIntVal(ex->rhs());
     }
 }
 
@@ -640,7 +683,7 @@ static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
             if (ex->lhs()->variant() == MULT_OP) // a * X +- b
             {
                 fillMultOp(ex->lhs(), retVal);
-                retVal.second.second = ex->rhs()->valueInteger() * minus;
+                retVal.second.second = getIntVal(ex->rhs()) * minus;
             }
             else if (ex->lhs()->variant() == INT_VAL) // b +- [a *] X
             {
@@ -651,13 +694,13 @@ static pair<string, pair<int, int>> parseExpression(SgExpression *ex)
                     retVal.first = ex->rhs()->symbol()->identifier();
                     retVal.second.first = minus;
                 }
-                retVal.second.second = ex->lhs()->valueInteger() * minus;
+                retVal.second.second = getIntVal(ex->lhs()) * minus;
             }
             else if (ex->lhs()->variant() == VAR_REF && ex->rhs()->variant()) // X +- b
             {
                 retVal.first = ex->lhs()->symbol()->identifier();
                 retVal.second.first = 1;
-                retVal.second.second = ex->rhs()->valueInteger() * minus;
+                retVal.second.second = getIntVal(ex->rhs()) * minus;
             }
             else
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);

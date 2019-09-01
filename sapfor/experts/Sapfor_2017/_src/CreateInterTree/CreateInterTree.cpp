@@ -4,6 +4,7 @@
 #include "../GraphCall/graph_calls_func.h"
 
 using std::string;
+using std::wstring;
 using std::vector;
 using std::list;
 using std::map;
@@ -281,12 +282,14 @@ static void removeUserIntervals(SgFile *file)
 }
 
 // Find intervals functions.
-static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIntervals)
+static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIntervals, vector<Messages> &messages)
 {
     SpfInterval *currentInterval = NULL;
 
     SgStatement *endSt = startSt->lastNodeOfStmt();
     SgStatement *currentSt = startSt;
+
+    set<SpfInterval*> userIntervalsSet;
 
     while (currentSt != endSt)
     {
@@ -296,7 +299,7 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
             while (isDVM_stat(begin))
                 begin = begin->lexNext();
 
-            SpfInterval *inter = new SpfInterval();
+            SpfInterval *inter = new SpfInterval(currentSt->lineNumber());
             inter->begin = begin;
             inter->lineFile = std::make_pair(begin->lineNumber(), begin->fileName());
             inter->parent = currentInterval;
@@ -305,15 +308,7 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
             userIntervals.push_back(inter);
 
             currentInterval = inter;
-        
-            //currentSt = currentSt->lexPrev();
-            //currentSt->lexNext()->deleteStmt();
-        }
-
-        if(currentSt->variant() == DVM_EXIT_INTERVAL_DIR)
-        {
-            //currentSt = currentSt->lexPrev();
-            //currentSt->lexNext()->deleteStmt();
+            userIntervalsSet.insert(currentInterval);
         }
 
         if(currentSt->variant() == DVM_ENDINTERVAL_DIR)
@@ -329,13 +324,32 @@ static void findUserIntervals(SgStatement *startSt, vector<SpfInterval*> &userIn
             currentInterval->exit_levels.push_back(0);
 
             currentInterval = currentInterval->parent;
-
-            //currentSt = currentSt->lexPrev();
-            //currentSt->lexNext()->deleteStmt();
         }
 
         currentSt = currentSt->lexNext();
-    } 
+    }
+
+    bool error = false;
+    //check for ends
+    for (auto& inter : userIntervalsSet)
+    {
+        if (inter->begin == NULL)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        if (inter->ends.size() == 0)
+        {
+            wstring messageR, messageE;
+            __spf_printToLongBuf(messageE, L"Can not find end of DVM's interval");
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, R150);
+#endif
+            messages.push_back(Messages(ERROR, inter->userIntervalLine, messageR, messageE, 1052));
+            error = true;
+        }
+    }
+
+    if (error)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
 static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<int, vector<int>> &gotoStmts, SgStatement *&currentSt)
@@ -379,7 +393,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
         if (currentSt == endStatement || currentVar != FOR_NODE)
             continue;
 
-        SpfInterval* inter = new SpfInterval();
+        SpfInterval* inter = new SpfInterval(-1);
         inter->begin = currentSt;
         inter->ends.push_back(currentSt->lastNodeOfStmt());
         inter->lineFile = std::make_pair(currentSt->lineNumber(), currentSt->fileName());
@@ -392,7 +406,7 @@ static void findIntervals(SpfInterval *interval, map<int, int> &labelsRef, map<i
     }
 }
 
-void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nested_on)
+void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nested_on, vector<Messages> &messages)
 {
     int funcNum = file->numberOfFunctions();
     
@@ -407,9 +421,9 @@ void createInterTree(SgFile *file, vector<SpfInterval*> &fileIntervals, bool nes
         matchGotoLabels(file->functions(i), gotoStmts);
 
         // Find user intervals.
-        findUserIntervals(file->functions(i), userIntervals);
+        findUserIntervals(file->functions(i), userIntervals, messages);
 
-        SpfInterval *func_inters = new SpfInterval();
+        SpfInterval *func_inters = new SpfInterval(-1);
 
         // Set begining of the interval.
         func_inters->begin = file->functions(i);

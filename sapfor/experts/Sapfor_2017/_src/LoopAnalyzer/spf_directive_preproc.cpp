@@ -102,6 +102,13 @@ static bool isPrivateVar(SgStatement *st, SgSymbol *symbol)
 } while(0)
 #endif
 
+static SgStatement* skipDvmDirs(SgStatement *st)
+{
+    while (isDVM_stat(st))
+        st = st->lexNext();
+    return st;
+}
+
 static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
 {
     for ( ;iterator != end; iterator = iterator->lexNext())
@@ -148,8 +155,9 @@ static bool checkPrivate(SgStatement *st,
 
     if (!isSgExecutableStatement(st) || var == FOR_NODE)
     {
+        st = skipDvmDirs(st);
         SgStatement *iterator = st;
-        SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
+        SgStatement *end = (var == FOR_NODE) ? st->lastNodeOfStmt() : st->lexNext();
         set<SgSymbol*> varDef;
         set<SgSymbol*> varUse;
 
@@ -736,8 +744,9 @@ static bool checkRemote(SgStatement *st,
                 }
             }
                         
+            st = skipDvmDirs(st);
             SgStatement *iterator = st;
-            SgStatement *end = var == FOR_NODE ? st->lastNodeOfStmt() : st->lexNext();
+            SgStatement *end = (var == FOR_NODE) ? st->lastNodeOfStmt() : st->lexNext();
 
             while (iterator != end)
             {
@@ -1003,7 +1012,7 @@ static bool checkParallelRegions(SgStatement *st,
 static inline void addSPFtoAttr(SgStatement *st, const string &currFile)
 {
     bool cond = false;
-    SgStatement *iterator = st;
+    SgStatement *iterator = skipDvmDirs(st);
     do
     {
         SgStatement *prev = iterator->lexPrev();
