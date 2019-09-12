@@ -18,6 +18,7 @@
 #include "../ParallelizationRegions/ParRegions_func.h"
 #include "../DynamicAnalysis/gCov_parser_func.h"
 #include "acc_analyzer.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using std::vector;
 using std::map;
@@ -170,11 +171,15 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
                 if (var == INT_VAL)
                 {
                     currParams->parametersT[num] = SCALAR_INT_T;
-                    currParams->parameters[num] = new int[1];
+                    SgExpression* result = CalculateInteger(ex->lhs());
+                    if (result != ex->lhs())
+                    {
+                        currParams->parameters[num] = new int[1];
 #ifdef _WIN32
-                    addToCollection(__LINE__, __FILE__, currParams->parameters[num], 2);
-#endif
-                    ((int*)currParams->parameters[num])[0] = ex->valueInteger();
+                        addToCollection(__LINE__, __FILE__, currParams->parameters[num], 2);
+#endif                    
+                        ((int*)currParams->parameters[num])[0] = result->valueInteger();
+                    }
                 }
                 else if (var == FLOAT_VAL)
                     currParams->parametersT[num] = SCALAR_FLOAT_T;
@@ -1684,7 +1689,7 @@ void checkForRecursion(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo
 {
     auto itCurrFuncs = allFuncInfo.find(file->filename());
     if (itCurrFuncs == allFuncInfo.end())
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        return;
 
     map<string, FuncInfo*> mapFuncInfo;
     createMapOfFunc(allFuncInfo, mapFuncInfo);

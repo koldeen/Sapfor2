@@ -420,7 +420,7 @@ static bool hasNonRect(SgForStmt *st, const vector<LoopGraph*> &parentLoops, vec
 #ifdef _WIN32
         __spf_printToLongBuf(bufR, R91, to_wstring(array->GetShortName()).c_str());
 #endif
-        messages.push_back(Messages(ERROR, st->lineNumber(), bufR, bufE, 1047));
+        messages.push_back(Messages(NOTE, st->lineNumber(), bufR, bufE, 1047));
         array->SetNonDistributeFlag(DIST::SPF_PRIV);
     }
 
@@ -748,6 +748,29 @@ void LoopGraph::recalculatePerfect()
         loop->recalculatePerfect();
 }
 
+void LoopGraph::clearUserDirectives()
+{
+    if (userDvmDirective)
+    {
+        //move comment to next statement
+        if (userDvmDirective->comments())
+        {
+            char* comms = userDvmDirective->comments();
+            string comments(comms);
+            userDvmDirective->delComments();
+
+            SgStatement* next = userDvmDirective->lexNext();
+            if (next)
+                next->addComment(comments.c_str());
+        }
+
+        userDvmDirective->GetOriginal()->deleteStmt();
+        userDvmDirective = NULL;
+    }
+    for (auto& ch : children)
+        ch->clearUserDirectives();
+}
+
 extern int PASSES_DONE[EMPTY_PASS];
 static void printToBuffer(const LoopGraph *currLoop, const int childSize, char buf[512])
 {
@@ -945,8 +968,9 @@ static void processFuncParameters(LoopGraph *loop, SgExpression *list, const Fun
     {
         if (list->lhs() && list->lhs()->variant() == ARRAY_REF)
         {
-            SgSymbol* arrayS = list->lhs()->symbol();
+            SgSymbol* arrayS = OriginalSymbol(list->lhs()->symbol());
             DIST::Array* array = getArrayFromDeclarated(declaratedInStmt(arrayS), arrayS->identifier());
+
             checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
 
             if (array->GetNonDistributeFlag() == false)            

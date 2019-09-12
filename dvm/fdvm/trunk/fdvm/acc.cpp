@@ -2468,6 +2468,7 @@ void CorrectUsesList()
              slp = sl;   
 }               
 
+
 void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStatement *par_dir, SgExpression *clause[], int interface)
 {
     int first, last;
@@ -2476,6 +2477,7 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     if(in_checksection)
         return;            
 
+    ReplaceCaseStatement(first_do);
     FormatAndDataStatementExport(par_dir, first_do);
                       //!printf("loop on gpu %d\n",first_do->lineNumber() );
     dvm_parallel_dir = par_dir;
@@ -2573,6 +2575,8 @@ SgStatement *ACC_CreateStatementGroup(SgStatement *first_st)
     {                       //printf("begin %d %d\n",st->lineNumber(),st->variant());      
         if (st->variant() == LOGIF_NODE)
             LogIf_to_IfThen(st);
+        if (st->variant() == SWITCH_NODE)
+            ReplaceCaseStatement(st);
         if ((st->variant() == FOR_NODE) || (st->variant() == WHILE_NODE))
             st = lastStmtOfDo(st);
         else if (st->variant() == IF_NODE)
@@ -2821,6 +2825,18 @@ SgExpression *DimSizeListOfReductionArrays()
     }
 
     return(arg_list);
+}
+
+void  ReplaceCaseStatement(SgStatement *first)
+{
+  SgStatement *stmt, *last_st;
+  last_st=lastStmtOf(first);
+  for(stmt= first; stmt != last_st; stmt=stmt->lexNext())
+  {
+     if(stmt->variant() == CASE_NODE)
+        //ConstantExpansionInExpr(stmt->expr(0));
+        stmt->setExpression(0,*ReplaceParameter(stmt->expr(0)));
+  }
 }
 
 void FormatAndDataStatementExport(SgStatement *par_dir, SgStatement *first_do)
@@ -4062,7 +4078,7 @@ void Call(SgSymbol *s, SgExpression *e)
     {
         if (!IsPureProcedure(s) || IS_BY_USE(s))
         {
-            Warning(" Call of the procedure '%s' in a region, which is not pure or is module procedure", s->identifier(), 580, cur_st);
+            Warning(" Call of the procedure %s in a region, which is not  pure or is module procedure", s->identifier(), 580, cur_st);
             doNotForCuda();
         }
     }

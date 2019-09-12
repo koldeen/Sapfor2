@@ -168,9 +168,26 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 
 //TODO: read includes and find last lines, all included files
 void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
-                                  set<string> &allIncludeFiles, bool outFree)
+                                  set<string> &allIncludeFiles, bool outFree, 
+                                  const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs)
 { 
     fflush(NULL);
+
+    set<string> moduleIncudeUses;
+    auto itM = moduleUsesByFile.find(file->filename());
+    if (itM != moduleUsesByFile.end())
+    {
+        for (auto& elem : itM->second)
+        {
+            auto it2 = moduleDelcs.find(elem);
+            if (it2 == moduleDelcs.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            string lowerInclude = it2->second;
+            convertToLower(lowerInclude);
+
+            moduleIncudeUses.insert(lowerInclude);
+        }
+    }
 
     int funcNum = file->numberOfFunctions();
     FILE *currFile = fopen(fileName, "r");
@@ -288,20 +305,26 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                     allIncludeFiles.insert(it.first);
                     insertedIncludeFiles[it.first].insert(parent);
 
-                    if (st->comments())
+                    string lowerInclude = it.first;
+                    convertToLower(lowerInclude);
+
+                    //if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
                     {
-                        string comments = st->comments();
-                        if (comments.find(it.second.first) == string::npos)
+                        if (st->comments())
                         {
-                            const size_t pos = comments.rfind("include");
-                            if (pos == string::npos)
-                                st->setComments((it.second.first + comments).c_str());
-                            else
-                                st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                            string comments = st->comments();
+                            if (comments.find(it.second.first) == string::npos)
+                            {
+                                const size_t pos = comments.rfind("include");
+                                if (pos == string::npos)
+                                    st->setComments((it.second.first + comments).c_str());
+                                else
+                                    st->setComments((comments.insert(comments.find('\n', pos) + 1, it.second.first)).c_str());
+                            }
                         }
+                        else
+                            st->addComment(it.second.first.c_str());
                     }
-                    else
-                        st->addComment(it.second.first.c_str());
                 }
             }
         }
@@ -1171,6 +1194,11 @@ void constructDefUseStep1(SgFile *file, map<string, vector<DefUseList>> &defUseB
     map<string, vector<FuncInfo*>> curFileFuncInfo;
     vector<LoopGraph*> tmpL;
     functionAnalyzer(file, curFileFuncInfo, tmpL, messages);
+
+    //functions not found
+    if (curFileFuncInfo.size() == 0)
+        return;
+
     auto whereToCopy = allFuncInfo.insert(make_pair(file->filename(), vector<FuncInfo*>()));
     for(auto& it : curFileFuncInfo.begin()->second)
         whereToCopy.first->second.push_back(it);
@@ -1337,7 +1365,7 @@ const vector<DefUseList> getAllDefUseVarsList(const string &funcName, const stri
     return retVal;
 }
 
-map<SgStatement*, vector<DefUseList>> createDefUseMapbyPlace()
+map<SgStatement*, vector<DefUseList>> createDefUseMapByPlace()
 {
     map<SgStatement*, vector<DefUseList>> retVal;
 
@@ -1796,7 +1824,7 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
 
-SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig)
+SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig, const set<string> &usedInBlock)
 {
     if (byUse.size())
     {
@@ -1811,7 +1839,20 @@ SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig
             map<string, SgSymbol*> byName;
             for (auto& elem : it->second)
                 byName[elem->identifier()] = elem;
-            return byName.begin()->second;
+            if (byName.size() == 1)
+                return byName.begin()->second;
+            else
+            {
+                if (usedInBlock.size() == 0)
+                    return byName.begin()->second;
+                else
+                {
+                    for (auto &elem : byName)
+                        if (usedInBlock.find(elem.first) != usedInBlock.end())
+                            return elem.second;
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                }
+            }
         }
     }
     else
@@ -1895,7 +1936,7 @@ SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
         return NULL;
 
     SgStatement *iterator = st;
-    while (iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR && 
+    while (iterator && iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR &&
            checkAdd(iterator->variant(), additional))
         iterator = iterator->controlParent();
 
@@ -1951,4 +1992,94 @@ SgStatement* duplicateProcedure(SgStatement *toDup, const string &newName, bool 
     }
 
     return toMove;
+}
+
+void fillModuleUse(SgFile *file, map<string, set<string>> &moduleUses, map<string, string> &moduleDecls)
+{
+    const string currFN = file->filename();
+    for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->fileName() == currFN)
+        {
+            if (st->variant() == USE_STMT)
+                moduleUses[currFN].insert(st->symbol()->identifier());
+
+            if (st->variant() == MODULE_STMT)
+            {
+                string moduleN = st->symbol()->identifier();
+                auto it = moduleDecls.find(moduleN);
+                if (it != moduleDecls.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                moduleDecls[moduleN] = currFN;
+            }
+        }
+    }
+}
+
+void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, string>& moduleDecls)
+{
+    for (auto& elem : moduleUsesByFile)
+    {
+        set<string> newSet;
+        for (auto& setElem : elem.second)
+        {
+            auto it = moduleDecls.find(setElem);
+            if (it == moduleDecls.end())
+                newSet.insert(setElem);
+            else if (elem.first != it->second)
+                newSet.insert(setElem);
+        }
+        elem.second = newSet;
+    }
+
+    map<string, set<string>> modIncludeMod;
+
+    for (auto& mod : moduleDecls)
+    {
+        string name = mod.first;
+        string file = mod.second;
+
+        auto it = moduleUsesByFile.find(file);
+        if (it != moduleUsesByFile.end())
+            modIncludeMod[name] = it->second;
+    }
+
+    bool change = true;
+    while (change)
+    {
+        change = false;
+        for (auto& mod : modIncludeMod)
+        {
+            set<string> newSet = mod.second;
+            for (auto& included : mod.second)
+            {
+                auto it = modIncludeMod.find(included);
+                if (it == modIncludeMod.end())
+                    continue;
+
+                for (auto& elem : it->second)
+                {
+                    if (newSet.find(elem) == newSet.end())
+                    {
+                        newSet.insert(elem);
+                        change = true;
+                    }
+                }
+            }
+            mod.second = newSet;
+        }
+    }
+
+    for (auto& elem : moduleUsesByFile)
+    {
+        set<string> newSet = elem.second;
+        for (auto& setElem : elem.second)
+        {
+            auto it = modIncludeMod.find(setElem);
+            if (it != modIncludeMod.end())
+                for (auto& toRem : it->second)
+                    newSet.erase(toRem);
+        }
+        elem.second = newSet;
+    }
 }

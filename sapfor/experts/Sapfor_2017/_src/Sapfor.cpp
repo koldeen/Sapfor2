@@ -298,7 +298,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         else
         {
             //TODO: add freeForm for each file
-            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1);
+            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1, moduleUsesByFile, moduleDecls);
 
             // copy includes that have not changed
             if (folderName != NULL)
@@ -437,7 +437,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             vector<Messages> tmp;
             loopAnalyzer(file, parallelRegions, createdArrays, tmp, DATA_DISTR,
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(), true, &(loopGraph.find(file_name)->second));
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(), true, &(loopGraph.find(file_name)->second));
         }
         else if (curr_regime == LOOP_ANALYZER_DATA_DIST_S1 || curr_regime == ONLY_ARRAY_GRAPH)
         {
@@ -448,7 +448,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     states.push_back(new SapforState());*/
 
                 loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), DATA_DISTR, 
-                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
+                             allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                              false, &(loopGraph.find(file_name)->second));
             }
             catch (...)
@@ -460,7 +460,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto itFound = loopGraph.find(file_name);
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                          false, &(itFound->second));
 
             currProcessing.second = 0;
@@ -637,7 +637,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             VarDeclCorrecter(file);
         else if (curr_regime == CREATE_REMOTES)
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), REMOTE_ACC, 
-                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapbyPlace(),
+                         allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                          false, &(loopGraph.find(file_name)->second));
         else if (curr_regime == PRIVATE_CALL_GRAPH_STAGE1)
             FileStructure(file);
@@ -1233,7 +1233,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == CREATE_TEMPLATE_LINKS)
     {
         vector<string> result;
-
         set<DIST::Array*> arraysDone;
         
         for (int z = 0; z < parallelRegions.size(); ++z)
@@ -1245,7 +1244,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             if (ALGORITHMS_DONE[CREATE_DISTIBUTION][z] == 0)
             {
                 //recalculate array sizes after expression substitution
-                recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls);
+                recalculateArraySizes(arraysDone, allArrays.GetArrays(), arrayLinksByFuncCalls, allFuncInfo);
 
                 createDistributionDirs(reducedG, allArrays, dataDirectives, SPF_messages, arrayLinksByFuncCalls);
                 ALGORITHMS_DONE[CREATE_DISTIBUTION][z] = 1;
@@ -1748,17 +1747,42 @@ static SgProject* createProject(const char *proj_name)
 
     Statement::activeConsistentchecker();
 
+    set<string> filesInProj;
+    //preprocess module includes
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        filesInProj.insert((project->file(z)).filename());
+    
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        removeExecutableFromModuleDeclaration(&(project->file(z)), filesInProj);
+
+    //check main unit
+    findMainUnit(project, SPF_messages);
+
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
         SgFile* file = &(project->file(z));
 
+        fillModuleUse(file, moduleUsesByFile, moduleDecls);
         correctModuleProcNames(file);
         correctModuleSymbols(file);
         replaceStructuresToSimpleTypes(file);
     }
 
-    //check main unit
-    findMainUnit(project, SPF_messages);
+    filterModuleUse(moduleUsesByFile, moduleDecls);
+    //shiftLines
+    /*for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
+        SgFile* file = &(project->file(z));
+        const string fileN = file->filename();
+        auto it = moduleUsesByFile.find(fileN);
+        if (it == moduleUsesByFile.end())
+            continue;
+        const int shiftN = it->second.size();
+
+        for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+            if (st->fileName() == fileN)
+                st->setlineNumber(st->lineNumber() - shiftN);
+    }*/
     return project;
 }
 

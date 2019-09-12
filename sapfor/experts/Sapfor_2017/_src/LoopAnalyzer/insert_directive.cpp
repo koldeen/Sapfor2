@@ -1130,11 +1130,37 @@ static void findAllArrayRefs(SgExpression *ex, set<SgSymbol*> &refs)
 	}
 }
 
-void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
+static bool hasPrivateAllInModule(SgStatement *mod)
 {
-	
+    bool ret = false;
+    if (mod && mod->variant() == MODULE_STMT)
+    {
+        for (SgStatement* st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            if (st->variant() == PRIVATE_STMT)
+            {
+                SgVarListDeclStmt* listPrivates = isSgVarListDeclStmt(st);
+                checkNull(listPrivates, convertFileName(__FILE__).c_str(), __LINE__);
+                if (listPrivates->numberOfVars() == 0)
+                {
+                    ret = true;
+                    break;
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
+{	
 	int funcNum = file->numberOfFunctions();
     map<string, set<string>> moduleUseMap = createMapOfModuleUses(file);
+
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
 
 	for (int i = 0; i < funcNum; ++i)
 	{
@@ -1193,7 +1219,12 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
                                     auto it = moduleUseMap.find(elem);
                                     if (it != moduleUseMap.end())
                                     {
-                                        if (it->second.find("dvmh_Template_Mod") != it->second.end())
+                                        SgStatement* currMod = NULL;
+                                        for (auto& modV : modules)
+                                            if (modV->symbol()->identifier() == elem)
+                                                currMod = modV;
+
+                                        if (it->second.find("dvmh_Template_Mod") != it->second.end() && !hasPrivateAllInModule(currMod))
                                         {
                                             needToAdd = false;
                                             break;

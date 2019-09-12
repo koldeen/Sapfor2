@@ -7,6 +7,7 @@
  */
 
 #include "DvmhRegionInserter.h"
+#include "../VerificationCode/verifications.h"
 
 using namespace std;
 
@@ -192,6 +193,59 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 //  return result;
 // }
 
+static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
+                      const string& locName, vector<string> &altNames)
+{
+    for (auto& elem : modByUse)
+    {
+        if (elem.first == locName)
+        {
+            for (auto& byUse : elem.second)
+            {
+                SgSymbol* toCmp = byUse.second ? byUse.second : byUse.first;
+                checkNull(toCmp, convertFileName(__FILE__).c_str(), __LINE__);
+                if (toCmp->identifier() == varName)
+                    altNames.push_back(byUse.first->identifier());
+            }
+        }
+    }
+}
+
+static string getNameByUse(SgStatement *loop, const string &varName, const string &locName)
+{
+    SgStatement* func = getFuncStat(loop);
+    if (func == NULL)
+        return varName;
+    else
+    {
+        set<string> useMod;
+        map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUse;
+        map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUseOnly;
+
+        for (SgStatement* st = func; st; st = st->lexNext())
+        {
+            if (isSgExecutableStatement(st))
+                break;
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+                break;
+            fillUseStatement(st, useMod, modByUse, modByUseOnly);
+        } 
+
+        vector<string> altNames;        
+        findByUse(modByUse, varName, locName, altNames);
+        findByUse(modByUseOnly, varName, locName, altNames);
+        
+        if (altNames.size() == 0)
+            return varName;
+        else if (altNames.size() >= 1)
+            return altNames[0];
+        else
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+}
+
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     //TODO: rewrite
@@ -284,9 +338,13 @@ void DvmhRegionInsertor::insertActualDirectives()
         {
             for (auto& array : loop->usedArrays)
             {
-                region->addToActualisation(array->GetShortName());
+                string arrayName = array->GetShortName();
+                if (array->GetLocation().first == DIST::l_MODULE)
+                    arrayName = getNameByUse(loop->loop->GetOriginal(), arrayName, array->GetLocation().second);
+
+                region->addToActualisation(arrayName);
                 if (loop->usedArraysWrite.find(array) != loop->usedArraysWrite.end())
-                    region->addToActualisationAfter(array->GetShortName());
+                    region->addToActualisationAfter(arrayName);
             }
         }
     }

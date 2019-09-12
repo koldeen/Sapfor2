@@ -163,7 +163,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
  * used by I/O statement
  */
 
-%type <bf_node> io read write print iofmove iofctl fmkwd ctlkwd 
+%type <bf_node> io read write print iofmove iofctl fmkwd ctlkwd inquire
 %type <ll_node> fexpr unpar_fexpr 
 %type <ll_node> ioctl ctllist ioclause nameeq inlist inelt
 %type <ll_node> outlist out2 other infmt
@@ -4176,7 +4176,8 @@ io:	  iofmove ioctl
 	| iofctl ioctl
 		{ $1->entry.Template.ll_ptr2 = $2;
 		  $$ = $1; }
-
+	| inquire
+                { $$ = $1; }
 	| read ioctl
 		{ $1->entry.Template.ll_ptr2 = $2;
 		  $$ = $1; }
@@ -4230,12 +4231,16 @@ iofctl:  ctlkwd end_spec start_ioctl
 		{ $$ = $1; }
 	;
 
-ctlkwd:	  INQUIRE
-           {$$ = get_bfnd(fi, INQUIRE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);}
-	| OPEN
+ctlkwd:   OPEN
            {$$ = get_bfnd(fi, OPEN_STAT, SMNULL, LLNULL, LLNULL, LLNULL);}
 	| CLOSE
            {$$ = get_bfnd(fi, CLOSE_STAT, SMNULL, LLNULL, LLNULL, LLNULL);}
+	;
+
+inquire: INQUIRE end_spec start_ioctl ioctl
+           {  $$ = get_bfnd(fi, INQUIRE_STAT, SMNULL, LLNULL, $4, LLNULL);}
+        | INQUIRE end_spec start_ioctl  ioctl outlist
+           {  $$ = get_bfnd(fi, INQUIRE_STAT, SMNULL, $5, $4, LLNULL);}
 	;
 
 infmt:	  unpar_fexpr

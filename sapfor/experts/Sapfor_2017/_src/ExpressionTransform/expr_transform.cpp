@@ -1226,7 +1226,19 @@ void expressionAnalyzer(SgFile *file, const map<string, vector<DefUseList>> &def
         }
     }
 
-    deleteAllocatedExpressionValues(file->functions(0)->getFileId());
+    const string fileName = file->filename();
+    int fileId = -1;
+    for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->fileName() == fileName)
+        {
+            fileId = st->getFileId();
+            break;
+        }
+    }
+
+    if (fileId != -1)
+        deleteAllocatedExpressionValues(fileId);
 }
 
 void runPrivateAnalysis(SgStatement *main)

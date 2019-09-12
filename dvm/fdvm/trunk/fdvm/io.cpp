@@ -274,9 +274,10 @@ void Inquiry_Statement(SgStatement *stmt, int error_msg)
 }
 
 void Inquiry(SgStatement *stmt, int error_msg)
-{ SgExpression *ioc[NUM__O];
+{
+  SgExpression *ioc[NUM__O+1];
   int io_err;
-  io_err=control_list_open(stmt->expr(1),ioc);  // control_list analisys
+  io_err=control_list_inquire(stmt->expr(1),ioc);  // control list analysis
   if(error_msg)
      Check_Control_IO_Statement(io_err,ioc,stmt,error_msg); 
   cur_st = stmt;
@@ -1023,7 +1024,23 @@ int control_list1(SgExpression *e, SgExpression *ioc[])
   }    
   else
     return(0);
-}    
+}
+    
+int control_list_inquire (SgExpression *e, SgExpression *ioc[])
+// analizes control list (e)  INQUIRE statement
+// and sets on ioc[]
+{
+  SgKeywordValExp *kwe;
+  int i;
+  for(i=NUM__O+1; i; i--)
+     ioc[i-1] = NULL;
+
+  if(e->variant() == SPEC_PAIR && (kwe=isSgKeywordValExp(e->lhs())) && !strcmp(kwe->value(),"iolength")) {  // case of  INQUIRY (IOLENGTH = ...) outlist
+    ioc[NUM__O] = e->rhs();
+    return (1);   
+  } else  
+    return(control_list_open(e,ioc));  // control_list analisys
+}
 
 int control_list_open(SgExpression *e, SgExpression *ioc[])
 // analizes control list (e) for OPEN,CLOSE and INQUIRE statements
@@ -1128,15 +1145,21 @@ void InsertSendInquire(SgExpression * eioc[])
 {int imem,j,i,icount;
  imem = ndvm;
  j=0;
- for (i=IOST_;i<ACTION_;i++)    
-   if(eioc[i]) {
-     doAssignStmtAfter(GetAddresMem(eioc[i]));
-     j++;
-  }
- for (i=IOST_;i<ACTION_;i++)    
-   if(eioc[i])
-     doAssignStmtAfter(TypeLengthExpr(eioc[i]->type())); 
-     //doAssignStmtAfter(new SgValueExp(TypeSize(eioc[i]->type()))); 14.03.03
+ if(eioc[NUM__O]) {  // case of  INQUIRY (IOLENGTH = ...) outlist
+   j=1;
+   doAssignStmtAfter(GetAddresMem(eioc[NUM__O]));
+   doAssignStmtAfter(TypeLengthExpr(eioc[NUM__O]->type())); 
+ }  else {
+   for (i=IOST_;i<ACTION_;i++)    
+     if(eioc[i]) {
+       doAssignStmtAfter(GetAddresMem(eioc[i]));
+       j++;
+     }
+   for (i=IOST_;i<ACTION_;i++)    
+     if(eioc[i])
+       doAssignStmtAfter(TypeLengthExpr(eioc[i]->type())); 
+       //doAssignStmtAfter(new SgValueExp(TypeSize(eioc[i]->type()))); 14.03.03
+ }
  if(j) {
    icount = j;   //count of memory areas
    doCallAfter(SendMemory(icount,imem,imem+j));

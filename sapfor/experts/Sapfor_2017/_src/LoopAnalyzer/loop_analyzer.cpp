@@ -928,8 +928,126 @@ static pair<Expression*, Expression*> getElem(SgExpression *exp)
         return make_pair((Expression*)NULL, (Expression*)NULL);
 }
 
+static void fillIdsFromEx(SgExpression* ex, set<string>& ids)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF)
+            ids.insert(ex->symbol()->identifier());
+
+        fillIdsFromEx(ex->lhs(), ids);
+        fillIdsFromEx(ex->rhs(), ids);
+    }
+}
+
+static void doReplacement(SgExpression *ex, const map<string, int> &idsToIdx, const map<int, set<int>> &values)
+{
+    if (ex)
+    {
+        if (ex->lhs() && ex->lhs()->variant() == VAR_REF)
+        {
+            string key = ex->lhs()->symbol()->identifier();
+            auto it = idsToIdx.find(key);
+            if (it != idsToIdx.end())
+            {
+                const int value = *values.find(it->second)->second.begin();
+                ex->setLhs(*new SgValueExp(value));
+            }
+        }
+
+        if (ex->rhs() && ex->rhs()->variant() == VAR_REF)
+        {
+            string key = ex->rhs()->symbol()->identifier();
+            auto it = idsToIdx.find(key);
+            if (it != idsToIdx.end())
+            {
+                const int value = *values.find(it->second)->second.begin();
+                ex->setRhs(*new SgValueExp(value));
+            }
+        }
+
+        doReplacement(ex->lhs(), idsToIdx, values);
+        doReplacement(ex->rhs(), idsToIdx, values);
+    }
+}
+
+static SgExpression* replaceConstatantProcedurePars(SgExpression *dimList, SgStatement *proc, const map<string, vector<FuncInfo*>>& allFuncInfo)
+{
+    if (proc == NULL)
+        return dimList;
+    
+    if (allFuncInfo.size() == 0)
+        return dimList;
+
+    const string procN = proc->symbol()->identifier();
+    map<string, FuncInfo*> mapFunc;
+    createMapOfFunc(allFuncInfo, mapFunc);
+
+    auto it = mapFunc.find(procN);
+    if (it == mapFunc.end())
+        return dimList;
+
+    FuncInfo* currF = it->second;
+    if (currF->funcParams.countOfPars == 0)
+        return dimList;
+
+    set<string> ids;
+    fillIdsFromEx(dimList, ids);
+
+    if (ids.size() == 0)
+        return dimList;
+
+    set<int> idxFound;
+    map<string, int> idsToIdx;
+    for (int z = 0; z < currF->funcParams.countOfPars; ++z)
+    {
+        if (ids.find(currF->funcParams.identificators[z]) != ids.end())
+        {
+            idxFound.insert(z);
+            idsToIdx[currF->funcParams.identificators[z]] = z;
+        }
+    }
+    
+    if (idxFound.size() == 0 || currF->callsTo.size() == 0)
+        return dimList;
+    
+    map<int, set<int>> values;
+
+    //TODO: many call levels of functions
+    for (int z = 0; z < currF->callsTo.size(); ++z)
+    {
+        FuncInfo* callOfThis = currF->callsTo[z];
+        for (int p = 0; p < callOfThis->detailCallsFrom.size(); ++p)
+        {
+            if (callOfThis->detailCallsFrom[p].first == procN)
+            {
+                for (auto& par : idxFound)
+                {
+                    auto parType = callOfThis->actualParams[p].parametersT[par];
+                    if (parType != SCALAR_INT_T)
+                        return dimList;
+                    else
+                    {
+                        if (callOfThis->actualParams[p].parameters[par] == NULL)
+                            return dimList;
+                        values[par].insert(((int*)(callOfThis->actualParams[p].parameters[par]))[0]);
+                    }
+                }
+            }
+        }
+    }
+
+    for (auto& elem : values)
+        if (elem.second.size() != 1)
+            return dimList;
+
+    doReplacement(dimList, idsToIdx, values);
+    return dimList;
+}
+
 static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int>> &sizes, SgSymbol *symb, SgStatement *decl, 
-                                                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+                                                            const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                                                            const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     SgArrayType *type = isSgArrayType(symb->type());
     vector<pair<Expression*, Expression*>> retVal;
@@ -940,6 +1058,8 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
         int consistInAllocates = 0;
         SgExpression *alloc = NULL;
 
+        
+        dimList = replaceConstatantProcedurePars(dimList, getFuncStat(decl), allFuncInfo);
         while (dimList)
         {
             SgExpression *res = ReplaceArrayBoundSizes(dimList->lhs()->copyPtr());
@@ -1102,7 +1222,9 @@ static vector<pair<Expression*, Expression*>> getArraySizes(vector<pair<int, int
     return retVal;
 }
 
-void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays, const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*> &allArrays, 
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
+                           const map<string, vector<FuncInfo*>> &allFuncInfo)
 {
     for (auto &array : allArrays)
     {
@@ -1162,8 +1284,9 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                                     //wasSelect = false;
                                     SgStatement *decl = declaratedInStmt(symb);
                                     vector<pair<int, int>> sizes;
-                                    getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls);
+                                    auto sizesEx = getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls, allFuncInfo);
                                     array->SetSizes(sizes);
+                                    array->SetSizesExpr(sizesEx);
                                 }
                             }
 
@@ -1180,8 +1303,9 @@ void recalculateArraySizes(set<DIST::Array*> &arraysDone, const set<DIST::Array*
                         {
                             SgStatement *decl = declaratedInStmt(symb);
                             vector<pair<int, int>> sizes;
-                            getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls);
+                            auto sizesEx = getArraySizes(sizes, symb, decl, arrayLinksByFuncCalls, allFuncInfo);
                             array->SetSizes(sizes);
+                            array->SetSizesExpr(sizesEx);
                         }
                         else
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -2253,33 +2377,8 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
 //TODO: copy all functions from FDVM and fix them
 static inline int getStructureSize(SgSymbol *s)
 {
-    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    SgSymbol *sf;
-
-    int n;
-    int size;
-    size = 0;
-
-    /*for (sf = FirstTypeField(s->type()); sf; sf = ((SgFieldSymb *)sf)->nextField())
-    {
-        if (IS_POINTER_F90(sf))
-        {
-            size = size + DVMTypeLength();
-            continue;
-        }
-        if (isSgArrayType(sf->type())) 
-        {
-            n = NumberOfElements(sf, cur_st, 2);
-            if (n != 0)
-                size = size + n * TypeSize(sf->type()->baseType());
-            else
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        }
-        else
-            size = size + TypeSize(sf->type());
-    }*/
-    return size;
+    return 0;
+    //printInternalError(convertFileName(__FILE__).c_str(), __LINE__);       
 }
 
 static inline int getNumericTypeLength(SgType *t)
@@ -2443,8 +2542,8 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                 const int typeSize = getSizeOfType(symb->type()->baseType());
                 if (typeSize == 0)
                 {
-                    __spf_print(1, "Wrong type size for array %s\n", symb->identifier());
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    //__spf_print(1, "Wrong type size for array %s\n", symb->identifier());
+                    //printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
                 
                 SgStatement *decl = declaratedInStmt(symb);
@@ -2507,7 +2606,8 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
 
                     vector<pair<int, int>> sizes; 
                     map<DIST::Array*, set<DIST::Array*>> arrayLinksByFuncCallsNotReady;
-                    auto sizesExpr = getArraySizes(sizes, symb, decl, arrayLinksByFuncCallsNotReady);
+                    map<string, vector<FuncInfo*>> allFuncInfoNoReady;
+                    auto sizesExpr = getArraySizes(sizes, symb, decl, arrayLinksByFuncCallsNotReady, allFuncInfoNoReady);
                     arrayToAdd->SetSizes(sizes);
                     arrayToAdd->SetSizesExpr(sizesExpr);                    
                     tableOfUniqNamesByArray[arrayToAdd] = uniqKey;
@@ -2528,6 +2628,9 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                     else
                         itNew->second.first->SetNonDistributeFlag(DIST::DISTR);
                 }
+
+                if (typeSize == 0) // unknown
+                    itNew->second.first->SetNonDistributeFlag(DIST::SPF_PRIV);
 
                 if (!isExecutable)
                     itNew->second.first->AddDeclInfo(make_pair(st->fileName(), st->lineNumber()));
@@ -2612,7 +2715,7 @@ static void findReshape(SgStatement *st, set<string> &privates, vector<Messages>
                 wstring messageE, messageR;
                 __spf_printToLongBuf(messageE, L"Array '%s' can not be distributed because of RESHAPE", to_wstring(exL->symbol()->identifier()).c_str());
                 __spf_printToLongBuf(messageR, R90, to_wstring(exL->symbol()->identifier()).c_str());
-                currMessages.push_back(Messages(ERROR, st->lineNumber(), messageR, messageE, 1047));
+                currMessages.push_back(Messages(NOTE, st->lineNumber(), messageR, messageE, 1047));
 #endif
             }
         }

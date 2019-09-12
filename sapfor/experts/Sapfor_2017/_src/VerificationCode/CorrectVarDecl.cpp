@@ -147,10 +147,9 @@ void fixUseOnlyStmt(SgFile *file, const vector<ParallelRegion*> &regs)
     }
 }
 
-static void fillUseStatement(SgStatement *st,
-                             set<string> &useMod,
-                             map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
-                             map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUseOnly)
+void fillUseStatement(SgStatement *st, set<string> &useMod,
+                      map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
+                      map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUseOnly)
 {
     if (st->variant() == USE_STMT)
     {
@@ -1023,4 +1022,27 @@ void replaceStructuresToSimpleTypes(SgFile *file)
                 replaceDerivedAssigns(file, st, st, derivedTypesDecl);
         }
     }
+}
+
+void removeExecutableFromModuleDeclaration(SgFile *current, const set<string> &filesInProj)
+{
+    const string currF = current->filename();
+    set<string> moduleInFile;
+    for (SgStatement* st = current->firstStatement(); st; st = st->lexNext())
+    {
+        if (st->variant() == MODULE_STMT && st->fileName() != currF)
+            if (filesInProj.find(st->fileName()) != filesInProj.end())
+                moduleInFile.insert(st->fileName());
+    }
+
+    vector<SgStatement*> toDel;
+    for (SgStatement* st = current->firstStatement(); st; st = st->lexNext())
+    {
+        if (isSgProgHedrStmt(st))
+            if (moduleInFile.find(st->fileName()) != moduleInFile.end())
+                toDel.push_back(st);
+    }
+
+    for (auto& elem : toDel)
+        elem->deleteStmt();
 }

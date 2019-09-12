@@ -11,7 +11,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDe
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree);
+void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree, const std::map<std::string, std::set<std::string>> &moduleUsesByFile, const std::map<std::string, std::string>& moduleDelcs);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);
@@ -58,9 +58,12 @@ const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &com
 
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
 
-SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig);
+SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig, const std::set<std::string>& usedInBlock);
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
 void printSymbolTable(SgFile *file);
 SgStatement* getFuncStat(SgStatement *st, const std::set<int> additional = std::set<int>());
-std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapbyPlace();
+std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapByPlace();
 SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true);
+
+void fillModuleUse(SgFile* file, std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
+void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);

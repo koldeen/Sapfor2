@@ -388,13 +388,15 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
             if (itM == allMessages.end())
                 itM = allMessages.insert(itM, make_pair(currF, vector<Messages>()));
 
-            for (auto &func : it.second)
+            for (auto& func : it.second)
+            {
                 if (func->deadFunction)
                 {
 #ifdef _WIN32
                     itM->second.push_back(Messages(NOTE, func->linesNum.first, R47, L"This function is not called in current project", 1015));
 #endif
                 }
+            }
         }
     }
 
@@ -408,6 +410,33 @@ void findDeadFunctionsAndFillCallTo(map<string, vector<FuncInfo*>> &allFuncInfo,
             {
                 FuncInfo *callFrom = itFound->second;
                 callFrom->callsTo.push_back(currInfo);
+            }
+        }
+    }
+
+    // propagate 'deadFunction' status for all 'CallsFrom' from dead functions
+    bool changes = true;
+    while (changes)
+    {
+        changes = false;
+
+        for (auto& it : mapFuncInfo)
+        {
+            FuncInfo* currInfo = it.second;
+            if (currInfo->deadFunction == false)
+                continue;
+
+            for (auto& callFrom : currInfo->callsFrom)
+            {
+                auto itFrom = mapFuncInfo.find(callFrom);
+                if (itFrom != mapFuncInfo.end())
+                {
+                    if (!itFrom->second->deadFunction)
+                    {
+                        changes = true;
+                        itFrom->second->deadFunction = itFrom->second->doNotAnalyze = true;
+                    }
+                }
             }
         }
     }

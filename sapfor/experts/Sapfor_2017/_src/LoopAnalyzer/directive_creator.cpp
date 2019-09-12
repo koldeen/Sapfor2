@@ -561,7 +561,8 @@ static vector<vector<pair<string, vector<Expression*>>>>
             checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
             
             vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
-            SgVarRefExp *ref = new SgVarRefExp(getFromModule(byUse, findSymbolOrCreate(file, elem->GetShortName())));
+            set<string> tmpUsed;
+            SgVarRefExp *ref = new SgVarRefExp(getFromModule(byUse, findSymbolOrCreate(file, elem->GetShortName()), tmpUsed));
 
             realign[0] = new Expression(ref);
             SgExprListExp *list = new SgExprListExp();

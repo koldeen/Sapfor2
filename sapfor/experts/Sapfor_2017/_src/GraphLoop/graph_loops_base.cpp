@@ -937,7 +937,7 @@ static void checkArraysMapping(vector<LoopGraph*> &loopList, map<DIST::Array*, v
 #ifdef _WIN32
                         __spf_printToLongBuf(bufR, R85, z + 1,to_wstring(elem.first->GetShortName()).c_str());
 #endif
-                        messages.push_back(Messages(ERROR, topLine, bufR, bufw, 1047));
+                        messages.push_back(Messages(NOTE, topLine, bufR, bufw, 1047));
                         elem.first->DeprecateDimension(z);                        
                     }
                 }
@@ -974,7 +974,7 @@ void checkArraysMapping(map<string, vector<LoopGraph*>> &loopGraph, map<string, 
             __spf_printToLongBuf(bufR, R86, to_wstring(elem->GetShortName()).c_str());
 #endif
             for (auto &decl : elem->GetDeclInfo())
-                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(ERROR, decl.second, bufR, bufw, 1047));
+                getObjectForFileFromMap(decl.first.c_str(), SPF_messages).push_back(Messages(NOTE, decl.second, bufR, bufw, 1047));
             elem->SetNonDistributeFlag(DIST::SPF_PRIV);
         }
     }    
@@ -1059,7 +1059,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, R87, to_wstring(array->GetShortName()).c_str());
 #endif
-                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(NOTE, loop->lineNum, bufR, bufw, 1047));
                                     deprecated.insert(array);
                                     array->SetNonDistributeFlag(DIST::SPF_PRIV);
                                 }
@@ -1098,7 +1098,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
 #ifdef _WIN32
                                     __spf_printToLongBuf(bufR, R88, to_wstring(array->GetShortName()).c_str());
 #endif
-                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
+                                    getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(NOTE, loop->lineNum, bufR, bufw, 1047));
                                     deprecated.insert(array);
                                     array->SetNonDistributeFlag(DIST::SPF_PRIV);
                                 }
@@ -1131,7 +1131,7 @@ static void filterArrayInCSRGraph(vector<LoopGraph*> &loops, const map<string, F
 #ifdef _WIN32
                                         __spf_printToLongBuf(bufR, R89, to_wstring(inCall->GetShortName()).c_str());
 #endif
-                                        getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(ERROR, loop->lineNum, bufR, bufw, 1047));
+                                        getObjectForFileFromMap(loop->fileName.c_str(), messages).push_back(Messages(NOTE, loop->lineNum, bufR, bufw, 1047));
                                         deprecated.insert(inCall);
                                         inCall->SetNonDistributeFlag(DIST::SPF_PRIV);
                                     }

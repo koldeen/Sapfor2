@@ -120,6 +120,11 @@ std::tuple<std::string, int, int, int> inData; // file, startLine, endLine, del/
 std::map<std::string, std::string> outData; // file -> new unparsed text
 //
 
+//module includes across all files, need to correct lines and out versions
+std::map<std::string, std::set<std::string>> moduleUsesByFile; // file -> use module name
+std::map<std::string, std::string> moduleDecls; // module -> file where declarated
+//
+
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 

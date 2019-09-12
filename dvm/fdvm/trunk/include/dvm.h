@@ -1281,6 +1281,7 @@ int IsInLabelList(SgLabel *lab, stmt_list *labeled_list);
 void ReplaceExitCycleGoto(SgStatement *block, SgStatement *stk);
 int IsParDoLabel(SgLabel *lab, int pl_rank);
 int isInLoop(SgStatement *stmt);
+void  ReplaceCaseStatement(SgStatement *first);
 void FormatAndDataStatementExport(SgStatement *par_dir, SgStatement *first_do);
 void AddExternStmtToBlock_C();
 void  GenerateStmtsForInfoFile();
@@ -1807,7 +1808,8 @@ void IO_ThroughBuffer(SgSymbol *ar, SgStatement *stmt);
 int  IOcontrol(SgExpression *e, SgExpression *ioc[],int type);
 int  control_list1(SgExpression *e, SgExpression *ioc[]);
 int  control_list_open(SgExpression *e, SgExpression *ioc[]);
-int control_list_rw(SgExpression *e, SgExpression *ioc[]);
+int  control_list_inquire (SgExpression *e, SgExpression *ioc[]);
+int  control_list_rw(SgExpression *e, SgExpression *ioc[]);
 void InsertSendInputList(SgExpression *input_list, SgExpression * io_stat,SgStatement *stmt);
 void InsertSendIOSTAT(SgExpression * eios);
 void InsertSendInquire(SgExpression * eioc[]);
@@ -2024,7 +2026,6 @@ SgExpression *CreateArrayDummyList(SgType *indexType);
 SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbol *s_loop_ref, SgSymbol *idxTypeInKernel, SgSymbol *s_blocks);
 int isIntrinsicFunctionName(const char *name);
 void addNumberOfFileToAttribute(SgProject *project);
-void recExpressionPrintFdvm(SgExpression *exp);
 
 /* calls.cpp */
 void ProjectStructure(SgProject &project);

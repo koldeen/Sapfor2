@@ -28,3 +28,5 @@ bool checkArgumentsDeclaration(SgProject *project, const std::map<std::string, s
 void replaceDerivedAssigns(SgFile *file, SgStatement *stToCopy, SgStatement *insertB, const std::map<std::string, SgStatement*> &derivedTypesDecl);
 bool isDerivedAssign(SgStatement *st);
 std::map<std::string, SgStatement*> createDerivedTypeDeclMap(SgStatement *forS);
+void fillUseStatement(SgStatement* st, std::set<std::string>& useMod, std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& modByUse, std::map<std::string, std::vector<std::pair<SgSymbol*, SgSymbol*>>>& modByUseOnly);
+void removeExecutableFromModuleDeclaration(SgFile* current, const std::set<std::string>& filesInProj);

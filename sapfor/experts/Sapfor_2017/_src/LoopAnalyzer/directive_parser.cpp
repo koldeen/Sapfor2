@@ -144,7 +144,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
 template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction);
 template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction);
 
-//for mini/max loc reduction
+//for min/max loc reduction
 template<typename fillType>
 void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, fillType, int>>> &reduction)
 {

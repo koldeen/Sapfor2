@@ -194,6 +194,31 @@ static map<string, Symbol*> setToMapWithSortByStr(const set<Symbol*> &setIn)
     return retMap;
 }
 
+static void fillUsedSymbols(SgExpression* ex, set<SgSymbol*> &used)
+{
+    if (ex)
+    {
+        if (ex->variant() == ARRAY_REF || ex->variant() == VAR_REF)
+            used.insert(ex->symbol());
+        fillUsedSymbols(ex->lhs(), used);
+        fillUsedSymbols(ex->rhs(), used);
+    }
+}
+static set<string> fillUsedSymbols(SgStatement *loop)
+{
+    set<SgSymbol*> used;
+    SgStatement* last = loop->lastNodeOfStmt();
+    for (SgStatement* st = loop->lexNext(); st != last; st = st->lexNext())
+        for (int z = 0; z < 3; ++z)
+            if (st->expr(z))
+                fillUsedSymbols(st->expr(z), used);
+
+    set<string> usedS;
+    for (auto& elem : used)
+        usedS.insert(elem->identifier());
+    return usedS;
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -208,6 +233,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     vector<Expression*> dirStatement = { NULL, NULL, NULL };
         
     SgForStmt *loopG = (SgForStmt *)loop->GetOriginal();
+    const set<string> usedInLoop = fillUsedSymbols(loopG);
 
     map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(loop->GetOriginal());
     const int nested = loopG->isPerfectLoopNest();
@@ -258,9 +284,9 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
         SgSymbol *symbForPar;
         if (arrayRef->IsTemplate())
-            symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope));
+            symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope), usedInLoop);
         else
-            symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal());
+            symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
 
         SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
         for (int i = 0; i < (int)onTo.size(); ++i)
@@ -304,7 +330,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 else
                     directive += privVar.second->identifier();
 
-                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar.second));
+                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar.second, usedInLoop));
                 p->setLhs(varExpr);
                 if (k != privates.size() - 1)
                     p = createAndSetNext(RIGHT, EXPR_LIST, p);
@@ -387,7 +413,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope)));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope), usedInLoop));
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
@@ -455,7 +481,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     }
 
                     shadowAdd += shadowRenew[i1].first.first + "(" + bounds + ")";
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol()));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol(), usedInLoop));
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     for (auto &elem : genSubscripts(shadowRenew[i1].second, shadowRenewShifts[i1]))
@@ -509,9 +535,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                         p = createAndSetNext(RIGHT, EXPR_LIST, p);
                     }
 
-                    directive += nameGroup + "(" + list + ")";
+                    SgSymbol* redS = getFromModule(byUseInFunc, findSymbolOrCreate(file, list), usedInLoop);
+                    directive += nameGroup + "(" + redS->identifier() + ")";
 
-                    SgVarRefExp *tmp2 = new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, list)));
+                    SgVarRefExp *tmp2 = new SgVarRefExp(redS);
                     SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup), *tmp2);
 
                     p->setLhs(tmp1);
@@ -558,12 +585,15 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                         p = createAndSetNext(RIGHT, EXPR_LIST, p);
                     }
 
-                    directive += nameGroup + "(" + get<0>(list) + ", " + get<1>(list) + ", " + std::to_string(get<2>(list)) + ")";
+                    SgSymbol* redS1 = getFromModule(byUseInFunc, findSymbolOrCreate(file, get<0>(list)), usedInLoop);
+                    SgSymbol* redS2 = getFromModule(byUseInFunc, findSymbolOrCreate(file, get<1>(list)), usedInLoop);
+
+                    directive += nameGroup + "(" + redS1->identifier() + ", " + redS2->identifier() + ", " + std::to_string(get<2>(list)) + ")";
 
                     SgFunctionCallExp *tmp1 = new SgFunctionCallExp(*findSymbolOrCreate(file, nameGroup));
 
-                    tmp1->addArg(*new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, get<0>(list)))));
-                    tmp1->addArg(*new SgVarRefExp(getFromModule(byUseInFunc, findSymbolOrCreate(file, get<1>(list)))));
+                    tmp1->addArg(*new SgVarRefExp(redS1));
+                    tmp1->addArg(*new SgVarRefExp(redS2));
                     tmp1->addArg(*new SgValueExp(get<2>(list)));
 
                     p->setLhs(tmp1);
@@ -594,7 +624,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 directive += it->first.first + "(";
                 directive += it->first.second + ")";
                                 
-                SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, it->first.first, typeArrayInt, scope)), *it->second);
+                SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), usedInLoop), *it->second);
 
                 DIST::Array *currArray = allArrays.GetArrayByName(it->first.second);
                 tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
