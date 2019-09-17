@@ -23,6 +23,7 @@ using std::pair;
 using std::make_pair;
 using std::map;
 using std::set;
+using std::wstring;
 
 extern void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<LoopGraph*> *loopGraph);
 
@@ -243,7 +244,45 @@ static void fillDvmDirs(SgStatement *st, vector<Statement*> &userDvmDistrDirs, v
     }
 }
 
-void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<LoopGraph*> *loops, vector<FuncInfo*> *funcs)
+static void checkForEmpty(SgStatement *start, SgStatement *end, vector<Messages>& messagesForFile)
+{
+    bool wasStarted = false;
+    int lineStarted = -1;
+
+    while (start != end)
+    {
+        currProcessing.second = start->lineNumber();
+        if (start->variant() == CONTAINS_STMT)
+            break;
+
+        if (start->variant() == SPF_PARALLEL_REG_DIR)
+        {
+            wasStarted = true;
+            lineStarted = start->lineNumber();
+        }
+        else if (start->variant() == SPF_END_PARALLEL_REG_DIR)
+        {
+            if (wasStarted)
+            {
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"Empty parallel regions is forbidden.");
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, R151);
+#endif
+                messagesForFile.push_back(Messages(ERROR, lineStarted, messageR, messageE, 3021));
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
+        else
+        {
+            wasStarted = false;
+            lineStarted = -1;
+        }
+        start = start->lexNext();
+    }
+}
+
+void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Messages>& messagesForFile, vector<LoopGraph*> *loops, vector<FuncInfo*> *funcs)
 {
     map<string, FuncInfo*> mapFuncs;
     if (funcs)
@@ -300,6 +339,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Loop
             containsPrefix = st_cp->symbol()->identifier() + string(".");
         const string funcName = containsPrefix + file->functions(i)->symbol()->identifier();
 
+        checkForEmpty(st, lastNode, messagesForFile);
         while (st != NULL && st != lastNode)
         {
             currProcessing.second = st->lineNumber();

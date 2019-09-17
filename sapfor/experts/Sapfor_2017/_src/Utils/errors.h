@@ -94,8 +94,9 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   16 "expected only assign operands in DVM interval"
 //   17 "parallel region '%s' does not have copying of array '%s' in DVM interval"
 //   18 "parallel region '%s' does not have copying of common array '%s' in DVM interval"
-//   19  "Can not find execution time for this loop, try to get times statistic"
-//   20  "detected distributed and non distributed array links by function's calls for array %s\n"
+//   19 "Can not find execution time for this loop, try to get times statistic"
+//   20 "detected distributed and non distributed array links by function's calls for array %s\n"
+//   21 "empty parallel regions is forbidden"
 
 // 40xx LOW LEVEL WARNINGS
 //   01 
@@ -480,6 +481,8 @@ static const wchar_t *R139 = L"Область распараллеливания '%s' не содержит копиро
 static const wchar_t *R140 = L"Обнаружен массив '%s', являющийся параметром функции, в которую передаются как распределенные, так и не распределенные массивы. Возможно, стоит запретить к распределению обнаруженные массивы, либо продублировать соответствующую функцию.\n";
 static const wchar_t *R141 = L"Обнаружен распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n";
 static const wchar_t *R142 = L"Для массива '%s' не удается найти единого распределения, внутренняя ошибка системы.\n";
+//3021
+static const wchar_t* R151 = L"Пустые области распараллеливания недопускаются.\n";
 
 //4001
 //---TODO ошибки из SAGE

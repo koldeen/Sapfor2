@@ -211,6 +211,32 @@ static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
     }
 }
 
+static void fillInfo(SgStatement *start,
+                     set<string> &useMod,
+                     map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
+                     map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUseOnly)
+{
+    for (SgStatement* st = start; st; st = st->lexNext())
+    {
+        if (isSgExecutableStatement(st))
+            break;
+        if (st->variant() == CONTAINS_STMT)
+            break;
+        if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+            break;
+        fillUseStatement(st, useMod, modByUse, modByUseOnly);
+    }
+}
+
+static SgStatement* findModWithName(const vector<SgStatement*> &modules, const string &name)
+{
+    for (auto& elem : modules)
+        if (elem->variant() == MODULE_STMT)
+            if (elem->symbol()->identifier() == name)
+                return elem;
+    return NULL;
+}
+
 static string getNameByUse(SgStatement *loop, const string &varName, const string &locName)
 {
     SgStatement* func = getFuncStat(loop);
@@ -222,16 +248,37 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
         map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUse;
         map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUseOnly;
 
-        for (SgStatement* st = func; st; st = st->lexNext())
+        fillInfo(func, useMod, modByUse, modByUseOnly);
+        set<string> useModDone;
+        bool needRepeat = true;
+
+        vector<SgStatement*> modules;
+        findModulesInFile(func->getFile(), modules);
+
+        while (needRepeat)
         {
-            if (isSgExecutableStatement(st))
-                break;
-            if (st->variant() == CONTAINS_STMT)
-                break;
-            if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
-                break;
-            fillUseStatement(st, useMod, modByUse, modByUseOnly);
-        } 
+            needRepeat = false;
+            set<string> newUseMod;
+            for (auto& useM : useMod)
+            {
+                if (useModDone.find(useM) == useModDone.end())
+                {
+                    auto modSt = findModWithName(modules, useM);
+                    checkNull(modSt, convertFileName(__FILE__).c_str(), __LINE__);
+                    fillInfo(modSt, newUseMod, modByUse, modByUseOnly);
+                    useModDone.insert(useM);
+                }
+            }
+
+            for (auto& newU : newUseMod)
+            {
+                if (useModDone.find(newU) == useModDone.end())
+                {
+                    useModDone.insert(newU);
+                    needRepeat = true;
+                }
+            }
+        }
 
         vector<string> altNames;        
         findByUse(modByUse, varName, locName, altNames);
@@ -240,7 +287,10 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
         if (altNames.size() == 0)
             return varName;
         else if (altNames.size() >= 1)
-            return altNames[0];
+        {
+            set<string> setAlt(altNames.begin(), altNames.end());
+            return *setAlt.begin();
+        }
         else
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }

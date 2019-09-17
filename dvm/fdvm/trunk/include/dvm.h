@@ -891,7 +891,6 @@ void Template_Create(SgStatement *stmt);
 void Template_Delete(SgStatement *stmt);
 void RenamingDvmArraysByUse(SgStatement *stmt);
 
-
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
 int ParallelLoop_Debug(SgStatement *stmt);

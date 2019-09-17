@@ -111,59 +111,58 @@ bool recSymbolFind(SgExpression *ex, const string &symb, const int var)
     return ret;
 }
 
-static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList, bool includeWrite = true)
+static inline void processIOlist(SgExpression *spec, const int line, map<int, vector<int>>& labelsList)
 {
-    if (curr->variant() == GOTO_NODE)
+    while (spec)
     {
-        SgGotoStmt *gotoS = (SgGotoStmt *)curr;
-        labelsList[gotoS->branchLabel()->getLabNumber()].push_back(curr->lineNumber());
-    }
-    else if (curr->variant() == ARITHIF_NODE)
-    {
-        SgExpression *lb = curr->expr(1);
-        insertLabels(lb, labelsList, curr->lineNumber());
-    }
-    else if (curr->variant() == COMGOTO_NODE)
-    {
-        SgExpression *lb = ((SgComputedGotoStmt*)curr)->labelList();
-        insertLabels(lb, labelsList, curr->lineNumber());
-    }
-    else if (curr->variant() == PRINT_STAT && includeWrite)
-    {
-        SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
-        SgExpression *spec = ioStat->specList();
-        if (spec)
+        if (spec->lhs())
         {
-            if (spec->rhs())
+            SgExpression* specL = spec->lhs();
+            if (specL->lhs() && specL->rhs())
             {
-                if (spec->rhs()->variant() == LABEL_REF)
+                if (specL->lhs()->variant() == KEYWORD_VAL)
                 {
-                    SgLabelRefExp *labRef = (SgLabelRefExp*)spec->rhs();
-                    if (labRef->label())
-                        labelsList[labRef->label()->getLabNumber()].push_back(curr->lineNumber());
-                }
-            }
-        }
-    }
-    else if (curr->variant() == WRITE_STAT && includeWrite)
-    {
-        SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
-        SgExpression *spec = ioStat->specList();
-        if (spec->rhs())
-        {
-            if (spec->rhs()->lhs())
-            {
-                if (spec->rhs()->lhs()->rhs())
-                {
-                    if (spec->rhs()->lhs()->rhs()->variant() == LABEL_REF)
+                    SgKeywordValExp* keyVal = (SgKeywordValExp*)specL->lhs();
+
+                    if (keyVal->value() != string("fmt"))
                     {
-                        SgLabelRefExp *labRef = (SgLabelRefExp*)spec->rhs()->lhs()->rhs();
-                        if (labRef->label())
-                            labelsList[labRef->label()->getLabNumber()].push_back(curr->lineNumber());
+                        if (specL->rhs()->variant() == LABEL_REF)
+                        {
+                            SgLabelRefExp* labRef = (SgLabelRefExp*)specL->rhs();
+                            if (labRef->label())
+                                labelsList[labRef->label()->getLabNumber()].push_back(line);
+                        }
                     }
                 }
             }
         }
+        spec = spec->rhs();
+    }
+}
+
+static inline void processLables(SgStatement *curr, map<int, vector<int>> &labelsList, bool includeWrite = true)
+{
+    const int var = curr->variant();
+    if (var == GOTO_NODE)
+    {
+        SgGotoStmt *gotoS = (SgGotoStmt *)curr;
+        labelsList[gotoS->branchLabel()->getLabNumber()].push_back(curr->lineNumber());
+    }
+    else if (var == ARITHIF_NODE)
+    {
+        SgExpression *lb = curr->expr(1);
+        insertLabels(lb, labelsList, curr->lineNumber());
+    }
+    else if (var == COMGOTO_NODE)
+    {
+        SgExpression *lb = ((SgComputedGotoStmt*)curr)->labelList();
+        insertLabels(lb, labelsList, curr->lineNumber());
+    }
+    else if ((var == PRINT_STAT || var == WRITE_STAT) && includeWrite)
+    {
+        SgInputOutputStmt *ioStat = (SgInputOutputStmt*)curr;
+        SgExpression *spec = ioStat->specList();
+        processIOlist(spec, curr->lineNumber(), labelsList);        
     }
 }
 
@@ -787,9 +786,9 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         if (currLoop->hasLimitsToParallel())
             loopState = 2;
     }
-
-    sprintf(buf, " %d %d %d %d %d %d %d",
-        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState);
+    sprintf(buf, " %d %d %d %d %d %d %d %d",
+        currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState, 
+        currLoop->hasNonRectangularBounds);
 }
 
 static int calculateNormalChildSize(const LoopGraph *currLoop)
@@ -822,6 +821,10 @@ void convertToString(const LoopGraph *currLoop, string &result)
         result += " " + std::to_string(currLoop->linesOfIO.size());
         for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
             result += " " + std::to_string(currLoop->linesOfIO[i]);
+
+        result += " " + std::to_string(currLoop->linesOfStop.size());
+        for (int i = 0; i < currLoop->linesOfStop.size(); ++i)
+            result += " " + std::to_string(currLoop->linesOfStop[i]);
 
         for (int i = 0; i < (int)currLoop->children.size(); ++i)
             convertToString(currLoop->children[i], result);

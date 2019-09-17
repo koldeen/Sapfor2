@@ -1458,9 +1458,12 @@ void revertion_spf_dirs(SgFile *file,
 {
     const string fileName(file->filename());
 
-    for (int i = 0; i < file->numberOfFunctions(); ++i)
+    vector<SgStatement*> units;
+    getModulesAndFunctions(file, units);
+
+    for (int i = 0; i < units.size(); ++i)
     {
-        SgStatement *st = file->functions(i);
+        SgStatement *st = units[i];
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         int count = 0;
