@@ -19,6 +19,7 @@
 #include "../DynamicAnalysis/gCov_parser_func.h"
 #include "acc_analyzer.h"
 #include "../ExpressionTransform/expr_transform.h"
+#include "../LoopAnalyzer/loop_analyzer.h"
 
 using std::vector;
 using std::map;
@@ -67,10 +68,77 @@ static void correctNameIfContains(SgStatement *call, SgExpression *exCall, strin
 
 extern map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 extern map<SgStatement*, set<tuple<int, string, string>>> declaratedArraysSt;
+extern int getIntrinsicFunctionType(const char* name);
+
+static parF detectType(SgType *type)
+{
+    parF retT = UNKNOWN_T;
+
+    int len = getSizeOfType(type);
+    int var = type->variant();
+
+    switch (var)
+    {
+    case DEFAULT:
+        break;
+    case T_INT:
+        if (len == 0 || len == 4)
+            retT = SCALAR_INT_T;
+        else if (len == 8)
+            retT = SCALAR_LONG_INT_T;
+        else if (len == 2)
+            retT = SCALAR_SHORT_T;
+        break;
+    case T_FLOAT:
+        if (len == 0 || len == 4)
+            retT = SCALAR_FLOAT_T;
+        else if (len == 8)
+            retT = SCALAR_DOUBLE_T;
+        break;
+    case T_DOUBLE:
+        if (len == 0 || len == 8)
+            retT = SCALAR_DOUBLE_T;
+        break;
+    case T_CHAR:
+        if (len == 0)
+            retT = SCALAR_CHAR_T;
+        break;
+    case T_BOOL:
+        if (len == 0)
+            retT = SCALAR_BOOL_T;
+        break;
+    case T_STRING:
+        retT = STRING_T;
+        break;
+    case T_COMPLEX:
+        if (len == 0 || len == 4)
+            retT = SCALAR_CMPLX_FLOAT_T;
+        else if (len == 8)
+            retT = SCALAR_CMPLX_DOUBLE_T;
+        break;
+    case T_DCOMPLEX:
+        if (len == 0 || len == 8)
+            retT = SCALAR_CMPLX_DOUBLE_T;
+        break;
+    }
+    return retT;
+}
 
 static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const map<string, vector<SgExpression*>> &commonBlocks)
 {
     SgSymbol *par = OriginalSymbol(parIn);
+    currParams->parametersT[i] = UNKNOWN_T;
+
+    if (par->variant() == FUNCTION_NAME)
+    {
+        const int type = getIntrinsicFunctionType(par->identifier());
+        if (type == T_DOUBLE)
+            currParams->parametersT[i] = SCALAR_DOUBLE_T;
+        else if (type == T_FLOAT)
+            currParams->parametersT[i] = SCALAR_FLOAT_T;
+        return;
+    }
+
     SgType *type = par->type();
     if (type)
     {
@@ -91,27 +159,13 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
             currParams->parameters[i] = itArray->second.first;
         }
         else
-        {
-            if (type->equivalentToType(SgTypeInt()))
-                currParams->parametersT[i] = SCALAR_INT_T;
-            else if (type->equivalentToType(SgTypeFloat()))
-                currParams->parametersT[i] = SCALAR_FLOAT_T;
-            else if (type->equivalentToType(SgTypeDouble()))
-                currParams->parametersT[i] = SCALAR_DOUBLE_T;
-            else if (type->equivalentToType(SgTypeChar()))
-                currParams->parametersT[i] = SCALAR_CHAR_T;
-            else if (type->equivalentToType(SgTypeBool()))
-                currParams->parametersT[i] = SCALAR_BOOL_T;
-            else if (type->equivalentToType(new SgType(T_COMPLEX)))
-                currParams->parametersT[i] = SCALAR_CMPLX_FLOAT_T;
-            else if (type->equivalentToType(new SgType(T_DCOMPLEX)))
-                currParams->parametersT[i] = SCALAR_CMPLX_DOUBLE_T;
-            else
-                currParams->parametersT[i] = UNKNOWN_T;
-        }
+            currParams->parametersT[i] = detectType(type);
     }
     else
+    {
+        printf("var = %d %s\n", par->variant(), tag[par->variant()]);
         currParams->parametersT[i] = UNKNOWN_T;
+    }
 }
 
 static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpression*>> &commonBlocks, SgProgHedrStmt *procHeader)
@@ -149,6 +203,45 @@ static void fillFuncParams(FuncInfo *currInfo, const map<string, vector<SgExpres
     }
 }
 
+static parF detectMaxTypeOfExpression(SgExpression *ex)
+{
+    if (!ex)
+        return UNKNOWN_T;
+
+    parF res = UNKNOWN_T;
+    if (ex->variant() == VAR_REF)
+    {
+        if (ex->symbol() && ex->symbol()->type())
+            res = detectType(ex->symbol()->type());
+    }
+    else if (ex->variant() == ARRAY_REF)
+    {
+        if (ex->symbol() && ex->symbol()->type()->baseType())
+            res = detectType(ex->symbol()->type()->baseType());
+    }
+    else if (ex->variant() == CONST_REF)
+    {
+        if (ex->type())
+            res = detectType(ex->type());
+    }
+    else if (ex->variant() >= INT_VAL && ex->variant() <= STRING_VAL || ex->variant() == COMPLEX_VAL)
+    {
+        if (ex->type())
+            res = detectType(ex->type());
+    }
+    else
+    {
+        parF lF = UNKNOWN_T, rF = UNKNOWN_T;
+        if (ex->lhs())
+            lF = detectMaxTypeOfExpression(ex->lhs());
+        if (ex->rhs())
+            rF = detectMaxTypeOfExpression(ex->rhs());
+        res = MAX(res, lF);
+        res = MAX(res, rF);        
+    }
+    return res;
+}
+
 //TODO:: add values
 static void processActualParams(SgExpression *parList, const map<string, vector<SgExpression*>> &commonBlocks, FuncParam *currParams)
 {
@@ -163,6 +256,11 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
         int num = 0;
         for (SgExpression *ex = parList; ex != NULL; ex = ex->rhs())
         {
+            if (ex->lhs())
+                currParams->identificators.push_back(string(ex->lhs()->unparse()));
+            else
+                currParams->identificators.push_back("");
+
             if (ex->lhs()->symbol())
                 fillParam(num, ex->lhs()->symbol(), currParams, commonBlocks);
             else
@@ -190,7 +288,18 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
                 else if (var == BOOL_VAL)
                     currParams->parametersT[num] = SCALAR_BOOL_T;
                 else
-                    currParams->parametersT[num] = UNKNOWN_T;
+                {
+                    SgType* type = ex->lhs()->type();
+                    if (type)
+                    {
+                        if (type->variant() == DEFAULT)
+                            currParams->parametersT[num] = detectMaxTypeOfExpression(ex->lhs());
+                        else                           
+                            currParams->parametersT[num] = detectType(type);                        
+                    }
+                    else
+                        currParams->parametersT[num] = UNKNOWN_T;
+                }
 
                 int t = 0;
             }
@@ -917,87 +1026,104 @@ static int countList(SgExpression *list)
     return num;
 }
 
-static bool matchCallAndDefinition(SgExpression *callParam, int numFileForCall, const int line, FuncInfo *def, SgProject *proj, const map<string, int> &files, 
-                                   vector<Messages> &messages, bool needToAddErrors)
+static bool matchCallAndDefinition(const FuncParam &funcParDef, const FuncParam& funcParCall, const string &funcName,
+                                   const string &file, const int line, map<string, vector<Messages>> &messages)
 {
     bool result = true;
+    auto typesDef = funcParDef.parametersT;
+    auto typesCall = funcParCall.parametersT;
 
-    int countInCall = countList(callParam);
-    int countInDef = -1;
-    int numFileForDef = files.find(def->funcName)->second;
-
-    proj->file(numFileForDef);
-    SgExpression *defParam = def->funcPointer->expr(0);
-    countInDef = countList(defParam);
-
-    if (countInCall != countInDef)
+    if (typesDef.size() != typesCall.size())
     {
         wstring bufR, bufE;
-        __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to count of call parameters are not enouth", to_wstring(def->funcName).c_str());
+        __spf_printToLongBuf(bufE, L"Function '%s': count of call parameters are not enouth", to_wstring(funcName).c_str());
 #ifdef _WIN32
-        __spf_printToLongBuf(bufR, R38, to_wstring(def->funcName).c_str());
+        __spf_printToLongBuf(bufR, R38, to_wstring(funcName).c_str());
 #endif
-        if (needToAddErrors)
+        //if (needToAddErrors)
         {
-            messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
-            __spf_print(1, "Function '%s' needs to be inlined due to count of call parameters are not enouth\n", def->funcName.c_str());
+            messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
+            __spf_print(1, "Function '%s': count of call parameters are not enouth\n", funcName.c_str());
         }
         result = false;
     }
     else
     {
-        for (int i = 0; i < countInCall; ++i)
+        for (int i = 0; i < typesDef.size(); ++i)
         {
-            proj->file(numFileForCall);
-            SgExpression *parCall = callParam->lhs();
-            if (parCall->variant() != ARRAY_REF)
+            if (typesCall[i] != ARRAY_T)
             {
-                SgType *callType = parCall->type();
-
-                proj->file(numFileForDef);
-                if (callType->equivalentToType(defParam->type()) == false)
+                if (typesCall[i] != typesDef[i])
                 {
                     wstring bufR, bufE;
-                    __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined due to different type of call and def parameter %d", to_wstring(def->funcName).c_str(), i);
+                    __spf_printToLongBuf(bufE, L"Different type of call (%s : %s) and def (%s : %s) parameter %d for function '%s'",                         
+                                         to_wstring(funcParCall.identificators[i]).c_str(), to_wstring(paramNames[typesCall[i]]).c_str(), 
+                                         to_wstring(funcParDef.identificators[i]).c_str(), to_wstring(paramNames[typesDef[i]]).c_str(), i + 1, to_wstring(funcName).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(bufR, R39, to_wstring(def->funcName).c_str(), i);
+                    __spf_printToLongBuf(bufR, R39, 
+                                         to_wstring(funcParCall.identificators[i]).c_str(), to_wstring(paramNames[typesCall[i]]).c_str(), 
+                                         to_wstring(funcParDef.identificators[i]).c_str(), to_wstring(paramNames[typesDef[i]]).c_str(), 
+                                         i + 1, to_wstring(funcName).c_str());
 #endif
-                    if (needToAddErrors)
+                    //if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
-                        __spf_print(1, "Function '%s' needs to be inlined due to different type of call and def parameter %d\n", def->funcName.c_str(), i);
+                        messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
+                        __spf_print(1, "Function '%s': different type of call and def parameter %d\n", funcName.c_str(), i + 1);
                     }
                     result = false;
                 }
             }
-            else
+            else //TODO
             {
-                SgArrayRefExp *callArrayRef = isSgArrayRefExp(parCall);
-                if (callArrayRef == NULL)
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                if (callArrayRef->numberOfSubscripts() > 0)
+                /*if (callArrayRef->numberOfSubscripts() > 0)
                 {
                     wstring bufR, bufE;
                     __spf_printToLongBuf(bufE, L"Function '%s' needs to be inlined, only full array passing was supported", to_wstring(def->funcName).c_str());
 #ifdef _WIN32
                     __spf_printToLongBuf(bufR, R40, to_wstring(def->funcName).c_str());
 #endif
-                    if (needToAddErrors)
+                    //if (needToAddErrors)
                     {
-                        messages.push_back(Messages(NOTE, line, bufR, bufE, 1013));
+                        messages[file].push_back(Messages(ERROR, line, bufR, bufE, 1013));
                         __spf_print(1, "Function '%s' needs to be inlined, only full array passing was supported\n", def->funcName.c_str());
                     }
                     result = false;
-                }
+                }*/
             }
-
-            callParam = callParam->rhs();
-            defParam = defParam->rhs();
         }
     }
 
     return result;
+}
+
+static bool matchCallAndDefinition(SgProject* proj, const map<string, int>& files, 
+                                   map<string, vector<Messages>>& messages, bool needToAddErrors, const map<string, FuncInfo*> &funcByName)
+{
+    int count = 0;
+    for (auto& func : funcByName)
+    {
+        FuncInfo* currF = func.second;
+
+        for (auto& callsTo : currF->callsTo)
+        {
+            for (int cf = 0; cf < callsTo->detailCallsFrom.size(); ++cf)
+            {
+                if (callsTo->detailCallsFrom[cf].first == currF->funcName)
+                {
+                    auto callInfo = callsTo->pointerDetailCallsFrom[cf];
+                    auto itF = files.find(callsTo->fileName);
+                    if (itF == files.end())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+                    bool localR = matchCallAndDefinition(currF->funcParams, callsTo->actualParams[cf], currF->funcName, 
+                                                         callsTo->fileName, callsTo->detailCallsFrom[cf].second, messages);
+                    if (!localR)
+                        count++;
+                }
+            }
+        }
+    }
+    return count > 0;
 }
 
 bool isPassFullArray(SgExpression *ex)
@@ -1545,6 +1671,9 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
 
     set<string> needToInsert;
     findInsertedFuncLoopGraph(loopGraph, needToInsert, proj, files, allMessages, needToAddErrors, funcByName, statByLine, arrayLinksByFuncCalls, regions);
+    bool err = matchCallAndDefinition(proj, files, allMessages, needToAddErrors, funcByName);
+    if (err)
+        return -1;
 
     if (needToInsert.size() > 0)
     {
@@ -1562,7 +1691,7 @@ int CheckFunctionsToInline(SgProject *proj, const map<string, int> &files, const
         if (out == NULL)
         {
             __spf_print(1, "can not open file %s\n", fileName);
-            throw - 1;
+            throw -1;
         }
 
         fprintf(out, "digraph G{\n");

@@ -15,8 +15,10 @@
 #include <utility>
 #include <assert.h>
 
+#ifdef __BOOST
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
+#endif
 
 #include "../Utils/errors.h"
 #include "../Utils/version.h"
@@ -119,12 +121,14 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
             runPass(passesToRun[i], prName, folderNameChar);
         }
     }
+#if  __BOOST
     catch (boost::thread_interrupted&)
     {
         printf("SAPFOR: thread was terminated\n");
         fflush(NULL);
         return;
     }
+#endif
     catch (int ex)
     {
         __spf_print(1, "catch code %d\n", ex);
@@ -160,6 +164,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
              
         passDone = 0;
         rethrow = 0;
+#if __BOOST
         boost::thread thread { runPassesLoop, passesToRun, prName, folderNameChar };
         int timeToWait = 10;
         int steps = 0;
@@ -190,7 +195,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         printf("SAPFOR: start wait thread join, pass == %d\n", passDone);
         thread.join();
         printf("SAPFOR: end wait thread join\n");
-
+#endif
         if (passDone == 2)
             rethrow = 1;
     }
@@ -1343,7 +1348,9 @@ void SPF_deleteAllAllocatedData()
 
 void createNeededException()
 {
+#if __BOOST
     if (passDone == 2)
         throw boost::thread_interrupted();
+#endif
 }
 #endif

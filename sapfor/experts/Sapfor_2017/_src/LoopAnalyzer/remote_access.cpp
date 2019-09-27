@@ -292,6 +292,10 @@ void createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
+    //for parallel loops after vector assign convertion
+    if (st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+        return;
+
     vector<SgExpression*> remotes;
     string leftPartOfAssign = "";
     if (st->variant() == ASSIGN_STAT)

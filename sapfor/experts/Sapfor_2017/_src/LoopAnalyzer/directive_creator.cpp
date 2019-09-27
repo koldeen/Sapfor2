@@ -1276,6 +1276,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
 
     return resolved;
 }
+
 void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg, 
                                        DIST::GraphCSR<int, double, attrType> &reducedG,
                                        DIST::Arrays<int> &allArrays, 
@@ -1336,11 +1337,12 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
 
                 // insert parallel dir
                 pair<string, vector<Expression*>> dir = 
-                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, loop->readOps, loop->loop, regionId, arrayLinksByFuncCalls);
+                    parDirective->genDirective(new File(file), newRules, alignRules, reducedG, allArrays, loop->acrossOutAttribute, 
+                                               loop->readOps, loop->loop, loop->lineNum, loop->altLineNum, regionId, arrayLinksByFuncCalls);
 
                 if (loop->lineNum < 0)
                 {
-                    SgStatement* result = new SgStatement(DVM_PARALLEL_ON_DIR, NULL, NULL, NULL, NULL, NULL);                    
+                    SgStatement* result = new SgStatement(DVM_PARALLEL_ON_DIR, NULL, NULL, NULL, NULL, NULL);
                     for (int i = 0; i < 3; ++i)
                         if (dir.second[i])
                             result->setExpression(i, *dir.second[i]);
@@ -1349,22 +1351,20 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                     SgStatement* local = NULL;
-                    int line = loop->altLineNum - 1;
+                    local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->lineNum);
+                    if (local == NULL)
+                        local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), loop->altLineNum);
+                    checkNull(local, convertFileName(__FILE__).c_str(), __LINE__);
+
+                    local->insertStmtBefore(*result, *local->controlParent());
+                    /*SgStatement* local = NULL;
+                    int line = loop->altLineNum + 1;
                     while (local == NULL)
                     {
                         local = SgStatement::getStatementByFileAndLine(loop->loop->fileName(), line);
-                        --line;
+                        ++line;
                     }
-                    if (local->variant() != CONTROL_END)
-                        local->insertStmtAfter(*result, *local->controlParent());
-                    else
-                    {
-                        SgStatement* cp = local->controlParent();
-                        while (cp->variant() == ELSEIF_NODE || cp->variant() == IF_NODE)
-                            cp = cp->controlParent();
-                        local->insertStmtAfter(*result, *cp);
-                    }
-                    //toInsert.push_back(make_pair(loop->altLineNum, dir));
+                    local->insertStmtBefore(*result, *local->controlParent());*/
                 }
                 else
                     toInsert.push_back(make_pair(loop->lineNum, dir));

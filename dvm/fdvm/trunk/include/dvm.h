@@ -890,6 +890,7 @@ int DeferredShape(SgExpression *eShape);
 void Template_Create(SgStatement *stmt);
 void Template_Delete(SgStatement *stmt);
 void RenamingDvmArraysByUse(SgStatement *stmt);
+void RemovingDifferentNamesOfVar(SgStatement *first);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -2025,6 +2026,7 @@ SgExpression *CreateArrayDummyList(SgType *indexType);
 SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbol *s_loop_ref, SgSymbol *idxTypeInKernel, SgSymbol *s_blocks);
 int isIntrinsicFunctionName(const char *name);
 void addNumberOfFileToAttribute(SgProject *project);
+int getIntrinsicFunctionTypeSize(const char* name);
 
 /* calls.cpp */
 void ProjectStructure(SgProject &project);

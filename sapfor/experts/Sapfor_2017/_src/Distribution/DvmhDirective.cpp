@@ -219,6 +219,15 @@ static set<string> fillUsedSymbols(SgStatement *loop)
     return usedS;
 }
 
+static SgStatement* getRealStat(Statement *loop, const char *file, const int line, const int altLine)
+{
+    SgStatement* local = SgStatement::getStatementByFileAndLine(file, line);
+    if (local == NULL)
+        local = SgStatement::getStatementByFileAndLine(file, altLine);
+    checkNull(local, convertFileName(__FILE__).c_str(), __LINE__);
+    return local;
+}
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -226,7 +235,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                                 DIST::Arrays<int> &allArrays,
                                 const std::set<DIST::Array*> &acrossOutAttribute,
                                 const map<DIST::Array*, pair<vector<ArrayOp>, vector<bool>>> &readOps, 
-                                Statement *loop, const int regionId,
+                                Statement *loop, const int line, const int altLine, const int regionId,
                                 const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     string directive = "";
@@ -235,7 +244,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     SgForStmt *loopG = (SgForStmt *)loop->GetOriginal();
     const set<string> usedInLoop = fillUsedSymbols(loopG);
 
-    map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(loop->GetOriginal());
+    map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(getRealStat(loop, file->filename(), line, altLine));
     const int nested = loopG->isPerfectLoopNest();
     vector<SgSymbol*> loopSymbs;
     for (int z = 0; z < nested; ++z)

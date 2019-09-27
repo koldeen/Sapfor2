@@ -26,8 +26,8 @@ extern void addToGlobalBufferAndPrint(const std::string&);
 extern std::string convertFileName(const char *file);
 
 #if _WIN32 && NDEBUG
-#define BOOST_STACKTRACE_USE_WINDBG
-#include <boost/stacktrace.hpp>
+//#define BOOST_STACKTRACE_USE_WINDBG
+//#include <boost/stacktrace.hpp>
 void printStackTrace()
 {
     /*__spf_print(1, "printStack\n");

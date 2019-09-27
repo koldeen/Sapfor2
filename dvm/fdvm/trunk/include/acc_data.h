@@ -31,6 +31,10 @@ extern int DVM_DEBUG_LVL;
 extern const int rtTypes[];
 
 extern std::set<std::string> intrinsicF;
+extern std::set<std::string> intrinsicDoubleT;
+extern std::set<std::string> intrinsicFloatT;
+extern std::set<std::string> intrinsicInt4T;
+
 extern std::map<char, const char*> SpecialSymbols;
 extern std::vector <SgFunctionCallExp* > RTC_FCall;
 extern std::vector<SgExpression* > RTC_FArgs;

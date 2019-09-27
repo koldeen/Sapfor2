@@ -2076,7 +2076,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
           all_replicated=0; 
           if(stmt->lexPrev() != func && stmt->lexPrev()->variant()!=USE_STMT) 
             err("Misplaced USE statement", 639, stmt); 
-          RenamingDvmArraysByUse(stmt); 
+     
           continue;
         }
 
@@ -7972,13 +7972,28 @@ SgExpression * coef_ref (SgSymbol *ar, int n) {
 // creates cofficient for dvm-array addressing
 //array header reference Header(n)  or its copy reference
 // Header(0:n+1) - distributed array descriptor
+
   if(inparloop && !HPF_program || for_kernel) { /*ACC*/
+   
      coeffs * scoef;
-     scoef = AR_COEFFICIENTS(ar); //(coeffs *) ar->attributeValue(0,ARRAY_COEF);
+
+     if(IS_BY_USE(ar) && !ar->attributeValue(0,ARRAY_COEF) && strcmp(ar->identifier(),ORIGINAL_SYMBOL(ar)->identifier())) {
+        //adding the distributed array symbol 'ar' to symb_list 'dsym'
+        if(!(ar->attributes() & DVM_POINTER_BIT))
+           AddDistSymbList(ar);
+        // creating variables used for optimization array references in parallel loop
+        scoef  = new coeffs;
+        CreateCoeffs(scoef,ar);
+        // adding the attribute (ARRAY_COEF) to distributed array symbol
+        ar->addAttribute(ARRAY_COEF, (void*) scoef, sizeof(coeffs));
+    
+     } else
+        scoef = AR_COEFFICIENTS(ar); //(coeffs *) ar->attributeValue(0,ARRAY_COEF);
+
      dvm_ar=AddNewToSymbList(dvm_ar,ar);
      scoef->use = 1;
      return (new SgVarRefExp(*(scoef->sc[n]))); //!!!must be 2<= n <=Rank(ar)+2
-     
+            
   } else    
     return( new SgArrayRefExp(*ar, *new SgValueExp(n)));
 }

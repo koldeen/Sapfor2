@@ -11,7 +11,7 @@ extern "C" void addToCollection(const int line, const char *file, void *pointer,
 extern "C" void removeFromCollection(void *pointer);
 #endif
 
-#if __SPF && NDEBUG
+#if __SPF && NDEBUG && __BOOST
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -368,7 +368,7 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         perfectNestedLevel = doloop->isPerfectLoopNest();
         // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
-#if __SPF && NDEBUG
+#if __SPF && NDEBUG && __BOOST
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif        

@@ -11,7 +11,7 @@
 #include <tuple>
 #include <limits.h>
 
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -202,7 +202,7 @@ namespace Distribution
             return;
 
         color[V] = GREY;
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif

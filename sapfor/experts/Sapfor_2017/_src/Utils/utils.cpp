@@ -857,7 +857,7 @@ vector<int> findLinksBetweenArrays(DIST::Array *from, DIST::Array *to, const int
     }
 }
 
-std::wstring to_wstring(const std::string &str) { return std::wstring(str.begin(), str.end()); }
+std::wstring to_wstring(const std::string str) { return std::wstring(str.begin(), str.end()); }
 
 template<typename objT>
 objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject)

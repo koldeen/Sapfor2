@@ -7,6 +7,7 @@
 #include "dvm.h"
 
 using std::string;
+using std::set;
 
 // copy input string to another buffer 
 char *copyOfUnparse(const char *strUp)
@@ -479,6 +480,82 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert("mpi_wtick");
     intrinsicF.insert("mpi_wtime");
 #endif
+
+    // set Types
+    intrinsicDoubleT.insert(string("ddim"));
+    intrinsicDoubleT.insert(string("dble"));
+    intrinsicDoubleT.insert(string("dfloat"));
+    intrinsicDoubleT.insert(string("dfloti"));
+    intrinsicDoubleT.insert(string("dflotj"));
+    intrinsicDoubleT.insert(string("dflotk"));
+#ifdef __SPF
+    intrinsicDoubleT.insert(string("dint"));
+#endif
+    intrinsicDoubleT.insert(string("dmax1"));
+    intrinsicDoubleT.insert(string("dmin1"));
+    intrinsicDoubleT.insert(string("dmod"));
+    intrinsicDoubleT.insert(string("dprod"));
+    intrinsicDoubleT.insert(string("dreal"));
+    intrinsicDoubleT.insert(string("dsign"));
+    intrinsicDoubleT.insert(string("dshiftl"));
+    intrinsicDoubleT.insert(string("dshiftr"));
+    intrinsicDoubleT.insert(string("dabs"));
+    intrinsicDoubleT.insert(string("dsqrt"));
+    intrinsicDoubleT.insert(string("dexp"));
+    intrinsicDoubleT.insert(string("dlog"));
+    intrinsicDoubleT.insert(string("dlog10"));
+    intrinsicDoubleT.insert(string("dsin"));
+    intrinsicDoubleT.insert(string("dcos"));
+    intrinsicDoubleT.insert(string("dcosd"));
+    intrinsicDoubleT.insert(string("dtan"));
+    intrinsicDoubleT.insert(string("dtand"));
+    intrinsicDoubleT.insert(string("dasin"));
+    intrinsicDoubleT.insert(string("dasind"));
+    intrinsicDoubleT.insert(string("dasinh"));
+    intrinsicDoubleT.insert(string("dacos"));
+    intrinsicDoubleT.insert(string("dacosd"));
+    intrinsicDoubleT.insert(string("dacosh"));
+    intrinsicDoubleT.insert(string("datan"));
+    intrinsicDoubleT.insert(string("datand"));
+    intrinsicDoubleT.insert(string("datanh"));
+    intrinsicDoubleT.insert(string("datan2"));
+    intrinsicDoubleT.insert(string("datan2d"));
+    intrinsicDoubleT.insert(string("derf"));
+    intrinsicDoubleT.insert(string("derfc"));
+    intrinsicDoubleT.insert(string("dsind"));
+    intrinsicDoubleT.insert(string("dsinh"));
+    intrinsicDoubleT.insert(string("dcosh"));
+    intrinsicDoubleT.insert(string("dcotan"));
+    intrinsicDoubleT.insert(string("dcotand"));
+    intrinsicDoubleT.insert(string("dtanh"));
+#ifdef __SPF
+    intrinsicDoubleT.insert(string("dnint"));
+#endif
+    intrinsicDoubleT.insert(string("dcmplx"));
+    intrinsicDoubleT.insert(string("dconjg"));
+    intrinsicDoubleT.insert(string("dimag"));
+
+    intrinsicFloatT.insert(string("sngl"));
+    intrinsicFloatT.insert(string("real"));   
+    intrinsicFloatT.insert(string("float"));
+}
+
+//need to extend 
+int getIntrinsicFunctionType(const char* name)
+{
+    if (!name)
+        return 0;
+        
+    set<string>::iterator result = intrinsicF.find(name);
+    if (result == intrinsicF.end())
+        return 0;
+
+    if (intrinsicDoubleT.find(name) != intrinsicDoubleT.end())
+        return T_DOUBLE;
+    else if (intrinsicFloatT.find(name) != intrinsicFloatT.end())
+        return T_FLOAT;
+    
+    return 0;
 }
 
 int isIntrinsicFunctionName(const char *name)
@@ -487,7 +564,7 @@ int isIntrinsicFunctionName(const char *name)
         return 0;
 
     int retval = 1;
-    std::set<string>::iterator result = intrinsicF.find(name);
+    set<string>::iterator result = intrinsicF.find(name);
 
     if (result == intrinsicF.end())
         retval = 0;

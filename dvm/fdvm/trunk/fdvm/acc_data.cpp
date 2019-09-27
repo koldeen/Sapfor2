@@ -13,6 +13,10 @@ int DVM_DEBUG_LVL = 0;
 const int rtTypes[] = { rt_INT, rt_LLONG };
 
 std::set<std::string> intrinsicF;
+std::set<std::string> intrinsicDoubleT;
+std::set<std::string> intrinsicFloatT;
+std::set<std::string> intrinsicInt4T;
+
 std::map<char, const char*> SpecialSymbols;
 std::vector <SgFunctionCallExp* > RTC_FCall;
 std::vector<SgExpression* > RTC_FArgs;

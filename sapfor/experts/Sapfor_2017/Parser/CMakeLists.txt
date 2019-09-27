@@ -50,6 +50,7 @@ add_executable(Parser ${SOURCE_EXE})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
 add_definitions("-D __SPF")
+add_definitions("-D _CRT_SECURE_NO_WARNINGS")
 add_definitions("-D SYS5")
 add_definitions("-D YYDEBUG")
 

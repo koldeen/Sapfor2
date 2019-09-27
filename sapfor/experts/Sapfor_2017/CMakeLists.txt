@@ -48,53 +48,45 @@ include_directories(_src)
 include_directories(${FDVM_INCLUDES})
 include_directories(${FDVM_SAGE_LIB_INCLUDES})
 include_directories(${FDVM_SAGE_H_INCLUDES})
-#Ftransform includes
-include_directories(${FTRANSFORM_BASE}/CommonLib/include)
-include_directories(${FTRANSFORM_BASE}/SageTransformLib/include)
-include_directories(${FTRANSFORM_BASE}/SageUtils/include)
+ 
+set(VS_CALLS _src/VisualizerCalls/get_information.cpp
+		_src/VisualizerCalls/get_information.h
+		_src/VisualizerCalls/SendMessage.cpp
+		_src/VisualizerCalls/SendMessage.h)
+	
+set(VERIF _src/VerificationCode/CorrectVarDecl.cpp
+        _src/VerificationCode/IncludeChecker.cpp
+        _src/VerificationCode/LoopChecker.cpp
+        _src/VerificationCode/VerifySageStructures.cpp
+		_src/VerificationCode/verifications.h)
 
-set(SOURCE_EXE
-        ${fdvm_sources}/acc_analyzer.cpp
-        ${fdvm_sources}/acc_data.cpp
-        ${fdvm_sources}/acc_utilities.cpp
-        ${fdvm_sources}/calls.cpp
-        _src/DirectiveAnalyzer/DirectiveAnalyzer.cpp
-        _src/Distribution/Array.h
-        _src/Distribution/Arrays.h
-        _src/Distribution/CreateDistributionDirs.cpp
-        _src/Distribution/Cycle.cpp
-        _src/Distribution/Distribution.cpp
-        _src/Distribution/DvmhDirective.cpp
-        _src/Distribution/DvmhDirectiveBase.cpp
-        _src/Distribution/GraphCSR.cpp
-        _src/ExpressionTransform/expr_transform.cpp
-        _src/GraphCall/graph_calls.cpp
-        _src/GraphLoop/graph_loops_base.cpp
-        _src/GraphLoop/graph_loops.cpp
-        _src/LoopAnalyzer/allocations_prepoc.cpp
-        _src/LoopAnalyzer/dep_analyzer.cpp
-        _src/LoopAnalyzer/directive_creator.cpp
-        _src/LoopAnalyzer/insert_directive.cpp
-        _src/LoopAnalyzer/loop_analyzer.cpp
-        _src/LoopAnalyzer/remote_access.cpp
-        _src/LoopAnalyzer/spf_directive_preproc.cpp
-        _src/LoopConverter/array_assign_to_loop.cpp
-        _src/LoopConverter/enddo_loop_converter.cpp
-        _src/LoopConverter/loop_transform.cpp
-        _src/LoopConverter/swap_array_dims.cpp
-        _src/ParallelizationRegions/ParRegions.cpp
-        _src/PrivateAnalyzer/private_analyzer.cpp
-        _src/SageAnalysisTool/OmegaForSage/add-assert.c
-        _src/SageAnalysisTool/OmegaForSage/affine.c
-        _src/SageAnalysisTool/OmegaForSage/cover.c
-        _src/SageAnalysisTool/OmegaForSage/ddomega-build.c
-        _src/SageAnalysisTool/OmegaForSage/ddomega-use.c
-        _src/SageAnalysisTool/OmegaForSage/ddomega.c
-        _src/SageAnalysisTool/OmegaForSage/debug.c
-        _src/SageAnalysisTool/OmegaForSage/ip.c
-        _src/SageAnalysisTool/OmegaForSage/kill.c
-        _src/SageAnalysisTool/OmegaForSage/refine.c
-        _src/SageAnalysisTool/OmegaForSage/sagedriver.c
+set(UTILS _src/Utils/AstWrapper.h
+		_src/Utils/BoostStackTrace.cpp
+		_src/Utils/CommonBlock.h
+		_src/Utils/DefUseList.h
+		_src/Utils/errors.h
+		_src/Utils/leak_detector.h
+		_src/Utils/PassManager.h
+		_src/Utils/RationalNum.cpp
+		_src/Utils/RationalNum.h
+        _src/Utils/SgUtils.cpp
+		_src/Utils/SgUtils.h
+        _src/Utils/types.h
+        _src/Utils/utils.cpp
+		_src/Utils/utils.h
+		_src/Utils/version.h)
+		
+set(OMEGA _src/SageAnalysisTool/OmegaForSage/add-assert.cpp
+        _src/SageAnalysisTool/OmegaForSage/affine.cpp
+        _src/SageAnalysisTool/OmegaForSage/cover.cpp
+        _src/SageAnalysisTool/OmegaForSage/ddomega-build.cpp
+        _src/SageAnalysisTool/OmegaForSage/ddomega-use.cpp
+        _src/SageAnalysisTool/OmegaForSage/ddomega.cpp
+        _src/SageAnalysisTool/OmegaForSage/debug.cpp
+        _src/SageAnalysisTool/OmegaForSage/ip.cpp
+        _src/SageAnalysisTool/OmegaForSage/kill.cpp
+        _src/SageAnalysisTool/OmegaForSage/refine.cpp
+        _src/SageAnalysisTool/OmegaForSage/sagedriver.cpp
         _src/SageAnalysisTool/annotationDriver.cpp
         _src/SageAnalysisTool/arrayRef.cpp
         _src/SageAnalysisTool/computeInducVar.cpp
@@ -111,29 +103,184 @@ set(SOURCE_EXE
         _src/SageAnalysisTool/intrinsic.cpp
         _src/SageAnalysisTool/invariant.cpp
         _src/SageAnalysisTool/loopTransform.cpp
-        _src/SageAnalysisTool/set.cpp
-        _src/VerificationCode/CorrectVarDecl.cpp
-        _src/VerificationCode/IncludeChecker.cpp
-        _src/VerificationCode/LoopChecker.cpp
-        _src/VerificationCode/VerifySageStructures.cpp
-        _src/VisualizerCalls/get_information.cpp
-        _src/directive_parser.cpp
-        _src/SgUtils.cpp
-        _src/transforms.cpp
-        _src/utils.cpp)
+        _src/SageAnalysisTool/set.cpp)
+
+set(PRIV _src/PrivateAnalyzer/private_analyzer.cpp
+		_src/PrivateAnalyzer/private_analyzer.h
+		${fdvm_sources}/acc_analyzer.cpp
+        ${fdvm_sources}/acc_data.cpp
+        ${fdvm_sources}/acc_utilities.cpp
+        ${fdvm_sources}/calls.cpp
+		)
+		
+set(PARALLEL_REG _src/ParallelizationRegions/ParRegions.cpp
+		_src/ParallelizationRegions/ParRegions.h
+		_src/ParallelizationRegions/ParRegions_func.h
+		_src/ParallelizationRegions/expand_extract_reg.cpp
+		_src/ParallelizationRegions/expand_extract_reg.h
+		_src/ParallelizationRegions/resolve_par_reg_conflicts.cpp
+		_src/ParallelizationRegions/resolve_par_reg_conflicts.h)
+		
+set(LOOP_CONV _src/LoopConverter/array_assign_to_loop.cpp
+		_src/LoopConverter/array_assign_to_loop.h
+        _src/LoopConverter/enddo_loop_converter.cpp
+		_src/LoopConverter/enddo_loop_converter.h
+        _src/LoopConverter/loop_transform.cpp
+		_src/LoopConverter/loop_transform.h
+		_src/LoopConverter/loops_combiner.cpp
+		_src/LoopConverter/loops_combiner.h
+		_src/LoopConverter/loops_splitter.cpp
+		_src/LoopConverter/loops_splitter.h
+        _src/LoopConverter/private_arrays_breeder.cpp
+        _src/LoopConverter/private_arrays_breeder.h		
+        _src/LoopConverter/swap_array_dims.cpp
+		_src/LoopConverter/swap_array_dims.h
+		_src/LoopConverter/uniq_call_chain_dup.cpp
+		_src/LoopConverter/uniq_call_chain_dup.h)
+		
+set(CFG _src/CFGraph/CFG_BasicBlock.cpp
+		_src/CFGraph/CFG_BasicBlock.h
+		_src/CFGraph/CFG_Common.cpp
+		_src/CFGraph/CFG_Common.h		
+		_src/CFGraph/CFG_Variables.cpp
+		_src/CFGraph/CFG_Variables.h
+		_src/CFGraph/CFGraph.cpp
+		_src/CFGraph/CFGraph.h)
+		
+set(CREATE_INTER_T	_src/CreateInterTree/CreateInterTree.cpp
+		_src/CreateInterTree/CreateInterTree.h)
+
+set(DIRA  _src/DirectiveAnalyzer/DirectiveAnalyzer.cpp
+		_src/DirectiveAnalyzer/DirectiveAnalyzer.h)
+		
+set(DISTR _src/Distribution/Array.cpp
+        _src/Distribution/Array.h
+        _src/Distribution/Arrays.h
+        _src/Distribution/CreateDistributionDirs.cpp
+		_src/Distribution/CreateDistributionDirs.h
+        _src/Distribution/Cycle.cpp
+		_src/Distribution/Cycle.h
+        _src/Distribution/Distribution.cpp
+		_src/Distribution/Distribution.h
+        _src/Distribution/DvmhDirective.cpp
+		_src/Distribution/DvmhDirective.h
+		_src/Distribution/DvmhDirective_func.h
+        _src/Distribution/DvmhDirectiveBase.cpp
+		_src/Distribution/DvmhDirectiveBase.h
+        _src/Distribution/GraphCSR.cpp
+		_src/Distribution/GraphCSR.h)
+		
+set(DVMH_REG _src/DvmhRegions/DvmhRegionInserter.cpp
+		_src/DvmhRegions/DvmhRegionInserter.h)
+		
+set(DYNA _src/DynamicAnalysis/createParallelRegions.cpp
+		_src/DynamicAnalysis/createParallelRegions.h
+		_src/DynamicAnalysis/gcov_info.cpp
+		_src/DynamicAnalysis/gcov_info.h
+		_src/DynamicAnalysis/gCov_parser.cpp
+		_src/DynamicAnalysis/gCov_parser_func.h)
+
+set(EXPR_TRANSFORM _src/ExpressionTransform/control_flow_graph_part.cpp
+		_src/ExpressionTransform/expr_transform.cpp
+		_src/ExpressionTransform/expr_transform.h)
+		
+set(GR_CALL _src/GraphCall/graph_calls.cpp
+		_src/GraphCall/graph_calls.h
+		_src/GraphCall/graph_calls_base.cpp
+		_src/GraphCall/graph_calls_func.h)
+		
+set(GR_LOOP _src/GraphLoop/graph_loops_base.cpp
+        _src/GraphLoop/graph_loops.cpp
+		_src/GraphLoop/graph_loops.h
+		_src/GraphLoop/graph_loops_func.h)
+		
+set(INLINER _src/Inliner/CopySubprogramBetweenFiles.cpp
+		_src/Inliner/inliner.h)
+		
+set(LOOP_ANALYZER  _src/LoopAnalyzer/allocations_prepoc.cpp
+        _src/LoopAnalyzer/dep_analyzer.cpp
+        _src/LoopAnalyzer/directive_creator.cpp
+		_src/LoopAnalyzer/directive_creator_base.cpp
+		_src/LoopAnalyzer/directive_creator.h
+		_src/LoopAnalyzer/directive_parser.cpp
+		_src/LoopAnalyzer/directive_parser.h
+        _src/LoopAnalyzer/insert_directive.cpp
+        _src/LoopAnalyzer/loop_analyzer.cpp
+		_src/LoopAnalyzer/loop_analyzer.h
+        _src/LoopAnalyzer/remote_access.cpp
+		_src/LoopAnalyzer/shadow.cpp
+		_src/LoopAnalyzer/shadow.h
+        _src/LoopAnalyzer/spf_directive_preproc.cpp)
+		
+set(MAIN _src/Sapfor.cpp
+		_src/Sapfor.h
+		_src/SapforData.h)
+
+set(PREDICTOR _src/Predictor/PredictScheme.cpp
+              _src/Predictor/PredictScheme.h)
+		
+set(SOURCE_EXE		
+	${CFG}
+	${CREATE_INTER_T}
+	${DIRA}
+	${DISTR}
+	${DVMH_REG}
+	${DYNA}
+	${EXPR_TRANSFORM}
+	${GR_CALL}
+	${GR_LOOP}
+	${INLINER}
+	${LOOP_ANALYZER}
+	${LOOP_CONV}
+	${PARALLEL_REG}
+	${PRIV}
+	${OMEGA}
+	${UTILS}
+	${VERIF}		
+	${VS_CALLS}
+	${MAIN}
+	${PREDICTOR})
 
 add_executable(Sapfor_2017 ${SOURCE_EXE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+if (MSVC_IDE)
+   source_group (CFGraph FILES ${CFG})
+   source_group (CodeConverter FILES ${LOOP_CONV})
+   source_group (CreateIntervals FILES ${CREATE_INTER_T})
+   source_group (DirectiveAnalyzer FILES ${DIRA})
+   source_group (Distribution FILES ${DISTR})
+   source_group (DvmhRegions FILES ${DVMH_REG})
+   source_group (DynamicAnalysis FILES ${DYNA})
+   source_group (ExpressionTransform FILES ${EXPR_TRANSFORM})
+   source_group (CallGraph FILES ${GR_CALL})
+   source_group (LoopGraph FILES ${GR_LOOP})
+   source_group (Inliner FILES ${INLINER})
+   source_group (LoopAnalyzer FILES ${LOOP_ANALYZER})
+   source_group (ParallelizationRegions FILES ${PARALLEL_REG})
+   source_group (PrivateAnalyzer FILES ${PRIV})	  
+   source_group (SageExtension FILES ${OMEGA})
+   source_group (Utils FILES ${UTILS})
+   source_group (VerificationCode FILES ${VERIF})	     
+   source_group (VisualizerCalls FILES ${VS_CALLS})
+   source_group (_SapforMain FILES ${MAIN})
+   source_group (Predictor FILES ${PREDICTOR})
+   
+endif()
+
 #commented for debugging
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_definitions("-D __SPF")
+add_definitions("-D _CRT_SECURE_NO_WARNINGS")
+add_definitions("-D _CRT_NON_CONFORMING_SWPRINTFS")
+
 add_subdirectory(SageOldSrc)
 add_subdirectory(SageNewSrc)
 add_subdirectory(SageLib)
-add_subdirectory(TransformCommonLib)
-add_subdirectory(TransformUtils)
-add_subdirectory(TransformLib)
+add_subdirectory(Parser)
+add_subdirectory(Inliner)
 
-add_definitions("-D _ARBU")
-target_link_libraries(Sapfor_2017 TransformLib TransformUtils TransformCommonLib SageNewSrc SageLib gomp)
+target_link_libraries(Sapfor_2017 SageNewSrc SageLib SageOldSrc)
+
+#install(TARGETS <name.exe/dll>
+#    LIBRARY DESTINATION <name_f>
+#	RUNTIME DESTINATION <name_f>)

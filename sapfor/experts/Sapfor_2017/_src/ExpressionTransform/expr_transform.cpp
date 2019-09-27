@@ -1,6 +1,6 @@
 #include "../Utils/leak_detector.h"
 
-#if _WIN32 && NDEBUG && __SPF
+#if _WIN32 && NDEBUG && __SPF && __BOOST
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -950,30 +950,30 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
     bool wereReplacements = true;
     while (wereReplacements)
     {
-#if _WIN32 && NDEBUG && __SPF 
+#if _WIN32 && NDEBUG && __SPF && __BOOST 
         if (passDone == 2)
             throw boost::thread_interrupted();
 #endif
         __spf_print(PRINT_PROF_INFO_TIME, "New substitution iteration\n");
-        double time = omp_get_wtime();
+        double time = 0;// omp_get_wtime();
 
         wereReplacements = false;
         visitedStatements.clear();
 
-        __spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", omp_get_wtime() - time);
-        time = omp_get_wtime();
+        //__spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", omp_get_wtime() - time);
+        //time = omp_get_wtime();
 
         ClearCFGInsAndOutsDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", omp_get_wtime() - time);
-        time = omp_get_wtime();
+        //__spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", omp_get_wtime() - time);
+        //time = omp_get_wtime();
 
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-        __spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", omp_get_wtime() - time);
-        time = omp_get_wtime();
+        //__spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", omp_get_wtime() - time);
+        //time = omp_get_wtime();
 
         CorrectInDefs(CGraph);
-        __spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", omp_get_wtime() - time);
-        time = omp_get_wtime();
+        //__spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", omp_get_wtime() - time);
+        //time = omp_get_wtime();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         {
@@ -981,7 +981,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
-        __spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", omp_get_wtime() - time);
+        //__spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", omp_get_wtime() - time);
     }
 }
 

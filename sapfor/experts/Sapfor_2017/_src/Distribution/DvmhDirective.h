@@ -121,7 +121,7 @@ public:
                      DIST::Arrays<int> &allArrays,
                      const std::set<DIST::Array*> &acrossOutAttribute, 
                      const std::map<DIST::Array*, std::pair<std::vector<ArrayOp>, std::vector<bool>>> &readOps,
-                     Statement *loop, const int regionId,
+                     Statement *loop, const int line, const int altLine, const int regionId,
                      const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
     friend ParallelDirective* operator+(const ParallelDirective &first, const ParallelDirective &second);

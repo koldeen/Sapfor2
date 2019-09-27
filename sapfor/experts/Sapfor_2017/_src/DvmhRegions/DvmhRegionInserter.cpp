@@ -50,7 +50,7 @@ void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops) //
 bool DvmhRegionInsertor::hasLimitsToDvmhParallel(const LoopGraph *loop) const
 {
     bool hasDirective = false;
-    if (loop->lineNum > 0 || (loop->lineNum < 0 && loop->altLineNum > 0))
+    if (loop->lineNum > 0 || (loop->lineNum < 0 && loop->altLineNum > 0 && loop->directive))
         hasDirective = (loop->loop->GetOriginal()->lexPrev()->variant() == DVM_PARALLEL_ON_DIR);
 
     return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls || !loop->directive || !hasDirective;
@@ -222,7 +222,7 @@ static void fillInfo(SgStatement *start,
             break;
         if (st->variant() == CONTAINS_STMT)
             break;
-        if (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR)
+        if (st != start && (st->variant() == PROC_HEDR || st->variant() == FUNC_HEDR))
             break;
         fillUseStatement(st, useMod, modByUse, modByUseOnly);
     }

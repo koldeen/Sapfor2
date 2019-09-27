@@ -25,7 +25,7 @@ void printBlanks(const int sizeOfBlank, const int countOfBlanks);
 void addToGlobalBufferAndPrint(const std::string &toPrint);
 void clearGlobalBuffer();
 const std::string& getGlobalBuffer();
-std::wstring to_wstring(const std::string&);
+std::wstring to_wstring(const std::string);
 void convertGlobalBuffer(short *&result, int *&resultSize);
 void clearGlobalMessagesBuffer();
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize);

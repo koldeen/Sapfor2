@@ -2498,7 +2498,8 @@ void ACC_CreateParallelLoop(int ipl, SgStatement *first_do, int nloop, SgStateme
     // error checking
     CompareReductionAndPrivateList();
     TestPrivateList();
-
+    // removing different names of the same variable "by use"
+    RemovingDifferentNamesOfVar(first_do);
     // creating uses_list 
     assigned_var_list = NULL;
     for_shadow_compute = clause[SHADOW_COMPUTE_] ? 1 : 0;  // for optimization of shadow_compute 
@@ -2859,7 +2860,7 @@ void FormatAndDataStatementExport(SgStatement *par_dir, SgStatement *first_do)
 }
 
 void    CreateStructuresForReductions(SgExpression *red_op_list)
-{
+{           
     SgExpression  *er = NULL, *ev = NULL, *ered = NULL, *loc_var_ref = NULL, *en = NULL, *esize = NULL;
 
     reduction_operation_list *rl = NULL;
@@ -2940,12 +2941,55 @@ void TestPrivateList()
     for (el = private_list; el; el = el->rhs())
     {
         for (el2 = el->rhs(); el2; el2 = el2->rhs())
-        if (el->lhs()->symbol() == el2->lhs()->symbol())
+        if (ORIGINAL_SYMBOL(el->lhs()->symbol()) == ORIGINAL_SYMBOL(el2->lhs()->symbol()))
             Error("'%s' appears twice in PRIVATE clause", el->lhs()->symbol()->identifier(), 610, dvm_parallel_dir);
     }
     return;
 }
 
+void ReplaceSymbolInExpr(SgExpression *e,SgSymbol *symb)
+{
+    if(!e) return;
+    if(isSgVarRefExp(e) || isSgArrayRefExp(e))
+    {
+       if(ORIGINAL_SYMBOL(e->symbol()) == ORIGINAL_SYMBOL(symb) && e->symbol() != symb)
+          e->setSymbol(symb);
+       return;
+    }
+    ReplaceSymbolInExpr(e->lhs(),symb);
+    ReplaceSymbolInExpr(e->rhs(),symb);
+    return;
+}
+
+void ReplaceSymbolInLoop (SgStatement *first, SgSymbol *symb)
+{
+    SgStatement *last=lastStmtOfDo(first);
+    SgStatement *stmt;
+    for( stmt=first; stmt!=last; stmt=stmt->lexNext())
+    {
+        ReplaceSymbolInExpr(stmt->expr(0), symb);
+	ReplaceSymbolInExpr(stmt->expr(1), symb);
+	ReplaceSymbolInExpr(stmt->expr(2), symb);
+    }
+}
+
+void RemovingDifferentNamesOfVar(SgStatement *first)
+{
+    SgExpression *el;
+    for (el = private_list; el; el = el->rhs())
+    {   
+        if(IS_BY_USE(el->lhs()->symbol()))             
+            ReplaceSymbolInLoop(first,el->lhs()->symbol());
+    }
+    reduction_operation_list *rsl;
+    for (rsl = red_struct_list; rsl; rsl = rsl->next)
+    {
+        if (IS_BY_USE(rsl->redvar))
+            ReplaceSymbolInLoop(first,rsl->redvar);
+        if (rsl->locvar &&  IS_BY_USE(rsl->locvar))
+            ReplaceSymbolInLoop(first,rsl->locvar);
+    }	
+}
 
 void ACC_ReductionVarsAreActual()
 {
@@ -3842,7 +3886,7 @@ int isPrivate(SgSymbol *s)
     SgExpression *el;
     for (el = private_list; el; el = el->rhs())
     {
-        if (el->lhs()->symbol() == s)
+        if (ORIGINAL_SYMBOL(el->lhs()->symbol()) == ORIGINAL_SYMBOL(s))
             return(1);
     }
     return(0);
@@ -3869,10 +3913,10 @@ int isReductionVar(SgSymbol *s)
 {
     reduction_operation_list *rl;
     for (rl = red_struct_list; rl; rl = rl->next)
-    {
-        if (rl->redvar == s)
+    { 
+        if(ORIGINAL_SYMBOL(rl->redvar) == ORIGINAL_SYMBOL(s))
             return(1);
-        if (rl->locvar && rl->locvar == s)
+        if (rl->locvar && ORIGINAL_SYMBOL(rl->locvar) == ORIGINAL_SYMBOL(s))
             return(1);
     }
     return(0);

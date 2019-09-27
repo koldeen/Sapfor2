@@ -12,7 +12,7 @@
 #include <climits>
 #include <cstring>
 
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -221,7 +221,7 @@ namespace Distribution
             //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
             if (passDone == 2)
                 throw boost::thread_interrupted();
 #endif
@@ -260,7 +260,7 @@ namespace Distribution
                     }
                     else
                     {
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
                         if (passDone == 2)
                             throw boost::thread_interrupted();
 #endif

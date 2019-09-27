@@ -956,7 +956,6 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
 
     
     SgAssignStmt *init = new SgAssignStmt(*(assign->expr(0)), *(new SgValueExp(0)));   //      sum = 0 
-    result.push_back(init);
 
     __spf_print(1, "%s\n", " _______ ");
     __spf_print(1, "%s", string(init->unparse()).c_str());
@@ -966,7 +965,8 @@ static vector<SgStatement*> convertFromSumToLoop(SgStatement *assign, SgFile *fi
     newRightPart->setRhs(copy->expr(1));
     copy->setExpression(1, *newRightPart);
 
-    result.push_back(retVal);    
+    result.push_back(retVal);
+    result.push_back(init);
     __spf_print(1, "%s", string(retVal->unparse()).c_str());
 
     return result;
@@ -1264,11 +1264,15 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
 
             currProcessing.second = st->lineNumber();
 
+            bool isFCALL = false;
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
                 vector<SgStatement*> conv;
                 if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                {
                     conv = convertFromSumToLoop(st, file, messagesForFile);
+                    isFCALL = true;
+                }
                 else
                 {
                     if (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP || st->expr(1)->variant() == SUBT_OP)
@@ -1285,18 +1289,15 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                 }
 
                 //TODO: need to check
-                    
                 if (conv.size() != 0)
                 {
                     auto currFile = st->getFileId();
                     auto currProj = st->getProject();
 
-                    st->insertStmtBefore(*(conv[0]), *st->controlParent());
-                    for (int i = 1; i < conv.size(); ++i)
-                        st->insertStmtBefore(*(conv[i]), *(conv[i - 1])->controlParent());
+                    for (int i = conv.size() - 1; i >= 0 ; --i)
+                        st->insertStmtBefore(*(conv[i]), *st->controlParent());
 
-                    //TODO: need to check
-                    if (conv.size() == 1)
+                    if (conv.size() >= 1)
                         toMove.push_back(make_pair(st, conv[0]));
 
                     for (int i = 0; i < conv.size(); ++i)
@@ -1342,11 +1343,13 @@ bool notDeletedVectorAssign(SgStatement *st)
 {
     if (!st)
         return false;
-    if (!st->expr(1))
+
+    SgExpression* rPart = st->expr(1);
+    if (!rPart)
         return false;
 
-    return (st->expr(1)->variant() == ADD_OP || st->expr(1)->variant() == MULT_OP || st->expr(1)->variant() == SUBT_OP || 
-            st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"));
+    const int var = rPart->variant();
+    return (var == ADD_OP || var == MULT_OP || var == SUBT_OP || var == FUNC_CALL && !strcmp(rPart->symbol()->identifier(), "sum"));
 }
 
 static bool isUnderParallelLoop(SgStatement *st)
@@ -1416,7 +1419,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
         }
 
         for (st = file->functions(i); st != lastNode; st = st->lexNext())
-        {            
+        {
             currProcessing.second = st->lineNumber();
             for (auto &data : getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ASSIGN_STAT }))
             {
@@ -1432,7 +1435,8 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
                 }
                 else
                 {
-                    if (data->lineNumber() < 0 && (isUnderParallelLoop(st) || notDeletedVectorAssign(st)))
+                    if (data->lineNumber() < 0 && 
+                        (isUnderParallelLoop(st) || (notDeletedVectorAssign(st) && st->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)))
                     {
                         toMove.push_back(make_pair(st, data));
                         st->insertStmtAfter(*data, *st->controlParent());
@@ -1458,7 +1462,7 @@ void restoreConvertedLoopForParallelLoops(SgFile *file, bool reversed)
             }
         }
 
-        for (auto &move : toMove)
+        for (auto& move : toMove)
             move.first->extractStmt();
 
         //insert new declaration of symbols for converted loops

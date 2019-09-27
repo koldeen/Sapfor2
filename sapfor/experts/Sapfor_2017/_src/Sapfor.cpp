@@ -1546,7 +1546,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         if (maxSizeDist)
         {
             const int procNum = 8;
-            topologies = getTopologies(procNum, maxSizeDist);
+            //TODO:
+            //topologies = getTopologies(procNum, maxSizeDist);
+            throw -10;
 
             const int countOfTop = topologies.size();
             if (countOfTop < 0)
@@ -1577,7 +1579,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                     auto fountRem = findAllSingleRemotes(file, parallelRegions[z]->GetId(), parallelRegions);
                     allSingleRemotes.insert(allSingleRemotes.end(), fountRem.begin(), fountRem.end());
                 }
-                int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);
+                //TODO!
+                //int err = predictScheme(parallelRegions[z], currentVar, allArrays.GetArrays(), parallelDirs, intervals, SPF_messages, allSingleRemotes, maxSizeDist, procNum);                
                 /*if (err != 0)
                     internalExit = err;*/
             }
@@ -1733,6 +1736,8 @@ static void findFunctionsToInclude(bool needToAddErrors)
 
     if (failed > 0 && needToAddErrors)
         throw -5;
+    /*else if (failed < 0)
+        throw -6;*/
 }
 
 static SgProject* createProject(const char *proj_name)
@@ -2149,7 +2154,7 @@ int main(int argc, char **argv)
     }
 
     deleteAllAllocatedData(withDel);
-
+    
 #if _WIN32 && _DEBUG
     if (leakMemDump)
     {

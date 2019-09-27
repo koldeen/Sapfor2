@@ -11,8 +11,8 @@
 #include "../Distribution/Array.h"
 #include "dvm.h"
 
-#include "../errors.h"
-#include "../utils.h"
+#include "../Utils/errors.h"
+#include "../Utils/utils.h"
 
 using namespace std;
 

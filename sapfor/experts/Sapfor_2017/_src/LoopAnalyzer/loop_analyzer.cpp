@@ -16,7 +16,7 @@
 #include <utility>
 #include <assert.h>
 
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
 extern int passDone;
 #endif
@@ -1657,7 +1657,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
             if (passDone == 2)
                 throw boost::thread_interrupted();
 #endif
@@ -2288,7 +2288,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();
-#if _WIN32 && NDEBUG
+#if _WIN32 && NDEBUG && __BOOST
             if (passDone == 2)
                 throw boost::thread_interrupted();
 #endif
@@ -2497,7 +2497,7 @@ static SgExpression* getTypeLengthExpr(SgType *t)
         return CalculateInteger(getLengthOfKindExpr(t, selector, len)); //specified kind or/and len
 }
 
-static inline int getSizeOfType(SgType *t)
+int getSizeOfType(SgType *t)
 {
     int len = -1;
     if (IS_INTRINSIC_TYPE(t))
