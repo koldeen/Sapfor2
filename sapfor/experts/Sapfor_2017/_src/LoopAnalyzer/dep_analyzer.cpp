@@ -16,6 +16,7 @@
 #include <utility>
 #include <assert.h>
 #include <omp.h>
+#include <chrono>
 
 #include "dvm.h"
 #include "loop_analyzer.h"
@@ -35,6 +36,9 @@ using std::make_tuple;
 using std::get;
 using std::string;
 using std::wstring;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
 
 typedef enum { ddflow, ddanti, ddoutput, ddreduce } ddnature;
 extern map<LoopGraph*, depGraph*> depInfoForLoopGraph;
@@ -112,15 +116,15 @@ static SgStatement* getCurrentFunc(SgStatement *st)
 depGraph *getDependenciesGraph(LoopGraph *currLoop, SgFile *file, const set<string> *privVars)
 {
     SgForStmt *currLoopRef = (SgForStmt*)currLoop->loop->GetOriginal();
-    double t = 0;// omp_get_wtime();
+    auto t = high_resolution_clock::now();
 
     map<SgExpression*, string> tmpCollection;
     currentCollection = &tmpCollection;
 
     depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, *privVars);
-    //t = omp_get_wtime() - t;
-    if (t > 1.0)
-        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);
+    float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - t).count() / 1000.;
+    if (elapsed > 1.0f)
+        printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, elapsed);
     currentCollection = NULL;
     return depg;
 }
@@ -201,11 +205,11 @@ void tryToFindDependencies(LoopGraph *currLoop, const map<int, pair<SgForStmt*, 
         currentNonDistrArrays = NULL;
         currentCollection = NULL;
 
-        /*double t = omp_get_wtime();
+        /*auto t = high_resolution_clock::now();
         depGraph *depg = new depGraph(file, getCurrentFunc(currLoopRef), currLoopRef, privVars);
-        t = omp_get_wtime() - t;
-        if (t > 1.0)
-            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, t);*/
+        float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - t).count() / 1000.;
+        if (elapsed > 1.0f)
+            printf("SAPFOR: time of graph bulding for loop %d = %f sec\n", currLoop->lineNum, elapsed);*/
 
         if (depg)
         {

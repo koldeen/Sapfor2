@@ -217,3 +217,4 @@ struct CallV
 void propagateArrayFlags(const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays, std::map<std::string, std::vector<Messages>> &SPF_messages);
 void removeDistrStateFromDeadFunctions(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>& declaratedArrays);
 bool detectMpiCalls(const std::map<std::string, std::vector<FuncInfo*>>& allFuncInfo, std::map<std::string, std::vector<Messages>>& SPF_messages);
+parF detectExpressionType(SgExpression *exp);

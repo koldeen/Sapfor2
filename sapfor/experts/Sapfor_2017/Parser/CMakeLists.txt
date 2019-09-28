@@ -48,7 +48,14 @@ set(SOURCE_EXE
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 add_executable(Parser ${SOURCE_EXE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
+if (MSVC_IDE)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+else()
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()
+
 add_definitions("-D __SPF")
 add_definitions("-D _CRT_SECURE_NO_WARNINGS")
 add_definitions("-D SYS5")

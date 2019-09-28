@@ -10,8 +10,8 @@ extern "C" void removeFromCollection(void *pointer);
 
 #if __SPF && NDEBUG && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 #include "sage++user.h"
 #include "definesValues.h"
@@ -62,6 +62,7 @@ void dummyPrint(void *e1)
 // comming from depGraph.c
 ///////////////////////////////////////////////////////////////////////////
 #include "depGraph.h"
+#include "../VisualizerCalls/get_information.h"
 extern depGraph *currentDepGraph;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -727,8 +728,7 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     for (i = 0; i < inset->size(); i++)
     {
 #if __SPF && NDEBUG && __BOOST
-        if (passDone == 2)
-            throw boost::thread_interrupted();
+        createNeededException();
 #endif
         el1 = (PT_ACCESSARRAY)inset->getElement(i);
         if (el1)

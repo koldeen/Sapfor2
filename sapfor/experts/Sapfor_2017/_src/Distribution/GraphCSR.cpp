@@ -13,14 +13,15 @@
 
 #if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 #include "Cycle.h"
 #include "Arrays.h"
 #include "Array.h"
 #include "../Utils/errors.h"
 #include "../Utils/utils.h"
+#include "../VisualizerCalls/get_information.h"
 
 #include "GraphCSR.h"
 
@@ -203,8 +204,7 @@ namespace Distribution
 
         color[V] = GREY;
 #if _WIN32 && NDEBUG && __BOOST
-        if (passDone == 2)
-            throw boost::thread_interrupted();
+        createNeededException();
 #endif
 
         for (vType i = neighbors[V]; i < neighbors[V + 1]; ++i)

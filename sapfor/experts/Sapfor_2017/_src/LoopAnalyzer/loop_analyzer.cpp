@@ -18,8 +18,8 @@
 
 #if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 #include "../Distribution/Distribution.h"
 #include "../Distribution/GraphCSR.h"
@@ -1658,8 +1658,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         {
             currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG && __BOOST
-            if (passDone == 2)
-                throw boost::thread_interrupted();
+            createNeededException();
 #endif
             if (st == NULL)
             {
@@ -2289,8 +2288,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         {
             currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG && __BOOST
-            if (passDone == 2)
-                throw boost::thread_interrupted();
+            createNeededException();
 #endif
             if (st == NULL)
             {

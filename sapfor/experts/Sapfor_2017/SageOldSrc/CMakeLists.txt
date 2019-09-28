@@ -52,3 +52,11 @@ set(SOURCE_LIB
 # if not default ${fdvm_include}, ${sage_include_1}, ${sage_include_2} must be set in ../paths.txt
 include_directories(${fdvm_include} ${sage_include_1} ${sage_include_2})
 add_library(SageOldSrc STATIC ${SOURCE_LIB})
+
+if (MSVC_IDE)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+else()
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()

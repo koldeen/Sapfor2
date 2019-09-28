@@ -36,6 +36,7 @@
 #include "../DynamicAnalysis/gCov_parser_func.h"
 #include "../Distribution/CreateDistributionDirs.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
+#include <thread>
 
 using std::string;
 using std::wstring;
@@ -129,6 +130,12 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
         return;
     }
 #endif
+    catch (std::exception&)
+    {
+        printf("SAPFOR: thread was terminated\n");
+        fflush(NULL);
+        return;
+    }
     catch (int ex)
     {
         __spf_print(1, "catch code %d\n", ex);
@@ -164,8 +171,9 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
              
         passDone = 0;
         rethrow = 0;
-#if __BOOST
-        boost::thread thread { runPassesLoop, passesToRun, prName, folderNameChar };
+
+        std::thread thread { runPassesLoop, passesToRun, prName, folderNameChar };
+
         int timeToWait = 10;
         int steps = 0;
         while (passDone == 0)
@@ -174,8 +182,8 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
             if (interrupt)
             {
                 printf("SAPFOR: file exists, start interruption\n");
-                fflush(NULL);
-                thread.interrupt();
+                fflush(NULL);                
+                //thread.interrupt();
                 fclose(interrupt);
                 passDone = 2;
             }
@@ -195,7 +203,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         printf("SAPFOR: start wait thread join, pass == %d\n", passDone);
         thread.join();
         printf("SAPFOR: end wait thread join\n");
-#endif
+
         if (passDone == 2)
             rethrow = 1;
     }
@@ -1348,9 +1356,7 @@ void SPF_deleteAllAllocatedData()
 
 void createNeededException()
 {
-#if __BOOST
     if (passDone == 2)
-        throw boost::thread_interrupted();
-#endif
+        throw std::exception();
 }
 #endif

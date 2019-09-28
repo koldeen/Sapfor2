@@ -2,8 +2,8 @@
 
 #if _WIN32 && NDEBUG && __SPF && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 #include "dvm.h"
 #include <stdlib.h>
@@ -16,6 +16,7 @@ extern int passDone;
 #include <iterator>
 #include <fstream>
 #include <omp.h>
+#include <chrono>
 
 #include "../ParallelizationRegions/ParRegions.h"
 #include "../ParallelizationRegions/ParRegions_func.h"
@@ -26,6 +27,7 @@ extern int passDone;
 #include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
 #include "expr_transform.h"
+#include <VisualizerCalls\get_information.h>
 
 using std::pair;
 using std::map;
@@ -36,7 +38,11 @@ using std::string;
 using std::iterator;
 using std::make_pair;
 using std::queue;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
 
+#define PRINT_SUBSTITUTION_ABORT 1
 #define PRINT_PROF_INFO 0
 #define PRINT_PROF_INFO_TIME 0
 /*
@@ -686,7 +692,19 @@ SgExpression* tryMakeInt(SgExpression* exp)
     return exp;
 }
 
-void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp, const int lineNumber)
+bool typesAreTheSame(SgExpression *oldExp, SgExpression *newExp, int lineNumber) {
+    paramType oldType = detectExpressionType(oldExp);
+    paramType newType = detectExpressionType(newExp);
+    if(oldType != newType) {
+        __spf_print(PRINT_SUBSTITUTION_ABORT, "%d: Substitution aborted %s -> ", lineNumber, oldExp->unparse());
+        __spf_print(PRINT_SUBSTITUTION_ABORT, "%s. Types do not match: %s != %s\n", newExp->unparse(), paramNames[oldType], paramNames[newType]);
+        return false;
+    }
+
+    return true;
+}
+
+bool setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp, const int lineNumber)
 {
     SgExpression *oldExp = rightSide ? parent->rhs() : parent->lhs();
 
@@ -698,6 +716,8 @@ void setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
     calculate(expToCopy);
 
     rightSide ? parent->setRhs(tryMakeInt(expToCopy)) : parent->setLhs(tryMakeInt(expToCopy));
+
+    return true;
 }
 
 bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b, bool replaceFirstVar)
@@ -713,16 +733,17 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
     {
 
         SgExpression* newExp = valueOfVar(exp, b);
-        if (newExp != NULL)
+        if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
         {
             createBackup(parent, expNumber);
+
             __spf_print(PRINT_PROF_INFO, "%d: %s -> ",parent->lineNumber(), exp->unparse());
             __spf_print(PRINT_PROF_INFO, "%s\n", newExp->unparse());
             incrementSubstitutionsCounter(PRINT_PROF_INFO);
             SgExpression* expToCopy = newExp->copyPtr();
             calculate(expToCopy);
             parent->setExpression(expNumber, *(tryMakeInt(expToCopy)));
-            wereReplacements = true;
+            return true;
         }
     }//If not
     else
@@ -738,11 +759,10 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                 if (exp->rhs()->variant() == VAR_REF)
                 {
                     SgExpression* newExp = valueOfVar(exp->rhs(), b);
-                    if (newExp != NULL)
+                    if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
                     {
                         createBackup(parent, expNumber);
-                        setNewSubexpression(exp, true, newExp, parent->lineNumber());
-                        wereReplacements = true;
+                        wereReplacements |= setNewSubexpression(exp, true, newExp, parent->lineNumber());
                     }
                 }
                 else
@@ -754,11 +774,10 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (exp->lhs()->variant() == VAR_REF)
                     {
                         SgExpression* newExp = valueOfVar(exp->lhs(), b);
-                        if (newExp != NULL)
+                        if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
                         {
                             createBackup(parent, expNumber);
-                            setNewSubexpression(exp, false, newExp, parent->lineNumber());
-                            wereReplacements = true;
+                            wereReplacements |= setNewSubexpression(exp, false, newExp, parent->lineNumber());
                         }
                     }
                     else
@@ -800,10 +819,9 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
         if(lhs->variant() == VAR_REF)
         {
             SgExpression* newExp = valueOfVar(lhs, b);
-            if (newExp != NULL)
+            if (newExp != NULL && typesAreTheSame(exp, newExp, lineNumber))
             {
-                setNewSubexpression(exp, false, newExp, lineNumber);
-                wereReplacements = true;
+                wereReplacements |= setNewSubexpression(exp, false, newExp, lineNumber);
             }
         }
         else
@@ -815,10 +833,9 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
         if(rhs->variant() == VAR_REF)
         {
             SgExpression* newExp = valueOfVar(rhs, b);
-            if (newExp != NULL)
+            if (newExp != NULL && typesAreTheSame(exp, newExp, lineNumber))
             {
-                setNewSubexpression(exp, true, newExp, lineNumber);
-                wereReplacements = true;
+                wereReplacements |= setNewSubexpression(exp, true, newExp, lineNumber);
             }
         }
         else
@@ -868,10 +885,9 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
             if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
             {
                 SgExpression* newExp = valueOfVar(arg, b);
-                if (newExp != NULL)
+                if (newExp != NULL && typesAreTheSame(args, newExp, lineNumber))
                 {
-                    setNewSubexpression(args, false, newExp, lineNumber);
-                    wereReplacements = true;
+                    wereReplacements |= setNewSubexpression(args, false, newExp, lineNumber);
                 }
             }
             else if (arg->variant() != VAR_REF)
@@ -950,30 +966,33 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
     bool wereReplacements = true;
     while (wereReplacements)
     {
-#if _WIN32 && NDEBUG && __SPF && __BOOST 
-        if (passDone == 2)
-            throw boost::thread_interrupted();
+#if _WIN32 && NDEBUG && __SPF 
+        createNeededException();
 #endif
         __spf_print(PRINT_PROF_INFO_TIME, "New substitution iteration\n");
-        double time = 0;// omp_get_wtime();
-
+        
+        auto time = high_resolution_clock::now();
         wereReplacements = false;
         visitedStatements.clear();
 
-        //__spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", omp_get_wtime() - time);
-        //time = omp_get_wtime();
+        __spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", 
+                duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+        time = high_resolution_clock::now();
 
         ClearCFGInsAndOutsDefs(CGraph);
-        //__spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", omp_get_wtime() - time);
-        //time = omp_get_wtime();
+        __spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", 
+            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+        time = high_resolution_clock::now();
 
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
-        //__spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", omp_get_wtime() - time);
-        //time = omp_get_wtime();
+        __spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", 
+            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+        time = high_resolution_clock::now();
 
         CorrectInDefs(CGraph);
-        //__spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", omp_get_wtime() - time);
-        //time = omp_get_wtime();
+        __spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", 
+            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+        time = high_resolution_clock::now();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
         {
@@ -981,7 +1000,8 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
             if (replaceVarsInBlock(b))
                 wereReplacements = true;
         }
-        //__spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", omp_get_wtime() - time);
+        __spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", 
+            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
     }
 }
 

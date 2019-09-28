@@ -8,7 +8,6 @@ project(${project})
 message("processing ${project}")
 #include(CTest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 add_definitions("-D SYS5")
 add_definitions("-D YYDEBUG")
 
@@ -265,10 +264,12 @@ if (MSVC_IDE)
    source_group (_SapforMain FILES ${MAIN})
    source_group (Predictor FILES ${PREDICTOR})
    
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+else()
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 
-#commented for debugging
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 add_definitions("-D __SPF")
 add_definitions("-D _CRT_SECURE_NO_WARNINGS")
 add_definitions("-D _CRT_NON_CONFORMING_SWPRINTFS")

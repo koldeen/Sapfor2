@@ -42,3 +42,11 @@ add_library(SageNewSrc STATIC ${SOURCE_LIB})
 
 add_subdirectory(../SageOldSrc ${CMAKE_CURRENT_BINARY_DIR}/SageOldSrc)
 target_link_libraries(SageNewSrc SageOldSrc)
+
+if (MSVC_IDE)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+else()
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()

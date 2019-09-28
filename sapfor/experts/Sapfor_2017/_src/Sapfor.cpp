@@ -11,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include <omp.h>
+#include <chrono>
 #if _WIN32 && _DEBUG
 #include <crtdbg.h>
 #endif
@@ -73,6 +74,9 @@
 #include "Utils/PassManager.h"
 
 using namespace std;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
 
 int PASSES_DONE[EMPTY_PASS];
 bool PASSES_DONE_INIT = false;
@@ -395,7 +399,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     /// FIRST STEP - RUN ANALYSIS BY FILES ///
     // **********************************  ///
 #if _WIN32
-    double timeForPass = omp_get_wtime();
+    auto timeForPass = high_resolution_clock::now();
 #endif
     
     sgStats.clear();
@@ -1637,8 +1641,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         removeCopies(allFuncInfo);
 
 #if _WIN32
-    timeForPass = omp_get_wtime() - timeForPass;
-    __spf_print(1, "PROFILE: time for this pass = %f sec\n", timeForPass);
+    const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;
+    __spf_print(1, "PROFILE: time for this pass = %f sec\n", elapsed);
 #endif
 
     if (internalExit != 0)

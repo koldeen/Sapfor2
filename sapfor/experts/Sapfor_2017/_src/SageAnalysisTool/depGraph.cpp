@@ -13,11 +13,13 @@ extern "C" void removeFromCollection(void *pointer);
 
 #if __SPF && NDEBUG && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 #include "../GraphCall/graph_calls.h"
 #include "../Utils/errors.h"
+#include "../VisualizerCalls/get_information.h"
+
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"
@@ -369,8 +371,7 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
 #if __SPF && NDEBUG && __BOOST
-        if (passDone == 2)
-            throw boost::thread_interrupted();
+        createNeededException();        
 #endif        
         computeLoopDependencies(func, arrayRef, tsymb, induc);      
         scalarRefAnalysis(loop);

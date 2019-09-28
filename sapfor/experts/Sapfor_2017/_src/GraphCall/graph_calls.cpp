@@ -242,6 +242,35 @@ static parF detectMaxTypeOfExpression(SgExpression *ex)
     return res;
 }
 
+parF detectExpressionType(SgExpression *exp) {
+
+    const int var = exp->variant();
+       if (var == INT_VAL)
+           return SCALAR_INT_T;
+       else if (var == FLOAT_VAL)
+           return SCALAR_FLOAT_T;
+       else if (var == DOUBLE_VAL)
+           return SCALAR_DOUBLE_T;
+       else if (var == CHAR_VAL)
+           return SCALAR_CHAR_T;
+       else if (var == BOOL_VAL)
+           return SCALAR_BOOL_T;
+       else
+       {
+           SgType* type = exp->type();
+           if (type)
+           {
+               if (type->variant() == DEFAULT)
+                   return detectMaxTypeOfExpression(exp);
+               else
+                   return detectType(type);
+           }
+           else
+               return UNKNOWN_T;
+       }
+
+}
+
 //TODO:: add values
 static void processActualParams(SgExpression *parList, const map<string, vector<SgExpression*>> &commonBlocks, FuncParam *currParams)
 {
@@ -265,10 +294,10 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
                 fillParam(num, ex->lhs()->symbol(), currParams, commonBlocks);
             else
             {
-                const int var = ex->lhs()->variant();
-                if (var == INT_VAL)
+                parF parf = detectExpressionType(ex->lhs());
+                currParams->parametersT[num] = parf;
+                if (parf == SCALAR_INT_T)
                 {
-                    currParams->parametersT[num] = SCALAR_INT_T;
                     SgExpression* result = CalculateInteger(ex->lhs());
                     if (result != ex->lhs())
                     {
@@ -278,27 +307,6 @@ static void processActualParams(SgExpression *parList, const map<string, vector<
 #endif                    
                         ((int*)currParams->parameters[num])[0] = result->valueInteger();
                     }
-                }
-                else if (var == FLOAT_VAL)
-                    currParams->parametersT[num] = SCALAR_FLOAT_T;
-                else if (var == DOUBLE_VAL)
-                    currParams->parametersT[num] = SCALAR_DOUBLE_T;
-                else if (var == CHAR_VAL)
-                    currParams->parametersT[num] = SCALAR_CHAR_T;
-                else if (var == BOOL_VAL)
-                    currParams->parametersT[num] = SCALAR_BOOL_T;
-                else
-                {
-                    SgType* type = ex->lhs()->type();
-                    if (type)
-                    {
-                        if (type->variant() == DEFAULT)
-                            currParams->parametersT[num] = detectMaxTypeOfExpression(ex->lhs());
-                        else                           
-                            currParams->parametersT[num] = detectType(type);                        
-                    }
-                    else
-                        currParams->parametersT[num] = UNKNOWN_T;
                 }
 
                 int t = 0;
@@ -1185,7 +1193,7 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                         {
                             add += "(as out argument";
 #ifdef _WIN32
-                            addW += L"(как выходной аргумент";
+                            addW += L"(РєР°Рє РІС‹С…РѕРґРЅРѕР№ Р°СЂРіСѓРјРµРЅС‚";
 #endif
                         }
                         if (type2)
@@ -1194,14 +1202,14 @@ static bool checkParameter(SgExpression *ex, vector<Messages> &messages, const i
                             {
                                 add += ", as array in function)";
 #ifdef _WIN32
-                                addW += L", как массив в функции)";
+                                addW += L", РєР°Рє РјР°СЃСЃРёРІ РІ С„СѓРЅРєС†РёРё)";
 #endif
                             }
                             else
                             {
                                 add += "(as array in function)";
 #ifdef _WIN32
-                                addW += L"(как массив в функции)";
+                                addW += L"(РєР°Рє РјР°СЃСЃРёРІ РІ С„СѓРЅРєС†РёРё)";
 #endif
                             }
                         }

@@ -14,8 +14,8 @@
 
 #if _WIN32 && NDEBUG && __BOOST
 #include <boost/thread.hpp>
-extern int passDone;
 #endif
+extern int passDone;
 
 using std::pair;
 using std::set;
@@ -34,6 +34,7 @@ using namespace std::chrono;
 #include "../Utils/errors.h"
 #include "../Utils/types.h"
 #include "../Distribution/Cycle.h"
+#include "../VisualizerCalls/get_information.h"
 
 extern int keepFiles;
 
@@ -222,8 +223,7 @@ namespace Distribution
             printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
 #if _WIN32 && NDEBUG && __BOOST
-            if (passDone == 2)
-                throw boost::thread_interrupted();
+            createNeededException();
 #endif
         }
         else
@@ -261,8 +261,7 @@ namespace Distribution
                     else
                     {
 #if _WIN32 && NDEBUG && __BOOST
-                        if (passDone == 2)
-                            throw boost::thread_interrupted();
+                        createNeededException();
 #endif
                         break;
                     }
