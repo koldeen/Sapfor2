@@ -1,12 +1,12 @@
 #include "../Utils/leak_detector.h"
-#include <omp.h>
 
 #include "dvm.h"
 #include "acc_analyzer.h"
 #include "expr_transform.h"
 #include <stack>
+#include <chrono>
 
-#define PRINT_PROF_INFO 0
+#define PRINT_PROF_INFO 1
 using std::string;
 using std::vector;
 using std::map;
@@ -15,6 +15,9 @@ using std::make_pair;
 using std::set;
 using std::pair;
 using std::stack;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
 
 void showDefs(set<ExpressionValue*> *defs);
 void showDefs(map<SymbolKey, ExpressionValue*> *defs);
@@ -1113,7 +1116,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
 
     b = CGraph->getFirst();
 #if PRINT_PROF_INFO
-    double time = omp_get_wtime();
+    auto time = high_resolution_clock::now();
 #endif
     set<ExpressionValue*> availableExpressions;
     while (b != NULL)
@@ -1138,8 +1141,9 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
         b = b->getLexNext();
     }
 #if PRINT_PROF_INFO
-    __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", omp_get_wtime() - time);
-    time = omp_get_wtime();
+    __spf_print(PRINT_PROF_INFO, "   block 1 %f\n", 
+                duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+    time = high_resolution_clock::now();
 #endif
     if (inDefs != NULL)
         CGraph->getFirst()->setInDefs(inDefs);
@@ -1159,7 +1163,7 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
         while (b != NULL)
         {
 #if PRINT_PROF_INFO
-            double locT = omp_get_wtime();
+            auto locT = high_resolution_clock::now();
 #endif
             /*Updating IN*/
             for (BasicBlockItem *prev = b->getPrev(); prev != NULL; prev = prev->next)
@@ -1173,19 +1177,20 @@ void FillCFGInsAndOutsDefs(ControlFlowGraph *CGraph, map<SymbolKey, set<Expressi
 
             }
 #if PRINT_PROF_INFO
-            timeMerge += (omp_get_wtime() - locT);
-            locT = omp_get_wtime();
+            timeMerge += (duration_cast<milliseconds>(high_resolution_clock::now() - locT).count() / 1000.);
+            locT = high_resolution_clock::now();
 #endif
             /*Updating OUT, true, if OUT has been changed*/
             setsChanged |= addDefsFilteredByKill(b->getOutDefs(), b->getInDefs(), b->getKill());
 #if PRINT_PROF_INFO
-            timeAdd += (omp_get_wtime() - locT);
+            timeAdd += (duration_cast<milliseconds>(high_resolution_clock::now() - locT).count() / 1000.);
 #endif
             b = b->getLexNext();
         }
     }
 #if PRINT_PROF_INFO
-    __spf_print(PRINT_PROF_INFO, "   block 2 %f\n", omp_get_wtime() - time);
+    __spf_print(PRINT_PROF_INFO, "   block 2 %f\n", 
+                duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
     __spf_print(PRINT_PROF_INFO, "     merge %f, count %d, MM [%lld, %lld] [%lld, %lld], merge call %lld, %lld %lld\n",
                 timeMerge, countIn1, min1, max1, min2, max2, countMerge, countSet1, countSet2);
     __spf_print(PRINT_PROF_INFO, "     add %f\n", timeAdd);

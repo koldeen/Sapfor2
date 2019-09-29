@@ -15,7 +15,6 @@ extern int passDone;
 #include <queue>
 #include <iterator>
 #include <fstream>
-#include <omp.h>
 #include <chrono>
 
 #include "../ParallelizationRegions/ParRegions.h"
@@ -26,8 +25,8 @@ extern int passDone;
 #include "../Utils/utils.h"
 #include "../Utils/SgUtils.h"
 #include "../Distribution/Distribution.h"
+#include "../VisualizerCalls/get_information.h"
 #include "expr_transform.h"
-#include <VisualizerCalls\get_information.h>
 
 using std::pair;
 using std::map;
@@ -976,22 +975,22 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
         visitedStatements.clear();
 
         __spf_print(PRINT_PROF_INFO_TIME, " clear vis %f\n", 
-                duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+                    duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
         time = high_resolution_clock::now();
 
         ClearCFGInsAndOutsDefs(CGraph);
         __spf_print(PRINT_PROF_INFO_TIME, " clear CFG %f\n", 
-            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+                    duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
         time = high_resolution_clock::now();
 
         FillCFGInsAndOutsDefs(CGraph, &inDefs, &overseer);
         __spf_print(PRINT_PROF_INFO_TIME, " fill %f\n", 
-            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+                    duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
         time = high_resolution_clock::now();
 
         CorrectInDefs(CGraph);
         __spf_print(PRINT_PROF_INFO_TIME, " correct %f\n", 
-            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+                    duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
         time = high_resolution_clock::now();
 
         for (CBasicBlock* b = CGraph->getFirst(); b != NULL; b = b->getLexNext())
@@ -1001,7 +1000,7 @@ void ExpandExpressions(ControlFlowGraph* CGraph, map<SymbolKey, set<ExpressionVa
                 wereReplacements = true;
         }
         __spf_print(PRINT_PROF_INFO_TIME, " replace %f\n", 
-            duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
+                    duration_cast<milliseconds>(high_resolution_clock::now() - time).count() / 1000.);
     }
 }
 

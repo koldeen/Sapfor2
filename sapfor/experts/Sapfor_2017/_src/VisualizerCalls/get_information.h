@@ -1,5 +1,6 @@
 #pragma once
 
+#if _WIN32
 // ANALISYS 
 extern "C" { __declspec(dllexport) int SPF_GetGraphLoops(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetGraphFunctions(int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
@@ -36,5 +37,5 @@ extern "C" { __declspec(dllexport) int  SPF_SetDistributionFlagToArray(char *key
 
 //CODE MODIFICATION
 extern "C" { __declspec(dllexport) int SPF_ModifyArrayDistribution(int winHandler, int* options, short* projName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize, int regId, int64_t* toModify); }
-
+#endif
 void createNeededException();

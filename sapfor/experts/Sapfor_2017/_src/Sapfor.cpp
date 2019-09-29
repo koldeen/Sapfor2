@@ -10,7 +10,6 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <omp.h>
 #include <chrono>
 #if _WIN32 && _DEBUG
 #include <crtdbg.h>

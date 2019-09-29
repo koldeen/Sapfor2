@@ -15,7 +15,6 @@
 #include <set>
 #include <utility>
 #include <assert.h>
-#include <omp.h>
 #include <chrono>
 
 #include "dvm.h"
