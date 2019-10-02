@@ -11,6 +11,7 @@ extern int maxShadowWidth;
 extern int langOfMessages;
 extern bool removeNestedIntervals;
 extern int mpiProgram;
+extern int ignoreIO;
 
 extern "C" int out_free_form;
 extern "C" int out_upper_case;
@@ -140,6 +141,7 @@ enum optionNames {
     KEEP_LOOPS_CLOSE_NESTING,
     KEEP_GCOV,
     MPI_PROGRAM,
+    IGNORE_IO_SAPFOR,
     EMPTY_OPTION
 };
 

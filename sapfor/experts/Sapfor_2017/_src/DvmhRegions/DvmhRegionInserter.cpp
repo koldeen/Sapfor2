@@ -104,18 +104,19 @@ LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNo
             { // if funcInfo was not found assume func to be impure
                 loopCheckResults.hasImpureCalls = true;
                 loopCheckResults.usesIO = true;
-                break;
+                loopCheckResults.linesOfIO.push_back(nameAndLineOfFuncCalled.second);
             }
+            continue;
         }
 
         if (!calledFuncInfo->isPure) 
             loopCheckResults.hasImpureCalls = true;
 
         if (calledFuncInfo->usesIO())
+        {
             loopCheckResults.usesIO = true;
-
-        if (loopCheckResults.usesIO && loopCheckResults.hasImpureCalls)
-            break;
+            loopCheckResults.linesOfIO.push_back(nameAndLineOfFuncCalled.second);
+        }
     }
 
     return loopCheckResults;
@@ -131,6 +132,10 @@ LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<s
     bool hasImpureCalls = loopChecks.hasImpureCalls;
     bool usesIO = loopChecks.usesIO;
 
+    if (loopChecks.linesOfIO.size() && usesIO)
+        for (auto& elem : loopChecks.linesOfIO)
+            loop->linesOfIO.push_back(elem);
+
     for (auto &nestedLoop : loop->children) 
     {
         loopChecks = updateLoopNode(nestedLoop, allFuncs);
@@ -138,7 +143,7 @@ LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<s
         usesIO |= loopChecks.usesIO;
     }
 
-    loop->hasImpureCalls = hasImpureCalls;
+    loop->hasImpureCalls |= hasImpureCalls;
     loop->hasPrints |= usesIO;
 
     return LoopCheckResults(loop->hasPrints, loop->hasImpureCalls);

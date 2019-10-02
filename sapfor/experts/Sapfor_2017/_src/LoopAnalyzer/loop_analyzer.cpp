@@ -65,6 +65,7 @@ static vector<Messages> *currMessages;
 
 extern int parallizeFreeLoops;
 extern int mpiProgram;
+extern int ignoreIO;
 
 static bool hasArrayAccessInSubscr(SgExpression *exp)
 {
@@ -1657,7 +1658,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();
-#if _WIN32 && NDEBUG && __BOOST
+#if _WIN32 && NDEBUG
             createNeededException();
 #endif
             if (st == NULL)
@@ -2287,7 +2288,7 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();
-#if _WIN32 && NDEBUG && __BOOST
+#if _WIN32 && NDEBUG
             createNeededException();
 #endif
             if (st == NULL)
@@ -2835,28 +2836,31 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         }
 
         //analyze IO operations
-        for (SgStatement *iter = st; iter != lastNode; iter = iter->lexNext())
+        if (!ignoreIO)
         {
-            if (iter->variant() == CONTAINS_STMT)
-                break;
-
-            SgInputOutputStmt *stIO = isSgInputOutputStmt(iter);
-            if (stIO)
+            for (SgStatement* iter = st; iter != lastNode; iter = iter->lexNext())
             {
-                int countOfItems = 0;
-                for (SgExpression *items = stIO->itemList(); items; items = items->rhs(), ++countOfItems);
+                if (iter->variant() == CONTAINS_STMT)
+                    break;
 
-                //TODO: need to add more checkers!
-                if (countOfItems > 1)
-                {                    
-                    for (SgExpression *items = stIO->itemList(); items; items = items->rhs(), ++countOfItems)
-                        findArrayRefInIO(items->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
-                }
-                else if (countOfItems == 1)
+                SgInputOutputStmt* stIO = isSgInputOutputStmt(iter);
+                if (stIO)
                 {
-                    auto list = stIO->itemList();
-                    if (list->lhs()->lhs() != NULL || list->lhs()->rhs() != NULL)
-                        findArrayRefInIO(list->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
+                    int countOfItems = 0;
+                    for (SgExpression* items = stIO->itemList(); items; items = items->rhs(), ++countOfItems);
+
+                    //TODO: need to add more checkers!
+                    if (countOfItems > 1)
+                    {
+                        for (SgExpression* items = stIO->itemList(); items; items = items->rhs(), ++countOfItems)
+                            findArrayRefInIO(items->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
+                    }
+                    else if (countOfItems == 1)
+                    {
+                        auto list = stIO->itemList();
+                        if (list->lhs()->lhs() != NULL || list->lhs()->rhs() != NULL)
+                            findArrayRefInIO(list->lhs(), deprecatedByIO, stIO->lineNumber(), currMessages);
+                    }
                 }
             }
         }

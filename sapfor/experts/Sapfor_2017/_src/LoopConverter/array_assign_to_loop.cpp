@@ -1180,6 +1180,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            //move init assigns before the first statement
             if (firstExec && isSgDeclarationStatement(st))
             {
                 SgVarDeclStmt *declStat = (SgVarDeclStmt*)st;
@@ -1188,7 +1189,9 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                     SgExpression *completeInit = declStat->completeInitialValue(k);
                     if (completeInit)
                     {
-                        SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, completeInit->lhs()->copyPtr(), completeInit->rhs()->copyPtr(), NULL);
+                        auto copyLeft = completeInit->lhs()->copyPtr();
+                        auto copyRight = completeInit->rhs()->copyPtr();
+                        SgStatement *toAdd = new SgStatement(ASSIGN_STAT, NULL, NULL, copyLeft, copyRight, NULL);
 
                         if (isDerivedAssign(toAdd))
                             replaceDerivedAssigns(file, toAdd, firstExec, derivedTypesDecl);

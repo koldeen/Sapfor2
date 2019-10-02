@@ -222,7 +222,7 @@ namespace Distribution
             //sprintf(buf, "  global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             printf("SAPFOR: global sum = %f, last idx of conflict %d\n", globalSum, lastIndexOfConflict);
             //addToGlobalBufferAndPrint(buf);
-#if _WIN32 && NDEBUG && __BOOST
+#if _WIN32 && NDEBUG
             createNeededException();
 #endif
         }
@@ -260,7 +260,7 @@ namespace Distribution
                     }
                     else
                     {
-#if _WIN32 && NDEBUG && __BOOST
+#if _WIN32 && NDEBUG
                         createNeededException();
 #endif
                         break;

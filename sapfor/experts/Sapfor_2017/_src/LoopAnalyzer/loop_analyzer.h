@@ -119,6 +119,7 @@ void insertDistributeDirsToParallelRegions(const std::vector<ParallelRegionLines
 
 void insertTemplateModuleUse(SgFile* file, const std::set<int> &regNum);
 void removeStatementsFromAllproject(const std::set<int>& variants);
+void correctTemplateModuleDeclaration();
 
 // spf_directive_preproc.cpp
 bool preprocess_spf_dirs(SgFile *file, const std::map<std::string, CommonBlock> &commonBlocks, std::vector<Messages> &messagesForFile);

@@ -35,6 +35,8 @@ using std::tuple;
 using std::make_pair;
 using std::make_tuple;
 
+static const string dvmhModuleName = "dvmh_template_mod";
+
 //the size of vector indiceates type of DVM_DIR
 static SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
 {
@@ -160,12 +162,12 @@ void removeStatementsFromAllproject(const set<int> &variants)
             {
                 string ident = st->symbol()->identifier();
                 convertToLower(ident);
-                if (ident == "dvmh_template_mod")
+                if (ident == dvmhModuleName)
                     templateMod = true;
             }
 
             bool useMod = false;
-            if (var == USE_STMT && st->symbol()->identifier() == string("dvmh_template_mod"))
+            if (var == USE_STMT && st->symbol()->identifier() == dvmhModuleName)
                 useMod = true;
 
             if (variants.find(var) != variants.end() || templateMod || useMod)
@@ -236,7 +238,7 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
 
         if (extractDir && st->variant() == MODULE_STMT)
         {
-            if (st->symbol()->identifier() == string("dvmh_Template_Mod"))
+            if (st->symbol()->identifier() == dvmhModuleName)
             {
                 st->deleteStmt();
                 continue;
@@ -1096,20 +1098,65 @@ void insertTempalteDeclarationToMainFile(SgFile *file, const DataDirective &data
 
 static SgStatement* insertDvmhModule(SgStatement *firstSt, const vector<SgStatement*> &modulesAndFuncs)
 {
-	for (auto &st : modulesAndFuncs)	
-    if (st->variant() == MODULE_STMT)
+    for (auto& st : modulesAndFuncs)
     {
-        if (st->symbol()->identifier() == string("dvmh_Template_Mod"))
-            return st;
+        if (st->variant() == MODULE_STMT)
+        {
+            if (st->symbol()->identifier() == dvmhModuleName)
+                return st;
+        }
     }
 
-    SgFuncHedrStmt *moduleN = new SgFuncHedrStmt("dvmh_Template_Mod");
+    SgFuncHedrStmt *moduleN = new SgFuncHedrStmt((char*)dvmhModuleName.c_str());
     moduleN->setVariant(MODULE_STMT);
     moduleN->setlineNumber(getNextNegativeLineNumber());
     moduleN->setFileId(current_file_id);
 
     firstSt->insertStmtAfter(*moduleN, *firstSt);
     return moduleN;
+}
+
+//TODO: if in many file -> create new module file and move template decls
+void correctTemplateModuleDeclaration()
+{
+    int ifInOneFile = 0;
+
+    map<SgFile*, vector<SgStatement*>> modsAndFuncs;
+    for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
+    {
+        SgFile* file = &CurrentProject->file(z);        
+        getModulesAndFunctions(file, modsAndFuncs[file]);
+
+        for (auto& elem : modsAndFuncs[file])
+            if (elem->variant() == MODULE_STMT && elem->symbol()->identifier() == dvmhModuleName)
+                if (elem->lexNext()->variant() != CONTROL_END)
+                    ifInOneFile++;
+
+    }
+
+    //TODO:
+    if (ifInOneFile > 1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    else
+    {
+        for (int z = 0; z < CurrentProject->numberOfFiles(); ++z)
+        {
+            SgFile* file = &CurrentProject->file(z);
+            for (auto& elem : modsAndFuncs[file])
+            {
+                if (elem->variant() == MODULE_STMT && elem->symbol()->identifier() == dvmhModuleName)
+                {
+                    if (elem->lexNext()->variant() != CONTROL_END)
+                        ifInOneFile++;
+                    else
+                    {
+                        elem->deleteStmt();
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 static void findAllArrayRefs(SgExpression *ex, set<SgSymbol*> &refs)
@@ -1212,7 +1259,7 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
                         if (templ->GetLocation().first == DIST::l_MODULE)
                         {
                             bool needToAdd = true;
-                            if (modUse.find("dvmh_Template_Mod") == modUse.end())
+                            if (modUse.find(dvmhModuleName) == modUse.end())
                             {
                                 for (auto &elem : modUse)
                                 {
@@ -1224,7 +1271,7 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
                                             if (modV->symbol()->identifier() == elem)
                                                 currMod = modV;
 
-                                        if (it->second.find("dvmh_Template_Mod") != it->second.end() && !hasPrivateAllInModule(currMod))
+                                        if (it->second.find(dvmhModuleName) != it->second.end() && !hasPrivateAllInModule(currMod))
                                         {
                                             needToAdd = false;
                                             break;
@@ -1244,7 +1291,7 @@ void insertTemplateModuleUse(SgFile *file, const set<int> &regNums)
 			st = file->functions(i);
 
 			SgStatement* useSt = new SgStatement(USE_STMT);
-			useSt->setSymbol(*findSymbolOrCreate(file, "dvmh_Template_Mod"));
+			useSt->setSymbol(*findSymbolOrCreate(file, dvmhModuleName));
 			useSt->setlineNumber(getNextNegativeLineNumber());
 			st->insertStmtAfter(*useSt, *st);
 		}

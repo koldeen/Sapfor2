@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <malloc.h>
 #include <vector>
 #include <set>
 #include <string>
@@ -370,7 +369,7 @@ depGraph::depGraph(SgFile *fi, SgStatement *f, SgStatement *l, const set<string>
         perfectNestedLevel = doloop->isPerfectLoopNest();
         // We now compute the dependence Graph;
         arrayRef = loopArrayAccessAnalysis(func, loop, tsymb, &induc, privVars);
-#if __SPF && NDEBUG && __BOOST
+#if __SPF && NDEBUG
         createNeededException();        
 #endif        
         computeLoopDependencies(func, arrayRef, tsymb, induc);      

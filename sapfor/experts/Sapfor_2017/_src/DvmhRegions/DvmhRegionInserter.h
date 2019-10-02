@@ -25,6 +25,8 @@ struct LoopCheckResults
     bool usesIO;
     bool hasImpureCalls;
 
+    std::vector<int> linesOfIO;
+
     LoopCheckResults() : usesIO(false), hasImpureCalls(false) { }
     LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
 };

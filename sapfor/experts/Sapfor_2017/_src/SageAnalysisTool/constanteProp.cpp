@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
+
 #include "sage++user.h"
 #include "definesValues.h"
 #include "set.h"

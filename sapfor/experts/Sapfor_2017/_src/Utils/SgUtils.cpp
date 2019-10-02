@@ -1774,8 +1774,36 @@ bool ifSymbolExists(SgFile *file, const string &symbName)
     }
     else
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
     return false;
+}
+
+string checkSymbNameAndCorrect(const string& symbName, const string complite)
+{
+    set<string> existedSymbols;
+    //if (existedSymbols.size() == 0)
+    {
+        SgFile* oldFile = current_file;
+        for (int i = 0; i < CurrentProject->numberOfFiles(); ++i)
+        {
+            SgFile* file = &(CurrentProject->file(i));
+            SgSymbol* s = file->firstSymbol();
+            while (s)
+            {
+                existedSymbols.insert(s->identifier());
+                s = s->next();
+            }
+        }
+
+        if (SgFile::switchToFile(oldFile->filename()) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
+    string retName = symbName;
+    while (existedSymbols.find(retName) != existedSymbols.end())
+        retName += complite;
+    //existedSymbols.insert(retName);
+
+    return retName;
 }
 
 const CommonBlock* isArrayInCommon(const map<string, CommonBlock> &commonBlocks, const DIST::Array *array)

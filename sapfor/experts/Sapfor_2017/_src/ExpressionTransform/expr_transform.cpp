@@ -607,7 +607,7 @@ void getCoefsOfSubscript(pair<int, int> &retCoefs, SgExpression *exp, SgSymbol *
         retCoefs = make_pair(0, 0);
 }
 
-SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
+static SgExpression* valueOfVar(SgExpression *var, CBasicBlock *b)
 {
     SgExpression *exp = NULL;
     //first, check previous defs within block
@@ -683,7 +683,7 @@ static void createBackup(SgStatement* stmt, int expNumber)
     }
 }
 
-SgExpression* tryMakeInt(SgExpression* exp)
+static SgExpression* tryMakeInt(SgExpression* exp)
 {
     if (exp->variant() != INT_VAL)
         if (exp->isInteger())
@@ -691,10 +691,12 @@ SgExpression* tryMakeInt(SgExpression* exp)
     return exp;
 }
 
-bool typesAreTheSame(SgExpression *oldExp, SgExpression *newExp, int lineNumber) {
+static bool typesAreTheSame(SgExpression *oldExp, SgExpression *newExp, int lineNumber) 
+{
     paramType oldType = detectExpressionType(oldExp);
     paramType newType = detectExpressionType(newExp);
-    if(oldType != newType) {
+    if(oldType != newType) 
+    {
         __spf_print(PRINT_SUBSTITUTION_ABORT, "%d: Substitution aborted %s -> ", lineNumber, oldExp->unparse());
         __spf_print(PRINT_SUBSTITUTION_ABORT, "%s. Types do not match: %s != %s\n", newExp->unparse(), paramNames[oldType], paramNames[newType]);
         return false;
@@ -703,7 +705,7 @@ bool typesAreTheSame(SgExpression *oldExp, SgExpression *newExp, int lineNumber)
     return true;
 }
 
-bool setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp, const int lineNumber)
+static bool setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *newExp, const int lineNumber)
 {
     SgExpression *oldExp = rightSide ? parent->rhs() : parent->lhs();
 
@@ -719,7 +721,7 @@ bool setNewSubexpression(SgExpression *parent, bool rightSide, SgExpression *new
     return true;
 }
 
-bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b, bool replaceFirstVar)
+static bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b, bool replaceFirstVar)
 {
     queue<SgExpression*> toCheck;
     bool wereReplacements = false;
@@ -730,7 +732,6 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
     //If SgExpression is a single VAR
     if (exp->variant() == VAR_REF)
     {
-
         SgExpression* newExp = valueOfVar(exp, b);
         if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
         {
@@ -758,7 +759,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                 if (exp->rhs()->variant() == VAR_REF)
                 {
                     SgExpression* newExp = valueOfVar(exp->rhs(), b);
-                    if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
+                    if (newExp != NULL && typesAreTheSame(exp->rhs(), newExp, parent->lineNumber()))
                     {
                         createBackup(parent, expNumber);
                         wereReplacements |= setNewSubexpression(exp, true, newExp, parent->lineNumber());
@@ -773,7 +774,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
                     if (exp->lhs()->variant() == VAR_REF)
                     {
                         SgExpression* newExp = valueOfVar(exp->lhs(), b);
-                        if (newExp != NULL && typesAreTheSame(exp, newExp, parent->lineNumber()))
+                        if (newExp != NULL && typesAreTheSame(exp->lhs(), newExp, parent->lineNumber()))
                         {
                             createBackup(parent, expNumber);
                             wereReplacements |= setNewSubexpression(exp, false, newExp, parent->lineNumber());
@@ -787,7 +788,7 @@ bool replaceVarsInExpression(SgStatement *parent, int expNumber, CBasicBlock *b,
     return wereReplacements;
 }
 
-bool needReplacements(SgExpression* exp, map<SymbolKey, vector<SgExpression*>>* ins, bool checkVar)
+static bool needReplacements(SgExpression* exp, map<SymbolKey, vector<SgExpression*>>* ins, bool checkVar)
 {
     if (exp->variant() == VAR_REF)
     {
@@ -808,7 +809,7 @@ bool needReplacements(SgExpression* exp, map<SymbolKey, vector<SgExpression*>>* 
     }
 }
 
-bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBlock *b)
+static bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBlock *b)
 {
     bool wereReplacements = false;
     SgExpression *lhs = exp->lhs(), *rhs = exp->rhs();
@@ -818,7 +819,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
         if(lhs->variant() == VAR_REF)
         {
             SgExpression* newExp = valueOfVar(lhs, b);
-            if (newExp != NULL && typesAreTheSame(exp, newExp, lineNumber))
+            if (newExp != NULL && typesAreTheSame(lhs, newExp, lineNumber))
             {
                 wereReplacements |= setNewSubexpression(exp, false, newExp, lineNumber);
             }
@@ -832,7 +833,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
         if(rhs->variant() == VAR_REF)
         {
             SgExpression* newExp = valueOfVar(rhs, b);
-            if (newExp != NULL && typesAreTheSame(exp, newExp, lineNumber))
+            if (newExp != NULL && typesAreTheSame(rhs, newExp, lineNumber))
             {
                 wereReplacements |= setNewSubexpression(exp, true, newExp, lineNumber);
             }
@@ -844,7 +845,7 @@ bool replaceVarsInCallArgument(SgExpression *exp, const int lineNumber, CBasicBl
     return wereReplacements;
 }
 
-bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
+static bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
 {
     bool wereReplacements = false;
     int numberOfArgs = 0, lineNumber = 0;
@@ -901,7 +902,7 @@ bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
 /*
  * Have to run b->adjustGenAndKill(cfi) here to track changes inside block.
  */
-bool replaceVarsInBlock(CBasicBlock* b)
+static bool replaceVarsInBlock(CBasicBlock* b)
 {
     bool wereReplacements = false;
     SgStatement* st;

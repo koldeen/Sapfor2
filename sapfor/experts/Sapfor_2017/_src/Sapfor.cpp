@@ -1638,6 +1638,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         duplicateFunctions(allFuncInfo, arrayLinksByFuncCalls);
     else if (curr_regime == REMOVE_COPIES)
         removeCopies(allFuncInfo);
+    else if (curr_regime == ADD_TEMPL_TO_USE_ONLY)
+        correctTemplateModuleDeclaration();
 
 #if _WIN32
     const float elapsed = duration_cast<milliseconds>(high_resolution_clock::now() - timeForPass).count() / 1000.;

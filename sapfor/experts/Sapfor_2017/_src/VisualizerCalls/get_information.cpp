@@ -61,6 +61,7 @@ static void setOptions(const int *options)
     out_upper_case = options[OUTPUT_UPPER];
     langOfMessages = options[TRANSLATE_MESSAGES];
     removeNestedIntervals = (options[KEEP_LOOPS_CLOSE_NESTING] == 1);
+    //ignoreIO = options[IGNORE_IO_SAPFOR];
 }
 
 static int strLen(const short *shString)

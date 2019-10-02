@@ -3,7 +3,6 @@
 //////////////////////////////////////////////////////////////////////////
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
 #include "sage++user.h"
 #include "definesValues.h"
 #include "intrinsic.h"

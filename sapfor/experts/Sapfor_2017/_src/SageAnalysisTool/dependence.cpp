@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
 #include <string.h>
 
 #ifdef __SPF
@@ -727,7 +726,7 @@ Set *computeLoopDependencies(SgStatement *func, Set *inset, SgSymbol **tsymb, Se
     int countOfNodes = currentDepGraph->getNodes().size();
     for (i = 0; i < inset->size(); i++)
     {
-#if __SPF && NDEBUG && __BOOST
+#if __SPF && NDEBUG
         createNeededException();
 #endif
         el1 = (PT_ACCESSARRAY)inset->getElement(i);

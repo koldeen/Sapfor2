@@ -203,7 +203,7 @@ namespace Distribution
             return;
 
         color[V] = GREY;
-#if _WIN32 && NDEBUG && __BOOST
+#if _WIN32 && NDEBUG
         createNeededException();
 #endif
 

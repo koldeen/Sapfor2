@@ -3,7 +3,6 @@
 ///// FB. July 94 Indiana University ///////////////////////////////////////////////////
 
 #include <stdio.h>
-#include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <set>

@@ -58,24 +58,6 @@ static int getIntervalNumber(const int fileId, const int lineNumber, const int r
 // array -> common-block
 static map<DIST::Array*, const CommonBlock*> allUsedCommonArrays;
 
-//TODO: remove? not used in this file
-static bool checkSymbName(const string &symbName)
-{
-    bool found = false;
-    SgFile *oldFile = current_file;
-    
-    for (int i = 0; !found && (i < CurrentProject->numberOfFiles()); ++i)
-    {
-        SgFile *file = &(CurrentProject->file(i));
-        found = ifSymbolExists(file, symbName);
-    }
-
-    if (SgFile::switchToFile(oldFile->filename()) == -1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    return found;
-}
-
 static bool isSPF_reg(SgStatement *st)
 {
     return st->variant() == SPF_PARALLEL_REG_DIR || st->variant() == SPF_END_PARALLEL_REG_DIR;
@@ -668,10 +650,8 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
         {
             // new common-block is not created for array at this file, so create it
             // creating new common-block statement
-            string commBlockName = array->GetShortName() + "_r";
+            string commBlockName = checkSymbNameAndCorrect(array->GetShortName() + "_r");
             SgStatement *commDecl = new SgStatement(COMM_STAT);
-
-            // TODO: check new common-block name
 
             SgSymbol *commSymb = new SgSymbol(VARIABLE_NAME, commBlockName.c_str());
             SgExprListExp *commList = new SgExprListExp(COMM_LIST);
@@ -691,9 +671,7 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             if (itt == it->second.end())
             {
                 // need to create symbol
-                string newArrName = varsOnPos[0]->getName() + "_c";
-
-                // TODO: check new array name
+                string newArrName = checkSymbNameAndCorrect(varsOnPos[0]->getName() + "_c");
 
                 newArrSymb = new SgSymbol(VARIABLE_NAME, newArrName.c_str(), file->firstStatement());
                 SgType *type = new SgType(T_ARRAY);
@@ -787,33 +765,23 @@ static void insertArrayCopying(const string &fileName, const ParallelRegionLines
         if (it2 == it->second.end())
             it2 = it->second.insert(it2, make_pair(regionLines, set<string>()));
 
-        string arrName = origSymb->identifier();
+        const string arrName = origSymb->identifier();
         auto it3 = it2->second.find(arrName);
 
         if (it3 == it2->second.end())
         {
             // A_reg = A
-            // TODO: use SgAssignStmt
-            SgStatement *assign = new SgStatement(ASSIGN_STAT);
-            SgExpression *left = new SgArrayRefExp(*newSymb);
-            SgExpression *right = new SgArrayRefExp(*origSymb);
-
-            assign->setExpression(0, *left);
-            assign->setExpression(1, *right);
+            SgAssignStmt* assign = new SgAssignStmt(*new SgArrayRefExp(*newSymb), *new SgArrayRefExp(*origSymb));            
             assign->setlineNumber(getNextNegativeLineNumber()); // before region
             regionLines.stats.first->GetOriginal()->lexPrev()->insertStmtBefore(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
 
             // A = A_reg
-            assign = new SgStatement(ASSIGN_STAT);
-            left = new SgArrayRefExp(*origSymb);
-            right = new SgArrayRefExp(*newSymb);
-            
-            assign->setExpression(0, *left);
-            assign->setExpression(1, *right);
-            regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());
+            assign = new SgAssignStmt(*new SgArrayRefExp(*origSymb), *new SgArrayRefExp(*newSymb));
+            //TODO: bug with insertion
+            //assign->setlineNumber(getNextNegativeLineNumber()); // after region
+            regionLines.stats.second->GetOriginal()->lexNext()->insertStmtAfter(*assign, *regionLines.stats.first->GetOriginal()->controlParent());            
 
             it2->second.insert(arrName);
-
             // TODO: SPF_ANALYSIS(decl)
         }
     }
@@ -918,13 +886,11 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
     if (SgFile::switchToFile(fileName) != -1)
     {
-        string newArrName = array->GetShortName() + suffix;
+        string newArrName = checkSymbNameAndCorrect(array->GetShortName() + suffix);
         SgSymbol *arrSymb = array->GetDeclSymbol()->GetOriginal();
         SgSymbol *newArrSymb = NULL;
         SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
         SgStatement *newDecl = NULL;
-
-        // TODO: check new array name
 
         // for what? to skip .h stats?
         if (decl->fileName() != fileName)
@@ -1512,6 +1478,40 @@ static bool isArrayAssign(SgStatement *st)
     return true;
 }
 
+static void compliteUseOnlyList(SgStatement *func, const string &location, const string &s)
+{
+    if (isSgProgHedrStmt(func) == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    for (SgStatement* st = func->lexNext(); st; st = st->lexNext())
+    {
+        if (isSgExecutableStatement(st))
+            break;
+        if (st->variant() == CONTAINS_STMT)
+            break;
+
+        if (st->variant() == USE_STMT)            
+        {
+            if (st->symbol()->identifier() == location)
+            {
+                SgExpression* ex = st->expr(0);
+                
+                if (ex && ex->variant() == ONLY_NODE)
+                {
+                    SgExpression* toInsert = new SgExpression(RENAME_NODE);
+                    SgExpression* list = new SgExpression(EXPR_LIST);
+
+                    toInsert->setLhs(new SgVarRefExp(findSymbolOrCreate(st->getFile(), s)));
+
+                    list->setRhs(ex->lhs());
+                    list->setLhs(toInsert);
+                    ex->setLhs(list);
+                }
+            }
+        }
+    }
+}
+
 int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector<FuncInfo*>> &allFuncInfo, map<string, vector<Messages>> &SPF_messages)
 {
     bool error = false;
@@ -1530,14 +1530,29 @@ int resolveParRegions(vector<ParallelRegion*> &regions, const map<string, vector
             {
                 if (arrayLines.first->GetRegionsName().size() > 1)
                 {
-                    auto place = *arrayLines.first->GetDeclInfo().begin();
-                    auto origCopy = copyArray(place, arrayLines.first, string("_l") + to_string(region->GetId()));
+                    bool fromModule = (arrayLines.first->GetLocation().first == DIST::l_MODULE);
+                    const string locationName = arrayLines.first->GetLocation().second;
 
+                    auto place = *arrayLines.first->GetDeclInfo().begin();
+                    string fileName = place.first;
+                    string suffix = "_l";
+
+                    if (fromModule)
+                    {
+                        fileName = funcArrays.first->fileName;
+                        suffix = "_m";
+                    }
+
+                    auto origCopy = copyArray(place, arrayLines.first, suffix + to_string(region->GetId()));
                     for (auto &lines : arrayLines.second)
                     {
-                        replaceSymbol(place.first, lines, origCopy.first->identifier(), origCopy.second);
-                        insertArrayCopying(place.first, lines, origCopy.first, origCopy.second);
+                        replaceSymbol(fileName, lines, origCopy.first->identifier(), origCopy.second);
+                        insertArrayCopying(fileName, lines, origCopy.first, origCopy.second);
                     }
+                    
+                    // complete USE ONLY list
+                    if (fromModule)
+                        compliteUseOnlyList(funcArrays.first->funcPointer, locationName, origCopy.second->identifier());
                 }
             }
         }

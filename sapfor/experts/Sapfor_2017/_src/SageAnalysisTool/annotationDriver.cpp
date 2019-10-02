@@ -1,7 +1,5 @@
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
-//#include <strings.h>
 #include "sage++user.h"
 #include "annotationDriver.h"
 
