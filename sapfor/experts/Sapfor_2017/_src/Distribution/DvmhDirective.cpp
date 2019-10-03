@@ -228,6 +228,8 @@ static SgStatement* getRealStat(Statement *loop, const char *file, const int lin
     return local;
 }
 
+extern int mpiProgram;
+
 pair<string, vector<Expression*>> 
 ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                 const vector<AlignRule> &alignRules,
@@ -288,38 +290,43 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
         DIST::Array *mapTo = arrayRef2->IsLoopArray() ? arrayRef : arrayRef2;
         auto onTo = arrayRef2->IsLoopArray() ? on : on2;
 
-        directive += ") ON " + mapTo->GetShortName() + "(";
         dirStatement[2] = new Expression(expr);
-
-        SgSymbol *symbForPar;
-        if (arrayRef->IsTemplate())
-            symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope), usedInLoop);
+        if (mpiProgram)
+            directive += ")";
         else
-            symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
+        {
+            directive += ") ON " + mapTo->GetShortName() + "(";
 
-        SgArrayRefExp *arrayExpr = new SgArrayRefExp(*symbForPar);
-        for (int i = 0; i < (int)onTo.size(); ++i)
-        {            
-            const pair<int, int> &coeffs = onTo[i].second;
-            assert( (coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
-
-            if (i != 0)
-                directive += ",";
-
-            if (onTo[i].first == "*")
-            {
-                directive += "*";
-                SgVarRefExp *varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
-                arrayExpr->addSubscript(*varExpr);
-            }
+            SgSymbol* symbForPar;
+            if (arrayRef->IsTemplate())
+                symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope), usedInLoop);
             else
+                symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
+
+            SgArrayRefExp* arrayExpr = new SgArrayRefExp(*symbForPar);
+            for (int i = 0; i < (int)onTo.size(); ++i)
             {
-                directive += genStringExpr(onTo[i].first, coeffs);
-                arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
+                const pair<int, int>& coeffs = onTo[i].second;
+                assert((coeffs.first != 0 && onTo[i].first != "*") || onTo[i].first == "*");
+
+                if (i != 0)
+                    directive += ",";
+
+                if (onTo[i].first == "*")
+                {
+                    directive += "*";
+                    SgVarRefExp* varExpr = new SgVarRefExp(findSymbolOrCreate(file, "*"));
+                    arrayExpr->addSubscript(*varExpr);
+                }
+                else
+                {
+                    directive += genStringExpr(onTo[i].first, coeffs);
+                    arrayExpr->addSubscript(*genSgExpr(file, onTo[i].first, coeffs));
+                }
             }
+            directive += ")";
+            dirStatement[0] = new Expression(arrayExpr);
         }
-        directive += ")";
-        dirStatement[0] = new Expression(arrayExpr);
 
         expr = new SgExpression(EXPR_LIST);
         p = expr;
@@ -453,7 +460,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             }
         }
 
-        if (shadowRenew.size() != 0)
+        if (shadowRenew.size() != 0 && mpiProgram == 0)
         {            
             if (shadowRenewShifts.size() == 0)
             {
@@ -615,7 +622,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 dirStatement[1] = new Expression(expr);
         }
 
-        if (remoteAccess.size() != 0)
+        if (remoteAccess.size() != 0 && mpiProgram == 0)
         {
             if (dirStatement[1] != NULL)
             {

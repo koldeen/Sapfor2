@@ -310,30 +310,6 @@ void extendWithFullCalls(map<FuncInfo*, set<FuncInfo*>> &groups, const map<strin
     }
 }
 
-static bool checkSymbName(const string &symbName)
-{
-    bool found = false;
-    SgFile *oldFile = current_file;
-
-    for (int i = 0; !found && (i < CurrentProject->numberOfFiles()); ++i)
-    {
-        SgFile *file = &(CurrentProject->file(i));
-        found = ifSymbolExists(file, symbName);
-    }
-
-    if (SgFile::switchToFile(oldFile->filename()) == -1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    return found;
-}
-
-static string testAndCorrectName(string symbName)
-{
-    while (checkSymbName(symbName))
-        symbName = symbName + "_";
-    return symbName;
-}
-
 static void fillOrigCopyEx(SgExpression *orig, SgExpression *copy, map<SgExpression*, SgExpression*> &origCopyEx)
 {
     if (orig)
@@ -384,7 +360,7 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                 SgSymbol* orig = pointToF->symbol();
                 SgSymbol* copied = &orig->copySubprogram(*current_file->firstStatement());
 
-                string newName = testAndCorrectName(orig->identifier() + string("_spf_") + to_string(numCopy));
+                string newName = checkSymbNameAndCorrect(orig->identifier() + string("_spf_") + to_string(numCopy));
                 varCall.copiedName = newName;
                 copied->changeName(newName.c_str());
 

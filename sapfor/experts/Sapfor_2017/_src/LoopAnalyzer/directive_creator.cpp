@@ -618,6 +618,7 @@ static vector<vector<pair<string, vector<Expression*>>>>
     return optimizedRules;
 }
 
+extern int mpiProgram;
 static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                   vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
                                   LoopGraph *current, const map<int, LoopGraph*> &loopGraph, 
@@ -657,6 +658,9 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
     }
 
     needToSkip = false;
+    if (mpiProgram)
+        return false;
+
     for (int z = 0; z < redistrDirs.first.size(); ++z)
     {
         const int idx = redistrDirs.first[z];

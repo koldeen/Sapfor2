@@ -6,7 +6,7 @@
 #include <stack>
 #include <chrono>
 
-#define PRINT_PROF_INFO 1
+#define PRINT_PROF_INFO 0
 using std::string;
 using std::vector;
 using std::map;

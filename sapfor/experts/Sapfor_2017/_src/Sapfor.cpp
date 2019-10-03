@@ -539,27 +539,30 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
         {
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
-            
+
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
             currProcessing.second = 0;
 
-            for (int z = 0; z < parallelRegions.size(); ++z)
+            if (mpiProgram == 0)
             {
-                ParallelRegion *currReg = parallelRegions[z];
+                for (int z = 0; z < parallelRegions.size(); ++z)
+                {
+                    ParallelRegion* currReg = parallelRegions[z];
 
-                const DataDirective &dataDirectives = currReg->GetDataDir();
-                const vector<int> &currentVariant = currReg->GetCurrentVariant();
-                const DIST::Arrays<int> &allArrays = currReg->GetAllArrays();
-                DIST::GraphCSR<int, double, attrType> &reducedG = currReg->GetReducedGraphToModify();
+                    const DataDirective& dataDirectives = currReg->GetDataDir();
+                    const vector<int>& currentVariant = currReg->GetCurrentVariant();
+                    const DIST::Arrays<int>& allArrays = currReg->GetAllArrays();
+                    DIST::GraphCSR<int, double, attrType>& reducedG = currReg->GetReducedGraphToModify();
 
-                const set<string> distrArrays = fillDistributedArrays(dataDirectives);                
-                const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
-                const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
-                const vector<string> alignRules = dataDirectives.GenAlignsRules();
+                    const set<string> distrArrays = fillDistributedArrays(dataDirectives);
+                    const vector<string> distrRules = dataDirectives.GenRule(currentVariant);
+                    const vector<vector<dist>> distrRulesSt = dataDirectives.GenRule(currentVariant, 0);
+                    const vector<string> alignRules = dataDirectives.GenAlignsRules();
 
-                insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, distrRulesSt, alignRules, loopGraph,
-                                         allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getObjectForFileFromMap(file_name, SPF_messages),
-                                         arrayLinksByFuncCalls, currReg->GetId());
+                    insertDistributionToFile(file, file_name, dataDirectives, distrArrays, distrRules, distrRulesSt, alignRules, loopGraph,
+                        allArrays, reducedG, commentsToInclude, templateDeclInIncludes, extract, getObjectForFileFromMap(file_name, SPF_messages),
+                        arrayLinksByFuncCalls, currReg->GetId());
+                }
             }
 
             if (extract)
@@ -567,16 +570,16 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 createdDirectives[file_name].clear();
 
                 //clear shadow specs
-                for (auto &array : declaratedArrays)
+                for (auto& array : declaratedArrays)
                     array.second.first->ClearShadowSpecs();
             }
-			else
-			{
-				set<int> regNum;
-				for (int z = 0; z < parallelRegions.size(); ++z)
-					regNum.insert(parallelRegions[z]->GetId());
-				insertTemplateModuleUse(file, regNum);
-			}
+            else if (mpiProgram == 0)
+            {
+                set<int> regNum;
+                for (int z = 0; z < parallelRegions.size(); ++z)
+                    regNum.insert(parallelRegions[z]->GetId());
+                insertTemplateModuleUse(file, regNum);
+            }
         }
         else if (curr_regime == INSERT_SHADOW_DIRS || curr_regime == EXTRACT_SHADOW_DIRS)
         {
@@ -1365,7 +1368,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == RESOLVE_PAR_REGIONS)
     {
-        bool error = resolveParRegions(parallelRegions, allFuncInfo, SPF_messages);
+        bool error = resolveParRegions(parallelRegions, allFuncInfo, SPF_messages, mpiProgram);
         if (error)
             internalExit = 1;
     }
@@ -1396,7 +1399,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     else if (curr_regime == INSERT_PARALLEL_DIRS || curr_regime == EXTRACT_PARALLEL_DIRS)
     {
         bool cond = (folderName != NULL) || (consoleMode) || (!consoleMode && curr_regime == EXTRACT_PARALLEL_DIRS);
-        if (cond)
+        if (cond && mpiProgram == 0)
         {
             //insert template declaration to main program
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
@@ -1483,7 +1486,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     else if (curr_regime == PRINT_PAR_REGIONS_ERRORS)
     {
-        bool error = checkRegionsResolving(parallelRegions, allFuncInfo, commonBlocks, SPF_messages);
+        bool error = checkRegionsResolving(parallelRegions, allFuncInfo, commonBlocks, SPF_messages, mpiProgram);
         if (error)
             internalExit = 1;
     }
@@ -1745,6 +1748,18 @@ static void findFunctionsToInclude(bool needToAddErrors)
         throw -6;*/
 }
 
+static void fillAllSymbs(SgExpression *ex, set<SgSymbol*> &refs)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
+            refs.insert(ex->symbol());
+
+        fillAllSymbs(ex->lhs(), refs);
+        fillAllSymbs(ex->rhs(), refs);
+    }
+}
+
 static SgProject* createProject(const char *proj_name)
 {
     Statement::deactiveConsistentchecker();
@@ -1756,6 +1771,29 @@ static SgProject* createProject(const char *proj_name)
     subs_parallelRegions.push_back(new ParallelRegion(0, "DEFAULT"));
 
     Statement::activeConsistentchecker();
+
+    //dump symbol table and symbol use
+    /*printSymbolTable(current_file);
+    for (auto st = current_file->firstStatement()->lexNext(); st; st = st->lexNext())
+    {
+        if (st->variant() != MODULE_STMT && isSgProgHedrStmt(st) == NULL)
+        {
+            set<SgSymbol*> refs;
+            for (int z = 0; z < 3; ++z)
+                if (st->expr(z))
+                    fillAllSymbs(st->expr(z), refs);
+
+            if (refs.size())
+            {
+                printf("FOR STATEMENT ON LINE %d:\n", st->lineNumber());
+                st->unparsestdout();
+                printf("refs ids:");
+                for (auto& elem : refs)
+                    printf(" %d (%s)", elem->id(), elem->identifier());
+                printf(";\n\n");
+            }
+        }
+    }*/
 
     set<string> filesInProj;
     //preprocess module includes
@@ -1792,7 +1830,7 @@ static SgProject* createProject(const char *proj_name)
         for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
             if (st->fileName() == fileN)
                 st->setlineNumber(st->lineNumber() - shiftN);
-    }*/
+    }*/    
     return project;
 }
 
@@ -1862,16 +1900,21 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
 
             runPass(REVERT_SUBST_EXPR, proj_name, folderName);
 
-            runPass(CREATE_REMOTES, proj_name, folderName);
+            if (mpiProgram == 0)
+                runPass(CREATE_REMOTES, proj_name, folderName);
 
-            runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
-            runPass(SHADOW_GROUPING, proj_name, folderName);
-            runPass(TRANSFORM_SHADOW_IF_FULL, proj_name, folderName);
-
-            runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+            if (mpiProgram == 0)
+            {
+                runPass(REMOVE_AND_CALC_SHADOW, proj_name, folderName);
+                runPass(SHADOW_GROUPING, proj_name, folderName);
+                runPass(TRANSFORM_SHADOW_IF_FULL, proj_name, folderName);
+                runAnalysis(*project, INSERT_SHADOW_DIRS, false, consoleMode ? additionalName.c_str() : NULL, folderName);
+            }
 
             runPass(RESTORE_LOOP_FROM_ASSIGN, proj_name, folderName);
-            runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
+
+            if (mpiProgram == 0)
+                runPass(ADD_TEMPL_TO_USE_ONLY, proj_name, folderName);
 
             runAnalysis(*project, INSERT_REGIONS, false);
 

@@ -56,12 +56,13 @@ static void setOptions(const int *options)
     keepDvmDirectives = options[KEEP_DVM_DIRECTIVES];
     keepSpfDirs = options[KEEP_SPF_DIRECTIVES];
     //mpiProgram = options[MPI_PROGRAM];
-    parallizeFreeLoops = (mpiProgram == 1) ? 1 : options[PARALLIZE_FREE_LOOPS];
+    parallizeFreeLoops = (mpiProgram == 1) ? 0 : options[PARALLIZE_FREE_LOOPS];
     maxShadowWidth = options[MAX_SHADOW_WIDTH];
     out_upper_case = options[OUTPUT_UPPER];
     langOfMessages = options[TRANSLATE_MESSAGES];
     removeNestedIntervals = (options[KEEP_LOOPS_CLOSE_NESTING] == 1);
-    //ignoreIO = options[IGNORE_IO_SAPFOR];
+    //ignoreIO = (mpiProgram == 1) ? 1 : options[IGNORE_IO_SAPFOR];
+
 }
 
 static int strLen(const short *shString)

@@ -11,5 +11,5 @@ void fillRegionFunctions(std::vector<ParallelRegion*> &regions, const std::map<s
 bool checkRegions(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
 int printCheckRegions(const char *fileName, const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo);
 
-bool checkRegionsResolving(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::map<std::string, CommonBlock> &commonBlocks, std::map<std::string, std::vector<Messages>> &SPF_messages);
-int resolveParRegions(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages);
+bool checkRegionsResolving(const std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, const std::map<std::string, CommonBlock> &commonBlocks, std::map<std::string, std::vector<Messages>> &SPF_messages, bool mpiProgram);
+int resolveParRegions(std::vector<ParallelRegion*> &regions, const std::map<std::string, std::vector<FuncInfo*>> &allFuncInfo, std::map<std::string, std::vector<Messages>> &SPF_messages, bool mpiProgram);

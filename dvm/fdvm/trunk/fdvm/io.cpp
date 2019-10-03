@@ -85,7 +85,7 @@ SgStatement *Any_IO_Statement(SgStatement *stmt)
   if(!IN_COMPUTE_REGION)
      LINE_NUMBER_BEFORE(stmt,stmt);
   SgExpression *ioEnd[3];
-  if(!only_debug && hasEndErrControlSpecifier(stmt, ioEnd))
+  if(hasEndErrControlSpecifier(stmt, ioEnd))
      ReplaceStatementWithEndErrSpecifier(stmt,ioEnd);           	    
   if(perf_analysis){
      InsertNewStatementBefore(St_Biof(),stmt);

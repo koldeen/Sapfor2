@@ -36,7 +36,7 @@ int intervals_threshold = 100; // threshold for intervals
 bool removeNestedIntervals = false; // nested intervals removal flag
 int langOfMessages = 1; // 0 - ENG, 1 - RUS
 int mpiProgram = 0; // detected mpi calls
-int ignoreIO = 1; // ignore io checker for arrays (DVM IO limitations)
+int ignoreIO = 0; // ignore io checker for arrays (DVM IO limitations)
 
 uint64_t currentAvailMemory = 0;
 int QUALITY; // quality of conflicts search in graph

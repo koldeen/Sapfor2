@@ -1288,13 +1288,6 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
     st1->insertStmtBefore(*equiv);
   }
 
- // declaring variable for new IOSTAT specifier of Input/Output statement (if END=,ERR=,EOR= are replaced with IOSTAT=)
-  if(IOstat) 
-  {
-     st = IOstat ->makeVarDeclStmt();
-     lstat -> insertStmtAfter(*st);    
-  }
-
 // declaring buffer HEAP for headers of dynamic arrays
   if(heap_ar_decl && heap_size){
     typearray = isSgArrayType(heapdvm->type());
@@ -1321,6 +1314,13 @@ void DeclareVarDVM(SgStatement *lstat, SgStatement *lstat2)
      lstat->insertStmtAfter(*st);
 
 } //endif !only_debug
+
+// declaring variable for new IOSTAT specifier of Input/Output statement (if END=,ERR=,EOR= are replaced with IOSTAT=)
+  if(IOstat) 
+  {
+     st = IOstat ->makeVarDeclStmt();
+     lstat -> insertStmtAfter(*st);    
+  }
 
 // declare  mask for registration (only in module)
    if(debug_regim && count_reg ) {

@@ -478,26 +478,25 @@ void DebugExpression(SgExpression *e, SgStatement *stmt)
 
 void DebugAssignStatement(SgStatement *stmt)
 {
-    SgStatement *stif,*st1,*st_next,*st_current; 
-              
-    st1 = stmt->lexPrev(); 
-    st_next = stmt->lexNext();  
-    DebugVarArrayRef_Left(stmt->expr(0),stmt,st1);     // left part
-    DebugVarArrayRef(stmt->expr(1),stmt);              // right part 
-    st_current = cur_st;
-    st1 = st1->lexNext() ;
-    if(st1 != stmt){
-        if(dbg_if_regim){
-            InsertNewStatementBefore(stif=CreateIfThenConstr(DebugIfCondition(), NULL),st1); 
-            TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),stmt);
-	}
-        LINE_NUMBER_BEFORE(stmt,st1);
+    SgStatement *stcur,  *after_st = NULL, *stmt1;
+    if(dbg_if_regim)                        
+        after_st=ReplaceStmt_By_IfThenConstr(stmt, DebugIfCondition());
+
+    LINE_NUMBER_STL_BEFORE(stcur,stmt,stmt); 
+    DebugVarArrayRef_Left(stmt->expr(0),stmt,stcur);   // left part
+    DebugVarArrayRef(stmt->expr(1),stmt);   // right part 
+
+    if(dbg_if_regim){
+        stmt1 = stmt->lexNext();
+        if(stmt1->variant() != CONTROL_END) {
+            TransferStmtAfter(stmt1,after_st);
+            ReplaceStmt_By_IfThenConstr(stmt1, DebugIfCondition());
+            while( stmt->lexNext()->variant() != CONTROL_END ) 
+                TransferStmtAfter(stmt->lexNext(),stmt1);
+        }
+        TransferStmtAfter(stmt,after_st);
+        cur_st = stmt1->lexNext();
     }
-    if(dbg_if_regim && stmt->lexNext() != st_next){  
-        InsertNewStatementAfter(stif=CreateIfThenConstr(DebugIfCondition(), NULL),stmt,stmt->controlParent()); 
-        TransferBlockIntoIfConstr(stif,stif->lexNext()->lexNext(),st_next);
-    }
-    cur_st = st_current;
 }
 
 void  DebugLoop(SgStatement *stmt)

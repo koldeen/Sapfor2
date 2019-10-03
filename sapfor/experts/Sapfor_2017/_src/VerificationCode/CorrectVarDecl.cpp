@@ -543,10 +543,10 @@ static void rename(SgExpression* ex, const map<SgSymbol*, SgSymbol*>& orig_renam
         {
             SgSymbol* s = ex->symbol();
             SgSymbol* sOrig = OriginalSymbol(ex->symbol());
-            if (s != sOrig && s->identifier() != string(sOrig->identifier()))
+            if (s != sOrig)
             {
                 auto itF = orig_rename.find(sOrig);
-                if (itF != orig_rename.end())
+                if (itF != orig_rename.end() && string(s->identifier()) != itF->second->identifier())
                     ex->setSymbol(itF->second);
             }
         }
