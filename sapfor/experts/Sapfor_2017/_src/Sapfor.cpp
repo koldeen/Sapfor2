@@ -330,29 +330,56 @@ static bool isNotNullIntersection(const set<DIST::Array*> &first, const set<DIST
     return false;
 }
 
-static set<string> fillDistributedArrays(const DataDirective &dataDirectives)
+static set<DIST::Array*> fillDistributedArraysD(const DataDirective& dataDirectives, bool onlyCommon = false)
 {
-    set<string> distrArrays;
+    set<DIST::Array*> distrArrays;
     set<DIST::Array*> distrArraysD;
     set<DIST::Array*> distrArraysAdded;
 
-    for (int z = 0; z < dataDirectives.distrRules.size(); ++z)    
+    for (int z = 0; z < dataDirectives.distrRules.size(); ++z)
         distrArraysD.insert(dataDirectives.distrRules[z].first);
     for (int z = 0; z < dataDirectives.alignRules.size(); ++z)
         distrArraysD.insert(dataDirectives.alignRules[z].alignArray);
 
-    for (auto &elem : tableOfUniqNamesByArray)
+    for (auto& elem : tableOfUniqNamesByArray)
     {
         set<DIST::Array*> realRefs;
         getRealArrayRefs(elem.first, elem.first, realRefs, arrayLinksByFuncCalls);
         if (isNotNullIntersection(realRefs, distrArraysD))
             distrArraysAdded.insert(elem.first);
     }
+        
+    for (auto& elem : distrArraysD)
+    {
+        if (onlyCommon)
+        {
+            if (elem->GetLocation().first == DIST::l_COMMON)
+                distrArrays.insert(elem);
+        }
+        else
+            distrArrays.insert(elem);
+    }
 
-    for (auto &elem : distrArraysD)
-        distrArrays.insert(elem->GetName());
-    for (auto &elem : distrArraysAdded)
-        distrArrays.insert(elem->GetName());
+    for (auto& elem : distrArraysAdded)
+    {
+        if (onlyCommon)
+        {
+            if (elem->GetLocation().first == DIST::l_COMMON)
+                distrArrays.insert(elem);
+        }
+        else
+            distrArrays.insert(elem);
+    }
+    return distrArrays;
+}
+
+static set<string> fillDistributedArrays(const DataDirective &dataDirectives, bool onlyCommon = false, bool shortName = false)
+{
+    set<string> distrArrays;
+    set<DIST::Array*> ret = fillDistributedArraysD(dataDirectives, onlyCommon);
+
+    for (auto& elem : ret)
+        distrArrays.insert(shortName ? elem->GetShortName() : elem->GetName());
     return distrArrays;
 }
 
@@ -585,14 +612,33 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             const bool extract = (curr_regime == EXTRACT_SHADOW_DIRS);
 
+            set<string> distrArraysDone;
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
                 ParallelRegion *currReg = parallelRegions[z];
                 DataDirective &dataDirectives = currReg->GetDataDirToModify();
                 DIST::GraphCSR<int, double, attrType> &reducedG = parallelRegions[z]->GetReducedGraphToModify();
 
-                const set<string> distrArrays = fillDistributedArrays(dataDirectives);                
+                set<string> distrArraysF = fillDistributedArrays(dataDirectives);
+
+                set<string> distrArrays;
+                for (auto& elem : distrArraysF)
+                    if (distrArraysDone.find(elem) == distrArraysDone.end())
+                        distrArrays.insert(elem);
                 insertShadowSpecToFile(file, file_name, distrArrays, reducedG, commentsToInclude, extract, getObjectForFileFromMap(file_name, SPF_messages), declaratedArrays);
+
+                distrArraysDone.insert(distrArrays.begin(), distrArrays.end());
+            }
+
+            if (!extract)
+            {
+                for (int z = 0; z < parallelRegions.size(); ++z)
+                {
+                    ParallelRegion* currReg = parallelRegions[z];
+                    DataDirective& dataDirectives = currReg->GetDataDirToModify();
+                    const set<DIST::Array*> distrCommonArrays = fillDistributedArraysD(dataDirectives, true);
+                    insertRealignsBeforeFragments(currReg, file, distrCommonArrays, arrayLinksByFuncCalls);
+                }
             }
         }
         else if (curr_regime == REVERT_SPF_DIRS)

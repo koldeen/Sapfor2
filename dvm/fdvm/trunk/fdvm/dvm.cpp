@@ -10198,6 +10198,7 @@ void InsertDebugStat(SgStatement *func, SgStatement* &end_of_unit)
   dbif_not_cond = 0;
   last_dvm_entry = NULL;
   all_replicated = 0; 
+  IOstat = NULL;
 
   TempVarDVM(func);
   initF90Names();

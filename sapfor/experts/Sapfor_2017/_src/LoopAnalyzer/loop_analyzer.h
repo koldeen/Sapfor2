@@ -20,6 +20,28 @@ namespace DIST = Distribution;
 enum REGIME { DATA_DISTR, COMP_DISTR, REMOTE_ACC, PRIVATE_STEP4, UNDEF };
 enum REMOTE_BOOL { REMOTE_NONE = 0, REMOTE_TRUE = 1, REMOTE_FALSE = 3};
 
+
+//directive_creator.cpp
+void selectParallelDirectiveForVariant(SgFile* file,
+    ParallelRegion* currReg,
+    DIST::GraphCSR<int, double, attrType>& reducedG,
+    DIST::Arrays<int>& allArrays,
+    const std::vector<LoopGraph*>& loopGraph,
+    const std::map<int, LoopGraph*>& mapLoopGraph,
+    const std::vector<std::pair<DIST::Array*, const DistrVariant*>>& distribution,
+    const std::vector<AlignRule>& alignRules,
+    std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>>& toInsert,
+    const int regionId,
+    const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls,
+    const std::map<LoopGraph*, depGraph*>& depInfoForLoopGraph,
+    std::vector<Messages>& messages);
+
+std::vector<std::vector<std::pair<std::string, std::vector<Expression*>>>>
+createRealignRules(SgStatement* spStat, const int regId, SgFile* file, const std::string& templClone,
+    const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls, const std::set<DIST::Array*>& usedArrays);
+
+SgStatement* createStatFromExprs(const std::vector<Expression*>& exprs);
+
 // loop_analyzer.cpp
 bool checkExistence(SgExpression *exp, SgSymbol *doName);
 
@@ -40,20 +62,6 @@ void arrayAccessAnalyzer(SgFile *file, std::vector<Messages> &messagesForFile,
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);
 void addToDistributionGraph(const std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
-
-void selectParallelDirectiveForVariant(SgFile *file, 
-                                       ParallelRegion *currReg,
-                                       DIST::GraphCSR<int, double, attrType> &reducedG,
-                                       DIST::Arrays<int> &allArrays,
-                                       const std::vector<LoopGraph*> &loopGraph,
-                                       const std::map<int, LoopGraph*> &mapLoopGraph,
-                                       const std::vector<std::pair<DIST::Array*, const DistrVariant*>> &distribution,
-                                       const std::vector<AlignRule> &alignRules,
-                                       std::vector<std::pair<int, std::pair<std::string, std::vector<Expression*>>>> &toInsert,
-                                       const int regionId,
-                                       const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                       const std::map<LoopGraph*, depGraph*> &depInfoForLoopGraph,
-                                       std::vector<Messages> &messages);
 
 void printBlanks(const int sizeOfBlank, const int countOfBlanks);
 bool isIntrinsic(const char *funName);

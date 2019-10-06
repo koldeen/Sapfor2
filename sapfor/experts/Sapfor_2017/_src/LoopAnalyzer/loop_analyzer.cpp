@@ -586,7 +586,12 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
 
                                     auto loopAlignCoefs = loopT->GetLinksWithTemplate(reg->GetId());
                                     if (loopAlignCoefs[dimToMap] == -1)
-                                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                    {
+                                        if (loop->loop->GetOriginal()->lexPrev()->variant() == DVM_PARALLEL_ON_DIR)
+                                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                                        else
+                                            continue;
+                                    }
                                     else
                                         dimToMap = loopAlignCoefs[dimToMap];
                                 }

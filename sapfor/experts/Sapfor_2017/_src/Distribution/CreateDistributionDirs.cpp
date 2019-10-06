@@ -86,7 +86,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
     }
 }
 
-#define WITH_REMOVE 1
+#define WITH_REMOVE 0
 static int templateCount = 0;
 static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, double, attrType> &reducedG, DIST::Arrays<int> &allArrays)
 {
@@ -96,6 +96,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
     if (err != 0)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+#if WITH_REMOVE
     if (!distArray->IsLoopArray())
     {
         int countOfDepr = 0;
@@ -124,6 +125,7 @@ static DIST::Array* createTemplate(DIST::Array *distArray, DIST::GraphCSR<int, d
             }
         }
     }
+#endif
 
     DIST::Array *templ = new DIST::Array(*distArray);
     templ->ChangeName("dvmh_temp" + std::to_string(templateCount++));
@@ -522,9 +524,9 @@ int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST:
                                 std::wstring bufE, bufR;
                                 if (realR->GetNonDistributeFlag())
                                 {
-                                    __spf_printToLongBuf(bufR, L"detected non distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufE, L"detected non distributed array '%s'\n", to_wstring(realR->GetShortName()).c_str());
 #ifdef _WIN32
-                                    __spf_printToLongBuf(bufE, L"Обнаружен не распределяемый массив '%s', передаваемый в качестве параметра в процедуру\n", to_wstring(realR->GetShortName()).c_str());
+                                    __spf_printToLongBuf(bufR, R153, to_wstring(realR->GetShortName()).c_str());
 #endif
                                 }
                                 else

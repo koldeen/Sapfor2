@@ -12,6 +12,7 @@
 
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
+#include "../LoopAnalyzer/loop_analyzer.h"
 
 using std::map;
 using std::pair;
@@ -650,7 +651,9 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
         {
             // new common-block is not created for array at this file, so create it
             // creating new common-block statement
-            string commBlockName = checkSymbNameAndCorrect(array->GetShortName() + "_r");
+            //TODO: consistence with declaration
+            //string commBlockName = checkSymbNameAndCorrect(array->GetShortName() + "_r");
+            string commBlockName = array->GetShortName() + "_r";
             SgStatement *commDecl = new SgStatement(COMM_STAT);
 
             SgSymbol *commSymb = new SgSymbol(VARIABLE_NAME, commBlockName.c_str());
@@ -671,7 +674,9 @@ static SgStatement* createCommonBlock(SgFile *file, DIST::Array *array)
             if (itt == it->second.end())
             {
                 // need to create symbol
-                string newArrName = checkSymbNameAndCorrect(varsOnPos[0]->getName() + "_c");
+                //TODO: consistence with declaration
+                //string newArrName = checkSymbNameAndCorrect(varsOnPos[0]->getName() + "_c");
+                string newArrName = varsOnPos[0]->getName() + "_c";
 
                 newArrSymb = new SgSymbol(VARIABLE_NAME, newArrName.c_str(), file->firstStatement());
                 SgType *type = new SgType(T_ARRAY);
@@ -886,7 +891,9 @@ static pair<SgSymbol*, SgSymbol*> copyArray(const pair<string, int> &place,
 
     if (SgFile::switchToFile(fileName) != -1)
     {
-        string newArrName = checkSymbNameAndCorrect(array->GetShortName() + suffix);
+        //TODO: consistence with declaration 
+        //string newArrName = checkSymbNameAndCorrect(array->GetShortName() + suffix);
+        string newArrName = array->GetShortName() + suffix;
         SgSymbol *arrSymb = array->GetDeclSymbol()->GetOriginal();
         SgSymbol *newArrSymb = NULL;
         SgStatement *decl = SgStatement::getStatementByFileAndLine(place.first, place.second);
@@ -1978,4 +1985,38 @@ int printCheckRegions(const char *fileName, const vector<ParallelRegion*> &regio
         fclose(file);
     }
     return 0;
+}
+
+void insertRealignsBeforeFragments(ParallelRegion *reg, SgFile *file, const set<DIST::Array*> &distrArrays, const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls)
+{
+    if (distrArrays.size() == 0)
+        return;
+    if (reg->GetName() == "DEFAULT")
+        return;
+
+    auto lines = reg->GetLines(file->filename());
+    if (lines)
+    {
+        set<DIST::Array*> withoutTempl;
+        for (auto& elem : distrArrays)
+            if (elem->IsArray())
+                withoutTempl.insert(elem);
+
+        for (auto& elem : *lines)
+        {
+            if (!elem.isImplicit())
+            {
+                checkNull(elem.stats.first, convertFileName(__FILE__).c_str(), __LINE__);
+                checkNull(elem.stats.second, convertFileName(__FILE__).c_str(), __LINE__);
+
+                checkNull(elem.intervalBefore.first, convertFileName(__FILE__).c_str(), __LINE__);
+                checkNull(elem.intervalBefore.second, convertFileName(__FILE__).c_str(), __LINE__);
+
+                auto toRealign = createRealignRules(elem.intervalBefore.first, reg->GetId(), file, "", arrayLinksByFuncCalls, withoutTempl);
+                auto cp = elem.intervalBefore.first->controlParent();
+                for (auto& rule : toRealign[1])
+                    elem.intervalBefore.first->insertStmtBefore(*createStatFromExprs(rule.second), *cp);
+            }
+        }
+    }
 }

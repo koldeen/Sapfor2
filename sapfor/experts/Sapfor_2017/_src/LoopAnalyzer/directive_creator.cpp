@@ -540,16 +540,16 @@ static DIST::Array* getRealArrayRef(DIST::Array *in, const int regId, const map<
 }
 
 //create realigns instead of full template redistribution
-static vector<vector<pair<string, vector<Expression*>>>> 
-    createRealignRules(LoopGraph *current, const int regId, SgFile *file, const string &templClone, 
-                       const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
+vector<vector<pair<string, vector<Expression*>>>> 
+    createRealignRules(SgStatement *spStat, const int regId, SgFile *file, const string &templClone, 
+                       const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls, const set<DIST::Array*> &usedArrays)
 {
     vector<vector<pair<string, vector<Expression*>>>> optimizedRules(2);
-    auto byUse = moduleRefsByUseInFunction(current->loop->GetOriginal());
+    auto byUse = moduleRefsByUseInFunction(spStat);
 
     for (int num = 0; num < 2; ++num)
     {
-        for (auto &elem : current->usedArrays)
+        for (auto &elem : usedArrays)
         {
             if (elem->GetNonDistributeFlag())
                 continue;
@@ -557,8 +557,9 @@ static vector<vector<pair<string, vector<Expression*>>>>
             auto realRef = getRealArrayRef(elem, regId, arrayLinksByFuncCalls);
             auto rules = realRef->GetAlignRulesWithTemplate(regId);
             auto links = realRef->GetLinksWithTemplate(regId);
-            const auto &templ = realRef->GetTemplateArray(regId);            
-            checkNull(templ, convertFileName(__FILE__).c_str(), __LINE__);
+            const auto &templ = realRef->GetTemplateArray(regId);
+            if (templ == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             
             vector<Expression*> realign = { NULL, NULL, NULL, NULL, NULL };
             set<string> tmpUsed;
@@ -701,7 +702,7 @@ static bool addRedistributionDirs(SgFile *file, const vector<pair<DIST::Array*, 
         const auto redistrRule = redistributeRules[z].second->distRule;        
         const string newTemplate = distribution[idx].first->AddTemplateClone(redistrRule);
 
-        const vector<vector<pair<string, vector<Expression*>>>> &toRealign = createRealignRules(current, regionId, file, newTemplate, arrayLinksByFuncCalls);
+        const auto &toRealign = createRealignRules(current->loop, regionId, file, newTemplate, arrayLinksByFuncCalls, current->usedArrays);
         for (auto &rule : toRealign[0])
             toInsert.push_back(make_pair(current->lineNum, rule));
         for (auto &rule : toRealign[1])

@@ -315,7 +315,9 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
                             string comments = st->comments();
                             if (comments.find(it.second.first) == string::npos)
                             {
-                                const size_t pos = comments.rfind("include");
+                                string commLow = comments;
+                                convertToLower(commLow);
+                                const size_t pos = commLow.rfind("include");
                                 if (pos == string::npos)
                                     st->setComments((it.second.first + comments).c_str());
                                 else

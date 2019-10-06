@@ -38,7 +38,7 @@ using std::make_tuple;
 static const string dvmhModuleName = "dvmh_template_mod";
 
 //the size of vector indiceates type of DVM_DIR
-static SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
+SgStatement* createStatFromExprs(const vector<Expression*> &exprs)
 {
     SgStatement *result = NULL;
     if (exprs.size() == 3)
@@ -1555,13 +1555,10 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     dynamicArraysLocal.insert(dirWithArray.first);
                                 dynamicArrays.insert(dirWithArray.first);
                                 dynamicArraysStr.insert(make_pair(dirWithArray.first->GetName(), dirWithArray.first));
-                                    
-                                // don't insert template decl for inherit arrays in functions
-                                //TODO: need to correct in case of use local arrays in functions
+
                                 if (templDir.second == "!DVM$ INHERIT\n" && templDir.first.isTemplateInModule)
                                     templDecl = "";
-                                else if (dirWithArray.first->GetLocation().first == DIST::l_LOCAL || 
-                                         dirWithArray.first->GetLocation().first == DIST::l_COMMON)
+                                else
                                 {
                                     if (templateDelc.find(templDecl) == templateDelc.end())
                                         templateDelc.insert(templDecl);
@@ -1570,9 +1567,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                     if (templDecl != "")
                                         templDecl = createFullTemplateDir(make_tuple(templDir.first.templDecl.first, templDir.first.templDist.first, templDir.first.templDyn.first));
-                                }
-                                else
-                                    templDecl = "";
+                                }                                
 
                                 if (!strcmp(st->fileName(), fin_name))
                                 {
@@ -1781,7 +1776,7 @@ void insertShadowSpecToFile(SgFile *file, const char *fin_name, const set<string
 {
     vector<SgStatement*> modulesAndFuncs;
     getModulesAndFunctions(file, modulesAndFuncs);
-    
+
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
