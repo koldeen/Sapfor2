@@ -371,6 +371,9 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
     int countOfMessages = 10;
     int idxOfMessages = 0;
 
+    set<string> parPrivatesVars;
+    tryToFindPrivateInAttributes(parentGraph->loop->GetOriginal(), parPrivatesVars);
+
     for (depNode* node : parentDepGraph->getNodes())
     {
         if (node->typedep != ARRAYDEP)
@@ -380,8 +383,14 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
             {
                 SgStatement *childLoop = childGraph->loop->GetOriginal();
                 if (lineInsideBorder(node->stmtin->lineNumber(), make_pair(childLoop, childLoop->lastNodeOfStmt()->lexNext())))
-                    privateInChild = node->typedep == PRIVATEDEP;
+                    privateInChild = (node->typedep == PRIVATEDEP);
             }
+
+            //private for this loop
+            if (!privateInChild)
+                if (node->varin->symbol() && parPrivatesVars.find(node->varin->symbol()->identifier()) != parPrivatesVars.end())
+                    privateInChild = true;
+
             has |= !privateInChild;
             if (!privateInChild)
             {

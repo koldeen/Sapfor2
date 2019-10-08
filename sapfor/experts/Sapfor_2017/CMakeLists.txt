@@ -13,10 +13,9 @@ add_definitions("-D YYDEBUG")
 
 #set(CMAKE_CXX_STANDARD 11)
 
-set(FDVM_INCLUDES ../../../dvm/fdvm/trunk/include)
-set(FDVM_SAGE_LIB_INCLUDES ../../../dvm/fdvm/trunk/Sage/lib/include)
-set(FDVM_SAGE_H_INCLUDES ../../../dvm/fdvm/trunk/Sage/h/)
-set(FTRANSFORM_BASE ../../transformers/ftransform/trunk/)
+set(fdvm_include ../../../dvm/fdvm/trunk/include)
+set(sage_include_1 ../../../dvm/fdvm/trunk/Sage/lib/include)
+set(sage_include_2 ../../../dvm/fdvm/trunk/Sage/h/)
 set(libdb_sources ../../../dvm/fdvm/trunk/Sage/lib/oldsrc)
 set(sage_sources ../../../dvm/fdvm/trunk/Sage/lib/newsrc)
 set(sagepp_sources ../../../dvm/fdvm/trunk/Sage/Sage++)
@@ -44,9 +43,9 @@ endforeach ()
 
 include_directories(_src)
 #Sage lib includes
-include_directories(${FDVM_INCLUDES})
-include_directories(${FDVM_SAGE_LIB_INCLUDES})
-include_directories(${FDVM_SAGE_H_INCLUDES})
+include_directories(${fdvm_include})
+include_directories(${sage_include_1})
+include_directories(${sage_include_2})
  
 set(VS_CALLS _src/VisualizerCalls/get_information.cpp
 		_src/VisualizerCalls/get_information.h

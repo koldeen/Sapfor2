@@ -13,6 +13,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
+#include "../LoopAnalyzer/directive_creator.h"
 
 using std::map;
 using std::pair;
@@ -2014,8 +2015,15 @@ void insertRealignsBeforeFragments(ParallelRegion *reg, SgFile *file, const set<
 
                 auto toRealign = createRealignRules(elem.intervalBefore.first, reg->GetId(), file, "", arrayLinksByFuncCalls, withoutTempl);
                 auto cp = elem.intervalBefore.first->controlParent();
+
+                if (toRealign[1].size() == 0)
+                    return;
+
                 for (auto& rule : toRealign[1])
+                {
+                    elem.intervalBefore.first->insertStmtBefore(*new SgStatement(DVM_NEW_VALUE_DIR), *cp);
                     elem.intervalBefore.first->insertStmtBefore(*createStatFromExprs(rule.second), *cp);
+                }
             }
         }
     }

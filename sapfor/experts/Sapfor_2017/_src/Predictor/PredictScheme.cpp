@@ -13,6 +13,7 @@
 
 #include "dvm.h"
 #include "PredictScheme.h"
+#include "../Utils/SgUtils.h"
 
 static void fillParallel(SgExpression *exp, ParallelStats &parStats, int &totalScoreComm)
 {
@@ -62,6 +63,7 @@ static void fillParallel(SgExpression *exp, ParallelStats &parStats, int &totalS
 
 void processFileToPredict(SgFile *file, PredictorStats &predictorCounts)
 {       
+    SgStatement* prev = NULL;
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
         SgExprListExp *list;
@@ -74,8 +76,21 @@ void processFileToPredict(SgFile *file, PredictorStats &predictorCounts)
             break;
         case DVM_REDISTRIBUTE_DIR:
         case DVM_REALIGN_DIR:
-            predictorCounts.RedistributeCount++;
-            predictorCounts.TotalScoreComm += 10000;
+            if (prev->variant() == DVM_NEW_VALUE_DIR)
+                break;
+
+            list = isSgExprListExp(st->expr(0));
+            if (list)
+            {
+                int len = list->length();
+                predictorCounts.RedistributeCount += len;
+                predictorCounts.TotalScoreComm += 10000 * len;
+            }
+            else
+            {
+                predictorCounts.RedistributeCount++;
+                predictorCounts.TotalScoreComm += 10000;
+            }
             break;
         case DVM_REMOTE_ACCESS_DIR:
             for (int i = 0; i < 3; ++i)
@@ -96,6 +111,7 @@ void processFileToPredict(SgFile *file, PredictorStats &predictorCounts)
         default:
             break;
         }
+        prev = st;
     }
 
     predictorCounts.TotalScorePar += predictorCounts.ParallelCount;

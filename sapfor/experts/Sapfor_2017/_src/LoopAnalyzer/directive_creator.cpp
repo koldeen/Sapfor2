@@ -539,6 +539,42 @@ static DIST::Array* getRealArrayRef(DIST::Array *in, const int regId, const map<
     return *out.begin();
 }
 
+vector<pair<string, vector<Expression*>>> 
+    groupRealignsDirs(const vector<pair<string, vector<Expression*>>>& toRealign)
+{
+    map<pair<string, string>, vector<vector<Expression*>>> groupedRules;
+    for (auto& rule : toRealign)
+    {
+        auto currRule = rule.second;
+
+        string tRule = string(currRule[2]->unparse());
+        string arrRule = string(currRule[1]->unparse());
+        groupedRules[make_pair(tRule, arrRule)].push_back(currRule);
+    }
+
+    map<pair<string, string>, vector<Expression*>> mergedGroupedRules;
+    for (auto& rule : groupedRules)
+    {
+        SgExprListExp* mergedList = new SgExprListExp();
+        for (int z = 0; z < rule.second.size(); ++z)
+        {
+            if (z == 0)
+                mergedList->setLhs(rule.second[z][0]->GetOriginal());
+            else
+                mergedList->append(*rule.second[z][0]->GetOriginal());
+        }
+        vector<Expression*> medged = rule.second[0];
+        medged[0] = new Expression(mergedList);
+        mergedGroupedRules[rule.first] = medged;
+    }
+
+    vector<pair<string, vector<Expression*>>> retVal;
+    for (auto& elem : mergedGroupedRules)
+        retVal.push_back(make_pair("", elem.second));
+
+    return retVal;
+}
+
 //create realigns instead of full template redistribution
 vector<vector<pair<string, vector<Expression*>>>> 
     createRealignRules(SgStatement *spStat, const int regId, SgFile *file, const string &templClone, 
@@ -616,7 +652,11 @@ vector<vector<pair<string, vector<Expression*>>>>
             optimizedRules[num].push_back(make_pair("", realign));
         }
     }
-    return optimizedRules;
+
+    vector<vector<pair<string, vector<Expression*>>>> groupedOptRules(2);
+    groupedOptRules[0] = groupRealignsDirs(optimizedRules[0]);
+    groupedOptRules[1] = groupRealignsDirs(optimizedRules[1]);
+    return groupedOptRules;
 }
 
 extern int mpiProgram;
