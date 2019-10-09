@@ -313,6 +313,14 @@ void DvmhRegionInsertor::insertActualDirectives()
         st->lexNext();
         while (st != lastNode)
         {
+            if (st == NULL)
+            {
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                break;
+            }
+            if (st->variant() == CONTAINS_STMT)
+                break;
+
             // Skip regions
             DvmhRegion* region = getRegionByStart(st);
             if (region)
@@ -321,9 +329,11 @@ void DvmhRegionInsertor::insertActualDirectives()
                 continue;
             }
 
-            // Skip useless (TODO: make it work)
-            if (!isSgExecutableStatement(st) || st->variant() == PROG_HEDR || st->variant() == FUNC_HEDR || st->variant() == PROC_HEDR)
-                st->lexNext();
+            // Skip useless
+            if (!isSgExecutableStatement(st) || isSgProgHedrStmt(st) || isDVM_stat(st)) {
+                st = st->lexNext();
+                continue;
+            }
 
             // TODO: process loop separatly (how to get LoopGraph by statement?)
             set<SgSymbol *> used_for_read, used_for_write;
@@ -332,11 +342,6 @@ void DvmhRegionInsertor::insertActualDirectives()
             // // debug
             // printf("********\n");
             // st->unparsestdout();
-            // printf("_______\n");
-            // for (auto& s : used)
-            // {
-            //     printf("%s", s->identifier());
-            // }
             // printf("********\n");
             insertActualDirective(st, used_for_read, ACC_GET_ACTUAL_DIR, true);
             insertActualDirective(st, used_for_write, ACC_ACTUAL_DIR, false);
