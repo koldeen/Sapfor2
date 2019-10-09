@@ -303,113 +303,45 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
 
 void DvmhRegionInsertor::insertActualDirectives() 
 {
-    //TODO: rewrite
-#if 0
     int funcNum = file->numberOfFunctions();
-    RDKeeper rd = RDKeeper(file);
 
-    for (auto const& defsByStatement : rd.defsByStatement)
+    for (int i = 0; i < funcNum; ++i)
     {
-        SgStatement* st = defsByStatement.first;
-        StDefs st_defs = defsByStatement.second;
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
 
-        DvmhRegion* region = getContainingRegion(st);
-
-        vector<SgSymbol*> toActualise;
-        for (auto const& elem : st_defs) 
+        st->lexNext();
+        while (st != lastNode)
         {
-            SgSymbol* symbol = elem.first;
-            set<SgStatement*> defs = elem.second;
-            /*
-            // DEBUG
-            cout << "~~~~~~~~~~~~~~~~~~~~~" << endl;
-            st->unparsestdout();
-            cout << symbol.getVarName() + ": " << endl;
-            for (auto &def : defs) {
-                if (def) {
-                    def->unparsestdout();
-                }
-            }
-            cout << "********************" << endl;
-            // END OF DEBUG
-            */
-            if (region) 
+            // Skip regions
+            DvmhRegion* region = getRegionByStart(st);
+            if (region)
             {
-                // Searching for defenition not in region
-                bool symbolDeclaredInSequentPart = false;
-                for (auto& def : defs) 
-                {
-                    auto saveName = current_file->filename();
-
-                    if (!def->switchToFile())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    DvmhRegion* containingRegion = getContainingRegion(def);
-                    if (!containingRegion) 
-                    {
-                        symbolDeclaredInSequentPart = true;
-                        break;
-                    }
-
-                    if (SgFile::switchToFile(saveName) == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-                if (symbolDeclaredInSequentPart)
-                    region->addToActualisation(symbol);
+                st = region->getLastSt();
+                continue;
             }
-            else 
-            {
-                // Searching for defenition in region
-                bool symbolDeclaredInRegion = false;
-                for (auto& def : defs) 
-                {
-                    auto saveName = current_file->filename();
 
-                    if (!def->switchToFile())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            // Skip useless (TODO: make it work)
+            if (!isSgExecutableStatement(st) || st->variant() == PROG_HEDR || st->variant() == FUNC_HEDR || st->variant() == PROC_HEDR)
+                st->lexNext();
 
-                    const DvmhRegion* containingRegion = getContainingRegion(def);
-                    if (containingRegion) 
-                    {
-                        symbolDeclaredInRegion = true;
-                        break;
-                    }
+            // TODO: process loop separatly (how to get LoopGraph by statement?)
+            set<SgSymbol *> used_for_read, used_for_write;
+            tie(used_for_read, used_for_write) = getUsedDistributedArrays(st);
 
-                    if (SgFile::switchToFile(saveName) == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-                if (symbolDeclaredInRegion)
-                    toActualise.push_back(symbol);
-            }
-        }
-        insertActualDirective(st, toActualise, ACC_GET_ACTUAL_DIR, true);
-    }
-#endif
+            // // debug
+            // printf("********\n");
+            // st->unparsestdout();
+            // printf("_______\n");
+            // for (auto& s : used)
+            // {
+            //     printf("%s", s->identifier());
+            // }
+            // printf("********\n");
+            insertActualDirective(st, used_for_read, ACC_GET_ACTUAL_DIR, true);
+            insertActualDirective(st, used_for_write, ACC_ACTUAL_DIR, false);
 
-    //TODO: improve and optimize
-    for (auto& region : regions)
-    {
-        for (auto& loop : region->getLoops())
-        {
-            for (auto& array : loop->usedArrays)
-            {
-                string arrayName = array->GetShortName();
-                if (array->GetLocation().first == DIST::l_MODULE)
-                    arrayName = getNameByUse(loop->loop->GetOriginal(), arrayName, array->GetLocation().second);
-
-                region->addToActualisation(arrayName);
-                if (loop->usedArraysWrite.find(array) != loop->usedArraysWrite.end())
-                    region->addToActualisationAfter(arrayName);
-            }
-        }
-    }
-
-    for (auto& region : regions)
-    {
-        if (region->getLoops().size())
-        {
-            insertActualDirective(region->getFirstSt()->lexPrev()->lexPrev(), region->getActualisation(), ACC_ACTUAL_DIR, true, false);
-            insertActualDirective(region->getLastSt()->lexNext(), region->getActualisationAfter(), ACC_GET_ACTUAL_DIR, false, false);
+            st = st->lexNext();
         }
     }
 }
@@ -500,42 +432,9 @@ void DvmhRegionInsertor::insertDirectives()
 
      __spf_print(1, "Insert actuals\n");
     insertActualDirectives();
-
-    //vector<DvmhRegion*> l_regions;
-    //for (auto &region : regions)
-    //  l_regions.push_back(&region);
-
-    //__spf_print(1, "Constructing Abstract Graph\n");
-    //AFlowGraph graph = AFlowGraph(file, l_regions);
 }
 
-/*********** DvmhRegion *************/
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
-{
-    loops.push_back(loopNode);
-}
-
-bool DvmhRegion::isInRegion(SgStatement *st) 
-{
-    if (!st)
-        return false;
-
-    int line = st->lineNumber();
-    bool inLoop = false;
-    for (auto& loop : loops)
-        inLoop |= (st->fileName() == loop->fileName && line >= loop->lineNum && line < loop->lineNumAfterLoop);
-    return inLoop;
-}
-
-DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) 
-{
-    for (auto& region : regions) 
-        if (region->isInRegion(st)) 
-            return region;
-    return NULL;
-}
-
-void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string> &symbols, int varinat, bool before, bool empty)
+void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<SgSymbol *> &symbols, int varinat, bool before, bool empty)
 {
     if (!st || (varinat != ACC_ACTUAL_DIR && varinat != ACC_GET_ACTUAL_DIR) || (!empty && (symbols.size() == 0)))
         return;
@@ -545,7 +444,7 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string
     SgExprListExp *t = new SgExprListExp();
     for (auto &symbol : symbols) 
     {
-        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, symbol));
+        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, symbol->identifier()));
         t->append(*expr);
     }
 
@@ -567,6 +466,24 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string
         st->insertStmtAfter(*actualizingSt, *st->controlParent());
 }
 
+DvmhRegion* DvmhRegionInsertor::getRegionByStart(SgStatement *st) const
+{
+    for (auto& region : regions)
+    {
+        SgStatement *region_start = region->getFirstSt();
+        if (st->id() == region_start->id()) 
+            return region;
+    }
+
+    return NULL;
+}
+
+/*********** DvmhRegion *************/
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
+{
+    loops.push_back(loopNode);
+}
+
 SgStatement* DvmhRegion::getFirstSt() const 
 {
     if (loops.size() < 1) 
@@ -581,20 +498,7 @@ SgStatement* DvmhRegion::getLastSt() const
     return loops.back()->loop->lastNodeOfStmt();
 }
 
-//TODO: need to remove or rewrite RDKeeper 
-RDKeeper::RDKeeper(SgFile *file) 
-{
-    // Build CFG
-    SgStatement *st = file->functions(0);
-    GraphsKeeper* graphsKeeper = GraphsKeeper::getGraphsKeeper();
-    ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
-
-    // Find gen for every bb
-
-    // Find defs for every statement
-}
-
-set<SgSymbol *> RDKeeper::getSymbolsFromExpression(SgExpression *exp) 
+static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) 
 {
     set<SgSymbol *> result;
 
@@ -618,20 +522,25 @@ set<SgSymbol *> RDKeeper::getSymbolsFromExpression(SgExpression *exp)
     return result;
 }
 
-set<SgSymbol *> RDKeeper::getUsedSymbols(SgStatement* st) 
+/* Returns tuple (READ, WRITE) of used symbols in the statement */
+static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st) 
 {
-    set<SgSymbol *> result;
+    set<SgSymbol *> read, write;
 
     // ignore not executable statements
     if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
-        return result;
+        return make_tuple(read, write);
 
-    for (int i = 0; i < 3; ++i) {
+    // find write
+    write = getSymbolsFromExpression(st->expr(0));
+
+    // find read
+    for (int i = 1; i < 3; ++i) {
         if (st->expr(i)) {
             set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-            result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+            read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
         }
     }
 
-    return result;
+    return make_tuple(read, write);
 }

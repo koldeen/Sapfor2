@@ -20,12 +20,14 @@
 #include <algorithm>
 #include <tuple>
 
+using namespace std;
+
 struct LoopCheckResults 
 {
     bool usesIO;
     bool hasImpureCalls;
 
-    std::vector<int> linesOfIO;
+    vector<int> linesOfIO;
 
     LoopCheckResults() : usesIO(false), hasImpureCalls(false) { }
     LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
@@ -34,21 +36,20 @@ struct LoopCheckResults
 class DvmhRegion 
 {
 private:
-    std::vector<LoopGraph*> loops;
+    vector<LoopGraph*> loops;
 
-    std::string fun_name;
-    std::set<std::string> needActualisation;
-    std::set<std::string> needActualisationAfter;
+    string fun_name;
+    set<string> needActualisation;
+    set<string> needActualisationAfter;
 
 public:
     DvmhRegion() { }
-    DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
+    DvmhRegion(LoopGraph *loopNode, const string &fun_name);
 
-    bool isInRegion(SgStatement *);
     SgStatement* getFirstSt() const;
     SgStatement* getLastSt() const;
 
-    bool addToActualisation(const std::string &s) 
+    bool addToActualisation(const string &s) 
     {
         if (needActualisation.find(s) != needActualisation.end())
             return false;
@@ -57,7 +58,7 @@ public:
         return true;
     }
 
-    bool addToActualisationAfter(const std::string &s)
+    bool addToActualisationAfter(const string &s)
     {
         if (needActualisationAfter.find(s) != needActualisationAfter.end())
             return false;
@@ -67,34 +68,34 @@ public:
     }
 
     void addLoop(LoopGraph* newLoop) { loops.push_back(newLoop); }
-    const std::string& getFunName() const { return fun_name; }
-    void setFunName(const std::string& newName) { fun_name = newName; }
-    const std::vector<LoopGraph*>& getLoops() const { return loops; }
-    const std::set<std::string>& getActualisation() const {return needActualisation; }
-    const std::set<std::string>& getActualisationAfter() const { return needActualisationAfter; }
+    const string& getFunName() const { return fun_name; }
+    void setFunName(const string& newName) { fun_name = newName; }
+    const vector<LoopGraph*>& getLoops() const { return loops; }
+    const set<string>& getActualisation() const {return needActualisation; }
+    const set<string>& getActualisationAfter() const { return needActualisationAfter; }
 };
 
 class DvmhRegionInsertor 
 {
     SgFile *file;
-    const std::vector<LoopGraph*> &loopGraph;
-    std::vector<DvmhRegion*> regions;
+    const vector<LoopGraph*> &loopGraph;
+    vector<DvmhRegion*> regions;
 
-    DvmhRegion* getContainingRegion(SgStatement *);
+    DvmhRegion* getRegionByStart(SgStatement *) const;
     void printFuncName(SgStatement *);
-    void findEdgesForRegions(const std::vector<LoopGraph*>&);
+    void findEdgesForRegions(const vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirective(SgStatement*, const std::set<std::string>&, int, bool, bool empty = false);
+    void insertActualDirective(SgStatement*, const set<SgSymbol *>&, int, bool, bool empty = false);
     void mergeRegions();
-    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
-    LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
+    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
+    LoopCheckResults updateLoopNode(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
 
 public:
 
-    DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&);
-    void updateLoopGraph(const std::map<std::string, FuncInfo*> &allFuncs);
+    DvmhRegionInsertor(SgFile*, const vector<LoopGraph*>&);
+    void updateLoopGraph(const map<string, FuncInfo*> &allFuncs);
     void insertDirectives();
     ~DvmhRegionInsertor()
     {
@@ -103,71 +104,4 @@ public:
     }
 };
 
-// Reaching defenitions for every symbol used in the statement
-typedef std::map<SgSymbol*, std::set<SgStatement*>> StDefs;
-
-// Keeps reaching defenitions for every statement of the project
-class RDKeeper 
-{
-    /* Finds set of symbols used in the expression. */
-    static std::set<SgSymbol*> getSymbolsFromExpression(SgExpression *exp);
-
-    /* Finds set of symbols used in whole statement containing several expressions. */
-    static std::set<SgSymbol*> getUsedSymbols(SgStatement* st);
-public:
-    std::map<SgStatement*, StDefs > defsByStatement;
-
-    RDKeeper(SgFile*);
-    StDefs getDefs(SgStatement *);
-};
-
-// enum DFGType {block, par_loop};
-
-// /*   Distributed Flow Graph Node.
-//      Node represents either:
-//      (1) basic block, containing usages of distibuted arrays;
-//      (2) set of basic blocks, composing parallel loop.
-// */
-// class DFGNode {
-// public:
-//  vector<CBasicBlock *> initial;
-//  vector<DFGNode*> prev;
-//  vector<DFGNode*> succ;
-//  vector<SgStatement*> content;
-//  vector<SgSymbol*> d_arrays;
-//  DFGType type;
-//  int id;
-
-//  /* Initializes DFGNode (1) from CBasicBlock. */
-//  DFGNode(CBasicBlock* bblock);
-
-//  /* Initializes DFGNode (2) from list of DFGNode's. */
-//  DFGNode(vector<DFGNode*> elements);
-
-//  /* Finds set of symbols used in the expression. */
-//  static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
-
-//  /* Finds set of symbols used in whole statement containing several expressions. */
-//  static set<SgSymbol *> getUsedSymbols(SgStatement* st);
-
-//  /* Returns std::string containing human readable information representing DFGNode. */
-//  std::string getInfo() const;
-
-//  /* Links new successor for the DFGNode. Returns false if this successor was already linked. */
-//  bool addSucc(DFGNode* new_succ);
-
-//  /* Links new predecessor for the DFGNode. Returns false if this predecessor was already linked. */
-//  bool addPrev(DFGNode* new_prev);
-// };
-
-// /*   Abstract control flow graph. Consists of linked DFGNodes. */
-// class AFlowGraph {
-//  std::map<std::string, std::vector<DFGNode*> > fun_graphs;
-//  // TODO: memory cleaning
-// public:
-//  /* Returns DFGNode by function name and node id. */
-//  DFGNode* getNode(std::string fun_name, int id);
-
-//  /* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
-//  AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
-// };
+static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st);
