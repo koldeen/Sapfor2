@@ -322,6 +322,7 @@ void initIntrinsicFunctionNames()
     intrinsicF.insert(string("or"));
     intrinsicF.insert(string("popcnt"));
     intrinsicF.insert(string("poppar"));
+    intrinsicF.insert(string("random_number"));
     intrinsicF.insert(string("real"));
     intrinsicF.insert(string("reshape"));
     intrinsicF.insert(string("rshft"));

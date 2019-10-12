@@ -938,8 +938,34 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             insertIntervals(file, getObjectForFileFromMap(file_name, intervals));
         else if (curr_regime == INSERT_REGIONS)
         {
-            DvmhRegionInsertor regionInsertor(file, getObjectForFileFromMap(file_name, loopGraph));
+            auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
+            DvmhRegionInsertor regionInsertor(file, loopForFile);
             regionInsertor.insertDirectives();
+
+            //remove private from loops out of DVMH region
+            map<int, LoopGraph*> mapLoopGraph;
+            createMapLoopGraph(loopForFile, mapLoopGraph);
+            for (auto& loopPair : mapLoopGraph)
+            {
+                auto loop = loopPair.second;
+                if (loop->directive && loop->inDvmhRegion <= 0)
+                {
+                    SgStatement* lexPrev = loop->loop->GetOriginal()->lexPrev();
+                    if (lexPrev->variant() == DVM_PARALLEL_ON_DIR)
+                    {
+                        SgExprListExp* list = isSgExprListExp(lexPrev->expr(1));
+                        if (list)
+                        {
+                            vector<SgExpression*> newList;
+                            for (SgExpression* ex = list; ex; ex = ex->rhs())
+                                if (ex->lhs()->variant() != ACC_PRIVATE_OP)
+                                    newList.push_back(ex->lhs());
+
+                            lexPrev->setExpression(1, makeExprList(newList));
+                        }
+                    }
+                }
+            }
         }
         else if (curr_regime == VERIFY_FUNC_DECL)
         {
@@ -1995,11 +2021,17 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
                 }
             }
 
-            //clear template clones
-            for (auto &loopByFile : loopGraph)
-                for (auto &loop : loopByFile.second)
+            //clear template clones && region status
+            for (auto& loopByFile : loopGraph)
+            {
+                for (auto& loop : loopByFile.second)
+                {
                     if (loop->directive)
                         loop->directive->cloneOfTemplate = "";
+                    loop->inDvmhRegion = 0;
+                    loop->propagateDvmhRegion(0);
+                }
+            }
 
             for (int z = 0; z < parallelRegions.size(); ++z)
             {

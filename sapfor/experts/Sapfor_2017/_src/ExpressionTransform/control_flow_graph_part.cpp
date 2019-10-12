@@ -1246,13 +1246,21 @@ bool valueWithFunctionCall(SgExpression *exp)
     return funcFounded;
 }
 
+
+bool allowedArrayReference(SgExpression *exp) {
+    //exp->variant() == ARRAY_REF
+    //Must return false if exp is not allowed to be substituted
+    return false;
+}
+
 bool valueWithArrayReference(SgExpression *exp)
 {
     if (!exp)
         return false;
 
-    if (exp->variant() == ARRAY_REF)
-        return true;
+    if (exp->variant() == ARRAY_REF) {
+        return !allowedArrayReference(exp);
+    }
 
     bool arrayFounded = false;
     if (exp->rhs())

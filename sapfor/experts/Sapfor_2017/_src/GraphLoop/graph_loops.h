@@ -59,6 +59,7 @@ public:
         startVal = endVal = stepVal = -1;
         calculatedCountOfIters = 0;
         executionTimeInSec = -1.0;
+        inDvmhRegion = 0;
     }
 
     ~LoopGraph()
@@ -228,6 +229,15 @@ public:
         }
     }
 
+    void propagateDvmhRegion(const int flag)
+    {
+        for (auto& loop : children)
+        {
+            loop->inDvmhRegion = flag;
+            loop->propagateDvmhRegion(flag);
+        }
+    }
+
     std::string genLoopArrayName(const std::string &funcName) const
     {
         return funcName + "_loop_" + std::to_string(lineNum);
@@ -345,6 +355,8 @@ public:
 
     std::set<DIST::Array*> usedArrays;
     std::set<DIST::Array*> usedArraysWrite;
+
+    int inDvmhRegion; // 0 -unknown, -1 - no, 1 - yes
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);

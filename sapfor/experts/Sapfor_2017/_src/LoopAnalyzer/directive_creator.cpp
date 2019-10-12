@@ -920,6 +920,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                                   ParallelDirective *parDirective,
                                   map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
                                   const set<string> &deprecateToMatch,
+                                  const set<string> &privates,
                                   bool fromRead = false)
 {
     bool ret = true;
@@ -976,7 +977,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
 
     for (int i = 0; i < updateOn.size(); ++i)
     {
-        if (updateOn[i].first)
+        if (updateOn[i].first && privates.find(updateOn[i].second) == privates.end())
         {
             if (parDirective->on[i].first != "*")
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1016,7 +1017,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     if (parDirective->on2[found].first != "*")
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
+                    
                     parDirective->on2[found].first = updateOn[i].second;
                     parDirective->on2[found].second = make_pair(1, 0);
                 }
@@ -1200,8 +1201,12 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         if (tmpL1 == NULL)
             break;
     }
+
+    set<string> privates;
+    tryToFindPrivateInAttributes(loop, privates);
+
     //try to resolve from write operations
-    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch);
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch, privates);
     if (!ok)
         return false;
     else
@@ -1240,7 +1245,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
             for (auto &vElem : elem.second)
                 values2[elem.first].push_back(make_pair(vElem.first, vElem.second.first));
         
-        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, true);
+        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, privates, true);
         if (!ok)
             return false;*/
     }   

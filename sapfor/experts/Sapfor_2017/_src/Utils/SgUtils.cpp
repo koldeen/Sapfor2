@@ -2113,3 +2113,25 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
         elem.second = newSet;
     }
 }
+
+SgExpression* makeExprList(const vector<SgExpression*>& items)
+{
+    SgExpression* list = NULL;
+    if (items.size() == 0)
+        return list;
+    list = new SgExpression(EXPR_LIST);
+    for (int z = 0; z < items.size(); ++z)
+    {
+        if (z == 0)
+            list->setLhs(items[z]);
+        else
+        {
+            SgExpression* tmp = new SgExpression(EXPR_LIST);
+            tmp->setLhs(items[z]);
+            tmp->setRhs(list);
+            list = tmp;
+        }
+    }
+
+    return list;
+}
