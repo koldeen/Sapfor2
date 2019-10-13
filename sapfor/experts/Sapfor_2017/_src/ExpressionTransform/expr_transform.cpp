@@ -697,7 +697,8 @@ static bool typesAreTheSame(SgExpression *oldExp, SgExpression *newExp, int line
     paramType newType = detectExpressionType(newExp);
     if(oldType != newType) 
     {
-        __spf_print(PRINT_SUBSTITUTION_ABORT, "%d: Substitution aborted %s -> ", lineNumber, oldExp->unparse());
+        char* tmp = oldExp->unparse();
+        __spf_print(PRINT_SUBSTITUTION_ABORT, "%d: Substitution aborted %s -> ", lineNumber, tmp);
         __spf_print(PRINT_SUBSTITUTION_ABORT, "%s. Types do not match: %s != %s\n", newExp->unparse(), paramNames[oldType], paramNames[newType]);
         return false;
     }
@@ -885,7 +886,7 @@ static bool replaceCallArguments(ControlFlowItem *cfi, CBasicBlock *b)
             if (arg->variant() == VAR_REF && argIsReplaceable(i, callData))
             {
                 SgExpression* newExp = valueOfVar(arg, b);
-                if (newExp != NULL && typesAreTheSame(args, newExp, lineNumber))
+                if (newExp != NULL && typesAreTheSame(arg, newExp, lineNumber))
                 {
                     wereReplacements |= setNewSubexpression(args, false, newExp, lineNumber);
                 }

@@ -8,3 +8,5 @@ void createDistributionDirs(DIST::GraphCSR<int, double, attrType> &reducedG, DIS
                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCall);
 int createAlignDirs(DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays, DataDirective &dataDirectives, 
                     const int regionId, const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCall, std::map<std::string, std::vector<Messages>> &SPF_messages);
+void checkDimsSizeOfArrays(const DIST::Arrays<int>& allArrays, std::map<std::string, std::vector<Messages>>& allMessages,
+                           const std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls);

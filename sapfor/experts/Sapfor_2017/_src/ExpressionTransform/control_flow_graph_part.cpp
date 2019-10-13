@@ -1229,7 +1229,7 @@ bool valueWithRecursion(const SymbolKey &var, SgExpression *exp)
     return recursionFounded;
 }
 
-bool valueWithFunctionCall(SgExpression *exp) 
+bool valueWithFunctionCall(SgExpression *exp)
 {
     if (!exp)
         return false;
@@ -1246,11 +1246,141 @@ bool valueWithFunctionCall(SgExpression *exp)
     return funcFounded;
 }
 
-
-bool allowedArrayReference(SgExpression *exp) {
-    //exp->variant() == ARRAY_REF
-    //Must return false if exp is not allowed to be substituted
+static bool ifExprExist(SgExpression *curr, const int toFind)
+{
+    if (curr)
+    {
+        if (curr->id() == toFind)
+            return true;
+        else
+            return ifExprExist(curr->lhs(), toFind) || ifExprExist(curr->rhs(), toFind);
+    }
     return false;
+}
+
+static SgStatement* getStatmentByExpression(SgStatement* begin, SgExpression* ex)
+{
+    SgStatement* start = begin ? begin : current_file->firstStatement();
+    SgStatement* end = NULL;
+    if (begin)
+        end = getFuncStat(begin, { MODULE_STMT })->lastNodeOfStmt();
+
+    for (auto st = start; st != end; st = st->lexNext())
+    {
+        for (int z = 0; z < 3; ++z)
+            if (ifExprExist(st->expr(z), ex->id()))
+                return st;
+    }    
+    return NULL;
+}
+
+static void findFuncCall(SgExpression* ex, vector<SgExpression*>& calls)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+            if (!isIntrinsicFunctionName(ex->symbol()->identifier()))
+                calls.push_back(ex);
+
+        findFuncCall(ex->rhs(), calls);
+        findFuncCall(ex->lhs(), calls);
+    }
+}
+
+static bool checkRange(SgStatement *start, SgStatement *end, const DIST::Array* array)
+{
+    const string arrName = array->GetShortName();
+    for (auto st = start; st != end; st = st->lexNext())
+    {
+        if (st->variant() == ASSIGN_STAT)
+        {
+            auto ex = st->expr(0);
+            if (ex->variant() == ARRAY_REF && ex->symbol()->identifier() == arrName)
+                return false;
+        }
+        else if (st->variant() == READ_STAT || st->variant() == WRITE_STAT)
+        {
+            for (int z = 0; z < 3; ++z)
+            {
+                if (st->expr(z))
+                {
+                    auto listOfS = st->expr(z)->symbRefs();
+                    for (auto ex = listOfS; ex; ex = ex->rhs())
+                        if (ex->lhs()->variant() == ARRAY_REF && ex->lhs()->symbol()->identifier() == arrName)
+                            return false;
+                }
+            }
+        }
+        else if (st->variant() == PROC_STAT)
+        {
+            for (auto args = st->expr(0); args; args = args->rhs())
+            {
+                if (args->lhs()->variant() == ARRAY_REF)
+                    if (args->lhs()->symbol()->identifier() == arrName)
+                        return false;
+            }
+        }
+        else
+        {
+            //TODO: 
+        }
+
+        //find func call
+        vector<SgExpression*> calls;
+        for (int z = 0; z < 3; ++z)
+            if (st->expr(z))
+                findFuncCall(st->expr(z), calls);
+        
+        for (auto& elem : calls)
+        {
+            for (auto args = elem->lhs(); args; args = args->rhs())
+            {
+                if (args->lhs()->variant() == ARRAY_REF)
+                    if (args->lhs()->symbol()->identifier() == arrName)
+                        return false;
+            }
+        }
+
+        if (calls.size())
+        {
+            if (array->GetLocation().first == DIST::l_MODULE || array->GetLocation().first == DIST::l_COMMON)
+            {
+                //TODO: need to add IP analysis
+            }
+        }
+    }
+
+    return true;
+}
+
+//TODO: improve for MODULE
+static bool allowedArrayReference(SgExpression *exp)
+{    
+    //Must return false if exp is not allowed to be substituted
+    SgSymbol* arr = exp->symbol();
+    checkNull(arr, convertFileName(__FILE__).c_str(), __LINE__);
+    SgStatement* decl = declaratedInStmt(arr);
+    checkNull(decl, convertFileName(__FILE__).c_str(), __LINE__);
+
+    DIST::Array* array = getArrayFromDeclarated(decl, arr->identifier());
+
+    checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+    if (array->GetNonDistributeFlagVal() == DIST::SPF_PRIV)
+        return false;
+    
+    SgStatement* st = getStatmentByExpression(decl, exp);
+    checkNull(st, convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgStatement* cp = st->controlParent();
+    SgStatement* prev = st;
+    while (isSgProgHedrStmt(cp) == NULL)
+    {
+        prev = cp;
+        cp = cp->controlParent();
+    }
+
+    auto last = prev->lastNodeOfStmt();
+    return checkRange(cp, last, array);
 }
 
 bool valueWithArrayReference(SgExpression *exp)
@@ -1258,9 +1388,8 @@ bool valueWithArrayReference(SgExpression *exp)
     if (!exp)
         return false;
 
-    if (exp->variant() == ARRAY_REF) {
+    if (exp->variant() == ARRAY_REF)
         return !allowedArrayReference(exp);
-    }
 
     bool arrayFounded = false;
     if (exp->rhs())

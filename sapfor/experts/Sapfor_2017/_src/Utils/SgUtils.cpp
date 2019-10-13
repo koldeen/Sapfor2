@@ -515,7 +515,7 @@ void recExpressionPrint(SgExpression *exp)
     recExpressionPrint(exp, 0, "L", allNum, allNum);
     if (allNum == 0 && exp)
         printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
-    printf("};\n");
+    printf("}\n");
     fflush(NULL);
 }
 

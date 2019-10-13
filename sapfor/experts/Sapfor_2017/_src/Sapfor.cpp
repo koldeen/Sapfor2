@@ -531,8 +531,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == CREATE_PARALLEL_DIRS)
         {
             auto &loopsByFile = getObjectForFileFromMap(file_name, loopGraph);
+
             map<int, LoopGraph*> mapLoopsByFile;
             createMapLoopGraph(loopsByFile, mapLoopsByFile);
+
+            map<string, FuncInfo*> mapFuncInfo;
+            createMapOfFunc(allFuncInfo, mapFuncInfo);
 
             for (int z = 0; z < parallelRegions.size(); ++z)
             {
@@ -548,7 +552,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
                 for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                     currentVar.push_back(make_pair(tmp[z1].first, &tmp[z1].second[currentVariant[z1]]));
 
-                selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, currentVar,
+                selectParallelDirectiveForVariant(file, parallelRegions[z], reducedG, allArrays, loopsByFile, mapLoopsByFile, mapFuncInfo, currentVar,
                                                   dataDirectives.alignRules, toInsert, parallelRegions[z]->GetId(), arrayLinksByFuncCalls,
                                                   depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
 
