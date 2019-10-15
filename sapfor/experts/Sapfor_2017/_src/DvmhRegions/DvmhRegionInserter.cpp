@@ -170,34 +170,6 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
     return st->variant() == ASSIGN_STAT && st->expr(0)->variant() == ARRAY_REF && st->expr(0)->symbol()->identifier() == var->identifier();
 }
 
-// Finds the closest variable's defenition (test only)
-// static map<SymbolKey, set<SgExpression*> > dummyDefenitions(SgStatement* st)
-// {
-//  map<SymbolKey, set<SgExpression*> > result;
-
-//  set<SgSymbol*> usedSymbols = getUsedSymbols(st);
-
-//  for (auto& var : usedSymbols)
-//  {
-//      SgStatement* prev = st->lexPrev();
-
-//      set<SgExpression*> defs;
-//      while (prev)
-//      {
-//          if (SymbDefinedIn(var, prev)) {
-//              defs.insert(prev->expr(1));
-//              break;
-//          }
-
-//          prev = prev->lexPrev();
-//      }
-
-//      result[SymbolKey(var, false)] = defs;
-//  }
-
-//  return result;
-// }
-
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
                       const string& locName, vector<string> &altNames)
 {
@@ -509,7 +481,8 @@ static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp)
 
     if (exp)
     {
-        if (exp->variant() == ARRAY_REF) {
+        if (exp->variant() == ARRAY_REF) 
+        {
             SgSymbol* symbol = exp->symbol();
             DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
 
@@ -536,12 +509,34 @@ static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatem
     if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
         return make_tuple(read, write);
 
-    // find write
-    write = getSymbolsFromExpression(st->expr(0));
+    int start = 0;
+    if (st->variant() == ASSIGN_STAT)
+    {
+        start = 1;
+        SgExpression* exp = st->expr(0);
+        // find write: check modified var 
+        if (st->expr(0)->variant() == ARRAY_REF)
+        {
+            SgSymbol* symbol = exp->symbol();
+            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+
+            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
+                write.insert(exp->symbol());
+        }
+        
+        // find reads
+        set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(exp->lhs());
+        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+
+        symbolsUsedInExpression = getSymbolsFromExpression(exp->rhs());
+        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+    }
 
     // find read
-    for (int i = 1; i < 3; ++i) {
-        if (st->expr(i)) {
+    for (int i = start; i < 3; ++i) 
+    {
+        if (st->expr(i)) 
+        {
             set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
             read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
         }
