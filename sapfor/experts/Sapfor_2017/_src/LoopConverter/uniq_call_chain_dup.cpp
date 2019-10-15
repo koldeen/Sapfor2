@@ -359,11 +359,20 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
 
                 SgStatement* pointToF = currFunc->funcPointer->GetOriginal();
                 SgSymbol* orig = pointToF->symbol();
-                SgSymbol* copied = &orig->copySubprogram(*current_file->firstStatement());
+                const vector<char*> attrs = getAttributes<SgSymbol*, char*>(orig, set<int>({ VARIABLE_NAME }));
 
+                SgSymbol* copied = &orig->copySubprogram(*current_file->firstStatement());
                 string newName = checkSymbNameAndCorrect(orig->identifier() + string("_spf_") + to_string(numCopy));
                 varCall.copiedName = newName;
                 copied->changeName(newName.c_str());
+                if (attrs.size())
+                {
+                    char* swapName = new char[512];
+                    addToCollection(__LINE__, __FILE__, swapName, 2);
+                    sprintf(swapName, "%s", (string(attrs[0]) + string("_spf_") + to_string(numCopy)).c_str());
+
+                    copied->addAttribute(VARIABLE_NAME, swapName, sizeof(char*));
+                }
 
                 //move 
                 SgStatement* toMove = current_file->firstStatement()->lexNext()->extractStmt();

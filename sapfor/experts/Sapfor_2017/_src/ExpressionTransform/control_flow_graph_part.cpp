@@ -1376,7 +1376,7 @@ static bool checkRange(SgStatement *start, SgStatement *end, const DIST::Array* 
 static bool allowedArrayReference(SgExpression *exp)
 {    
     //Must return false if exp is not allowed to be substituted
-    SgSymbol* arr = exp->symbol();
+    SgSymbol* arr = OriginalSymbol(exp->symbol());
     checkNull(arr, convertFileName(__FILE__).c_str(), __LINE__);
     SgStatement* decl = declaratedInStmt(arr);
     checkNull(decl, convertFileName(__FILE__).c_str(), __LINE__);
