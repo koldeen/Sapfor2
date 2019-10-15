@@ -666,7 +666,7 @@ void restoreCorrectedModuleProcNames(SgFile *file)
         if (procS != elem)
             byUseMapping[procS] = elem;
     }*/
-    
+
     set<SgSymbol*> swaped;
     vector<SgStatement*> modules;
     findModulesInFile(file, modules);

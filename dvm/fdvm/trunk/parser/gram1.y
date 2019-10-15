@@ -336,6 +336,7 @@
 %token SPF_END_PARALLEL_REG 336
 %token SPF_PRIVATES_EXPANSION 337
 %token SPF_FISSION 338
+%token SPF_SHRINK 339
 
 %{
 #include <string.h>
@@ -490,7 +491,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <ll_node> selector initial_value clause opt_while
 %type <ll_node> options attr_spec_list attr_spec intent_spec access_spec
 %type <ll_node> string_constant structure_component opt_substring
-%type <ll_node> array_ele_substring_func_ref ident array_element
+%type <ll_node> array_ele_substring_func_ref ident array_element 
 %type <ll_node> subscript_list asubstring equi_object
 %type <ll_node> allocation_list allocate_object_list
 %type <ll_node> allocate_object pointer_name_list rename_list rename_name use_name
@@ -619,7 +620,7 @@ static int in_vec = NO;	      /* set if processing array constructor */
 %type <bf_node> spf_directive spf_analysis spf_parallel spf_transform spf_parallel_reg spf_end_parallel_reg
 %type <ll_node> analysis_spec_list analysis_spec analysis_reduction_spec analysis_private_spec
 %type <ll_node> parallel_spec_list parallel_spec parallel_shadow_spec parallel_across_spec parallel_remote_access_spec
-%type <ll_node> transform_spec_list transform_spec
+%type <ll_node> transform_spec_list transform_spec array_element_list
 %type <symbol>  region_name 
 
 %{
@@ -8004,7 +8005,17 @@ transform_spec: needkeyword SPF_NOINLINE
                 { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,LLNULL,LLNULL,SMNULL);}
               | needkeyword SPF_PRIVATES_EXPANSION LEFTPAR loop_var_list RIGHTPAR
                 { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,$4,LLNULL,SMNULL);}
+           /*   | needkeyword SPF_SHRINK LEFTPAR ident LEFTPAR digit_list RIGHTPAR RIGHTPAR  */
+              | needkeyword SPF_SHRINK LEFTPAR array_element_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_SHRINK_OP,$4,LLNULL,SMNULL);}
               ;
+
 region_name: name
            { $$ = make_parallel_region($1);}
-           ;   
+           ; 
+  
+array_element_list: array_element
+	           { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	          | array_element_list COMMA array_element 
+	           { $$ = set_ll_list($1, $3, EXPR_LIST); }
+	          ;

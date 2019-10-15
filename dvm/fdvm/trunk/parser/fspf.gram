@@ -81,7 +81,17 @@ transform_spec: needkeyword SPF_NOINLINE
                 { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,LLNULL,LLNULL,SMNULL);}
               | needkeyword SPF_PRIVATES_EXPANSION LEFTPAR loop_var_list RIGHTPAR
                 { $$ = make_llnd(fi,SPF_PRIVATES_EXPANSION_OP,$4,LLNULL,SMNULL);}
+           /*   | needkeyword SPF_SHRINK LEFTPAR ident LEFTPAR digit_list RIGHTPAR RIGHTPAR  */
+              | needkeyword SPF_SHRINK LEFTPAR array_element_list RIGHTPAR
+                { $$ = make_llnd(fi,SPF_SHRINK_OP,$4,LLNULL,SMNULL);}
               ;
+
 region_name: name
            { $$ = make_parallel_region($1);}
-           ;   
+           ; 
+  
+array_element_list: array_element
+	           { $$ = set_ll_list($1, LLNULL, EXPR_LIST); }
+	          | array_element_list COMMA array_element 
+	           { $$ = set_ll_list($1, $3, EXPR_LIST); }
+	          ;

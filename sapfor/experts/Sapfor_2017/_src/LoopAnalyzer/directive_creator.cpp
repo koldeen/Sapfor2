@@ -1157,7 +1157,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                             ok = analyzeLeftPart(ex->lhs(), dimsNotMatch, leftValues, base);
                         else
                         {
-                            if (it->second->funcParams.isArgIn(z))
+                            if (it->second->funcParams.isArgIn(z) && !it->second->funcParams.isArgOut(z))
                                 analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
                             else
                                 ok = analyzeLeftPart(ex->lhs(), dimsNotMatch, leftValues, base);
@@ -1432,6 +1432,8 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             (loop->region == currParReg) && 
             (loop->userDvmDirective == NULL))
         {
+            if (loop->lineNum == 337)
+                printf("");
             if (loop->perfectLoop >= 1)
             {                
                 bool topCheck = isOnlyTopPerfect(loop, distribution);

@@ -1,3 +1,3 @@
 #pragma once
 
-static const char *VERSION = "1336";
+static const char *VERSION = "1339";

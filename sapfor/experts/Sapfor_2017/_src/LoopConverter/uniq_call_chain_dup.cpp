@@ -17,6 +17,7 @@
 #include "uniq_call_chain_dup.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using namespace std;
 
@@ -407,6 +408,10 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                     {
                         SgExpression* proc = (SgExpression*)places.first;
                         SgStatement* parent = SgStatement::getStatmentByExpression(proc);
+                        if (parent == NULL)
+                            parent = findReplacedExpression(proc);
+                        checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+
                         if (SgFile::switchToFile(parent->fileName()) == -1)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 

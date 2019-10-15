@@ -66,6 +66,23 @@ static void incrementSubstitutionsCounter(int print_prof_info) {
         substitutionsCounter++;
 }
 
+SgStatement* findReplacedExpression(SgExpression *ex)
+{
+    const int id = ex->id();
+    for (auto& byFile : replacementsInFiles)
+    {
+        for (auto& elem : byFile.second)
+        {
+            SgStatement* ret = elem.first;
+            for (int z = 0; z < elem.second.size(); ++z)
+                if (elem.second[z] == ex)
+                    if (elem.second[z]->id() == id)
+                        return ret;
+        }
+    }
+    return NULL;
+}
+
 void GraphsKeeper::deleteGraphsKeeper()
 {
     if(graphsKeeper)

@@ -606,3 +606,4 @@ script using "tag".  Run make tag.h to regenerate this file */
   tag [ SPF_REGION_NAME ] = "SPF_REGION_NAME";
   tag [ SPF_PRIVATES_EXPANSION_OP ] = "SPF_PRIVATES_EXPANSION_OP";
   tag [ SPF_FISSION_OP ] = "SPF_FISSION_OP";
+  tag [ SPF_SHRINK_OP ] = "SPF_SHRINK_OP";

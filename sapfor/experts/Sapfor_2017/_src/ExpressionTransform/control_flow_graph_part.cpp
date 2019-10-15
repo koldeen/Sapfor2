@@ -31,7 +31,7 @@ static map<int, set<ExpressionValue*>> allocated2;
 
 static const char* unknownValueChars = "unknownValue";
 
-static set<ExpressionValue> usedVariablesInStatement(SgStatement *st) {
+static set<ExpressionValue> usedVariablesInStatement(SgStatement *st, set<string> &privates) {
     stack<SgExpression*> toCheck;
     set<ExpressionValue> result;
 
@@ -44,8 +44,12 @@ static set<ExpressionValue> usedVariablesInStatement(SgStatement *st) {
 
         toCheck.pop();
 
-        if(top->variant() == VAR_REF || top->variant() == ARRAY_REF)
+        if(top->variant() == VAR_REF)
             result.insert(ExpressionValue(top, top->unparse()));
+        if(top->variant() == ARRAY_REF) {
+            if(privates.find(top->symbol()->identifier()) != privates.end())
+                result.insert(ExpressionValue(top, top->unparse()));
+        }
 
         if (top->rhs())
             toCheck.push(top->rhs());
@@ -99,7 +103,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < callStmt->numberOfArgs(); ++i)
             {
                 SgExpression *arg = callStmt->arg(i);
-                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF /*|| arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -113,7 +117,7 @@ static bool checkSymbolUsedByProcsAndFuncs(SgStatement *st, const ExpressionValu
             for (int i = 0; i < funcCall->numberOfArgs(); ++i)
             {
                 SgExpression *arg = funcCall->arg(i);
-                if ((arg->variant() == VAR_REF || arg->variant() == ARRAY_REF) && argIsUsed(i, callData)) {
+                if ((arg->variant() == VAR_REF /*|| arg->variant() == ARRAY_REF*/) && argIsUsed(i, callData)) {
                     if(strcmp(symbol.getExp()->symbol()->identifier(), arg->symbol()->identifier())) {
 //                        printf("in %d ", st->lineNumber());
 //                        printf(" %s is required\n", arg->unparse());
@@ -136,7 +140,7 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
     stack<SgExpression*> toCheck;
 
     if(checkSymbolUsedByProcsAndFuncs(st, symbol, arraysAssingments, cfis)) {
-//        if(st->lineNumber() == 368 || st->lineNumber() == 313)
+//        if(st->lineNumber() == 345/* || st->lineNumber() == 301*/)
 //            printf("from func true\n");
         return true;
     }
@@ -164,9 +168,10 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
     while(!toCheck.empty()) {
         SgExpression* top = toCheck.top();
         toCheck.pop();
+
         if(top->variant() == VAR_REF)
             if(symbol.getUnparsed() == top->symbol()->identifier()) {
-//                if(st->lineNumber() == 368 || st->lineNumber() == 313)
+//                if(st->lineNumber() == 345 || st->lineNumber() == 301)
 //                    printf("%s == %s is true\n", symbol.getUnparsed().c_str(), top->symbol()->identifier());
                 return true;
             }
@@ -179,13 +184,16 @@ static bool symbolIsUsed(SgStatement *st, const ExpressionValue &symbol, map<Sym
                 return true;
         }*/
 
-        SgExpression *rhs = top->rhs();
-        SgExpression *lhs = top->lhs();
+        //Не лезть проверять индексы массивов
+        if(top->variant() != ARRAY_REF) {
+            SgExpression *rhs = top->rhs();
+            SgExpression *lhs = top->lhs();
 
-        if (rhs && rhs->variant() != FUNC_CALL)
-            toCheck.push(rhs);
-        if (lhs && lhs->variant() != FUNC_CALL)
-            toCheck.push(lhs);
+            if (rhs && rhs->variant() != FUNC_CALL)
+                toCheck.push(rhs);
+            if (lhs && lhs->variant() != FUNC_CALL)
+                toCheck.push(lhs);
+        }
     }
 
     return false;
@@ -226,7 +234,7 @@ static void updateArraysAssingments(map<SymbolKey, set<ExpressionValue>> &arrays
  * <Оператор от Х : пара<сет зависящих от Х операторов : сет используюемых в Х операторов>>
  * с since включительно, по till не включительно
  */
-map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till) {
+map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till, set<string> &privates) {
 
     int sinceLine = since->lineNumber();
     int tillLine = till->lineNumber();
@@ -238,7 +246,7 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
     {
         auto definitions = getReachingDefinitionsExt(cur);
         updateArraysAssingments(arraysAssingments, definitions, cur);
-        auto usedVariables = usedVariablesInStatement(cur);
+        auto usedVariables = usedVariablesInStatement(cur, privates);
         vector <ControlFlowItem*> cfis;
 
 /*
@@ -250,17 +258,19 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
                         printf("%s, ", itt.getUnparsed().c_str());
                     printf("\n");
                 }
-*/
 
+*/
         for(auto& var : usedVariables)
         {
+/*            if(cur->lineNumber() == 127) {
+                printf("checking %d for %s %s\n",cur->lineNumber(), var.getUnparsed().c_str(), cur->unparse());
+           }*/
             if(symbolIsUsed(cur, var, arraysAssingments, cfis))
             {
-/*                if(cur->lineNumber() == 368 || cur->lineNumber() == 313) {
-                    printf("checking %d %s\n",cur->lineNumber(), cur->unparse());
+/*                if(cur->lineNumber() == 127) {
                     printf("%s is used\n", var.getUnparsed().c_str());
-               }
-*/
+               }*/
+
 
                 auto expressions = definitions.find(var.getExp()->symbol());
                 if (expressions != definitions.end())
@@ -270,8 +280,8 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
                         SgStatement *def = expValue->getFrom();
                         if (def->lineNumber() >= sinceLine && def->lineNumber() <= tillLine && def->lineNumber() != cur->lineNumber()) {
                             addDefinitionReachesStatement(result, def, cur);
-//                            if(cur->lineNumber() == 368 || cur->lineNumber() == 313)
-//                                printf("connected to %s\n", def->unparse());
+/*                            if(cur->lineNumber() == 127)
+                                printf("connected to %s\n", def->unparse());*/
                         }
                     }
                 }
@@ -291,8 +301,8 @@ map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> buildRequireReachM
             printf("%d ", itt->lineNumber());
         printf("\n");
         printf("\n");
-    }
-*/
+    }*/
+
 
     return result;
 
@@ -1270,7 +1280,16 @@ static SgStatement* getStatmentByExpression(SgStatement* begin, SgExpression* ex
         for (int z = 0; z < 3; ++z)
             if (ifExprExist(st->expr(z), ex->id()))
                 return st;
-    }    
+    }
+
+    // if NULL found, try to find across full file
+    if (begin)
+    {
+        for (auto st = current_file->firstStatement()->lexNext(); st; st = st->lexNext())
+            for (int z = 0; z < 3; ++z)
+                if (ifExprExist(st->expr(z), ex->id()))
+                    return st;
+    }
     return NULL;
 }
 
