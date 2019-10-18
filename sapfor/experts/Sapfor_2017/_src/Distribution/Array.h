@@ -10,6 +10,7 @@
 
 class Symbol;
 class Expression;
+struct FuncInfo;
 
 #define STRING std::string
 #define VECTOR std::vector
@@ -522,7 +523,7 @@ namespace Distribution
             return ret;
         }
 
-		const VECTOR<bool>& GetDeprecetedDims() const { return depracateToDistribute; }
+        const VECTOR<bool>& GetDeprecetedDims() const { return depracateToDistribute; }
 
         int GetTypeSize() const { return typeSize; }
 
@@ -571,20 +572,125 @@ namespace Distribution
     };
 
     
+    struct UnaryAccess
+    {
+        UnaryAccess()
+        {
+            line = -1;
+            type = -1;
+            underFunctionPar = -1;
+            fName = "";
+            count = 0;
+        }
+
+        UnaryAccess(const PAIR<int, char>& info)
+        {
+            line = info.first;
+            type = info.second;
+            underFunctionPar = -1;
+            fName = "";
+            count = 1;
+        }
+
+        UnaryAccess(const PAIR<int, char>& info, const STRING &f, const int parN)
+        {
+            line = info.first;
+            type = info.second;
+            underFunctionPar = parN;
+            fName = f;
+            count = 1;
+        }
+
+        STRING PrintInfo() const
+        {
+            STRING out = "#" + std::to_string(count) + " of ";
+            if (type == 0)
+                out += "READ ";
+            else if(type == 1)
+                out += "WRITE ";
+            else
+                out += "UNKN ";
+            out += "on line " + std::to_string(line);
+            if (underFunctionPar != -1)
+                out += " in '#" + std::to_string(underFunctionPar + 1) + "' par of function call '" + fName + "'";
+            return out;
+        }
+
+        bool operator==(const UnaryAccess &left) const
+        {
+            return (line == left.line && type == left.type && 
+                    underFunctionPar == left.underFunctionPar && fName == left.fName);
+        }
+
+        bool operator!=(const UnaryAccess& left) const
+        {
+            return !(*this == left);
+        }
+
+        int line;
+        int type; // R/W -> 0, 1
+        int underFunctionPar;
+        STRING fName;
+        int count;
+    };
+
     class ArrayAccessInfo
     {
     private:
-        MAP<STRING, SET<PAIR<int, char>>> accessPattern; // file -> PAIRS<LINE, R/W -> 0, 1>
+        MAP<STRING, MAP<int, VECTOR<UnaryAccess>>> accessPatterns; // file -> MAP<LINE, info>
     public:
-        void AddAccessInfo(const PAIR<int, char> &info, const STRING &file)
+        void AddAccessInfo(const STRING& file, const PAIR<int, char> &info, const STRING fName = "", int underParN = -1)
         {
-            auto it = accessPattern.find(file);
-            if (it == accessPattern.end())
-                it = accessPattern.insert(it, std::make_pair(file, SET<PAIR<int, char>>()));
-            it->second.insert(info);
+            auto it = accessPatterns.find(file);
+            if (it == accessPatterns.end())
+                it = accessPatterns.insert(it, std::make_pair(file, MAP<int, VECTOR<UnaryAccess>>()));
+
+            bool found = false;
+            UnaryAccess toAdd;
+            if (underParN == -1)
+                toAdd = UnaryAccess(info);
+            else
+                toAdd = UnaryAccess(info, fName, underParN);
+
+            auto itMap = it->second.find(info.first);
+            if (itMap == it->second.end())
+                it->second[info.first].push_back(toAdd);
+            else
+            {
+                for (int z = 0; z < itMap->second.size(); ++z)
+                {
+                    if (itMap->second[z] == toAdd)
+                    {
+                        found = true;
+                        itMap->second[z].count++;
+                        break;
+                    }
+                }
+
+                if (found == false)
+                {
+                    if (underParN == -1)
+                        itMap->second.push_back(toAdd);
+                    else
+                        itMap->second.push_back(toAdd);
+                }
+            }
         }
-        const MAP<STRING, SET<PAIR<int, char>>>& GetAllAccessInfo() const { return accessPattern; }
+
+        void checkAndUpdate(const MAP<STRING, FuncInfo*>& allFuncs);
+        const MAP<STRING, MAP<int, VECTOR<UnaryAccess>>>& GetAllAccessInfo() const { return accessPatterns; }
+        const MAP<int, VECTOR<UnaryAccess>>* GetAccessInfoByFile(const STRING &file) const 
+        {            
+            auto it = accessPatterns.find(file);
+            if (it == accessPatterns.end())
+                return NULL;
+            else
+                return &(it->second); 
+        }
     };
+
+    void printArrayInfo(const STRING &file, const MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>> &declaratedArrays);
+    void fixTypeOfArrayInfoWithCallGraph(MAP<std::tuple<int, STRING, STRING>, PAIR<Array*, ArrayAccessInfo*>>& declaratedArrays, const MAP<STRING, FuncInfo*>& allFuncs);
 }
 #undef VECTOR
 #undef STRING

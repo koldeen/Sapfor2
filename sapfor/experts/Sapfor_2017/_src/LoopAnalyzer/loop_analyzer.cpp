@@ -2556,7 +2556,7 @@ int getSizeOfType(SgType *t)
     return len;
 }
 
-static void findArrayRefs(SgExpression *ex, SgStatement *st,
+static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName, const int parN, 
                           const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
@@ -2675,7 +2675,7 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                 
                 if (isExecutable)
                 {
-                    itNew->second.second->AddAccessInfo(make_pair(st->lineNumber(), isWrite ? 1 : 0), st->fileName());
+                    itNew->second.second->AddAccessInfo(st->fileName(), make_pair(st->lineNumber(), isWrite ? 1 : 0), fName, parN);
                     itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
                 }
                 
@@ -2698,9 +2698,25 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
             }
         }
     }
-
-    findArrayRefs(ex->lhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWrite, inRegion, funcParNames);
-    findArrayRefs(ex->rhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWrite, inRegion, funcParNames);
+        
+    if (ex->variant() == FUNC_CALL)
+    {
+        SgFunctionCallExp* funcExp = (SgFunctionCallExp*)ex; 
+        const string fName = funcExp->funName()->identifier();
+        for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+        {
+            //assume all arguments of function as OUT
+            bool isWriteN = true;
+            //need to correct W/R usage with GraphCall map later
+            findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+        }
+    }
+    else
+    {
+        bool isWriteN = false;
+        findArrayRefs(ex->lhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+        findArrayRefs(ex->rhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+    }
 }
 
 static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
@@ -2918,18 +2934,31 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     regNames.push_back(reg->GetName());
                 if (regNames.size() == 0)
                     regNames.push_back("default");
-
-                //TODO: need to add IPO analysis for R/WR state for calls and functions
-                //TODO: improve WR analysis
-                for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
-                                  isSgExecutableStatement(st) ? true : false, currFunctionName,
-                                  (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                
+                if (st->variant() == PROC_STAT)
+                {
+                    SgCallStmt* funcExp = (SgCallStmt*)st;
+                    const string fName = funcExp->symbol()->identifier();
+                    for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+                    {
+                        findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                      isSgExecutableStatement(st) ? true : false, currFunctionName,
+                                      true, regNames, funcParNames);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < 3; ++i)
+                        findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                      isSgExecutableStatement(st) ? true : false, currFunctionName,
+                                      (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                }
             }
             st = st->lexNext();
         }
     }
 
+    //preprocess only module declaration 
     for (auto &mod : modules)
     {
         SgStatement *st = mod->lexNext();
@@ -2952,13 +2981,13 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 //TODO: set clear regions for modules
                 set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
                 vector<string> regNames;
-                for (auto &reg : currRegs)
+                for (auto& reg : currRegs)
                     regNames.push_back(reg->GetName());
                 if (regNames.size() == 0)
                     regNames.push_back("default");
 
                 for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                    findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                   false, "NULL", false, regNames, funcParNames);
             }
             st = st->lexNext();

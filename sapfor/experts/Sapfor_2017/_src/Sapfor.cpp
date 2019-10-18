@@ -57,6 +57,7 @@
 #include "DvmhRegions/DvmhRegionInserter.h"
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
+#include "Distribution/Array.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -1240,6 +1241,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         createMapOfFunc(allFuncInfo, allFuncs);
         completeFillOfArrayUsageBetweenProc(loopGraph, allFuncInfo);
 
+        fixTypeOfArrayInfoWithCallGraph(declaratedArrays, allFuncs);
+
         //for each file of graphLoop
         for (auto &loopGraphInFile : loopGraph)
         {
@@ -1248,6 +1251,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
 
         detectCopies(allFuncInfo);
+
+        if (keepFiles)
+            printArrayInfo("_arrayInfo.txt", declaratedArrays);
     }
     else if (curr_regime == INSERT_SHADOW_DIRS)
     {

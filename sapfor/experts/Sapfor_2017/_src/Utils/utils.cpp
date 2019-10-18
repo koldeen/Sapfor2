@@ -985,3 +985,12 @@ bool isMpiFunction(const string& func)
 
     return mpiFunctions.find(func) != mpiFunctions.end();
 }
+
+map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays)
+{
+    map<DIST::Array*, DIST::ArrayAccessInfo*> out;
+
+    for (auto& elem : declaratedArrays)
+        out[elem.second.first] = elem.second.second;
+    return out;
+}
