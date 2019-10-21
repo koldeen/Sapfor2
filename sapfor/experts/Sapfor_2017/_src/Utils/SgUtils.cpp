@@ -338,8 +338,9 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         if (it == includeFiles.end())
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        if (inserted.second.size() != it->second.second.size())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        //TODO: dont work after subroutine copying 
+        /*if (inserted.second.size() != it->second.second.size())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);*/
     }
 
     //remove
@@ -515,7 +516,7 @@ void recExpressionPrint(SgExpression *exp)
     recExpressionPrint(exp, 0, "L", allNum, allNum);
     if (allNum == 0 && exp)
         printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());    
-    printf("};\n");
+    printf("}\n");
     fflush(NULL);
 }
 
@@ -800,7 +801,7 @@ bool isSPF_stat(SgStatement *st)
 
     const int var = st->variant();
     //for details see dvm_tag.h
-    if (var >= SPF_ANALYSIS_DIR && var <= SPF_FISSION_OP)
+    if (var >= SPF_ANALYSIS_DIR && var <= SPF_SHRINK_OP)
         ret = true;
     return ret;
 }
@@ -2112,4 +2113,26 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
         }
         elem.second = newSet;
     }
+}
+
+SgExpression* makeExprList(const vector<SgExpression*>& items)
+{
+    SgExpression* list = NULL;
+    if (items.size() == 0)
+        return list;
+    list = new SgExpression(EXPR_LIST);
+    for (int z = 0; z < items.size(); ++z)
+    {
+        if (z == 0)
+            list->setLhs(items[z]);
+        else
+        {
+            SgExpression* tmp = new SgExpression(EXPR_LIST);
+            tmp->setLhs(items[z]);
+            tmp->setRhs(list);
+            list = tmp;
+        }
+    }
+
+    return list;
 }

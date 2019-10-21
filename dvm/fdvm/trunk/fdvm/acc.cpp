@@ -6316,7 +6316,9 @@ void ReplaceLoopBounds(SgStatement *first_do, int lrank, SgSymbol *s_low_bound, 
             stdo->end()->setLhs(new SgArrayRefExp(*s_high_bound, *new SgValueExp(1 + i)));
         if (!stdo->step())
             continue;
-        stdo->setStep(*new SgValueExp(IntStepForHostHandler(stdo->step())));
+        int istep = IntStepForHostHandler(stdo->step());
+        SgExpression *estep = (istep ? new SgValueExp(istep) : stdo->step());
+        stdo->setStep(*estep);
     }
 }
 
@@ -6725,7 +6727,7 @@ int IntStepForHostHandler(SgExpression *dostep)
     SgExpression *ec;
     if (!dostep)
         return(1);   //by default do_step == 1
-    ec = Calculate(dostep);
+    ec = Calculate(ReplaceParameter(dostep));
     if (ec->isInteger())
         return(ec->valueInteger());
     return(0);

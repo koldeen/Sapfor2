@@ -14,6 +14,8 @@ using std::pair;
 using std::make_pair;
 using std::wstring;
 
+#define PRINT_SPLITTED_FRAGMENTS 0
+
 static SgForStmt* createNewLoop(LoopGraph *globalLoop)
 {
     SgStatement *insertBeforeThis = globalLoop->loop->GetOriginal();
@@ -133,7 +135,7 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                     {
-                        //printf("rd %d -> %d\n", current->lineNumber(), lineNumber);
+//                        printf("1 rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
                     }
                 }
@@ -151,7 +153,7 @@ static void addReachingDefinitionsDependencies(set<int> &openDependencies, const
                     }
                     if(!included && openDependencies.find(lineNumber) == openDependencies.end())
                     {
-                        //printf("2 rd %d -> %d\n", current->lineNumber(), lineNumber);
+//                        printf("2 rd %d -> %d\n", current->lineNumber(), lineNumber);
                         openDependencies.insert(lineNumber);
                     }
                 }
@@ -272,7 +274,7 @@ bool continueSplitting(SgStatement* globalSince, SgStatement* globalTill, vector
 
 static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, SgStatement* globalTill,
                               vector<pair<SgStatement*, SgStatement*>>& borders,
-                              depGraph* parentDepGraph, map<SgExpression*, string>& collection)
+                              depGraph* parentDepGraph, map<SgExpression*, string>& collection, set<string>& privates)
 {
     //Каким-то образом, мы вырезали всё из цикла и хотим продолжать.
     if(globalSince == globalTill)
@@ -289,20 +291,20 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
     vector<LoopGraph*> loops = getLoopsFrom(borders, parentGraph);
     vector<depGraph*> depGraphs = getDepGraphsFor(loops, parentGraph);
 
-//    printf("Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
-//      printf("%s\n", since->unparse());
+    __spf_print(PRINT_SPLITTED_FRAGMENTS, "Initial fragment: %d - %d\n", since->lineNumber(), till->lineNumber());
 
-    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMapForLoop(globalSince, globalTill);
+    map<SgStatement*, pair<set<SgStatement*>, set<SgStatement*>>> requireReachMap = buildRequireReachMapForLoop(globalSince, globalTill, privates);
 
     set<int> openDependencies;
     setupOpenDependencies(openDependencies, borders, depGraphs, collection);
-    addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     while(openDependencies.size() > 0)
     {
-/*       printf("Dependencies:\n", globalSince->lineNumber(), globalTill->lineNumber());
+#if PRINT_SPLITTED_FRAMENTS == 1
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "Line dependecies:\n", globalSince->lineNumber(), globalTill->lineNumber());
         for(auto& it : openDependencies)
-            printf(" %d,", it);
-        printf("\n");*/
+            __spf_print(PRINT_SPLITTED_FRAGMENTS, " %d,", it);
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "\n");
+#endif
 
         expandCopyBorders(globalSince, globalTill, borders, openDependencies);
         openDependencies.clear();
@@ -312,10 +314,11 @@ static bool setupSplitBorders(LoopGraph* parentGraph, SgStatement* globalSince, 
         setupOpenDependencies(openDependencies, borders, depGraphs, collection);
         addReachingDefinitionsDependencies(openDependencies, borders, requireReachMap);
     }
-/*
+
+#if PRINT_SPLITTED_FRAMENTS == 1
     for (auto &fragment : borders)
-        printf("frag %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
-*/
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "fragment %d - %d\n", fragment.first->lineNumber(), fragment.second->lineNumber());
+#endif
 
 
     glueBorders(borders);
@@ -416,7 +419,7 @@ static bool hasUnexpectedDependencies(LoopGraph* parentGraph, depGraph* parentDe
 
 
 static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int deep)
-{    
+{
     LoopGraph *lowestParentGraph = loopGraph;
     for (int i = 0; i < std::min(loopGraph->perfectLoop, deep); ++i)
         if (lowestParentGraph->children.size() == 1)
@@ -425,9 +428,13 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     if (hasIndirectChildLoops(lowestParentGraph, messages))
         return -1;
 
-    //Вектор пар since-till, новые циклы будут формироваться из фрагментов с since включительно, по till не включительно
+    set<string> privates;
+    tryToFindPrivateInAttributes(loopGraph->loop, privates);
+
+
+
     vector<pair<SgStatement*, SgStatement*>> borders;
-    //Граф с зависимостями
+
     const set<string> privVars;
     depGraph *lowestParentDepGraph = getDependenciesGraph(lowestParentGraph, current_file, &privVars);
     if (lowestParentGraph->hasLimitsToSplit())
@@ -441,7 +448,7 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
         __spf_print(1, "%d loop has limits to parallel (reason: loop on line %d)\n", loopGraph->lineNum, lowestParentGraph->lineNum);
         return -1;
     }
-    //Коллекция с выражениями, которые проходили unparse
+
     map<SgExpression*, string> collection;
     if (hasUnexpectedDependencies(lowestParentGraph, lowestParentDepGraph, messages))
     {
@@ -477,17 +484,15 @@ static int splitLoop(LoopGraph *loopGraph, vector<Messages> &messages, const int
     for(SgStatement* since = globalSince; since != globalTill; since = since->lastNodeOfStmt()->lexNext())
         parts.push_back(make_pair(since, since->lastNodeOfStmt()));
 
-    //Сам процесс разделения 
-    //Берётся первый оператор цикла, это начальный фрагмент. Высчитываются зависимости, фрагмент расширяется на них.
-    //Когда все зависимости удовлетворены, фрагменты вырезаются и вставялются в новый цикл. Затем берётся следующий оператор из оставшихся.
-    //Последний расширенный фрагмент не вырезается, а остаётся в оиргинальном цикле.
-    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection) && borders.size() > 0)
+    while (setupSplitBorders(lowestParentGraph, globalSince, globalTill, borders, lowestParentDepGraph, collection, privates) && borders.size() > 0)
     {
-/*        printf("global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
-        printf("result fragment: ");
+#if PRINT_SPLITTED_FRAMENTS == 1
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "global since %d, global till %d\n", globalSince->lineNumber(), globalTill->lineNumber());
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "result fragment: ");
         for(auto& it : borders)
-            printf("%d - %d, ", it.first->lineNumber(), it.second->lineNumber());
-        printf("\n");*/
+            __spf_print(PRINT_SPLITTED_FRAGMENTS, "%d - %d, ", it.first->lineNumber(), it.second->lineNumber());
+        __spf_print(PRINT_SPLITTED_FRAGMENTS, "\n");
+#endif
         moveStatements(createNewLoop(loopGraph), borders);
         globalSince = lowestParentGraph->loop->GetOriginal()->lexNext();        
     }

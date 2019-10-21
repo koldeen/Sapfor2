@@ -604,3 +604,4 @@
 #define SPF_REGION_NAME                  956     /* SAPFOR */ 
 #define SPF_PRIVATES_EXPANSION_OP        957     /* SAPFOR */
 #define SPF_FISSION_OP                   958     /* SAPFOR */
+#define SPF_SHRINK_OP                    959     /* SAPFOR */

@@ -564,6 +564,7 @@ struct Keylist keys[] = {
         {"shared", OMPDVM_SHARED},/*OMP*/
 /*        {"singleprocess", SINGLEPROCESS},*/
 /*        {"skippasteof", SKIPPASTEOF},*/
+        {"shrink",SPF_SHRINK},
         {"stage", STAGE},
         {"static", STATIC},
         {"status", STATUS}, 

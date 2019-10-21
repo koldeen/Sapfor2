@@ -823,7 +823,22 @@ static bool splitToBase(SgExpression *ex, pair<SgExpression*, int> &splited)
                 int err, val;
                 err = CalculateInteger(ex->rhs(), val);
                 if (err == 0)
-                    splited = make_pair(ex->lhs(), minus * val);
+                {
+                    const int nextEx = ex->lhs()->variant();
+                    if (nextEx == VAR_REF || nextEx == ARRAY_REF || nextEx == MULT_OP)
+                        splited = make_pair(ex->lhs(), minus * val);
+                    else if (nextEx == SUBT_OP || nextEx == ADD_OP)
+                    {
+                        pair<SgExpression*, int> splitedNext;
+                        bool res = splitToBase(ex->lhs(), splitedNext);
+                        if (res == false)
+                            return false;
+                        else
+                            splited = make_pair(splitedNext.first, minus * val + splitedNext.second);
+                    }
+                    else
+                        return false;
+                }
                 else
                     return false;
             }
@@ -920,6 +935,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                                   ParallelDirective *parDirective,
                                   map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &values,
                                   const set<string> &deprecateToMatch,
+                                  const set<string> &privates,
                                   bool fromRead = false)
 {
     bool ret = true;
@@ -955,12 +971,17 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                 {
                     mapTo = values[elem.first][i].second.first;
                     if (values[elem.first][i].second.second != 0)
-                        mapTo += " + " + std::to_string(values[elem.first][i].second.second);
+                    {
+                        if (values[elem.first][i].second.second >= 0)
+                            mapTo += " + " + std::to_string(values[elem.first][i].second.second);
+                        else
+                            mapTo += " - " + std::to_string(abs(values[elem.first][i].second.second));
+                    }
                 }
                 else
                     mapTo = std::to_string(values[elem.first][i].second.second);
 
-                if (deprecateToMatch.find(mapTo) != deprecateToMatch.end())
+                if (deprecateToMatch.find(values[elem.first][i].second.first) != deprecateToMatch.end())
                     return false;
 
                 if (updateOn[idx].first)
@@ -976,7 +997,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
 
     for (int i = 0; i < updateOn.size(); ++i)
     {
-        if (updateOn[i].first)
+        if (updateOn[i].first && privates.find(updateOn[i].second) == privates.end())
         {
             if (parDirective->on[i].first != "*")
                 printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -1016,7 +1037,7 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     if (parDirective->on2[found].first != "*")
                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
+                    
                     parDirective->on2[found].first = updateOn[i].second;
                     parDirective->on2[found].second = make_pair(1, 0);
                 }
@@ -1027,11 +1048,66 @@ static inline bool findAndResolve(bool &resolved, vector<pair<bool, string>> &up
     return ret;
 }
 
+static bool analyzeLeftPart(SgExpression *left, const map<DIST::Array*, vector<bool>>& dimsNotMatch, 
+                            map<DIST::Array*, vector<pair<bool, pair<string, int>>>> &leftValues, string &base)
+{
+    const std::string name = left->symbol()->identifier();
+    for (auto& elem : dimsNotMatch)
+    {
+        if (elem.first->GetShortName() == name)
+        {
+            int idx = 0;
+            for (auto ex = left->lhs(); ex; ex = ex->rhs(), ++idx)
+            {
+                if (elem.second[idx])
+                {
+                    int err, val;
+                    err = CalculateInteger(ex->lhs(), val);
+                    if (err == 0)
+                    {
+                        if (leftValues[elem.first][idx].first)
+                        {
+                            if (leftValues[elem.first][idx].second.first != "") // has non zero base expression
+                                return false;
+                            if (leftValues[elem.first][idx].second.second != val) // has conflict writes
+                                return false;
+                        }
+                        else
+                            leftValues[elem.first][idx] = make_pair(true, make_pair("", val));
+                    }
+                    else // WRITE OP can not recognized
+                    {
+                        pair<SgExpression*, int> splited;
+                        bool result = splitToBase(ex->lhs(), splited);
+                        if (result == false)
+                            return false;
+                        if (leftValues[elem.first][idx].first)
+                        {
+                            // has conflict writes
+                            if (leftValues[elem.first][idx].second.first != string(splited.first->unparse()) ||
+                                leftValues[elem.first][idx].second.second != splited.second)
+                                return false;
+                        }
+                        else
+                        {
+                            base = string(splited.first->unparse());
+                            leftValues[elem.first][idx] = make_pair(true, make_pair(base, splited.second));
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
+    return true;
+}
+
 //TODO: 
 static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dimsNotMatch, SgStatement *loop, const int regId,
                                      ParallelDirective *parDirective, DIST::GraphCSR<int, double, attrType> &reducedG, const DIST::Arrays<int> &allArrays,
                                      const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls,
-                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution)
+                                     const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
+                                     const map<string, FuncInfo*> &mapFuncInfo)
 {
     bool resolved = false;
 
@@ -1048,6 +1124,9 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
     }
 
     string base = "";
+    int shiftValue = 0;
+    set<int> countOfLeftBase;
+
     for (auto st = loop; st != loop->lastNodeOfStmt(); st = st->lexNext())
     {
         if (st->variant() == ASSIGN_STAT)
@@ -1055,57 +1134,41 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
             auto left = st->expr(0);
             if (left->variant() == ARRAY_REF)
             {
-                const std::string name = left->symbol()->identifier();
-                for (auto &elem : dimsNotMatch)
+                bool ok = analyzeLeftPart(left, dimsNotMatch, leftValues, base);
+                if (ok == false)
+                    return false;                
+            }
+            analyzeRightPart(st->expr(1), rightValues, dimsNotMatch);
+        }
+        else if (st->variant() == PROC_STAT)
+        {
+            string name = st->symbol()->identifier();
+            if (isIntrinsicFunctionName(name.c_str()) == 0)
+            {
+                //TODO: contains and modules
+                auto it = mapFuncInfo.find(name);
+                int z = 0;
+                for (SgExpression* ex = st->expr(0); ex; ex = ex->rhs(), ++z)
                 {
-                    if (elem.first->GetShortName() == name)
+                    if (ex->lhs()->variant() == ARRAY_REF)
                     {
-                        int idx = 0;
-                        for (auto ex = left->lhs(); ex; ex = ex->rhs(), ++idx)
+                        bool ok = true;
+                        if (it == mapFuncInfo.end())
+                            ok = analyzeLeftPart(ex->lhs(), dimsNotMatch, leftValues, base);
+                        else
                         {
-                            if (elem.second[idx])
-                            {
-                                int err, val;
-                                err = CalculateInteger(ex->lhs(), val);
-                                if (err == 0)
-                                {
-                                    if (leftValues[elem.first][idx].first)
-                                    {
-                                        if (leftValues[elem.first][idx].second.first != "") // has non zero base expression
-                                            return false;
-                                        if (leftValues[elem.first][idx].second.second != val) // has conflict writes
-                                            return false;
-                                    }
-                                    else
-                                        leftValues[elem.first][idx] = make_pair(true, make_pair("", val));
-                                }
-                                else // WRITE OP can not recognized
-                                {
-                                    pair<SgExpression*, int> splited;
-                                    bool result = splitToBase(ex->lhs(), splited);
-                                    if (result == false)
-                                        return false;
-                                    if (leftValues[elem.first][idx].first)
-                                    {
-                                        // has conflict writes
-                                        if (leftValues[elem.first][idx].second.first != string(splited.first->unparse()) ||
-                                            leftValues[elem.first][idx].second.second != splited.second)
-                                            return false;
-                                    }
-                                    else
-                                    {
-                                        base = string(splited.first->unparse());
-                                        leftValues[elem.first][idx] = make_pair(true, make_pair(base, splited.second));                                        
-                                    }
-                                }
-                            }
+                            if (it->second->funcParams.isArgIn(z) && !it->second->funcParams.isArgOut(z))
+                                analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
+                            else
+                                ok = analyzeLeftPart(ex->lhs(), dimsNotMatch, leftValues, base);
                         }
-                        break;
+                        if (ok == false)
+                            return false;
                     }
+                    else
+                        analyzeRightPart(ex->lhs(), rightValues, dimsNotMatch);
                 }
             }
-
-            analyzeRightPart(st->expr(1), rightValues, dimsNotMatch);
         }
         else
         {
@@ -1200,21 +1263,39 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
         if (tmpL1 == NULL)
             break;
     }
+
+    set<string> privates;
+    tryToFindPrivateInAttributes(loop, privates);
+
     //try to resolve from write operations
-    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch);
+    bool ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, leftValues, deprecateToMatch, privates);
     if (!ok)
         return false;
     else
     {
         //shift right splited values
         if (base != "")
-        {
+        {            
+            for (auto& left : leftValues)
+            {
+                for (int z = 0; z < left.second.size(); ++z)
+                {
+                    if (left.second[z].first)
+                    {
+                        if (left.second[z].second.first != "")
+                        {
+                            countOfLeftBase.insert(left.second[z].second.second);
+                            shiftValue = left.second[z].second.second;
+                        }
+                    }
+                }
+            }
+
+            if (countOfLeftBase.size() != 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
             for (auto &right : rightValues)
             {
-                auto itL = leftValues.find(right.first);
-                if (itL == leftValues.end())
-                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
                 for (int z = 0; z < right.second.size(); ++z)
                 {
                     if (right.second[z].first)
@@ -1222,8 +1303,8 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                         auto itB = right.second[z].second.find(base);
                         if (itB != right.second[z].second.end())
                         {
-                            itB->second.first -= itL->second[z].second.second;
-                            itB->second.second -= itL->second[z].second.second;
+                            itB->second.first -= shiftValue;
+                            itB->second.second -= shiftValue;
                         }
                     }
                 }
@@ -1240,7 +1321,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
             for (auto &vElem : elem.second)
                 values2[elem.first].push_back(make_pair(vElem.first, vElem.second.first));
         
-        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, true);
+        ok = findAndResolve(resolved, updateOn, dimsNotMatch, arrayLinksByFuncCalls, reducedG, allArrays, regId, parDirective, values2, privates, true);
         if (!ok)
             return false;*/
     }   
@@ -1264,7 +1345,12 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                         {
                             int foundVal = 0;
                             if (leftPartVal[i].first)
-                                foundVal = leftPartVal[i].second.second;
+                            {
+                                if (leftPartVal[i].second.first == base && shiftValue == leftPartVal[i].second.second)
+                                    foundVal = 0;
+                                else
+                                    foundVal = leftPartVal[i].second.second - shiftValue;
+                            }
                             else
                             {
                                 auto rules = elem.first->GetAlignRulesWithTemplate(regId);
@@ -1327,6 +1413,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                                        DIST::Arrays<int> &allArrays, 
                                        const vector<LoopGraph*> &loopGraph,
                                        const map<int, LoopGraph*> &mapLoopsByFile,
+                                       const map<string, FuncInfo*> &mapFuncInfo,
                                        const vector<pair<DIST::Array*, const DistrVariant*>> &distribution,
                                        const vector<AlignRule> &alignRules,
                                        vector<pair<int, pair<string, vector<Expression*>>>> &toInsert,
@@ -1345,8 +1432,10 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             (loop->region == currParReg) && 
             (loop->userDvmDirective == NULL))
         {
+            if (loop->lineNum == 337)
+                printf("");
             if (loop->perfectLoop >= 1)
-            {
+            {                
                 bool topCheck = isOnlyTopPerfect(loop, distribution);
                 ParallelDirective *parDirective = loop->directive;
                 parDirective->cloneOfTemplate = "";
@@ -1367,7 +1456,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
                     map<DIST::Array*, vector<bool>> dimsNotMatch;
                     if (!checkCorrectness(*parDirective, distribution, reducedG, allArrays, arrayLinksByFuncCalls, loop->getAllArraysInLoop(), messages, loop->lineNum, dimsNotMatch, regionId))
                     {
-                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution))
+                        if (!tryToResolveUnmatchedDims(dimsNotMatch, loop->loop->GetOriginal(), regionId, parDirective, reducedG, allArrays, arrayLinksByFuncCalls, distribution, mapFuncInfo))
                             needToContinue = addRedistributionDirs(file, distribution, toInsert, loop, mapLoopsByFile, parDirective, regionId, messages, arrayLinksByFuncCalls);
                     }
                 }
@@ -1418,7 +1507,7 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         else //TODO: add checker for indexing in this loop
         {
             if (loopGraph[i]->children.size() != 0)
-                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, 
+                selectParallelDirectiveForVariant(file, currParReg, reducedG, allArrays, loopGraph[i]->children, mapLoopsByFile, mapFuncInfo,
                                                   distribution, alignRules, toInsert, regionId, arrayLinksByFuncCalls, 
                                                   depInfoForLoopGraph, messages);
         }

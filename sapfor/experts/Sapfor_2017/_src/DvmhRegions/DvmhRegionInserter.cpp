@@ -404,6 +404,15 @@ void DvmhRegionInsertor::insertDirectives()
     __spf_print(1, "Merging regions\n");
     mergeRegions();
 
+    for (auto& elem : regions)
+    {
+        for (auto& loop : elem->getLoops())
+        {
+            loop->inDvmhRegion = 1;
+            loop->propagateDvmhRegion(1);
+        }
+    }
+
     __spf_print(1, "Insert regions\n");
     insertRegionDirectives();
 

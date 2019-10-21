@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
 #include "dvm.h"
 #include "../Distribution/Distribution.h"
@@ -105,7 +106,7 @@ public:
     }
 };
 
-std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till);
+std::map<SgStatement*, std::pair<std::set<SgStatement*>, std::set<SgStatement*>>> buildRequireReachMapForLoop(SgStatement *since, SgStatement *till, std::set<std::string> &privates);
 const std::map<SymbolKey, std::set<ExpressionValue*>> getReachingDefinitionsExt(SgStatement* stmt);
 void FillCFGInsAndOutsDefs(ControlFlowGraph*, std::map<SymbolKey, std::set<ExpressionValue*>> *inDefs, CommonVarsOverseer *overseer_Ptr);
 void CorrectInDefs(ControlFlowGraph*);
@@ -124,3 +125,4 @@ bool findCFIsForStmt(SgStatement *st, std::vector <ControlFlowItem*> &cfis);
 std::map<SymbolKey, std::set<ExpressionValue*>> createHeaderInDefs(SgStatement *header);
 ControlFlowGraph* BuildUnfilteredReachingDefinitionsFor(SgStatement *header);
 void runPrivateAnalysis(SgStatement *main);
+SgStatement* findReplacedExpression(SgExpression* ex);

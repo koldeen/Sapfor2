@@ -59,6 +59,7 @@ using std::wstring;
 #define PRINT_ARRAY_ARCS  0
 #define PRINT_LOOP_STRUCT 0
 #define PRINT_PROF_INFO   0
+#define DEB               0
 
 static REGIME currRegime = UNDEF;
 static vector<Messages> *currMessages;
@@ -150,6 +151,8 @@ static void addInfoToMaps(map<SgForStmt*, map<SgSymbol*, ArrayInfo>> &loopInfo, 
     }
 
     it2->second.second[dimNum] |= value;
+    if (value == REMOTE_TRUE)
+        __spf_print(DEB, "LA: %d, true for dim %d and array %s, loop line %d\n", __LINE__, dimNum, symb->identifier(), position->lineNumber());
 }
 
 enum { READ_OP, WRITE_OP, UNREC_OP };
@@ -532,13 +535,23 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                     for (auto &real : realArrayRefs)
                     {
                         DIST::Array *curr = real->GetTemplateArray(reg->GetId());
-                        alignCoefs = currArray->GetLinksWithTemplate(reg->GetId());
+                        alignCoefs = real->GetLinksWithTemplate(reg->GetId());
 
                         if (templ == NULL)
                             templ = curr;
                         else if (templ != curr)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                     }
+
+                    __spf_print(DEB, "LA: %d, check aligns\n", __LINE__);
+                    for (int z = 0; z < wasFound.size(); ++z)
+                        __spf_print(DEB, "LA: %d, check aligns %d == %d\n", __LINE__, z, wasFound[z]);
+                    
+                    for (int z = 0; z < matchedToDim.size(); ++z)
+                        __spf_print(DEB, "LA: %d, matchedToDim[%d] = %d\n", __LINE__, z, matchedToDim[z]);
+
+                    for (int l = 0; l < alignCoefs.size(); ++l)
+                        __spf_print(DEB, "LA: %d, alignCoefs[%d] = %d\n", __LINE__, l, alignCoefs[l]);
 
                     //check array's alignment
                     for (int z = 0; z < wasFound.size() && ok; ++z)
@@ -557,6 +570,7 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
 
                             auto &tmp = dataDirectives.distrRules;
                             pair<DIST::Array*, const DistrVariant*> currentVar;
+
                             for (int z1 = 0; z1 < currentVariant.size(); ++z1)
                             {
                                 if (tmp[z1].first == templ)
@@ -571,16 +585,22 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                             if (!(loop->directiveForLoop))
                                 continue;
                             DIST::Array *loopT = loop->directiveForLoop->arrayRef;
+                            __spf_print(DEB, "LA: %d, z = %d, array %s\n", __LINE__, z, loopT->GetShortName().c_str());
 
                             int dimToMap = -1;
-                            for (int z = 0; z < loopT->GetDimSize(); ++z)
-                                if (loop->directiveForLoop->on[z].first != "*")
-                                    dimToMap = z;
+                            for (int z1 = 0; z1 < loopT->GetDimSize(); ++z1)
+                                if (loop->directiveForLoop->on[z1].first != "*")
+                                    dimToMap = z1;
+
+                            __spf_print(DEB, "LA: %d, z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
                             if (dimToMap != -1)
                             {
                                 if (loopT != templ)
                                 {
+                                    __spf_print(DEB, "LA: %d, z = %d, false check !=\n", __LINE__, z);
                                     DIST::Array *loopTempl = loopT->GetTemplateArray(reg->GetId());
+
+                                    __spf_print(DEB, "LA: %d, z = %d, array %s\n", __LINE__, z, loopTempl->GetShortName().c_str());
                                     if (templ != loopTempl)
                                         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
@@ -595,6 +615,10 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     else
                                         dimToMap = loopAlignCoefs[dimToMap];
                                 }
+                                __spf_print(DEB, "LA: %d, ** z = %d, dimToMap = %d\n", __LINE__, z, dimToMap);
+
+                                for (int z = 0; z < currentVar.second->distRule.size(); ++z)
+                                    __spf_print(DEB, "LA: %d, distRule[%d] = %d\n", __LINE__, z, currentVar.second->distRule[z]);
 
                                 if (matchedToDim[z] != -1 && currentVar.second->distRule[alignCoefs[matchedToDim[z]]] == distType::BLOCK)
                                 {
@@ -608,7 +632,12 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                                     ok = found;
 
                                     if (!ok)
+                                    {
+                                        __spf_print(DEB, "LA: %d, call addInfoMaps from aligns miss\n", __LINE__);
+                                        __spf_print(DEB, "LA: %d, z = %d\n", __LINE__, z);
+                                        __spf_print(DEB, "LA: %d, dimToMap = %d\n", __LINE__, dimToMap);                                        
                                         addInfoToMaps(loopInfo, parentLoops[z], currOrigArrayS, arrayRef, matchedToDim[z], REMOTE_TRUE, currLine, numOfSubs);
+                                    }
                                 }
                             }
                             else
@@ -649,8 +678,13 @@ static vector<int> matchArrayToLoopSymbols(const vector<SgForStmt*> &parentLoops
                     if (wasFound[i] != 1)
                     {
                         for (int k = 0; k < numOfSubs; ++k)
+                        {
                             if (hasLimits)
-                                addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);                        
+                            {
+                                __spf_print(DEB, "LA: %d, call addInfoMaps from hasLimits\n", __LINE__);
+                                addInfoToMaps(loopInfo, parentLoops[i], currOrigArrayS, arrayRef, k, REMOTE_TRUE, currLine, numOfSubs);
+                            }
+                        }
                     }
                 }
             }
@@ -2522,7 +2556,7 @@ int getSizeOfType(SgType *t)
     return len;
 }
 
-static void findArrayRefs(SgExpression *ex, SgStatement *st,
+static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName, const int parN, 
                           const map<string, vector<SgExpression*>> &commonBlocks,
                           const vector<SgStatement*> &modules,
                           map<tuple<int, string, string>, pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays,
@@ -2641,7 +2675,7 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
                 
                 if (isExecutable)
                 {
-                    itNew->second.second->AddAccessInfo(make_pair(st->lineNumber(), isWrite ? 1 : 0), st->fileName());
+                    itNew->second.second->AddAccessInfo(st->fileName(), make_pair(st->lineNumber(), isWrite ? 1 : 0), fName, parN);
                     itNew->second.first->AddUsagePlace(st->fileName(), st->lineNumber());
                 }
                 
@@ -2664,9 +2698,25 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st,
             }
         }
     }
-
-    findArrayRefs(ex->lhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWrite, inRegion, funcParNames);
-    findArrayRefs(ex->rhs(), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWrite, inRegion, funcParNames);
+        
+    if (ex->variant() == FUNC_CALL)
+    {
+        SgFunctionCallExp* funcExp = (SgFunctionCallExp*)ex; 
+        const string fName = funcExp->funName()->identifier();
+        for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+        {
+            //assume all arguments of function as OUT
+            bool isWriteN = true;
+            //need to correct W/R usage with GraphCall map later
+            findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+        }
+    }
+    else
+    {
+        bool isWriteN = false;
+        findArrayRefs(ex->lhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+        findArrayRefs(ex->rhs(), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
+    }
 }
 
 static void findArrayRefInIO(SgExpression *ex, set<string> &deprecatedByIO, const int line, vector<Messages> &currMessages)
@@ -2884,18 +2934,31 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                     regNames.push_back(reg->GetName());
                 if (regNames.size() == 0)
                     regNames.push_back("default");
-
-                //TODO: need to add IPO analysis for R/WR state for calls and functions
-                //TODO: improve WR analysis
-                for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
-                                  isSgExecutableStatement(st) ? true : false, currFunctionName,
-                                  (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                
+                if (st->variant() == PROC_STAT)
+                {
+                    SgCallStmt* funcExp = (SgCallStmt*)st;
+                    const string fName = funcExp->symbol()->identifier();
+                    for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+                    {
+                        findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                      isSgExecutableStatement(st) ? true : false, currFunctionName,
+                                      true, regNames, funcParNames);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < 3; ++i)
+                        findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                                      isSgExecutableStatement(st) ? true : false, currFunctionName,
+                                      (st->variant() == ASSIGN_STAT && i == 0) ? true : false, regNames, funcParNames);
+                }
             }
             st = st->lexNext();
         }
     }
 
+    //preprocess only module declaration 
     for (auto &mod : modules)
     {
         SgStatement *st = mod->lexNext();
@@ -2918,13 +2981,13 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
                 //TODO: set clear regions for modules
                 set<ParallelRegion*> currRegs = getAllRegionsByLine(regions, st->fileName(), st->lineNumber());
                 vector<string> regNames;
-                for (auto &reg : currRegs)
+                for (auto& reg : currRegs)
                     regNames.push_back(reg->GetName());
                 if (regNames.size() == 0)
                     regNames.push_back("default");
 
                 for (int i = 0; i < 3; ++i)
-                    findArrayRefs(st->expr(i), st, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
+                    findArrayRefs(st->expr(i), st, "", -1, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO,
                                   false, "NULL", false, regNames, funcParNames);
             }
             st = st->lexNext();

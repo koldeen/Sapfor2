@@ -15,7 +15,7 @@ using std::make_pair;
 // for non linear array list
 struct PrivateArrayInfo
 {
-    char *name;
+    string name;
     vector<int> ddot;
     int dimSize;
     vector<SgExpression*> ddotExp;
@@ -92,6 +92,7 @@ static SgStatement* curTranslateStmt;
 
 static map<SgStatement*, vector<SgStatement*> > insertBefore;
 static map<SgStatement*, vector<SgStatement*> > insertAfter;
+
 static map<SgStatement*, SgStatement*> replaced;
 static int arrayGenNum;
 
@@ -111,6 +112,48 @@ void printfSpaces(int num)
         printf(" ");
 }
 #endif
+
+static void saveInsertBeforeAfter(map<SgStatement*, vector<SgStatement*> > &after, map<SgStatement*, vector<SgStatement*> > &before)
+{
+    if (!options.isOn(AUTO_TFM))
+        return;
+    
+    before = insertBefore;
+    insertBefore.clear();
+
+    after = insertAfter;
+    insertAfter.clear();    
+}
+
+static void restoreInsertBeforeAfter(map<SgStatement*, vector<SgStatement*> >& after, map<SgStatement*, vector<SgStatement*> >& before)
+{
+    if (!options.isOn(AUTO_TFM))
+        return;
+    
+    insertBefore = before;
+    insertAfter = after;
+}
+
+static void copyToStack(stack<SgStatement*> &newBody, const map<SgStatement*, vector<SgStatement*> > &cont)
+{
+    if (!options.isOn(AUTO_TFM))
+        return;
+
+    if (cont.size())
+        for (map<SgStatement*, vector<SgStatement*> >::const_iterator itI = cont.begin(); itI != cont.end(); itI++)
+            for (int z = 0; z < itI->second.size(); ++z)
+                newBody.push(itI->second[z]);
+}
+
+static bool isInPrivate(const string& arr)
+{
+    for (int z = 0; z < arrayInfo.size(); ++z)
+    {
+        if (arrayInfo[z].name == arr)
+            return true;
+    }
+    return false;
+}
 
 static char* getNestCond()
 {
@@ -213,9 +256,8 @@ static void addInListIfNeed(SgSymbol *tmp, int type, reduction_operation_list *t
     }
 }
 
-void swapDimentionsInprivateList(void)
+void swapDimentionsInprivateList()
 {
-    stack<SgExpression*> allArraySub;
     SgExpression *tmp = private_list;
     arrayInfo.clear();
 
@@ -715,7 +757,6 @@ void createNewFCall(SgExpression *expr, SgExpression *&retExp, const char *name,
 static SgExpression* convertDvmAssign(SgExpression *copy, const vector<pair<SgSymbol*, SgSymbol*> >& symbs)
 {
     SgExpression* list = copy->lhs()->lhs();
-    
     stack<SgExpression*> pointersToMul;
     while (list)
     {
@@ -1049,7 +1090,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                         }
                         else
                         {
-                            if (options.isOn(AUTO_TFM))
+                            if (options.isOn(AUTO_TFM) && !isInPrivate(argInCall->lhs()->symbol()->identifier()))
                             {
                                 //TODO: ranges, ex. (-1:2)
 
@@ -1073,6 +1114,7 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
                                     std::reverse(dimSizes.begin(), dimSizes.end());
                                     bool ifIn = true;
                                     bool ifOut = true;
+
                                     pair<SgSymbol*, pair<vector<SgStatement*>, vector<SgStatement*> > > conv = createForCopy(dimSizes, argInCall->lhs(), ifIn, ifOut);
 
                                     if ( (argsBits[i] & IN_BIT) || (argsBits[i] & INOUT_BIT))
@@ -1313,7 +1355,7 @@ void convertExpr(SgExpression *expr, SgExpression* &retExp)
             char *strName = expr->symbol()->identifier();
             for (; idx < arrayInfo.size(); ++idx)
             {
-                if (strcmp(arrayInfo[idx].name, strName) == 0)
+                if (arrayInfo[idx].name == strName)
                 {
                     ifInPrivateList = true;
                     break;
@@ -1818,17 +1860,23 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             printf("convert for node\n");
             lvl_convert_st += 2;
 #endif
+            map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;            
+            saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
+
             convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
 #if TRACE
             lvl_convert_st-=2;
             printfSpaces(lvl_convert_st);
             printf("end of convert for node\n");
 #endif
+            copyToStack(bodySt, insertBefore);
             if (tmp.second)
                 bodySt.push(tmp.second);
             if (tmp.first)
                 bodySt.push(tmp.first);
-
+            copyToStack(bodySt, insertAfter);
+            
+            restoreInsertBeforeAfter(save_insertAfter, save_insertBefore);            
             setControlLexNext(inDo);
         }
 
@@ -1840,23 +1888,34 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             printf("convert for node\n");
             lvl_convert_st += 2;
 #endif
+            map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;
+            saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
             convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
 #if TRACE
             lvl_convert_st-=2;
             printfSpaces(lvl_convert_st);
             printf("end of convert for node\n");
 #endif
+            copyToStack(bodySt, insertBefore);
             if (tmp.second)
                 bodySt.push(tmp.second);
             if (tmp.first)
                 bodySt.push(tmp.first);
+            copyToStack(bodySt, insertAfter);
+            restoreInsertBeforeAfter(save_insertAfter, save_insertBefore);
         }
         else
         {
             pair<SgStatement*, SgStatement*> tmp;
+
+            map<SgStatement*, vector<SgStatement*> > save_insertBefore, save_insertAfter;
+            saveInsertBeforeAfter(save_insertAfter, save_insertBefore);
             convertStmt(inDo, tmp, copyBlock, countOfCopy, lvl + 1);
+            copyToStack(bodySt, insertBefore);
             if (tmp.second)
                 bodySt.push(tmp.second);
+            copyToStack(bodySt, insertAfter);
+            restoreInsertBeforeAfter(save_insertAfter, save_insertBefore);
         }
 
         SgExprListExp *tt = new SgExprListExp();
@@ -2288,6 +2347,8 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
         lvl_convert_st += 2;
 #endif
         SgExpression *lhs = st->expr(0);
+        convertExpr(lhs, lhs);
+
         if (lhs == NULL)
             retSt = new SgCExpStmt(*new SgFunctionCallExp(*st->symbol()));
         else
@@ -2295,7 +2356,6 @@ static bool convertStmt(SgStatement* &st, pair<SgStatement*, SgStatement*> &retS
             SgStatement *inter = getInterfaceForCall(st->symbol());
             if (inter)
             {
-                
                 //switch arguments by keyword
                 lhs = (SgFunctionCallExp *)switchArgumentsByKeyword(lhs, inter);
                 //check ommited arguments

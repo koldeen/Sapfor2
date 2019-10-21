@@ -27,9 +27,9 @@ using std::map;
 using std::pair;
 using std::tuple;
 
-static set<string> arraysWithErrors;
-static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string, vector<Messages>> &allMessages,
-                                  const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls)
+static set<DIST::Array*> arraysWithErrors;
+void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string, vector<Messages>> &allMessages,
+                           const map<DIST::Array*, set<DIST::Array*>> &arrayLinksByFuncCalls)
 {
     const set<DIST::Array*> &arraysBase = allArrays.GetArrays();
     set<DIST::Array*> arrays;
@@ -45,7 +45,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
         {
             if (sizes[k].first == -1 && sizes[k].second == -1)
             {
-                if (arraysWithErrors.find(array->GetShortName()) == arraysWithErrors.end())
+                if (arraysWithErrors.find(array) == arraysWithErrors.end())
                 {
                     auto declPlaces = array->GetDeclInfo();
                     for (auto &place : declPlaces)
@@ -59,7 +59,7 @@ static void checkDimsSizeOfArrays(const DIST::Arrays<int> &allArrays, map<string
                         else
                             sprintf(buf, "More information is required about sizes of array '%s', decl line %d, decl file %s\n", array->GetShortName().c_str(), declL, declF.c_str());
                         addToGlobalBufferAndPrint(buf);
-                        arraysWithErrors.insert(array->GetShortName());
+                        arraysWithErrors.insert(array);
                         
                         std::wstring bufE, bufR;
                         __spf_printToLongBuf(bufE, L"More information is required about sizes of array '%s'", to_wstring(array->GetShortName()).c_str());

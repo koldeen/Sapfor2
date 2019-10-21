@@ -17,6 +17,7 @@
 #include "uniq_call_chain_dup.h"
 #include "../GraphCall/graph_calls.h"
 #include "../GraphCall/graph_calls_func.h"
+#include "../ExpressionTransform/expr_transform.h"
 
 using namespace std;
 
@@ -358,11 +359,20 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
 
                 SgStatement* pointToF = currFunc->funcPointer->GetOriginal();
                 SgSymbol* orig = pointToF->symbol();
-                SgSymbol* copied = &orig->copySubprogram(*current_file->firstStatement());
+                const vector<char*> attrs = getAttributes<SgSymbol*, char*>(orig, set<int>({ VARIABLE_NAME }));
 
+                SgSymbol* copied = &orig->copySubprogram(*current_file->firstStatement());
                 string newName = checkSymbNameAndCorrect(orig->identifier() + string("_spf_") + to_string(numCopy));
                 varCall.copiedName = newName;
                 copied->changeName(newName.c_str());
+                if (attrs.size())
+                {
+                    char* swapName = new char[512];
+                    addToCollection(__LINE__, __FILE__, swapName, 2);
+                    sprintf(swapName, "%s", (string(attrs[0]) + string("_spf_") + to_string(numCopy)).c_str());
+
+                    copied->addAttribute(VARIABLE_NAME, swapName, sizeof(char*));
+                }
 
                 //move 
                 SgStatement* toMove = current_file->firstStatement()->lexNext()->extractStmt();
@@ -407,6 +417,10 @@ static void copyGroup(const map<string, FuncInfo*> &mapOfFunc, const vector<Func
                     {
                         SgExpression* proc = (SgExpression*)places.first;
                         SgStatement* parent = SgStatement::getStatmentByExpression(proc);
+                        if (parent == NULL)
+                            parent = findReplacedExpression(proc);
+                        checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+
                         if (SgFile::switchToFile(parent->fileName()) == -1)
                             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 

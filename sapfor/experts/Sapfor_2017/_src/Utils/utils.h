@@ -7,6 +7,7 @@
 namespace Distribution
 {
     class Array;
+    class ArrayAccessInfo;
     template<typename vType> class Arrays;
 }
 namespace DIST = Distribution;
@@ -76,3 +77,4 @@ template<typename objT>
 objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> &mapObject);
 
 bool isMpiFunction(const std::string& func);
+std::map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
