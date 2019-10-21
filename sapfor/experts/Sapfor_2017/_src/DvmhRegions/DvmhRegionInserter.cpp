@@ -122,9 +122,17 @@ LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNo
     return loopCheckResults;
 }
 
-DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile, const vector<LoopGraph*> &curLoopGraph)
-    : file(curFile), loopGraph(curLoopGraph)
-{ }
+DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile, const vector<LoopGraph*> &curLoopGraph) : file(curFile), loopGraph(curLoopGraph) { }
+
+DvmhRegionInsertor::DvmhRegionInsertor(
+    SgFile *curFile, 
+    const vector<LoopGraph*> &curLoopGraph,
+    const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays
+) : file(curFile), loopGraph(curLoopGraph)
+{ 
+    auto array_access = createMapOfArrayAccess(declaratedArrays);
+    array_usage = ArrayUsageFactory::from_array_access(array_access);
+}
 
 LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<string, FuncInfo*> &allFuncs)
 {
@@ -308,12 +316,20 @@ void DvmhRegionInsertor::insertActualDirectives()
             }
 
             // TODO: process loop separatly (how to get LoopGraph by statement?)
-            set<SgSymbol *> used_for_read, used_for_write;
-            tie(used_for_read, used_for_write) = getUsedDistributedArrays(st);
+            ArraySet used_for_read = array_usage->get_read_arrs(st);
+            ArraySet used_for_write = array_usage->get_write_arrs(st);
 
             // // debug
             // printf("********\n");
             // st->unparsestdout();
+            // cout << "Read: ";
+            // for (auto& arr : used_for_read)
+            //     cout << arr->GetShortName() << " ";
+            // cout << endl;
+            // cout << "Write: ";
+            // for (auto& arr : used_for_write)
+            //     cout << arr->GetShortName() << " ";
+            // cout << endl;
             // printf("********\n");
             insertActualDirective(st, used_for_read, ACC_GET_ACTUAL_DIR, true);
             insertActualDirective(st, used_for_write, ACC_ACTUAL_DIR, false);
@@ -420,24 +436,21 @@ void DvmhRegionInsertor::insertDirectives()
     insertActualDirectives();
 }
 
-void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<SgSymbol *> &symbols, int varinat, bool before, bool empty)
+void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool before, bool empty)
 {
-    if (!st || (varinat != ACC_ACTUAL_DIR && varinat != ACC_GET_ACTUAL_DIR) || (!empty && (symbols.size() == 0)))
+    if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (!empty && (arraySet.size() == 0)))
         return;
 
-    SgStatement *actualizingSt = new SgStatement(varinat);
+    SgStatement *actualizingSt = new SgStatement(variant);
 
     SgExprListExp *t = new SgExprListExp();
-    for (auto &symbol : symbols) 
+    for (auto &arr : arraySet) 
     {
-        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, symbol->identifier()));
+        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, arr->GetShortName()));
         t->append(*expr);
     }
 
-    if (symbols.size())
-        actualizingSt->setExpression(0, t->rhs());
-    else
-        actualizingSt->setExpression(0, t);
+    actualizingSt->setExpression(0, t->rhs());
 
     if (before)
     {
@@ -552,4 +565,61 @@ static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatem
     }
 
     return make_tuple(read, write);
+}
+
+unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access)
+{
+    UsageByFile usage_by_file;
+
+    for (auto& arr : arrays_with_access)
+    {
+        for (auto& file : arr.second->GetAllAccessInfo())
+        {
+            for (auto& line : file.second) 
+            {
+                for (auto& usage : line.second)
+                {
+                    DIST::Array* arr_ptr = arr.first;
+                    string file_name = file.first;
+                    int line_num = line.first;
+
+                    if (usage_by_file.find(file_name) == usage_by_file.end())
+                        usage_by_file[file_name] = UsageByLine();
+                    if (usage_by_file[file_name].find(line_num) == usage_by_file[file_name].end())
+                        usage_by_file[file_name][line_num] = ReadWrite();
+                    
+                    if (usage.type == 0)
+                        usage_by_file[file_name][line_num].read.insert(arr_ptr);
+                    if (usage.type == 1)
+                        usage_by_file[file_name][line_num].write.insert(arr_ptr);
+                }          
+            }
+        }
+    }
+
+    return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
+}
+
+ArraySet ArrayUsage::get_read_arrs(SgStatement* st)
+{
+    string f_name = st->fileName();
+    if (
+        usages_by_file.find(f_name) != usages_by_file.end() & 
+        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
+    )
+        return usages_by_file[f_name][st->lineNumber()].read;
+
+    return ArraySet(); 
+}
+
+ArraySet ArrayUsage::get_write_arrs(SgStatement* st)
+{
+    string f_name = st->fileName();
+    if (
+        usages_by_file.find(f_name) != usages_by_file.end() & 
+        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
+    )
+        return usages_by_file[f_name][st->lineNumber()].write;
+
+    return ArraySet();   
 }

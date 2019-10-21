@@ -19,8 +19,36 @@
 #include <string>
 #include <algorithm>
 #include <tuple>
+#include <utility>
+#include <unordered_set> 
+#include <unordered_map>
 
 using namespace std;
+
+typedef unordered_set<DIST::Array* > ArraySet;
+struct ReadWrite
+{
+    ArraySet read;
+    ArraySet write;
+};
+typedef unordered_map<int, ReadWrite> UsageByLine;
+typedef unordered_map<string, UsageByLine> UsageByFile;
+
+class ArrayUsage
+{
+    UsageByFile usages_by_file; // [file, [line, (read, write)]]
+
+public:
+    ArrayUsage(UsageByFile init) : usages_by_file(init) { }; 
+    ArraySet get_read_arrs(SgStatement* st);
+    ArraySet get_write_arrs(SgStatement* st);
+};
+
+class ArrayUsageFactory
+{
+public:
+    static unique_ptr<ArrayUsage> from_array_access(map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access);
+};
 
 struct LoopCheckResults 
 {
@@ -80,6 +108,7 @@ class DvmhRegionInsertor
     SgFile *file;
     const vector<LoopGraph*> &loopGraph;
     vector<DvmhRegion*> regions;
+    unique_ptr<ArrayUsage> array_usage;
 
     DvmhRegion* getRegionByStart(SgStatement *) const;
     void printFuncName(SgStatement *);
@@ -87,7 +116,7 @@ class DvmhRegionInsertor
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirective(SgStatement*, const set<SgSymbol *>&, int, bool, bool empty = false);
+    void insertActualDirective(SgStatement*, const ArraySet&, int, bool, bool empty = false);
     void mergeRegions();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
@@ -95,6 +124,11 @@ class DvmhRegionInsertor
 public:
 
     DvmhRegionInsertor(SgFile*, const vector<LoopGraph*>&);
+    DvmhRegionInsertor(
+        SgFile*, 
+        const vector<LoopGraph*>&, 
+        const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>&
+    );
     void updateLoopGraph(const map<string, FuncInfo*> &allFuncs);
     void insertDirectives();
     ~DvmhRegionInsertor()
