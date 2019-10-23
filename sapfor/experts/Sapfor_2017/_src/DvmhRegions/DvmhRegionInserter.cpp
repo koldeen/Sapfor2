@@ -281,6 +281,62 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
     }
 }
 
+SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
+{
+    if (st == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    if (st == NULL || st->variant() == CONTAINS_STMT)
+        return NULL;
+
+    // Skip regions
+    DvmhRegion* region = getRegionByStart(st);
+    if (region)
+        return region->getLastSt();
+
+    // Actualization before remote dir
+    if (st->variant() == DVM_REMOTE_ACCESS_DIR)
+    {
+        SgStatement* remote_dir = st;
+        while (isDVM_stat(st))
+            st = st->lexNext();
+
+        SgStatement* last = st->lastNodeOfStmt();
+        insertActualDirective(
+            remote_dir,
+            get_read_arrs_for_block(st),
+            ACC_GET_ACTUAL_DIR,
+            true
+        );
+        insertActualDirective(
+                last,
+            get_write_arrs_for_block(st),
+            ACC_ACTUAL_DIR,
+            false
+        );
+
+        return last->lexNext();
+    }
+
+    // Skip useless
+    if (!isSgExecutableStatement(st) || isSgProgHedrStmt(st) || isDVM_stat(st))
+        return st->lexNext();
+
+    insertActualDirective(
+        st,
+        array_usage->get_read_arrs(st),
+        ACC_GET_ACTUAL_DIR,
+        true
+    );
+    insertActualDirective(
+        st,
+        array_usage->get_write_arrs(st),
+        ACC_ACTUAL_DIR,
+        false
+    );
+
+    return st->lexNext();
+}
+
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
@@ -291,51 +347,8 @@ void DvmhRegionInsertor::insertActualDirectives()
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         st->lexNext();
-        while (st != lastNode)
-        {
-            if (st == NULL)
-            {
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                break;
-            }
-            if (st->variant() == CONTAINS_STMT)
-                break;
-
-            // Skip regions
-            DvmhRegion* region = getRegionByStart(st);
-            if (region)
-            {
-                st = region->getLastSt();
-                continue;
-            }
-
-            // Skip useless
-            if (!isSgExecutableStatement(st) || isSgProgHedrStmt(st) || isDVM_stat(st)) {
-                st = st->lexNext();
-                continue;
-            }
-
-            // TODO: process loop separatly (how to get LoopGraph by statement?)
-            ArraySet used_for_read = array_usage->get_read_arrs(st);
-            ArraySet used_for_write = array_usage->get_write_arrs(st);
-
-            // // debug
-            // printf("********\n");
-            // st->unparsestdout();
-            // cout << "Read: ";
-            // for (auto& arr : used_for_read)
-            //     cout << arr->GetShortName() << " ";
-            // cout << endl;
-            // cout << "Write: ";
-            // for (auto& arr : used_for_write)
-            //     cout << arr->GetShortName() << " ";
-            // cout << endl;
-            // printf("********\n");
-            insertActualDirective(st, used_for_read, ACC_GET_ACTUAL_DIR, true);
-            insertActualDirective(st, used_for_write, ACC_ACTUAL_DIR, false);
-
-            st = st->lexNext();
-        }
+        while (st != lastNode & st != NULL)
+            st =  processSt(st);
     }
 }
 
@@ -622,4 +635,60 @@ ArraySet ArrayUsage::get_write_arrs(SgStatement* st)
         return usages_by_file[f_name][st->lineNumber()].write;
 
     return ArraySet();   
+}
+
+ArraySet DvmhRegionInsertor::get_read_arrs_for_block(SgStatement* st)
+{
+    auto usages = ArraySet();
+    SgStatement *end = st->lastNodeOfStmt()->lexNext();
+
+    st->lexNext();
+    while (st != end & st != NULL)
+    {
+        // Skip regions
+        DvmhRegion* region = getRegionByStart(st);
+        if (region)
+        {
+            st = region->getLastSt();
+            continue;
+        }
+
+        if (!isDVM_stat(st))
+        {
+            ArraySet st_usages = array_usage->get_read_arrs(st);
+            usages.insert(st_usages.begin(), st_usages.end());
+        }
+
+        st = st->lexNext();
+    }
+    
+    return usages;
+}
+
+ArraySet DvmhRegionInsertor::get_write_arrs_for_block(SgStatement* st)
+{
+    auto usages = ArraySet();
+    SgStatement *end = st->lastNodeOfStmt()->lexNext();
+
+    st->lexNext();
+    while (st != end & st != NULL)
+    {
+        // Skip regions
+        DvmhRegion* region = getRegionByStart(st);
+        if (region)
+        {
+            st = region->getLastSt();
+            continue;
+        }
+
+        if (!isDVM_stat(st))
+        {
+            ArraySet st_usages = array_usage->get_write_arrs(st);
+            usages.insert(st_usages.begin(), st_usages.end());
+        }
+
+        st = st->lexNext();
+    }
+    
+    return usages;
 }

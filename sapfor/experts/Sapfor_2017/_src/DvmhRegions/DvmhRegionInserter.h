@@ -101,6 +101,7 @@ public:
     const vector<LoopGraph*>& getLoops() const { return loops; }
     const set<string>& getActualisation() const {return needActualisation; }
     const set<string>& getActualisationAfter() const { return needActualisationAfter; }
+
 };
 
 class DvmhRegionInsertor 
@@ -114,13 +115,15 @@ class DvmhRegionInsertor
     void printFuncName(SgStatement *);
     void findEdgesForRegions(const vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
+    SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertRegionDirectives();
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool, bool empty = false);
     void mergeRegions();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
-
+    ArraySet get_read_arrs_for_block(SgStatement* st);
+    ArraySet get_write_arrs_for_block(SgStatement* st);
 public:
 
     DvmhRegionInsertor(SgFile*, const vector<LoopGraph*>&);
