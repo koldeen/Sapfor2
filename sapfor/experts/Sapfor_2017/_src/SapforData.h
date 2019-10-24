@@ -121,6 +121,11 @@ std::tuple<std::string, int, int, int> inData; // file, startLine, endLine, del/
 std::map<std::string, std::string> outData; // file -> new unparsed text
 //
 
+//for SPF INLINE PROCEDURES
+std::vector<std::tuple<std::string, std::string, int>> inDataProc; // [<file, proc, line>]
+std::vector<FuncInfo*> inDataAllProc; // all procedures
+//
+
 //module includes across all files, need to correct lines and out versions
 std::map<std::string, std::set<std::string>> moduleUsesByFile; // file -> use module name
 std::map<std::string, std::string> moduleDecls; // module -> file where declarated

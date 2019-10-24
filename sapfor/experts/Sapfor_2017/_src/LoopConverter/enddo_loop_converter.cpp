@@ -41,11 +41,18 @@ static SgLabel* getUniqLabel(unsigned was)
     return ret;
 }
 
-static void makeDeclaration(SgStatement *curr, SgSymbol *s)
+static void makeDeclaration(SgStatement *curr, const vector<SgSymbol*> &s)
 {
-    SgStatement *decl = s->makeVarDeclStmt();
+    if (s.size() == 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgVarDeclStmt *decl = s[0]->makeVarDeclStmt();
+    for (auto& elem : s)
+        if (s[0] != elem)
+            decl->addVar(*new SgVarRefExp(elem));
+    
     SgStatement *place = curr;
-    while (place->variant() != PROG_HEDR && place->variant() != PROC_HEDR && place->variant() != FUNC_HEDR)
+    while (isSgProgHedrStmt(place) == NULL)
         place = place->controlParent();
     auto scope = place;
     while (isSgExecutableStatement(place) == NULL)
@@ -76,10 +83,11 @@ static vector<SgStatement*> convertArithIf(SgStatement *curr)
     else
         type = SgTypeInt();
 
-    auto condS = new SgSymbol(VARIABLE_NAME, ("arithIfCond" + std::to_string(curr->lineNumber())).c_str(), type, curr->getScopeForDeclare());
+    auto condS = new SgSymbol(VARIABLE_NAME, ("ar_If_C" + std::to_string(curr->lineNumber())).c_str(), type, curr->getScopeForDeclare());
     SgStatement *assignCond = new SgAssignStmt(*new SgVarRefExp(*condS), *cond);
 
-    makeDeclaration(curr, condS);
+    vector<SgSymbol*> toAdd = { condS };
+    makeDeclaration(curr, toAdd);
 
     if (arith_lab[1]->getLabNumber() == arith_lab[2]->getLabNumber())
         replaceSt = new SgIfStmt(*new SgVarRefExp(*condS) < *new SgValueExp(0), *new SgGotoStmt(*arith_lab[0]), *new SgGotoStmt(*arith_lab[1]));
@@ -105,10 +113,11 @@ static vector<SgStatement*> convertComGoto(SgStatement *curr)
 
     SgStatement *replace = NULL;
 
-    auto condS = new SgSymbol(VARIABLE_NAME, ("comGotoCond" + std::to_string(curr->lineNumber())).c_str(), SgTypeInt(), curr->getScopeForDeclare());
+    auto condS = new SgSymbol(VARIABLE_NAME, ("com_Goto_C" + std::to_string(curr->lineNumber())).c_str(), SgTypeInt(), curr->getScopeForDeclare());
     SgStatement *assignCond = new SgAssignStmt(*new SgVarRefExp(*condS), *cond);
     
-    makeDeclaration(curr, condS);
+    vector<SgSymbol*> toAdd = { condS };
+    makeDeclaration(curr, toAdd);
        
     if (labs.size() == 1)
         replace = new SgIfStmt(*new SgVarRefExp(*condS) == *new SgValueExp(1), *new SgGotoStmt(*labs[0]));
@@ -414,4 +423,54 @@ void ConverToEndDo(SgFile *file, vector<Messages> &messagesForFile)
                 elem->deleteStmt();
         }
     }
+}
+
+//return <vector of decls, vector of insert>
+vector<SgStatement*> createIfConditions(std::stack<SgExpression*> &conds, std::stack<SgStatement*> &ifBlocks, SgStatement *control)
+{
+    vector<SgStatement*> ifSt = { NULL, NULL };
+    
+    const int id = control->getFileId();
+    SgProject* proj = control->getProject();
+    const int line = control->lineNumber();
+
+    auto scope = getFuncStat(control);
+
+    vector<SgSymbol*> toDecls;
+    while (!conds.empty())
+    {        
+        string nextN = checkSymbNameAndCorrect(string("spf_If_C" + std::to_string(ifBlocks.top()->lineNumber())));
+        SgSymbol* s = new SgSymbol(VARIABLE_NAME, nextN.c_str(), SgTypeBool(), scope);
+        toDecls.push_back(s);
+
+        SgAssignStmt* check = new SgAssignStmt(*new SgVarRefExp(s), *conds.top());
+        check->setFileId(id);
+        check->setProject(proj);
+        check->setlineNumber(line);
+
+        if (ifSt[0])
+        {
+            if (ifSt[1])
+            {
+                ifSt[1] = new SgIfStmt(*new SgExpression(NOT_OP, new SgVarRefExp(s)), *ifSt[1]);
+                ifSt[1]->insertStmtAfter(*ifSt[0], *ifSt[1]);
+            }
+            else
+                ifSt[1] = new SgIfStmt(*new SgExpression(NOT_OP, new SgVarRefExp(s)), *ifSt[0]);
+            ifSt[1]->setFileId(id);
+            ifSt[1]->setProject(proj);
+            ifSt[1]->setlineNumber(line);
+
+            ifSt[0] = check;
+        }
+        else
+            ifSt[0] = check;
+
+        ifBlocks.top()->setExpression(0, *new SgVarRefExp(s));
+        ifBlocks.pop();
+        conds.pop();
+    }
+
+    makeDeclaration(scope, toDecls);
+    return ifSt;
 }

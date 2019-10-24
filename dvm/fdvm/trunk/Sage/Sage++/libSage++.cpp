@@ -1594,6 +1594,9 @@ SgFile &SgProject::file(int i)
     if (!file)
     {
         Message("SgProject::file; File not found", 0);
+#ifdef __SPF   
+        throw -1;
+#endif
         return *pt;
     }
     pt = GetMappingInTableForFile(file);
@@ -1809,7 +1812,7 @@ void SgStatement::updateStatsByExpression()
     current_file = save;
 }
 
-SgStatement* SgStatement::getStatmentByExpression(SgExpression *toFind)
+SgStatement* SgStatement::getStatmentByExpression(SgExpression* toFind)
 {
     if (parentStatsForExpression.size() == 0)
         updateStatsByExpression();
@@ -2203,8 +2206,7 @@ SgExpression::SgExpression(int variant, SgExpression &lhs, SgExpression &rhs,
 }
 
 /* Pointer constructor by ajm 26-Jan-94. */
- SgExpression::SgExpression(int variant, SgExpression *lhs, SgExpression *rhs,
-     SgSymbol *s, SgType *type)
+ SgExpression::SgExpression(int variant, SgExpression *lhs, SgExpression *rhs, SgSymbol *s, SgType *type)
  {
      if (!isALoNode(variant))
      {
@@ -2227,8 +2229,7 @@ SgExpression::SgExpression(int variant, SgExpression &lhs, SgExpression &rhs,
 #endif
  }
 
- SgExpression::SgExpression(int variant, SgExpression *lhs, SgExpression *rhs,
-     SgSymbol *s)
+ SgExpression::SgExpression(int variant, SgExpression *lhs, SgExpression *rhs, SgSymbol *s)
  {
      if (!isALoNode(variant))
      {
@@ -2242,6 +2243,46 @@ SgExpression::SgExpression(int variant, SgExpression &lhs, SgExpression &rhs,
      NODE_OPERAND0(thellnd) = ((lhs != 0) ? lhs->thellnd : 0);
      NODE_OPERAND1(thellnd) = ((rhs != 0) ? rhs->thellnd : 0);
      NODE_SYMB(thellnd) = ((s != 0) ? s->thesymb : 0);
+
+#if __SPF
+     addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+ }
+
+ SgExpression::SgExpression(int variant, SgExpression* lhs, SgExpression* rhs) 
+ {
+     if (!isALoNode(variant))
+     {
+         Message("Attempt to create a low level node with a variant that is not", 0);
+         // arbitrary choice for the variant
+         thellnd = (PTR_LLND)newNode(EXPR_LIST);
+     }
+     else
+         thellnd = (PTR_LLND)newNode(variant);
+     SetMappingInTableForLlnd(thellnd, (void*)this);
+     NODE_OPERAND0(thellnd) = ((lhs != 0) ? lhs->thellnd : 0);
+     NODE_OPERAND1(thellnd) = ((rhs != 0) ? rhs->thellnd : 0);
+     NODE_SYMB(thellnd) = 0;
+
+#if __SPF
+     addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+ }
+
+ SgExpression::SgExpression(int variant, SgExpression* lhs) 
+ { 
+     if (!isALoNode(variant))
+     {
+         Message("Attempt to create a low level node with a variant that is not", 0);
+         // arbitrary choice for the variant
+         thellnd = (PTR_LLND)newNode(EXPR_LIST);
+     }
+     else
+         thellnd = (PTR_LLND)newNode(variant);
+     SetMappingInTableForLlnd(thellnd, (void*)this);
+     NODE_OPERAND0(thellnd) = ((lhs != 0) ? lhs->thellnd : 0);
+     NODE_OPERAND1(thellnd) = 0;
+     NODE_SYMB(thellnd) = 0;
 
 #if __SPF
      addToCollection(__LINE__, __FILE__, this, 1);

@@ -292,13 +292,17 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
 
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
+        if (st->variant() < 0)
+            continue;
+
         for (auto &it : includeFiles)
         {
             auto found = placesForInsert.find(st->id());
             if (found != placesForInsert.end())
             {                
                 SgStatement* parent = getFuncStat(st, { BLOCK_DATA, MODULE_STMT });
-                checkNull(parent, convertFileName(__FILE__).c_str(), __LINE__);
+                if(!parent)
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
                 if (ifIntervalExists(it.second.second, found->second) && insertedIncludeFiles[it.first].find(parent) == insertedIncludeFiles[it.first].end())
                 {

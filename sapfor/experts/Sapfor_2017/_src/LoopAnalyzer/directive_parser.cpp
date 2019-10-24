@@ -110,7 +110,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                     SgExpression *list = exprList->lhs()->lhs();
                     while (list)
                     {
-                        SgExpression *currRed = list->lhs();
+                        SgExpression *currRed = list->lhs(); // with varsiant ARRAY_OP
                         
                         fillType redSymb, *dummy = NULL;
                         //minloc/maxloc
@@ -120,11 +120,11 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                             redSymb = getData(currRed->rhs(), dummy);
                         string oper = ((SgKeywordValExp *)(currRed->lhs()))->value();
                         
-                        auto it = reduction.find(oper);                        
+                        auto it = reduction.find(oper);
                         if (oper == "minloc" || oper == "maxloc")
                         {
                             //skip
-                            //__spf_print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");                            
+                            //__spf_print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");
                         }
                         else
                         {

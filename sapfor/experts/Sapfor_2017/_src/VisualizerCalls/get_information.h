@@ -26,11 +26,15 @@ extern "C" { __declspec(dllexport) int SPF_ResolveParallelRegionConflicts(int wi
 extern "C" { __declspec(dllexport) int SPF_LoopEndDoConverterPass(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_CreateParallelVariant(int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats); }
 extern "C" { __declspec(dllexport) int SPF_LoopFission(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_LoopUnion(int winHandler, int* options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_PrivateExpansion(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_PrivateShrinking(int winHandler, int* options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_RemoveDvmIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *fileNameToMod, int *toModifyLines, int &size, int *&sizes, short *&newFilesNames, short *&newFiles); }
 extern "C" { __declspec(dllexport) int SPF_DuplicateFunctionChains(int winHandler, int* options, short* projName, short* folderName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_InlineProcedure(int winHandler, int* options, short* projName, short* folderName, short *name, short *file, int line, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_InlineProcedures(int winHandler, int* options, short* projName, short* folderName, short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 
 extern "C" { __declspec(dllexport) void SPF_deleteAllAllocatedData(); }
 extern "C" { __declspec(dllexport) int  SPF_SetDistributionFlagToArray(char *key, int flag); }

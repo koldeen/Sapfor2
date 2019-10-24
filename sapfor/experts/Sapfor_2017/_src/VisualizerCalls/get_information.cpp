@@ -1150,6 +1150,13 @@ int SPF_PrivateExpansion(int winHandler, int *options, short *projName, short *f
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(PRIVATE_ARRAYS_BREEDING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
+int SPF_PrivateShrinking(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                         int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(PRIVATE_ARRAYS_SHRINKING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
 
 int SPF_LoopFission(int winHandler, int *options, short *projName, short *folderName, short *&output,
                     int *&outputSize, short *&outputMessage, int *&outputMessageSize)
@@ -1157,6 +1164,14 @@ int SPF_LoopFission(int winHandler, int *options, short *projName, short *folder
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
+}
+
+int SPF_LoopUnion(int winHandler, int *options, short *projName, short *folderName, short *&output,
+                  int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    return simpleTransformPass(LOOPS_COMBINER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
 int SPF_CreateIntervalsTree(int winHandler, int *options, short *projName, short *folderName, short *&output,
@@ -1240,6 +1255,87 @@ int SPF_ChangeSpfIntervals(int winHandler, int *options, short *projName, short 
         copyStringToShort(newFilesNames, newFileName);
         copyStringToShort(newFiles, newFile);
         retCode = (int)newFileName.size() + 1;
+    }
+    catch (int ex)
+    {
+        __spf_print(1, "catch code %d\n", ex);
+        if (ex == -99)
+            return -99;
+        else
+            retCode = -1;
+    }
+    catch (...)
+    {
+        retCode = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retCode;
+}
+
+extern vector<tuple<string, string, int>> inDataProc;
+int SPF_InlineProcedure(int winHandler, int* options, short* projName, short* folderName, 
+                        short* name, short* file, int line, 
+                        short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retCode = 0;
+    try
+    {
+        int tmp;
+        char *name_c, *file_c;
+        ConvertShortToChar(name, tmp, name_c);
+        ConvertShortToChar(file, tmp, file_c);
+
+        inDataProc.push_back(std::make_tuple(file_c, name_c, line));
+
+        PASSES_DONE[INLINE_PROCEDURES] = 0;
+        runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
+
+        inDataProc.clear();
+    }
+    catch (int ex)
+    {
+        __spf_print(1, "catch code %d\n", ex);
+        if (ex == -99)
+            return -99;
+        else
+            retCode = -1;
+    }
+    catch (...)
+    {
+        retCode = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retCode;
+}
+
+//TODO
+extern vector<FuncInfo*> inDataAllProc;
+int SPF_InlineProcedures(int winHandler, int* options, short* projName, short* folderName,
+                         short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+{
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retCode = 0;
+    try
+    {
+        PASSES_DONE[INLINE_PROCEDURES] = 0;
+        runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
+
+        inDataProc.clear();
     }
     catch (int ex)
     {

@@ -1432,23 +1432,28 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
             (loop->region == currParReg) && 
             (loop->userDvmDirective == NULL))
         {
-            if (loop->lineNum == 337)
-                printf("");
             if (loop->perfectLoop >= 1)
-            {                
+            {
                 bool topCheck = isOnlyTopPerfect(loop, distribution);
                 ParallelDirective *parDirective = loop->directive;
                 parDirective->cloneOfTemplate = "";
                 if (topCheck == false)
                 {  //try to unite loops and recheck
-                    bool result = createNestedLoops(loop, depInfoForLoopGraph, messages);
+                    bool result = createNestedLoops(loop, depInfoForLoopGraph, mapFuncInfo, messages);
                     if (result)
                     {
                         parDirective = loop->recalculateParallelDirective();
                         topCheck = isOnlyTopPerfect(loop, distribution);
                     }
                 }
-                
+                else
+                {
+                    //try to unite loops for all good loops
+                    bool result = createNestedLoops(loop, depInfoForLoopGraph, mapFuncInfo, messages);
+                    if (result)
+                        parDirective = loop->recalculateParallelDirective();
+                }
+
                 bool needToContinue = false;
                 if (topCheck)
                 {

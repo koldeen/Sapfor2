@@ -8947,20 +8947,27 @@ PTR_SYMB duplicateSymbolOfRoutine(PTR_SYMB symb, PTR_BFND where)
                     insertBfndListIn(newbody, where, BIF_CP(where));
             }
             BIF_SYMB(newbody) = newsymb;
-            SYMB_FUNC_HEDR(newsymb) = newbody;
+            if(SYMB_CODE(newsymb) == PROGRAM_NAME)
+               newsymb->entry.prog_decl.prog_hedr = newbody;
+            else 
+               SYMB_FUNC_HEDR(newsymb) = newbody;
             last = getLastNodeOfStmt(newbody);
             updateTypeAndSymbolInStmts(newbody, last, symb, newsymb);
             
             /* we have to propagate change in the param list in the new body */
-            ptsymb = SYMB_FUNC_PARAM(newsymb);
-            ptref = SYMB_FUNC_PARAM(symb);
-
+            if(SYMB_CODE(newsymb) == PROGRAM_NAME)
+               ptsymb = ptref = SMNULL;
+            else
+            {
+               ptsymb = SYMB_FUNC_PARAM(newsymb);
+               ptref  = SYMB_FUNC_PARAM(symb);
+            }
             while (ptsymb)
             {
                 SYMB_SCOPE(ptsymb) = newbody;
                 updateTypeAndSymbolInStmts(newbody, last, ptref, ptsymb);
                 ptsymb = SYMB_NEXT_DECL(ptsymb);
-                ptref = SYMB_NEXT_DECL(ptref);
+                ptref  = SYMB_NEXT_DECL(ptref);
             }
             /* update the all the symbol and type used in the statement */
             updateTypesAndSymbolsInBodyOfRoutine(symb, body, newbody, where);

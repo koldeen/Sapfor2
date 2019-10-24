@@ -2714,7 +2714,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
     }
     else if (acrossV == 2) // ACROSS with two dependence: generate method
     {
-        // attantion!! need to add flag for support all cases
+        // attention!! need to add flag for support all cases
         if (loopV != 0)
         {
             SgSymbol *tmp = nums[0];
@@ -3256,7 +3256,7 @@ ArgsForKernel** Create_C_Adapter_Function_Across_variants(SgSymbol *sadapter, Sg
     }
     else if (acrossV >= 3) // ACROSS with three or more dependence: generate method
     {
-        // attantion!! need to add flag for support all cases
+        // attention!! need to add flag for support all cases
         if (loopV != 0)
         {
             SgSymbol *tmp = nums[0];
@@ -4816,7 +4816,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
     }
     else if (argsKer->symb.size() == 2) // body for 2 dependence
     {
-        // attantion!! adding to support all variants!!
+        // attention!! adding to support all variants!!
         if (argsKer->nSymb.size() != 0)
         {
             SgSymbol *tmp = tid1;
@@ -5000,7 +5000,7 @@ SgStatement *CreateLoopKernelAcross(SgSymbol *skernel, ArgsForKernel *argsKer, i
     }
     else if (argsKer->symb.size() >= 3) // body for >3 dependence
     {
-        // attantion!! adding to support all variants!! не проверено
+        // attention!! adding to support all variants!! не проверено
 
         if (argsKer->nSymb.size() >= 1)
         {

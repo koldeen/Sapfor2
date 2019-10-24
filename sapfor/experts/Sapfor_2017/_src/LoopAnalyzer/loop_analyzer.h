@@ -149,6 +149,7 @@ void addReductionsToLoops(LoopGraph *currLoop, const std::vector<const depNode*>
 void fillVars(SgExpression *exp, const std::set<int> &types, std::set<SgSymbol*> &identifierList, std::vector<SgExpression*> &funcCalls);
 
 // remote_access.cpp
+bool isNeedToConvertIfCondition(SgExpression* ex);
 void addRemotesToDir(const std::pair<SgForStmt*, LoopGraph*> *under_dvm_dir, const std::map<std::string, SgArrayRefExp*> &uniqRemotes);
 void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const ParallelDirective*> &under_dvm_dir,
                             const DIST::Arrays<int> &allArrays,
@@ -162,7 +163,7 @@ void createRemoteInParallel(const std::tuple<SgForStmt*, const LoopGraph*, const
                             const int regionId,
                             const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
-template<int NUM> void createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
+template<int NUM> bool createRemoteDir(SgStatement *st, const std::map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                                        const DataDirective &data, const std::vector<int> &currVar, const int redionID, std::vector<Messages> &currMessages,
                                        const std::map<DIST::Array*, std::set<DIST::Array*>> &arrayLinksByFuncCalls);
 
