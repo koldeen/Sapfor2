@@ -394,6 +394,52 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
     }
 }
 
+void fillShrinkFromComment(Statement *stIn, map<SgSymbol *, vector<int>> &varDims)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            recExpressionPrint(exprList); // DEBUG
+
+            while (exprList)
+            {
+                if (exprList->lhs() && (exprList->lhs()->variant() == SPF_SHRINK_OP))
+                {
+                    SgExpression* list = exprList->lhs()->lhs();
+                    while (list)
+                    {
+                        if (list->lhs()->variant() == ARRAY_REF)
+                        {
+                            auto it = varDims.find(list->lhs()->symbol());
+                            if (it == varDims.end())
+                                it = varDims.insert(it, make_pair(list->lhs()->symbol(), vector<int>()));
+                            else
+                                ;
+
+                            // TODO: filling dimensions
+                            if (list->lhs()->lhs())
+                            {
+                                SgExpression *dimList = list->lhs()->lhs();
+                                while (dimList)
+                                {
+                                    it->second.push_back(0);
+                                    //dims.push_back(list->lhs()->symbol()->identifier());
+                                }
+                            }
+                        }
+
+                        list = list->rhs();
+                    }
+                }
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;

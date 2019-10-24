@@ -1106,6 +1106,21 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
     return retVal;
 }
 
+static bool checkShrink(SgStatement *st,
+                        SgStatement *attributeStatement,
+                        const string &currFile,
+                        vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+    
+    map<SgSymbol *, vector<int>> varDims;
+    fillShrinkFromComment(new Statement(attributeStatement), varDims);
+
+
+
+    return retVal;
+}
+
 static int countSPF_OP(Statement *stIn, const int type, const int op)
 {
     int count = 0;
@@ -1258,6 +1273,22 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 }
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
+            }
+            // SHRINK
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
+            {
+                attributeStatement->setLocalLineNumber(-1); // is it needed?
+                if (st->variant() != FOR_NODE)
+                {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "only", L"только", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
+                    BAD_POSITION(1, ERROR, "only", "before", "DO statement", attributeStatement->lineNumber());
+#endif
+                    retVal = false;
+                }
+                else
+                    retVal = checkShrink(st, attributeStatement, currFile, messagesForFile);
             }
         }
     }

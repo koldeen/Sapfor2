@@ -32,3 +32,5 @@ void fillAcrossInfoFromDirectives(const LoopGraph *loopInfo, std::vector<std::pa
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive);
 
 void fillFissionPrivatesExpansionFromComment(Statement *stIn, std::vector<std::string> &vars);
+
+void fillShrinkFromComment(Statement *stIn, std::map<SgSymbol *, std::vector<int>> &varDims);
