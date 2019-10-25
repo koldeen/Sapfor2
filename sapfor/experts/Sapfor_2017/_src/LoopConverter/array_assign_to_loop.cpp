@@ -1271,10 +1271,28 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
             if (st->variant() == ASSIGN_STAT || st->variant() == WHERE_NODE)
             {
                 vector<SgStatement*> conv;
-                if (st->expr(1)->variant() == FUNC_CALL && !strcmp(st->expr(1)->symbol()->identifier(), "sum"))
+                if (st->expr(1)->variant() == FUNC_CALL )
                 {
-                    conv = convertFromSumToLoop(st, file, messagesForFile);
-                    isFCALL = true;
+                    const string fName = st->expr(1)->symbol()->identifier();
+                    if (fName == "sum")
+                    {
+                        conv = convertFromSumToLoop(st, file, messagesForFile);
+                        // add SPF ANALYSIS REDUCTION(SUM(<var>)) after convertion
+                        if (conv.size())
+                        {
+                            if (fName == "sum" && conv.size() != 2)
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                            SgStatement* redDir = new SgStatement(SPF_ANALYSIS_DIR);
+                            SgExpression* list = new SgExpression(EXPR_LIST, 
+                                new SgExpression(REDUCTION_OP, 
+                                    new SgExpression(EXPR_LIST, 
+                                        new SgExpression(ARRAY_OP, new SgKeywordValExp("sum"), new SgVarRefExp(conv[1]->expr(0)->symbol())))));
+                            redDir->setExpression(0, list);
+
+                            conv[0]->addAttribute(SPF_ANALYSIS_DIR, redDir, sizeof(SgStatement));
+                            isFCALL = true;
+                        }
+                    }
                 }
                 else
                 {
@@ -1285,9 +1303,7 @@ void convertFromAssignToLoop(SgFile *file, vector<Messages> &messagesForFile)
                         if (st->variant() == WHERE_NODE)
                             conv = convertFromWhereToLoop(st, file, messagesForFile);
                         else
-                        {
                             conv = convertFromAssignToLoop(st, file, messagesForFile);
-                        }
                     }
                 }
 

@@ -265,14 +265,16 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         }
 
         string fout_name = "";
+        const string outExt = (out_free_form == 1) ? "f90" : "for";
+
         if (folderName == NULL)
-            fout_name = OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+            fout_name = OnlyName(file_name) + "_" + newVer + "." + outExt;
         else
         {
             if (strlen(newVer) == 0)
-                fout_name = folderName + string("/") + OnlyName(file_name) + "." + OnlyExt(file_name);
+                fout_name = folderName + string("/") + OnlyName(file_name) + "." + outExt;
             else
-                fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + OnlyExt(file_name);
+                fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + outExt;
         }
 
         __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
@@ -794,10 +796,13 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             revertReplacements(file->filename(), true);
         else if (curr_regime == CREATE_NESTED_LOOPS)
         {
+            map<string, FuncInfo*> mapFuncInfo;
+            createMapOfFunc(allFuncInfo, mapFuncInfo);
+
             auto itFound = loopGraph.find(file_name);
             if (itFound != loopGraph.end())
                 for (int i = 0; i < itFound->second.size(); ++i)
-                    createNestedLoops(itFound->second[i], depInfoForLoopGraph, getObjectForFileFromMap(file_name, SPF_messages));
+                    createNestedLoops(itFound->second[i], depInfoForLoopGraph, mapFuncInfo, getObjectForFileFromMap(file_name, SPF_messages));
         }
         else if (curr_regime == GET_ALL_ARRAY_DECL)
             getAllDeclaratedArrays(file, declaratedArrays, declaratedArraysSt, getObjectForFileFromMap(file_name, SPF_messages), subs_parallelRegions);
@@ -901,6 +906,17 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == GCOV_PARSER)
             parse_gcovfile(file, consoleMode == 1 ? file_name : "./visualiser_data/gcov/" + string(file_name), getObjectForFileFromMap(file_name, gCovInfo), keepFiles);        
         else if(curr_regime == PRIVATE_ARRAYS_BREEDING)
+        {
+            set<SgSymbol*> tmp;
+            auto founded = loopGraph.find(file->filename());
+            if (founded != loopGraph.end())
+            {
+                int err = breedArrays(file, founded->second, tmp, getObjectForFileFromMap(file_name, SPF_messages));
+                if (err != 0)
+                    internalExit = -1;
+            }
+        }
+        else if (curr_regime == PRIVATE_ARRAYS_SHRINKING)
         {
             set<SgSymbol*> tmp;
             auto founded = loopGraph.find(file->filename());
@@ -1602,7 +1618,30 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
     }
     else if (curr_regime == GCOV_PARSER)
+    {
         parseTimesDvmStatisticFile((consoleMode == 1) ? string("statistic.txt") : "./visualiser_data/statistic/" + string("statistic.txt"), intervals);
+
+        //fixed count, devide by value from PROG_HEDR
+        SgStatement* mainUnit = findMainUnit(&project, SPF_messages);
+        if (mainUnit->variant() != PROG_HEDR)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        const int line = mainUnit->lineNumber();
+        auto itF = gCovInfo.find(mainUnit->fileName());
+        if (itF != gCovInfo.end())
+        {
+            auto itL = itF->second.find(line);
+            if (itL != itF->second.end())
+            {
+                auto totalExec = itL->second.getExecutedCount();
+                if (totalExec != 1)
+                {
+                    for (auto& byFile : gCovInfo)
+                        for (auto& byLine : byFile.second)
+                            byLine.second.setExecutedCount(byLine.second.getExecutedCount() / totalExec);
+                }
+            }
+        }
+    }
     else if (curr_regime == PREDICT_SCHEME)
     {
         int maxSizeDist = 0;
@@ -2065,10 +2104,11 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case REMOVE_DVM_DIRS:
     case REMOVE_DVM_DIRS_TO_COMMENTS:
     case PRIVATE_ARRAYS_BREEDING:
+    case PRIVATE_ARRAYS_SHRINKING:
     case LOOPS_SPLITTER:
     case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
-    case REMOVE_DVM_INTERVALS:    
+    case REMOVE_DVM_INTERVALS:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:

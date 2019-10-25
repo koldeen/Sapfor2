@@ -131,11 +131,19 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
 
     if (par->variant() == FUNCTION_NAME)
     {
-        const int type = getIntrinsicFunctionType(par->identifier());
-        if (type == T_DOUBLE)
-            currParams->parametersT[i] = SCALAR_DOUBLE_T;
-        else if (type == T_FLOAT)
-            currParams->parametersT[i] = SCALAR_FLOAT_T;
+        if (isIntrinsicFunctionName(par->identifier()))
+        {
+            const int type = getIntrinsicFunctionType(par->identifier());
+            if (type == T_DOUBLE)
+                currParams->parametersT[i] = SCALAR_DOUBLE_T;
+            else if (type == T_FLOAT)
+                currParams->parametersT[i] = SCALAR_FLOAT_T;
+        }
+        else
+        {
+            SgType* type = par->type();
+            currParams->parametersT[i] = detectType(type);
+        }
         return;
     }
 
@@ -163,7 +171,7 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
     }
     else
     {
-        printf("var = %d %s\n", par->variant(), tag[par->variant()]);
+        //printf("var = %d %s\n", par->variant(), tag[par->variant()]);
         currParams->parametersT[i] = UNKNOWN_T;
     }
 }

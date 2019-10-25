@@ -321,13 +321,12 @@ class  SgExpression
 public:
   PTR_LLND thellnd;
   // generic expression class.
-  SgExpression(int variant, SgExpression &lhs, SgExpression &rhs,
-               SgSymbol &s, SgType &type);
+  SgExpression(int variant, SgExpression &lhs, SgExpression &rhs, SgSymbol &s, SgType &type);
+  SgExpression(int variant, SgExpression *lhs, SgExpression *rhs, SgSymbol *s, SgType *type);
+  SgExpression(int variant, SgExpression *lhs, SgExpression *rhs, SgSymbol *s);
+  SgExpression(int variant, SgExpression *lhs, SgExpression *rhs);
+  SgExpression(int variant, SgExpression* lhs);
 
-  SgExpression(int variant, SgExpression *lhs, SgExpression *rhs,
- 	       SgSymbol *s, SgType *type);
-  SgExpression(int variant, SgExpression *lhs, SgExpression *rhs,
- 	       SgSymbol *s);
   // for some node in fortran
   SgExpression(int variant,char *str);
 
