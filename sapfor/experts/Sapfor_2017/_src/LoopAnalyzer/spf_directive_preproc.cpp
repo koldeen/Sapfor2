@@ -1193,12 +1193,6 @@ static bool checkShrink(SgStatement *st,
                     retVal = false;
                 }
             }
-
-            if (var)
-                __spf_print(1, "%s : ", var->identifier()); // DEBUG
-            for (auto& dim : dims)
-                __spf_print(1, "%d ", dim); // DEBUG
-            __spf_print(1, "\n"); // DEBUG
         }
     }
 
