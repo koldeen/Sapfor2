@@ -2,8 +2,10 @@
       INTEGER I, K, N, C(20)
       DOUBLE PRECISION A(20, 20), TMP_BR1(7, 14)
       N = 5
-!$SPF TRANSFORM(SHRINK(TMP_BR1 (1, 0), A(0, 1, 2), N, C, A(1,1), K))
-!$SPF ANALYSIS(PRIVATE(TMP_BR1, A))
+!$SPF TRANSFORM(SHRINK(TMP_BR1 (1, 0), A(0, 1, 2), N, C, A(1,1)))
+! $SPF&K(1,100500,0)))
+!$SPF ANALYSIS(PRIVATE(TMP_BR1,
+!$SPF&A))
       DO I = 1,N
         DO K = 1,N
           TMP_BR1(K,I) = I + 7

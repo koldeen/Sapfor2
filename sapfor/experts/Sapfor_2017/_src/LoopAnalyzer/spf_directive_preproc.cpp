@@ -1120,8 +1120,9 @@ static bool checkShrink(SgStatement *st,
     {
         auto var = p.first;
         auto dims = p.second;
-        SgArrayType *arrType = isSgArrayType(var->type());
 
+        // check variable type
+        SgArrayType *arrType = isSgArrayType(var->type());
         if (!arrType)
         {
             __spf_print(1, "variable in shrink clause must be array in file '%s' on line %d\n", st->fileName(), attributeStatement->lineNumber());
@@ -1135,8 +1136,31 @@ static bool checkShrink(SgStatement *st,
         }
         else
         {
-            //TODO: check PRIVATE
+            // check private directives
+            set<SgSymbol*> privates;
+            for (int i = 0; i < st->numberOfAttributes(); ++i)
+            {
+                SgAttribute *attr = st->getAttribute(i);
+                SgStatement *attributeStatement = (SgStatement *)(attr->getAttributeData());
+                fillPrivatesFromComment(new Statement(attributeStatement), privates);
+            }
+
+            auto it = privates.find(var);
+            if (it == privates.end())
+            {
+                __spf_print(1, "array '%s' in shrink clause must be also declared in private clause in file '%s' on line %d\n",
+                            var->identifier(), st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"array '%s' in shrink clause must be also declared in private clause in file '%s'",
+                                     to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, R157, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1056));
+                retVal = false;
+            }
             
+            // check mask dimensions
             if (dims.size() != arrType->dimension())
             {
                 __spf_print(1, "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d\n",
@@ -1157,13 +1181,13 @@ static bool checkShrink(SgStatement *st,
                 auto dimVal = dims[i];
                 if (dimVal != 0 && dimVal != 1)
                 {
-                    __spf_print(1, "wrong mask value in %d position: it can be only 0 or 1 in file '%s' on line %d\n",
-                                i + 1, st->fileName(), attributeStatement->lineNumber());
+                    __spf_print(1, "wrong mask value in %d position for array '%s': it can be only 0 or 1 in file '%s' on line %d\n",
+                                i + 1, var->identifier(), st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
                     __spf_printToLongBuf(messageE, L"wrong mask value in %d position: it can be only 0 or 1 in file '%s'",
-                                         i + 1, to_wstring(st->fileName()).c_str());
+                                         i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(st->fileName()).c_str());
+                    __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1055));
                     retVal = false;

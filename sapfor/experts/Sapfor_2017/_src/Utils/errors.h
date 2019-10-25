@@ -65,6 +65,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   53 "variable in shrink clause must be arrayy in file '%s' on line %d"
 //   54 "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d"
 //   55 "wrong mask value in %d position: it can be only 0 or 1 in file '%s' on line %d"
+//   56 "array '%s' in shrink clause must be also declared in private clause in file '%s' on line %d"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -405,7 +406,9 @@ static const wchar_t *R154 = L"Ошибка в выражении SHRINK клаузы: переменная долж
 //1054
 static const wchar_t *R155 = L"Длина маски для массива '%s' должна быть равна %d, но указано только %d измерений в файле '%s'";
 //1055
-static const wchar_t *R156 = L"Ошибка в выражении маски на %d позиции: в качестве значения могут быть только 0 и 1 в файле '%s'";
+static const wchar_t *R156 = L"Ошибка в выражении маски на %d позиции массива '%s': в качестве значения могут быть только 0 и 1 в файле '%s'";
+//1056
+static const wchar_t *R157 = L"Массив '%s' в директиве shrink также должен быть объявлен в директиве private в файле '%s'";
 
 //2001
 static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";
