@@ -1113,72 +1113,69 @@ static bool checkShrink(SgStatement *st,
 {
     bool retVal = true;
     
-    vector<pair<SgExpression *, vector<SgExpression *>>> varDims;
+    vector<pair<SgSymbol *, vector<int>>> varDims;
     fillShrinkFromComment(new Statement(attributeStatement), varDims);
 
     for (auto &p : varDims)
     {
         auto var = p.first;
         auto dims = p.second;
+        SgArrayType *arrType = isSgArrayType(var->type());
 
-        if (var->variant() != ARRAY_REF)
+        if (!arrType)
         {
             __spf_print(1, "variable in shrink clause must be array in file '%s' on line %d\n", st->fileName(), attributeStatement->lineNumber());
             wstring messageE, messageR;
-            __spf_printToLongBuf(messageE, L"variable in shrink clause is not array in file '%s'", to_wstring(st->fileName()).c_str());
+            __spf_printToLongBuf(messageE, L"variable in shrink clause must be array in file '%s'", to_wstring(st->fileName()).c_str());
 #ifdef _WIN32
             __spf_printToLongBuf(messageR, R154, to_wstring(st->fileName()).c_str());
 #endif
             messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1053));
             retVal = false;
         }
-
-        SgArrayType *arrType = isSgArrayType(var->symbol()->type());
-        if (arrType && dims.size() != arrType->dimension())
+        else
         {
-            __spf_print(1, "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d\n",
-                        var->symbol()->identifier(), arrType->dimension(), dims.size(), st->fileName(), attributeStatement->lineNumber());
-            wstring messageE, messageR;
-            __spf_printToLongBuf(messageE, L"length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s'",
-                                 to_wstring(var->symbol()->identifier()).c_str(), arrType->dimension(), dims.size(),
-                                 to_wstring(st->fileName()).c_str());
-#ifdef _WIN32
-            __spf_printToLongBuf(messageR, R155, to_wstring(var->symbol()->identifier()).c_str(), arrType->dimension(), dims.size(), to_wstring(st->fileName()).c_str());
-#endif
-            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1054));
-            retVal = false;
-        }
-
-        for (auto i = 0; i < dims.size(); ++i)
-        {
-            bool error = false;
-            auto dim = dims[i];
-
-            if (dim->variant() != INT_VAL)
-                error = true;
-            else if (dim->isInteger() && (dim->valueInteger() != 0 && dim->valueInteger() != 1))
-                error = true;
-
-            if (error)
+            //TODO: check PRIVATE
+            
+            if (dims.size() != arrType->dimension())
             {
-                __spf_print(1, "wrong mask value in %d position: it can be only 0 or 1, but you enter '%s' in file '%s' on line %d\n",
-                            i + 1, dim->unparse(), st->fileName(), attributeStatement->lineNumber());
+                __spf_print(1, "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d\n",
+                            var->identifier(), arrType->dimension(), dims.size(), st->fileName(), attributeStatement->lineNumber());
                 wstring messageE, messageR;
-                __spf_printToLongBuf(messageE, L"wrong mask value in %d position: it can be only 0 or 1, but you enter '%s' in file '%s'",
-                                    i + 1, to_wstring(dim->unparse()).c_str(), to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageE, L"length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s'",
+                                     to_wstring(var->identifier()).c_str(), arrType->dimension(), dims.size(),
+                                     to_wstring(st->fileName()).c_str());
 #ifdef _WIN32
-                __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(dim->unparse()).c_str(), to_wstring(st->fileName()).c_str());
+                __spf_printToLongBuf(messageR, R155, to_wstring(var->identifier()).c_str(), arrType->dimension(), dims.size(), to_wstring(st->fileName()).c_str());
 #endif
-                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1055));
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1054));
                 retVal = false;
             }
-        }
 
-        if (var->symbol())
-            __spf_print(1, "%s : ", var->symbol()->identifier()); // DEBUG
-        for (auto &dim : dims)
-            __spf_print(1, "%s ", dim->unparse()); // DEBUG
-        __spf_print(1, "\n"); // DEBUG
+            for (auto i = 0; i < dims.size(); ++i)
+            {
+                auto dimVal = dims[i];
+                if (dimVal != 0 && dimVal != 1)
+                {
+                    __spf_print(1, "wrong mask value in %d position: it can be only 0 or 1 in file '%s' on line %d\n",
+                                i + 1, st->fileName(), attributeStatement->lineNumber());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"wrong mask value in %d position: it can be only 0 or 1 in file '%s'",
+                                         i + 1, to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(st->fileName()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1055));
+                    retVal = false;
+                }
+            }
+
+            if (var)
+                __spf_print(1, "%s : ", var->identifier()); // DEBUG
+            for (auto& dim : dims)
+                __spf_print(1, "%d ", dim); // DEBUG
+            __spf_print(1, "\n"); // DEBUG
+        }
     }
 
     return retVal;

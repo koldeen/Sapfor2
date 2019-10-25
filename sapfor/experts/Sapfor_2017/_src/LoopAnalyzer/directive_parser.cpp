@@ -394,7 +394,8 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
     }
 }
 
-void fillShrinkFromComment(Statement *stIn, vector<pair<SgExpression *, vector<SgExpression *>>> &varDims)
+template<typename fillType>
+void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> &varDims)
 {
     if (stIn)
     {
@@ -402,35 +403,40 @@ void fillShrinkFromComment(Statement *stIn, vector<pair<SgExpression *, vector<S
         if (st->variant() == SPF_TRANSFORM_DIR)
         {
             SgExpression *exprList = st->expr(0);
-            recExpressionPrint(exprList); // DEBUG
-
             while (exprList)
             {
                 if (exprList->lhs() && (exprList->lhs()->variant() == SPF_SHRINK_OP))
                 {
-                    // get identifier
                     SgExpression *list = exprList->lhs()->lhs();
                     while (list)
                     {
-                        // filling dimensions
-                        vector<SgExpression *> dims;
-                        SgExpression* dimList = list->lhs()->lhs();
+                        // get identifier
+                        fillType var, *dummy = NULL; 
+                        var = getData(list->lhs(), dummy);
+
+                        vector<int> dims;
+                        SgExpression *dimList = list->lhs()->lhs();
                         while (dimList)
                         {
-                            dims.push_back(dimList->lhs());
+                            // filling dimensions
+                            dimList->lhs()->isInteger() ? dims.push_back(dimList->lhs()->valueInteger()) : dims.push_back(-1);
                             dimList = dimList->rhs();
                         }
 
-                        varDims.push_back(make_pair(list->lhs(), dims));
+                        varDims.push_back(make_pair(var, dims));
 
                         list = list->rhs();
                     }
                 }
+
                 exprList = exprList->rhs();
             }
         }
     }
 }
+
+template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
+template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
