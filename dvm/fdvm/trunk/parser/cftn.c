@@ -35,8 +35,10 @@
 typedef FILE	*FILEP;
 
 #ifdef __SPF
+#ifndef __SPF_BUILT_IN_PARSER
 void addToCollection(const int line, const char *file, void *pointer, int type) { }
 void removeFromCollection(void *pointer) { }
+#endif
 #endif
 
 extern int	yylineno, yyleng, yylisting, yylonglines, yydebug;
@@ -306,9 +308,15 @@ cur_num:
 return;
 }
 
+#ifdef __SPF_BUILT_IN_PARSER
+int parse_file(int argc, char* argv[], char* proj_name)
+#else
 int main(int argc, char *argv[])
+#endif
 {
+#ifndef __SPF_BUILT_IN_PARSER
     char *proj_name = "dvm.proj";
+#endif
     FILE *fproj;
     int k;
     int fromfile = (argv != 0);	/* Flag to see if read from a file */
