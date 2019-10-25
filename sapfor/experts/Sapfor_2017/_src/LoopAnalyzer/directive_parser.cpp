@@ -394,7 +394,7 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
     }
 }
 
-void fillShrinkFromComment(Statement *stIn, map<SgSymbol *, vector<int>> &varDims)
+void fillShrinkFromComment(Statement *stIn, vector<pair<SgExpression *, vector<SgExpression *>>> &varDims)
 {
     if (stIn)
     {
@@ -408,28 +408,20 @@ void fillShrinkFromComment(Statement *stIn, map<SgSymbol *, vector<int>> &varDim
             {
                 if (exprList->lhs() && (exprList->lhs()->variant() == SPF_SHRINK_OP))
                 {
-                    SgExpression* list = exprList->lhs()->lhs();
+                    // get identifier
+                    SgExpression *list = exprList->lhs()->lhs();
                     while (list)
                     {
-                        if (list->lhs()->variant() == ARRAY_REF)
+                        // filling dimensions
+                        vector<SgExpression *> dims;
+                        SgExpression* dimList = list->lhs()->lhs();
+                        while (dimList)
                         {
-                            auto it = varDims.find(list->lhs()->symbol());
-                            if (it == varDims.end())
-                                it = varDims.insert(it, make_pair(list->lhs()->symbol(), vector<int>()));
-                            else
-                                ;
-
-                            // TODO: filling dimensions
-                            if (list->lhs()->lhs())
-                            {
-                                SgExpression *dimList = list->lhs()->lhs();
-                                while (dimList)
-                                {
-                                    it->second.push_back(0);
-                                    //dims.push_back(list->lhs()->symbol()->identifier());
-                                }
-                            }
+                            dims.push_back(dimList->lhs());
+                            dimList = dimList->rhs();
                         }
+
+                        varDims.push_back(make_pair(list->lhs(), dims));
 
                         list = list->rhs();
                     }

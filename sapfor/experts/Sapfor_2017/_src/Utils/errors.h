@@ -62,6 +62,9 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   50 "count of PROGRAM unit"
 //   51 "Detected mpi call, turn on special regime of paralyzing"
 //   52 "error in user DVM intervals"
+//   53 "variable in shrink clause is not array in file '%s'"
+//   54 "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d"
+//   55 "wrong mask value in %d position: it can be only 0 or 1 in file '%s'"
 
 // 20xx TRANSFORM GROUP
 //   01 "can not convert array assign to loop"
@@ -392,11 +395,17 @@ static const wchar_t *R92 = L"Функция '%s' с одинаковым именем была объявлена в 
 static const wchar_t *R93 = L"Функция не является чистой (без побочных эффектов) из-за наличия данного оператора";
 //1050
 static const wchar_t *R146 = L"Найдена более, чем одна главная программная единица (PROGRAM)";
-static const wchar_t* R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
+static const wchar_t *R147 = L"Не найдена ни одна главная программная единица (PROGRAM)";
 //1051
-static const wchar_t* R148 = L"Обнаружены вызовы MPI-функций, включен режим специальный режим распараллеливания MPI-программ";
+static const wchar_t *R148 = L"Обнаружены вызовы MPI-функций, включен режим специальный режим распараллеливания MPI-программ";
 //1052
-static const wchar_t* R150 = L"Ошибка в расстановке пользовательских интервалов - не удалось найти конец интервала";
+static const wchar_t *R150 = L"Ошибка в расстановке пользовательских интервалов - не удалось найти конец интервала";
+//1053
+static const wchar_t *R154 = L"Ошибка в выражении SHRINK клаузы: переменная должна быть массивом в файле '%s'";
+//1054
+static const wchar_t *R155 = L"Длина маски для массива '%s' должна быть равна %d, но указано только %d измерений в файле '%s'";
+//1055
+static const wchar_t *R156 = L"Ошибка в выражении маски на %d позиции: в качестве значения могут быть только 0 и 1, но введено '%s' в файле '%s'";
 
 //2001
 static const wchar_t *R94 = L"Невозможно автоматически преобразовать данное присваивание к циклу";
