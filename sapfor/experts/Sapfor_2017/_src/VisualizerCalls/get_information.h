@@ -11,6 +11,7 @@ extern "C" { __declspec(dllexport) int SPF_GetAllDeclaratedArrays(void* context,
 extern "C" { __declspec(dllexport) int SPF_GetFileLineInfo(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
 extern "C" { __declspec(dllexport) int SPF_GetIncludeDependencies(void* context, int winHandler, int *options, short *projName, short *&result); }
 extern "C" { __declspec(dllexport) int SPF_GetGCovInfo(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize); }
+extern "C" { __declspec(dllexport) int SPF_ParseFiles(void* context, int winHandler, int* options, short* projName, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize); }
 
 extern "C" { __declspec(dllexport) int SPF_GetPassesState(void* context, int *&passInfo); }
 extern "C" { __declspec(dllexport) int SPF_GetPassesStateStr(void* context, short *&passInfo); }

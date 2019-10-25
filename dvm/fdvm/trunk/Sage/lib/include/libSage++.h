@@ -3057,6 +3057,9 @@ inline SgProject::~SgProject()
 inline SgProject::SgProject(SgProject &)
 { 
  Message("SgProject copy constructor not allowed",0);
+#if __SPF
+    throw -1;
+#endif
 }
 
 inline int SgProject::numberOfFiles()
@@ -3995,6 +3998,9 @@ inline bool SgValueExp::boolValue()
   if (NODE_CODE(thellnd) != BOOL_VAL)
     {
       Message("message boolValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = false;
     }
   else
@@ -4008,6 +4014,9 @@ inline int SgValueExp::intValue()
   if (NODE_CODE(thellnd) != INT_VAL)
     {
       Message("message initValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = 0;
     }
   else
@@ -4022,6 +4031,9 @@ inline char* SgValueExp::floatValue()
   if (NODE_CODE(thellnd) != FLOAT_VAL)
     {
       Message("message floatValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = NULL;
     }
   else 
@@ -4037,6 +4049,9 @@ inline char SgValueExp::charValue()
   if (NODE_CODE(thellnd) != CHAR_VAL)
     {
       Message("message charValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = 0;
     }
   else
@@ -4052,6 +4067,9 @@ inline char*  SgValueExp::doubleValue()
   if (NODE_CODE(thellnd) != DOUBLE_VAL)
     {
       Message("message doubleValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = NULL;
     }
   else
@@ -4067,6 +4085,9 @@ inline char * SgValueExp::stringValue()
   if (NODE_CODE(thellnd) != STRING_VAL)
     {
       Message("message stringValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = NULL;
     }
   else
@@ -4082,6 +4103,9 @@ inline SgExpression * SgValueExp:: realValue()
   if (NODE_CODE(thellnd) != COMPLEX_VAL)
     {
       Message("message realValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = NULL;
     }
   else 
@@ -4097,6 +4121,9 @@ inline SgExpression * SgValueExp::imaginaryValue()
   if (NODE_CODE(thellnd) != COMPLEX_VAL)
     {
       Message("message imaginaryValue not understood");
+#ifdef __SPF   
+      throw -1;
+#endif
       x = NULL;
     }
   else
@@ -4431,7 +4458,12 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s):SgExpression(ARRAY_REF)
   
   symb = s.thesymb;
   if (!arraySymbol(symb))
-    Message("Attempt to create an array ref with a symbol not of type array",0);
+  {
+      Message("Attempt to create an array ref with a symbol not of type array", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   NODE_SYMB(thellnd) = symb;
   NODE_TYPE(thellnd) = lookForInternalBasetype(SYMB_TYPE(symb));
 }
@@ -4442,7 +4474,12 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &subscripts):SgExp
   
   symb = s.thesymb;
   if (!arraySymbol(symb))
-    Message("Attempt to create an array ref with a symbol not of type array",0);
+  {
+      Message("Attempt to create an array ref with a symbol not of type array", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   
   NODE_SYMB(thellnd) = symb;
   if(NODE_CODE(subscripts.thellnd) == EXPR_LIST)
@@ -4459,7 +4496,12 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   symb = s.thesymb;
   
   if (!arraySymbol(symb))
-    Message("Attempt to create an array ref with a symbol not of type array",0);
+  {
+      Message("Attempt to create an array ref with a symbol not of type array", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   NODE_SYMB(thellnd) = symb;
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub1.thellnd);
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub2.thellnd);
@@ -4474,7 +4516,12 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   symb = s.thesymb;
   
   if (!arraySymbol(symb))
-    Message("Attempt to create an array ref with a symbol not of type array",0);
+  {
+      Message("Attempt to create an array ref with a symbol not of type array", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   NODE_SYMB(thellnd) = symb;
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub1.thellnd);
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub2.thellnd);
@@ -4489,7 +4536,12 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   symb = s.thesymb;
   
   if (!arraySymbol(symb))
-    Message("Attempt to create an array ref with a symbol not of type array",0);
+  {
+      Message("Attempt to create an array ref with a symbol not of type array", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   NODE_SYMB(thellnd) = symb;
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub1.thellnd);
   NODE_OPERAND0(thellnd) =  addToExprList(NODE_OPERAND0(thellnd),sub2.thellnd);
@@ -4670,7 +4722,12 @@ inline SgPointerDerefExp::SgPointerDerefExp(SgExpression &pointerExp):SgExpressi
   
   expType = NODE_TYPE(pointerExp.thellnd);
   if (!pointerType(expType))
-    Message("Attempt to create SgPointerDerefExp with non pointer type",0);
+  {
+      Message("Attempt to create SgPointerDerefExp with non pointer type", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
 
   NODE_OPERAND0(thellnd) = pointerExp.thellnd;
   NODE_TYPE(thellnd) = lookForInternalBasetype(expType);
@@ -4696,7 +4753,12 @@ inline SgRecordRefExp::SgRecordRefExp(SgSymbol &recordName, char *fieldName):SgE
   recordSym = recordName.thesymb;
 
   if ((fieldSym = getFieldOfStructWithName(fieldName, SYMB_TYPE(recordSym))) == SMNULL)
-    Message("No such field",0);
+  {
+      Message("No such field", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
 
   NODE_OPERAND0(thellnd) = newExpr(VAR_REF,SYMB_TYPE(recordName.thesymb), recordName.thesymb);
   NODE_OPERAND1(thellnd) = newExpr(VAR_REF,SYMB_TYPE(fieldSym), fieldSym);
@@ -4709,7 +4771,12 @@ inline SgRecordRefExp::SgRecordRefExp(SgExpression &recordExp, char *fieldName):
 
             
   if ((fieldSym = getFieldOfStructWithName(fieldName, NODE_TYPE(recordExp.thellnd))) == SMNULL)
-    Message("No such field",0);
+  {
+      Message("No such field", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   
   NODE_OPERAND0(thellnd) = recordExp.thellnd;
   NODE_OPERAND1(thellnd) = newExpr(VAR_REF,SYMB_TYPE(fieldSym),fieldSym);
@@ -4723,7 +4790,12 @@ inline SgRecordRefExp::SgRecordRefExp(SgSymbol &recordName, const char *fieldNam
     recordSym = recordName.thesymb;
 
     if ((fieldSym = getFieldOfStructWithName(fieldName, SYMB_TYPE(recordSym))) == SMNULL)
+    {
         Message("No such field", 0);
+#ifdef __SPF   
+        throw -1;
+#endif
+    }
 
     NODE_OPERAND0(thellnd) = newExpr(VAR_REF, SYMB_TYPE(recordName.thesymb), recordName.thesymb);
     NODE_OPERAND1(thellnd) = newExpr(VAR_REF, SYMB_TYPE(fieldSym), fieldSym);
@@ -4736,7 +4808,12 @@ inline SgRecordRefExp::SgRecordRefExp(SgExpression &recordExp, const char *field
 
 
     if ((fieldSym = getFieldOfStructWithName(fieldName, NODE_TYPE(recordExp.thellnd))) == SMNULL)
+    {
         Message("No such field", 0);
+#ifdef __SPF   
+        throw -1;
+#endif
+    }
 
     NODE_OPERAND0(thellnd) = recordExp.thellnd;
     NODE_OPERAND1(thellnd) = newExpr(VAR_REF, SYMB_TYPE(fieldSym), fieldSym);
@@ -5024,7 +5101,12 @@ inline SgSubscriptExp::SgSubscriptExp(SgExpression &lbound, SgExpression &ubound
   
   lb = lbound.thellnd; ub = ubound.thellnd; inc = step.thellnd;
   if (!isIntegerType(lb) && !isIntegerType(ub) && !isIntegerType(inc))
-    Message("Non integer type for SgSubscriptExp",0);
+  {
+      Message("Non integer type for SgSubscriptExp", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   
   NODE_OPERAND0(thellnd) = lbound.thellnd;
   NODE_OPERAND1(thellnd) = newExpr(DDOT,NULL,ubound.thellnd, step.thellnd);
@@ -5036,7 +5118,12 @@ inline SgSubscriptExp::SgSubscriptExp(SgExpression &lbound, SgExpression &ubound
   
   lb = lbound.thellnd; ub = ubound.thellnd;
   if (!isIntegerType(lb) && !isIntegerType(ub))
-    Message("Non integer type for SgSubscriptExp",0);
+  {
+      Message("Non integer type for SgSubscriptExp", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   
   NODE_OPERAND0(thellnd) = lbound.thellnd;
   NODE_OPERAND1(thellnd) =  ubound.thellnd;
@@ -5305,7 +5392,12 @@ inline SgSymbol & SgProgHedrStmt::name()
   SgSymbol *pt = NULL;
   symb = BIF_SYMB(thebif);
   if (!symb)
-      Message("The bif has no symbol",0);
+  {
+      Message("The bif has no symbol", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
   else 
     {
       pt = GetMappingInTableForSymbol(symb);
@@ -5495,7 +5587,8 @@ inline SgProcHedrStmt::SgProcHedrStmt(int variant):SgProgHedrStmt(variant)
 inline SgProcHedrStmt::SgProcHedrStmt(SgSymbol &name, SgStatement &Body):SgProgHedrStmt(PROC_HEDR)
 {
   BIF_SYMB(thebif) = name.thesymb;
-    if(LibClanguage()){
+    if(LibClanguage())
+    {
         printf("SgProcHedrStmt: not a valid C construct. use FuncHedr\n");
 	}
   name.thesymb->entry.proc_decl.proc_hedr = thebif;
@@ -5545,7 +5638,12 @@ inline void SgProcHedrStmt::AddArg(SgExpression &arg)
             declareAVar(symb,thebif);
     } 
   else
-    Message("bad symbol in SgProcHedrStmt::AddArg",0);
+  {
+      Message("bad symbol in SgProcHedrStmt::AddArg", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
 }
 
 
@@ -5615,7 +5713,12 @@ inline void SgProsHedrStmt::AddArg(SgExpression &arg)
       declareAVar(symb,thebif);
     } 
   else
-    Message("Pb in SgProsHedrStmt::AddArg",0);
+  {
+      Message("Pb in SgProsHedrStmt::AddArg", 0);
+#ifdef __SPF   
+      throw -1;
+#endif
+  }
 }
 
 inline int SgProsHedrStmt::numberOfCalls()
@@ -8401,8 +8504,13 @@ inline SgIOStmt::SgIOStmt(int variant):SgExecutableStatement(variant)
          
 inline SgInputOutputStmt::SgInputOutputStmt(int variant, SgExpression &specList, SgExpression &itemList): SgIOStmt(variant) 
 {
-  if (variant != READ_STAT && variant != WRITE_STAT && variant != PRINT_STAT)
-    Message("illegal variant for SgInputOutputStmt",0);
+    if (variant != READ_STAT && variant != WRITE_STAT && variant != PRINT_STAT)
+    {
+        Message("illegal variant for SgInputOutputStmt", 0);
+#ifdef __SPF   
+        throw -1;
+#endif
+    }
   BIF_LL1(thebif) = itemList.thellnd;
   BIF_LL2(thebif) = specList.thellnd;
 }

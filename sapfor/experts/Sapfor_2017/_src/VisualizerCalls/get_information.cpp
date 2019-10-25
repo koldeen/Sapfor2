@@ -229,6 +229,43 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         throw rethrow;
 }
 
+int SPF_ParseFiles(void* context, int winHandler, int* options, short* projName, short*& output, int*& outputSize, 
+                   short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    //TODO: may be move parser here?
+    int retSize = -1;
+    try
+    {
+        runPassesForVisualizer(projName, { PARSE_FILES });
+
+        retSize = 0;
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) {}
+        if (ex == -99)
+            return -99;
+        else
+            retSize = -1;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return 0;
+}
+
 extern map<string, vector<LoopGraph*>> loopGraph; // file -> Info
 int SPF_GetGraphLoops(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                       short *&outputMessage, int *&outputMessageSize)
