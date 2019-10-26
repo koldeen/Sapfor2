@@ -1690,10 +1690,10 @@ SgFile::SgFile(int Language, const char * dep_file_name)
     if (new_empty_file(Language, dep_file_name) == 0)
     {
         Message("create failed", 0);
+#ifdef __SPF
         char buf[512];
         sprintf(buf, "Internal error at line %d and file libSage++.cpp\n", __LINE__);
         addToGlobalBufferAndPrint(buf);
-#ifdef __SPF   
         throw -1;
 #endif
     }

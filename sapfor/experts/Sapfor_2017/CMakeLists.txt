@@ -254,7 +254,7 @@ set(SOURCE_EXE
 	${PREDICTOR}
 	${PARSER})
 
-add_executable(Sapfor ${SOURCE_EXE})
+add_executable(Sapfor_F ${SOURCE_EXE})
 
 source_group (CFGraph FILES ${CFG})
 source_group (CodeConverter FILES ${LOOP_CONV})
@@ -296,7 +296,7 @@ add_subdirectory(Parser)
 add_subdirectory(Inliner)
 
 add_definitions("-D __SPF_BUILT_IN_PARSER")
-target_link_libraries(Sapfor SageNewSrc SageLib SageOldSrc)
+target_link_libraries(Sapfor_F SageNewSrc SageLib SageOldSrc)
 
 #install(TARGETS <name.exe/dll>
 #    LIBRARY DESTINATION <name_f>

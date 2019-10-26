@@ -229,7 +229,7 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         throw rethrow;
 }
 
-int SPF_ParseFiles(void* context, int winHandler, int* options, short* projName, short*& output, int*& outputSize, 
+int SPF_ParseFiles(void*& context, int winHandler, int* options, short* projName, short*& output, int*& outputSize, 
                    short*& outputMessage, int*& outputMessageSize)
 {
     MessageManager::clearCache();
@@ -267,7 +267,7 @@ int SPF_ParseFiles(void* context, int winHandler, int* options, short* projName,
 }
 
 extern map<string, vector<LoopGraph*>> loopGraph; // file -> Info
-int SPF_GetGraphLoops(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetGraphLoops(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                       short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -326,7 +326,7 @@ int SPF_GetGraphLoops(void* context, int winHandler, int *options, short *projNa
 }
 
 extern map<string, vector<FuncInfo*>> allFuncInfo; // file -> Info  
-int SPF_GetGraphFunctions(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetGraphFunctions(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                           short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -373,7 +373,7 @@ int SPF_GetGraphFunctions(void* context, int winHandler, int *options, short *pr
     return retSize;
 }
 
-int SPF_GetGraphVizOfFunctions(void* context, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetGraphVizOfFunctions(void*& context, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                                short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -429,14 +429,14 @@ extern int PASSES_DONE[EMPTY_PASS];
 extern int *ALGORITHMS_DONE[EMPTY_ALGO];
 extern const char *passNames[EMPTY_PASS + 1];
 
-int SPF_GetPassesState(void* context, int *&passInfo)
+int SPF_GetPassesState(void*& context, int *&passInfo)
 {
     MessageManager::clearCache();
     passInfo = PASSES_DONE;
     return EMPTY_PASS;
 }
 
-int SPF_GetPassesStateStr(void* context, short *&passInfo)
+int SPF_GetPassesStateStr(void*& context, short *&passInfo)
 {
     MessageManager::clearCache();
     string donePasses = "";
@@ -479,7 +479,7 @@ static void printDeclArraysState()
 }
 
 extern vector<ParallelRegion*> parallelRegions;
-int SPF_GetArrayDistribution(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetArrayDistribution(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                              short *&outputMessage, int *&outputMessageSize, int onlyAnalysis)
 {
     MessageManager::clearCache();
@@ -529,7 +529,7 @@ extern map<DIST::Array*, set<DIST::Array*>> arrayLinksByFuncCalls;
 
 //toModify[0] = size, toModify[1] arrayAddr, all triplets to modify for each dims
 //ex: toModify A[1*J + 1]: [0] = 4, [1] = x000A, [2] = 0, [3] = 1, [4] = 1
-int SPF_ModifyArrayDistribution(void* context, int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize,
+int SPF_ModifyArrayDistribution(void*& context, int winHandler, int *options, short *projName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize,
                                 int regId, int64_t *toModify)
 {
     MessageManager::clearCache();
@@ -705,7 +705,7 @@ extern SgProject *project;
 extern map<string, vector<SpfInterval*>> intervals;
 extern vector<vector<long>> topologies;
 
-int SPF_CreateParallelVariant(void* context, int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
+int SPF_CreateParallelVariant(void*& context, int winHandler, int *options, short *projName, short *folderName, int64_t *variants, int *varLen,
                               short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize, short *&predictorStats)
 {
     MessageManager::clearCache();
@@ -863,7 +863,7 @@ int SPF_CreateParallelVariant(void* context, int winHandler, int *options, short
     return retSize;
 }
 
-int SPF_GetVersionAndBuildDate(void* context, short *&result)
+int SPF_GetVersionAndBuildDate(void*& context, short *&result)
 {
     MessageManager::clearCache();
     string resVal = "";
@@ -876,7 +876,7 @@ int SPF_GetVersionAndBuildDate(void* context, short *&result)
 extern set<string> intrinsicF;
 extern void initIntrinsicFunctionNames();
 
-int SPF_GetIntrinsics(void* context, short *&result)
+int SPF_GetIntrinsics(void*& context, short *&result)
 {
     MessageManager::clearCache();
     initIntrinsicFunctionNames();
@@ -896,7 +896,7 @@ int SPF_GetIntrinsics(void* context, short *&result)
 }
 
 extern map<string, set<string>> includeDependencies;
-int SPF_GetIncludeDependencies(void* context, int winHandler, int *options, short *projName, short *&result)
+int SPF_GetIncludeDependencies(void*& context, int winHandler, int *options, short *projName, short *&result)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -945,7 +945,7 @@ int SPF_GetIncludeDependencies(void* context, int winHandler, int *options, shor
     return retSize;
 }
 
-int SPF_SetFunctionsToInclude(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_SetFunctionsToInclude(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                               short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -991,7 +991,7 @@ int SPF_SetFunctionsToInclude(void* context, int winHandler, int *options, short
     return retSize;
 }
 
-int SPF_GetAllDeclaratedArrays(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetAllDeclaratedArrays(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                                short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1039,7 +1039,7 @@ int SPF_GetAllDeclaratedArrays(void* context, int winHandler, int *options, shor
 
 extern map<string, int> lineInfo;
 extern map<string, pair<set<int>, set<int>>> dirsInfo;
-int SPF_GetFileLineInfo(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetFileLineInfo(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                          short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1089,7 +1089,7 @@ int SPF_GetFileLineInfo(void* context, int winHandler, int *options, short *proj
     return retSize;
 }
 
-int SPF_SetDistributionFlagToArray(void* context, char *key, int flag)
+int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
 {
     MessageManager::clearCache();
 
@@ -1155,7 +1155,7 @@ static int simpleTransformPass(const passes PASS_NAME, int *options, short *proj
 }
 
 
-int SPF_CorrectCodeStylePass(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_CorrectCodeStylePass(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                              int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1163,7 +1163,7 @@ int SPF_CorrectCodeStylePass(void* context, int winHandler, int *options, short 
     return simpleTransformPass(CORRECT_CODE_STYLE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_DuplicateFunctionChains(void* context, int winHandler, int* options, short* projName, short* folderName, short*& output,
+int SPF_DuplicateFunctionChains(void*& context, int winHandler, int* options, short* projName, short* folderName, short*& output,
                                 int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1171,7 +1171,7 @@ int SPF_DuplicateFunctionChains(void* context, int winHandler, int* options, sho
     return simpleTransformPass(DUPLICATE_FUNCTIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_ResolveParallelRegionConflicts(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_ResolveParallelRegionConflicts(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                                        int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1179,14 +1179,14 @@ int SPF_ResolveParallelRegionConflicts(void* context, int winHandler, int *optio
     return simpleTransformPass(RESOLVE_PAR_REGIONS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_PrivateExpansion(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_PrivateExpansion(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                          int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
     return simpleTransformPass(PRIVATE_ARRAYS_BREEDING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
-int SPF_PrivateShrinking(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_PrivateShrinking(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                          int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1194,7 +1194,7 @@ int SPF_PrivateShrinking(void* context, int winHandler, int *options, short *pro
     return simpleTransformPass(PRIVATE_ARRAYS_SHRINKING, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_LoopFission(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_LoopFission(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                     int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1202,7 +1202,7 @@ int SPF_LoopFission(void* context, int winHandler, int *options, short *projName
     return simpleTransformPass(LOOPS_SPLITTER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_LoopUnion(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_LoopUnion(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                   int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1210,7 +1210,7 @@ int SPF_LoopUnion(void* context, int winHandler, int *options, short *projName, 
     return simpleTransformPass(LOOPS_COMBINER, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_CreateIntervalsTree(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_CreateIntervalsTree(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1218,7 +1218,7 @@ int SPF_CreateIntervalsTree(void* context, int winHandler, int *options, short *
     return simpleTransformPass(INSERT_INTER_TREE, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_RemoveDvmDirectives(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_RemoveDvmDirectives(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                             int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1226,7 +1226,7 @@ int SPF_RemoveDvmDirectives(void* context, int winHandler, int *options, short *
     return simpleTransformPass(REMOVE_DVM_DIRS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_RemoveDvmDirectivesToComments(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_RemoveDvmDirectivesToComments(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                                       int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1234,7 +1234,7 @@ int SPF_RemoveDvmDirectivesToComments(void* context, int winHandler, int *option
     return simpleTransformPass(REMOVE_DVM_DIRS_TO_COMMENTS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_RemoveDvmIntervals(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_RemoveDvmIntervals(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                            int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1244,7 +1244,7 @@ int SPF_RemoveDvmIntervals(void* context, int winHandler, int *options, short *p
 
 extern tuple<string, int, int, int> inData;
 extern map<string, string> outData;
-int SPF_ChangeSpfIntervals(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output,
+int SPF_ChangeSpfIntervals(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output,
                            int *&outputSize, short *&outputMessage, int *&outputMessageSize, 
                            short *fileNameToMod, int *toModifyLines,
                            int &size, int *&sizes, short *&newFilesNames, short *&newFiles)
@@ -1314,7 +1314,7 @@ int SPF_ChangeSpfIntervals(void* context, int winHandler, int *options, short *p
 }
 
 extern vector<tuple<string, string, int>> inDataProc;
-int SPF_InlineProcedure(void* context, int winHandler, int* options, short* projName, short* folderName,
+int SPF_InlineProcedure(void*& context, int winHandler, int* options, short* projName, short* folderName,
                         short* name, short* file, int line, 
                         short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
@@ -1359,7 +1359,7 @@ int SPF_InlineProcedure(void* context, int winHandler, int* options, short* proj
 
 //TODO
 extern vector<FuncInfo*> inDataAllProc;
-int SPF_InlineProcedures(void* context, int winHandler, int* options, short* projName, short* folderName,
+int SPF_InlineProcedures(void*& context, int winHandler, int* options, short* projName, short* folderName,
                          short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
     clearGlobalMessagesBuffer();
@@ -1395,7 +1395,7 @@ int SPF_InlineProcedures(void* context, int winHandler, int* options, short* pro
 }
 
 extern set<string> filesToInclude;
-int SPF_InsertIncludesPass(void* context, int winHandler, int *options, short *projName, short *folderName, char *filesToInclude,
+int SPF_InsertIncludesPass(void*& context, int winHandler, int *options, short *projName, short *folderName, char *filesToInclude,
                            short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1420,7 +1420,7 @@ int SPF_InsertIncludesPass(void* context, int winHandler, int *options, short *p
     return simpleTransformPass(INSERT_INCLUDES, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
-int SPF_LoopEndDoConverterPass(void* context, int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
+int SPF_LoopEndDoConverterPass(void*& context, int winHandler, int *options, short *projName, short *folderName, short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -1429,7 +1429,7 @@ int SPF_LoopEndDoConverterPass(void* context, int winHandler, int *options, shor
 }
 
 extern map<string, map<int, Gcov_info>> gCovInfo;
-int SPF_GetGCovInfo(void* context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
+int SPF_GetGCovInfo(void*& context, int winHandler, int *options, short *projName, short *&result, short *&output, int *&outputSize,
                     short *&outputMessage, int *&outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1482,7 +1482,7 @@ int SPF_GetGCovInfo(void* context, int winHandler, int *options, short *projName
 }
 
 extern void deleteAllAllocatedData(bool enable);
-void SPF_deleteAllAllocatedData(void* context)
+void SPF_deleteAllAllocatedData(void*& context)
 {
     MessageManager::clearCache();
     deleteAllAllocatedData(true);
