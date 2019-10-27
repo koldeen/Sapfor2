@@ -144,6 +144,7 @@ enum optionNames {
     KEEP_GCOV,
     MPI_PROGRAM,
     IGNORE_IO_SAPFOR,
+    ANALYSIS_OPTIONS,
     EMPTY_OPTION
 };
 
