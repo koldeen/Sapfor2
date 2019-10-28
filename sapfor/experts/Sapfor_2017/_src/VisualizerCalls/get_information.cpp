@@ -48,6 +48,9 @@ using std::tuple;
 using std::to_string;
 using std::make_pair;
 
+extern set<short*> allocated;
+extern set<int*> allocatedInt;
+
 static inline int strLen(const short* shString)
 {
     int t = 0;
@@ -87,7 +90,7 @@ static void setOptions(const short *options)
     splitString(convS, '#', splited);
 
     intOptions.resize(splited.size());
-    for (int z = STATIC_SHADOW_ANALYSIS; z < MPI_PROGRAM; ++z) //TODO: extend
+    for (int z = STATIC_SHADOW_ANALYSIS; z < ANALYSIS_OPTIONS; ++z) //TODO: extend
         intOptions[z] = atoi(splited[z].c_str());
 
     //staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
@@ -104,6 +107,7 @@ static void setOptions(const short *options)
     //mpiProgram = intOptions[MPI_PROGRAM];
     //ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
 
+    string optAnalisys = splited[ANALYSIS_OPTIONS];
 }
 
 static bool tryOpenProjectFile(const char *project)
@@ -120,6 +124,8 @@ static bool tryOpenProjectFile(const char *project)
 static void copyStringToShort(short *&result, const string &resVal, bool withEnd = true)
 {
     result = new short[resVal.size() + 1];
+    allocated.insert(result);
+
     for (int i = 0; i < resVal.size(); ++i)
         result[i] = resVal[i];
 
@@ -267,7 +273,7 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
         if (ex == -99)
             return -99;
         else
-            retSize = -1;
+            retSize = ex;
     }
     catch (...)
     {
@@ -278,7 +284,7 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
 
     printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
-    return 0;
+    return retSize;
 }
 
 extern map<string, vector<LoopGraph*>> loopGraph; // file -> Info
@@ -1264,6 +1270,8 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
                            short *fileNameToMod, int *toModifyLines,
                            int &size, int *&sizes, short *&newFilesNames, short *&newFiles)
 {
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -1301,6 +1309,10 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
         newFilesNames = new short[newFileName.size()];
         newFiles = new short[newFile.size()];
 
+        allocated.insert(newFilesNames);
+        allocated.insert(newFiles);
+        allocatedInt.insert(sizes);
+
         sizes[0] = 0;
         sizes[1] = sizes[0] + newFile.size();
         copyStringToShort(newFilesNames, newFileName);
@@ -1333,6 +1345,8 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
                         short* name, short* file, int line, 
                         short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -1376,6 +1390,8 @@ extern vector<FuncInfo*> inDataAllProc;
 int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* projName, short* folderName,
                          short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
     clearGlobalMessagesBuffer();
     setOptions(options);
 
@@ -1499,6 +1515,14 @@ extern void deleteAllAllocatedData(bool enable);
 void SPF_deleteAllAllocatedData(void*& context)
 {
     MessageManager::clearCache();
+
+    for (auto& elem : allocated)
+        delete[]elem;
+    for (auto& elem : allocatedInt)
+        delete[]elem;
+    allocated.clear();
+    allocatedInt.clear();
+
     deleteAllAllocatedData(true);
 }
 

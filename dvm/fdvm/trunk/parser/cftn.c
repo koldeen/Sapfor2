@@ -553,7 +553,11 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[0], "-ver"))
         {
             (void)fprintf(stderr, "parser version is \"%s\"\n", VERSION_NUMBER_INT);
+#ifdef __SPF_BUILT_IN_PARSER
+            return 0;
+#else
             exit(0);
+#endif
         }
 #ifdef __SPF
         else if (!strcmp(argv[0], "-noProject"))
@@ -644,21 +648,32 @@ retry:
     if ((k = yyparse())) {
         /*(void)printf("Bad parse, return code %d\n", k);*/
         (void)err("Compiler bug", 0);
+#ifdef __SPF_BUILT_IN_PARSER
+        return 1;
+#else
         exit(1);
+#endif
         /*goto finish;*/
     }
     if (parstate != OUTSIDE) {
         infname = input_file;
         err("Missing final end statement or unclosed construct", 8);
+#ifdef __SPF_BUILT_IN_PARSER
+        return 1;
+#else
         exit(1);
+#endif
         /*goto finish;*/
     }
     global_bfnd->filename = head_file; /*podd 18.04.99*/
     /*global_bfnd->filename = cur_thread_file;*/ /*podd 18.04.99*/
     if (errcnt) {
         (void)fprintf(stderr, "%d error(s)\n", errcnt);
+#ifdef __SPF_BUILT_IN_PARSER
+        return 1;
+#else
         exit(1);
-
+#endif
         if (fromfile) {
             int ans;
 
@@ -676,7 +691,11 @@ retry:
                 close_files();
                 goto retry;
             }
+#ifdef __SPF_BUILT_IN_PARSER
+            return 1;
+#else
             exit(1);
+#endif
         }
 
     }
@@ -698,6 +717,7 @@ retry:
         err_fatal("null program", 7);
     }
 
+#ifndef __SPF_BUILT_IN_PARSER
     if (HPF)
     {
         FILE *hpfout;
@@ -725,7 +745,10 @@ retry:
             exit(0);
         }
     }
-
+#else
+    if (HPF)
+        return -1;
+#endif
     write_nodes(cur_file, outname);
 
 #ifdef __SPF
@@ -742,7 +765,7 @@ retry:
         (void)fclose(fproj);
     }
     /* finish:*/
-    exit(0);
+    return 0;
 }
 
 

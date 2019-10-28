@@ -801,10 +801,17 @@ popinclude()
 
 	if (infile != stdin)
 		clf(&infile);
+#ifdef __SPF
+    removeFromCollection(infname);
+#endif
 	free(infname);
 
 	--nincl;
 	t = inclp->inclnext;
+#ifdef __SPF
+    removeFromCollection(inclp->inclname);
+    removeFromCollection(inclp);
+#endif
 	free((char *)inclp->inclname);
 	free((char *) inclp);
 	inclp = t;
@@ -835,12 +842,18 @@ popinclude()
 		p = inclp->incllinp;
 		while (--k >= 0)
 			*endcd++ = *p++;
+#ifdef __SPF
+        removeFromCollection(inclp->incllinp);
+#endif
 		free((char *) (inclp->incllinp));
                 k = 6;
                 p = inclp->prefix;
                 pp = prefix;
                 while (--k >= 0)
 			*pp++ = *p++;
+#ifdef __SPF
+                removeFromCollection(inclp->prefix);
+#endif
 		free((char *) (inclp->prefix));
 	} else
 		nextcd = (char *)NULL;
@@ -890,6 +903,9 @@ first:	yylineno = lines_returned;
 		list_line(nextcd, yylineno);
 
 	if (newname) {
+#ifdef __SPF
+        removeFromCollection(infname);
+#endif
 		free(infname);
 		infname = newname;
 		newname = (char *)NULL;
@@ -906,6 +922,9 @@ top:
 
 		stno = nxtstno;
 		if (newname) {
+#ifdef __SPF
+            removeFromCollection(infname);
+#endif
 			free(infname);
 			infname = newname;
 			newname = (char *)NULL;
@@ -922,6 +941,9 @@ top:
 	}
 	if (code == STCONTINUE) {
 		if (newname) {
+#ifdef __SPF
+            removeFromCollection(infname);
+#endif
 			free(infname);
 			infname = newname;
 			newname = (char *)NULL;
@@ -960,6 +982,9 @@ top:
        
              if(statement_kind != is_directive_hpf || is_openmp_stmt != is_directive_omp || is_acc_statement != is_directive_acc || is_spf_statement != is_directive_spf) 
              {  if (newname) {
+#ifdef __SPF
+                 removeFromCollection(infname);
+#endif
                     free(infname);
                     infname = newname;
                     newname = (char *) NULL;
@@ -1399,6 +1424,9 @@ initline:			/* there is a label */
 				nxtstno = 10 * nxtstno + (*p - '0');
 			else {
 				if (newname) {
+#ifdef __SPF
+                    removeFromCollection(infname);
+#endif
 					free(infname);
 					infname = newname;
 					newname = (char *)NULL;

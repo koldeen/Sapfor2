@@ -2143,7 +2143,11 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
             runAnalysis(*project, curr_regime, false);
         break;
     case PARSE_FILES:
-        //TODO:
+        {
+            int err = parseFiles(proj_name);
+            if (err != 0)
+                throw err;
+        }
         break;
     default:
         runAnalysis(*project, curr_regime, false);

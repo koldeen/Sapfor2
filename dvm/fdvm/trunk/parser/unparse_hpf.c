@@ -289,6 +289,10 @@ for(;TaskRegion;temp=TaskRegion,TaskRegion=FUNC_NEXT(TaskRegion))
 	FUNC_NEXT(temp)=NULL;
 	FUNC_FIRST(temp)=NULL;
 	FUNC_LAST(temp)=NULL;
+#ifdef __SPF
+    removeFromCollection(FUNC_REF(temp));
+    removeFromCollection(temp);
+#endif
 	free(FUNC_REF(temp));
 	free(temp);
 	}
@@ -358,6 +362,10 @@ if (temp)
     FUNC_NEXT(temp)=NULL;
     FUNC_FIRST(temp)=NULL;
     FUNC_LAST(temp)=NULL;
+#ifdef __SPF
+    removeFromCollection(FUNC_REF(temp));
+    removeFromCollection(temp);
+#endif
     free(FUNC_REF(temp));
     free(temp);
     }
@@ -2219,7 +2227,13 @@ char *Tool_Unparse2_LLnode(ll)
             } else
           if (strncmp(&(str[i]),"NEWSPEC", strlen("NEWSPEC"))== 0)
             {
-	      if (NewSpecList) free(NewSpecList);
+              if (NewSpecList)
+              {
+#ifdef __SPF
+                  removeFromCollection(NewSpecList);
+#endif
+                  free(NewSpecList);
+              }
               NewSpecList=NODE_OPERAND0(ll);
               i += strlen("NEWSPEC");
             } else
@@ -2672,6 +2686,9 @@ char *Tool_Unparse_Bif(bif)
       name[i-1]='\0';
       Buf_pointer=temp;
       function_name=make_funcsymb(name);
+#ifdef __SPF
+      removeFromCollection(name);
+#endif
       free(name);
       new_node=ALLOC(func_call);
       FUNC_FIRST(new_node)=bif;
@@ -4909,6 +4926,9 @@ while((ptr=llnd))
     llnd = NODE_OPERAND1(llnd);
     NODE_OPERAND0(ptr)=NULL;
     NODE_OPERAND1(ptr)=NULL;
+#ifdef __SPF
+    removeFromCollection(ptr);
+#endif
     free(ptr);
    }
 return (NULL);

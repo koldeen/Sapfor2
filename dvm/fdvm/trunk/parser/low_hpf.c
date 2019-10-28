@@ -702,6 +702,10 @@ void allocateValueEvaluate()
   }
   
   if (NbValues) {
+#ifdef __SPF
+      removeFromCollection(ValuesSymb);
+      removeFromCollection(ValuesInt);
+#endif
     free(ValuesSymb);
     free(ValuesInt);
   }
@@ -762,9 +766,19 @@ void resetPresetEvaluate()
   NbValues = 0;
   NbElement  = 0;
   if (ValuesSymb)
-    free(ValuesSymb);
+  {
+#ifdef __SPF
+      removeFromCollection(ValuesSymb);
+#endif
+      free(ValuesSymb);
+  }
   if (ValuesInt)
-    free(ValuesInt);
+  {
+#ifdef __SPF
+      removeFromCollection(ValuesInt);
+#endif
+      free(ValuesInt);
+  }
   ValuesSymb = NULL;
   ValuesInt = NULL;
 }
@@ -795,6 +809,10 @@ int* evaluateExpression(expr)
     {
     case INT_VAL:
       res [1] = NODE_INT_CST_LOW (expr);
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
     case ADD_OP :
@@ -804,6 +822,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] + op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
    case MULT_OP :
@@ -813,6 +835,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] * op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
    case SUBT_OP :
@@ -822,6 +848,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] - op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
    case DIV_OP :
@@ -831,6 +861,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] / op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
    case MOD_OP :
@@ -840,6 +874,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] % op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
    case EXP_OP :
@@ -849,6 +887,10 @@ int* evaluateExpression(expr)
         res [0] = -1;
       else
         res [1] = op1 [1] ^ op2 [1];
+#ifdef __SPF
+      removeFromCollection(op1);
+      removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
 
@@ -857,7 +899,10 @@ int* evaluateExpression(expr)
       if (op1 [0] == -1)
         res [0] = -1;
       else
-        res [1] = - op1 [1];      
+        res [1] = - op1 [1];  
+#ifdef __SPF
+      removeFromCollection(op1);
+#endif
       free(op1);
       return res;
     case VAR_REF: /* assume here that some value for Symbole are given*/
@@ -866,11 +911,19 @@ int* evaluateExpression(expr)
         if ((ind = getElementEvaluate(NODE_SYMB(expr))) != -1)
           {
              res [1] = ValuesInt[ind];
+#ifdef __SPF
+             removeFromCollection(op1);
+             removeFromCollection(op2);
+#endif
              free(op1); free(op2);
              return res;
            } else
              {
                 res [0] = -1;
+#ifdef __SPF
+                removeFromCollection(op1);
+                removeFromCollection(op2);
+#endif
                 free(op1); free(op2);
                 return res;
              }
@@ -878,6 +931,10 @@ int* evaluateExpression(expr)
       }
    default :
      res [0] = -1;
+#ifdef __SPF
+     removeFromCollection(op1);
+     removeFromCollection(op2);
+#endif
       free(op1); free(op2);
       return res;
     }
@@ -909,22 +966,38 @@ int patternMatchExpression(ll1,ll2)
       (res2[0] != -1) &&
       (res1[1] == res2[1]))
     {
+#ifdef __SPF
+      removeFromCollection(res1);
+      removeFromCollection(res2);
+#endif
       free(res1);
       free(res2);
       return TRUE;
     }
   if ((res1[0] != -1) && (res2[0] == -1))
     {
+#ifdef __SPF
+      removeFromCollection(res1);
+      removeFromCollection(res2);
+#endif
       free(res1);
       free(res2);
       return FALSE;
     }
   if ((res1[0] == -1) && (res2[0] != -1))
     {
+#ifdef __SPF
+      removeFromCollection(res1);
+      removeFromCollection(res2);
+#endif
       free(res1);
       free(res2);
       return FALSE;
     }
+#ifdef __SPF
+  removeFromCollection(res1);
+  removeFromCollection(res2);
+#endif
   free(res1);
   free(res2);
 
