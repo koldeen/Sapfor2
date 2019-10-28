@@ -7977,7 +7977,7 @@ SgExpression * coef_ref (SgSymbol *ar, int n) {
    
      coeffs * scoef;
 
-     if(IS_BY_USE(ar) && !ar->attributeValue(0,ARRAY_COEF) && strcmp(ar->identifier(),ORIGINAL_SYMBOL(ar)->identifier())) {
+     if(IS_BY_USE(ar) && !ar->attributeValue(0,ARRAY_COEF)) { 
         //adding the distributed array symbol 'ar' to symb_list 'dsym'
         if(!(ar->attributes() & DVM_POINTER_BIT))
            AddDistSymbList(ar);

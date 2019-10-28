@@ -1963,7 +1963,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     InitPassesDependencies(passesDependencies, passesIgnoreStateDone);
     setPassValues();
 
-    if (project == NULL)
+    if (project == NULL && curr_regime != PARSE_FILES)
     {
         project = createProject(proj_name);
         //first check correctness
@@ -2141,6 +2141,13 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PRIVATE_ANALYSIS_SPF:
         if (staticPrivateAnalysis)
             runAnalysis(*project, curr_regime, false);
+        break;
+    case PARSE_FILES:
+        {
+            int err = parseFiles(proj_name);
+            if (err != 0)
+                throw err;
+        }
         break;
     default:
         runAnalysis(*project, curr_regime, false);

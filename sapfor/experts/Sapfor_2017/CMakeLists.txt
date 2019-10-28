@@ -216,6 +216,20 @@ set(MAIN _src/Sapfor.cpp
 
 set(PREDICTOR _src/Predictor/PredictScheme.cpp
               _src/Predictor/PredictScheme.h)
+
+set(PARSER  ${parser_sources}/cftn.c
+			${parser_sources}/errors.c
+			${parser_sources}/gram1.tab.c
+			${parser_sources}/hash.c
+			${parser_sources}/init.c
+			${parser_sources}/lexfdvm.c
+			${parser_sources}/lists.c
+			${parser_sources}/low_hpf.c
+			${parser_sources}/misc.c
+			${parser_sources}/stat.c
+			${parser_sources}/sym.c
+			${parser_sources}/types.c
+			${parser_sources}/unparse_hpf.c)
 		
 set(SOURCE_EXE		
 	${CFG}
@@ -234,12 +248,13 @@ set(SOURCE_EXE
 	${PRIV}
 	${OMEGA}
 	${UTILS}
-	${VERIF}		
+	${VERIF}
 	${VS_CALLS}
 	${MAIN}
-	${PREDICTOR})
+	${PREDICTOR}
+	${PARSER})
 
-add_executable(Sapfor ${SOURCE_EXE})
+add_executable(Sapfor_F ${SOURCE_EXE})
 
 source_group (CFGraph FILES ${CFG})
 source_group (CodeConverter FILES ${LOOP_CONV})
@@ -261,6 +276,7 @@ source_group (VerificationCode FILES ${VERIF})
 source_group (VisualizerCalls FILES ${VS_CALLS})
 source_group (_SapforMain FILES ${MAIN})
 source_group (Predictor FILES ${PREDICTOR})
+source_group (Parser FILES ${PARSER})
    
 if (MSVC_IDE)   
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
@@ -279,7 +295,8 @@ add_subdirectory(SageLib)
 add_subdirectory(Parser)
 add_subdirectory(Inliner)
 
-target_link_libraries(Sapfor SageNewSrc SageLib SageOldSrc)
+add_definitions("-D __SPF_BUILT_IN_PARSER")
+target_link_libraries(Sapfor_F SageNewSrc SageLib SageOldSrc)
 
 #install(TARGETS <name.exe/dll>
 #    LIBRARY DESTINATION <name_f>
