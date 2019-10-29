@@ -20,6 +20,8 @@ set(libdb_sources ../../../dvm/fdvm/trunk/Sage/lib/oldsrc)
 set(sage_sources ../../../dvm/fdvm/trunk/Sage/lib/newsrc)
 set(sagepp_sources ../../../dvm/fdvm/trunk/Sage/Sage++)
 set(parser_sources ../../../dvm/fdvm/trunk/parser)
+set(pppa_sources ../../../dvm/tools/pppa/trunk/src)
+set(zlib_sources ../../../dvm/tools/Zlib)
 
 # Read pathes to external sapfor directories
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/paths.txt")
@@ -45,6 +47,8 @@ include_directories(_src)
 #Sage lib includes
 include_directories(${fdvm_include})
 include_directories(${sage_include_1})
+include_directories(${zlib_sources}/include)
+#Zlib includes
 include_directories(${sage_include_2})
  
 set(VS_CALLS _src/VisualizerCalls/get_information.cpp
@@ -230,7 +234,40 @@ set(PARSER  ${parser_sources}/cftn.c
 			${parser_sources}/sym.c
 			${parser_sources}/types.c
 			${parser_sources}/unparse_hpf.c)
-		
+
+set(PPPA    ${pppa_sources}/inter.cpp
+			${pppa_sources}/potensyn.cpp
+			${pppa_sources}/statfile.cpp
+			${pppa_sources}/statprintf.cpp
+			${pppa_sources}/statread.cpp
+			${pppa_sources}/treeinter.cpp  
+			${pppa_sources}/bool.h
+			${pppa_sources}/dvmh_stat.h
+			${pppa_sources}/inter.h
+			${pppa_sources}/potensyn.h
+			${pppa_sources}/statist.h
+			${pppa_sources}/statprintf.h
+			${pppa_sources}/statread.h
+			${pppa_sources}/strall.h
+			${pppa_sources}/sysstat.h
+			${pppa_sources}/treeinter.h
+			${pppa_sources}/ver.h)
+			
+set(ZLIB    ${zlib_sources}/src/adler32.c
+			${zlib_sources}/src/compress.c
+			${zlib_sources}/src/crc32.c
+			${zlib_sources}/src/deflate.c
+			${zlib_sources}/src/gzio.c
+			${zlib_sources}/src/infblock.c
+			${zlib_sources}/src/infcodes.c
+			${zlib_sources}/src/inffast.c
+			${zlib_sources}/src/inflate.c
+			${zlib_sources}/src/inftrees.c
+			${zlib_sources}/src/infutil.c
+			${zlib_sources}/src/trees.c
+			${zlib_sources}/src/uncompr.c
+			${zlib_sources}/src/zutil.c)
+
 set(SOURCE_EXE		
 	${CFG}
 	${CREATE_INTER_T}
@@ -252,7 +289,9 @@ set(SOURCE_EXE
 	${VS_CALLS}
 	${MAIN}
 	${PREDICTOR}
-	${PARSER})
+	${PARSER}
+	${PPPA}
+	${ZLIB})
 
 add_executable(Sapfor_F ${SOURCE_EXE})
 
@@ -277,6 +316,8 @@ source_group (VisualizerCalls FILES ${VS_CALLS})
 source_group (_SapforMain FILES ${MAIN})
 source_group (Predictor FILES ${PREDICTOR})
 source_group (Parser FILES ${PARSER})
+source_group (PPPA\\PPPA FILES ${PPPA})
+source_group (PPPA\\ZLib FILES ${ZLIB})
    
 if (MSVC_IDE)   
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
@@ -296,6 +337,7 @@ add_subdirectory(Parser)
 add_subdirectory(Inliner)
 
 add_definitions("-D __SPF_BUILT_IN_PARSER")
+add_definitions("-D __SPF_BUILT_IN_PPPA")
 target_link_libraries(Sapfor_F SageNewSrc SageLib SageOldSrc)
 
 #install(TARGETS <name.exe/dll>

@@ -120,7 +120,10 @@ enum passes {
     DUPLICATE_FUNCTIONS,
     REMOVE_COPIES,
     RESTORE_COPIES,
+
     PARSE_FILES,
+    PPPA_ANALYZER,
+
     EMPTY_PASS
 };
 
@@ -246,6 +249,7 @@ static void setPassValues()
     passNames[RESTORE_COPIES] = "RESTORE_COPIES";
     passNames[PRIVATE_ARRAYS_SHRINKING] = "PRIVATE_ARRAYS_SHRINKING";
     passNames[PARSE_FILES] = "PARSE_FILES";
+    passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

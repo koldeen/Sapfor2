@@ -250,6 +250,47 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         throw rethrow;
 }
 
+int SPF_StatisticAnalyzer(void*& context, int winHandler, short* options, short* pppaOptions, short*& output, int*& outputSize,
+                          short*& outputMessage, int*& outputMessageSize)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int tmp;
+    char* optionsStr = ConvertShortToChar(pppaOptions, tmp);
+
+    int retSize = -1;
+    try
+    {
+        if (pppaAnalyzer(optionsStr) != 0)
+            retSize = 1;
+        else
+            retSize = 0;
+    }
+    catch (int ex)
+    {
+        try { __spf_print(1, "catch code %d\n", ex); }
+        catch (...) { }
+
+        if (ex == -99)
+            return -99;
+        else
+            retSize = ex;
+    }
+    catch (...)
+    {
+        retSize = -1;
+    }
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retSize;
+}
+
 int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projName, short*& output, int*& outputSize, 
                    short*& outputMessage, int*& outputMessageSize)
 {
@@ -258,7 +299,6 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
     clearGlobalMessagesBuffer();
     setOptions(options);
 
-    //TODO: may be move parser here?
     int retSize = -1;
     try
     {

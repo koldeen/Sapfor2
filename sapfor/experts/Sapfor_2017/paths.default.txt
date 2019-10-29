@@ -7,3 +7,5 @@ sage_sources=../../../dvm/fdvm/trunk/Sage/lib/newsrc/
 sagepp_sources=../../../dvm/fdvm/trunk/Sage/Sage++/
 parser_sources=../../../dvm/fdvm/trunk/parser/
 inline_expansion_sources=../../../dvm/fdvm/trunk/InlineExpansion/
+pppa_sources ../../../dvm/tools/pppa/trunk/src/
+zlib_sources ../../../dvm/tools/Zlib/

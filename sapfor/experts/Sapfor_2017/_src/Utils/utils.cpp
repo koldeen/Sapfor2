@@ -1323,3 +1323,26 @@ int parseFiles(const char *proj)
     //return (countOfErrors == 0) ? 0 : countOfErrors;
     return 0;
 }
+
+extern int pppa_analyzer(int argv, char** argc);
+int pppaAnalyzer(const char* options)
+{
+    string optionsS(options);
+    vector<string> splited;
+
+    splited.push_back("");
+    splitString(optionsS, ' ', splited);
+
+    char** argv = new char* [splited.size()];
+    for (int z = 0; z < splited.size(); ++z)
+        argv[z] = (char*)splited[z].c_str();
+
+    StdCapture::Init();
+    string errorMessage = "";
+    int retCode = pppa_analyzer(splited.size(), argv);
+    StdCapture::EndCapture();
+    errorMessage = StdCapture::GetCapture();
+
+    delete []argv;
+    return retCode;
+}
