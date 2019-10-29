@@ -110,6 +110,7 @@ enum passes {
     ADD_TEMPL_TO_USE_ONLY,
     GCOV_PARSER,
     PRIVATE_ARRAYS_BREEDING,
+    PRIVATE_ARRAYS_SHRINKING,
     LOOPS_SPLITTER,
     LOOPS_COMBINER,
     CHECK_PAR_REG_DIR,
@@ -119,6 +120,10 @@ enum passes {
     DUPLICATE_FUNCTIONS,
     REMOVE_COPIES,
     RESTORE_COPIES,
+
+    PARSE_FILES,
+    PPPA_ANALYZER,
+
     EMPTY_PASS
 };
 
@@ -140,6 +145,7 @@ enum optionNames {
     TRANSLATE_MESSAGES,
     KEEP_LOOPS_CLOSE_NESTING,
     KEEP_GCOV,
+    ANALYSIS_OPTIONS,
     MPI_PROGRAM,
     IGNORE_IO_SAPFOR,
     EMPTY_OPTION
@@ -241,6 +247,9 @@ static void setPassValues()
     passNames[DUPLICATE_FUNCTIONS] = "DUPLICATE_FUNCTIONS";
     passNames[REMOVE_COPIES] = "REMOVE_COPIES";
     passNames[RESTORE_COPIES] = "RESTORE_COPIES";
+    passNames[PRIVATE_ARRAYS_SHRINKING] = "PRIVATE_ARRAYS_SHRINKING";
+    passNames[PARSE_FILES] = "PARSE_FILES";
+    passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

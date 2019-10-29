@@ -299,7 +299,7 @@ static void fixGcovInfo(SgFile *fileSg, map<int, Gcov_info> &gCovInfo)
     }
 }
 
-static map<string, map<int, Gcov_info>> allGCovInfo;
+static map<string, map<int, Gcov_info>*> allGCovInfo;
 void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_info> &gCovInfo, bool keep)
 {
     if (basefileNameIn == "")
@@ -334,7 +334,7 @@ void parse_gcovfile(SgFile *fileSg, const string &basefileNameIn, map<int, Gcov_
         else
             __spf_print(1, "   Error: unable to open file %s\n", basefileName.c_str());
     }
-    allGCovInfo[fileSg->filename()] = gCovInfo;
+    allGCovInfo[fileSg->filename()] = &gCovInfo;
 }
 
 bool __gcov_doesThisLineExecuted(const string &file, const int line)
@@ -343,8 +343,8 @@ bool __gcov_doesThisLineExecuted(const string &file, const int line)
     auto itF = allGCovInfo.find(file);
     if (itF != allGCovInfo.end())
     {
-        auto itL = itF->second.find(line);
-        if (itL != itF->second.end())
+        auto itL = itF->second->find(line);
+        if (itL != itF->second->end())
             ret = itL->second.getExecutedCount() != 0;
     }
     return ret;
@@ -356,8 +356,8 @@ pair<int, int64_t> __gcov_GetExecuted(const string &file, const int line)
     auto itF = allGCovInfo.find(file);
     if (itF != allGCovInfo.end())
     {
-        auto itL = itF->second.find(line);
-        if (itL != itF->second.end())
+        auto itL = itF->second->find(line);
+        if (itL != itF->second->end())
             ret.second = itL->second.getExecutedCount();
         else
             ret.first = -1;

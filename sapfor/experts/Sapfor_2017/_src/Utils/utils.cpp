@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <locale>
 #include <algorithm>
+#include <thread>
 
 #include "utils.h"
 #include "errors.h"
@@ -30,6 +31,34 @@
 #if __SPF
 #include "acc_analyzer.h"
 #endif
+
+#ifdef _MSC_VER
+#include <io.h>
+#define popen _popen 
+#define pclose _pclose
+#define stat _stat 
+#define dup _dup
+#define dup2 _dup2
+#define fileno _fileno
+#define close _close
+#define pipe _pipe
+#define read _read
+#define eof _eof
+#else
+#include <unistd.h>
+#endif
+
+#ifndef STD_OUT_FD 
+#define STD_OUT_FD (fileno(stdout)) 
+#endif 
+
+#ifndef STD_ERR_FD 
+#define STD_ERR_FD (fileno(stderr)) 
+#endif
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <mutex>
 
 using std::map;
 using std::pair;
@@ -119,9 +148,10 @@ void printHelp(const char **passNames, const int lastPass)
     printf(" -keepDVM  keep DVM directives\n");
     printf(" -allVars  get all parallel versions\n");
     printf(" -var N    get specific parallel version, N=1,2,..\n");
-    printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
-    printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
-    printf("\n");
+    printf(" -parse    run parser with next option\n");
+    //printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
+    //printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
+    printf("\n");    
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");
@@ -236,10 +266,14 @@ void addToGlobalBufferAndPrint(const string &toPrint)
 void clearGlobalBuffer() { globalOutputBuffer = ""; }
 const string& getGlobalBuffer() { return globalOutputBuffer; }
 
+set<short*> allocated;
+set<int*> allocatedInt;
 void convertGlobalBuffer(short *&result, int *&resultSize)
 {
     const unsigned len = (unsigned)globalOutputBuffer.size(); 
     result = new short[len + 1];
+    allocated.insert(result);
+
     result[len] = '\0';
     for (unsigned i = 0; i < len; ++i)
         result[i] = globalOutputBuffer[i];
@@ -249,7 +283,18 @@ void convertGlobalBuffer(short *&result, int *&resultSize)
 }
 
 extern map<string, vector<Messages>> SPF_messages; //file ->messages
-void clearGlobalMessagesBuffer() { SPF_messages.clear();  }
+void clearGlobalMessagesBuffer() 
+{
+    //clear allocated memory
+    for (auto& elem : allocated)
+        delete[]elem;
+    for (auto& elem : allocatedInt)
+        delete[]elem;
+    allocated.clear();
+    allocatedInt.clear();
+
+    SPF_messages.clear();  
+}
 
 void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
 {
@@ -281,6 +326,8 @@ void convertGlobalMessagesBuffer(short *&result, int *&resultSize)
     
     const unsigned len = (unsigned)val.size();
     result = new short[len + 1];
+    allocated.insert(result);
+
     result[len] = '\0';
     for (unsigned i = 0; i < len; ++i)
         result[i] = val[i];
@@ -464,7 +511,8 @@ string splitDirectiveFull(const string &in_)
     return out + lastEnd;
 }
 
-extern void ExitFromOmegaTest(const int c) { throw c; }
+void ExitFromOmegaTest(const int c) { throw c; }
+extern "C" void ExitFromParser(const int c) { ExitFromOmegaTest(c); }
 
 void sortFilesBySize(const char *proj_name)
 {
@@ -611,9 +659,10 @@ void deletePointerAllocatedData()
     deleteInProgress = true;
     deleted.clear();
     int maxS = -1;
-
+    int z = -1;
     for (auto &elem : pointerCollection)
     {
+        ++z;
         maxS = std::max(maxS, (int)deleted.size());
 
         auto itD = deleted.find(elem.first);
@@ -625,7 +674,7 @@ void deletePointerAllocatedData()
 
         const pair<void*, int> pointer = std::make_pair(elem.first, std::get<0>(elem.second));
         currentPointer = pointer.first;
-        //printf("%d %s\n", std::get<1>(elem.second), std::get<2>(elem.second));
+        //printf("[%d]: %d %s\n", z, std::get<1>(elem.second), std::get<2>(elem.second));
         //fflush(NULL);
         if (pointer.second == 0)
         {
@@ -993,4 +1042,307 @@ map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const map<tuple
     for (auto& elem : declaratedArrays)
         out[elem.second.first] = elem.second.second;
     return out;
+}
+
+class StdCapture
+{
+public:
+    static void Init()
+    {
+        // make stdout & stderr streams unbuffered
+        // so that we don't need to flush the streams
+        // before capture and after capture 
+        // (fflush can cause a deadlock if the stream is currently being 
+        std::lock_guard<std::mutex> lock(m_mutex);
+        setvbuf(stdout, NULL, _IONBF, 0);
+        setvbuf(stderr, NULL, _IONBF, 0);
+    }
+
+    static void BeginCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_capturing)
+            return;
+
+        secure_pipe(m_pipe);
+        m_oldStdOut = secure_dup(STD_OUT_FD);
+        m_oldStdErr = secure_dup(STD_ERR_FD);
+        secure_dup2(m_pipe[WRITE], STD_OUT_FD);
+        secure_dup2(m_pipe[WRITE], STD_ERR_FD);
+        m_capturing = true;
+#ifndef _MSC_VER
+        secure_close(m_pipe[WRITE]);
+#endif
+    }
+    static bool IsCapturing()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_capturing;
+    }
+    static void EndCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_capturing)
+            return;
+
+        m_captured.clear();
+        secure_dup2(m_oldStdOut, STD_OUT_FD);
+        secure_dup2(m_oldStdErr, STD_ERR_FD);
+
+        const int bufSize = 1025;
+        char buf[bufSize];
+        int bytesRead = 0;
+        bool fd_blocked(false);
+        do
+        {
+            bytesRead = 0;
+            fd_blocked = false;
+#ifdef _MSC_VER
+            if (!eof(m_pipe[READ]))
+                bytesRead = read(m_pipe[READ], buf, bufSize - 1);
+#else
+            bytesRead = read(m_pipe[READ], buf, bufSize - 1);
+#endif
+            if (bytesRead > 0)
+            {
+                buf[bytesRead] = 0;
+                m_captured += buf;
+            }
+            else if (bytesRead < 0)
+            {
+                fd_blocked = (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR);
+                if (fd_blocked)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        } while (fd_blocked || bytesRead == (bufSize - 1));
+
+        secure_close(m_oldStdOut);
+        secure_close(m_oldStdErr);
+        secure_close(m_pipe[READ]);
+#ifdef _MSC_VER
+        secure_close(m_pipe[WRITE]);
+#endif
+        m_capturing = false;
+    }
+    static std::string GetCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_captured;
+    }
+private:
+    enum PIPES { READ, WRITE };
+
+    static int secure_dup(int src)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = dup(src);
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+        return ret;
+    }
+    static void secure_pipe(int* pipes)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+#ifdef _MSC_VER
+            ret = pipe(pipes, 65536, O_BINARY);
+#else
+            ret = pipe(pipes) == -1;
+#endif
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+    }
+    static void secure_dup2(int src, int dest)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = dup2(src, dest);
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+    }
+
+    static void secure_close(int& fd)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = close(fd);
+            fd_blocked = (errno == EINTR);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+
+        fd = -1;
+    }
+
+    static int m_pipe[2];
+    static int m_oldStdOut;
+    static int m_oldStdErr;
+    static bool m_capturing;
+    static std::mutex m_mutex;
+    static std::string m_captured;
+};
+
+// actually define vars.
+int StdCapture::m_pipe[2];
+int StdCapture::m_oldStdOut;
+int StdCapture::m_oldStdErr;
+bool StdCapture::m_capturing;
+std::mutex StdCapture::m_mutex;
+std::string StdCapture::m_captured;
+
+struct FileInfo
+{
+    FileInfo() { }
+    FileInfo(const string& _fileName, const string& _options, const string& _errPath, const string& _outPath)
+    {
+        fileName = _fileName;
+        options = _options;
+        errPath = _errPath;
+        outPath = _outPath;
+    }
+
+    string fileName;
+    string options;
+    string errPath;
+    string outPath;
+};
+
+extern "C" int parse_file(int argc, char* argv[], char* proj_name);
+int parseFiles(const char *proj)
+{
+    FILE* list = fopen(proj, "r");
+    if (!list)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    vector<FileInfo> listOfProject;
+    while (!feof(list))
+    {
+        char buf[1024];
+        if (fgets(buf, 1024, list) == NULL)
+            continue;
+
+        string toAdd = buf;
+        if (toAdd[toAdd.size() - 1] == '\n')
+            toAdd = toAdd.erase(toAdd.size() - 1);
+
+        const string fileNameFixed = (toAdd.substr(0, 2) == "./" ? toAdd.substr(2) : toAdd);
+        const string optPath = "./visualiser_data/options/" + fileNameFixed + ".opt";
+        const string errPath = "./visualiser_data/options/" + fileNameFixed + ".err";
+        const string outPath = "./visualiser_data/options/" + fileNameFixed + ".out";
+
+        FILE* opt = fopen(optPath.c_str(), "r");
+        if (!opt)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        fgets(buf, 1024, opt);
+        string toAddOpt = buf;
+        if (toAddOpt[toAddOpt.size() - 1] == '\n')
+            toAddOpt = toAddOpt.erase(toAddOpt.size() - 1);
+
+        fclose(opt);
+        listOfProject.push_back(FileInfo(fileNameFixed, toAddOpt, errPath, outPath));
+    }
+
+    fclose(list);
+    int countOfErrors = 0;
+    for (auto &elem : listOfProject)
+    {
+        string file = elem.fileName;
+        string options = elem.options;
+
+        vector<string> optSplited;
+        splitString(options, ' ', optSplited);
+
+        vector<string> optSplited1;
+        for (auto& elem : optSplited)
+            if (elem != "")
+                optSplited1.push_back(elem);
+        optSplited1.insert(optSplited1.begin(), "");
+
+        char** toParse = new char*[optSplited1.size() + 1];
+        for (int z = 0; z < optSplited1.size(); ++z)
+        {            
+            //printf("%s\n", optSplited1[z].c_str());
+            if (optSplited1[z][0] == '"' && optSplited1[z][optSplited1[z].size() - 1] == '"')
+                optSplited1[z] = optSplited1[z].substr(1, optSplited1[z].size() - 2);
+            toParse[z] = (char*)optSplited1[z].c_str();
+        }
+        toParse[optSplited1.size()] = (char*)file.c_str();
+
+        StdCapture::Init();
+        string errorMessage = "";
+        try
+        {
+            StdCapture::BeginCapture();
+            int retCode = parse_file(optSplited1.size() + 1, toParse, "dvm.proj");
+            if (retCode != 0)
+                countOfErrors++;
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+        catch (int err)
+        {
+            countOfErrors++;
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+        catch (...)
+        {
+            countOfErrors++;
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+
+        FILE* ferr = fopen(elem.errPath.c_str(), "w");
+        FILE* fout = fopen(elem.outPath.c_str(), "w");
+        if (!ferr)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        if (!fout)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        fclose(fout);
+
+        fprintf(ferr, "%s", errorMessage.c_str());
+        fclose(ferr);
+        
+        delete []toParse;
+    }    
+    //return (countOfErrors == 0) ? 0 : countOfErrors;
+    return 0;
+}
+
+extern int pppa_analyzer(int argv, char** argc);
+int pppaAnalyzer(const char* options)
+{
+    string optionsS(options);
+    vector<string> splited;
+
+    splited.push_back("");
+    splitString(optionsS, ' ', splited);
+
+    char** argv = new char* [splited.size()];
+    for (int z = 0; z < splited.size(); ++z)
+        argv[z] = (char*)splited[z].c_str();
+
+    StdCapture::Init();
+    string errorMessage = "";
+    int retCode = pppa_analyzer(splited.size(), argv);
+    StdCapture::EndCapture();
+    errorMessage = StdCapture::GetCapture();
+
+    delete []argv;
+    return retCode;
 }

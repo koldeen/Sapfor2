@@ -110,7 +110,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                     SgExpression *list = exprList->lhs()->lhs();
                     while (list)
                     {
-                        SgExpression *currRed = list->lhs();
+                        SgExpression *currRed = list->lhs(); // with varsiant ARRAY_OP
                         
                         fillType redSymb, *dummy = NULL;
                         //minloc/maxloc
@@ -120,11 +120,11 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                             redSymb = getData(currRed->rhs(), dummy);
                         string oper = ((SgKeywordValExp *)(currRed->lhs()))->value();
                         
-                        auto it = reduction.find(oper);                        
+                        auto it = reduction.find(oper);
                         if (oper == "minloc" || oper == "maxloc")
                         {
                             //skip
-                            //__spf_print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");                            
+                            //__spf_print(1, "  MAXLOC/MINLOC operation from SPF not supported yet, ignored\n");
                         }
                         else
                         {
@@ -393,6 +393,50 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, vector<string> &va
         }
     }
 }
+
+template<typename fillType>
+void fillShrinkFromComment(Statement *stIn, vector<pair<fillType, vector<int>>> &varDims)
+{
+    if (stIn)
+    {
+        SgStatement *st = stIn->GetOriginal();
+        if (st->variant() == SPF_TRANSFORM_DIR)
+        {
+            SgExpression *exprList = st->expr(0);
+            while (exprList)
+            {
+                if (exprList->lhs() && (exprList->lhs()->variant() == SPF_SHRINK_OP))
+                {
+                    SgExpression *list = exprList->lhs()->lhs();
+                    while (list)
+                    {
+                        // get identifier
+                        fillType var, *dummy = NULL; 
+                        var = getData(list->lhs(), dummy);
+
+                        vector<int> dims;
+                        SgExpression *dimList = list->lhs()->lhs();
+                        while (dimList)
+                        {
+                            // filling dimensions
+                            dimList->lhs()->isInteger() ? dims.push_back(dimList->lhs()->valueInteger()) : dims.push_back(-1);
+                            dimList = dimList->rhs();
+                        }
+
+                        varDims.push_back(make_pair(var, dims));
+
+                        list = list->rhs();
+                    }
+                }
+
+                exprList = exprList->rhs();
+            }
+        }
+    }
+}
+
+template void fillShrinkFromComment(Statement *stIn, vector<pair<SgSymbol *, vector<int>>> &varDims);
+template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<int>>> &varDims);
 
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {

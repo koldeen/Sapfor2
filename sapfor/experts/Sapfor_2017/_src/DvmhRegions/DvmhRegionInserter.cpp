@@ -225,6 +225,8 @@ static SgStatement* findModWithName(const vector<SgStatement*> &modules, const s
 static string getNameByUse(SgStatement *loop, const string &varName, const string &locName)
 {
     SgStatement* func = getFuncStat(loop);
+    if (loop->lineNumber() == 69)
+        printf("");
     if (func == NULL)
         return varName;
     else
@@ -234,6 +236,10 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
         map<string, vector<pair<SgSymbol*, SgSymbol*>>> modByUseOnly;
 
         fillInfo(func, useMod, modByUse, modByUseOnly);
+        SgStatement* cp = func->controlParent();
+        if (isSgProgHedrStmt(cp)) // if function in contains region
+            fillInfo(cp, useMod, modByUse, modByUseOnly);
+
         set<string> useModDone;
         bool needRepeat = true;
 

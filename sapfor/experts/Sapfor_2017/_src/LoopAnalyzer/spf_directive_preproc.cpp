@@ -1106,6 +1106,99 @@ static bool checkFissionPrivatesExpansion(SgStatement *st,
     return retVal;
 }
 
+static bool checkShrink(SgStatement *st,
+                        SgStatement *attributeStatement,
+                        const string &currFile,
+                        vector<Messages> &messagesForFile)
+{
+    bool retVal = true;
+    
+    vector<pair<SgSymbol *, vector<int>>> varDims;
+    fillShrinkFromComment(new Statement(attributeStatement), varDims);
+
+    for (auto &p : varDims)
+    {
+        auto var = p.first;
+        auto dims = p.second;
+
+        // check variable type
+        SgArrayType *arrType = isSgArrayType(var->type());
+        if (!arrType)
+        {
+            __spf_print(1, "variable in shrink clause must be array in file '%s' on line %d\n", st->fileName(), attributeStatement->lineNumber());
+            wstring messageE, messageR;
+            __spf_printToLongBuf(messageE, L"variable in shrink clause must be array in file '%s'", to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+            __spf_printToLongBuf(messageR, R154, to_wstring(st->fileName()).c_str());
+#endif
+            messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1053));
+            retVal = false;
+        }
+        else
+        {
+            // check private directives
+            set<SgSymbol*> privates;
+            for (int i = 0; i < st->numberOfAttributes(); ++i)
+            {
+                SgAttribute *attr = st->getAttribute(i);
+                SgStatement *attributeStatement = (SgStatement *)(attr->getAttributeData());
+                fillPrivatesFromComment(new Statement(attributeStatement), privates);
+            }
+
+            auto it = privates.find(var);
+            if (it == privates.end())
+            {
+                __spf_print(1, "array '%s' in shrink clause must be also declared in private clause in file '%s' on line %d\n",
+                            var->identifier(), st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"array '%s' in shrink clause must be also declared in private clause in file '%s'",
+                                     to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, R157, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1056));
+                retVal = false;
+            }
+            
+            // check mask dimensions
+            if (dims.size() != arrType->dimension())
+            {
+                __spf_print(1, "length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s' on line %d\n",
+                            var->identifier(), arrType->dimension(), dims.size(), st->fileName(), attributeStatement->lineNumber());
+                wstring messageE, messageR;
+                __spf_printToLongBuf(messageE, L"length of mask for array '%s' must be %d, but you enter only %d dimenions in file '%s'",
+                                     to_wstring(var->identifier()).c_str(), arrType->dimension(), dims.size(),
+                                     to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                __spf_printToLongBuf(messageR, R155, to_wstring(var->identifier()).c_str(), arrType->dimension(), dims.size(), to_wstring(st->fileName()).c_str());
+#endif
+                messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1054));
+                retVal = false;
+            }
+
+            for (auto i = 0; i < dims.size(); ++i)
+            {
+                auto dimVal = dims[i];
+                if (dimVal != 0 && dimVal != 1)
+                {
+                    __spf_print(1, "wrong mask value in %d position for array '%s': it can be only 0 or 1 in file '%s' on line %d\n",
+                                i + 1, var->identifier(), st->fileName(), attributeStatement->lineNumber());
+                    wstring messageE, messageR;
+                    __spf_printToLongBuf(messageE, L"wrong mask value in %d position: it can be only 0 or 1 in file '%s'",
+                                         i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#ifdef _WIN32
+                    __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
+#endif
+                    messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1055));
+                    retVal = false;
+                }
+            }
+        }
+    }
+
+    return retVal;
+}
+
 static int countSPF_OP(Statement *stIn, const int type, const int op)
 {
     int count = 0;
@@ -1258,6 +1351,22 @@ static inline bool processStat(SgStatement *st, const string &currFile,
                 }
                 else
                     retVal = checkFissionPrivatesExpansion(st, attributeStatement, currFile, messagesForFile);
+            }
+            // SHRINK
+            else if (isSPF_OP(new Statement(attributeStatement), SPF_SHRINK_OP))
+            {
+                attributeStatement->setLocalLineNumber(-1); // is it needed?
+                if (st->variant() != FOR_NODE)
+                {
+#ifdef _WIN32
+                    BAD_POSITION_FULL(1, ERROR, "only", L"только", "before", L"перед", "DO statement", L"циклом", attributeStatement->lineNumber());
+#else
+                    BAD_POSITION(1, ERROR, "only", "before", "DO statement", attributeStatement->lineNumber());
+#endif
+                    retVal = false;
+                }
+                else
+                    retVal = checkShrink(st, attributeStatement, currFile, messagesForFile);
             }
         }
     }

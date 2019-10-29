@@ -45,6 +45,8 @@ extern int passDone;
 #include "../VisualizerCalls/get_information.h"
 #endif
 
+#include "../LoopConverter/enddo_loop_converter.h"
+
 using std::vector;
 using std::pair;
 using std::tuple;
@@ -1886,10 +1888,54 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                                 createRemoteDir<1>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
                         }
                     }
+                    
+                    if (st->expr(0))
+                    {
+                        const DIST::Arrays<int>& allArrays = currReg->GetAllArrays();
+                        if (under_dvm_dir == NULL)
+                            createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
+                    }
                 }
             }
             else if (currV == IF_NODE || currV == ELSEIF_NODE || currV == LOGIF_NODE || currV == SWITCH_NODE)
             {
+                SgStatement* before = NULL;
+                // convert IF conditions if access to dist array appears
+                if (currV == IF_NODE && regime == REMOTE_ACC)
+                {
+                    std::stack<SgExpression*> conditions;
+                    std::stack<SgStatement*> ifBlocks;
+
+                    bool needToConv = isNeedToConvertIfCondition(st->expr(0));
+                    conditions.push(st->expr(0));
+                    ifBlocks.push(st);
+
+                    SgIfStmt* ifS = (SgIfStmt*)st;
+                    auto body = ifS->falseBody();
+                    while (body)
+                    {
+                        if (body->variant() == ELSEIF_NODE)
+                        {
+                            needToConv = needToConv || isNeedToConvertIfCondition(body->expr(0)->copyPtr());
+                            conditions.push(body->expr(0));
+                            ifBlocks.push(body);
+                        }
+                        else
+                            break;
+                        body = body->lastNodeOfStmt();
+                    }
+
+                    if (needToConv && !conditions.empty() && under_dvm_dir == NULL)
+                    {
+                        auto res = createIfConditions(conditions, ifBlocks, st);
+                        before = st->lexPrev();
+                        for (auto &elem : res)
+                            if (elem)
+                                st->insertStmtBefore(*elem, *st->controlParent());
+                        st = before;
+                    }
+                }
+
                 if (st->expr(0))
                 {
                     findArrayRef(parentLoops, st->expr(0), st->lineNumber(), RIGHT, loopInfo, st->lineNumber(), privatesVars, 
@@ -1903,6 +1949,9 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                             createRemoteDir<0>(st, sortedLoopGraph, allArrays, currReg->GetDataDir(), currReg->GetCurrentVariant(), currReg->GetId(), *currMessages, arrayLinksByFuncCalls);
                     }
                 }
+
+                if (regime == REMOTE_ACC && before)
+                    st = before;
             }
             else if (currV == PROC_STAT)
             {

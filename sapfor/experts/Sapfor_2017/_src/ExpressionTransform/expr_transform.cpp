@@ -407,8 +407,17 @@ void replaceConstatRec(SgExpression *&exp)
     if (exp->variant() == CONST_REF)
     {
         SgExpression *ret = ReplaceParameter(exp);
-        if (ret->isInteger())
-            exp = new SgValueExp(ret->valueInteger());
+        int sign = 1;
+        SgExpression* toCalc = ret;
+        if (ret->variant() == UNARY_ADD_OP)
+            toCalc = ret->lhs();
+        if (ret->variant() == MINUS_OP)
+        {
+            toCalc = ret->lhs();
+            sign = -1;
+        }
+        if (toCalc->isInteger())
+            exp = new SgValueExp(sign * toCalc->valueInteger());
     }
 
     if (exp->lhs())

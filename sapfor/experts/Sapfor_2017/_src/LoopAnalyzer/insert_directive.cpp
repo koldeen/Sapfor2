@@ -1495,7 +1495,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                             const vector<SgStatement*> &allocatableStmtsCopy = getAttributes<SgStatement*, SgStatement*>(st, set<int>{ ALLOCATE_STMT });
                             vector<SgStatement*> allocatableStmts;
-                            if (isModule && allocatableStmtsCopy.size())
+                            if (allocatableStmtsCopy.size())
                             {
                                 allocatableStmts = filterAllocateStats(allocatableStmtsCopy, currSymb->identifier());
                                 for (auto &alloc : allocatableStmts)
@@ -1505,7 +1505,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                         byUseInFunc[byUseElem.first].insert(byUseElem.second.begin(), byUseElem.second.end());
                                 }
                             }
-                            pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir, byUseInFunc, isModule && allocatableStmts.size() != 0);
+                            pair<DIST::Array*, string> dirWithArray = getNewDirective(fullArrayName, distrRules, alignRules, dataDir, byUseInFunc, allocatableStmts.size() != 0);
 
                             string toInsert = dirWithArray.second;
                             if (toInsert != "")
@@ -1595,7 +1595,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                     if (extractDir)
                                     {
-                                        if (isModule && dvmhModule && allocatableStmts.size())
+                                        if (allocatableStmts.size()) //isModule && dvmhModule && allocatableStmts.size())
                                         {
                                             for (auto &elem : allocatableStmts)
                                                 extractComments(elem->lexNext(), toAdd);
@@ -1606,7 +1606,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                     }
                                     else
                                     {
-                                        if (isModule && dvmhModule && allocatableStmts.size())
+                                        if (allocatableStmts.size()) //isModule && dvmhModule && allocatableStmts.size())
                                         {
                                             for (auto &elem : allocatableStmts)
                                                 elem->lexNext()->addComment(toAdd.c_str());

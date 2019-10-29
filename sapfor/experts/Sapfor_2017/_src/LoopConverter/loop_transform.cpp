@@ -277,29 +277,111 @@ static ddnature getOrDefault(const map<SgSymbol*, ddnature> &inMap, SgSymbol *ke
         return it->second;
 };
 
-static bool validateInvariantStatement(SgStatement* invBegin, SgStatement* invEnd, const map<SgSymbol*, ddnature> &dependencies) 
+static void processArgs(SgExpression *ex, set<SgSymbol*> &assignToScalars, bool &allAssignmentOrIf, int numArg, const FuncInfo *currF)
 {
-    //by type check
-    SgStatement* stmt = invBegin;
-    bool allAssignmentOrIf = true;
-    while (stmt != invEnd && allAssignmentOrIf) 
+    if (ex)
     {
-        allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgLogIfStmt(stmt) || isSgControlEndStmt(stmt));
-        SgStatement* ass = isSgAssignStmt(stmt);
-        //TODO:
-        if (ass)
+        bool onlyIn = false;
+        if (currF)
+            if (currF->funcParams.isArgIn(numArg) && !currF->funcParams.isArgOut(numArg))
+                onlyIn = true;
+
+        if (ex->variant() == ARRAY_REF)
         {
-            if (ass->expr(0)->variant() == ARRAY_REF)
-            {
+            if (!onlyIn)
                 allAssignmentOrIf = false;
-                break;
+        }
+        else if (ex->variant() == VAR_REF)
+        {
+            if (!onlyIn)
+                assignToScalars.insert(OriginalSymbol(ex->symbol()));
+        }
+    }
+}
+
+static void findfuncCalls(SgExpression *ex, set<SgSymbol*>& assignToScalars, bool& allAssignmentOrIf, const map<string, FuncInfo*>& mapFuncInfo)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            SgFunctionCallExp* funcExp = (SgFunctionCallExp*)ex;
+            const string fName = funcExp->funName()->identifier();
+            if (!isIntrinsicFunctionName(fName.c_str()))
+            {
+                auto itF = mapFuncInfo.find(fName);
+                FuncInfo* currF = NULL;
+                if (itF != mapFuncInfo.end())
+                    currF = itF->second;
+
+                for (int z = 0; z < funcExp->numberOfArgs(); ++z)
+                    processArgs(funcExp->arg(z), assignToScalars, allAssignmentOrIf, z, currF);
             }
         }
+        
+        findfuncCalls(ex->lhs(), assignToScalars, allAssignmentOrIf, mapFuncInfo);
+        findfuncCalls(ex->rhs(), assignToScalars, allAssignmentOrIf, mapFuncInfo);
+    }
+}
+
+static bool processInterval(SgStatement* invBegin, SgStatement* invEnd, set<SgSymbol*>& assignToScalars, const map<string, FuncInfo*>& mapFuncInfo)
+{
+    bool allAssignmentOrIf = true;
+
+    SgStatement* stmt = invBegin;
+    while (stmt != invEnd)
+    {
+        allAssignmentOrIf = allAssignmentOrIf && (isSgAssignStmt(stmt) || isSgIfStmt(stmt) || isSgLogIfStmt(stmt) || isSgControlEndStmt(stmt));
+
+        if (stmt->variant() == ASSIGN_STAT)
+        {
+            if (stmt->expr(0)->variant() == ARRAY_REF)
+                allAssignmentOrIf = false;
+            else
+                assignToScalars.insert(OriginalSymbol(stmt->expr(0)->symbol()));
+        }
+        else if (stmt->variant() == PROC_STAT)
+        {
+            if (!isIntrinsicFunctionName(stmt->symbol()->identifier()))
+            {
+                auto itF = mapFuncInfo.find(stmt->symbol()->identifier());
+                FuncInfo* currF = NULL;
+                if (itF != mapFuncInfo.end())
+                    currF = itF->second;
+
+                int num = 0;
+                for (SgExpression* ex = stmt->expr(0); ex; ex = ex->rhs(), ++num)
+                    processArgs(ex->lhs(), assignToScalars, allAssignmentOrIf, num, currF);
+            }
+        }
+
+        for (int z = 0; z < 3; ++z)
+            findfuncCalls(stmt->expr(z), assignToScalars, allAssignmentOrIf, mapFuncInfo);
+
         stmt = stmt->lexNext();
     }
 
+    return allAssignmentOrIf;
+}
+
+static bool validateInvariantStatement(SgStatement* invBegin, SgStatement* invEnd, 
+                                       const map<SgSymbol*, ddnature> &dependencies, const map<string, FuncInfo*>& mapFuncInfo)
+{
+    //by type check
+    SgStatement* stmt = invBegin;
+    set<SgSymbol*> assignToScalarsOuter;
+    set<SgSymbol*> assignToScalarsInner;
+    bool allAssignmentOrIf = processInterval(invBegin, invEnd, assignToScalarsOuter, mapFuncInfo);
+    processInterval(invEnd, invEnd->lastNodeOfStmt(), assignToScalarsInner, mapFuncInfo);
+        
     if (allAssignmentOrIf) 
     {
+        //TODO: use CFG graph for this analysis
+        //TODO: improve it
+        for (auto& elem : assignToScalarsInner)
+            if (assignToScalarsOuter.find(elem) != assignToScalarsOuter.end())
+                return false;
+
         bool hasFlowDep = false;
         stmt = invBegin;
         while (stmt != invEnd && !hasFlowDep) 
@@ -351,13 +433,13 @@ static bool validateInvariantStatement(SgStatement* invBegin, SgStatement* invEn
     return false;
 }
 
-static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddnature> &dependencies) 
+static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddnature> &dependencies, const map<string, FuncInfo*>& mapFuncInfo)
 {
     SgStatement* outerEnddo = outerLoop->lastNodeOfStmt();
     SgForStmt* innerLoop = lexNextLoop(outerLoop->lexNext(), outerEnddo);
     if (innerLoop != NULL) 
     {
-        bool beforeValid = validateInvariantStatement(outerLoop->lexNext(), innerLoop, dependencies);
+        bool beforeValid = validateInvariantStatement(outerLoop->lexNext(), innerLoop, dependencies, mapFuncInfo);
         //TODO:
         //validateInvariantStatement(innerLoop->lastNodeOfStmt()->lexNext(), outerEnddo, dependencies);
         bool afterValid = (outerLoop->lastNodeOfStmt() == innerLoop->lastNodeOfStmt()->lexNext());
@@ -368,11 +450,11 @@ static bool canTightenSingleLevel(SgForStmt* outerLoop, const map<SgSymbol*, ddn
         return false;
 }
 
-static int canTighten(SgForStmt* pForLoop, const map<SgSymbol*, ddnature> &dependencies) 
+static int canTighten(SgForStmt* pForLoop, const map<SgSymbol*, ddnature> &dependencies, const map<string, FuncInfo*>& mapFuncInfo)
 {
     int nestDepth = 1;
     SgForStmt* processedLoop = pForLoop;
-    while (canTightenSingleLevel(processedLoop, dependencies)) 
+    while (canTightenSingleLevel(processedLoop, dependencies, mapFuncInfo))
     {
         processedLoop = lexNextLoop(processedLoop->lexNext(), NULL);
         nestDepth++;
@@ -490,7 +572,8 @@ static bool tighten(SgForStmt* pForLoop, int level)
     return true;
 }
 
-bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, vector<Messages> &messages)
+bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &depInfoForLoopGraph, 
+                       const map<string, FuncInfo*>& mapFuncInfo, vector<Messages> &messages)
 {
     bool wasTightened = false;
     // has non nested child loop
@@ -506,9 +589,8 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
         if (outerLoopDependencies.first && outerLoopDependencies.second && innerLoopDependencies.first && innerLoopDependencies.second) 
         {
             SgForStmt *outerLoop = outerLoopDependencies.first;
-
             map<SgSymbol*, ddnature> depMap = buildTransformerDependencyMap(outerLoop, outerLoopDependencies.second, innerLoopDependencies.first, innerLoopDependencies.second);
-            if (canTighten(outerLoop, depMap) >= 2) 
+            if (canTighten(outerLoop, depMap, mapFuncInfo) >= 2) 
             {
                 outerTightened = tighten(outerLoop, 2);
                 LoopGraph *firstChild = current->children.at(0);
@@ -534,7 +616,7 @@ bool createNestedLoops(LoopGraph *current, const map<LoopGraph*, depGraph*> &dep
     for (int i = 0; i < current->children.size(); ++i) 
     {
         __spf_print(1, "createNestedLoops for loop at %d. Transform child %d\n", current->lineNum, i);
-        bool result = createNestedLoops(current->children[i], depInfoForLoopGraph, messages);
+        bool result = createNestedLoops(current->children[i], depInfoForLoopGraph, mapFuncInfo, messages);
         wasTightened = wasTightened || result;
     }    
     
