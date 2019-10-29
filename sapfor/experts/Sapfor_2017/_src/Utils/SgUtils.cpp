@@ -1971,8 +1971,7 @@ SgStatement* getFuncStat(SgStatement *st, const set<int> additional)
         return NULL;
 
     SgStatement *iterator = st;
-    while (iterator && iterator->variant() != PROG_HEDR && iterator->variant() != PROC_HEDR && iterator->variant() != FUNC_HEDR &&
-           checkAdd(iterator->variant(), additional))
+    while (iterator && !isSgProgHedrStmt(iterator) && checkAdd(iterator->variant(), additional))
         iterator = iterator->controlParent();
 
     return iterator;

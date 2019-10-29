@@ -1925,7 +1925,7 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
                         body = body->lastNodeOfStmt();
                     }
 
-                    if (needToConv && !conditions.empty())
+                    if (needToConv && !conditions.empty() && under_dvm_dir == NULL)
                     {
                         auto res = createIfConditions(conditions, ifBlocks, st);
                         before = st->lexPrev();

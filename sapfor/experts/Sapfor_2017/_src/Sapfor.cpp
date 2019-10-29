@@ -2155,6 +2155,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     }
 }
 
+extern "C" int parse_file(int argc, char* argv[], char* proj_name);
 int main(int argc, char **argv)
 {
 #if _WIN32 && _DEBUG
@@ -2316,6 +2317,15 @@ int main(int argc, char **argv)
                     parallizeFreeLoops = 1;
                 else if (string(curr_arg) == "-autoArray")
                     parallizeFreeLoops = 1;
+                if (string(curr_arg) == "-parse")
+                {
+                    int code = parse_file(argc - i, argv + i, "dvm.proj");
+                    if (code == 0)
+                        printf("Parsing was completed successfully\n");
+                    else
+                        printf("Parsing was completed with error code %d\n", code);
+                    exit(0);
+                }
                 break;
             default:
                 break;

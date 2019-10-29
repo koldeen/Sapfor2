@@ -148,9 +148,10 @@ void printHelp(const char **passNames, const int lastPass)
     printf(" -keepDVM  keep DVM directives\n");
     printf(" -allVars  get all parallel versions\n");
     printf(" -var N    get specific parallel version, N=1,2,..\n");
+    printf(" -parse    run parser with next option\n");
     //printf(" -q1 Q     quality of analysis in percent (1..100, default 100)\n");
     //printf(" -q2 S     speed of analysis in percent   (1..100, default 100)\n");
-    printf("\n");
+    printf("\n");    
     printf(" -F    <folderName> output to folder\n");
     printf(" -p    <project name>\n");    
     printf(" -pass <pass_number>\n");

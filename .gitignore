@@ -46,7 +46,8 @@ dvm/general/
 dvm/releases/
 dvm/rts/
 dvm/rts-dvmh/
-dvm/tools/
+dvm/tools/pppa/.svn
+dvm/tools/Zlib/.svn
 dvm/CMakeLists.txt
 dvm/.svn/
 dvm/fdvm/branches/
