@@ -110,15 +110,15 @@ namespace Distribution
     {
         string retVal = "";
 
-        retVal += " " + to_string(linkWithTemplate.size());
+        retVal += "#" + to_string(linkWithTemplate.size());
         for (int i = 0; i < linkWithTemplate.size(); ++i)
-            retVal += " " + to_string(linkWithTemplate[i]);
+            retVal += "#" + to_string(linkWithTemplate[i]);
 
-        retVal += " " + to_string(alignRuleWithTemplate.size());
+        retVal += "#" + to_string(alignRuleWithTemplate.size());
         for (int i = 0; i < alignRuleWithTemplate.size(); ++i)
-            retVal += " " + to_string(alignRuleWithTemplate[i].first) + " " + to_string(alignRuleWithTemplate[i].second);
+            retVal += "#" + to_string(alignRuleWithTemplate[i].first) + "#" + to_string(alignRuleWithTemplate[i].second);
 
-        retVal += " " + to_string((long long)templateArray);
+        retVal += "#" + to_string((long long)templateArray);
         return retVal;
     }
 

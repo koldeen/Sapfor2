@@ -1043,7 +1043,7 @@ int main(int argv, char **argc)
         exit(1);
 #endif
     }
-    return 1;
+    return 0;
 }
 
 static char *humanizeSize(const unsigned long long bytes, const unsigned short precision) {

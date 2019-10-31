@@ -167,14 +167,14 @@ static map<string, pair<string, vector<pair<int, int>> > > findIncludes(FILE *cu
 }
 
 //TODO: read includes and find last lines, all included files
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
-                                  set<string> &allIncludeFiles, bool outFree, 
-                                  const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs)
+string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, 
+                                    set<string> &allIncludeFiles, bool outFree, 
+                                    const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs, bool toString)
 { 
     fflush(NULL);
 
     set<string> moduleIncudeUses;
-    auto itM = moduleUsesByFile.find(file->filename());
+    auto itM = moduleUsesByFile.find(fileName);
     if (itM != moduleUsesByFile.end())
     {
         for (auto& elem : itM->second)
@@ -220,7 +220,7 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         }
     }
 
-    const string fileN = file->filename();
+    const string fileN = fileName;
     //insert comment
     int lineBefore = -1;
 
@@ -353,30 +353,37 @@ void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char
         if (st->fileName() != fileN || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
 
-#ifdef _WIN32
-    FILE *fOut;
-    errno_t err = fopen_s(&fOut, fout, "w");
-#else
-    int err = 0;
-    FILE *fOut = fopen(fout, "w");
-#endif
-    if (fOut == NULL)
+    string strUnparse = "";
+    if (toString)
+        strUnparse = string(file->firstStatement()->unparse());    
+    else
     {
-        if (fout)
-            __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
-        else
-            __spf_print(1, "can not open file to write with name 'NULL'\n");
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+#ifdef _WIN32
+        FILE* fOut;
+        errno_t err = fopen_s(&fOut, fout, "w");
+#else
+        int err = 0;
+        FILE* fOut = fopen(fout, "w");
+#endif
+        if (fOut == NULL)
+        {
+            if (fout)
+                __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+            else
+                __spf_print(1, "can not open file to write with name 'NULL'\n");
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        file->unparse(fOut);
+        fclose(fOut);
+        fclose(currFile);
     }
-    file->unparse(fOut);
-    fclose(fOut);
-    fclose(currFile);
-
     //restore
     //XXX: use Sage hack!!
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
         if (st->fileName() != fileN && st->variant() < 0 || st->getUnparseIgnore())
             st->setVariant(-1 * st->variant());
+
+    return strUnparse;
 }
 
 static map<SgFile*, map<string, vector<SgSymbol*>>> allCreatedSymbols;

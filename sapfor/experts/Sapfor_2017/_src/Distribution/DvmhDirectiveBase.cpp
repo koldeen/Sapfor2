@@ -614,24 +614,24 @@ string AlignRuleBase::toString()
     string retVal = "";
 
     if (alignArray)
-        retVal += " " + std::to_string((long long)alignArray);
+        retVal += "#" + std::to_string((long long)alignArray);
     else
-        retVal += " -1";
+        retVal += "#-1";
 
     if (alignWith)
-        retVal += " " + std::to_string((long long)alignWith);
+        retVal += "#" + std::to_string((long long)alignWith);
     else
-        retVal += " -1";
+        retVal += "#-1";
 
-    retVal += " " + std::to_string(alignRule.size());
+    retVal += "#" + std::to_string(alignRule.size());
     for (int i = 0; i < alignRule.size(); ++i)
-        retVal += " " + std::to_string(alignRule[i].first) + " " + std::to_string(alignRule[i].second);
+        retVal += "#" + std::to_string(alignRule[i].first) + "#" + std::to_string(alignRule[i].second);
 
-    retVal += " " + std::to_string(alignRuleWith.size());
+    retVal += "#" + std::to_string(alignRuleWith.size());
     for (int i = 0; i < alignRuleWith.size(); ++i)
-        retVal += " " + std::to_string(alignRuleWith[i].first)
-        + " " + std::to_string(alignRuleWith[i].second.first)
-        + " " + std::to_string(alignRuleWith[i].second.second);
+        retVal += "#" + std::to_string(alignRuleWith[i].first)
+        + "#" + std::to_string(alignRuleWith[i].second.first)
+        + "#" + std::to_string(alignRuleWith[i].second.second);
 
     return retVal;
 }

@@ -1184,7 +1184,7 @@ static bool checkShrink(SgStatement *st,
                     __spf_print(1, "wrong mask value in %d position for array '%s': it can be only 0 or 1 in file '%s' on line %d\n",
                                 i + 1, var->identifier(), st->fileName(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"wrong mask value in %d position: it can be only 0 or 1 in file '%s'",
+                    __spf_printToLongBuf(messageE, L"wrong mask value in %d position of array '%s': it can be only 0 or 1 in file '%s'",
                                          i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());
 #ifdef _WIN32
                     __spf_printToLongBuf(messageR, R156, i + 1, to_wstring(var->identifier()).c_str(), to_wstring(st->fileName()).c_str());

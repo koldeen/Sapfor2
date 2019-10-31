@@ -24,6 +24,15 @@ CStatRead::CStatRead(const char *statFilePath, int iIM, int jIM, short sore)
 {
     gzFile statFile = NULL;
 
+    curnproc = 0;
+    curntime = 0;
+    nf = 0;
+    rank = 0;
+    maxnlevel = 0;
+    pch_vms = NULL;
+    smallbuff = 0;
+    valid_synchro = false;
+
     valid = TRUE;
     valid_warning = 0;
     BOOL valid_synchro = TRUE;

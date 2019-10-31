@@ -1343,7 +1343,7 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
         if (SgFile::switchToFile(newFileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        newFile = string(current_file->firstStatement()->unparse());
+        newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
 
         sizes = new int[size + 1];
         newFilesNames = new short[newFileName.size()];

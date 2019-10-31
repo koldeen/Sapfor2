@@ -11,7 +11,7 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, std::vector<SgStatement*> *allDe
 #include "DefUseList.h"
 #include "CommonBlock.h"
 
-void removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree, const std::map<std::string, std::set<std::string>> &moduleUsesByFile, const std::map<std::string, std::string>& moduleDelcs);
+std::string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const char *fout, std::set<std::string> &allIncludeFiles, bool outFree, const std::map<std::string, std::set<std::string>> &moduleUsesByFile, const std::map<std::string, std::string>& moduleDelcs, bool toString);
 SgSymbol* findSymbolOrCreate(SgFile *file, const std::string toFind, SgType *type = NULL, SgStatement *scope = NULL);
 void recExpressionPrint(SgExpression *exp);
 void removeSubstrFromStr(std::string &str, const std::string &del);
@@ -69,3 +69,4 @@ SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, 
 void fillModuleUse(SgFile* file, std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
 void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
 SgExpression* makeExprList(const std::vector<SgExpression*>& items);
+std::string unparseProjectToString(SgFile* file, const int curr_regime);

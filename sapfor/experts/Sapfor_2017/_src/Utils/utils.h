@@ -35,7 +35,7 @@ void copyIncludes(const std::set<std::string> &allIncludeFiles, const std::map<s
 std::string splitDirective(const std::string &in);
 std::string splitDirectiveFull(const std::string &in_);
 
-void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result);
+void splitString(const std::string &strIn, const char delim, std::vector<std::string> &result, bool withQuotes = false);
 
 bool isSPF_comment(const std::string& bufStr);
 bool isDVM_comment(const std::string& bufStr);

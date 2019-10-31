@@ -208,14 +208,57 @@ void convertToUpper(string &str)
         str[i] = std::toupper(str[i], loc);
 }
 
-void splitString(const string &strIn, const char delim, vector<string> &result)
+void splitString(const string &strIn, const char delim, vector<string> &result, bool withQuotes)
 {
     std::stringstream ss;
     ss.str(strIn);
 
-    std::string item;
+    vector<string> tmp_result;
+    std::string item;    
     while (std::getline(ss, item, delim))
-        result.push_back(item);    
+        tmp_result.push_back(item);
+    
+    if (withQuotes)
+    {
+        bool quStarted = false;
+        item = "";
+        for (auto& elem : tmp_result)
+        {
+            if (elem.size())
+            {
+                if (quStarted)
+                {
+                    item += elem;
+                    if (elem[elem.size() - 1] == '"')
+                    {
+                        quStarted = false;
+                        result.push_back(item.erase(item.size() - 1, 1));
+                    }
+                }
+                else
+                {
+                    if (elem[0] == '"')
+                    {
+                        quStarted = true;
+                        item = elem.erase(0, 1);
+
+                        if (item[item.size() - 1] == '"')
+                        {
+                            quStarted = false;
+                            result.push_back(item.erase(item.size() - 1, 1));
+                        }
+                    }
+                    else
+                        result.push_back(elem);
+
+                }
+            }
+            else if (quStarted)
+                item += " ";
+        }
+    }
+    else
+        result = tmp_result;
 }
 
 void removeSubstrFromStr(string &str, const string &del)
@@ -1222,6 +1265,27 @@ struct FileInfo
     string outPath;
 };
 
+static vector<string> splitAndArgvCreate(const string &options)
+{
+    vector<string> optSplited;
+    optSplited.push_back("");
+    splitString(options, ' ', optSplited, true);
+
+    vector<string> optSplited1;
+    for (auto& elem : optSplited)
+        if (elem != "")
+            optSplited1.push_back(elem);
+    optSplited1.insert(optSplited1.begin(), "");
+
+    for (int z = 0; z < optSplited1.size(); ++z)
+    {
+        //printf("%s\n", optSplited1[z].c_str());
+        if (optSplited1[z][0] == '"' && optSplited1[z][optSplited1[z].size() - 1] == '"')
+            optSplited1[z] = optSplited1[z].substr(1, optSplited1[z].size() - 2);
+    }
+    return optSplited1;
+}
+
 extern "C" int parse_file(int argc, char* argv[], char* proj_name);
 int parseFiles(const char *proj)
 {
@@ -1264,31 +1328,19 @@ int parseFiles(const char *proj)
         string file = elem.fileName;
         string options = elem.options;
 
-        vector<string> optSplited;
-        splitString(options, ' ', optSplited);
-
-        vector<string> optSplited1;
-        for (auto& elem : optSplited)
-            if (elem != "")
-                optSplited1.push_back(elem);
-        optSplited1.insert(optSplited1.begin(), "");
-
-        char** toParse = new char*[optSplited1.size() + 1];
-        for (int z = 0; z < optSplited1.size(); ++z)
-        {            
-            //printf("%s\n", optSplited1[z].c_str());
-            if (optSplited1[z][0] == '"' && optSplited1[z][optSplited1[z].size() - 1] == '"')
-                optSplited1[z] = optSplited1[z].substr(1, optSplited1[z].size() - 2);
-            toParse[z] = (char*)optSplited1[z].c_str();
-        }
-        toParse[optSplited1.size()] = (char*)file.c_str();
+        vector<string> optSplited = splitAndArgvCreate(options);
+        
+        char** toParse = new char*[optSplited.size()];
+        for (int z = 0; z < optSplited.size(); ++z)
+            toParse[z] = (char*)optSplited[z].c_str();
+        toParse[optSplited.size()] = (char*)file.c_str();
 
         StdCapture::Init();
         string errorMessage = "";
         try
         {
             StdCapture::BeginCapture();
-            int retCode = parse_file(optSplited1.size() + 1, toParse, "dvm.proj");
+            int retCode = parse_file(optSplited.size(), toParse, "dvm.proj");
             if (retCode != 0)
                 countOfErrors++;
             StdCapture::EndCapture();
@@ -1328,11 +1380,8 @@ extern int pppa_analyzer(int argv, char** argc);
 int pppaAnalyzer(const char* options)
 {
     string optionsS(options);
-    vector<string> splited;
-
-    splited.push_back("");
-    splitString(optionsS, ' ', splited);
-
+    vector<string> splited = splitAndArgvCreate(optionsS);
+    
     char** argv = new char* [splited.size()];
     for (int z = 0; z < splited.size(); ++z)
         argv[z] = (char*)splited[z].c_str();
