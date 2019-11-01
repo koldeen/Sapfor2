@@ -5163,6 +5163,12 @@ void LibDelAllComments(PTR_BFND bif)
                 before = before->thread;
             }
         }
+
+#ifdef __SPF      
+        removeFromCollection(BIF_CMNT(bif));
+#endif
+        free(BIF_CMNT(bif));
+        BIF_CMNT(bif) = NULL;
     }
 }
 
