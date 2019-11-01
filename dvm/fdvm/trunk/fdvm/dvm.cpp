@@ -2076,7 +2076,7 @@ void TransFunc(SgStatement *func,SgStatement* &end_of_unit) {
           all_replicated=0; 
           if(stmt->lexPrev() != func && stmt->lexPrev()->variant()!=USE_STMT) 
             err("Misplaced USE statement", 639, stmt); 
-     
+          UpdateUseListWithDvmArrays(stmt);
           continue;
         }
 
@@ -7972,28 +7972,13 @@ SgExpression * coef_ref (SgSymbol *ar, int n) {
 // creates cofficient for dvm-array addressing
 //array header reference Header(n)  or its copy reference
 // Header(0:n+1) - distributed array descriptor
-
   if(inparloop && !HPF_program || for_kernel) { /*ACC*/
-   
      coeffs * scoef;
-
-     if(IS_BY_USE(ar) && !ar->attributeValue(0,ARRAY_COEF)) { 
-        //adding the distributed array symbol 'ar' to symb_list 'dsym'
-        if(!(ar->attributes() & DVM_POINTER_BIT))
-           AddDistSymbList(ar);
-        // creating variables used for optimization array references in parallel loop
-        scoef  = new coeffs;
-        CreateCoeffs(scoef,ar);
-        // adding the attribute (ARRAY_COEF) to distributed array symbol
-        ar->addAttribute(ARRAY_COEF, (void*) scoef, sizeof(coeffs));
-    
-     } else
-        scoef = AR_COEFFICIENTS(ar); //(coeffs *) ar->attributeValue(0,ARRAY_COEF);
-
+     scoef = AR_COEFFICIENTS(ar); //(coeffs *) ar->attributeValue(0,ARRAY_COEF);
      dvm_ar=AddNewToSymbList(dvm_ar,ar);
      scoef->use = 1;
      return (new SgVarRefExp(*(scoef->sc[n]))); //!!!must be 2<= n <=Rank(ar)+2
-            
+     
   } else    
     return( new SgArrayRefExp(*ar, *new SgValueExp(n)));
 }
@@ -13605,14 +13590,68 @@ SgSymbol *Rename(SgSymbol *ar, SgStatement *stmt)
  return(ar);
 }
 
-void updateUseStatementWithOnly(SgStatement *st_use, SgSymbol *s_func)
+void UpdateUseListWithDvmArrays(SgStatement *use_stmt)
 {
+  SgExpression *el, *coeff_list=NULL;
+  SgExpression *use_list = use_stmt->expr(0);
+  SgSymbol *s,*sloc;
+  int i,r,i0;
+  i0 = opt_base ? 1 : 2;
+  if(opt_loop_range) i0=0;
+
+  if(use_list && use_list->variant()==ONLY_NODE)
+    use_list = use_list->lhs();
+
+  for(el=use_list; el; el=el->rhs())
+  { 
+    // el->lhs()->variant() is RENAME_NODE
+    sloc = el->lhs()->lhs()->symbol(); // local symbol
+    if(!IS_DVM_ARRAY(sloc)) continue;
+    r = Rank(sloc);
+    if(el->lhs()->rhs())      // use symbol reference in renaming_op: local_symbol=>use_symbol
+    {  
+       s = el->lhs()->rhs()->symbol();    //use symbol
+       if(strcmp(sloc->identifier(),s->identifier()))  // different names
+       {
+       // creating variables used for optimisation array references in parallel loop (linearization coefficients)
+         coeffs *c_new  = new coeffs;
+         CreateCoeffs(c_new,sloc);
+       // adding the attribute (ARRAY_COEF) to distributed array symbol
+         sloc->addAttribute(ARRAY_COEF, (void*) c_new, sizeof(coeffs));
+       // add  renaming_op for all coefficients (2:rank+2) to use_list: coeff_of_sloc=>coeff_of_s         
+         coeffs *c_use  =  AR_COEFFICIENTS(s);
+         for(i=i0;i<=r+2;i++)
+           if(i != r+1)
+           {
+             SgExpression *rename = new SgExpression(RENAME_NODE, new SgVarRefExp(c_new->sc[i]), new SgVarRefExp(c_use->sc[i]), NULL);
+             coeff_list = AddListToList(coeff_list,new SgExprListExp(*rename));
+           }         
+       }
+    } else
+    {
+       // add cofficients of use_symbol to use_list
+       s = el->lhs()->symbol(); //use symbol
+       coeffs *c_use  =  AR_COEFFICIENTS(s);
+       for(i=i0;i<=r+2;i++)
+         if(i != r+1) 
+           coeff_list = AddListToList(coeff_list,new SgExprListExp(*new SgVarRefExp(c_use->sc[i])));
+    }
+  }
+    if(coeff_list)
+       AddListToList(use_list,coeff_list);
+}
+       
+void updateUseStatementWithOnly(SgStatement *st_use, SgSymbol *s_func)
+{ // add name of s_func to only-list of USE statement
   SgExpression *clause = st_use->expr(0);
   if(clause && clause->variant() == ONLY_NODE)
   {
-    SgExpression *only_list = AddElementToList(clause->lhs(),new SgVarRefExp(s_func));
-    clause->setLhs(only_list);
-  } 
+     SgExpression *el = new SgExprListExp(*new SgVarRefExp(s_func));
+     if(clause->lhs())  // only-list is not empty
+       AddListToList(clause->lhs(), el);
+     else
+       clause->setLhs(el);
+  }
 }
 
 void GenCallForUSE(SgStatement *hedr,SgStatement *where_st)
@@ -13623,7 +13662,7 @@ void GenCallForUSE(SgStatement *hedr,SgStatement *where_st)
   if((attrm=DVM_PROC_IN_MODULE(smod)) && attrm->symb){
        call = new SgCallStmt(*attrm->symb);
        where_st->insertStmtBefore(*call);
-       updateUseStatementWithOnly(hedr,attrm->symb);
+       updateUseStatementWithOnly(hedr,attrm->symb); // add dvm-module-procedure name to only-list
   }
 }
 

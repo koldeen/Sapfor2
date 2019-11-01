@@ -889,8 +889,9 @@ void TemplateDeclarationTest(SgStatement *stmt);
 int DeferredShape(SgExpression *eShape);
 void Template_Create(SgStatement *stmt);
 void Template_Delete(SgStatement *stmt);
-void RenamingDvmArraysByUse(SgStatement *stmt);
+//void RenamingDvmArraysByUse(SgStatement *stmt);
 void RemovingDifferentNamesOfVar(SgStatement *first);
+void UpdateUseListWithDvmArrays(SgStatement *use_stmt);
 
 /*  parloop.cpp */
 int ParallelLoop(SgStatement *stmt);
@@ -930,6 +931,7 @@ int LocElemNumber(SgExpression *en);
 int Reduction_Debug(SgStatement *stmt);
 int TestReductionClause(SgExpression *e);
 align *CopyAlignTreeNode(SgSymbol *ar);
+
 /*  acc.cpp */
 SgStatement *RegistrateDVMArray(SgSymbol *ar,int ireg,int inflag,int outflag);
 void RegisterVariablesInRegion(SgExpression *evl, int intent, int irgn);

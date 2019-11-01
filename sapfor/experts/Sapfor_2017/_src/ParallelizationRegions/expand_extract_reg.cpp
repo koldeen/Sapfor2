@@ -55,9 +55,9 @@ static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
 {
     if (start == end)
         return true;
-    if (end->variant() == CONTROL_END)
-        if (start != end->controlParent())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    if (!end->controlParent())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
     return (end->variant() != CONTROL_END && start->controlParent() == end->controlParent() ||
             end->variant() == CONTROL_END && start->controlParent() == end->controlParent()->controlParent());

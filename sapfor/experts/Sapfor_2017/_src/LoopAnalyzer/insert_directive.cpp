@@ -804,18 +804,21 @@ getNewDirective(const string &fullArrayName,
                     it = rule.find("ALIGN", it + 7);
                 }
 
-                for (auto byUseElem : byUse)
+                if (dataDir.alignRules[i].alignArray->GetLocation().first == DIST::l_MODULE)
                 {
-                    if (byUseElem.second.size() == 0)
-                        continue;
-
-                    it = rule.find(byUseElem.first);
-                    if (it != string::npos)
+                    for (auto byUseElem : byUse)
                     {
-                        if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
+                        if (byUseElem.second.size() == 0)
+                            continue;
+
+                        it = rule.find(byUseElem.first);
+                        if (it != string::npos)
                         {
-                            rule = rule.replace(it, byUseElem.first.size(), (*byUseElem.second.begin())->identifier());
-                            break;
+                            if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
+                            {
+                                rule = rule.replace(it, byUseElem.first.size(), (*byUseElem.second.begin())->identifier());
+                                break;
+                            }
                         }
                     }
                 }
@@ -1569,7 +1572,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
                                         templDecl = createFullTemplateDir(make_tuple(templDir.first.templDecl.first, templDir.first.templDist.first, templDir.first.templDyn.first));
                                 }                                
 
-                                if (!strcmp(st->fileName(), fin_name))
+                                if (string(st->fileName()) == fin_name)
                                 {
                                     if (isMain)
                                         templDecl = "";
@@ -1595,22 +1598,40 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
 
                                     if (extractDir)
                                     {
-                                        if (allocatableStmts.size()) //isModule && dvmhModule && allocatableStmts.size())
+                                        if (allocatableStmts.size())
                                         {
-                                            for (auto &elem : allocatableStmts)
-                                                extractComments(elem->lexNext(), toAdd);
-                                            extractComments(st, ("!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            if (isModule && dvmhModule)
+                                            {
+                                                for (auto& elem : allocatableStmts)
+                                                    extractComments(elem->lexNext(), toAdd);
+                                                extractComments(st, ("!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            }
+                                            else
+                                            {
+                                                for (auto& elem : allocatableStmts)
+                                                    extractComments(elem->lexNext(), toInsert);
+                                                extractComments(st, (templDecl + "!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            }
                                         }
                                         else
                                             extractComments(st, toAdd);
                                     }
                                     else
                                     {
-                                        if (allocatableStmts.size()) //isModule && dvmhModule && allocatableStmts.size())
+                                        if (allocatableStmts.size())
                                         {
-                                            for (auto &elem : allocatableStmts)
-                                                elem->lexNext()->addComment(toAdd.c_str());
-                                            st->addComment(("!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            if (isModule && dvmhModule)
+                                            {
+                                                for (auto& elem : allocatableStmts)
+                                                    elem->lexNext()->addComment(toAdd.c_str());
+                                                st->addComment(("!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            }
+                                            else
+                                            {
+                                                for (auto& elem : allocatableStmts)
+                                                    elem->lexNext()->addComment(toInsert.c_str());
+                                                st->addComment((templDecl + "!DVM$ ALIGN :: " + dirWithArray.first->GetShortName() + "\n").c_str());
+                                            }
                                         }
                                         else
                                             st->addComment(toAdd.c_str());
