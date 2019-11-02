@@ -23,16 +23,14 @@
 #include <unordered_set> 
 #include <unordered_map>
 
-using namespace std;
-
-typedef unordered_set<DIST::Array* > ArraySet;
+typedef std::unordered_set<DIST::Array* > ArraySet;  // TODO: добавить урезанную инфу
 struct ReadWrite
 {
     ArraySet read;
     ArraySet write;
 };
-typedef unordered_map<int, ReadWrite> UsageByLine;
-typedef unordered_map<string, UsageByLine> UsageByFile;
+typedef std::unordered_map<int, ReadWrite> UsageByLine;
+typedef std::unordered_map<std::string, UsageByLine> UsageByFile;
 
 class ArrayUsage
 {
@@ -47,7 +45,7 @@ public:
 class ArrayUsageFactory
 {
 public:
-    static unique_ptr<ArrayUsage> from_array_access(map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access);
+    static std::unique_ptr<ArrayUsage> from_array_access(std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access);
 };
 
 struct LoopCheckResults 
@@ -55,7 +53,7 @@ struct LoopCheckResults
     bool usesIO;
     bool hasImpureCalls;
 
-    vector<int> linesOfIO;
+    std::vector<int> linesOfIO;
 
     LoopCheckResults() : usesIO(false), hasImpureCalls(false) { }
     LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
@@ -64,20 +62,20 @@ struct LoopCheckResults
 class DvmhRegion 
 {
 private:
-    vector<LoopGraph*> loops;
+    std::vector<LoopGraph*> loops;
 
-    string fun_name;
-    set<string> needActualisation;
-    set<string> needActualisationAfter;
+    std::string fun_name;
+    std::set<std::string> needActualisation;
+    std::set<std::string> needActualisationAfter;
 
 public:
     DvmhRegion() { }
-    DvmhRegion(LoopGraph *loopNode, const string &fun_name);
+    DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
 
     SgStatement* getFirstSt() const;
     SgStatement* getLastSt() const;
 
-    bool addToActualisation(const string &s) 
+    bool addToActualisation(const std::string &s)
     {
         if (needActualisation.find(s) != needActualisation.end())
             return false;
@@ -86,7 +84,7 @@ public:
         return true;
     }
 
-    bool addToActualisationAfter(const string &s)
+    bool addToActualisationAfter(const std::string &s)
     {
         if (needActualisationAfter.find(s) != needActualisationAfter.end())
             return false;
@@ -96,43 +94,43 @@ public:
     }
 
     void addLoop(LoopGraph* newLoop) { loops.push_back(newLoop); }
-    const string& getFunName() const { return fun_name; }
-    void setFunName(const string& newName) { fun_name = newName; }
-    const vector<LoopGraph*>& getLoops() const { return loops; }
-    const set<string>& getActualisation() const {return needActualisation; }
-    const set<string>& getActualisationAfter() const { return needActualisationAfter; }
+    const std::string& getFunName() const { return fun_name; }
+    void setFunName(const std::string& newName) { fun_name = newName; }
+    const std::vector<LoopGraph*>& getLoops() const { return loops; }
+    const std::set<std::string>& getActualisation() const {return needActualisation; }
+    const std::set<std::string>& getActualisationAfter() const { return needActualisationAfter; }
 
 };
 
 class DvmhRegionInsertor 
 {
     SgFile *file;
-    const vector<LoopGraph*> &loopGraph;
-    vector<DvmhRegion*> regions;
-    unique_ptr<ArrayUsage> array_usage;
+    const std::vector<LoopGraph*> &loopGraph;
+    std::vector<DvmhRegion*> regions;
+    std::unique_ptr<ArrayUsage> array_usage;
 
     DvmhRegion* getRegionByStart(SgStatement *) const;
     void printFuncName(SgStatement *);
-    void findEdgesForRegions(const vector<LoopGraph*>&);
+    void findEdgesForRegions(const std::vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
     SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertRegionDirectives();
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool, bool empty = false);
     void mergeRegions();
-    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
-    LoopCheckResults updateLoopNode(LoopGraph*, const map<string, FuncInfo*> &allFuncs);
+    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
+    LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     ArraySet get_read_arrs_for_block(SgStatement* st);
     ArraySet get_write_arrs_for_block(SgStatement* st);
 public:
 
-    DvmhRegionInsertor(SgFile*, const vector<LoopGraph*>&);
+    DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&);
     DvmhRegionInsertor(
         SgFile*, 
-        const vector<LoopGraph*>&, 
+        const std::vector<LoopGraph*>&,
         const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>&
     );
-    void updateLoopGraph(const map<string, FuncInfo*> &allFuncs);
+    void updateLoopGraph(const std::map<std::string, FuncInfo*> &allFuncs);
     void insertDirectives();
     ~DvmhRegionInsertor()
     {
@@ -141,4 +139,4 @@ public:
     }
 };
 
-static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st);
+static std::tuple<std::set<SgSymbol *>, std::set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st);
