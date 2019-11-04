@@ -239,29 +239,29 @@ public:
     {
         std::string retVal = "";
 
-        retVal += " " + std::to_string(regionId);
-        retVal += " " + originalName;
-        retVal += " " + std::to_string(lines.size());
+        retVal += "#" + std::to_string(regionId);
+        retVal += "#" + originalName;
+        retVal += "#" + std::to_string(lines.size());
 
         for (auto it = lines.begin(); it != lines.end(); ++it)
         {
             retVal += "|" + it->first + "|";
             retVal += std::to_string(it->second.size());
             for (int i = 0; i < it->second.size(); ++i)
-                retVal += " " + std::to_string(it->second[i].lines.first) + " " + std::to_string(it->second[i].lines.second);
+                retVal += "#" + std::to_string(it->second[i].lines.first) + "#" + std::to_string(it->second[i].lines.second);
         }
 
         const std::set<DIST::Array*> &arrays = allArrays.GetArrays();
-        retVal += " " + std::to_string(arrays.size());
+        retVal += "#" + std::to_string(arrays.size());
 
         //create map<array_address, DIST::Array_toString()> 
         for (auto it = arrays.begin(); it != arrays.end(); ++it)
         {
-            retVal += " " + std::to_string((long long)(*it));
-            retVal += " " + (*it)->toString();
+            retVal += "#" + std::to_string((long long)(*it));
+            retVal += "#" + (*it)->toString();
         }
 
-        retVal += " " + std::to_string(dataDirectives.alignRules.size());
+        retVal += "#" + std::to_string(dataDirectives.alignRules.size());
         for (int i = 0; i < dataDirectives.alignRules.size(); ++i)
             retVal += dataDirectives.alignRules[i].toString();
 

@@ -227,10 +227,12 @@ static void updateStatsExprs(const int id, const string &file)
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
 
-static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, const bool need_to_unparse,
-                                        const char *newVer, const char *folderName, const char *file_name,
-                                        set<string> &allIncludeFiles)
+
+static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bool need_to_unparse,
+                                   const char* newVer, const char* folderName, set<string>& allIncludeFiles, bool toString = false)
 {
+    string unparseToBuf = "";
+    const char* file_name = file->filename();
     if (curr_regime == CORRECT_CODE_STYLE || need_to_unparse)
     {
         restoreCorrectedModuleProcNames(file);
@@ -240,12 +242,12 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         else
         {
             vector<SgStatement*> toDel;
-            for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
+            for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
                 if (isSPF_stat(st)) // except sapfor parallel regions and if attributes dont move
                     if (st->variant() != SPF_PARALLEL_REG_DIR && st->variant() != SPF_END_PARALLEL_REG_DIR)
                         toDel.push_back(st);
 
-            for (auto &elem : toDel)
+            for (auto& elem : toDel)
                 elem->deleteStmt();
         }
 
@@ -277,7 +279,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
                 fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + outExt;
         }
 
-        __spf_print(DEBUG_LVL1, "  Unparsing to <%s> file\n", fout_name.c_str());
+        __spf_print(1, "  Unparsing to <%s> file\n", fout_name.c_str());
         if (curr_regime == INSERT_INCLUDES)
         {
             __spf_print(1, "  try to find file <%s>\n", file_name);
@@ -286,7 +288,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
 
         if (curr_regime == INSERT_INCLUDES && filesToInclude.find(file_name) != filesToInclude.end())
         {
-            FILE *fOut = fopen(fout_name.c_str(), "w");
+            FILE* fOut = fopen(fout_name.c_str(), "w");
             if (fOut)
             {
                 file->unparse(fOut);
@@ -304,7 +306,7 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         else
         {
             //TODO: add freeForm for each file
-            removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1, moduleUsesByFile, moduleDecls);
+            unparseToBuf = removeIncludeStatsAndUnparse(file, file_name, fout_name.c_str(), allIncludeFiles, out_free_form == 1, moduleUsesByFile, moduleDecls, toString);
 
             // copy includes that have not changed
             if (folderName != NULL)
@@ -322,6 +324,14 @@ static inline void unparseProjectIfNeed(SgFile *file, const int curr_regime, con
         //restore of restore
         restoreCorrectedModuleProcNames(file);
     }
+
+    return unparseToBuf;
+}
+
+string unparseProjectToString(SgFile *file, const int curr_regime)
+{
+    set<string> allIncludeFiles;
+    return unparseProjectIfNeed(file, curr_regime, true, "", NULL, allIncludeFiles, true);
 }
 
 static bool isNotNullIntersection(const set<DIST::Array*> &first, const set<DIST::Array*> &second)
@@ -996,7 +1006,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == RESTORE_COPIES)
             restoreCopies(file);
 
-        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, file_name, allIncludeFiles);
+        unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
     if (internalExit != 0)

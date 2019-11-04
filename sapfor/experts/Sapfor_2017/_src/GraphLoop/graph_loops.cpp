@@ -786,7 +786,7 @@ static void printToBuffer(const LoopGraph *currLoop, const int childSize, char b
         if (currLoop->hasLimitsToParallel())
             loopState = 2;
     }
-    sprintf(buf, " %d %d %d %d %d %d %d %d",
+    sprintf(buf, "#%d#%d#%d#%d#%d#%d#%d#%d",
         currLoop->lineNum, currLoop->lineNumAfterLoop, currLoop->perfectLoop, currLoop->hasGoto, currLoop->hasPrints, childSize, loopState, 
         currLoop->hasNonRectangularBounds);
 }
@@ -804,27 +804,27 @@ void convertToString(const LoopGraph *currLoop, string &result)
     if (currLoop && currLoop->lineNum > 0)
     {
         char buf[512];
-        result += " " + std::to_string(currLoop->calls.size());
+        result += "#" + std::to_string(currLoop->calls.size());
         for (int i = 0; i < currLoop->calls.size(); ++i)
-            result += " " + currLoop->calls[i].first + " " + std::to_string(currLoop->calls[i].second);
+            result += "#" + currLoop->calls[i].first + "#" + std::to_string(currLoop->calls[i].second);
         printToBuffer(currLoop, calculateNormalChildSize(currLoop), buf);
         result += string(buf);
 
-        result += " " + std::to_string(currLoop->linesOfExternalGoTo.size());
+        result += "#" + std::to_string(currLoop->linesOfExternalGoTo.size());
         for (int i = 0; i < currLoop->linesOfExternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfExternalGoTo[i]);
+            result += "#" + std::to_string(currLoop->linesOfExternalGoTo[i]);
 
-        result += " " + std::to_string(currLoop->linesOfInternalGoTo.size());
+        result += "#" + std::to_string(currLoop->linesOfInternalGoTo.size());
         for (int i = 0; i < currLoop->linesOfInternalGoTo.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfInternalGoTo[i]);
+            result += "#" + std::to_string(currLoop->linesOfInternalGoTo[i]);
 
-        result += " " + std::to_string(currLoop->linesOfIO.size());
+        result += "#" + std::to_string(currLoop->linesOfIO.size());
         for (int i = 0; i < currLoop->linesOfIO.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfIO[i]);
+            result += "#" + std::to_string(currLoop->linesOfIO[i]);
 
-        result += " " + std::to_string(currLoop->linesOfStop.size());
+        result += "#" + std::to_string(currLoop->linesOfStop.size());
         for (int i = 0; i < currLoop->linesOfStop.size(); ++i)
-            result += " " + std::to_string(currLoop->linesOfStop[i]);
+            result += "#" + std::to_string(currLoop->linesOfStop[i]);
 
         for (int i = 0; i < (int)currLoop->children.size(); ++i)
             convertToString(currLoop->children[i], result);

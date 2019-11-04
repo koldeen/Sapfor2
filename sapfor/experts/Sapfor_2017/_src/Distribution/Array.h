@@ -386,32 +386,32 @@ namespace Distribution
         {
             STRING retVal = "";
             retVal += TO_STR(id);
-            retVal += " " + name;
-            retVal += " " + shortName;
-            retVal += " " + TO_STR(dimSize);
-            retVal += " " + TO_STR(typeSize);
-            retVal += " " + TO_STR(isNonDistribute);
+            retVal += "#" + name;
+            retVal += "#" + shortName;
+            retVal += "#" + TO_STR(dimSize);
+            retVal += "#" + TO_STR(typeSize);
+            retVal += "#" + TO_STR(isNonDistribute);
             
-            retVal += " " + TO_STR(locationPos.first);
-            retVal += " " + locationPos.second;
+            retVal += "#" + TO_STR(locationPos.first);
+            retVal += "#" + locationPos.second;
 
-            retVal += " " + TO_STR(sizes.size());
+            retVal += "#" + TO_STR(sizes.size());
             for (int i = 0; i < sizes.size(); ++i)
-                retVal += " " + TO_STR(sizes[i].first) + " " + TO_STR(sizes[i].second);
+                retVal += "#" + TO_STR(sizes[i].first) + "#" + TO_STR(sizes[i].second);
 
-            retVal += " " + TO_STR(depracateToDistribute.size());
+            retVal += "#" + TO_STR(depracateToDistribute.size());
             for (int i = 0; i < depracateToDistribute.size(); ++i)
-                retVal += " " + TO_STR((int)depracateToDistribute[i]);
+                retVal += "#" + TO_STR((int)depracateToDistribute[i]);
 
-            retVal += " " + TO_STR(mappedDims.size());
+            retVal += "#" + TO_STR(mappedDims.size());
             for (int i = 0; i < mappedDims.size(); ++i)
-                retVal += " " + TO_STR((int)mappedDims[i]);
+                retVal += "#" + TO_STR((int)mappedDims[i]);
 
-            retVal += " " + TO_STR(templateInfo.size());
+            retVal += "#" + TO_STR(templateInfo.size());
             for (auto it = templateInfo.begin(); it != templateInfo.end(); ++it)
-                retVal += " " + TO_STR(it->first) + it->second->toString();
+                retVal += "#" + TO_STR(it->first) + it->second->toString();
             
-            retVal += " " + TO_STR((int)isTemplFlag);
+            retVal += "#" + TO_STR((int)isTemplFlag);
             retVal += "|" + TO_STR((int)isLoopArrayFlag);
             retVal += "|" + TO_STR(declPlaces.size());
 

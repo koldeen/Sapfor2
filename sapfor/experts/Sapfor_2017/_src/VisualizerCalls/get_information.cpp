@@ -1321,6 +1321,10 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
         int strL;
         char *filtrName = ConvertShortToChar(fileNameToMod, strL);
         
+        for (int z = 0; z < strL; ++z)
+            if (filtrName[z] == '\\')
+                filtrName[z] = '/';
+
         std::get<0>(inData) = filtrName;
         std::get<1>(inData) = toModifyLines[0];
         std::get<2>(inData) = toModifyLines[1];
@@ -1343,7 +1347,7 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
         if (SgFile::switchToFile(newFileName) == -1)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-        newFile = string(current_file->firstStatement()->unparse());
+        newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
 
         sizes = new int[size + 1];
         newFilesNames = new short[newFileName.size()];
@@ -1383,7 +1387,8 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
 extern vector<tuple<string, string, int>> inDataProc;
 int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* projName, short* folderName,
                         short* name, short* file, int line, 
-                        short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
+                        short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize,
+                        int& size, int*& sizes, short*& newFilesNames, short*& newFiles)
 {
     MessageManager::clearCache();
     MessageManager::setWinHandler(winHandler);
@@ -1395,7 +1400,11 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
     {
         int tmp;
         char* name_c = ConvertShortToChar(name, tmp);
-        char* file_c = ConvertShortToChar(file, tmp);        
+        char* file_c = ConvertShortToChar(file, tmp);
+
+        for (int z = 0; z < tmp; ++z)
+            if (file[z] == '\\')
+                file[z] = '/';
 
         inDataProc.push_back(std::make_tuple(file_c, name_c, line));
 
@@ -1403,6 +1412,36 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
         runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
 
         inDataProc.clear();
+
+        //fill data
+        // size - число файлов для мод.
+        // sizes - размеры границ в буфере newFiles
+        // newFilesNames - имена файлов для мод., разд. '|'
+        // newFiles - буфер
+
+        string newFile, newFileName;
+
+        size = 1;
+        newFileName = ConvertShortToChar(file, tmp);
+
+        if (SgFile::switchToFile(file_c) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
+
+        sizes = new int[size + 1];
+        newFilesNames = new short[newFileName.size()];
+        newFiles = new short[newFile.size()];
+
+        allocated.insert(newFilesNames);
+        allocated.insert(newFiles);
+        allocatedInt.insert(sizes);
+
+        sizes[0] = 0;
+        sizes[1] = sizes[0] + newFile.size();
+        copyStringToShort(newFilesNames, newFileName);
+        copyStringToShort(newFiles, newFile);
+        retCode = (int)newFileName.size() + 1;
     }
     catch (int ex)
     {

@@ -18,7 +18,9 @@ static inline void insertParRegDir(SgStatement *start, const string &regName)
 {
     // !SPF PARALLEL_REG regName
     SgStatement *regSt = new SgStatement(SPF_PARALLEL_REG_DIR);
-    SgSymbol *regSymb = new SgSymbol(SPF_REGION_NAME, regName.c_str());
+    checkNull(start->getFile(), convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgSymbol *regSymb =  findSymbolOrCreate(start->getFile(), regName.c_str());
     regSt->setSymbol(*regSymb);
     start->insertStmtBefore(*regSt, *start->controlParent());
 }
@@ -27,7 +29,9 @@ static inline void insertEndParReg(SgStatement *end)
 {
     // !SPF END PARALLEL_REG
     SgStatement *regSt = new SgStatement(SPF_END_PARALLEL_REG_DIR);
-    end->insertStmtAfter(*regSt, *end->controlParent());
+    SgStatement *next = end->lexNext();
+    checkNull(next, convertFileName(__FILE__).c_str(), __LINE__);
+    next->insertStmtBefore(*regSt, *next->controlParent());
 }
 
 static inline void insertParRegDirs(SgStatement *start, SgStatement *end, const string &regName)
@@ -51,6 +55,10 @@ static bool hasOwnControlParent(SgStatement *start, SgStatement *end)
 {
     if (start == end)
         return true;
+
+    if (!end->controlParent())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
     return (end->variant() != CONTROL_END && start->controlParent() == end->controlParent() ||
             end->variant() == CONTROL_END && start->controlParent() == end->controlParent()->controlParent());
 }
@@ -181,10 +189,10 @@ bool expandExtractReg(const string &fileName,
         // X. запрещено выбирать строки в разных функциях
         SgStatement *beginFunc = begin, *endFunc = end;
 
-        while (beginFunc->variant() != PROG_HEDR && beginFunc->variant() != PROC_HEDR && beginFunc->variant() != FUNC_HEDR)
+        while (!isSgProgHedrStmt(beginFunc))
             beginFunc = beginFunc->controlParent();
 
-        while (endFunc->variant() != PROG_HEDR && endFunc->variant() != PROC_HEDR && endFunc->variant() != FUNC_HEDR)
+        while (!isSgProgHedrStmt(endFunc))
             endFunc = endFunc->controlParent();
 
         if (beginFunc != endFunc)
@@ -340,7 +348,7 @@ bool expandExtractReg(const string &fileName,
                 if (internalLines.size())
                     regName = internalLines.begin()->first->GetName();
                 else
-                    regName = "reg" + to_string(regions.size() + 1);
+                    regName = "reg" + to_string(regions.size());
 
                 if (hasOwnControlParent(begin, end))
                     insertParRegDirs(begin, end, regName);

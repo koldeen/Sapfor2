@@ -1719,10 +1719,19 @@ SgFile::SgFile(int Language, const char * dep_file_name)
 #endif
 }
 
+static inline std::string replaceSlash(const std::string &in)
+{
+    std::string out = in;
+    for (int z = 0; z < in.size(); ++z)
+        if (out[z] == '\\')
+            out[z] = '/';
+    return out;
+}
+
 std::map<std::string, std::pair<SgFile*, int> > SgFile::files;
 int SgFile::switchToFile(const std::string &name)
 {
-    std::map<std::string, std::pair<SgFile*, int> >::iterator it = files.find(name);
+    std::map<std::string, std::pair<SgFile*, int> >::iterator it = files.find(replaceSlash(name));
     if (it == files.end())
         return -1;
     else
@@ -1740,7 +1749,7 @@ int SgFile::switchToFile(const std::string &name)
 
 void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
 {
-    files[toAdd.first->filename()] = toAdd;
+    files[replaceSlash(toAdd.first->filename()).c_str()] = toAdd;
 }
 
 
@@ -1772,7 +1781,7 @@ void SgStatement::updateStatsByLine(std::map<std::pair<std::string, int>, SgStat
     for (; node; node = node->thread)
     {
         SgStatement *st = BfndMapping(node);
-        toUpdate[std::make_pair(st->fileName(), st->lineNumber())] = st;
+        toUpdate[std::make_pair(replaceSlash(st->fileName()), st->lineNumber())] = st;
     }
 }
 
@@ -1786,7 +1795,7 @@ SgStatement* SgStatement::getStatementByFileAndLine(const std::string &fName, co
     if (itID->second.size() == 0)
         updateStatsByLine(itID->second);
     
-    std::map<std::pair<std::string, int>, SgStatement*>::iterator itPair = itID->second.find(make_pair(fName, lineNum));
+    std::map<std::pair<std::string, int>, SgStatement*>::iterator itPair = itID->second.find(make_pair(replaceSlash(fName), lineNum));
     if (itPair == itID->second.end())
         return NULL;
     else
