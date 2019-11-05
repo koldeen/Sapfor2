@@ -40,6 +40,8 @@ public:
     ArrayUsage(UsageByFile init) : usages_by_file(init) { }; 
     ArraySet get_read_arrs(SgStatement* st);
     ArraySet get_write_arrs(SgStatement* st);
+    ArraySet get_read_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
+    ArraySet get_write_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
 };
 
 class ArrayUsageFactory
@@ -120,8 +122,6 @@ class DvmhRegionInsertor
     void mergeRegions();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
-    ArraySet get_read_arrs_for_block(SgStatement* st);
-    ArraySet get_write_arrs_for_block(SgStatement* st);
 public:
 
     DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&);
