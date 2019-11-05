@@ -23,7 +23,7 @@
 #include <unordered_set> 
 #include <unordered_map>
 
-typedef std::unordered_set<DIST::Array* > ArraySet;  // TODO: добавить урезанную инфу
+typedef std::unordered_set<DIST::Array* > ArraySet;
 struct ReadWrite
 {
     ArraySet read;
@@ -35,7 +35,7 @@ typedef std::unordered_map<std::string, UsageByLine> UsageByFile;
 class ArrayUsage
 {
     UsageByFile usages_by_file; // [file, [line, (read, write)]]
-
+    // TODO: добавить урезанную инфу [file, [line, Usage(arr, underFunctionPar, funName)]]
 public:
     ArrayUsage(UsageByFile init) : usages_by_file(init) { }; 
     ArraySet get_read_arrs(SgStatement* st);
