@@ -47,7 +47,10 @@ public:
 class ArrayUsageFactory
 {
 public:
-    static std::unique_ptr<ArrayUsage> from_array_access(std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access);
+    static std::unique_ptr<ArrayUsage> from_array_access(
+            std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
+            bool dist_only
+            );
 };
 
 struct LoopCheckResults 

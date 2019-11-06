@@ -130,7 +130,7 @@ DvmhRegionInsertor::DvmhRegionInsertor(
 ) : file(curFile), loopGraph(curLoopGraph)
 { 
     auto array_access = createMapOfArrayAccess(declaratedArrays);
-    array_usage = ArrayUsageFactory::from_array_access(array_access);
+    array_usage = ArrayUsageFactory::from_array_access(array_access, true);
 }
 
 LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<string, FuncInfo*> &allFuncs)
@@ -344,14 +344,14 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
-
+    // TODO: if func is parallel -> skip
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         st->lexNext();
-        while (st != lastNode & st != NULL)
+        while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
             st = processSt(st);
     }
 }
@@ -584,19 +584,25 @@ static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatem
     return make_tuple(read, write);
 }
 
-unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access)
+unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
+        map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
+        bool dist_only
+        )
 {
     UsageByFile usage_by_file;
 
     for (auto& arr : arrays_with_access)
     {
+        DIST::Array* arr_ptr = arr.first;
+        if (dist_only && arr_ptr->GetNonDistributeFlag())
+            continue;
+
         for (auto& file : arr.second->GetAllAccessInfo())
         {
             for (auto& line : file.second) 
             {
                 for (auto& usage : line.second)
                 {
-                    DIST::Array* arr_ptr = arr.first;
                     string file_name = file.first;
                     int line_num = line.first;
 
