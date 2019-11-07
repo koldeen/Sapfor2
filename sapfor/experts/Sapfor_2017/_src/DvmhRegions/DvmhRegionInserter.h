@@ -19,6 +19,39 @@
 #include <string>
 #include <algorithm>
 #include <tuple>
+#include <utility>
+#include <unordered_set> 
+#include <unordered_map>
+
+typedef std::unordered_set<DIST::Array* > ArraySet;
+struct ReadWrite
+{
+    ArraySet read;
+    ArraySet write;
+};
+typedef std::unordered_map<int, ReadWrite> UsageByLine;
+typedef std::unordered_map<std::string, UsageByLine> UsageByFile;
+
+class ArrayUsage
+{
+    UsageByFile usages_by_file; // [file, [line, (read, write)]]
+    // TODO: добавить урезанную инфу [file, [line, Usage(arr, underFunctionPar, funName)]]
+public:
+    ArrayUsage(UsageByFile init) : usages_by_file(init) { }; 
+    ArraySet get_read_arrs(SgStatement* st);
+    ArraySet get_write_arrs(SgStatement* st);
+    ArraySet get_read_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
+    ArraySet get_write_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
+};
+
+class ArrayUsageFactory
+{
+public:
+    static std::unique_ptr<ArrayUsage> from_array_access(
+            std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
+            bool dist_only
+            );
+};
 
 struct LoopCheckResults 
 {
@@ -44,11 +77,10 @@ public:
     DvmhRegion() { }
     DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
 
-    bool isInRegion(SgStatement *);
     SgStatement* getFirstSt() const;
     SgStatement* getLastSt() const;
 
-    bool addToActualisation(const std::string &s) 
+    bool addToActualisation(const std::string &s)
     {
         if (needActualisation.find(s) != needActualisation.end())
             return false;
@@ -72,6 +104,7 @@ public:
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
     const std::set<std::string>& getActualisation() const {return needActualisation; }
     const std::set<std::string>& getActualisationAfter() const { return needActualisationAfter; }
+
 };
 
 class DvmhRegionInsertor 
@@ -79,21 +112,27 @@ class DvmhRegionInsertor
     SgFile *file;
     const std::vector<LoopGraph*> &loopGraph;
     std::vector<DvmhRegion*> regions;
+    std::unique_ptr<ArrayUsage> array_usage;
 
-    DvmhRegion* getContainingRegion(SgStatement *);
+    DvmhRegion* getRegionByStart(SgStatement *) const;
     void printFuncName(SgStatement *);
     void findEdgesForRegions(const std::vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
+    SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirective(SgStatement*, const std::set<std::string>&, int, bool, bool empty = false);
+    void insertActualDirective(SgStatement*, const ArraySet&, int, bool, bool empty = false);
     void mergeRegions();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
-
 public:
 
     DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&);
+    DvmhRegionInsertor(
+        SgFile*, 
+        const std::vector<LoopGraph*>&,
+        const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>>&
+    );
     void updateLoopGraph(const std::map<std::string, FuncInfo*> &allFuncs);
     void insertDirectives();
     ~DvmhRegionInsertor()
@@ -103,71 +142,4 @@ public:
     }
 };
 
-// Reaching defenitions for every symbol used in the statement
-typedef std::map<SgSymbol*, std::set<SgStatement*>> StDefs;
-
-// Keeps reaching defenitions for every statement of the project
-class RDKeeper 
-{
-    /* Finds set of symbols used in the expression. */
-    static std::set<SgSymbol*> getSymbolsFromExpression(SgExpression *exp);
-
-    /* Finds set of symbols used in whole statement containing several expressions. */
-    static std::set<SgSymbol*> getUsedSymbols(SgStatement* st);
-public:
-    std::map<SgStatement*, StDefs > defsByStatement;
-
-    RDKeeper(SgFile*);
-    StDefs getDefs(SgStatement *);
-};
-
-// enum DFGType {block, par_loop};
-
-// /*   Distributed Flow Graph Node.
-//      Node represents either:
-//      (1) basic block, containing usages of distibuted arrays;
-//      (2) set of basic blocks, composing parallel loop.
-// */
-// class DFGNode {
-// public:
-//  vector<CBasicBlock *> initial;
-//  vector<DFGNode*> prev;
-//  vector<DFGNode*> succ;
-//  vector<SgStatement*> content;
-//  vector<SgSymbol*> d_arrays;
-//  DFGType type;
-//  int id;
-
-//  /* Initializes DFGNode (1) from CBasicBlock. */
-//  DFGNode(CBasicBlock* bblock);
-
-//  /* Initializes DFGNode (2) from list of DFGNode's. */
-//  DFGNode(vector<DFGNode*> elements);
-
-//  /* Finds set of symbols used in the expression. */
-//  static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp);
-
-//  /* Finds set of symbols used in whole statement containing several expressions. */
-//  static set<SgSymbol *> getUsedSymbols(SgStatement* st);
-
-//  /* Returns std::string containing human readable information representing DFGNode. */
-//  std::string getInfo() const;
-
-//  /* Links new successor for the DFGNode. Returns false if this successor was already linked. */
-//  bool addSucc(DFGNode* new_succ);
-
-//  /* Links new predecessor for the DFGNode. Returns false if this predecessor was already linked. */
-//  bool addPrev(DFGNode* new_prev);
-// };
-
-// /*   Abstract control flow graph. Consists of linked DFGNodes. */
-// class AFlowGraph {
-//  std::map<std::string, std::vector<DFGNode*> > fun_graphs;
-//  // TODO: memory cleaning
-// public:
-//  /* Returns DFGNode by function name and node id. */
-//  DFGNode* getNode(std::string fun_name, int id);
-
-//  /* Builds AFlowGraph from scratch. Result of intermediate construction of the classic Contlor Flow Graph is used. */
-//  AFlowGraph(SgFile file, vector<DvmhRegion*> regions);
-// };
+static std::tuple<std::set<SgSymbol *>, std::set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st);

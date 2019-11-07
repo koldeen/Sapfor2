@@ -970,7 +970,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_REGIONS)
         {
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInsertor regionInsertor(file, loopForFile);
+            DvmhRegionInsertor regionInsertor(file, loopForFile, declaratedArrays);
             regionInsertor.insertDirectives();
 
             //remove private from loops out of DVMH region

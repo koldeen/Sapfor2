@@ -30,8 +30,7 @@ void DvmhRegionInsertor::printFuncName(SgStatement* st)
     }
 }
 
-// TODO: init first and last statements
-void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops) // here as link
+void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
     for (auto &loopNode : loops)
     {
@@ -122,9 +121,17 @@ LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNo
     return loopCheckResults;
 }
 
-DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile, const vector<LoopGraph*> &curLoopGraph)
-    : file(curFile), loopGraph(curLoopGraph)
-{ }
+DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile, const vector<LoopGraph*> &curLoopGraph) : file(curFile), loopGraph(curLoopGraph) { }
+
+DvmhRegionInsertor::DvmhRegionInsertor(
+    SgFile *curFile, 
+    const vector<LoopGraph*> &curLoopGraph,
+    const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays
+) : file(curFile), loopGraph(curLoopGraph)
+{ 
+    auto array_access = createMapOfArrayAccess(declaratedArrays);
+    array_usage = ArrayUsageFactory::from_array_access(array_access, true);
+}
 
 LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<string, FuncInfo*> &allFuncs)
 {
@@ -169,34 +176,6 @@ static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 {
     return st->variant() == ASSIGN_STAT && st->expr(0)->variant() == ARRAY_REF && st->expr(0)->symbol()->identifier() == var->identifier();
 }
-
-// Finds the closest variable's defenition (test only)
-// static map<SymbolKey, set<SgExpression*> > dummyDefenitions(SgStatement* st)
-// {
-//  map<SymbolKey, set<SgExpression*> > result;
-
-//  set<SgSymbol*> usedSymbols = getUsedSymbols(st);
-
-//  for (auto& var : usedSymbols)
-//  {
-//      SgStatement* prev = st->lexPrev();
-
-//      set<SgExpression*> defs;
-//      while (prev)
-//      {
-//          if (SymbDefinedIn(var, prev)) {
-//              defs.insert(prev->expr(1));
-//              break;
-//          }
-
-//          prev = prev->lexPrev();
-//      }
-
-//      result[SymbolKey(var, false)] = defs;
-//  }
-
-//  return result;
-// }
 
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
                       const string& locName, vector<string> &altNames)
@@ -307,116 +286,73 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
     }
 }
 
+SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
+{
+    if (st == NULL)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    if (st == NULL || st->variant() == CONTAINS_STMT)
+        return NULL;
+
+    // Skip regions
+    DvmhRegion* region = getRegionByStart(st);
+    if (region)
+        return region->getLastSt();
+
+    // Actualization before remote dir
+    if (st->variant() == DVM_REMOTE_ACCESS_DIR)
+    {
+        SgStatement* remote_dir = st;
+        while (isDVM_stat(st))
+            st = st->lexNext();
+
+        insertActualDirective(
+            remote_dir,
+            array_usage->get_read_arrs_for_block(st, true, true),
+            ACC_GET_ACTUAL_DIR,
+            true
+        );
+        insertActualDirective(
+                st->lastNodeOfStmt(),
+            array_usage->get_write_arrs_for_block(st, true, true),
+            ACC_ACTUAL_DIR,
+            false
+        );
+
+        return st->lastNodeOfStmt()->lexNext();
+    }
+
+    // Skip useless
+    if (!isSgExecutableStatement(st) || isSgProgHedrStmt(st) || isDVM_stat(st))
+        return st->lexNext();
+
+    insertActualDirective(
+        st,
+        array_usage->get_read_arrs(st),
+        ACC_GET_ACTUAL_DIR,
+        true
+    );
+    insertActualDirective(
+        st,
+        array_usage->get_write_arrs(st),
+        ACC_ACTUAL_DIR,
+        false
+    );
+
+    return st->lexNext();
+}
+
 void DvmhRegionInsertor::insertActualDirectives() 
 {
-    //TODO: rewrite
-#if 0
     int funcNum = file->numberOfFunctions();
-    RDKeeper rd = RDKeeper(file);
-
-    for (auto const& defsByStatement : rd.defsByStatement)
+    // TODO: if func is parallel -> skip
+    for (int i = 0; i < funcNum; ++i)
     {
-        SgStatement* st = defsByStatement.first;
-        StDefs st_defs = defsByStatement.second;
+        SgStatement *st = file->functions(i);
+        SgStatement *lastNode = st->lastNodeOfStmt();
 
-        DvmhRegion* region = getContainingRegion(st);
-
-        vector<SgSymbol*> toActualise;
-        for (auto const& elem : st_defs) 
-        {
-            SgSymbol* symbol = elem.first;
-            set<SgStatement*> defs = elem.second;
-            /*
-            // DEBUG
-            cout << "~~~~~~~~~~~~~~~~~~~~~" << endl;
-            st->unparsestdout();
-            cout << symbol.getVarName() + ": " << endl;
-            for (auto &def : defs) {
-                if (def) {
-                    def->unparsestdout();
-                }
-            }
-            cout << "********************" << endl;
-            // END OF DEBUG
-            */
-            if (region) 
-            {
-                // Searching for defenition not in region
-                bool symbolDeclaredInSequentPart = false;
-                for (auto& def : defs) 
-                {
-                    auto saveName = current_file->filename();
-
-                    if (!def->switchToFile())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    DvmhRegion* containingRegion = getContainingRegion(def);
-                    if (!containingRegion) 
-                    {
-                        symbolDeclaredInSequentPart = true;
-                        break;
-                    }
-
-                    if (SgFile::switchToFile(saveName) == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-                if (symbolDeclaredInSequentPart)
-                    region->addToActualisation(symbol);
-            }
-            else 
-            {
-                // Searching for defenition in region
-                bool symbolDeclaredInRegion = false;
-                for (auto& def : defs) 
-                {
-                    auto saveName = current_file->filename();
-
-                    if (!def->switchToFile())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-                    const DvmhRegion* containingRegion = getContainingRegion(def);
-                    if (containingRegion) 
-                    {
-                        symbolDeclaredInRegion = true;
-                        break;
-                    }
-
-                    if (SgFile::switchToFile(saveName) == -1)
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                }
-                if (symbolDeclaredInRegion)
-                    toActualise.push_back(symbol);
-            }
-        }
-        insertActualDirective(st, toActualise, ACC_GET_ACTUAL_DIR, true);
-    }
-#endif
-
-    //TODO: improve and optimize
-    for (auto& region : regions)
-    {
-        for (auto& loop : region->getLoops())
-        {
-            for (auto& array : loop->usedArrays)
-            {
-                string arrayName = array->GetShortName();
-                if (array->GetLocation().first == DIST::l_MODULE)
-                    arrayName = getNameByUse(loop->loop->GetOriginal(), arrayName, array->GetLocation().second);
-
-                region->addToActualisation(arrayName);
-                if (loop->usedArraysWrite.find(array) != loop->usedArraysWrite.end())
-                    region->addToActualisationAfter(arrayName);
-            }
-        }
-    }
-
-    for (auto& region : regions)
-    {
-        if (region->getLoops().size())
-        {
-            insertActualDirective(region->getFirstSt()->lexPrev()->lexPrev(), region->getActualisation(), ACC_ACTUAL_DIR, true, false);
-            insertActualDirective(region->getLastSt()->lexNext(), region->getActualisationAfter(), ACC_GET_ACTUAL_DIR, false, false);
-        }
+        st->lexNext();
+        while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
+            st = processSt(st);
     }
 }
 
@@ -515,59 +451,23 @@ void DvmhRegionInsertor::insertDirectives()
 
      __spf_print(1, "Insert actuals\n");
     insertActualDirectives();
-
-    //vector<DvmhRegion*> l_regions;
-    //for (auto &region : regions)
-    //  l_regions.push_back(&region);
-
-    //__spf_print(1, "Constructing Abstract Graph\n");
-    //AFlowGraph graph = AFlowGraph(file, l_regions);
 }
 
-/*********** DvmhRegion *************/
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
+void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool before, bool empty)
 {
-    loops.push_back(loopNode);
-}
-
-bool DvmhRegion::isInRegion(SgStatement *st) 
-{
-    if (!st)
-        return false;
-
-    int line = st->lineNumber();
-    bool inLoop = false;
-    for (auto& loop : loops)
-        inLoop |= (st->fileName() == loop->fileName && line >= loop->lineNum && line < loop->lineNumAfterLoop);
-    return inLoop;
-}
-
-DvmhRegion* DvmhRegionInsertor::getContainingRegion(SgStatement *st) 
-{
-    for (auto& region : regions) 
-        if (region->isInRegion(st)) 
-            return region;
-    return NULL;
-}
-
-void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string> &symbols, int varinat, bool before, bool empty)
-{
-    if (!st || (varinat != ACC_ACTUAL_DIR && varinat != ACC_GET_ACTUAL_DIR) || (!empty && (symbols.size() == 0)))
+    if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (!empty && (arraySet.size() == 0)))
         return;
 
-    SgStatement *actualizingSt = new SgStatement(varinat);
+    SgStatement *actualizingSt = new SgStatement(variant);
 
     SgExprListExp *t = new SgExprListExp();
-    for (auto &symbol : symbols) 
+    for (auto &arr : arraySet) 
     {
-        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, symbol));
+        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, arr->GetShortName()));
         t->append(*expr);
     }
 
-    if (symbols.size())
-        actualizingSt->setExpression(0, t->rhs());
-    else
-        actualizingSt->setExpression(0, t);
+    actualizingSt->setExpression(0, t->rhs());
 
     if (before)
     {
@@ -580,6 +480,24 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const set<string
     }
     else
         st->insertStmtAfter(*actualizingSt, *st->controlParent());
+}
+
+DvmhRegion* DvmhRegionInsertor::getRegionByStart(SgStatement *st) const
+{
+    for (auto& region : regions)
+    {
+        SgStatement *region_start = region->getFirstSt();
+        if (st->id() == region_start->id()) 
+            return region;
+    }
+
+    return NULL;
+}
+
+/*********** DvmhRegion *************/
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
+{
+    loops.push_back(loopNode);
 }
 
 SgStatement* DvmhRegion::getFirstSt() const 
@@ -596,26 +514,14 @@ SgStatement* DvmhRegion::getLastSt() const
     return loops.back()->loop->lastNodeOfStmt();
 }
 
-//TODO: need to remove or rewrite RDKeeper 
-RDKeeper::RDKeeper(SgFile *file) 
-{
-    // Build CFG
-    SgStatement *st = file->functions(0);
-    GraphsKeeper* graphsKeeper = GraphsKeeper::getGraphsKeeper();
-    ControlFlowGraph* CGraph = graphsKeeper->buildGraph(st)->CGraph;
-
-    // Find gen for every bb
-
-    // Find defs for every statement
-}
-
-set<SgSymbol *> RDKeeper::getSymbolsFromExpression(SgExpression *exp) 
+static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) 
 {
     set<SgSymbol *> result;
 
     if (exp)
     {
-        if (exp->variant() == ARRAY_REF) {
+        if (exp->variant() == ARRAY_REF) 
+        {
             SgSymbol* symbol = exp->symbol();
             DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
 
@@ -633,20 +539,174 @@ set<SgSymbol *> RDKeeper::getSymbolsFromExpression(SgExpression *exp)
     return result;
 }
 
-set<SgSymbol *> RDKeeper::getUsedSymbols(SgStatement* st) 
+/* Returns tuple (READ, WRITE) of used symbols in the statement */
+static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st) 
 {
-    set<SgSymbol *> result;
+    set<SgSymbol *> read, write;
 
     // ignore not executable statements
     if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
-        return result;
+        return make_tuple(read, write);
 
-    for (int i = 0; i < 3; ++i) {
-        if (st->expr(i)) {
+    int start = 0;
+    if (st->variant() == ASSIGN_STAT)
+    {
+        start = 1;
+        SgExpression* exp = st->expr(0);
+        // find write: check modified var 
+        if (st->expr(0)->variant() == ARRAY_REF)
+        {
+            SgSymbol* symbol = exp->symbol();
+            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+
+            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
+                write.insert(exp->symbol());
+        }
+        
+        // find reads
+        set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(exp->lhs());
+        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+
+        symbolsUsedInExpression = getSymbolsFromExpression(exp->rhs());
+        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+    }
+
+    // find read
+    for (int i = start; i < 3; ++i) 
+    {
+        if (st->expr(i)) 
+        {
             set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-            result.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+            read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
         }
     }
 
-    return result;
+    return make_tuple(read, write);
+}
+
+unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
+        map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
+        bool dist_only
+        )
+{
+    UsageByFile usage_by_file;
+
+    for (auto& arr : arrays_with_access)
+    {
+        DIST::Array* arr_ptr = arr.first;
+        if (dist_only && arr_ptr->GetNonDistributeFlag())
+            continue;
+
+        for (auto& file : arr.second->GetAllAccessInfo())
+        {
+            for (auto& line : file.second) 
+            {
+                for (auto& usage : line.second)
+                {
+                    string file_name = file.first;
+                    int line_num = line.first;
+
+                    if (usage_by_file.find(file_name) == usage_by_file.end())
+                        usage_by_file[file_name] = UsageByLine();
+                    if (usage_by_file[file_name].find(line_num) == usage_by_file[file_name].end())
+                        usage_by_file[file_name][line_num] = ReadWrite();
+                    
+                    if (usage.type == 0)
+                        usage_by_file[file_name][line_num].read.insert(arr_ptr);
+                    if (usage.type == 1)
+                        usage_by_file[file_name][line_num].write.insert(arr_ptr);
+                }          
+            }
+        }
+    }
+
+    return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
+}
+
+ArraySet ArrayUsage::get_read_arrs(SgStatement* st)
+{
+    string f_name = st->fileName();
+    if (
+        usages_by_file.find(f_name) != usages_by_file.end() & 
+        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
+    )
+        return usages_by_file[f_name][st->lineNumber()].read;
+
+    return ArraySet(); 
+}
+
+ArraySet ArrayUsage::get_write_arrs(SgStatement* st)
+{
+    string f_name = st->fileName();
+    if (
+        usages_by_file.find(f_name) != usages_by_file.end() & 
+        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
+    )
+        return usages_by_file[f_name][st->lineNumber()].write;
+
+    return ArraySet();   
+}
+
+ArraySet ArrayUsage::get_read_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm)
+{
+    auto usages = ArraySet();
+    SgStatement *end = st->lastNodeOfStmt()->lexNext();
+
+    st->lexNext();
+    while (st != end & st != NULL)
+    {
+        // Skip regions
+        if (ignore_regions && st->variant() == ACC_REGION_DIR)
+        {
+            while (st->variant() != ACC_END_REGION_DIR)
+                st = st->lexNext();
+
+            st = st->lexNext();
+        }
+
+        // Skip DVM dirs
+        if (ignore_dvm && isDVM_stat(st))
+        {
+            st = st->lexNext();
+            continue;
+        }
+
+        ArraySet st_usages = this->get_read_arrs(st);
+        usages.insert(st_usages.begin(), st_usages.end());
+        st = st->lexNext();
+    }
+
+    return usages;
+}
+
+ArraySet ArrayUsage::get_write_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm)
+{
+    auto usages = ArraySet();
+    SgStatement *end = st->lastNodeOfStmt()->lexNext();
+
+    st->lexNext();
+    while (st != end && st != NULL)
+    {
+        // Skip regions
+        if (ignore_regions && st->variant() == ACC_REGION_DIR)
+        {
+            while (st->variant() != ACC_END_REGION_DIR)
+                st = st->lexNext();
+
+            st = st->lexNext();
+        }
+
+        // Skip DVM dirs
+        if (ignore_dvm && isDVM_stat(st))
+        {
+            st = st->lexNext();
+            continue;
+        }
+
+        ArraySet st_usages = this->get_write_arrs(st);
+        usages.insert(st_usages.begin(), st_usages.end());
+        st = st->lexNext();
+    }
+
+    return usages;
 }
