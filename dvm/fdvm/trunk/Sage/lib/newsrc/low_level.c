@@ -1252,7 +1252,7 @@ char to_upper_case (char c, int *quote)
           *quote = c;
        return c;
     }
-    if(islower(c) && *quote==0)
+    if(c >= 0 && islower(c) && *quote==0)
        return toupper(c);
     return c;        
 }
@@ -1263,7 +1263,7 @@ char* filter(char *s)
     int i = 1, quote = 0;
 
     // 14.10.2016 Kolganov. Switch constant buffer to dynamic
-    int temp_size = 1024;
+    int temp_size = 4096;
     char *temp = (char*)malloc(sizeof(char) * temp_size);
 #ifdef __SPF
     addToCollection(__LINE__, __FILE__,temp, 0);
@@ -1329,7 +1329,7 @@ char* filter(char *s)
     }
     temp_i = 0;
     i = 0;
-    buf_i = 0;
+    buf_i = 0;    
     while (c != '\0')
     {
         c = s[i];

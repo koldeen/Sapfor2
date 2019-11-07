@@ -6,3 +6,4 @@
 #include <string>
 
 void SwapArrayDims(SgFile *file, const std::map<std::string, std::vector<int>> &arraysToSwap);
+void setAllDeclsWithInitZero(SgFile* file);

@@ -172,6 +172,33 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                                     const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs, bool toString)
 { 
     fflush(NULL);
+    
+    //TMP for debug
+    /*
+    {
+        FILE* currFile = fopen(fileName, "r");
+#ifdef _WIN32
+        FILE* fOut;
+        errno_t err = fopen_s(&fOut, fout, "w");
+#else
+        int err = 0;
+        FILE* fOut = fopen(fout, "w");
+#endif
+        if (fOut == NULL)
+        {
+            if (fout)
+                __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
+            else
+                __spf_print(1, "can not open file to write with name 'NULL'\n");
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
+        file->unparse(fOut);
+        fclose(fOut);
+        fclose(currFile);
+
+        return "";
+    } */
+    
 
     set<string> moduleIncudeUses;
     auto itM = moduleUsesByFile.find(fileName);
@@ -453,7 +480,7 @@ SgSymbol* findSymbolOrCreate(SgFile *file, const string toFind, SgType *type, Sg
 
 static string getValue(SgExpression *exp)
 {
-    if (exp == NULL)
+    if (exp == NULL || exp->variant() == STMT_STR)
         return "";
 
     string ret = "";

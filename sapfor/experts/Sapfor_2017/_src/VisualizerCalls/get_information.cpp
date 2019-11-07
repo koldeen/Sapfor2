@@ -1464,7 +1464,7 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
     return retCode;
 }
 
-//TODO
+//TODO: split
 extern vector<FuncInfo*> inDataAllProc;
 int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* projName, short* folderName,
                          short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)

@@ -250,7 +250,7 @@ static vector<int> matchSubscriptToLoopSymbols(const vector<SgForStmt*> &parentL
             wstring messageE, messageR;
             __spf_printToLongBuf(messageE, L"array ref '%s' has more than one loop's variables", to_wstring(arrayRefString.second).c_str());
 #if _WIN32
-            __spf_printToLongBuf(messageE, R54, to_wstring(arrayRefString.second).c_str());
+            __spf_printToLongBuf(messageR, R54, to_wstring(arrayRefString.second).c_str());
 #endif
             if (currLine > 0)
                 currMessages->push_back(Messages(WARR, currLine, messageR, messageE, 1021));

@@ -52,7 +52,8 @@ void VarDeclCorrecter(SgFile *file)
                     if (el->lhs()->variant() == ASSGN_OP) 
                         is_assign = 1;//with initial value
                 }
-                if (is_assign && st->variant() == VAR_DECL && !st->expr(2))
+                //CONVERT all decls to F90
+                //if (is_assign && st->variant() == VAR_DECL && !st->expr(2))
                     st->setVariant(VAR_DECL_90);
             }
             st = st->lexNext();

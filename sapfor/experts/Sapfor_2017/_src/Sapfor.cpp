@@ -58,6 +58,7 @@
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
 #include "Distribution/Array.h"
+#include "LoopConverter/swap_array_dims.h"
 
 //#include "DEAR/dep_analyzer.h"
 
@@ -1005,7 +1006,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         }
         else if (curr_regime == RESTORE_COPIES)
             restoreCopies(file);
-
+        else if (curr_regime == SET_TO_ALL_DECL_INIT_ZERO)
+            setAllDeclsWithInitZero(file);
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
@@ -2119,6 +2121,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
     case REMOVE_DVM_INTERVALS:
+    case SET_TO_ALL_DECL_INIT_ZERO:
         runAnalysis(*project, curr_regime, true, "", folderName);
         break;
     case INLINE_PROCEDURES:
