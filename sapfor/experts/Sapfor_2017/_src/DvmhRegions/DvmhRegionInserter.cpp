@@ -11,6 +11,9 @@
 
 using namespace std;
 
+#define DVMH_REG_RD 0
+#define DVMH_REG_WT 1
+
 void DvmhRegionInsertor::printFuncName(SgStatement* st)
 {
     if (st->variant() == PROG_HEDR)
@@ -162,16 +165,6 @@ void DvmhRegionInsertor::updateLoopGraph(const map<string, FuncInfo*> &allFuncs)
         updateLoopNode(loopNode, allFuncs);
 }
 
-
-/*
-    1. ���������� ������ ������ ������ �������
-    2. ������ ���������� � ����� ������� ���������
-    3. ���� ����� ��������� ���-�� ����:
-        �) ��� ��������� �����-����
-        �) ���� ����������� ���������� -- ��������� ������ (����� ���������, ���� ������ �� ������������ � ����. �������)
-        �) ���� ����� ������� -- ������������ �� ������ �� ����������������� � ���� �������*
-*/
-
 static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
 {
     return st->variant() == ASSIGN_STAT && st->expr(0)->variant() == ARRAY_REF && st->expr(0)->symbol()->identifier() == var->identifier();
@@ -286,57 +279,48 @@ static string getNameByUse(SgStatement *loop, const string &varName, const strin
     }
 }
 
+static SgStatement* skipDvmhRegionInterval(SgStatement *start)
+{
+    if (start->variant() != ACC_REGION_DIR)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    auto st = start;    
+    while (st->variant() != ACC_END_REGION_DIR)
+        st = st->lexNext();
+    return st->lexNext();
+}
+
 SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
 {
     if (st == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    if (st == NULL || st->variant() == CONTAINS_STMT)
-        return NULL;
 
     // Skip regions
-    DvmhRegion* region = getRegionByStart(st);
-    if (region)
-        return region->getLastSt();
+    if (st->variant() == ACC_REGION_DIR)
+        return skipDvmhRegionInterval(st);
 
-    // Actualization before remote dir
-    if (st->variant() == DVM_REMOTE_ACCESS_DIR)
+    // Actualization before remote dir and parallel loops blocks
+    if (st->variant() == DVM_REMOTE_ACCESS_DIR || st->variant() == DVM_PARALLEL_ON_DIR)
     {
-        SgStatement* remote_dir = st;
+        SgStatement* block_dir = st;
         while (isDVM_stat(st))
             st = st->lexNext();
 
-        insertActualDirective(
-            remote_dir,
-            array_usage->get_read_arrs_for_block(st, true, true),
-            ACC_GET_ACTUAL_DIR,
-            true
-        );
-        insertActualDirective(
-                st->lastNodeOfStmt(),
-            array_usage->get_write_arrs_for_block(st, true, true),
-            ACC_ACTUAL_DIR,
-            false
-        );
+        auto readBlocks = array_usage->get_op_arrs_for_block(st, true, true, DVMH_REG_RD);
+        auto writeBlocks = array_usage->get_op_arrs_for_block(st, true, true, DVMH_REG_WT);
+
+        insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
+        insertActualDirective(st->lastNodeOfStmt(), writeBlocks, ACC_ACTUAL_DIR, false);
 
         return st->lastNodeOfStmt()->lexNext();
     }
 
     // Skip useless
-    if (!isSgExecutableStatement(st) || isSgProgHedrStmt(st) || isDVM_stat(st))
+    if (!isSgExecutableStatement(st) || isDVM_stat(st))
         return st->lexNext();
 
-    insertActualDirective(
-        st,
-        array_usage->get_read_arrs(st),
-        ACC_GET_ACTUAL_DIR,
-        true
-    );
-    insertActualDirective(
-        st,
-        array_usage->get_write_arrs(st),
-        ACC_ACTUAL_DIR,
-        false
-    );
+    insertActualDirective(st, array_usage->get_op_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
+    insertActualDirective(st, array_usage->get_op_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
 
     return st->lexNext();
 }
@@ -350,7 +334,7 @@ void DvmhRegionInsertor::insertActualDirectives()
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
-        st->lexNext();
+        st = st->lexNext();
         while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
             st = processSt(st);
     }
@@ -482,18 +466,6 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
         st->insertStmtAfter(*actualizingSt, *st->controlParent());
 }
 
-DvmhRegion* DvmhRegionInsertor::getRegionByStart(SgStatement *st) const
-{
-    for (auto& region : regions)
-    {
-        SgStatement *region_start = region->getFirstSt();
-        if (st->id() == region_start->id()) 
-            return region;
-    }
-
-    return NULL;
-}
-
 /*********** DvmhRegion *************/
 DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
 {
@@ -623,78 +595,32 @@ unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
     return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
 }
 
-ArraySet ArrayUsage::get_read_arrs(SgStatement* st)
+ArraySet ArrayUsage::get_op_arrs(SgStatement* st, int type)
 {
     string f_name = st->fileName();
-    if (
-        usages_by_file.find(f_name) != usages_by_file.end() & 
-        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
-    )
-        return usages_by_file[f_name][st->lineNumber()].read;
+    if (usages_by_file.find(f_name) != usages_by_file.end() &&
+        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end())
+    {
+        if (type == 0)
+            return usages_by_file[f_name][st->lineNumber()].read;
+        else
+            return usages_by_file[f_name][st->lineNumber()].write;
+    }
 
     return ArraySet(); 
 }
 
-ArraySet ArrayUsage::get_write_arrs(SgStatement* st)
-{
-    string f_name = st->fileName();
-    if (
-        usages_by_file.find(f_name) != usages_by_file.end() & 
-        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end()
-    )
-        return usages_by_file[f_name][st->lineNumber()].write;
-
-    return ArraySet();   
-}
-
-ArraySet ArrayUsage::get_read_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm)
+ArraySet ArrayUsage::get_op_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm, int type)
 {
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();
 
-    st->lexNext();
-    while (st != end & st != NULL)
-    {
-        // Skip regions
-        if (ignore_regions && st->variant() == ACC_REGION_DIR)
-        {
-            while (st->variant() != ACC_END_REGION_DIR)
-                st = st->lexNext();
-
-            st = st->lexNext();
-        }
-
-        // Skip DVM dirs
-        if (ignore_dvm && isDVM_stat(st))
-        {
-            st = st->lexNext();
-            continue;
-        }
-
-        ArraySet st_usages = this->get_read_arrs(st);
-        usages.insert(st_usages.begin(), st_usages.end());
-        st = st->lexNext();
-    }
-
-    return usages;
-}
-
-ArraySet ArrayUsage::get_write_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm)
-{
-    auto usages = ArraySet();
-    SgStatement *end = st->lastNodeOfStmt()->lexNext();
-
-    st->lexNext();
+    st = st->lexNext();
     while (st != end && st != NULL)
     {
         // Skip regions
         if (ignore_regions && st->variant() == ACC_REGION_DIR)
-        {
-            while (st->variant() != ACC_END_REGION_DIR)
-                st = st->lexNext();
-
-            st = st->lexNext();
-        }
+            st = skipDvmhRegionInterval(st);
 
         // Skip DVM dirs
         if (ignore_dvm && isDVM_stat(st))
@@ -703,10 +629,9 @@ ArraySet ArrayUsage::get_write_arrs_for_block(SgStatement* st, bool ignore_regio
             continue;
         }
 
-        ArraySet st_usages = this->get_write_arrs(st);
+        ArraySet st_usages = get_op_arrs(st, type);
         usages.insert(st_usages.begin(), st_usages.end());
         st = st->lexNext();
     }
-
     return usages;
 }

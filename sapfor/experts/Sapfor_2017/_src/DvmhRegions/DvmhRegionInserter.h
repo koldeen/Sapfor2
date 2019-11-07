@@ -37,11 +37,10 @@ class ArrayUsage
     UsageByFile usages_by_file; // [file, [line, (read, write)]]
     // TODO: добавить урезанную инфу [file, [line, Usage(arr, underFunctionPar, funName)]]
 public:
-    ArrayUsage(UsageByFile init) : usages_by_file(init) { }; 
-    ArraySet get_read_arrs(SgStatement* st);
-    ArraySet get_write_arrs(SgStatement* st);
-    ArraySet get_read_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
-    ArraySet get_write_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm);
+    ArrayUsage(UsageByFile init) : usages_by_file(init) { };
+
+    ArraySet get_op_arrs(SgStatement* st, int type); // 0 -read, 1 - write
+    ArraySet get_op_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm, int type);// 0 -read, 1 - write
 };
 
 class ArrayUsageFactory
@@ -114,7 +113,6 @@ class DvmhRegionInsertor
     std::vector<DvmhRegion*> regions;
     std::unique_ptr<ArrayUsage> array_usage;
 
-    DvmhRegion* getRegionByStart(SgStatement *) const;
     void printFuncName(SgStatement *);
     void findEdgesForRegions(const std::vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
