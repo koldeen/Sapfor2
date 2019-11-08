@@ -70,3 +70,5 @@ void fillModuleUse(SgFile* file, std::map<std::string, std::set<std::string>>& m
 void filterModuleUse(std::map<std::string, std::set<std::string>>& moduleUses, std::map<std::string, std::string>& moduleDecls);
 SgExpression* makeExprList(const std::vector<SgExpression*>& items);
 std::string unparseProjectToString(SgFile* file, const int curr_regime);
+
+SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s);

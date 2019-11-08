@@ -81,10 +81,49 @@ void SwapArrayDims(SgFile *file, const map<string, vector<int>> &arraysToSwap)
         __spf_print(1, "wasDECL swap in file %s\n", file->filename());
 }
 
+static void addToNonDecl(SgExpression *ex, set<SgSymbol*> &notDeclarated)
+{
+    if (ex)
+    {
+        if (ex->variant() == VAR_REF || ex->variant() == ARRAY_REF)
+        {
+            auto toCheck = OriginalSymbol(ex->symbol());
+            if (toCheck->variant() != FUNCTION_NAME)
+            {
+                if (declaratedInStmt(toCheck, NULL, false) == NULL)
+                    notDeclarated.insert(toCheck);
+            }
+        }
+        addToNonDecl(ex->lhs(), notDeclarated);
+        addToNonDecl(ex->rhs(), notDeclarated);
+    }
+}
+
+static void makeInit(SgExpression *exList, const set<string> &argNames, const set<string> &commonNames)
+{
+    for (auto ex = exList; ex; ex = ex->rhs())
+    {
+        auto s = ex->lhs()->symbol();
+        if (s)
+        {
+            bool isInData = (s->attributes() & DATA_BIT) != 0;
+            if (!isInData && s->type() && s->type()->variant() != T_STRING &&
+                ex->lhs()->variant() != ASSGN_OP &&
+                ex->lhs()->symbol()->variant() != FUNCTION_NAME &&
+                ex->lhs()->symbol()->variant() != CONST_NAME &&
+                argNames.find(ex->lhs()->symbol()->identifier()) == argNames.end() &&
+                commonNames.find(ex->lhs()->symbol()->identifier()) == commonNames.end())
+            {
+                //printf("%d\n", ex->lhs()->symbol()->variant());
+                SgExpression* initOp = new SgExpression(ASSGN_OP, ex->lhs(), new SgValueExp(0));
+                ex->setLhs(initOp);
+            }
+        }
+    }
+}
+
 void setAllDeclsWithInitZero(SgFile* file)
 {
-    /*if (file->filename() == string("Output_kin.for"))
-        printf("");*/
     for (int i = 0; i < file->numberOfFunctions(); ++i)
     {
         set<string> argNames;
@@ -135,27 +174,64 @@ void setAllDeclsWithInitZero(SgFile* file)
 
             auto decl = isSgDeclarationStatement(st);
             if (decl && st->variant() != DATA_DECL)
+                makeInit(decl->expr(0), argNames, commonNames);
+        }
+
+        set<SgSymbol*> notDeclarated;
+        for (SgStatement* st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (!isSgExecutableStatement(st))
+                continue;
+
+            for (int z = 0; z < 3; ++z)
+                addToNonDecl(st->expr(z), notDeclarated);
+        }
+        
+        if (notDeclarated.size())
+        {
+            map<int, set<SgSymbol*>> groupedByType;
+            for (auto& elem : notDeclarated)
+                groupedByType[elem->type()->id()].insert(elem);
+
+            for (auto& gr : groupedByType)
             {
-                for (auto ex = decl->expr(0); ex; ex = ex->rhs())
-                {   
-                    auto s = ex->lhs()->symbol();
-                    if (s)
-                    {
-                        bool isInData = (s->attributes() & DATA_BIT) != 0;
-                        if (!isInData && 
-                            ex->lhs()->variant() != ASSGN_OP &&
-                            ex->lhs()->symbol()->variant() != FUNCTION_NAME &&
-                            ex->lhs()->symbol()->variant() != CONST_NAME &&
-                            argNames.find(ex->lhs()->symbol()->identifier()) == argNames.end() &&
-                            commonNames.find(ex->lhs()->symbol()->identifier()) == commonNames.end())
-                        {
-                            //printf("%d\n", ex->lhs()->symbol()->variant());
-                            SgExpression* initOp = new SgExpression(ASSGN_OP, ex->lhs(), new SgValueExp(0));
-                                ex->setLhs(initOp);
-                        }
-                    }
-                }
+                vector<SgSymbol*> group(gr.second.begin(), gr.second.end());
+                auto declStat = makeDeclaration(func, group);
+                makeInit(declStat->expr(0), argNames, commonNames);
             }
+        }
+
+        //insert SAVE without variables
+        /*SgStatement* firstExec = NULL;
+        for (SgStatement* st = func; st != func->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (isSgExecutableStatement(st))
+            {         
+                firstExec = st;
+                break;
+            }
+        }
+        firstExec->insertStmtBefore(*new SgStatement(SAVE_DECL), *func);*/
+    }
+
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+
+    for (auto& mod : modules)
+    {
+        for (auto st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            auto decl = isSgDeclarationStatement(st);
+
+            set<string> empty;
+            if (decl && st->variant() != DATA_DECL)
+                makeInit(decl->expr(0), empty, empty);
         }
     }
 }

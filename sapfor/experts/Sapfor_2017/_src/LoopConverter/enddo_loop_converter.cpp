@@ -41,25 +41,6 @@ static SgLabel* getUniqLabel(unsigned was)
     return ret;
 }
 
-static void makeDeclaration(SgStatement *curr, const vector<SgSymbol*> &s)
-{
-    if (s.size() == 0)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    SgVarDeclStmt *decl = s[0]->makeVarDeclStmt();
-    for (auto& elem : s)
-        if (s[0] != elem)
-            decl->addVar(*new SgVarRefExp(elem));
-    
-    SgStatement *place = curr;
-    while (isSgProgHedrStmt(place) == NULL)
-        place = place->controlParent();
-    auto scope = place;
-    while (isSgExecutableStatement(place) == NULL)
-        place = place->lexNext();
-    place->insertStmtBefore(*decl, *scope);
-}
-
 static vector<SgStatement*> convertArithIf(SgStatement *curr)
 {
     SgExpression *cond = curr->expr(0);

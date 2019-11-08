@@ -1,17 +1,12 @@
 #pragma once
-/*
- * DvmhRegionIsertor.h
- *
- *  Created on: May 14, 2018
- *    Author: vladislav
- */
-#pragma once
+
 #include "dvm.h"
 #include "acc_analyzer.h"
 #include "../GraphCall/graph_calls_func.h"
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../Utils/SgUtils.h"
+
 #include <iostream>
 #include <set>
 #include <map>
@@ -22,6 +17,7 @@
 #include <utility>
 #include <unordered_set> 
 #include <unordered_map>
+#include <memory>
 
 typedef std::unordered_set<DIST::Array* > ArraySet;
 struct ReadWrite
@@ -46,10 +42,7 @@ public:
 class ArrayUsageFactory
 {
 public:
-    static std::unique_ptr<ArrayUsage> from_array_access(
-            std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
-            bool dist_only
-            );
+    static std::unique_ptr<ArrayUsage> from_array_access(std::map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access, bool dist_only);
 };
 
 struct LoopCheckResults 
@@ -67,11 +60,7 @@ class DvmhRegion
 {
 private:
     std::vector<LoopGraph*> loops;
-
     std::string fun_name;
-    std::set<std::string> needActualisation;
-    std::set<std::string> needActualisationAfter;
-
 public:
     DvmhRegion() { }
     DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
@@ -79,31 +68,10 @@ public:
     SgStatement* getFirstSt() const;
     SgStatement* getLastSt() const;
 
-    bool addToActualisation(const std::string &s)
-    {
-        if (needActualisation.find(s) != needActualisation.end())
-            return false;
-        else
-            needActualisation.insert(s);
-        return true;
-    }
-
-    bool addToActualisationAfter(const std::string &s)
-    {
-        if (needActualisationAfter.find(s) != needActualisationAfter.end())
-            return false;
-        else
-            needActualisationAfter.insert(s);
-        return true;
-    }
-
     void addLoop(LoopGraph* newLoop) { loops.push_back(newLoop); }
     const std::string& getFunName() const { return fun_name; }
     void setFunName(const std::string& newName) { fun_name = newName; }
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
-    const std::set<std::string>& getActualisation() const {return needActualisation; }
-    const std::set<std::string>& getActualisationAfter() const { return needActualisationAfter; }
-
 };
 
 class DvmhRegionInsertor 

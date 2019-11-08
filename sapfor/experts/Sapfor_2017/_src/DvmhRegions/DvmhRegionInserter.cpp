@@ -1,10 +1,4 @@
 #include "leak_detector.h"
-/*
- * DvmhDvmhRegionIsertor.cpp
- *
- *  Created on: May 14, 2018
- *      Author: vladislav
- */
 
 #include "DvmhRegionInserter.h"
 #include "../VerificationCode/verifications.h"
@@ -165,11 +159,6 @@ void DvmhRegionInsertor::updateLoopGraph(const map<string, FuncInfo*> &allFuncs)
         updateLoopNode(loopNode, allFuncs);
 }
 
-static bool SymbDefinedIn(SgSymbol* var, SgStatement* st)
-{
-    return st->variant() == ASSIGN_STAT && st->expr(0)->variant() == ARRAY_REF && st->expr(0)->symbol()->identifier() == var->identifier();
-}
-
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
                       const string& locName, vector<string> &altNames)
 {
@@ -214,11 +203,9 @@ static SgStatement* findModWithName(const vector<SgStatement*> &modules, const s
     return NULL;
 }
 
-static string getNameByUse(SgStatement *loop, const string &varName, const string &locName)
+static string getNameByUse(SgStatement *place, const string &varName, const string &locName)
 {
-    SgStatement* func = getFuncStat(loop);
-    if (loop->lineNumber() == 69)
-        printf("");
+    SgStatement* func = getFuncStat(place);
     if (func == NULL)
         return varName;
     else
@@ -356,7 +343,7 @@ static bool areNeighbours(const DvmhRegion *first, const DvmhRegion *second)
         mediumSt = mediumSt->lexNext();
 
     SgStatement* firstSt = second->getFirstSt();
-    return mediumSt->fileName() == firstSt->fileName() && mediumSt->lineNumber() == firstSt->lineNumber();
+    return (mediumSt->fileName() == firstSt->fileName()) && (mediumSt->lineNumber() == firstSt->lineNumber());
 }
 
 void DvmhRegionInsertor::mergeRegions()
@@ -399,10 +386,6 @@ void DvmhRegionInsertor::mergeRegions()
         regionPrev = region;
         for (auto& loop : region->getLoops())
             newRegion->addLoop(loop);
-        for (auto& s : region->getActualisation())
-            newRegion->addToActualisation(s);
-        for (auto& s : region->getActualisationAfter())
-            newRegion->addToActualisationAfter(s);
     }
     newRegions.push_back(newRegion);
 
@@ -444,14 +427,16 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
 
     SgStatement *actualizingSt = new SgStatement(variant);
 
-    SgExprListExp *t = new SgExprListExp();
+    vector<SgExpression*> list;
     for (auto &arr : arraySet) 
     {
-        SgExpression *expr = new SgVarRefExp(findSymbolOrCreate(current_file, arr->GetShortName()));
-        t->append(*expr);
-    }
+        string arrayName = arr->GetShortName();
+        if (arr->GetLocation().first == DIST::l_MODULE)
+            arrayName = getNameByUse(st, arrayName, arr->GetLocation().second);
 
-    actualizingSt->setExpression(0, t->rhs());
+        list.push_back(new SgVarRefExp(findSymbolOrCreate(file, arrayName)));
+    }
+    actualizingSt->setExpression(0, makeExprList(list));
 
     if (before)
     {

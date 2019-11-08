@@ -2173,3 +2173,25 @@ SgExpression* makeExprList(const vector<SgExpression*>& items)
 
     return list;
 }
+
+SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s)
+{
+    if (s.size() == 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    SgVarDeclStmt* decl = s[0]->makeVarDeclStmt();    
+    for (auto& elem : s)
+        if (s[0] != elem)
+            decl->addVar(*new SgVarRefExp(elem));
+
+    SgStatement* place = curr;
+    while (isSgProgHedrStmt(place) == NULL)
+        place = place->controlParent();
+    auto scope = place;
+    while (isSgExecutableStatement(place) == NULL)
+        place = place->lexNext();
+    place->insertStmtBefore(*decl, *scope);
+
+    decl->setVariant(VAR_DECL_90);
+    return decl;
+}
