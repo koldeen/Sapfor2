@@ -72,3 +72,6 @@ SgExpression* makeExprList(const std::vector<SgExpression*>& items);
 std::string unparseProjectToString(SgFile* file, const int curr_regime);
 
 SgStatement* makeDeclaration(SgStatement* curr, const std::vector<SgSymbol*>& s);
+
+int parseFiles(const char* proj);
+int pppaAnalyzer(const char* options);

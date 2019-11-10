@@ -1069,59 +1069,90 @@ char* UnparseTypeBuffer(type)
 }
 
 /***************************************************************************/
-int open_proj_toolbox(proj_name, proj_file)
-char * proj_name;
-char * proj_file;
+int open_proj_toolbox(char* proj_name, char* proj_file)
 {
-        char *mem[MAX_FILE];          /* for file in the project */
-        int   no = 0;           /* number of file in the project */
-        int   c;
-        FILE *fd;               /* file descriptor for project */
-        char **p, *t;
-        char *tmp, tmpa[3000];
+    char* mem[MAX_FILE];          /* for file in the project */
+    int   no = 0;           /* number of file in the project */
+    int   c;
+    FILE* fd;               /* file descriptor for project */
+    char** p, * t;
+    char* tmp, tmpa[3000];
 
-        tmp = &(tmpa[0]);
+    tmp = &(tmpa[0]);
 
-        if ((fd = fopen(proj_file, "r")) == NULL)
-                return -1;
+    if ((fd = fopen(proj_file, "r")) == NULL)
+        return -1;
 
-        p = mem;
-        t = tmp;
-        while((c = getc(fd)) != EOF){
-            if (c != ' ')        /* assum no blanks in filename */
+    p = mem;
+    t = tmp;
+    while ((c = getc(fd)) != EOF) 
+    {
+        if (c != ' ') /* assum no blanks in filename */
+        {
+            if (c == '\n') 
             {
-                if (c == '\n') {
-                    if (t != tmp) {
-                        /* not a blank line */
-                        *t = '\0';
-                        *p = (char *)malloc((unsigned)(strlen(tmp) + 1));
+                if (t != tmp) 
+                {   /* not a blank line */
+                    *t = '\0';
+                    *p = (char*)malloc((unsigned)(strlen(tmp) + 1));
 #ifdef __SPF
-                        addToCollection(__LINE__, __FILE__,*p, 0);
+                    addToCollection(__LINE__, __FILE__, *p, 0);
 #endif
-                        strcpy(*p++, tmp);
-                        t = tmp;
-                    }
-                } else *t++ = c;
-            }
-        }
-
-        fclose(fd);
-        no = p - mem;
-        if (no > 0)
-            /* Now make it the active project */
-            if ((cur_proj = OpenProj(proj_name, no, mem))) {
-                cur_file = (PTR_FILE) BLOB_VALUE (CUR_PROJ_FILE_CHAIN());
-                pointer_on_file_proj = cur_file;
-                return 0;
-            } else{
-                fprintf(stderr,"-2 Cannot open project\n");
-                return -2;
+                    strcpy(*p++, tmp);
+                    t = tmp;
                 }
-        else{
-            fprintf(stderr,"-3 No files in the project\n");
-            return -3;
-
             }
+            else 
+                *t++ = c;
+        }
+    }
+
+    fclose(fd);
+    no = p - mem;
+    if (no > 0)
+    {
+        /* Now make it the active project */
+        if ((cur_proj = OpenProj(proj_name, no, mem)))
+        {
+            cur_file = (PTR_FILE)BLOB_VALUE(CUR_PROJ_FILE_CHAIN());
+            pointer_on_file_proj = cur_file;
+            return 0;
+        }
+        else
+        {
+            fprintf(stderr, "-2 Cannot open project\n");
+            return -2;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "-3 No files in the project\n");
+        return -3;
+    }
+}
+
+int open_proj_files_toolbox(char* proj_name, char** file_list, int no)
+{    
+    if (no > 0)
+    {
+        /* Now make it the active project */
+        if ((cur_proj = OpenProj(proj_name, no, file_list)))
+        {
+            cur_file = (PTR_FILE)BLOB_VALUE(CUR_PROJ_FILE_CHAIN());
+            pointer_on_file_proj = cur_file;
+            return 0;
+        }
+        else
+        {
+            fprintf(stderr, "-2 Cannot open project\n");
+            return -2;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "-3 No files in the project\n");
+        return -3;
+    }
 }
 
 static int ToolBOX_INIT = 0;

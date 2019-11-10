@@ -79,5 +79,5 @@ objT& getObjectForFileFromMap(const char *fileName, std::map<std::string, objT> 
 bool isMpiFunction(const std::string& func);
 std::map<DIST::Array*, DIST::ArrayAccessInfo*> createMapOfArrayAccess(const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays);
 
-int parseFiles(const char* proj);
-int pppaAnalyzer(const char* options);
+std::string readFileToStr(const std::string& name);
+void writeFileFromStr(const std::string& name, const std::string& data);

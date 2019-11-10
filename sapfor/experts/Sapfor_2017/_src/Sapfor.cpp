@@ -228,7 +228,6 @@ static void updateStatsExprs(const int id, const string &file)
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
 
-
 static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bool need_to_unparse,
                                    const char* newVer, const char* folderName, set<string>& allIncludeFiles, bool toString = false)
 {
@@ -1950,8 +1949,8 @@ static SgProject* createProject(const char *proj_name)
     }
 
     filterModuleUse(moduleUsesByFile, moduleDecls);
-    //shiftLines
-    /*for (int z = 0; z < project->numberOfFiles(); ++z)
+    //shiftLines if modules included
+    for (int z = 0; z < project->numberOfFiles(); ++z)
     {
         SgFile* file = &(project->file(z));
         const string fileN = file->filename();
@@ -1960,10 +1959,10 @@ static SgProject* createProject(const char *proj_name)
             continue;
         const int shiftN = it->second.size();
 
-        for (SgStatement* st = file->firstStatement(); st; st = st->lexNext())
+        for (SgStatement* st = file->firstStatement()->lexNext(); st; st = st->lexNext())
             if (st->fileName() == fileN)
                 st->setlineNumber(st->lineNumber() - shiftN);
-    }*/    
+    } 
     return project;
 }
 

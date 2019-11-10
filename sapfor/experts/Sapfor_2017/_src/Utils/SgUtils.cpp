@@ -18,6 +18,8 @@
 #include <assert.h>
 #include <locale>
 #include <algorithm>
+#include <fcntl.h>
+#include <mutex>
 
 #include "SgUtils.h"
 #include "errors.h"
@@ -40,6 +42,30 @@ using std::string;
 using std::make_pair;
 using std::make_tuple;
 using std::wstring;
+
+#ifdef _MSC_VER
+#include <io.h>
+#define popen _popen 
+#define pclose _pclose
+#define stat _stat 
+#define dup _dup
+#define dup2 _dup2
+#define fileno _fileno
+#define close _close
+#define pipe _pipe
+#define read _read
+#define eof _eof
+#else
+#include <unistd.h>
+#endif
+
+#ifndef STD_OUT_FD 
+#define STD_OUT_FD (fileno(stdout)) 
+#endif 
+
+#ifndef STD_ERR_FD 
+#define STD_ERR_FD (fileno(stderr)) 
+#endif
 
 const char *tag[];
 
@@ -172,33 +198,6 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                                     const map<string, set<string>>& moduleUsesByFile, const map<string, string>& moduleDelcs, bool toString)
 { 
     fflush(NULL);
-    
-    //TMP for debug
-    /*
-    {
-        FILE* currFile = fopen(fileName, "r");
-#ifdef _WIN32
-        FILE* fOut;
-        errno_t err = fopen_s(&fOut, fout, "w");
-#else
-        int err = 0;
-        FILE* fOut = fopen(fout, "w");
-#endif
-        if (fOut == NULL)
-        {
-            if (fout)
-                __spf_print(1, "can not open file to write with name '%s' with error %d\n", fout, err);
-            else
-                __spf_print(1, "can not open file to write with name 'NULL'\n");
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        }
-        file->unparse(fOut);
-        fclose(fOut);
-        fclose(currFile);
-
-        return "";
-    } */
-    
 
     set<string> moduleIncudeUses;
     auto itM = moduleUsesByFile.find(fileName);
@@ -339,7 +338,7 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
                     string lowerInclude = it.first;
                     convertToLower(lowerInclude);
 
-                    //if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
+                    if (moduleIncudeUses.find(lowerInclude) == moduleIncudeUses.end())
                     {
                         if (st->comments())
                         {
@@ -2194,4 +2193,562 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s)
 
     decl->setVariant(VAR_DECL_90);
     return decl;
+}
+
+static map<string, string> findModuleDeclInProject(const string &name, const vector<string> &files)
+{
+    map<string, string> modDecls;
+    char** filesList = new char* [files.size()];
+    for (int z = 0; z < files.size(); ++z)
+        filesList[z] = (char*)files[z].c_str();
+
+    SgProject* tmpProj = new SgProject(name.c_str(), filesList, files.size());
+    
+    int numF = tmpProj->numberOfFiles();
+    set<SgFile*> filesSg;
+    for (int z = 0; z < numF; ++z)
+    {
+        vector<SgStatement*> modules;
+        SgFile* currF = &tmpProj->file(z);
+        filesSg.insert(currF);
+        
+        findModulesInFile(currF, modules);
+        for (auto& elem : modules)
+        {
+            if (string(elem->fileName()) == currF->filename())
+            {
+                const string name = elem->symbol()->identifier();
+                auto it = modDecls.find(name);
+                if (it != modDecls.end())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                modDecls.insert(it, make_pair(name, currF->filename()));
+            }
+        }
+    }
+    
+    delete[]filesList;
+
+    if (allocatedForfileTableClass)
+    {
+#ifdef __SPF   
+        removeFromCollection(fileTableClass);
+#endif
+        delete[] fileTableClass;
+        fileTableClass = NULL;
+        allocatedForfileTableClass = 0;
+    }
+    return modDecls;
+}
+
+class StdCapture
+{
+public:
+    static void Init()
+    {
+        // make stdout & stderr streams unbuffered
+        // so that we don't need to flush the streams
+        // before capture and after capture 
+        // (fflush can cause a deadlock if the stream is currently being 
+        std::lock_guard<std::mutex> lock(m_mutex);
+        setvbuf(stdout, NULL, _IONBF, 0);
+        setvbuf(stderr, NULL, _IONBF, 0);
+    }
+
+    static void BeginCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_capturing)
+            return;
+
+        secure_pipe(m_pipe);
+        m_oldStdOut = secure_dup(STD_OUT_FD);
+        m_oldStdErr = secure_dup(STD_ERR_FD);
+        secure_dup2(m_pipe[WRITE], STD_OUT_FD);
+        secure_dup2(m_pipe[WRITE], STD_ERR_FD);
+        m_capturing = true;
+#ifndef _MSC_VER
+        secure_close(m_pipe[WRITE]);
+#endif
+    }
+    static bool IsCapturing()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_capturing;
+    }
+    static void EndCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_capturing)
+            return;
+
+        m_captured.clear();
+        secure_dup2(m_oldStdOut, STD_OUT_FD);
+        secure_dup2(m_oldStdErr, STD_ERR_FD);
+
+        const int bufSize = 1025;
+        char buf[bufSize];
+        int bytesRead = 0;
+        bool fd_blocked(false);
+        do
+        {
+            bytesRead = 0;
+            fd_blocked = false;
+#ifdef _MSC_VER
+            if (!eof(m_pipe[READ]))
+                bytesRead = read(m_pipe[READ], buf, bufSize - 1);
+#else
+            bytesRead = read(m_pipe[READ], buf, bufSize - 1);
+#endif
+            if (bytesRead > 0)
+            {
+                buf[bytesRead] = 0;
+                m_captured += buf;
+            }
+            else if (bytesRead < 0)
+            {
+                fd_blocked = (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR);
+                if (fd_blocked)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        } while (fd_blocked || bytesRead == (bufSize - 1));
+
+        secure_close(m_oldStdOut);
+        secure_close(m_oldStdErr);
+        secure_close(m_pipe[READ]);
+#ifdef _MSC_VER
+        secure_close(m_pipe[WRITE]);
+#endif
+        m_capturing = false;
+    }
+    static std::string GetCapture()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_captured;
+    }
+private:
+    enum PIPES { READ, WRITE };
+
+    static int secure_dup(int src)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = dup(src);
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+        return ret;
+    }
+    static void secure_pipe(int* pipes)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+#ifdef _MSC_VER
+            ret = pipe(pipes, 65536, O_BINARY);
+#else
+            ret = pipe(pipes) == -1;
+#endif
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+    }
+    static void secure_dup2(int src, int dest)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = dup2(src, dest);
+            fd_blocked = (errno == EINTR || errno == EBUSY);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+    }
+
+    static void secure_close(int& fd)
+    {
+        int ret = -1;
+        bool fd_blocked = false;
+        do
+        {
+            ret = close(fd);
+            fd_blocked = (errno == EINTR);
+            if (fd_blocked)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } while (ret < 0);
+
+        fd = -1;
+    }
+
+    static int m_pipe[2];
+    static int m_oldStdOut;
+    static int m_oldStdErr;
+    static bool m_capturing;
+    static std::mutex m_mutex;
+    static std::string m_captured;
+};
+
+// actually define vars.
+int StdCapture::m_pipe[2];
+int StdCapture::m_oldStdOut;
+int StdCapture::m_oldStdErr;
+bool StdCapture::m_capturing;
+std::mutex StdCapture::m_mutex;
+std::string StdCapture::m_captured;
+
+struct FileInfo
+{
+    FileInfo()
+    {
+        fileName = "";
+        options = "";
+        errPath = "";
+        outPath = "";
+        outDepPath = "";
+        text = "";
+        error = -1;
+    }
+
+    FileInfo(const string& _fileName, const string& _options, const string& _errPath, const string& _outPath, 
+             const string& _outDepPath, const string &_text)
+    {
+        fileName = _fileName;
+        options = _options;
+        errPath = _errPath;
+        outPath = _outPath;
+        outDepPath = _outDepPath;
+        text = _text;
+        error = -1;
+    }
+
+    int error;
+    string fileName;
+    string options;
+    string errPath;
+    string outPath;
+    string outDepPath;
+    string text;
+};
+
+static vector<string> splitAndArgvCreate(const string& options)
+{
+    vector<string> optSplited;
+    optSplited.push_back("");
+    splitString(options, ' ', optSplited, true);
+
+    vector<string> optSplited1;
+    for (auto& elem : optSplited)
+        if (elem != "")
+            optSplited1.push_back(elem);
+    optSplited1.insert(optSplited1.begin(), "");
+
+    for (int z = 0; z < optSplited1.size(); ++z)
+    {
+        //printf("%s\n", optSplited1[z].c_str());
+        if (optSplited1[z][0] == '"' && optSplited1[z][optSplited1[z].size() - 1] == '"')
+            optSplited1[z] = optSplited1[z].substr(1, optSplited1[z].size() - 2);
+    }
+    return optSplited1;
+}
+
+extern "C" int parse_file(int argc, char* argv[], char* proj_name);
+static vector<string> parseList(vector<FileInfo>& listOfProject)
+{
+    vector<string> errors;
+    for (auto& elem : listOfProject)
+    {
+        string file = elem.fileName;
+        string options = elem.options;
+
+        vector<string> optSplited = splitAndArgvCreate(options);
+
+        char** toParse = new char* [optSplited.size()];
+        for (int z = 0; z < optSplited.size(); ++z)
+            toParse[z] = (char*)optSplited[z].c_str();
+        toParse[optSplited.size()] = (char*)file.c_str();
+
+        for (int z = 0; z < optSplited.size(); ++z)
+        {
+            if (optSplited[z] == "-o")
+            {
+                if (z + 1 == optSplited.size())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                elem.outDepPath = optSplited[z + 1];
+                break;
+            }
+        }
+
+        StdCapture::Init();
+        string errorMessage = "";
+        try
+        {
+            StdCapture::BeginCapture();
+            int retCode = parse_file(optSplited.size(), toParse, "dvm.proj");
+            elem.error = retCode;
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+        catch (int err)
+        {
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+        catch (...)
+        {
+            StdCapture::EndCapture();
+            errorMessage = StdCapture::GetCapture();
+        }
+        errors.push_back(errorMessage);
+        delete[]toParse;
+    }
+    return errors;
+}
+
+static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<string>& errors)
+{
+    int z = 0;
+    for (auto& elem : listOfProject)
+    {
+        FILE* ferr = fopen(elem.errPath.c_str(), "w");
+        FILE* fout = fopen(elem.outPath.c_str(), "w");
+        if (!ferr)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        if (!fout)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        fclose(fout);
+
+        fprintf(ferr, "%s", errors[z].c_str());
+        fclose(ferr);
+        ++z;
+    }
+}
+
+static bool createMapOfUse(const vector<string>& errors, const vector<FileInfo>& listOfProject, map<string, set<string>> &mapModuleDeps)
+{
+    bool changed = false;
+    for (int z = 0; z < listOfProject.size(); ++z)
+    {
+        if (listOfProject[z].error > 0)
+        {
+            vector<string> splited;
+            splitString(errors[z], '\n', splited);
+            for (auto& err : splited)
+            {
+                if (err.find("Warning 308") != string::npos && err.find(listOfProject[z].fileName) != string::npos)
+                {
+                    auto pos = err.find("Unknown module");
+                    if (pos != string::npos)
+                    {
+                        pos += strlen("Unknown module") + 1;
+                        string substr = "";
+                        while (err[pos] != ' ' && pos != err.size())
+                            substr += err[pos++];
+                        mapModuleDeps[listOfProject[z].fileName].insert(substr);
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    return changed;
+}
+
+static void applyModuleDecls(const vector<FileInfo> &listOfProject, const map<string, string> &moduleDelc, map<string, set<string>> &mapModuleDeps)
+{
+    map<string, const FileInfo*> infoMap;
+    for (auto& elem : listOfProject)
+        infoMap[elem.fileName] = &elem;
+
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        map<string, set<string>> newMap(mapModuleDeps);
+        for (auto& elem : mapModuleDeps)
+        {
+            for (auto& mod : elem.second)
+            {
+                auto itM = moduleDelc.find(mod);
+                if (itM != moduleDelc.end() && mapModuleDeps.find(itM->second) != mapModuleDeps.end())
+                {
+                    for (auto& toAdd : mapModuleDeps[itM->second])
+                    {
+                        if (newMap[elem.first].find(toAdd) == newMap[elem.first].end())
+                        {
+                            newMap[elem.first].insert(toAdd);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        mapModuleDeps = newMap;
+    }
+
+    map<string, set<string>> newMap;
+    for (auto& elem : mapModuleDeps)
+    {
+        map<string, int> modCountUse;
+        for (auto& mod : elem.second)
+        {
+            if (modCountUse.find(mod) == modCountUse.end())
+                modCountUse[mod] = 1;
+            else
+                modCountUse[mod]++;
+
+            auto itM = moduleDelc.find(mod);
+            if (itM != moduleDelc.end() && mapModuleDeps.find(itM->second) != mapModuleDeps.end())
+            {
+                for (auto& toUse: mapModuleDeps[itM->second])
+                {
+                    if (modCountUse.find(toUse) == modCountUse.end())
+                        modCountUse[toUse] = 1;
+                    else
+                        modCountUse[toUse]++;
+                }
+            }
+        }
+
+        for (auto& uniqMods : modCountUse)
+            if (uniqMods.second == 1)
+                newMap[elem.first].insert(uniqMods.first);
+    }
+    mapModuleDeps = newMap;
+
+    //rewrite files to the next iter of parse
+    for (auto& elem : mapModuleDeps)
+    {
+        auto itF = infoMap.find(elem.first);
+        if (itF == infoMap.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        string include = "";
+        for (auto& mods : elem.second)
+        {
+            auto itModF = moduleDelc.find(mods);
+            if (itModF != moduleDelc.end())
+                include += "      include '" + itModF->second + "'\n";
+        }
+
+        string data = include + itF->second->text;
+        writeFileFromStr(itF->second->fileName, data);
+    }
+}
+
+static void restoreOriginalText(const vector<FileInfo> &listOfProject)
+{
+    for (auto& elem : listOfProject)
+        writeFileFromStr(elem.fileName, elem.text);
+    fflush(NULL);    
+}
+
+int parseFiles(const char* proj)
+{
+    FILE* list = fopen(proj, "r");
+    if (!list)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    vector<FileInfo> listOfProject;
+    while (!feof(list))
+    {
+        char buf[1024];
+        if (fgets(buf, 1024, list) == NULL)
+            continue;
+
+        string toAdd = buf;
+        if (toAdd[toAdd.size() - 1] == '\n')
+            toAdd = toAdd.erase(toAdd.size() - 1);
+
+        const string fileNameFixed = (toAdd.substr(0, 2) == "./" ? toAdd.substr(2) : toAdd);
+        const string optPath = "./visualiser_data/options/" + fileNameFixed + ".opt";
+        const string errPath = "./visualiser_data/options/" + fileNameFixed + ".err";
+        const string outPath = "./visualiser_data/options/" + fileNameFixed + ".out";
+
+        const string fileText = readFileToStr(fileNameFixed);
+
+        FILE* opt = fopen(optPath.c_str(), "r");
+        if (!opt)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        fgets(buf, 1024, opt);
+        string toAddOpt = buf;
+        if (toAddOpt[toAddOpt.size() - 1] == '\n')
+            toAddOpt = toAddOpt.erase(toAddOpt.size() - 1);
+
+        fclose(opt);
+        listOfProject.push_back(FileInfo(fileNameFixed, toAddOpt, errPath, outPath, "", fileText));
+    }
+
+    fclose(list);
+    vector<string> errors;
+    map<string, set<string>> mapModuleDeps;
+    map<string, string> moduleDelc;
+    string projName = "tmp";
+    int iters = 0;
+    bool changed = false;
+
+    int rethrow = 0;
+    try
+    {
+        do
+        {
+            errors = parseList(listOfProject);
+            if (iters != 0)
+                restoreOriginalText(listOfProject);
+
+            changed = createMapOfUse(errors, listOfProject, mapModuleDeps);
+            if (changed)
+            {
+                vector<string> files;
+                for (auto& elem : listOfProject)
+                    if (elem.error == 0)
+                        files.push_back(elem.outDepPath);
+                moduleDelc = findModuleDeclInProject(projName + std::to_string(iters++), files);
+                applyModuleDecls(listOfProject, moduleDelc, mapModuleDeps);
+            }
+        } while (changed);
+    }
+    catch (int err)
+    {
+        rethrow = err;
+    }
+    catch (...)
+    {
+        rethrow = -1;
+    }
+
+    if (rethrow != 0)
+    {
+        if (iters != 0)
+            restoreOriginalText(listOfProject);
+        throw rethrow;
+    }
+
+    dumpErrors(listOfProject, errors);
+    return 0;
+}
+
+extern int pppa_analyzer(int argv, char** argc);
+int pppaAnalyzer(const char* options)
+{
+    string optionsS(options);
+    vector<string> splited = splitAndArgvCreate(optionsS);
+
+    char** argv = new char* [splited.size()];
+    for (int z = 0; z < splited.size(); ++z)
+        argv[z] = (char*)splited[z].c_str();
+
+    StdCapture::Init();
+    string errorMessage = "";
+    int retCode = pppa_analyzer(splited.size(), argv);
+    StdCapture::EndCapture();
+    errorMessage = StdCapture::GetCapture();
+
+    delete[]argv;
+    return retCode;
 }

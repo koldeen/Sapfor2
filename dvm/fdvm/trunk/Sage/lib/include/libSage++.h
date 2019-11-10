@@ -37,7 +37,8 @@ extern "C" void removeFromCollection(void *pointer);
 class  SgProject {
   public:
   inline SgProject(SgProject &);
-  SgProject(const char * proj_file_name);
+  SgProject(const char *proj_file_name);
+  SgProject(const char *proj_file_name, char **files_list, int no);
   inline ~SgProject();
   inline int numberOfFiles();
   SgFile &file(int i);   

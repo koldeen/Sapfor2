@@ -1555,14 +1555,13 @@ SgExprListExp * isSgExprListExp(SgExpression *pt)
 }
 
 
-SgProject::SgProject(const char * proj_file_name)
+SgProject::SgProject(const char *proj_file_name)
 {
     // first let init the library we need
     if (!proj_file_name)
     {
         Message("Cannot open project: no file specified", 0);
         exit(1);
-
     }
     if (open_proj_toolbox(proj_file_name, proj_file_name) < 0)
     {
@@ -1583,6 +1582,33 @@ SgProject::SgProject(const char * proj_file_name)
 #endif
 }
 
+SgProject::SgProject(const char* proj_file_name, char** files_list, int no)
+{
+    // first let init the library we need
+    if (!proj_file_name)
+    {
+        Message("Cannot open project: no file specified", 0);
+        exit(1);
+    }
+
+    if (open_proj_files_toolbox(proj_file_name, files_list, no) < 0)
+    {
+        fprintf(stderr, "%s   ", proj_file_name);
+#if __SPF
+        throw -97;
+#else
+        Message("Cannot open project", 0);
+        exit(1);
+#endif
+    }
+    Init_Tool_Box();
+
+    // we have to initialize some specific data for this interface 
+    CurrentProject = this;
+#if __SPF
+    addToCollection(__LINE__, __FILE__, this, 1);
+#endif
+}
 
 SgFile &SgProject::file(int i)
 {
