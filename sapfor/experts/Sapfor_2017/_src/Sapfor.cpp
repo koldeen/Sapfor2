@@ -1949,6 +1949,8 @@ static SgProject* createProject(const char *proj_name)
     }
 
     filterModuleUse(moduleUsesByFile, moduleDecls);
+
+    map<string, int> shifts;
     //shiftLines if modules included
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
@@ -1958,10 +1960,20 @@ static SgProject* createProject(const char *proj_name)
         if (it == moduleUsesByFile.end())
             continue;
         const int shiftN = it->second.size();
+        shifts[fileN] = shiftN;
+    }
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
+        SgFile* file = &(project->file(z));
 
         for (SgStatement* st = file->firstStatement()->lexNext(); st; st = st->lexNext())
-            if (st->fileName() == fileN)
-                st->setlineNumber(st->lineNumber() - shiftN);
+        {
+            string currF = st->fileName();
+            auto it = shifts.find(currF);
+            if (it != shifts.end())
+                st->setlineNumber(st->lineNumber() - it->second);
+        }
     } 
     return project;
 }

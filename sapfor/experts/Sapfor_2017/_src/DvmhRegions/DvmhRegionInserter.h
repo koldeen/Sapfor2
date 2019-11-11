@@ -87,7 +87,7 @@ class DvmhRegionInsertor
     SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertRegionDirectives();
-    void insertActualDirective(SgStatement*, const ArraySet&, int, bool, bool empty = false);
+    void insertActualDirective(SgStatement*, const ArraySet&, int, bool);
     void mergeRegions();
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);

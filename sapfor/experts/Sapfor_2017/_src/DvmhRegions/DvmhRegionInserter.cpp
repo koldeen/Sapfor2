@@ -297,7 +297,7 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         auto writeBlocks = array_usage->get_op_arrs_for_block(st, true, true, DVMH_REG_WT);
 
         insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
-        insertActualDirective(st->lastNodeOfStmt(), writeBlocks, ACC_ACTUAL_DIR, false);
+        insertActualDirective(st->lastNodeOfStmt()->lexNext(), writeBlocks, ACC_ACTUAL_DIR, false);
 
         return st->lastNodeOfStmt()->lexNext();
     }
@@ -307,9 +307,12 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         return st->lexNext();
 
     insertActualDirective(st, array_usage->get_op_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
-    insertActualDirective(st, array_usage->get_op_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
+    insertActualDirective(st->lexNext(), array_usage->get_op_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
 
-    return st->lexNext();
+    if (st->variant() == LOGIF_NODE)
+        return st->lexNext()->lexNext();
+    else
+        return st->lexNext();
 }
 
 void DvmhRegionInsertor::insertActualDirectives() 
@@ -420,9 +423,9 @@ void DvmhRegionInsertor::insertDirectives()
     insertActualDirectives();
 }
 
-void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool before, bool empty)
+void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments)
 {
-    if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (!empty && (arraySet.size() == 0)))
+    if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (arraySet.size() == 0))
         return;
 
     SgStatement *actualizingSt = new SgStatement(variant);
@@ -438,17 +441,16 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
     }
     actualizingSt->setExpression(0, makeExprList(list));
 
-    if (before)
+    st->insertStmtBefore(*actualizingSt, *st->controlParent());
+
+    if (moveComments)
     {
-        st->insertStmtBefore(*actualizingSt, *st->controlParent());
         if (st->comments())
         {
             actualizingSt->addComment(st->comments());
             st->delComments();
         }
     }
-    else
-        st->insertStmtAfter(*actualizingSt, *st->controlParent());
 }
 
 /*********** DvmhRegion *************/

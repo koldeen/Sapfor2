@@ -2535,7 +2535,7 @@ static bool createMapOfUse(const vector<string>& errors, const vector<FileInfo>&
     bool changed = false;
     for (int z = 0; z < listOfProject.size(); ++z)
     {
-        if (listOfProject[z].error > 0)
+        if (listOfProject[z].error >= 0)
         {
             vector<string> splited;
             splitString(errors[z], '\n', splited);
