@@ -182,7 +182,7 @@ static void fillInfo(SgStatement *start,
                      map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse,
                      map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUseOnly)
 {
-    for (SgStatement* st = start; st; st = st->lexNext())
+    for (SgStatement* st = start; st != start->lastNodeOfStmt(); st = st->lexNext())
     {
         if (isSgExecutableStatement(st))
             break;
@@ -287,7 +287,7 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         return skipDvmhRegionInterval(st);
 
     // Actualization before remote dir and parallel loops blocks
-    if (st->variant() == DVM_REMOTE_ACCESS_DIR || st->variant() == DVM_PARALLEL_ON_DIR)
+    if (st->variant() == DVM_REMOTE_ACCESS_DIR || st->variant() == DVM_PARALLEL_ON_DIR || st->variant() == LOGIF_NODE)
     {
         SgStatement* block_dir = st;
         while (isDVM_stat(st))

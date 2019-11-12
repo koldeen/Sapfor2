@@ -1536,20 +1536,24 @@ PTR_SYMB
 lookup_type_symbol(type_sym_entry)
 PTR_SYMB type_sym_entry;
 {
-	int i;
-	register PTR_HASH entry;
-	register PTR_SYMB s;
-        if( type_sym_entry->type->variant==T_STRUCT && type_sym_entry->type->name)
-           return (type_sym_entry);
-
-        i = hash(type_sym_entry->ident);         
-	for (entry = hash_table[i]; entry; entry = entry->next_entry) {
-            s = entry->id_attr; 
-            if (!strcmp(type_sym_entry->ident, entry->ident) && s)
-            if(s->variant == TYPE_NAME && s->type->variant==T_STRUCT && s->type->name)
-               return (s);  
-        }
+    int i;
+    register PTR_HASH entry;
+    register PTR_SYMB s;
+    if (type_sym_entry == NULL)
         return (SMNULL);
+
+    if (type_sym_entry->type->variant == T_STRUCT && type_sym_entry->type->name)
+        return (type_sym_entry);
+
+    i = hash(type_sym_entry->ident);
+    for (entry = hash_table[i]; entry; entry = entry->next_entry) 
+    {
+        s = entry->id_attr;
+        if (!strcmp(type_sym_entry->ident, entry->ident) && s)
+            if (s->variant == TYPE_NAME && s->type->variant == T_STRUCT && s->type->name)
+                return (s);
+    }
+    return (SMNULL);
 }
 
 PTR_LLND
@@ -1971,7 +1975,7 @@ PTR_SYMB
 OriginalSymbol(sym)
      PTR_SYMB sym;
 { 
- if(sym->entry.Template.base_name) 
+ if(sym && sym->entry.Template.base_name)
    return(sym->entry.Template.base_name);
  else
    return(sym);

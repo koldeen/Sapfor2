@@ -1971,8 +1971,8 @@ static SgProject* createProject(const char *proj_name)
         {
             string currF = st->fileName();
             auto it = shifts.find(currF);
-            if (it != shifts.end())
-                st->setlineNumber(st->lineNumber() - it->second);
+            if (it != shifts.end() && file->filename() == currF)
+                st->setlineNumber(st->lineNumber() - it->second);            
         }
     } 
     return project;

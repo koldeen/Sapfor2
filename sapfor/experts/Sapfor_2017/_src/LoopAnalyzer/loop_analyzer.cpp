@@ -2753,10 +2753,11 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
     {
         SgFunctionCallExp* funcExp = (SgFunctionCallExp*)ex; 
         const string fName = funcExp->funName()->identifier();
+        bool intr = (isIntrinsicFunctionName(fName.c_str()) == 1);
         for (int z = 0; z < funcExp->numberOfArgs(); ++z)
         {
-            //assume all arguments of function as OUT
-            bool isWriteN = true;
+            //assume all arguments of function as OUT, except for inctrinsics
+            bool isWriteN = intr ? false : true;
             //need to correct W/R usage with GraphCall map later
             findArrayRefs(funcExp->arg(z), st, fName, z, commonBlocks, modules, declaratedArrays, declaratedArraysSt, privates, deprecatedByIO, isExecutable, currFunctionName, isWriteN, inRegion, funcParNames);
         }

@@ -46,7 +46,11 @@ void uniteVectors(const std::vector<std::pair<std::pair<std::string, std::string
                   const std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &second,
                   std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> &result);
 
-void deletePointerAllocatedData();
+void deletePointerAllocatedData(bool delLocal = false);
+void startLocalColletion();
+void finishLocalColletion();
+void deleteLeaks();
+
 unsigned getUniqArrayId();
 
 bool isAllRulesEqualWithoutArray(const std::vector<std::vector<std::tuple<DIST::Array*, int, std::pair<int, int>>>> &allRules);

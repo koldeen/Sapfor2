@@ -9401,6 +9401,7 @@ inline SgStatement * SgDerivedCollectionType::createCollectionWithElemType()
 inline SgDerivedCollectionType::~SgDerivedCollectionType()
 { RemoveFromTableType((void *) this); }
 
+void InitializeTable();
 
 #ifdef USER
 

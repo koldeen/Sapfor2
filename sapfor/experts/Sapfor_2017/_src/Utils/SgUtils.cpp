@@ -34,6 +34,7 @@
 #include "../GraphCall/graph_calls_func.h"
 #include "../CreateInterTree/CreateInterTree.h"
 #include "../Predictor/PredictScheme.h"
+#include "../VisualizerCalls/get_information.h"
 
 using std::map;
 using std::pair;
@@ -2101,7 +2102,7 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
         elem.second = newSet;
     }
 
-    map<string, set<string>> modIncludeMod;
+    /*map<string, set<string>> modIncludeMod;
 
     for (auto& mod : moduleDecls)
     {
@@ -2150,7 +2151,7 @@ void filterModuleUse(map<string, set<string>>& moduleUsesByFile, map<string, str
                     newSet.erase(toRem);
         }
         elem.second = newSet;
-    }
+    }*/
 }
 
 SgExpression* makeExprList(const vector<SgExpression*>& items)
@@ -2197,9 +2198,8 @@ SgStatement* makeDeclaration(SgStatement* curr, const vector<SgSymbol*>& s)
     return decl;
 }
 
-static map<string, string> findModuleDeclInProject(const string &name, const vector<string> &files)
+static void findModuleDeclInProject(const string &name, const vector<string> &files, map<string, string> &modDecls)
 {
-    map<string, string> modDecls;
     char** filesList = new char* [files.size()];
     for (int z = 0; z < files.size(); ++z)
         filesList[z] = (char*)files[z].c_str();
@@ -2212,6 +2212,9 @@ static map<string, string> findModuleDeclInProject(const string &name, const vec
     {
         vector<SgStatement*> modules;
         SgFile* currF = &tmpProj->file(z);
+        string fileName = currF->filename();
+        convertToLower(fileName);
+
         filesSg.insert(currF);
         
         findModulesInFile(currF, modules);
@@ -2221,25 +2224,16 @@ static map<string, string> findModuleDeclInProject(const string &name, const vec
             {
                 const string name = elem->symbol()->identifier();
                 auto it = modDecls.find(name);
-                if (it != modDecls.end())
+                if (it != modDecls.end() && it->second != currF->filename())
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                modDecls.insert(it, make_pair(name, currF->filename()));
+                else
+                    modDecls.insert(it, make_pair(name, currF->filename()));
             }
         }
     }
-    
-    delete[]filesList;
 
-    if (allocatedForfileTableClass)
-    {
-#ifdef __SPF   
-        removeFromCollection(fileTableClass);
-#endif
-        delete[] fileTableClass;
-        fileTableClass = NULL;
-        allocatedForfileTableClass = 0;
-    }
-    return modDecls;
+    delete[]filesList;
+    InitializeTable();
 }
 
 class StdCapture
@@ -2414,6 +2408,7 @@ struct FileInfo
         outDepPath = "";
         text = "";
         error = -1;
+        intcludesAdded = 0;
     }
 
     FileInfo(const string& _fileName, const string& _options, const string& _errPath, const string& _outPath, 
@@ -2426,6 +2421,7 @@ struct FileInfo
         outDepPath = _outDepPath;
         text = _text;
         error = -1;
+        intcludesAdded = 0;
     }
 
     int error;
@@ -2435,6 +2431,7 @@ struct FileInfo
     string outPath;
     string outDepPath;
     string text;
+    int intcludesAdded;
 };
 
 static vector<string> splitAndArgvCreate(const string& options)
@@ -2458,8 +2455,62 @@ static vector<string> splitAndArgvCreate(const string& options)
     return optSplited1;
 }
 
+static void createIncludeOrder(vector<string> &toIncl,
+                               const map<string, string>& moduleDelc, 
+                               const map<string, set<string>>& modDirectOrder,
+                               set<string> &done, 
+                               const string &curr)
+{
+    if (done.find(curr) == done.end())
+    {
+        for (auto& elem : modDirectOrder.find(curr)->second)
+            createIncludeOrder(toIncl, moduleDelc, modDirectOrder, done, elem);
+
+        if (done.find(curr) == done.end())
+        {
+            toIncl.push_back(moduleDelc.find(curr)->second);
+            done.insert(curr);
+        }
+    }
+}
+
+static void applyModuleDeclsForFile(FileInfo *forFile,
+                                    const map<string, string>& moduleDelc, 
+                                    const map<string, set<string>>& mapModuleDeps,
+                                    const map<string, set<string>>& modDirectOrder)
+{
+    auto itF = mapModuleDeps.find(forFile->fileName);
+    if (itF == mapModuleDeps.end())
+        return;
+
+    vector<string> toIncl;
+    set<string> done;
+    for (auto& mod : itF->second)
+        if (moduleDelc.find(mod) != moduleDelc.end())
+            createIncludeOrder(toIncl, moduleDelc, modDirectOrder, done, mod);
+
+    //rewrite files to the next iter of parse    
+    string include = "";
+    for (auto& incl : toIncl)
+        include += "      include '" + incl + "'\n";
+
+    string data = include + forFile->text;
+    writeFileFromStr(forFile->fileName, data);
+    forFile->intcludesAdded = toIncl.size();
+}
+
+static void restoreOriginalText(const vector<FileInfo>& listOfProject)
+{
+    for (auto& elem : listOfProject)
+        writeFileFromStr(elem.fileName, elem.text);
+    fflush(NULL);
+}
+
 extern "C" int parse_file(int argc, char* argv[], char* proj_name);
-static vector<string> parseList(vector<FileInfo>& listOfProject)
+static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToInclude,
+                                const map<string, set<string>> &mapModuleDeps, 
+                                const map<string, string> &moduleDelc,
+                                const map<string, set<string>> &modDirectOrder)
 {
     vector<string> errors;
     for (auto& elem : listOfProject)
@@ -2490,7 +2541,12 @@ static vector<string> parseList(vector<FileInfo>& listOfProject)
         try
         {
             StdCapture::BeginCapture();
+            if (needToInclude)
+                applyModuleDeclsForFile(&elem, moduleDelc, mapModuleDeps, modDirectOrder);
             int retCode = parse_file(optSplited.size(), toParse, "dvm.proj");
+            if (needToInclude)
+                restoreOriginalText(listOfProject);
+
             elem.error = retCode;
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
@@ -2499,40 +2555,101 @@ static vector<string> parseList(vector<FileInfo>& listOfProject)
         {
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
+
+            if (needToInclude)
+                restoreOriginalText(listOfProject);
         }
         catch (...)
         {
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
+
+            if (needToInclude)
+                restoreOriginalText(listOfProject);
         }
         errors.push_back(errorMessage);
         delete[]toParse;
+#if _WIN32 && NDEBUG
+        createNeededException();
+#endif
     }
     return errors;
 }
 
+static string shiftLines(const string &in, const map<string, const FileInfo*> &mapOfFiles, const FileInfo* currF)
+{
+    int byNum = 0;
+
+    auto it = in.find("on line ");
+    if (it != string::npos)
+        it += strlen("on line ");
+
+    int d = 0;
+    sscanf(in.c_str() + it, "%d", &d);
+    
+    auto it1 = in.find("of", it + 1);
+    if (it1 == string::npos)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    it1 += 3;
+
+    string fileN = in.substr(it1, in.find(':', it1) - it1);
+    auto itF = mapOfFiles.find(fileN);
+    if (itF == mapOfFiles.end())
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    if (itF->second != currF)
+        return in;
+
+    byNum = itF->second->intcludesAdded;
+    if (byNum == 0)
+        return in;
+
+    d -= byNum;
+    if (d <= 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    string newStr = in.substr(0, it) + std::to_string(d) + in.substr(in.find(' ', it + 1));
+    return newStr;
+}
+
 static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<string>& errors)
 {
-    int z = 0;
+    map<string, const FileInfo*> mapOfFiles;
     for (auto& elem : listOfProject)
+        mapOfFiles[elem.fileName] = &elem;
+
+    int z = 0;
+    for (auto& file : listOfProject)
     {
-        FILE* ferr = fopen(elem.errPath.c_str(), "w");
-        FILE* fout = fopen(elem.outPath.c_str(), "w");
+        FILE* ferr = fopen(file.errPath.c_str(), "w");
+        FILE* fout = fopen(file.outPath.c_str(), "w");
         if (!ferr)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
         if (!fout)
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-        fclose(fout);
 
-        fprintf(ferr, "%s", errors[z].c_str());
+        string errS = "", outS = "";
+        vector<string> splited;
+        splitString(errors[z], '\n', splited);
+        for (auto& elem : splited)
+            if (elem.find("Warning") != string::npos)
+                outS += shiftLines(elem, mapOfFiles, &file) + "\n";
+            else if (elem.find("Error") != string::npos)
+                errS += shiftLines(elem, mapOfFiles, &file) + "\n";
+
+        fprintf(fout, "%s", outS.c_str());
+        fprintf(ferr, "%s", errS.c_str());
+
+        fflush(NULL);
+
+        fclose(fout);
         fclose(ferr);
         ++z;
     }
 }
 
-static bool createMapOfUse(const vector<string>& errors, const vector<FileInfo>& listOfProject, map<string, set<string>> &mapModuleDeps)
+static int createMapOfUse(const vector<string>& errors, const vector<FileInfo>& listOfProject, map<string, set<string>> &mapModuleDeps)
 {
-    bool changed = false;
+    int changed = 0;
     for (int z = 0; z < listOfProject.size(); ++z)
     {
         if (listOfProject[z].error >= 0)
@@ -2551,7 +2668,7 @@ static bool createMapOfUse(const vector<string>& errors, const vector<FileInfo>&
                         while (err[pos] != ' ' && pos != err.size())
                             substr += err[pos++];
                         mapModuleDeps[listOfProject[z].fileName].insert(substr);
-                        changed = true;
+                        changed++;
                     }
                 }
             }
@@ -2561,94 +2678,28 @@ static bool createMapOfUse(const vector<string>& errors, const vector<FileInfo>&
     return changed;
 }
 
-static void applyModuleDecls(const vector<FileInfo> &listOfProject, const map<string, string> &moduleDelc, map<string, set<string>> &mapModuleDeps)
+static map<string, set<string>> createModuleOrder(const map<string, string> &moduleDelc, const map<string, set<string>> &mapModuleDeps)
 {
-    map<string, const FileInfo*> infoMap;
-    for (auto& elem : listOfProject)
-        infoMap[elem.fileName] = &elem;
+    map<string, set<string>> modDirectOrder;
+    for (auto& elem : moduleDelc)
+        modDirectOrder[elem.first] = set<string>();
 
-    bool changed = true;
-    while (changed)
+    for (auto& elem : moduleDelc)
     {
-        changed = false;
-        map<string, set<string>> newMap(mapModuleDeps);
-        for (auto& elem : mapModuleDeps)
+        auto itF = mapModuleDeps.find(elem.second);
+        if (itF != mapModuleDeps.end())
         {
-            for (auto& mod : elem.second)
+            for (auto& inFile : itF->second)
             {
-                auto itM = moduleDelc.find(mod);
-                if (itM != moduleDelc.end() && mapModuleDeps.find(itM->second) != mapModuleDeps.end())
-                {
-                    for (auto& toAdd : mapModuleDeps[itM->second])
-                    {
-                        if (newMap[elem.first].find(toAdd) == newMap[elem.first].end())
-                        {
-                            newMap[elem.first].insert(toAdd);
-                            changed = true;
-                        }
-                    }
-                }
+                if (moduleDelc.find(inFile) != moduleDelc.end())
+                    modDirectOrder[elem.first].insert(inFile);
             }
         }
-        mapModuleDeps = newMap;
     }
 
-    map<string, set<string>> newMap;
-    for (auto& elem : mapModuleDeps)
-    {
-        map<string, int> modCountUse;
-        for (auto& mod : elem.second)
-        {
-            if (modCountUse.find(mod) == modCountUse.end())
-                modCountUse[mod] = 1;
-            else
-                modCountUse[mod]++;
-
-            auto itM = moduleDelc.find(mod);
-            if (itM != moduleDelc.end() && mapModuleDeps.find(itM->second) != mapModuleDeps.end())
-            {
-                for (auto& toUse: mapModuleDeps[itM->second])
-                {
-                    if (modCountUse.find(toUse) == modCountUse.end())
-                        modCountUse[toUse] = 1;
-                    else
-                        modCountUse[toUse]++;
-                }
-            }
-        }
-
-        for (auto& uniqMods : modCountUse)
-            if (uniqMods.second == 1)
-                newMap[elem.first].insert(uniqMods.first);
-    }
-    mapModuleDeps = newMap;
-
-    //rewrite files to the next iter of parse
-    for (auto& elem : mapModuleDeps)
-    {
-        auto itF = infoMap.find(elem.first);
-        if (itF == infoMap.end())
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        string include = "";
-        for (auto& mods : elem.second)
-        {
-            auto itModF = moduleDelc.find(mods);
-            if (itModF != moduleDelc.end())
-                include += "      include '" + itModF->second + "'\n";
-        }
-
-        string data = include + itF->second->text;
-        writeFileFromStr(itF->second->fileName, data);
-    }
+    return modDirectOrder;
 }
 
-static void restoreOriginalText(const vector<FileInfo> &listOfProject)
-{
-    for (auto& elem : listOfProject)
-        writeFileFromStr(elem.fileName, elem.text);
-    fflush(NULL);    
-}
 
 int parseFiles(const char* proj)
 {
@@ -2690,29 +2741,36 @@ int parseFiles(const char* proj)
     vector<string> errors;
     map<string, set<string>> mapModuleDeps;
     map<string, string> moduleDelc;
+    map<string, set<string>> modDirectOrder;
+
     string projName = "tmp";
     int iters = 0;
-    bool changed = false;
+    int changed = 0;
+    int lastChanged = 0;
 
     int rethrow = 0;
     try
     {
         do
-        {
-            errors = parseList(listOfProject);
-            if (iters != 0)
-                restoreOriginalText(listOfProject);
-
+        {            
+            errors = parseList(listOfProject, iters != 0, mapModuleDeps, moduleDelc, modDirectOrder);
             changed = createMapOfUse(errors, listOfProject, mapModuleDeps);
+            if (iters != 0)
+                if (lastChanged <= changed)
+                    break;
+#if _WIN32 && NDEBUG
+            createNeededException();
+#endif
             if (changed)
             {
                 vector<string> files;
                 for (auto& elem : listOfProject)
                     if (elem.error == 0)
                         files.push_back(elem.outDepPath);
-                moduleDelc = findModuleDeclInProject(projName + std::to_string(iters++), files);
-                applyModuleDecls(listOfProject, moduleDelc, mapModuleDeps);
+                findModuleDeclInProject(projName + std::to_string(iters++), files, moduleDelc);
+                modDirectOrder = createModuleOrder(moduleDelc, mapModuleDeps);
             }
+            lastChanged = changed;
         } while (changed);
     }
     catch (int err)
@@ -2724,14 +2782,10 @@ int parseFiles(const char* proj)
         rethrow = -1;
     }
 
-    if (rethrow != 0)
-    {
-        if (iters != 0)
-            restoreOriginalText(listOfProject);
-        throw rethrow;
-    }
-
     dumpErrors(listOfProject, errors);
+
+    if (rethrow != 0)
+        throw rethrow;
     return 0;
 }
 

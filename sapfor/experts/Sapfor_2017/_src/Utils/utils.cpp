@@ -629,11 +629,22 @@ void uniteVectors(const vector<pair<pair<string, string>, vector<pair<int, int>>
 
 #include <unordered_map>
 
+#define FULL_ERROR_DUMP 1
+
 // pointer -> type of alloc function
+#if FULL_ERROR_DUMP
 static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollection;
+static std::unordered_map<void*, std::tuple<int, int, const char*>> pointerCollectionLocal;
+#else
+static std::unordered_map<void*, std::tuple<int>> pointerCollection;
+static std::unordered_map<void*, std::tuple<int>> pointerCollectionLocal;
+#endif
+
 static bool deleteInProgress = false;
 static void* currentPointer = NULL;
 static set<void*> deleted;
+
+static bool storeInLocal = false;
 
 // type == 0 -> free, type == 1 -> delete, type == 2 -> delete[]
 // acc_analyzer.h: ControlFlowItem = 3, doLoopItem = 4, doLoops = 5, LabelCFI = 6, CLAStatementItem = 7
@@ -646,7 +657,15 @@ static set<void*> deleted;
 //   ControlFlowGraph = 30
 extern "C" void addToCollection(const int line, const char *file, void *pointer, int type)
 {
+#if FULL_ERROR_DUMP
+    if (storeInLocal)
+        pointerCollectionLocal.insert(std::make_pair(pointer, std::make_tuple(type, line, file)));
     pointerCollection.insert(std::make_pair(pointer, std::make_tuple(type, line, file)));
+#else
+    if (storeInLocal)
+        pointerCollectionLocal.insert(std::make_pair(pointer, std::make_tuple(type)));
+    pointerCollection.insert(std::make_pair(pointer, std::make_tuple(type)));
+#endif
 }
 
 extern "C" void removeFromCollection(void *pointer)
@@ -657,17 +676,43 @@ extern "C" void removeFromCollection(void *pointer)
             deleted.insert(pointer);
     }
     else
-    {
-        if (pointerCollection.size() == 0)
-            return;
-
+    {        
         auto it = pointerCollection.find(pointer);
         if (it != pointerCollection.end())
             pointerCollection.erase(it);
+
+        if (storeInLocal)
+        {
+            auto it = pointerCollectionLocal.find(pointer);
+            if (it != pointerCollectionLocal.end())
+                pointerCollectionLocal.erase(it);
+        }
     }
 }
 
-void deletePointerAllocatedData()
+void startLocalColletion() { storeInLocal = true; }
+void finishLocalColletion() { storeInLocal = false; }
+
+void deleteLeaks()
+{
+    map<string, int> places;
+    auto copy = pointerCollection;
+    for (auto& elem : copy)
+    {
+        string place = std::get<2>(elem.second);
+        places[place]++;
+        if (place.find("make_nodes.c") != string::npos)
+        {
+            free((char*)(elem.first));
+
+            auto it = pointerCollection.find(elem.first);
+            if (it != pointerCollection.end())
+                pointerCollection.erase(it);
+        }
+    }
+}
+
+void deletePointerAllocatedData(bool delLocal)
 {
     int leaks = 0;
     int failed = 0;
@@ -675,7 +720,13 @@ void deletePointerAllocatedData()
     deleted.clear();
     int maxS = -1;
     int z = -1;
-    for (auto &elem : pointerCollection)
+
+#if FULL_ERROR_DUMP
+    std::unordered_map<void*, std::tuple<int, int, const char*>>* toDelCollection = delLocal ? &pointerCollectionLocal : &pointerCollection;
+#else
+    std::unordered_map<void*, std::tuple<int>>* toDelCollection = delLocal ? &pointerCollectionLocal : &pointerCollection;
+#endif
+    for (auto &elem : *toDelCollection)
     {
         ++z;
         maxS = std::max(maxS, (int)deleted.size());
@@ -774,7 +825,7 @@ void deletePointerAllocatedData()
         printf("SAPFOR: detected failed %d leaks of memory\n", failed);
     printf("SAPFOR: deleted set size %d, maxS = %d\n", (int)deleted.size(), maxS);
 
-    pointerCollection.clear();
+    toDelCollection->clear();
     deleted.clear();
     deleteInProgress = false;
     currentPointer = NULL;
