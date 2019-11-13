@@ -86,7 +86,7 @@ int *ALGORITHMS_DONE[EMPTY_ALGO] = { NULL };
 
 #include "SapforData.h"
 
-SgProject *project = NULL;
+static SgProject *project = NULL;
 // for pass temporary functions from DEF_USE_STAGE1 to SUBST_EXPR
 static map<string, vector<FuncInfo*>> temporaryAllFuncInfo = map<string, vector<FuncInfo*>>();
 
@@ -228,6 +228,7 @@ static void updateStatsExprs(const int id, const string &file)
         sgExprs[ex->thellnd] = make_pair(file, id);
 }
 
+static map<string, int> filesNameWithoutExt;
 static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bool need_to_unparse,
                                    const char* newVer, const char* folderName, set<string>& allIncludeFiles, bool toString = false)
 {
@@ -269,14 +270,19 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
         string fout_name = "";
         const string outExt = (out_free_form == 1) ? "f90" : "for";
 
+        string fPartOfName = OnlyName(file_name);
+        if (!toString)
+            if (filesNameWithoutExt.find(fPartOfName)->second != 1)
+                fPartOfName = FullNameWithExt(file_name);
+
         if (folderName == NULL)
-            fout_name = OnlyName(file_name) + "_" + newVer + "." + outExt;
+            fout_name = fPartOfName + "_" + newVer + "." + outExt;
         else
         {
             if (strlen(newVer) == 0)
-                fout_name = folderName + string("/") + OnlyName(file_name) + "." + outExt;
+                fout_name = folderName + string("/") + fPartOfName + "." + outExt;
             else
-                fout_name = folderName + string("/") + OnlyName(file_name) + "_" + newVer + "." + outExt;
+                fout_name = folderName + string("/") + fPartOfName + "_" + newVer + "." + outExt;
         }
 
         __spf_print(1, "  Unparsing to <%s> file\n", fout_name.c_str());
@@ -1941,6 +1947,12 @@ static SgProject* createProject(const char *proj_name)
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
         SgFile* file = &(project->file(z));
+
+        string name = OnlyName(file->filename());
+        if (filesNameWithoutExt.find(name) == filesNameWithoutExt.end())
+            filesNameWithoutExt[name] = 1;
+        else
+            filesNameWithoutExt[name]++;
 
         fillModuleUse(file, moduleUsesByFile, moduleDecls);
         correctModuleProcNames(file);

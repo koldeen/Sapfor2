@@ -14,6 +14,8 @@ namespace DIST = Distribution;
 
 std::string OnlyExt(const char *filename);
 std::string OnlyName(const char *filename);
+std::string FullNameWithExt(const char* filename);
+
 void printHelp(const char **passNames, const int lastPass);
 void convertToLower(std::string &str);
 void convertToUpper(std::string &str);

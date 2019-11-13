@@ -56,6 +56,27 @@ void createMapLoopGraph(map<int, LoopGraph*> &sortedLoopGraph, const vector<Loop
     }
 }
 
+string FullNameWithExt(const char* filename)
+{
+    char* basename = new char[strlen(filename) + 1];
+    int i;
+
+    strcpy(basename, filename);
+    for (i = (int)strlen(filename) - 1; i >= 0; --i)
+    {
+        if (basename[i] == '.')
+        {
+            basename[i] = '_';
+            break;
+        }
+    }
+
+    string retVal(basename);
+    delete[] basename;
+
+    return retVal;
+}
+
 string OnlyName(const char *filename)
 {
     char *basename = new char[strlen(filename) + 1];
@@ -72,17 +93,14 @@ string OnlyName(const char *filename)
     }
 
     string retVal(basename);
-#ifdef __SPF
-    removeFromCollection(basename);
-#endif
-    delete []basename;
+    delete[] basename;
 
     return retVal;
 }
 
 string OnlyExt(const char *filename)
 {
-    char *extname = new char[16];
+    char *extname = new char[1024];
     int i;
 
     int len = (int)strlen(filename);
@@ -101,10 +119,7 @@ string OnlyExt(const char *filename)
     }
 
     string retVal(extname);
-#ifdef __SPF
-    removeFromCollection(extname);
-#endif
-    delete []extname;
+    delete[] extname;
     return retVal;
 }
 

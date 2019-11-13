@@ -201,16 +201,19 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         int steps = 0;
         while (passDone == 0)
         {
-            FILE *interrupt = fopen("INTERRUPT", "r");
-            if (interrupt)
+            FILE* interrupt_old = fopen("INTERRUPT", "r");
+            FILE* interrupt = fopen("visualiser_data/INTERRUPT", "r");
+            if (interrupt || interrupt_old)
             {
                 printf("SAPFOR: file exists, start interruption\n");
-                fflush(NULL);                
-                //thread.interrupt();
-                fclose(interrupt);
+                fflush(NULL);
+
+                if (interrupt_old)
+                    fclose(interrupt_old);
+                if (interrupt)
+                    fclose(interrupt);
                 passDone = 2;
             }
-            //printf("SAPFOR: sleep %d ms\n", timeToWait);
             _sleep(timeToWait);
             
             if (steps > 4)
@@ -762,7 +765,6 @@ int SPF_ModifyArrayDistribution(void*& context, int winHandler, short *options, 
 }
 
 extern map<string, PredictorStats> allPredictorStats;
-extern SgProject *project;
 extern map<string, vector<SpfInterval*>> intervals;
 extern vector<vector<long>> topologies;
 
