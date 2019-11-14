@@ -159,6 +159,30 @@ void DvmhRegionInsertor::updateLoopGraph(const map<string, FuncInfo*> &allFuncs)
         updateLoopNode(loopNode, allFuncs);
 }
 
+void DvmhRegionInsertor::parFuncsInNode(LoopGraph *loop, bool isParallel)
+{
+    // check for parallel
+    isParallel |= (loop->directive != NULL);
+
+    // meat: save parallel calls
+    if (isParallel)
+        for (auto &call : loop->calls)  // mark call as parallel
+            this->parallel_functions.insert(call.first);
+
+    // recursion: check nested loops
+    for (auto &nestedLoop : loop->children)
+        parFuncsInNode(nestedLoop, isParallel);
+}
+
+void DvmhRegionInsertor::updateParallelFunctions(vector<LoopGraph*> &loopGraph)
+{
+    for (auto &loopNode : loopGraph)
+    {
+        bool isParallel = (loopNode->directive != NULL);
+        parFuncsInNode(loopNode, isParallel);
+    }
+}
+
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
                       const string& locName, vector<string> &altNames)
 {
@@ -318,11 +342,15 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
-    // TODO: if func is parallel -> skip
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
+
+        // skip parallel funcs
+        string func_name = st->symbol()->identifier();
+        if (parallel_functions.find(func_name) != parallel_functions.end())
+            continue;
 
         st = st->lexNext();
         while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
