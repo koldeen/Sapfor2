@@ -220,11 +220,17 @@ static char crunchbuf[LONG_LINE_LENGTH * (MAX_CONTIN_CARDS + 1)];
     is avialable to the parser                                             */
 #define COMMENT_BUF_STORE 162    /*17.10.16 podd 161=>162 */
 
-typedef struct comment_buf {
+typedef struct comment_buf 
+{
 	struct comment_buf *next;
 	char *last;
+#ifdef __SPF_BUILT_IN_PARSER
+    char* buf;
+#else
 	char buf[COMMENT_BUF_STORE];
-	} comment_buf;
+#endif
+} comment_buf;
+
 static struct comment_buf *cbfirst, *cblast, *pcbfirst, *pcblast;
 
 /* Comment buffering data
@@ -3171,13 +3177,19 @@ static void store_comment()
 
     ncb = (comment_buf *)chkalloc(sizeof(comment_buf));
          /* 14.10.2016 Kolganov, 17.10.16 podd. Don't loss '\n' symbol during truncating */
+         // 15.11.2019 Kolganov dynamic allocation for SAPFOR
+#ifndef __SPF_BUILT_IN_PARSER
     if ((int)strlen(tempbuf) > COMMENT_BUF_STORE-1)   
     {
-        warn("comment too long, truncated to 160 characters", 15);               
-	tempbuf[COMMENT_BUF_STORE-2] = '\n';
+        warn("comment too long, truncated to 160 characters", 15);
+        tempbuf[COMMENT_BUF_STORE-2] = '\n';
         tempbuf[COMMENT_BUF_STORE-1] = '\0';
     }
+#endif
 
+#ifdef __SPF_BUILT_IN_PARSER
+    ncb->buf = (char*)chkalloc(strlen(tempbuf) + 1);
+#endif
     ncb->buf[0] = '\0';
     strcpy(ncb->buf, tempbuf);
     /* (void)fprintf(stderr,"store_comment_end_permbuff:tempbuf = %s \n",tempbuf);*/
@@ -3200,8 +3212,11 @@ store_comment_end_permbuff()
      comment_buf *ncb;
      
      ncb = (comment_buf *) chkalloc(sizeof(comment_buf));
-     ncb->buf[0]='\0';
-     strcpy(ncb->buf,tempbuf);
+#ifdef __SPF_BUILT_IN_PARSER
+     ncb->buf = (char*)chkalloc(strlen(tempbuf) + 1);
+#endif
+     ncb->buf[0] = '\0';
+     strcpy(ncb->buf, tempbuf);
      /* (void)fprintf(stderr,"store_comment_end_permbuff:tempbuf = %s \n",tempbuf);*/
      ncb->next = NULL;
      if (!pcbfirst) {

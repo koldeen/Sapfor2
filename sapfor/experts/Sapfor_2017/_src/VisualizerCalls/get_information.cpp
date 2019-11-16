@@ -51,6 +51,8 @@ using std::make_pair;
 extern set<short*> allocated;
 extern set<int*> allocatedInt;
 
+static bool showDebug = false;
+
 static inline int strLen(const short* shString)
 {
     int t = 0;
@@ -89,9 +91,19 @@ static void setOptions(const short *options)
     vector<int> intOptions;
     splitString(convS, '#', splited);
 
-    intOptions.resize(splited.size());
-    for (int z = STATIC_SHADOW_ANALYSIS; z < ANALYSIS_OPTIONS; ++z) //TODO: extend
-        intOptions[z] = atoi(splited[z].c_str());
+    intOptions.resize(EMPTY_OPTION);
+    std::fill(intOptions.begin(), intOptions.end(), -1);
+
+    for (int z = STATIC_SHADOW_ANALYSIS; z <= DEBUG_PRINT_ON; ++z) //TODO: extend
+    {
+        if (splited.size() == z)
+            break;
+
+        if (z != ANALYSIS_OPTIONS)
+            intOptions[z] = atoi(splited[z].c_str());
+        else
+            intOptions[z] = -1;
+    }
 
     //staticShadowAnalysis = intOptions[STATIC_SHADOW_ANALYSIS];
     staticPrivateAnalysis = intOptions[STATIC_PRIVATE_ANALYSIS];
@@ -103,7 +115,7 @@ static void setOptions(const short *options)
     out_upper_case = intOptions[OUTPUT_UPPER];
     langOfMessages = intOptions[TRANSLATE_MESSAGES];
     removeNestedIntervals = (intOptions[KEEP_LOOPS_CLOSE_NESTING] == 1);
-
+    showDebug = (intOptions[DEBUG_PRINT_ON] == 1);
     //mpiProgram = intOptions[MPI_PROGRAM];
     //ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
 
@@ -140,24 +152,28 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
     try
     {
         setPassValues();
-        printf("SAPFOR: all passes num %zd\n", passesToRun.size());
+        if (showDebug)
+            printf("SAPFOR: all passes num %zd\n", passesToRun.size());
         for (int i = 0; i < passesToRun.size(); ++i)
         {
-            printf("SAPFOR: run pass %d -> %s\n", passesToRun[i], passNames[passesToRun[i]]);
+            if (showDebug)
+                printf("SAPFOR: run pass %d -> %s\n", passesToRun[i], passNames[passesToRun[i]]);
             runPass(passesToRun[i], prName, folderNameChar);
         }
     }
 #if  __BOOST
     catch (boost::thread_interrupted&)
     {
-        printf("SAPFOR: thread was terminated\n");
+        if (showDebug)
+            printf("SAPFOR: thread was terminated\n");
         fflush(NULL);
         return;
     }
 #endif
     catch (std::exception&)
     {
-        printf("SAPFOR: thread was terminated\n");
+        if (showDebug)
+            printf("SAPFOR: thread was terminated\n");
         fflush(NULL);
         return;
     }
@@ -171,7 +187,8 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
         rethrow = -1;
     }
 
-    printf("SAPFOR: exit with pass == 1\n");
+    if (showDebug)
+        printf("SAPFOR: exit with pass == 1\n");
     passDone = 1;
 }
 
@@ -205,7 +222,8 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
             FILE* interrupt = fopen("visualiser_data/INTERRUPT", "r");
             if (interrupt || interrupt_old)
             {
-                printf("SAPFOR: file exists, start interruption\n");
+                if (showDebug)
+                    printf("SAPFOR: file exists, start interruption\n");
                 fflush(NULL);
 
                 if (interrupt_old)
@@ -225,10 +243,11 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
             else 
                 steps++;
         }
-        
-        printf("SAPFOR: start wait thread join, pass == %d\n", passDone);
+        if (showDebug)
+            printf("SAPFOR: start wait thread join, pass == %d\n", passDone);
         thread.join();
-        printf("SAPFOR: end wait thread join\n");
+        if (showDebug)
+            printf("SAPFOR: end wait thread join\n");
 
         if (passDone == 2)
             rethrow = 1;
@@ -245,7 +264,8 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
     
     if (rethrow == 1)
     {
-        printf("SAPFOR: rethrow\n");
+        if (showDebug)
+            printf("SAPFOR: rethrow\n");
         fflush(NULL);
         throw -99;
     }
@@ -288,8 +308,8 @@ int SPF_StatisticAnalyzer(void*& context, int winHandler, short* options, short*
     }
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -324,8 +344,8 @@ int SPF_ParseFiles(void*& context, int winHandler, short *options, short* projNa
     }
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -382,8 +402,8 @@ int SPF_GetGraphLoops(void*& context, int winHandler, short *options, short *pro
 
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
 
     MessageManager::setWinHandler(-1);
     return retSize;
@@ -430,8 +450,8 @@ int SPF_GetGraphFunctions(void*& context, int winHandler, short *options, short 
 
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
 
     MessageManager::setWinHandler(-1);
     return retSize;
@@ -482,8 +502,8 @@ int SPF_GetGraphVizOfFunctions(void*& context, short *options, short *projName, 
 
     //convertGlobalBuffer(output, outputSize);
     //convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
 
     MessageManager::setWinHandler(-1);
     return retSize;
@@ -506,7 +526,8 @@ int SPF_GetPassesStateStr(void*& context, short *&passInfo)
     string donePasses = "";
     for (int i = 0; i < EMPTY_PASS; ++i)
     {
-        printf("SAPFOR: pass %d is %d with name %s\n", 1, PASSES_DONE[i], passNames[i]);
+        if (showDebug)
+            printf("SAPFOR: pass %d is %d with name %s\n", 1, PASSES_DONE[i], passNames[i]);
         if (PASSES_DONE[i] == 1)
         {
             donePasses += passNames[i] + string("|");
@@ -525,7 +546,8 @@ int SPF_GetPassesStateStr(void*& context, short *&passInfo)
 extern std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> declaratedArrays;
 static void printDeclArraysState()
 {
-    printf("SAPFOR: decl state: \n");
+    if (showDebug)
+        printf("SAPFOR: decl state: \n");
     int dist = 0, priv = 0, err = 0;
     for (auto it = declaratedArrays.begin(); it != declaratedArrays.end(); ++it)
     {
@@ -539,7 +561,8 @@ static void printDeclArraysState()
             //printf("array '%s' is ERROR\n", it->second.first->GetShortName().c_str());
             err++;        
     }
-    printf("   PRIV %d, DIST %d, ERR %d, ALL %d\n", priv, dist, err, dist + priv + err);
+    if (showDebug)
+        printf("   PRIV %d, DIST %d, ERR %d, ALL %d\n", priv, dist, err, dist + priv + err);
 }
 
 extern vector<ParallelRegion*> parallelRegions;
@@ -582,8 +605,8 @@ int SPF_GetArrayDistribution(void*& context, int winHandler, short *options, sho
 
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL with code %d\n", retSize);
+    if (showDebug)
+        printf("SAPFOR: return from DLL with code %d\n", retSize);
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -758,8 +781,8 @@ int SPF_ModifyArrayDistribution(void*& context, int winHandler, short *options, 
 
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
-
-    printf("SAPFOR: return from DLL with code %d\n", retSize);
+    if (showDebug)
+        printf("SAPFOR: return from DLL with code %d\n", retSize);
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -792,7 +815,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
         map<int, vector<pair<int64_t, int64_t>>> varLens;
         for (int i = 0, k = 0; i < *varLen; i += 3, ++k)
         {
-            printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
+            if (showDebug)
+                printf("SAPFOR: input pack %d: %lld %lld %lld\n", k, variants[i], variants[i + 1], variants[i + 2]);
             varLens[(int)variants[i + 2]].push_back(make_pair(variants[i], variants[i + 1]));
         }
 
@@ -812,7 +836,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
             vector<int> currentVariant(dataDirectives.distrRules.size());
             if (currVars.size() != dataDirectives.distrRules.size())
             {
-                printf("SAPFOR: currV %d, dataDirectives.distrRules %d\n", (int)currVars.size(), (int)dataDirectives.distrRules.size());
+                if (showDebug)
+                    printf("SAPFOR: currV %d, dataDirectives.distrRules %d\n", (int)currVars.size(), (int)dataDirectives.distrRules.size());
                 throw (-3);
             }
 
@@ -823,7 +848,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
             map<int64_t, int> templateIdx;
             for (int i = 0; i < dataDirectives.distrRules.size(); ++i)
             {
-                printf("SAPFOR: template address %lld with num %d\n", (int64_t)dataDirectives.distrRules[i].first, i);
+                if (showDebug)
+                    printf("SAPFOR: template address %lld with num %d\n", (int64_t)dataDirectives.distrRules[i].first, i);
                 templateIdx[(int64_t)dataDirectives.distrRules[i].first] = i;                
             }
 
@@ -833,7 +859,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
                 if (itF == templateIdx.end())
                     throw (-4);
 
-                printf("SAPFOR: found %lld address\n", it->first);
+                if (showDebug)
+                    printf("SAPFOR: found %lld address\n", it->first);
                 currentVariant[itF->second] = it->second;
 
                 for (auto &elem : dataDirectives.distrRules[itF->second].second[it->second].distRule)                    
@@ -845,7 +872,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
             parallelRegions[z]->SetCurrentVariant(currentVariant);
         }
 
-        printf("SAPFOR: set all info done\n");
+        if (showDebug)
+            printf("SAPFOR: set all info done\n");
         runPassesForVisualizer(projName, { INSERT_PARALLEL_DIRS }, folderName);
 
         string predictRes = "";
@@ -921,7 +949,8 @@ int SPF_CreateParallelVariant(void*& context, int winHandler, short *options, sh
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -1049,7 +1078,8 @@ int SPF_SetFunctionsToInclude(void*& context, int winHandler, short *options, sh
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -1095,7 +1125,8 @@ int SPF_GetAllDeclaratedArrays(void*& context, int winHandler, short *options, s
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -1147,7 +1178,8 @@ int SPF_GetFileLineInfo(void*& context, int winHandler, short *options, short *p
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
 }
@@ -1167,7 +1199,7 @@ int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
             if (array.second.first->GetName() == keyStr)
             {
                 __spf_print(1, "change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
-                printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
+                //printf("SAPFOR: change flag for array '%s': %d -> %d\n", array.second.first->GetName().c_str(), array.second.first->GetNonDistributeFlag(), flag);
 
                 if (flag == 0)
                     array.second.first->SetNonDistributeFlag(DIST::DISTR);
@@ -1212,7 +1244,8 @@ static int simpleTransformPass(const passes PASS_NAME, short *options, short *pr
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -1381,7 +1414,8 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -1461,7 +1495,8 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -1500,7 +1535,8 @@ int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* 
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retCode;
 }
@@ -1586,7 +1622,8 @@ int SPF_GetGCovInfo(void*& context, int winHandler, short *options, short *projN
     convertGlobalBuffer(output, outputSize);
     convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
 
-    printf("SAPFOR: return from DLL\n");
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
     MessageManager::setWinHandler(-1);
     return retSize;
     

@@ -649,6 +649,8 @@ retry:
         /*(void)printf("Bad parse, return code %d\n", k);*/
         (void)err("Compiler bug", 0);
 #ifdef __SPF_BUILT_IN_PARSER
+        release_nodes();
+        close_files();
         return 1;
 #else
         exit(1);
@@ -659,6 +661,8 @@ retry:
         infname = input_file;
         err("Missing final end statement or unclosed construct", 8);
 #ifdef __SPF_BUILT_IN_PARSER
+        release_nodes();
+        close_files();
         return 1;
 #else
         exit(1);
@@ -670,6 +674,8 @@ retry:
     if (errcnt) {
         (void)fprintf(stderr, "%d error(s)\n", errcnt);
 #ifdef __SPF_BUILT_IN_PARSER
+        release_nodes();
+        close_files();
         return 1;
 #else
         exit(1);
@@ -692,6 +698,8 @@ retry:
                 goto retry;
             }
 #ifdef __SPF_BUILT_IN_PARSER
+            release_nodes();
+            close_files();
             return 1;
 #else
             exit(1);

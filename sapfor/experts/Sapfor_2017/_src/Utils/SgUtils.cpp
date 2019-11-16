@@ -2409,6 +2409,7 @@ struct FileInfo
         text = "";
         error = -1;
         intcludesAdded = 0;
+        style = -1;
     }
 
     FileInfo(const string& _fileName, const string& _options, const string& _errPath, const string& _outPath, 
@@ -2422,6 +2423,7 @@ struct FileInfo
         text = _text;
         error = -1;
         intcludesAdded = 0;
+        style = -1;
     }
 
     int error;
@@ -2431,6 +2433,7 @@ struct FileInfo
     string outPath;
     string outDepPath;
     string text;
+    int style; // -1 unk, 0 fixed, 1 fixed ext, 2 free
     int intcludesAdded;
 };
 
@@ -2474,14 +2477,67 @@ static void createIncludeOrder(vector<string> &toIncl,
     }
 }
 
-static void applyModuleDeclsForFile(FileInfo *forFile,
-                                    const map<string, string>& moduleDelc, 
-                                    const map<string, set<string>>& mapModuleDeps,
-                                    const map<string, set<string>>& modDirectOrder)
+static string convertStyle(const FileInfo* file, bool needRewrite = true)
 {
+    string text = file->text;
+
+    vector<string> splited;
+    splitString(text, '\n', splited);
+
+    text = "";
+    int z = 0;
+    for (auto& line : splited)
+    {
+        if (line[0] == 'c' || line[0] == 'C' || line[0] == 'd' || line[0] == 'D' || line[0] == '*')
+            line[0] = '!';
+
+        bool needContinuation = false;
+        if (line[0] != '!' && line.size() > 6)
+        {
+            if (line[5] != ' ' && !(line[5] > '0' && line[5] < '9')) // not label
+            {
+                line[5] = ' ';
+                needContinuation = true;// line[5] = '&';
+            }
+
+            int p = 73;
+            if (file->style == 1)
+                p = 133;
+            if (line.size() > p)
+            {
+                while (line[p] != '\0' && line[p] != '\n' && line[p] != '!')
+                {
+                    line[p] = ' ';
+                    p++;
+                    if (p >= line.size())
+                        break;
+                }
+            }
+        }
+
+        if (needContinuation)
+            text += "&";
+        text += (z != 0 ? "\n" : "") + line;
+        ++z;
+    }
+
+    if (needRewrite)
+        writeFileFromStr(file->fileName, text);
+
+    return text;
+}
+
+static set<FileInfo*> applyModuleDeclsForFile(FileInfo *forFile, const map<string, FileInfo*> &mapFiles,
+                                              const map<string, string>& moduleDelc, 
+                                              const map<string, set<string>>& mapModuleDeps,
+                                              const map<string, set<string>>& modDirectOrder,
+                                              vector<string> &optSplited)
+{
+    set<FileInfo*> retFilesMod;
+
     auto itF = mapModuleDeps.find(forFile->fileName);
     if (itF == mapModuleDeps.end())
-        return;
+        return retFilesMod;
 
     vector<string> toIncl;
     set<string> done;
@@ -2490,13 +2546,61 @@ static void applyModuleDeclsForFile(FileInfo *forFile,
             createIncludeOrder(toIncl, moduleDelc, modDirectOrder, done, mod);
 
     //rewrite files to the next iter of parse    
+    set<FileInfo*> allFiles;
+    bool needToConvertStyle = false;
+    for (auto& incl : toIncl)
+    {
+        if (mapFiles.find(incl) == mapFiles.end())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        allFiles.insert(mapFiles.find(incl)->second);
+    }
+    allFiles.insert(forFile);
+
+    int style = forFile->style;
+    for (auto& elem : allFiles)
+    {
+        if (style != elem->style)
+        {
+            needToConvertStyle = true;
+            break;
+        }
+    }
+
+    string mainText = forFile->text;
+    if (needToConvertStyle)
+    {
+        for (auto& elem : allFiles)
+        {
+            if (elem->style != 2)
+            {
+                retFilesMod.insert(elem);
+                if (elem != forFile)
+                    auto tmp = convertStyle(elem);
+                else
+                    mainText = convertStyle(elem, false);
+            }
+        }
+
+        if (forFile->style != 2)
+        {
+            for (auto& opt : optSplited)
+            {
+                if (opt == "-FI" || opt == "-extend_source")
+                    opt = "-FR";
+            }
+        }
+    }
+
     string include = "";
     for (auto& incl : toIncl)
         include += "      include '" + incl + "'\n";
 
-    string data = include + forFile->text;
+    string data = include + mainText;
     writeFileFromStr(forFile->fileName, data);
     forFile->intcludesAdded = toIncl.size();
+
+    retFilesMod.insert(forFile);
+    return retFilesMod;
 }
 
 static void restoreOriginalText(const vector<FileInfo>& listOfProject)
@@ -2506,24 +2610,43 @@ static void restoreOriginalText(const vector<FileInfo>& listOfProject)
     fflush(NULL);
 }
 
+static inline void restoreOriginalText(const FileInfo& file)
+{
+    writeFileFromStr(file.fileName, file.text);
+}
+
 extern "C" int parse_file(int argc, char* argv[], char* proj_name);
 static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToInclude,
                                 const map<string, set<string>> &mapModuleDeps, 
                                 const map<string, string> &moduleDelc,
                                 const map<string, set<string>> &modDirectOrder)
 {
+    map<string, FileInfo*> mapFiles;
+    for (auto& elem : listOfProject)
+        mapFiles[elem.fileName] = &elem;
+
     vector<string> errors;
     for (auto& elem : listOfProject)
     {
         string file = elem.fileName;
         string options = elem.options;
 
+#ifdef _WIN32        
+        sendMessage_2lvl(L" обработка файла '" + to_wstring(file) + L"'");
+#endif
         vector<string> optSplited = splitAndArgvCreate(options);
 
         char** toParse = new char* [optSplited.size()];
         for (int z = 0; z < optSplited.size(); ++z)
             toParse[z] = (char*)optSplited[z].c_str();
         toParse[optSplited.size()] = (char*)file.c_str();
+
+        if (options.find("-FI") != string::npos)
+            elem.style = 0;
+        else if (options.find("-FR") != string::npos || options.find("-f90") != string::npos)
+            elem.style = 2;
+        else if (options.find("-extend_source") != string::npos)
+            elem.style = 1;
 
         for (int z = 0; z < optSplited.size(); ++z)
         {
@@ -2536,20 +2659,41 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             }
         }
 
+        FILE* depPath = fopen(elem.outDepPath.c_str(), "r");
+        if (depPath)
+        {
+            fclose(depPath);
+            if (elem.error == 0)
+            {
+                errors.push_back("");
+                delete[] toParse;
+                continue;
+            }
+        }
+
         StdCapture::Init();
         string errorMessage = "";
         try
         {
+            set<FileInfo*> filesModified;
             StdCapture::BeginCapture();
             if (needToInclude)
-                applyModuleDeclsForFile(&elem, moduleDelc, mapModuleDeps, modDirectOrder);
+                filesModified = applyModuleDeclsForFile(&elem, mapFiles, moduleDelc, mapModuleDeps, modDirectOrder, optSplited);
             int retCode = parse_file(optSplited.size(), toParse, "dvm.proj");
             if (needToInclude)
-                restoreOriginalText(listOfProject);
+            {
+                for (auto &elem : filesModified)
+                    restoreOriginalText(*elem);
+                fflush(NULL);
+            }
 
             elem.error = retCode;
             StdCapture::EndCapture();
             errorMessage = StdCapture::GetCapture();
+
+            if (errorMessage.find("Warning 308") != string::npos)
+                if (elem.error == 0)
+                    elem.error = 1;
         }
         catch (int err)
         {
@@ -2568,7 +2712,7 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
                 restoreOriginalText(listOfProject);
         }
         errors.push_back(errorMessage);
-        delete[]toParse;
+        delete[] toParse;
 #if _WIN32 && NDEBUG
         createNeededException();
 #endif
@@ -2595,7 +2739,7 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
     string fileN = in.substr(it1, in.find(':', it1) - it1);
     auto itF = mapOfFiles.find(fileN);
     if (itF == mapOfFiles.end())
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        return in;
     if (itF->second != currF)
         return in;
 
@@ -2620,6 +2764,16 @@ static void dumpErrors(const vector<FileInfo>& listOfProject, const vector<strin
     int z = 0;
     for (auto& file : listOfProject)
     {
+        if (errors[z] == "")
+        {
+            FILE* ferr = fopen(file.errPath.c_str(), "w");
+            if (!ferr)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            fclose(ferr);
+            ++z;
+            continue;
+        }
+
         FILE* ferr = fopen(file.errPath.c_str(), "w");
         FILE* fout = fopen(file.outPath.c_str(), "w");
         if (!ferr)
@@ -2752,7 +2906,10 @@ int parseFiles(const char* proj)
     try
     {
         do
-        {            
+        {
+#ifdef _WIN32
+            sendMessage_1lvl(L"выполняется " + std::to_wstring((iters + 1)) + L" итерация синтаксического анализа");
+#endif
             errors = parseList(listOfProject, iters != 0, mapModuleDeps, moduleDelc, modDirectOrder);
             changed = createMapOfUse(errors, listOfProject, mapModuleDeps);
             if (iters != 0)
