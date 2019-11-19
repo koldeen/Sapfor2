@@ -979,8 +979,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             DvmhRegionInsertor regionInsertor(file, loopForFile, declaratedArrays);
 
             //collect info about <parallel> functions
-            for (auto &loopGraphInFile : loopGraph)
-                regionInsertor.updateParallelFunctions(loopGraphInFile.second);
+            regionInsertor.updateParallelFunctions(loopGraph, allFuncInfo);
 
             regionInsertor.insertDirectives();
 

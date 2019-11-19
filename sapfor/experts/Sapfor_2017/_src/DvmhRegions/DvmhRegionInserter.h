@@ -78,9 +78,10 @@ class DvmhRegionInsertor
 {
     SgFile *file;
     const std::vector<LoopGraph*> &loopGraph;
+
     std::vector<DvmhRegion*> regions;
     std::unique_ptr<ArrayUsage> array_usage;
-    std::unordered_set<std::string> parallel_functions;
+    std::unordered_map<std::string, std::string> parallel_functions;  // fun_name -> file_name
 
     void printFuncName(SgStatement *);
     void findEdgesForRegions(const std::vector<LoopGraph*>&);
@@ -93,6 +94,7 @@ class DvmhRegionInsertor
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
+    bool isLoopParallel(LoopGraph *loop);
 public:
 
     DvmhRegionInsertor(SgFile*, const std::vector<LoopGraph*>&);
@@ -103,7 +105,10 @@ public:
     );
     void updateLoopGraph(const std::map<std::string, FuncInfo*> &allFuncs);
     void insertDirectives();
-    void updateParallelFunctions(std::vector<LoopGraph*> &loopGraph);
+    void updateParallelFunctions(
+            std::map<std::string, std::vector<LoopGraph*>> &loopGraphs,
+            std::map<std::string, std::vector<FuncInfo*>> &callGraphs
+            );
     ~DvmhRegionInsertor()
     {
         for (auto& reg : regions)
