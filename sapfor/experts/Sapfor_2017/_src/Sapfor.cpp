@@ -323,6 +323,19 @@ static string unparseProjectIfNeed(SgFile* file, const int curr_regime, const bo
                 else if (curr_regime == REMOVE_DVM_DIRS_TO_COMMENTS)
                     removeDvmDirs = 2;
 
+
+                set<string> allIncludeFilesFiltr;
+                set<string> modFiles;
+                for (auto& elem : moduleDecls)
+                    modFiles.insert(elem.second);
+
+                for (auto& elem : allIncludeFiles)
+                {
+                    if (modFiles.find(elem) == modFiles.end())
+                        allIncludeFilesFiltr.insert(elem);
+                }
+                allIncludeFiles = allIncludeFilesFiltr;
+
                 copyIncludes(allIncludeFiles, commentsToInclude, folderName, keepSpfDirs, removeDvmDirs);
             }
         }
@@ -1937,13 +1950,11 @@ static SgProject* createProject(const char *proj_name)
     //preprocess module includes
     for (int z = 0; z < project->numberOfFiles(); ++z)
         filesInProj.insert((project->file(z)).filename());
-    
-    for (int z = 0; z < project->numberOfFiles(); ++z)
-        removeExecutableFromModuleDeclaration(&(project->file(z)), filesInProj);
 
     //check main unit
     findMainUnit(project, SPF_messages);
 
+    set<string> globalFunctions;
     for (int z = 0; z < project->numberOfFiles(); ++z)
     {
         SgFile* file = &(project->file(z));
@@ -1955,11 +1966,15 @@ static SgProject* createProject(const char *proj_name)
             filesNameWithoutExt[name]++;
 
         fillModuleUse(file, moduleUsesByFile, moduleDecls);
-        correctModuleProcNames(file);
-        correctModuleSymbols(file);
-        replaceStructuresToSimpleTypes(file);
-    }
 
+        int funcCount = file->numberOfFunctions();
+        for (int k = 0; k < funcCount; ++k)
+        {
+            auto func = file->functions(k);
+            if (func->controlParent()->variant() == GLOBAL)
+                globalFunctions.insert(func->symbol()->identifier());
+        }
+    }
     filterModuleUse(moduleUsesByFile, moduleDecls);
 
     map<string, int> shifts;
@@ -1973,6 +1988,7 @@ static SgProject* createProject(const char *proj_name)
             continue;
         const int shiftN = it->second.size();
         shifts[fileN] = shiftN;
+        __spf_print(1, "  shift by %d for %s\n", shiftN, fileN.c_str());
     }
 
     for (int z = 0; z < project->numberOfFiles(); ++z)
@@ -1984,9 +2000,24 @@ static SgProject* createProject(const char *proj_name)
             string currF = st->fileName();
             auto it = shifts.find(currF);
             if (it != shifts.end() && file->filename() == currF)
-                st->setlineNumber(st->lineNumber() - it->second);            
+                st->setlineNumber(st->lineNumber() - it->second);
         }
-    } 
+    }
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        correctModuleProcNames(&(project->file(z)), globalFunctions);
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+        removeExecutableFromModuleDeclaration(&(project->file(z)), filesInProj);
+
+    for (int z = 0; z < project->numberOfFiles(); ++z)
+    {
+        SgFile* file = &(project->file(z));
+        correctModuleSymbols(file);
+        //replaceStructuresToSimpleTypes(file);
+    }
+
+    
     return project;
 }
 

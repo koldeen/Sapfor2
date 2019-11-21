@@ -2667,10 +2667,23 @@ static void findArrayRefs(SgExpression *ex, SgStatement *st, const string &fName
                 pair<DIST::arrayLocType, string> arrayLocation;
                 SgStatement *scope = symb->scope();
 
+                string typePrefix = "";
+                while (scope->variant() == STRUCT_DECL && scope)
+                {
+                    if (typePrefix == "")
+                        typePrefix = scope->symbol()->identifier();
+                    else
+                        typePrefix += scope->symbol()->identifier() + string("::");
+                    scope = scope->controlParent();
+                }
+                
                 if (symb != ex->symbol() || (scope && scope->variant() == MODULE_STMT))
                 {
                     if (scope)
-                        arrayLocation = make_pair(DIST::l_MODULE, scope->symbol()->identifier());
+                    {
+                        string modName = scope->symbol()->identifier();
+                        arrayLocation = make_pair(DIST::l_MODULE, (typePrefix == "") ? modName : modName + "::" + typePrefix);
+                    }
                     else //TODO: find module name with another way
                         arrayLocation = make_pair(DIST::l_MODULE, "UNREC_MODULE_NAME");
                 }

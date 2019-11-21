@@ -128,6 +128,8 @@ static void fillParam(const int i, SgSymbol *parIn, FuncParam *currParams, const
 {
     SgSymbol *par = OriginalSymbol(parIn);
     currParams->parametersT[i] = UNKNOWN_T;
+    if ((par->attributes() & OPTIONAL_BIT) != 0)
+        currParams->inout_types[i] |= OPTIONAL_BIT;
 
     if (par->variant() == FUNCTION_NAME)
     {
@@ -2010,6 +2012,14 @@ void propagateWritesToArrays(map<string, vector<FuncInfo*>> &allFuncInfo)
                             if (call->symbol()->identifier() != func.second->funcName)
                                 continue;
                             arg = call->arg(z);
+                        }
+
+                        if (arg == NULL)
+                        {
+                            if ((func.second->funcParams.inout_types[z] & OPTIONAL_BIT) != 0)
+                                continue;
+                            else
+                                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                         }
 
                         string argName = "";

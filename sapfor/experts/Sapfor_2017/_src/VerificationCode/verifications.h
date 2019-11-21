@@ -19,7 +19,7 @@ bool DvmDirectiveChecker(SgFile *file, std::map<std::string, std::vector<int>> &
 bool FunctionsChecker(SgFile *file, std::map<std::string, std::pair<std::string, int>> &funcNames, std::map<std::string, std::vector<Messages>> &currMessages);
 int VerifyFile(SgFile *file);
 void fixUseOnlyStmt(SgFile *file, const std::vector<ParallelRegion*> &regs);
-void correctModuleProcNames(SgFile *file);
+void correctModuleProcNames(SgFile *file, const std::set<std::string>& globalF);
 void correctModuleSymbols(SgFile *file);
 void replaceStructuresToSimpleTypes(SgFile* file);
 void restoreCorrectedModuleProcNames(SgFile *file);

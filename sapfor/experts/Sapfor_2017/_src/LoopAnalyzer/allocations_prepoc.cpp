@@ -43,8 +43,11 @@ void preprocess_allocates(SgFile *file)
                 set<SgStatement*> decls;
                 while (list)
                 {
-                    SgArrayRefExp *arrayRef = isSgArrayRefExp(list->lhs());
-                    decls.insert(declaratedInStmt(OriginalSymbol(arrayRef->symbol())));
+                    if (list->lhs()->variant() == ARRAY_REF)
+                        decls.insert(declaratedInStmt(OriginalSymbol(isSgArrayRefExp(list->lhs())->symbol())));
+                    else if (list->lhs()->variant() == RECORD_REF)
+                        decls.insert(declaratedInStmt(OriginalSymbol(isSgRecordRefExp(list->lhs())->fieldName())));
+
                     list = list->rhs();
                 }
 

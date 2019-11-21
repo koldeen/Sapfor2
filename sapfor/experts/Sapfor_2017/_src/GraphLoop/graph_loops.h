@@ -60,6 +60,7 @@ public:
         calculatedCountOfIters = 0;
         executionTimeInSec = -1.0;
         inDvmhRegion = 0;
+        omp_collapse = 0;
     }
 
     ~LoopGraph()
@@ -357,6 +358,10 @@ public:
     std::set<DIST::Array*> usedArraysWrite;
 
     int inDvmhRegion; // 0 -unknown, -1 - no, 1 - yes
+
+    std::set<std::string> omp_privates;
+    std::set<std::string> omp_reductions;
+    int omp_collapse;
 };
 
 void processLoopInformationForFunction(std::map<LoopGraph*, std::map<DIST::Array*, const ArrayInfo*>> &loopInfo);

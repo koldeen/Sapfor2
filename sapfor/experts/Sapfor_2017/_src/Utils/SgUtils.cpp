@@ -691,19 +691,21 @@ static bool findSymbol(SgExpression *declLst, const string &toFind)
     bool ret = false;
     if (declLst)
     {
-        if (declLst->lhs())
+        if (declLst->variant() == ARRAY_REF || declLst->variant() == VAR_REF)
         {
-            if (declLst->lhs()->variant() == EXPR_LIST || declLst->lhs()->variant() == ASSGN_OP)
-                ret = ret || findSymbol(declLst->lhs(), toFind);
-            else if (declLst->lhs()->symbol())
-            {
-                if (declLst->lhs()->symbol()->identifier() == toFind)
-                    return true;
-            }
+            if (declLst->symbol()->identifier() == toFind)
+                return true;
         }
+
+        if (declLst->lhs())
+            ret = ret || findSymbol(declLst->lhs(), toFind);
+        if (ret)
+            return true;
 
         if (declLst->rhs())
             ret = ret || findSymbol(declLst->rhs(), toFind);
+        if (ret)
+            return true;
     }
     return ret;
 }
@@ -732,7 +734,8 @@ SgStatement* declaratedInStmt(SgSymbol *toFind, vector<SgStatement*> *allDecls, 
                 start->variant() == DIM_STAT || 
                 start->variant() == COMM_STAT || 
                 start->variant() == HPF_TEMPLATE_STAT || 
-                start->variant() == DVM_VAR_DECL)
+                start->variant() == DVM_VAR_DECL ||
+                start->variant() == STRUCT_DECL)
             {
                 for (int i = 0; i < 3; ++i)
                 {
@@ -2630,16 +2633,18 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
     {
         string file = elem.fileName;
         string options = elem.options;
+        //options += "-mp"; // OMP directives
 
-#ifdef _WIN32        
-        sendMessage_2lvl(L" обработка файла '" + to_wstring(file) + L"'");
-#endif
         vector<string> optSplited = splitAndArgvCreate(options);
 
-        char** toParse = new char* [optSplited.size()];
+        char** toParse = new char* [optSplited.size() + 1];
         for (int z = 0; z < optSplited.size(); ++z)
-            toParse[z] = (char*)optSplited[z].c_str();
-        toParse[optSplited.size()] = (char*)file.c_str();
+        {
+            toParse[z] = new char[optSplited[z].size() + 1];
+            strcpy(toParse[z], optSplited[z].c_str());
+        }
+        toParse[optSplited.size()] = new char[file.size() + 1];
+        strcpy(toParse[optSplited.size()], file.c_str());
 
         if (options.find("-FI") != string::npos)
             elem.style = 0;
@@ -2663,14 +2668,20 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
         if (depPath)
         {
             fclose(depPath);
-            if (elem.error == 0)
+            if (elem.error <= 0)
             {
+                elem.error = 0;
                 errors.push_back("");
+                for (int z = 0; z <= optSplited.size(); ++z)
+                    delete toParse[z];
                 delete[] toParse;
                 continue;
             }
         }
 
+#ifdef _WIN32        
+        sendMessage_2lvl(L" обработка файла '" + to_wstring(file) + L"'");
+#endif
         StdCapture::Init();
         string errorMessage = "";
         try
@@ -2712,6 +2723,8 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
                 restoreOriginalText(listOfProject);
         }
         errors.push_back(errorMessage);
+        for (int z = 0; z <= optSplited.size(); ++z)
+            delete toParse[z];
         delete[] toParse;
 #if _WIN32 && NDEBUG
         createNeededException();
@@ -2733,7 +2746,7 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
     
     auto it1 = in.find("of", it + 1);
     if (it1 == string::npos)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        return in;
     it1 += 3;
 
     string fileN = in.substr(it1, in.find(':', it1) - it1);
@@ -2749,7 +2762,10 @@ static string shiftLines(const string &in, const map<string, const FileInfo*> &m
 
     d -= byNum;
     if (d <= 0)
+    {
+        //return in;
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
 
     string newStr = in.substr(0, it) + std::to_string(d) + in.substr(in.find(' ', it + 1));
     return newStr;
@@ -2924,6 +2940,8 @@ int parseFiles(const char* proj)
                 for (auto& elem : listOfProject)
                     if (elem.error == 0)
                         files.push_back(elem.outDepPath);
+                if (files.size() == 0)
+                    break;
                 findModuleDeclInProject(projName + std::to_string(iters++), files, moduleDelc);
                 modDirectOrder = createModuleOrder(moduleDelc, mapModuleDeps);
             }

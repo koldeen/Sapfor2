@@ -496,6 +496,9 @@ set<SymbolKey>* CBasicBlock::getOutVars()
 
 bool CBasicBlock::varIsPointer(SgSymbol *symbol)
 {
+    if (symbol == NULL)
+        return false;
+
     auto found = parent->getPointers()->find(symbol);
     if(found != parent->getPointers()->end())
         return true;
@@ -523,6 +526,10 @@ void CBasicBlock::processAssignThroughPointer(SgSymbol *symbol, SgExpression *ri
 
 void CBasicBlock::processPointerAssignment(SgSymbol *symbol, SgExpression *right, SgStatement* st)
 {
+    //TODO: Record_Ref
+    if (symbol == NULL)
+        return;
+
     //right is a single VAR_REF
     SgSymbol *rSymbol = right->symbol();
     parent->getPointers()->insert(SymbolKey(symbol, true));
@@ -1408,7 +1415,8 @@ bool valueWithArrayReference(SgExpression *exp)
         return false;
 
     if (exp->variant() == ARRAY_REF)
-        return !allowedArrayReference(exp);
+        if (exp->symbol() && exp->symbol()->type()->variant() != T_STRING)
+            return !allowedArrayReference(exp);
 
     bool arrayFounded = false;
     if (exp->rhs())

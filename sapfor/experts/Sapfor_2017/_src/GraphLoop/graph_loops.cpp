@@ -536,6 +536,37 @@ static void findArrayRefs(LoopGraph *loop)
     }
 }
 
+static void parseOmpDirs(const char *lineS, LoopGraph* loop)
+{
+    if (!lineS)
+        return;
+
+    vector<string> split;
+    splitString(lineS, '\n', split);
+    for (int z = split.size() - 1; z >= 0; z--)
+    {
+        string &line = split[z];
+        if (line.substr(0, 6) == "!$omp&")
+        {
+            if (z - 1 < 0)
+                break;
+            split[z - 1] += line.substr(6);
+            line = "";
+        }
+    }
+
+    for (auto& line: split)
+    {
+        if (line.substr(0, 5) == "!$omp")
+        {
+            vector<string> lexem;
+            splitString(line, ' ', lexem);
+            printf("");
+        }
+    }
+    printf("");
+}
+
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
 {
     map<int, SpfInterval*> mapIntervals;
@@ -598,12 +629,14 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                 {
                     if (st->localLineNumber() > 0)
                     {
-                        SgStatement *copied = SgStatement::getStatementByFileAndLine(st->fileName(), st->localLineNumber());
+                        SgStatement* copied = SgStatement::getStatementByFileAndLine(st->fileName(), st->localLineNumber());
                         checkNull(copied, convertFileName(__FILE__).c_str(), __LINE__);
                         if (notDeletedVectorAssign(copied))
                             newLoop->altLineNum = st->localLineNumber();
                     }
                 }
+                else //TODO:
+                    ;// parseOmpDirs(st->comments(), newLoop);
 
                 SgStatement *afterLoop = st->lastNodeOfStmt()->lexNext();
                 //< 0 was appear after CONVERT_ASSIGN_TO_LOOP pass
@@ -972,13 +1005,16 @@ static void processFuncParameters(LoopGraph *loop, SgExpression *list, const Fun
         if (list->lhs() && list->lhs()->variant() == ARRAY_REF)
         {
             SgSymbol* arrayS = OriginalSymbol(list->lhs()->symbol());
-            DIST::Array* array = getArrayFromDeclarated(declaratedInStmt(arrayS), arrayS->identifier());
+            if (arrayS->type()->variant() != T_STRING)
+            {
+                DIST::Array* array = getArrayFromDeclarated(declaratedInStmt(arrayS), arrayS->identifier());
 
-            checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
+                checkNull(array, convertFileName(__FILE__).c_str(), __LINE__);
 
-            if (array->GetNonDistributeFlag() == false)            
-                if (func->funcParams.isArgOut(parNum))
-                    loop->usedArraysWrite.insert(array);            
+                if (array->GetNonDistributeFlag() == false)
+                    if (func->funcParams.isArgOut(parNum))
+                        loop->usedArraysWrite.insert(array);
+            }
         }
         ++parNum;
         list = list->rhs();

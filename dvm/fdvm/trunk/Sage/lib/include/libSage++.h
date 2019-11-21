@@ -32,6 +32,7 @@ portions of Sage++ library.
 
 #if __SPF
 extern "C" void removeFromCollection(void *pointer);
+extern void addToGlobalBufferAndPrint(const std::string& toPrint);
 #endif
 
 class  SgProject {
@@ -3059,6 +3060,11 @@ inline SgProject::SgProject(SgProject &)
 { 
  Message("SgProject copy constructor not allowed",0);
 #if __SPF
+     {
+         char buf[512];
+         sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+         addToGlobalBufferAndPrint(buf);
+     }
     throw -1;
 #endif
 }
@@ -4000,6 +4006,11 @@ inline bool SgValueExp::boolValue()
     {
       Message("message boolValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = false;
@@ -4016,6 +4027,11 @@ inline int SgValueExp::intValue()
     {
       Message("message initValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = 0;
@@ -4033,6 +4049,11 @@ inline char* SgValueExp::floatValue()
     {
       Message("message floatValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = NULL;
@@ -4050,7 +4071,12 @@ inline char SgValueExp::charValue()
   if (NODE_CODE(thellnd) != CHAR_VAL)
     {
       Message("message charValue not understood");
-#ifdef __SPF   
+#ifdef __SPF
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = 0;
@@ -4069,6 +4095,11 @@ inline char*  SgValueExp::doubleValue()
     {
       Message("message doubleValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = NULL;
@@ -4087,6 +4118,11 @@ inline char * SgValueExp::stringValue()
     {
       Message("message stringValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = NULL;
@@ -4105,6 +4141,11 @@ inline SgExpression * SgValueExp:: realValue()
     {
       Message("message realValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = NULL;
@@ -4123,6 +4164,11 @@ inline SgExpression * SgValueExp::imaginaryValue()
     {
       Message("message imaginaryValue not understood");
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
       x = NULL;
@@ -4462,6 +4508,11 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s):SgExpression(ARRAY_REF)
   {
       Message("Attempt to create an array ref with a symbol not of type array", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4478,6 +4529,11 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &subscripts):SgExp
   {
       Message("Attempt to create an array ref with a symbol not of type array", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4500,6 +4556,11 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   {
       Message("Attempt to create an array ref with a symbol not of type array", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4520,6 +4581,11 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   {
       Message("Attempt to create an array ref with a symbol not of type array", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4540,6 +4606,11 @@ inline SgArrayRefExp::SgArrayRefExp(SgSymbol &s, SgExpression &sub1,SgExpression
   {
       Message("Attempt to create an array ref with a symbol not of type array", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4726,6 +4797,11 @@ inline SgPointerDerefExp::SgPointerDerefExp(SgExpression &pointerExp):SgExpressi
   {
       Message("Attempt to create SgPointerDerefExp with non pointer type", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4756,7 +4832,12 @@ inline SgRecordRefExp::SgRecordRefExp(SgSymbol &recordName, char *fieldName):SgE
   if ((fieldSym = getFieldOfStructWithName(fieldName, SYMB_TYPE(recordSym))) == SMNULL)
   {
       Message("No such field", 0);
-#ifdef __SPF   
+#ifdef __SPF 
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4775,6 +4856,11 @@ inline SgRecordRefExp::SgRecordRefExp(SgExpression &recordExp, char *fieldName):
   {
       Message("No such field", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -4794,6 +4880,11 @@ inline SgRecordRefExp::SgRecordRefExp(SgSymbol &recordName, const char *fieldNam
     {
         Message("No such field", 0);
 #ifdef __SPF   
+        {
+            char buf[512];
+            sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+            addToGlobalBufferAndPrint(buf);
+        }
         throw -1;
 #endif
     }
@@ -4812,6 +4903,11 @@ inline SgRecordRefExp::SgRecordRefExp(SgExpression &recordExp, const char *field
     {
         Message("No such field", 0);
 #ifdef __SPF   
+        {
+            char buf[512];
+            sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+            addToGlobalBufferAndPrint(buf);
+        }
         throw -1;
 #endif
     }
@@ -5104,7 +5200,12 @@ inline SgSubscriptExp::SgSubscriptExp(SgExpression &lbound, SgExpression &ubound
   if (!isIntegerType(lb) && !isIntegerType(ub) && !isIntegerType(inc))
   {
       Message("Non integer type for SgSubscriptExp", 0);
-#ifdef __SPF   
+#ifdef __SPF  
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -5122,6 +5223,11 @@ inline SgSubscriptExp::SgSubscriptExp(SgExpression &lbound, SgExpression &ubound
   {
       Message("Non integer type for SgSubscriptExp", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -5396,6 +5502,11 @@ inline SgSymbol & SgProgHedrStmt::name()
   {
       Message("The bif has no symbol", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -5641,7 +5752,12 @@ inline void SgProcHedrStmt::AddArg(SgExpression &arg)
   else
   {
       Message("bad symbol in SgProcHedrStmt::AddArg", 0);
-#ifdef __SPF   
+#ifdef __SPF  
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -5717,6 +5833,11 @@ inline void SgProsHedrStmt::AddArg(SgExpression &arg)
   {
       Message("Pb in SgProsHedrStmt::AddArg", 0);
 #ifdef __SPF   
+      {
+          char buf[512];
+          sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+          addToGlobalBufferAndPrint(buf);
+      }
       throw -1;
 #endif
   }
@@ -8509,6 +8630,11 @@ inline SgInputOutputStmt::SgInputOutputStmt(int variant, SgExpression &specList,
     {
         Message("illegal variant for SgInputOutputStmt", 0);
 #ifdef __SPF   
+        {
+            char buf[512];
+            sprintf(buf, "Internal error at line %d and file libSage++.h\n", __LINE__);
+            addToGlobalBufferAndPrint(buf);
+        }
         throw -1;
 #endif
     }

@@ -2029,6 +2029,7 @@ SgStatement* createKernelCallsInCudaHandler(SgFunctionCallExp *baseFunc, SgSymbo
 int isIntrinsicFunctionName(const char *name);
 void addNumberOfFileToAttribute(SgProject *project);
 int getIntrinsicFunctionTypeSize(const char* name);
+void recExpressionPrintFdvm(SgExpression* exp);
 
 /* calls.cpp */
 void ProjectStructure(SgProject &project);
