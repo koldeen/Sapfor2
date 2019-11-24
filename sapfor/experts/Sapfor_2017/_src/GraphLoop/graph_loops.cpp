@@ -536,37 +536,6 @@ static void findArrayRefs(LoopGraph *loop)
     }
 }
 
-static void parseOmpDirs(const char *lineS, LoopGraph* loop)
-{
-    if (!lineS)
-        return;
-
-    vector<string> split;
-    splitString(lineS, '\n', split);
-    for (int z = split.size() - 1; z >= 0; z--)
-    {
-        string &line = split[z];
-        if (line.substr(0, 6) == "!$omp&")
-        {
-            if (z - 1 < 0)
-                break;
-            split[z - 1] += line.substr(6);
-            line = "";
-        }
-    }
-
-    for (auto& line: split)
-    {
-        if (line.substr(0, 5) == "!$omp")
-        {
-            vector<string> lexem;
-            splitString(line, ' ', lexem);
-            printf("");
-        }
-    }
-    printf("");
-}
-
 void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector<SpfInterval*> &intervalTree, vector<Messages> &messages)
 {
     map<int, SpfInterval*> mapIntervals;
@@ -635,8 +604,6 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
                             newLoop->altLineNum = st->localLineNumber();
                     }
                 }
-                else //TODO:
-                    ;// parseOmpDirs(st->comments(), newLoop);
 
                 SgStatement *afterLoop = st->lastNodeOfStmt()->lexNext();
                 //< 0 was appear after CONVERT_ASSIGN_TO_LOOP pass

@@ -110,7 +110,7 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                     SgExpression *list = exprList->lhs()->lhs();
                     while (list)
                     {
-                        SgExpression *currRed = list->lhs(); // with varsiant ARRAY_OP
+                        SgExpression *currRed = list->lhs(); // with variant ARRAY_OP
                         
                         fillType redSymb, *dummy = NULL;
                         //minloc/maxloc
@@ -452,4 +452,244 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
         fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
         fillRemoteFromComment(sData, directive->remoteAccess);
     }
+}
+
+void removeOmpDir(void* stIn)
+{
+    SgStatement* st = (SgStatement*)stIn;
+    vector<OmpDir> resultAll;
+
+    char* lineS = st->comments();
+    if (!lineS)
+        return;
+
+    vector<string> split;
+    splitString(lineS, '\n', split);
+
+    int idx = 0;
+    for (auto& elem : split)
+    {
+        string line = elem;
+        convertToLower(line);
+        if (line.substr(0, 5) == "!$omp")
+            lineS[idx + 1] = '_';
+        else if (line.substr(0, 3) == "!$ ")
+            lineS[idx + 1] = '_';
+        idx += line.size() + 1; // with '\n'
+    }
+}
+
+vector<OmpDir> parseOmpDirs(void* stIn, const set<string> &globalPriv, bool forDo)
+{
+    SgStatement* st = (SgStatement*)stIn;
+    vector<OmpDir> resultAll;
+
+    char* lineS = st->comments();
+    if (!lineS)
+        return resultAll;
+        
+    vector<string> split;
+    splitString(lineS, '\n', split);
+
+    for (int z = split.size() - 1; z >= 0; z--)
+    {
+        string line = split[z];
+        convertToLower(line);
+        if (line.substr(0, 6) == "!$omp&")
+        {
+            if (z - 1 < 0)
+                break;
+            split[z - 1] += line.substr(6);
+            split[z] = "";
+        }
+    }
+
+    for (auto& line : split)
+    {
+        if (line.substr(0, 5) == "!$omp")
+        {
+            OmpDir result;
+
+            string line1 = "";
+            int space = 0;
+            int brake = 0;
+            for (int z = 0; z < line.size(); ++z)
+            {
+                if (brake < 0)
+                    return vector<OmpDir>(); // error
+
+                if (brake == 0)
+                {
+                    if (line[z] == ' ')
+                        space++;
+                    else
+                        space = 0;
+                    if ((line[z] == ' ' && space <= 1) || line[z] != ' ')
+                        line1 += line[z];
+                }
+                else
+                {
+                    if (line[z] != ' ')
+                        line1 += line[z];
+                }
+
+                if (line[z] == '(')
+                {
+                    brake++;
+                    space = 0;
+                }
+                else if (line[z] == ')')
+                    brake--;
+            }
+            vector<string> lexems;
+            splitString(line1, ' ', lexems);
+            bool doLexem = false;
+            bool end = false;
+            bool parallel = false;
+            bool privat = false;
+
+            for (auto& lexem : lexems)
+            {
+                if (lexem == "do")
+                {
+                    doLexem = true;
+                    result.keys.insert(lexem);
+                }
+                if (lexem == "end")
+                {
+                    end = true;
+                    result.keys.insert(lexem);
+                }
+                if (lexem == "parallel")
+                {
+                    parallel = true;
+                    result.keys.insert(lexem);
+                }
+                if (lexem == "private")
+                {
+                    privat = true;
+                    result.keys.insert(lexem);
+                }
+            }
+
+            if (privat == false)
+            {
+                if (forDo && doLexem)
+                {
+                    vector<SgExpression*> list;
+                    for (auto& var : globalPriv)
+                        list.push_back(new SgVarRefExp(findSymbolOrCreate(current_file, var, NULL, getFuncStat(st))));
+
+                    if (list.size())
+                    {
+                        SgExprListExp* ex = new SgExprListExp();
+                        ex->setLhs(new SgExpression(ACC_PRIVATE_OP, makeExprList(list), NULL));
+                        SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
+                        toAdd->setlineNumber(st->lineNumber());
+                        st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
+                        __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
+                    }
+                }
+            }
+
+            for (auto& lexem : lexems)
+            {
+                bool priv = lexem.substr(0, strlen("private(")) == "private(";
+                bool thredpriv = lexem.substr(0, strlen("thredprivate(")) == "thredprivate(";
+                bool red = lexem.substr(0, strlen("reduction(")) == "reduction(";
+                if (priv || thredpriv)
+                {
+                    vector<string> sublex;
+                    splitString(lexem, '(', sublex);
+                    if (sublex.size() == 2 && lexem.back() == ')')
+                    {
+                        splitString(sublex[1].erase(sublex[1].size() - 1), ',', sublex);
+
+                        vector<SgExpression*> list;
+                        set<string> uniqList;
+                        for (auto& varG : globalPriv)
+                            uniqList.insert(varG);
+
+                        for (auto& var : sublex)
+                            uniqList.insert(var);
+
+                        for (auto& var : uniqList)
+                        {
+                            if (priv)
+                            {
+                                result.privVars.insert(var);
+                                list.push_back(new SgVarRefExp(findSymbolOrCreate(current_file, var, NULL, getFuncStat(st))));
+                            }
+                            else
+                                result.thredPrivVars.insert(var);
+                        }
+
+                        if (forDo && doLexem && priv && list.size())
+                        {
+                            SgExprListExp* ex = new SgExprListExp();
+                            ex->setLhs(new SgExpression(ACC_PRIVATE_OP, makeExprList(list), NULL));
+                            SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
+                            toAdd->setlineNumber(st->lineNumber());
+                            st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
+                            __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
+                        }
+                    }
+                }
+                else if (red)
+                {
+                    vector<string> sublex;
+                    splitString(lexem, '(', sublex);
+                    if (sublex.size() == 2 && lexem.back() == ')')
+                    {
+                        splitString(sublex[1].erase(sublex[1].size() - 1), ':', sublex);
+
+                        vector<string> vars;
+                        vector<SgExpression*> list;
+                        splitString(sublex[1], ',', vars);
+                        string op = "";
+
+                        if (sublex[0] == "+")
+                            op = "sum";
+                        else if (sublex[0] == "*")
+                            op = "prod";
+                        else if (sublex[0] == "max")
+                            op = "max";
+                        else if (sublex[0] == "min")
+                            op = "min";
+                        else if (sublex[0] == ".or." || sublex[0] == "or")
+                            op = "or";
+                        else if (sublex[0] == ".and." || sublex[0] == "and")
+                            op = "and";
+                        else if (sublex[0] == ".eqv." || sublex[0] == "eqv")
+                            op = "eqv";
+                        else if (sublex[0] == ".neqv." || sublex[0] == "neqv")
+                            op = "neqv";
+
+                        if (op != "")
+                        {
+                            for (auto& var : vars)
+                            {
+                                result.redVars[sublex[0]].insert(var);
+                                list.push_back(new SgExpression(ARRAY_OP, new SgKeywordValExp(op.c_str()), new SgVarRefExp(findSymbolOrCreate(current_file, var, NULL, getFuncStat(st)))));
+                            }
+                        }
+
+                        if (forDo && doLexem && op != "")
+                        {
+                            SgExprListExp* ex = new SgExprListExp();
+                            ex->setLhs(new SgExpression(REDUCTION_OP, makeExprList(list), NULL));
+                            SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
+                            toAdd->setlineNumber(st->lineNumber());
+                            st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
+                            __spf_print(1, "-- set reduction attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
+                        }
+                    }
+                }
+            }
+
+            resultAll.push_back(result);
+        }
+    }
+
+    return resultAll;
 }

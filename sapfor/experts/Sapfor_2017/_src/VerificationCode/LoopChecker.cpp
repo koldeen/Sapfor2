@@ -12,6 +12,7 @@
 #include "../Utils/utils.h"
 #include "../Utils/SgUtils.h"
 #include "../Utils/errors.h"
+#include "../LoopAnalyzer/directive_parser.h"
 
 using std::vector;
 using std::map;
@@ -31,6 +32,7 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
+        OmpDir globalParallelSection;
         while (st != lastNode)
         {
             currProcessing.second = st->lineNumber();
@@ -43,9 +45,40 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
             if (st->variant() == CONTAINS_STMT)
                 break;
 
+            {
+                set<string> globalPriv;
+                auto res = parseOmpDirs(st, globalPriv);
+
+                for (auto& dir : res)
+                {
+                    auto end = dir.keys.end();
+                    if (dir.keys.find("parallel") != end
+                        && dir.keys.find("do") == end
+                        && dir.privVars.size()
+                        && dir.keys.find("end") == end)
+                    {
+                        if (globalParallelSection.keys.size())
+                            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                        globalParallelSection = dir;
+                    }
+                    else if (dir.keys.find("parallel") != end
+                             && dir.keys.find("do") == end
+                             && dir.keys.find("end") != end)
+                    {
+                        globalParallelSection = OmpDir();
+                    }
+                }
+            }
+
             if (st->variant() == FOR_NODE)
             {
                 SgForStmt *currSt = (SgForStmt*)st;
+
+                set<string> globalPriv;
+                if (globalParallelSection.privVars.size())
+                    globalPriv = globalParallelSection.privVars;
+                auto res = parseOmpDirs(st, globalPriv, true);
+
                 if (currSt->isEnddoLoop() == 0)
                 {
                     __spf_print(1, "  ERROR: Loop on line %d does not have END DO\n", st->lineNumber());

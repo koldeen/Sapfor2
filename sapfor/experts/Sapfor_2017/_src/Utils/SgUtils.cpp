@@ -258,6 +258,8 @@ string removeIncludeStatsAndUnparse(SgFile *file, const char *fileName, const ch
 
     for (SgStatement *st = file->firstStatement(); st; st = st->lexNext())
     {
+        removeOmpDir(st);
+
         string currFileName = st->fileName();
         if (currFileName != fileN)
         {

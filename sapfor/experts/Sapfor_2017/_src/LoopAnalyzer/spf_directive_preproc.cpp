@@ -48,6 +48,26 @@ static void addToattribute(SgStatement *toAttr, SgStatement *curr, const int var
     }
 }
 
+void fillVars(SgExpression* exp, const set<int>& types, set<string>& identifierList, vector<SgExpression*>& funcCalls)
+{
+    if (exp)
+    {
+        if (exp->variant() == FUNC_CALL)
+            funcCalls.push_back(exp);
+
+        if (types.find(exp->variant()) != types.end())
+        {
+            if (exp->symbol())
+                identifierList.insert(OriginalSymbol(exp->symbol())->identifier());
+            else if (exp->variant() == DDOT)
+                identifierList.insert(exp->symbol()->identifier()); // BAD solution
+        }
+
+        fillVars(exp->lhs(), types, identifierList, funcCalls);
+        fillVars(exp->rhs(), types, identifierList, funcCalls);
+    }
+}
+
 void fillVars(SgExpression *exp, const set<int> &types, set<SgSymbol*> &identifierList, vector<SgExpression*> &funcCalls)
 {
     if (exp)
@@ -109,7 +129,7 @@ static SgStatement* skipDvmDirs(SgStatement *st)
     return st;
 }
 
-static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*> &varDef, set<SgSymbol*> &varUse)
+static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<string> &varDef, set<string> &varUse)
 {
     for ( ;iterator != end; iterator = iterator->lexNext())
     {
@@ -132,8 +152,8 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*>
             if (iterator->variant() == FOR_NODE)
             {
                 auto loop = isSgForStmt(iterator);
-                varDef.insert(loop->doName());
-                varUse.insert(loop->doName());
+                varDef.insert(loop->doName()->identifier());
+                varUse.insert(loop->doName()->identifier());
             }
 
             vector<SgExpression*> dummy;
@@ -146,7 +166,7 @@ static void fillVarsSets(SgStatement *iterator, SgStatement *end, set<SgSymbol*>
 
 static bool checkPrivate(SgStatement *st,
                          SgStatement *attributeStatement,
-                         const set<SgSymbol*> &privates,
+                         const set<string> &privates,
                          vector<Messages> &messagesForFile)
 {    
     // PRIVATE(VAR)
@@ -158,8 +178,8 @@ static bool checkPrivate(SgStatement *st,
         st = skipDvmDirs(st);
         SgStatement *iterator = st;
         SgStatement *end = (var == FOR_NODE) ? st->lastNodeOfStmt() : st->lexNext();
-        set<SgSymbol*> varDef;
-        set<SgSymbol*> varUse;
+        set<string> varDef;
+        set<string> varUse;
 
         fillVarsSets(iterator, end, varDef, varUse);
         
@@ -177,21 +197,21 @@ static bool checkPrivate(SgStatement *st,
             {
                 if (!defCond && !useCond)
                 {
-                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem.c_str()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R21, to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R21, to_wstring(privElem.c_str()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
                 else if (!defCond && useCond)
                 {
-                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem->identifier(), attributeStatement->lineNumber());
+                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(privElem.c_str()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R23, to_wstring(privElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R23, to_wstring(privElem.c_str()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -226,7 +246,7 @@ static bool checkPrivate(SgStatement *st,
 
 static bool checkReduction(SgStatement *st,
                            SgStatement *attributeStatement,
-                           const map<string, set<SgSymbol*>> &reduction,
+                           const map<string, set<string>> &reduction,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(OP(VAR))
@@ -237,8 +257,8 @@ static bool checkReduction(SgStatement *st,
     {
         SgStatement *iterator = st->lexNext();
         SgStatement *end = st->lastNodeOfStmt();
-        set<SgSymbol*> varDef;
-        set<SgSymbol*> varUse;
+        set<string> varDef;
+        set<string> varUse;
 
         fillVarsSets(iterator, end, varDef, varUse);
 
@@ -256,21 +276,21 @@ static bool checkReduction(SgStatement *st,
 
                 if (var == FOR_NODE && !defCond && !useCond)
                 {
-                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
+                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", setElem.c_str(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(setElem.c_str()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R22, to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R22, to_wstring(setElem.c_str()).c_str());
 #endif
                     messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
                 }
                 if (var == FOR_NODE && !defCond && useCond)
                 {
-                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem->identifier(), attributeStatement->lineNumber());
+                    __spf_print(1, "variable '%s' is not changed in loop on line %d\n", setElem.c_str(), attributeStatement->lineNumber());
                     wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageE, L"variable '%s' is not changed in loop", to_wstring(setElem.c_str()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R24, to_wstring(setElem->identifier()).c_str());
+                    __spf_printToLongBuf(messageR, R24, to_wstring(setElem.c_str()).c_str());
 #endif
                     messagesForFile.push_back(Messages(ERROR, attributeStatement->lineNumber(), messageR, messageE, 1003));
                     retVal = false;
@@ -297,19 +317,23 @@ static bool checkReduction(SgStatement *st,
                            vector<Messages> &messagesForFile)
 {
     // REDUCTION(MIN/MAXLOC(VAR, ARRAY, CONST))
-    bool retVal = true;
-    map<string, set<SgSymbol*>> reductionVar;
-    map<string, set<SgSymbol*>> reductionArr;
+    bool retVal = true;    
 
     for (auto &redElem : reduction)
     {
         set<SgSymbol*> vars;
         set<SgSymbol*> arrs;
 
+        set<string> varsS;
+        set<string> arrsS;
+
         for (auto &setElem : redElem.second)
         {
             vars.insert(std::get<0>(setElem));
+            varsS.insert(std::get<0>(setElem)->identifier());
+
             arrs.insert(std::get<1>(setElem));
+            arrsS.insert(std::get<1>(setElem)->identifier());
 
             // CHECK ARRAY DECLARATION && DIMENTION
             SgSymbol *arraySymbol = std::get<1>(setElem);
@@ -434,8 +458,11 @@ static bool checkReduction(SgStatement *st,
             }
         }
 
-        reductionVar.insert(reductionVar.begin(), make_pair(redElem.first, vars));
-        reductionArr.insert(reductionArr.begin(), make_pair(redElem.first, arrs));
+        map<string, set<string>> reductionVar;
+        map<string, set<string>> reductionArr;
+
+        reductionVar[redElem.first] = varsS;
+        reductionArr[redElem.first] = arrsS;
 
         retVal = checkReduction(st, attributeStatement, reductionVar, messagesForFile) && checkReduction(st, attributeStatement, reductionArr, messagesForFile);
     }
@@ -1259,7 +1286,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
         {
             // !$SPF ANALYSIS
             // PRIVATE(VAR)
-            set<SgSymbol*> privates;
+            set<string> privates;
             fillPrivatesFromComment(new Statement(attributeStatement), privates);
             if (privates.size())
             {
@@ -1268,7 +1295,7 @@ static inline bool processStat(SgStatement *st, const string &currFile,
             }
 
             // REDUCTION(OP(VAR), MIN/MAXLOC(VAR, ARRAY, CONST))
-            map<string, set<SgSymbol*>> reduction;
+            map<string, set<string>> reduction;
             map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> reductionLoc;
             fillReductionsFromComment(new Statement(attributeStatement), reduction);
             fillReductionsFromComment(new Statement(attributeStatement), reductionLoc);

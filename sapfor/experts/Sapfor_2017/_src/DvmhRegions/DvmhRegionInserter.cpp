@@ -234,6 +234,9 @@ static string getNameByUse(SgStatement *place, const string &varName, const stri
                 if (useModDone.find(useM) == useModDone.end())
                 {
                     auto modSt = findModWithName(modules, useM);
+                    if (modSt == NULL && useM == "dvmh_template_mod")
+                        continue;
+
                     checkNull(modSt, convertFileName(__FILE__).c_str(), __LINE__);
                     fillInfo(modSt, newUseMod, modByUse, modByUseOnly);
                     useModDone.insert(useM);

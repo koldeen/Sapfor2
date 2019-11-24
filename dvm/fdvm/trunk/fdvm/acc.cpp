@@ -8753,7 +8753,7 @@ void MakeDeclarationsForKernel_On_C(SgType *idxTypeInKernel)
     kernel_st->insertStmtAfter(*st);
 
     // declare do_variables
-    DeclareDoVars();  //(idxTypeInKernel)
+    DeclareDoVars(idxTypeInKernel); 
 
     // declare private(local in kernel) variables 
     DeclarePrivateVars();

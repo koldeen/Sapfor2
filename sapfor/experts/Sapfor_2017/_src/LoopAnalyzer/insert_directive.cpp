@@ -1333,8 +1333,21 @@ static map<string, map<string, set<string>>> alignArraysByFile;
 static map<string, map<string, map<string, pair<SgExpression*, SgExpression*>>>> insertedShadowByFile;
 
 static inline void addStringToComments(const vector<string> &toInsert, map<string, map<int, set<string>>> &commentsToInclude,
-                                       const string fileName, const int line)
+                                       const string& fileName, const int line)
 {
+    //check for file in project
+    int totalFiles = CurrentProject->numberOfFiles();
+    string wasFile = current_file->filename();
+
+    bool exist = false;
+    for (int z = 0; z < totalFiles && !exist; ++z)
+        if (CurrentProject->file(z).filename() == fileName)
+            exist = true;
+
+    SgFile::switchToFile(wasFile);
+    if (exist)
+        return;
+
     auto currF = commentsToInclude.find(fileName);
     if (currF == commentsToInclude.end())
         currF = commentsToInclude.insert(currF, make_pair(fileName, map<int, set<string>>()));

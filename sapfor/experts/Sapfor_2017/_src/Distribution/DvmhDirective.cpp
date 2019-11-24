@@ -335,10 +335,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
         if (privates.size() != 0)
         {
             p = createAndSetNext(LEFT, ACC_PRIVATE_OP, p);
-            p = createAndSetNext(LEFT, EXPR_LIST, p);
 
             directive += ", PRIVATE(";
             int k = 0;
+            vector<SgExpression*> list;
             for (auto &privVar : setToMapWithSortByStr(privates))
             {
                 if (k != 0)
@@ -346,15 +346,13 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                 else
                     directive += privVar.second->identifier();
 
-                SgVarRefExp *varExpr = new SgVarRefExp(getFromModule(byUseInFunc, privVar.second, usedInLoop));
-                p->setLhs(varExpr);
-                if (k != privates.size() - 1)
-                    p = createAndSetNext(RIGHT, EXPR_LIST, p);
-
+                list.push_back(new SgVarRefExp(getFromModule(byUseInFunc, privVar.second, usedInLoop)));
                 ++k;
             }
             directive += ")";
             dirStatement[1] = new Expression(expr);
+
+            p->setLhs(makeExprList(list));
         }
 
         set<DIST::Array*> arraysInAcross;

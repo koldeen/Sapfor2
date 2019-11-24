@@ -35,3 +35,14 @@ void fillFissionPrivatesExpansionFromComment(Statement *stIn, std::vector<std::s
 
 template<typename fillType>
 void fillShrinkFromComment(Statement *stIn, std::vector<std::pair<fillType, std::vector<int>>> &varDims);
+
+struct OmpDir
+{
+    std::set<std::string> privVars;
+    std::set<std::string> thredPrivVars;
+    std::map<std::string, std::set<std::string>> redVars;
+    std::set<std::string> keys;
+};
+
+void removeOmpDir(void* stIn);
+std::vector<OmpDir> parseOmpDirs(void* st, const std::set<std::string>& globalPriv, bool forDo = false);
