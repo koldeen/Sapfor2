@@ -39,7 +39,7 @@ void fillShrinkFromComment(Statement *stIn, std::vector<std::pair<fillType, std:
 struct OmpDir
 {
     std::set<std::string> privVars;
-    std::set<std::string> thredPrivVars;
+    std::set<std::string> threadPrivVars;
     std::map<std::string, std::set<std::string>> redVars;
     std::set<std::string> keys;
 };

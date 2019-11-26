@@ -97,6 +97,9 @@ namespace Distribution
         VECTOR<bool> mappedDims;
         VECTOR<bool> depracateToDistribute;
 
+        bool ompThreadPrivate;
+
+    private:
         TemplateLink* getTemlateInfo(const int regionId)
         {
             auto it = templateInfo.find(regionId);
@@ -133,15 +136,16 @@ namespace Distribution
             dimSize = 0;
             id = -1;
             declSymbol = NULL;
+            ompThreadPrivate = false;
         }
 
         Array(const STRING &name, const STRING &shortName, const int dimSize, const unsigned id,
               const STRING &declFile, const int declLine, const PAIR<arrayLocation, STRING> &locationPos,
-              Symbol *declSymbol, const VECTOR<STRING> &regions, const int typeSize) :
+              Symbol *declSymbol, bool inOmpThreadPriv, const VECTOR<STRING> &regions, const int typeSize) :
 
             name(name), dimSize(dimSize), id(id), shortName(shortName), 
             isTemplFlag(false), isNonDistribute(DISTR), isLoopArrayFlag(false),
-            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize)
+            locationPos(locationPos), declSymbol(declSymbol), typeSize(typeSize), ompThreadPrivate(inOmpThreadPriv)
         {
             declPlaces.insert(std::make_pair(declFile, declLine));
             sizes.resize(dimSize);
@@ -191,6 +195,7 @@ namespace Distribution
             containsInRegions = copy.containsInRegions;
             mappedDims = copy.mappedDims;
             depracateToDistribute = copy.depracateToDistribute;
+            ompThreadPrivate = copy.ompThreadPrivate;
         }
 
         bool RemoveUnpammedDims()
@@ -564,6 +569,7 @@ namespace Distribution
             }
         }
 
+        bool IsOmpThreadPrivate() const { return ompThreadPrivate; }
         ~Array() 
         {
             for (auto &templ : templateInfo)

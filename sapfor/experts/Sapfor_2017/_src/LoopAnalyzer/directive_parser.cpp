@@ -441,7 +441,6 @@ template void fillShrinkFromComment(Statement *stIn, vector<pair<string, vector<
 void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *directive)
 {
     SgForStmt *currentLoop = (SgForStmt*)loopInfo->loop;
-
     for (auto &data : getAttributes<SgStatement*, SgStatement*>(currentLoop, set<int>{ SPF_ANALYSIS_DIR, SPF_PARALLEL_DIR, SPF_TRANSFORM_DIR }))
     {
         Statement *sData = new Statement(data);
@@ -476,6 +475,25 @@ void removeOmpDir(void* stIn)
         else if (line.substr(0, 3) == "!$ ")
             lineS[idx + 1] = '_';
         idx += line.size() + 1; // with '\n'
+    }
+}
+
+static inline void addToAttribute(SgStatement* st, int var, const vector<SgExpression*>& list)
+{
+    if (list.size())
+    {
+        SgExprListExp* ex = new SgExprListExp();
+        ex->setLhs(new SgExpression(var, makeExprList(list), NULL));
+        SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
+        toAdd->setlineNumber(st->lineNumber());
+        toAdd->setLocalLineNumber(888);
+
+        st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
+
+        if (var == ACC_PRIVATE_OP)
+            __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
+        else if (var == REDUCTION_OP)
+            __spf_print(1, "-- set ךףגדסורשע attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
     }
 }
 
@@ -535,6 +553,8 @@ vector<OmpDir> parseOmpDirs(void* stIn, const set<string> &globalPriv, bool forD
 
                 if (line[z] == '(')
                 {
+                    while (line1.size() > 2 && line1[line1.size() - 2] == ' ')
+                        line1 = line1.erase(line1.size() - 2, 1);
                     brake++;
                     space = 0;
                 }
@@ -579,25 +599,16 @@ vector<OmpDir> parseOmpDirs(void* stIn, const set<string> &globalPriv, bool forD
                     vector<SgExpression*> list;
                     for (auto& var : globalPriv)
                         list.push_back(new SgVarRefExp(findSymbolOrCreate(current_file, var, NULL, getFuncStat(st))));
-
-                    if (list.size())
-                    {
-                        SgExprListExp* ex = new SgExprListExp();
-                        ex->setLhs(new SgExpression(ACC_PRIVATE_OP, makeExprList(list), NULL));
-                        SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
-                        toAdd->setlineNumber(st->lineNumber());
-                        st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
-                        __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
-                    }
+                    addToAttribute(st, ACC_PRIVATE_OP, list);
                 }
             }
 
             for (auto& lexem : lexems)
             {
                 bool priv = lexem.substr(0, strlen("private(")) == "private(";
-                bool thredpriv = lexem.substr(0, strlen("thredprivate(")) == "thredprivate(";
+                bool threadpriv = lexem.substr(0, strlen("threadprivate(")) == "threadprivate(";
                 bool red = lexem.substr(0, strlen("reduction(")) == "reduction(";
-                if (priv || thredpriv)
+                if (priv || threadpriv)
                 {
                     vector<string> sublex;
                     splitString(lexem, '(', sublex);
@@ -621,18 +632,11 @@ vector<OmpDir> parseOmpDirs(void* stIn, const set<string> &globalPriv, bool forD
                                 list.push_back(new SgVarRefExp(findSymbolOrCreate(current_file, var, NULL, getFuncStat(st))));
                             }
                             else
-                                result.thredPrivVars.insert(var);
+                                result.threadPrivVars.insert(var);
                         }
 
-                        if (forDo && doLexem && priv && list.size())
-                        {
-                            SgExprListExp* ex = new SgExprListExp();
-                            ex->setLhs(new SgExpression(ACC_PRIVATE_OP, makeExprList(list), NULL));
-                            SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
-                            toAdd->setlineNumber(st->lineNumber());
-                            st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
-                            __spf_print(1, "-- set private attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
-                        }
+                        if (forDo && doLexem && priv)
+                            addToAttribute(st, ACC_PRIVATE_OP, list);
                     }
                 }
                 else if (red)
@@ -675,14 +679,7 @@ vector<OmpDir> parseOmpDirs(void* stIn, const set<string> &globalPriv, bool forD
                         }
 
                         if (forDo && doLexem && op != "")
-                        {
-                            SgExprListExp* ex = new SgExprListExp();
-                            ex->setLhs(new SgExpression(REDUCTION_OP, makeExprList(list), NULL));
-                            SgStatement* toAdd = new SgStatement(SPF_ANALYSIS_DIR, NULL, NULL, ex, NULL, NULL);
-                            toAdd->setlineNumber(st->lineNumber());
-                            st->addAttribute(SPF_ANALYSIS_DIR, toAdd, sizeof(SgStatement));
-                            __spf_print(1, "-- set reduction attribute to line %d from OMP dir\n%s", st->lineNumber(), toAdd->unparse());
-                        }
+                            addToAttribute(st, REDUCTION_OP, list);
                     }
                 }
             }

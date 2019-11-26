@@ -183,6 +183,8 @@ static bool checkPrivate(SgStatement *st,
 
         fillVarsSets(iterator, end, varDef, varUse);
         
+        set<string> wrongPrivFromOmpParallel;
+
         for (auto &privElem : privates)
         {
             bool defCond = true;
@@ -197,13 +199,18 @@ static bool checkPrivate(SgStatement *st,
             {
                 if (!defCond && !useCond)
                 {
-                    __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
-                    wstring messageE, messageR;
-                    __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem.c_str()).c_str());
+                    if (attributeStatement->localLineNumber() != 888)
+                    {
+                        __spf_print(1, "variable '%s' is not used in loop on line %d\n", privElem.c_str(), attributeStatement->lineNumber());
+                        wstring messageE, messageR;
+                        __spf_printToLongBuf(messageE, L"variable '%s' is not used in loop", to_wstring(privElem.c_str()).c_str());
 #ifdef _WIN32
-                    __spf_printToLongBuf(messageR, R21, to_wstring(privElem.c_str()).c_str());
+                        __spf_printToLongBuf(messageR, R21, to_wstring(privElem.c_str()).c_str());
 #endif
-                    messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
+                        messagesForFile.push_back(Messages(WARR, attributeStatement->lineNumber(), messageR, messageE, 1002));
+                    }
+                    else
+                        wrongPrivFromOmpParallel.insert(privElem);
                 }
                 else if (!defCond && useCond)
                 {
@@ -228,6 +235,24 @@ static bool checkPrivate(SgStatement *st,
 #endif
                     retVal = false;
                 }
+            }
+        }
+
+        if (var == FOR_NODE && wrongPrivFromOmpParallel.size()) // remove unnecessary
+        {
+            if (wrongPrivFromOmpParallel.size() == privates.size()) // remove all
+                attributeStatement->expr(0)->lhs()->setLhs(NULL);
+            else
+            {
+                SgExpression* list = attributeStatement->expr(0)->lhs()->lhs();
+                vector<SgExpression*> newList;
+                for (auto ex = list; ex; ex = ex->rhs())
+                {
+                    string currV = ex->lhs()->symbol()->identifier();
+                    if (wrongPrivFromOmpParallel.find(currV) == wrongPrivFromOmpParallel.end())
+                        newList.push_back(ex->lhs());
+                }
+                attributeStatement->expr(0)->lhs()->setLhs(makeExprList(newList));
             }
         }
     }
@@ -1582,7 +1607,7 @@ static vector<SgStatement*> filterUserSpf(const vector<SgStatement*> &toFilter)
 {
     vector<SgStatement*> ret;
     for (auto &elem : toFilter)
-        if (elem->localLineNumber() == 777)
+        if (elem->localLineNumber() == 777 || elem->localLineNumber() == 888) // user and omp
             ret.push_back(elem);
 
     return ret;

@@ -115,8 +115,15 @@ static void makeInit(SgExpression *exList, const set<string> &argNames, const se
                 commonNames.find(ex->lhs()->symbol()->identifier()) == commonNames.end())
             {
                 //printf("%d\n", ex->lhs()->symbol()->variant());
-                SgExpression* initOp = new SgExpression(ASSGN_OP, ex->lhs(), new SgValueExp(0));
-                ex->setLhs(initOp);
+                SgExpression* initOp = NULL;
+
+                if (s->type()->variant() == T_BOOL)
+                    initOp = new SgExpression(ASSGN_OP, ex->lhs(), new SgValueExp(false));
+                else if (s->type()->variant() != T_STRUCT)
+                    initOp = new SgExpression(ASSGN_OP, ex->lhs(), new SgValueExp(0));
+
+                if (initOp)
+                    ex->setLhs(initOp);
             }
         }
     }
@@ -130,8 +137,11 @@ void setAllDeclsWithInitZero(SgFile* file)
         auto func = isSgProgHedrStmt(file->functions(i));
         checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
 
-        for (int z = 0; z < func->numberOfParameters(); ++z)
-            argNames.insert(func->parameter(z)->identifier());
+        if (func->variant() != PROG_HEDR)
+        {
+            for (int z = 0; z < func->numberOfParameters(); ++z)
+                argNames.insert(func->parameter(z)->identifier());
+        }
 
         map<string, vector<SgExpression*>> commonBlocks;
         getCommonBlocksRef(commonBlocks, func, func->lastNodeOfStmt());

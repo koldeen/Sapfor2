@@ -1902,6 +1902,9 @@ template PredictorStats& getObjectForFileFromMap(const char *fileName, map<strin
 
 SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig, const set<string> &usedInBlock)
 {
+    if (orig->scope()->variant() != MODULE_STMT)
+        return orig;
+
     if (byUse.size())
     {
         auto it = byUse.find(orig->identifier());

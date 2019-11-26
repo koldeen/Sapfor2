@@ -260,9 +260,6 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
     if (langType == LANG_F)
     {
-        SgStatement *scope = file->GetOriginal()->firstStatement();
-        SgArrayType *typeArrayInt = new SgArrayType(*SgTypeInt());
-        
         SgExpression *expr = new SgExpression(EXPR_LIST);
         SgExpression *p = expr;
 
@@ -299,7 +296,12 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
             SgSymbol* symbForPar;
             if (arrayRef->IsTemplate())
-                symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), typeArrayInt, scope), usedInLoop);
+            {
+                if (mapTo->IsLoopArray())
+                    symbForPar = getFromModule(byUseInFunc, findSymbolOrCreate(file, mapTo->GetShortName(), new SgArrayType(*SgTypeInt()), file->GetOriginal()->firstStatement()), usedInLoop);
+                else
+                    symbForPar = getFromModule(byUseInFunc, mapTo->GetDeclSymbol()->GetOriginal(), usedInLoop);
+            }
             else
                 symbForPar = getFromModule(byUseInFunc, arrayRef->GetDeclSymbol()->GetOriginal(), usedInLoop);
 
@@ -341,11 +343,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             vector<SgExpression*> list;
             for (auto &privVar : setToMapWithSortByStr(privates))
             {
-                if (k != 0)
-                    directive += "," + string(privVar.second->identifier());
-                else
-                    directive += privVar.second->identifier();
-
+                directive += (k != 0) ? "," + privVar.first : privVar.first;
                 list.push_back(new SgVarRefExp(getFromModule(byUseInFunc, privVar.second, usedInLoop)));
                 ++k;
             }
@@ -427,7 +425,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
 
                     acrossAdd += across[i1].first.first + "(" + bounds + ")";
 
-                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, across[i1].first.first, typeArrayInt, scope), usedInLoop));
+                    SgArrayRefExp *newArrayRef = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol()->GetOriginal(), usedInLoop));
                     newArrayRef->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
 
                     for (auto &elem : genSubscripts(across[i1].second, acrossShifts[i1]))
@@ -637,12 +635,11 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             {
                 directive += it->first.first + "(";
                 directive += it->first.second + ")";
-                                
-                SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, findSymbolOrCreate(file, it->first.first, typeArrayInt, scope), usedInLoop), *it->second);
-
-                DIST::Array *currArray = allArrays.GetArrayByName(it->first.second);
+                
+                DIST::Array* currArray = allArrays.GetArrayByName(it->first.second);
+                SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol()->GetOriginal(), usedInLoop), *it->second);
+                
                 tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
-
                 p->setLhs(tmp);
 
                 if (k != remoteAccess.size() - 1)

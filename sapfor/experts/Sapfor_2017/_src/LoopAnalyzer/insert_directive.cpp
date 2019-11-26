@@ -767,6 +767,18 @@ static pair<templateDir, string>
     return make_pair(retDir, lastReturn);
 }
 
+static string getWithSort(const set<SgSymbol*>& byUse)
+{
+    if (byUse.size() == 1)
+        return (*byUse.begin())->identifier();
+    if (byUse.size() == 0)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    set<string> byUseStr;
+    for (auto& elem : byUse)
+        byUseStr.insert(elem->identifier());
+    return *(byUseStr.begin());
+}
+
 static pair<DIST::Array*, string>
 getNewDirective(const string &fullArrayName, 
                 const vector<string> &distrRules,
@@ -816,7 +828,7 @@ getNewDirective(const string &fullArrayName,
                         {
                             if (rule[it + byUseElem.first.size()] == '(' && rule[it - 1] == ' ')
                             {
-                                rule = rule.replace(it, byUseElem.first.size(), (*byUseElem.second.begin())->identifier());
+                                rule = rule.replace(it, byUseElem.first.size(), getWithSort(byUseElem.second));
                                 break;
                             }
                         }
