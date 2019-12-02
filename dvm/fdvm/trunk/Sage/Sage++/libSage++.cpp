@@ -4466,6 +4466,8 @@ SgExecutableStatement* isSgExecutableStatement(SgStatement *pt)
                  var == DVM_INDIRECT_GROUP_DIR || var == DVM_REMOTE_GROUP_DIR || var == DVM_REDUCTION_GROUP_DIR ||
                  var == DVM_CONSISTENT_GROUP_DIR || var == DVM_ASYNCID_DIR)
             return NULL;
+        else if (var == SPF_ANALYSIS_DIR)
+            return isSgExecutableStatement(pt->lexNext());
         else
             return (SgExecutableStatement*)pt;
 #else

@@ -1514,10 +1514,25 @@ int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* 
     int retCode = 0;
     try
     {
-        PASSES_DONE[INLINE_PROCEDURES] = 0;
-        runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
+        int tmp = 0;
+        char* names_c = ConvertShortToChar(names, tmp);
+        if (tmp != 0)
+        {
+            string allNames(names_c);
+            vector<string> result;
+            splitString(allNames, '#', result);
 
-        inDataProc.clear();
+            if (result.size())
+            {
+                for (auto& elem : result)
+                    inDataProc.push_back(make_tuple(elem, elem, -1));
+
+                PASSES_DONE[INLINE_PROCEDURES] = 0;
+                runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
+
+                inDataProc.clear();
+            }
+        }
     }
     catch (int ex)
     {

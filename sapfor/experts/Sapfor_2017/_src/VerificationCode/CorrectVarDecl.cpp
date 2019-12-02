@@ -416,7 +416,7 @@ static void correctModuleProcNamesEx(SgExpression *ex, SgStatement *st, SgStatem
     }
 }
 
-static bool needToReplaceInterfaceName(SgStatement *interf)
+bool needToReplaceInterfaceName(SgStatement *interf)
 {
     if (interf->variant() != INTERFACE_STMT)
         return false;

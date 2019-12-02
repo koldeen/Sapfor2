@@ -99,6 +99,7 @@ struct FuncInfo
     std::string fileName;
     Statement *funcPointer;
     bool isMain;
+    bool isInterface;
 
     std::set<std::string> callsFrom; //calls from this function
     std::vector<std::pair<std::string, int>> detailCallsFrom; // <name, line>
@@ -142,17 +143,18 @@ struct FuncInfo
 
     FuncInfo() :
         doNotInline(false), funcPointer(NULL), doNotAnalyze(false), needToInline(false), 
-        deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL) { }
+        deadFunction(false), inRegion(0), isPure(false), isMain(false), shadowTree(NULL),
+        isInterface(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(NULL),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false), shadowTree(NULL) { }
+        isPure(false), shadowTree(NULL), isInterface(false) { }
 
     FuncInfo(std::string &funcName, const std::pair<int, int> &lineNum, Statement *pointer) :
         funcName(funcName), linesNum(lineNum), doNotInline(false), funcPointer(pointer),
         doNotAnalyze(false), needToInline(false), deadFunction(false), inRegion(0), isMain(false), 
-        isPure(false), shadowTree(NULL) { fileName = pointer->fileName(); }
+        isPure(false), shadowTree(NULL), isInterface(false) { fileName = pointer->fileName(); }
 
     std::vector<std::pair<void*, int>> GetDetailedCallInfo(const std::string &funcName)
     {

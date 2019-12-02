@@ -78,7 +78,7 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                 // Find pointer to info of called function
                 auto itCalledFunc = mapFuncInfo.find(funcCall.CalledFuncName);
 
-                if (itCalledFunc != mapFuncInfo.end())
+                if (itCalledFunc != mapFuncInfo.end() && !itCalledFunc->second->isInterface)
                 {
                     FuncInfo *calledFunc = itCalledFunc->second;
 
@@ -112,8 +112,6 @@ void updateFuncInfo(const map<string, vector<FuncInfo*>> &allFuncInfo) // const 
                         parNo++;
                     }
                 }
-                //else // Error! No funcInfo of called func
-                //     ;
             }
         }
     } while (changesDone);

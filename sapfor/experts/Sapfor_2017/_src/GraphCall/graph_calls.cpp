@@ -20,6 +20,7 @@
 #include "acc_analyzer.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
+#include "../VerificationCode/verifications.h"
 
 using std::vector;
 using std::map;
@@ -1013,6 +1014,42 @@ void functionAnalyzer(SgFile *file, map<string, vector<FuncInfo*>> &allFuncInfo,
             }
 
             st = st->lexNext();
+        }
+    }
+
+    //fill INTERFACE block from modules
+    vector<SgStatement*> modules;
+    findModulesInFile(file, modules);
+
+    for (auto& mod : modules)
+    {
+        if (mod->fileName() != string(file->filename()))
+            continue;
+
+        for (auto st = mod->lexNext(); st != mod->lastNodeOfStmt(); st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (isSgExecutableStatement(st))
+                break;
+
+            if (st->variant() == INTERFACE_STMT)
+            {
+                if (needToReplaceInterfaceName(st))
+                {
+                    const string fileName = st->fileName();
+                    auto it = allFuncInfo.find(fileName);
+                    if (it == allFuncInfo.end())
+                        it = allFuncInfo.insert(it, make_pair(fileName, vector<FuncInfo*>()));
+
+                    string currF = st->symbol()->identifier();
+                    FuncInfo* funcInterface = new FuncInfo(currF, make_pair(st->lineNumber(), st->lastNodeOfStmt()->lineNumber()), new Statement(st));
+                    funcInterface->isInterface = true;
+                    st = st->lastNodeOfStmt();
+
+                    it->second.push_back(funcInterface);
+                }
+            }
         }
     }
 }

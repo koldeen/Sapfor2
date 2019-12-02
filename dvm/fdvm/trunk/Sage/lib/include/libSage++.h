@@ -692,6 +692,7 @@ class  SgValueExp: public SgExpression{
   // variants: INT_VAL, CHAR_VAL, FLOAT_VAL, 
   //           DOUBLE_VAL, STRING_VAL, COMPLEX_VAL, KEYWORD_VAL
 public:
+  inline SgValueExp(bool value); // add for bool value (Kolganov, 26.11.2019)
   inline SgValueExp(int value);
   inline SgValueExp(char char_val);
   inline SgValueExp(float float_val);
@@ -3876,6 +3877,12 @@ inline int SgLabel::getLastLabelVal()
 { return getLastLabelId();}
 
 // SgValueExp--inlines
+
+inline SgValueExp::SgValueExp(bool value) :SgExpression(BOOL_VAL)
+{
+  NODE_TYPE(thellnd) = GetAtomicType(T_BOOL);
+  NODE_BOOL_CST(thellnd) = value;
+}
 
 inline SgValueExp::SgValueExp(int value):SgExpression(INT_VAL)
 {

@@ -726,7 +726,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
            } 
         }   
         if(ea[0] && ea[1] && (in_spec == NULL || out_spec == NULL))
-           err("Wrong ACROSS clause",256 ,stmt); 
+           err("Double IN/OUT specification in ACROSS clause",257 ,stmt); 
         if(not_in && in_spec && !out_spec) { // old implementation
            stat = cur_st;//store current statement    
            cur_st = stc; //insert statements for creating shadow group 
@@ -758,9 +758,10 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
               CreateShadowGroupsForAccross(in_spec,out_spec,stmt,ACC_GroupRef(iacrg),ACC_GroupRef(iacrg+1),ACC_GroupRef(iacrg+2),ag,all_positive_step,loop_num);
            else {
               //ag[1] = -1;
-              if(out_spec || in_spec->rhs() || stmt->expr(0)->symbol()  != (in_spec->lhs()->variant() == ARRAY_OP ? in_spec->lhs()->lhs()->symbol() : in_spec->lhs()->symbol()))
-                 err("Illegal ACROSS-clause",444,stmt);
-                    
+              if(out_spec || in_spec->rhs())        
+                 err("Illegal ACROSS clause",444,stmt);
+              else if (stmt->expr(0)->symbol()  != (in_spec->lhs()->variant() == ARRAY_OP ? in_spec->lhs()->lhs()->symbol() : in_spec->lhs()->symbol()))
+                 Error("The base array '%s' should be specified in ACROSS clause", stmt->expr(0)->symbol()->identifier(), 256, stmt); 
               DefineLoopNumberForNegStep(step_mask,DefineLoopNumberForDimension(stmt,loop_num),loop_num);
               CreateShadowGroupsForAccrossNeg(in_spec,stmt,ACC_GroupRef(iacrg),ACC_GroupRef(iacrg+2),ag,all_positive_step,loop_num);
               //k=ag[2]; ag[2] = ag[0]; ag[0] = k;                    
@@ -878,7 +879,7 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
        }
     } 
     else if(ag[2]){
-       //err("SHADOW_RENEW clause is required",257,stmt);
+       //err("SHADOW_RENEW clause is required",...,stmt);
        if(ACC_program)      /*ACC*/
        // generating call statement ( in and out compute region):
        //  call dvmh_shadow_renew( BoundGroupRef)              
@@ -2127,13 +2128,13 @@ void Interface_2(SgStatement *stmt,SgExpression *clause[],SgExpression *init[],S
         SgExpression *e = clause[ACROSS_];
         SgKeywordValExp *kwe;        
         if(e->rhs())
-           err("Wrong ACROSS clause",256 ,stmt); 
+           err("Illegal ACROSS clause", 444, stmt); 
         else if((e->lhs()->variant() == DDOT) && (kwe=isSgKeywordValExp(e->lhs()->lhs())))
         {
            if(!strcmp(kwe->value(),"in"))
               in_spec = e->lhs()->rhs();
            else
-              err("Wrong ACROSS clause",256 ,stmt); 
+              err("Illegal ACROSS clause", 444, stmt); 
         } 
         else
            in_spec = e->lhs();            
