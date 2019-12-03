@@ -59,7 +59,7 @@ static inline int strLen(const short* shString)
     if (shString == NULL)
         return 0;
 
-    while (shString[t] != '|')
+    while (shString[t] != '\0')
         t++;
     return t;
 }
@@ -89,7 +89,7 @@ static void setOptions(const short *options)
 
     vector<string> splited;
     vector<int> intOptions;
-    splitString(convS, '#', splited);
+    splitString(convS, '|', splited);
 
     intOptions.resize(EMPTY_OPTION);
     std::fill(intOptions.begin(), intOptions.end(), -1);
@@ -1520,7 +1520,7 @@ int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* 
         {
             string allNames(names_c);
             vector<string> result;
-            splitString(allNames, '#', result);
+            splitString(allNames, '|', result);
 
             if (result.size())
             {

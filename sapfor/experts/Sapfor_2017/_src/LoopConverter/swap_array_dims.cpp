@@ -245,3 +245,89 @@ void setAllDeclsWithInitZero(SgFile* file)
         }
     }
 }
+
+static void addTextInit(SgStatement* decl, map<pair<string, int>, string> &symbols)
+{
+    for (auto ex = decl->expr(0); ex; ex = ex->rhs())
+    {
+        if (ex->lhs()->variant() == ASSGN_OP)
+            symbols[make_pair(ex->lhs()->lhs()->symbol()->identifier(), decl->lineNumber())] = string("  ") + ex->lhs()->unparse();
+        else if (ex->lhs()->symbol() && ((ex->lhs()->symbol()->attributes() & DATA_BIT) != 0))
+            symbols[make_pair(ex->lhs()->symbol()->identifier(), decl->lineNumber())] = string("  '") + ex->lhs()->symbol()->identifier() + string("' inited from DATA");
+    }
+}
+
+void dumpAllDeclsWithInit(SgFile* file, bool create)
+{
+    string dumpF = string("dump_decls.txt");
+    FILE* fDump = NULL;
+    if (create)
+        fDump = fopen(dumpF.c_str(), "w");
+    else
+        fDump = fopen(dumpF.c_str(), "a+");
+
+    checkNull(fDump, convertFileName(__FILE__).c_str(), __LINE__);
+        
+    map<string, string> dumpTextByFunc;
+    for (int i = 0; i < file->numberOfFunctions(); ++i)
+    {
+        string dumpText = "";
+
+        auto func = isSgProgHedrStmt(file->functions(i));
+        checkNull(func, convertFileName(__FILE__).c_str(), __LINE__);
+               
+        dumpText += string("FOR FUNC ") + func->symbol()->identifier() + "\n";
+
+        map<pair<string, int>, string> symbols;
+        for (SgStatement* st = func->lexNext(); st; st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (isSgExecutableStatement(st))
+                break;
+
+            auto decl = isSgDeclarationStatement(st);
+            if (decl && st->variant() != DATA_DECL)
+                addTextInit(decl, symbols);
+        }        
+
+        for (auto& elem : symbols)
+            dumpText += elem.second + "\n";
+
+        dumpTextByFunc[func->symbol()->identifier()] = dumpText;
+    }
+    
+    vector<SgStatement*> mods;
+    findModulesInFile(file, mods);
+    for (auto& mod : mods)
+    {
+        string dumpText = string("FOR MODULE ") + mod->symbol()->identifier() + "\n";
+
+        map<pair<string, int>, string> symbols;
+        for (SgStatement* st = mod->lexNext(); st; st = st->lexNext())
+        {
+            if (st->variant() == CONTAINS_STMT)
+                break;
+            if (isSgExecutableStatement(st))
+                break;
+
+            auto decl = isSgDeclarationStatement(st);
+            if (decl && st->variant() != DATA_DECL)
+            {
+                for (auto ex = decl->expr(0); ex; ex = ex->rhs())
+                    addTextInit(decl, symbols);
+            }
+        }
+
+        for (auto& elem : symbols)
+            dumpText += elem.second + "\n";
+
+        dumpTextByFunc[string("_module_") + mod->symbol()->identifier()] = dumpText;
+
+    }
+
+    for (auto& elem : dumpTextByFunc)
+        fprintf(fDump, "%s\n", elem.second.c_str());
+    
+    fclose(fDump);
+}

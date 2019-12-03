@@ -565,6 +565,9 @@ unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
             {
                 for (auto& usage : line.second)
                 {
+                    if (usage.underFunctionPar != -1 && !isIntrinsicFunctionName(usage.fName.c_str()))
+                        continue;
+
                     string file_name = file.first;
                     int line_num = line.first;
 
@@ -605,7 +608,6 @@ ArraySet ArrayUsage::get_op_arrs_for_block(SgStatement* st, bool ignore_regions,
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();
 
-    st = st->lexNext();
     while (st != end && st != NULL)
     {
         // Skip regions

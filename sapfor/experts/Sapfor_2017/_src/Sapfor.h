@@ -124,6 +124,7 @@ enum passes {
     PARSE_FILES,
     PPPA_ANALYZER,
     SET_TO_ALL_DECL_INIT_ZERO,
+    DUMP_DECLS_WITH_INIT,
     EMPTY_PASS
 };
 
@@ -252,6 +253,7 @@ static void setPassValues()
     passNames[PARSE_FILES] = "PARSE_FILES";
     passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
     passNames[SET_TO_ALL_DECL_INIT_ZERO] = "SET_TO_ALL_DECL_INIT_ZERO";
+    passNames[DUMP_DECLS_WITH_INIT] = "DUMP_DECLS_WITH_INIT";
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

@@ -1026,6 +1026,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             restoreCopies(file);
         else if (curr_regime == SET_TO_ALL_DECL_INIT_ZERO)
             setAllDeclsWithInitZero(file);
+        else if (curr_regime == DUMP_DECLS_WITH_INIT)
+            dumpAllDeclsWithInit(file, (i == n - 1));
+
         unparseProjectIfNeed(file, curr_regime, need_to_unparse, newVer, folderName, allIncludeFiles);
     } // end of FOR by files
         
