@@ -880,17 +880,19 @@ void Interface_1(SgStatement *stmt,SgExpression *clause[],SgSymbol *do_var[],SgE
     } 
     else if(ag[2]){
        //err("SHADOW_RENEW clause is required",...,stmt);
+       pipeline=1; 
+       doAssignTo_After(new SgVarRefExp(Pipe), stage);    
        if(ACC_program)      /*ACC*/
        // generating call statement ( in and out compute region):
        //  call dvmh_shadow_renew( BoundGroupRef)              
          doCallAfter(ShadowRenew_H (DVM000(iacrg+2) ));   
-       doCallAfter(StartBound(DVM000(iacrg+2)));
-       doCallAfter(WaitBound (DVM000(iacrg+2)));
+       //doCallAfter(StartBound(DVM000(iacrg+2)));              /*09.12.19*/
+       //doCallAfter(WaitBound (DVM000(iacrg+2)));              /*09.12.19*/
+       doCallAfter(InitAcross(1,DVM000(iacrg+2), ConstRef(0))); /*09.12.19*/
        if(IN_COMPUTE_REGION || parloop_by_handler)        
        { oldGroup = DVM000(iacrg+5);                      /*ACC*/
          newGroup = ConstRef(0);                          /*ACC*/
        }
-
     }
   } 
   } else{ //there is negative loop step

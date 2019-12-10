@@ -2657,8 +2657,8 @@ SgExpression *freeFunction(SgExpression *arg, SgStatement *scope)
 
 SgStatement *RTL_GPU_Init()
 {// generating subroutine call: call dvmh_init(DvmType *flagsRef)
-//  flags: 1 - фортран, 2 - нет регионов (-noH),
-//         4 - последовательная программа (-s), 8 - будет использоваться OpenMP.
+//  flags: 1 - Fortran, 2 - without regions (-noH),
+//         4 - sequential program (-s), 8 - OpenMP will be used.
 
   SgCallStmt *call = new SgCallStmt(*fdvm[DVMH_INIT]);
   fmask[DVMH_INIT] = 2;

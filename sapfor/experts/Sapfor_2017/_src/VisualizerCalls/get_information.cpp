@@ -1338,6 +1338,52 @@ int SPF_RemoveDvmIntervals(void*& context, int winHandler, short *options, short
     return simpleTransformPass(REMOVE_DVM_INTERVALS, options, projName, folderName, output, outputSize, outputMessage, outputMessageSize);
 }
 
+static inline void convertBackSlash(char *str, int strL)
+{
+    for (int z = 0; z < strL; ++z)
+        if (str[z] == '\\')
+            str[z] = '/';
+}
+
+//TODO: need to extend 'outFileName' to vector
+static int inline runModificationPass(passes passName, short* projName, short* folderName,
+                                      int& size, int*& sizes, short*& newFilesNames, short*& newFiles,
+                                      const string outFileName)
+{
+    PASSES_DONE[passName] = 0;
+    runPassesForVisualizer(projName, { passName }, folderName);
+
+    //fill data
+    // size - число файлов для мод.
+    // sizes - размеры границ в буфере newFiles
+    // newFilesNames - имена файлов для мод., разд. '|'
+    // newFiles - буфер
+
+    string newFile;
+
+    size = 1;
+
+    if (SgFile::switchToFile(outFileName.c_str()) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+    newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
+
+    sizes = new int[size + 1];
+    newFilesNames = new short[outFileName.size()];
+    newFiles = new short[newFile.size()];
+
+    allocated.insert(newFilesNames);
+    allocated.insert(newFiles);
+    allocatedInt.insert(sizes);
+
+    sizes[0] = 0;
+    sizes[1] = sizes[0] + newFile.size();
+    copyStringToShort(newFilesNames, outFileName);
+    copyStringToShort(newFiles, newFile);
+
+    return (int)outFileName.size() + 1;
+}
+
 extern tuple<string, int, int, int> inData;
 extern map<string, string> outData;
 int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short *projName, short *folderName, short *&output,
@@ -1354,49 +1400,14 @@ int SPF_ChangeSpfIntervals(void*& context, int winHandler, short *options, short
     try
     {
         int strL;
-        char *filtrName = ConvertShortToChar(fileNameToMod, strL);
-        
-        for (int z = 0; z < strL; ++z)
-            if (filtrName[z] == '\\')
-                filtrName[z] = '/';
+        char *file_c = ConvertShortToChar(fileNameToMod, strL);
+        convertBackSlash(file_c, strL);
 
-        std::get<0>(inData) = filtrName;
+        std::get<0>(inData) = file_c;
         std::get<1>(inData) = toModifyLines[0];
         std::get<2>(inData) = toModifyLines[1];
         std::get<3>(inData) = toModifyLines[2];
-
-        PASSES_DONE[EXPAND_EXTRACT_PAR_REGION] = 0;
-        runPassesForVisualizer(projName, { EXPAND_EXTRACT_PAR_REGION }, folderName);
-
-        //fill data
-        // size - число файлов для мод.
-        // sizes - размеры границ в буфере newFiles
-        // newFilesNames - имена файлов для мод., разд. '|'
-        // newFiles - буфер
-
-        string newFile, newFileName;
-
-        size = 1;
-        newFileName = std::get<0>(inData);
-
-        if (SgFile::switchToFile(newFileName) == -1)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
-
-        sizes = new int[size + 1];
-        newFilesNames = new short[newFileName.size()];
-        newFiles = new short[newFile.size()];
-
-        allocated.insert(newFilesNames);
-        allocated.insert(newFiles);
-        allocatedInt.insert(sizes);
-
-        sizes[0] = 0;
-        sizes[1] = sizes[0] + newFile.size();
-        copyStringToShort(newFilesNames, newFileName);
-        copyStringToShort(newFiles, newFile);
-        retCode = (int)newFileName.size() + 1;
+        retCode = runModificationPass(EXPAND_EXTRACT_PAR_REGION, projName, folderName, size, sizes, newFilesNames, newFiles, file_c);
     }
     catch (int ex)
     {
@@ -1437,47 +1448,10 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
         int tmp;
         char* name_c = ConvertShortToChar(name, tmp);
         char* file_c = ConvertShortToChar(file, tmp);
-
-        for (int z = 0; z < tmp; ++z)
-            if (file[z] == '\\')
-                file[z] = '/';
+        convertBackSlash(file_c, tmp);
 
         inDataProc.push_back(std::make_tuple(file_c, name_c, line));
-
-        PASSES_DONE[INLINE_PROCEDURES] = 0;
-        runPassesForVisualizer(projName, { INLINE_PROCEDURES }, folderName);
-
-        inDataProc.clear();
-
-        //fill data
-        // size - число файлов для мод.
-        // sizes - размеры границ в буфере newFiles
-        // newFilesNames - имена файлов для мод., разд. '|'
-        // newFiles - буфер
-
-        string newFile, newFileName;
-
-        size = 1;
-        newFileName = ConvertShortToChar(file, tmp);
-
-        if (SgFile::switchToFile(file_c) == -1)
-            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-        newFile = unparseProjectToString(current_file, EXPAND_EXTRACT_PAR_REGION);
-
-        sizes = new int[size + 1];
-        newFilesNames = new short[newFileName.size()];
-        newFiles = new short[newFile.size()];
-
-        allocated.insert(newFilesNames);
-        allocated.insert(newFiles);
-        allocatedInt.insert(sizes);
-
-        sizes[0] = 0;
-        sizes[1] = sizes[0] + newFile.size();
-        copyStringToShort(newFilesNames, newFileName);
-        copyStringToShort(newFiles, newFile);
-        retCode = (int)newFileName.size() + 1;
+        retCode = runModificationPass(INLINE_PROCEDURES, projName, folderName, size, sizes, newFilesNames, newFiles, file_c);
     }
     catch (int ex)
     {
@@ -1501,9 +1475,52 @@ int SPF_InlineProcedure(void*& context, int winHandler, short *options, short* p
     return retCode;
 }
 
-//TODO: split
-extern vector<FuncInfo*> inDataAllProc;
-int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* projName, short* folderName,
+extern pair<string, int> inOnlyForloopOnPlace;
+int SPF_LoopUnionCurrent(void*& context, int winHandler, short* options, short* projName, short* folderName,
+                         short* file, int line,
+                         short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize,
+                         int& size, int*& sizes, short*& newFilesNames, short*& newFiles)
+{
+    MessageManager::clearCache();
+    MessageManager::setWinHandler(winHandler);
+    clearGlobalMessagesBuffer();
+    setOptions(options);
+
+    int retCode = 0;
+    try
+    {
+        int tmp;
+        char* file_c = ConvertShortToChar(file, tmp);
+        if (!file_c)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        convertBackSlash(file_c, tmp);
+
+        inOnlyForloopOnPlace = make_pair(file_c, line);
+        retCode = runModificationPass(LOOPS_COMBINER, projName, folderName, size, sizes, newFilesNames, newFiles, file_c);
+    }
+    catch (int ex)
+    {
+        __spf_print(1, "catch code %d\n", ex);
+        if (ex == -99)
+            return -99;
+        else
+            retCode = -1;
+    }
+    catch (...)
+    {
+        retCode = -1;
+    }
+
+    convertGlobalBuffer(output, outputSize);
+    convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+
+    if (showDebug)
+        printf("SAPFOR: return from DLL\n");
+    MessageManager::setWinHandler(-1);
+    return retCode;
+}
+
+int SPF_InlineProcedures(void*& context, int winHandler, short* options, short* projName, short* folderName,
                          short* names, short*& output, int*& outputSize, short*& outputMessage, int*& outputMessageSize)
 {
     MessageManager::clearCache();
@@ -1555,6 +1572,7 @@ int SPF_InlineProcedures(void*& context, int winHandler, short *options, short* 
     MessageManager::setWinHandler(-1);
     return retCode;
 }
+
 
 extern set<string> filesToInclude;
 int SPF_InsertIncludesPass(void*& context, int winHandler, short *options, short *projName, short *folderName, char *filesToInclude,

@@ -78,6 +78,7 @@ extern std::pair<std::string, int> currProcessing; // file and line, default [""
 //   08 "Can not do PRIVATE EXPANSION for this loop - privates not found"
 //   09 "Can not split this loop because of dependecy: %s"
 //   10 "This loop has indirect child loops  and can not be splitted\n"
+//   11 
 
 // 30xx PARALLEL GROUP
 //   01 "add across dependencies by array '%s' to loop"
@@ -421,7 +422,7 @@ static const wchar_t *R98 = L"Невозможно автоматически преобразовать цикл в END 
 //2004
 static const wchar_t *R99 = L"Цикл был преобразован в END DO формат";
 //2005
-static const wchar_t *R100 = L"Циклы на строках %d и %d были объединены";
+static const wchar_t *R100 = L"Циклы в строке %d и в строке %d были объединены";
 //2006
 static const wchar_t *R101 = L"Была выполнена подстановка макроса с именем '%s'";
 //2007
@@ -435,6 +436,7 @@ static const wchar_t *R104 = L"Невозможно разделить данный цикл из-за следующей 
 static const wchar_t *R105 = L"Данный цикл содержит косвенные подциклы, поэтому не может быть разделен";
 static const wchar_t *R106 = L"У данного цикла есть ограничение на распараллеливание (в строке ";
 static const wchar_t *R107 = L"У данного цикла есть зависимости, которые нельзя проанализировать, поэтому он не может быть разделен (в строке ";
+//2011
 
 //3001
 static const wchar_t *R108 = L"Добавлена across-зависимость к массиву '%s' в цикле";

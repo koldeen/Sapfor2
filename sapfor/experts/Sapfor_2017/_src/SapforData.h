@@ -131,6 +131,10 @@ std::map<std::string, std::set<std::string>> moduleUsesByFile; // file -> use mo
 std::map<std::string, std::string> moduleDecls; // module -> file where declarated
 //
 
+//for LOOPS_COMBINER
+std::pair<std::string, int> inOnlyForloopOnPlace;
+//
+
 const char *passNames[EMPTY_PASS + 1];
 bool passNamesWasInit = false;
 

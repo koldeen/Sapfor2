@@ -971,7 +971,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             auto founded = loopGraph.find(file->filename());
             if (founded != loopGraph.end())
             {
-                int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages));
+                int err = combineLoops(file, founded->second, getObjectForFileFromMap(file_name, SPF_messages), inOnlyForloopOnPlace);
                 if (err != 0)
                     internalExit = -1;
             }
@@ -2175,7 +2175,6 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case PRIVATE_ARRAYS_BREEDING:
     case PRIVATE_ARRAYS_SHRINKING:
     case LOOPS_SPLITTER:
-    case LOOPS_COMBINER:
     case INSERT_INTER_TREE:
     case REMOVE_DVM_INTERVALS:
     case SET_TO_ALL_DECL_INIT_ZERO:
@@ -2201,6 +2200,7 @@ void runPass(const int curr_regime, const char *proj_name, const char *folderNam
     case RESOLVE_PAR_REGIONS:
     case CREATE_PARALLEL_REGIONS:
     case DUPLICATE_FUNCTIONS:
+    case LOOPS_COMBINER:
         runAnalysis(*project, curr_regime, false);
     case SUBST_EXPR_AND_UNPARSE:
         if (folderName)
