@@ -175,7 +175,7 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
         if (showDebug)
             printf("SAPFOR: thread was terminated\n");
         fflush(NULL);
-        return;
+        rethrow = -1;
     }
     catch (int ex)
     {

@@ -228,6 +228,30 @@ static SgStatement* getRealStat(Statement *loop, const char *file, const int lin
     return local;
 }
 
+static string correctSymbolModuleName(const string& origFull)
+{
+    auto it = origFull.find("::");
+    if (it == string::npos)
+        return origFull;
+    else
+        return origFull.substr(it + 2);
+}
+
+static SgStatement* getModuleScope(const string& origFull, vector<SgStatement*>& moduleList, SgStatement *local)
+{
+    auto it = origFull.find("::");
+    if (it == string::npos)
+        return local;
+
+    string modName = origFull.substr(0, it);
+    for (auto& elem : moduleList)
+        if (elem->symbol()->identifier() == modName)
+            return elem;
+
+    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    return local;
+}
+
 extern int mpiProgram;
 
 pair<string, vector<Expression*>> 
@@ -246,6 +270,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
     SgForStmt *loopG = (SgForStmt *)loop->GetOriginal();
     const set<string> usedInLoop = fillUsedSymbols(loopG);
 
+    vector<SgStatement*> moduleList;
+    findModulesInFile(file, moduleList);
+
+    SgStatement* parentFunc = getFuncStat(getRealStat(loop, file->filename(), line, altLine));
     map<string, set<SgSymbol*>> byUseInFunc = moduleRefsByUseInFunction(getRealStat(loop, file->filename(), line, altLine));
     const int nested = loopG->isPerfectLoopNest();
     vector<SgSymbol*> loopSymbs;
@@ -547,7 +575,8 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                         p = createAndSetNext(RIGHT, EXPR_LIST, p);
                     }
 
-                    SgSymbol* redS = getFromModule(byUseInFunc, findSymbolOrCreate(file, list), usedInLoop);
+                    SgSymbol* base = findSymbolOrCreate(file, correctSymbolModuleName(list), NULL, getModuleScope(list, moduleList, parentFunc));
+                    SgSymbol* redS = getFromModule(byUseInFunc, base, usedInLoop, list.find("::") != string::npos);
                     directive += nameGroup + "(" + redS->identifier() + ")";
 
                     SgVarRefExp *tmp2 = new SgVarRefExp(redS);
@@ -597,8 +626,11 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                         p = createAndSetNext(RIGHT, EXPR_LIST, p);
                     }
 
-                    SgSymbol* redS1 = getFromModule(byUseInFunc, findSymbolOrCreate(file, get<0>(list)), usedInLoop);
-                    SgSymbol* redS2 = getFromModule(byUseInFunc, findSymbolOrCreate(file, get<1>(list)), usedInLoop);
+                    SgSymbol* base1 = findSymbolOrCreate(file, correctSymbolModuleName(get<0>(list)), NULL, getModuleScope(get<0>(list), moduleList, parentFunc));
+                    SgSymbol* base2 = findSymbolOrCreate(file, correctSymbolModuleName(get<1>(list)), NULL, getModuleScope(get<1>(list), moduleList, parentFunc));
+
+                    SgSymbol* redS1 = getFromModule(byUseInFunc, base1, usedInLoop, get<0>(list).find("::") != string::npos);
+                    SgSymbol* redS2 = getFromModule(byUseInFunc, base2, usedInLoop, get<1>(list).find("::") != string::npos);
 
                     directive += nameGroup + "(" + redS1->identifier() + ", " + redS2->identifier() + ", " + std::to_string(get<2>(list)) + ")";
 

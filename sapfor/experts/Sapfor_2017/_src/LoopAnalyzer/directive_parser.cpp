@@ -15,6 +15,7 @@
 #include "../Utils/SgUtils.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
 #include "../Utils/AstWrapper.h"
+#include "../Utils/errors.h"
 
 using std::string;
 using std::vector;
@@ -48,11 +49,34 @@ bool isSPF_NoInline(Statement *stIn)
 
 static map<SgSymbol*, Symbol*> dictCreated;
 
-static inline string getData(SgExpression *symb, string*) { return OriginalSymbol(symb->symbol())->identifier(); }
-static inline SgSymbol* getData(SgExpression *symb, SgSymbol**) { return OriginalSymbol(symb->symbol()); }
-static inline SgExpression* getData(SgExpression *symb, SgExpression**) { return symb; }
+static inline string getData(SgExpression *symb, string*, bool moduleNameAdd = false) 
+{
+    SgSymbol* base = symb->symbol();
+    SgSymbol* symbOr = OriginalSymbol(symb->symbol());
+    if (symbOr == base)
+        return symbOr->identifier();
+    else
+    {
+        SgStatement* scope = symbOr->scope();
+        checkNull(scope, convertFileName(__FILE__).c_str(), __LINE__);
+        if (scope->variant() != MODULE_STMT)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-static inline Symbol* getData(SgExpression *symb, Symbol**)
+        return string(scope->symbol()->identifier()) + "::" + symbOr->identifier();
+    }
+}
+
+static inline SgSymbol* getData(SgExpression *symb, SgSymbol**, bool moduleNameAdd = false) 
+{
+    return OriginalSymbol(symb->symbol()); 
+}
+
+static inline SgExpression* getData(SgExpression *symb, SgExpression**, bool moduleNameAdd = false) 
+{ 
+    return symb; 
+}
+
+static inline Symbol* getData(SgExpression *symb, Symbol**, bool moduleNameAdd = false)
 {
     SgSymbol *symbOr = OriginalSymbol(symb->symbol());
     auto it = dictCreated.find(symbOr);
@@ -95,7 +119,7 @@ template void fillPrivatesFromComment(Statement *st, set<Symbol*> &privates);
 
 //for simple reduction
 template<typename fillType>
-void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &reduction)
+void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &reduction, bool moduleNameAdd)
 {    
     if (stIn)
     {
@@ -115,9 +139,9 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
                         fillType redSymb, *dummy = NULL;
                         //minloc/maxloc
                         if (currRed->rhs()->variant() == EXPR_LIST)
-                            redSymb = getData(currRed->rhs()->lhs(), dummy);
+                            redSymb = getData(currRed->rhs()->lhs(), dummy, moduleNameAdd);
                         else
-                            redSymb = getData(currRed->rhs(), dummy);
+                            redSymb = getData(currRed->rhs(), dummy, moduleNameAdd);
                         string oper = ((SgKeywordValExp *)(currRed->lhs()))->value();
                         
                         auto it = reduction.find(oper);
@@ -141,12 +165,12 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<fillType>> &redu
     }
 }
 
-template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction);
-template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<string>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<SgSymbol*>> &reduction, bool);
 
 //for min/max loc reduction
 template<typename fillType>
-void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, fillType, int>>> &reduction)
+void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, fillType, int>>> &reduction, bool moduleNameAdd)
 {
     if (stIn)
     {
@@ -166,9 +190,9 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
                         fillType redSymb, *dummy = NULL;
                         //minloc/maxloc
                         if (currRed->rhs()->variant() == EXPR_LIST)
-                            redSymb = getData(currRed->rhs()->lhs(), dummy);
+                            redSymb = getData(currRed->rhs()->lhs(), dummy, moduleNameAdd);
                         else
-                            redSymb = getData(currRed->rhs(), dummy);
+                            redSymb = getData(currRed->rhs(), dummy, moduleNameAdd);
                         string oper = ((SgKeywordValExp *)(currRed->lhs()))->value();
 
                         auto it = reduction.find(oper);
@@ -194,8 +218,8 @@ void fillReductionsFromComment(Statement *stIn, map<string, set<tuple<fillType, 
     }
 }
 
-template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction);
-template void fillReductionsFromComment(Statement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<string, string, int>>> &reduction, bool);
+template void fillReductionsFromComment(Statement *st, map<string, set<tuple<SgSymbol*, SgSymbol*, int>>> &reduction, bool);
 
 template<typename fillType>
 static void fillShadowAcross(const int type, Statement *stIn, vector<pair<pair<fillType, string>, vector<pair<int, int>>>> &data, set<fillType> *corner = NULL)
@@ -445,8 +469,8 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
     {
         Statement *sData = new Statement(data);
         fillPrivatesFromComment(sData, directive->privates);
-        fillReductionsFromComment(sData, directive->reduction);
-        fillReductionsFromComment(sData, directive->reductionLoc);
+        fillReductionsFromComment(sData, directive->reduction, true);
+        fillReductionsFromComment(sData, directive->reductionLoc, true);
         fillShadowAcrossFromComment(SHADOW_OP, sData, directive->shadowRenew);
         fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
         fillRemoteFromComment(sData, directive->remoteAccess);

@@ -14,10 +14,10 @@ template<typename fillType>
 void fillPrivatesFromComment(Statement *st, std::set<fillType> &privates);
 
 template<typename fillType>
-void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<fillType>> &reduction);
+void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<fillType>> &reduction, bool moduleNameAdd = false);
 
 template<typename fillType>
-void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<std::tuple<fillType, fillType, int>>> &reduction);
+void fillReductionsFromComment(Statement *st, std::map<std::string, std::set<std::tuple<fillType, fillType, int>>> &reduction, bool moduleNameAdd = false);
 
 template<typename fillType>
 void fillShadowAcrossFromComment(const int type, Statement *st, std::vector<std::pair<std::pair<fillType, std::string>, std::vector<std::pair<int, int>>>> &data);

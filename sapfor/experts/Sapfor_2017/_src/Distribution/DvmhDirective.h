@@ -110,6 +110,7 @@ public:
         acrossShifts = copyFrom.acrossShifts;
         remoteAccess = copyFrom.remoteAccess;
         reduction = copyFrom.reduction;
+        reductionLoc = copyFrom.reductionLoc;
 
         cloneOfTemplate = copyFrom.cloneOfTemplate;        
     }
@@ -135,6 +136,7 @@ public:
         across.clear();
         acrossShifts.clear();
         reduction.clear();
+        reductionLoc.clear();
         for (auto it = remoteAccess.begin(); it != remoteAccess.end(); ++it)
         {
 #ifdef _WIN32

@@ -59,9 +59,9 @@ const CommonBlock* isArrayInCommon(const std::map<std::string, CommonBlock> &com
 
 std::vector<DIST::Array*> fillArraysFromDir(Statement *st);
 
-SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig, const std::set<std::string>& usedInBlock);
+SgSymbol* getFromModule(const std::map<std::string, std::set<SgSymbol*>> &byUse, SgSymbol *orig, const std::set<std::string>& usedInBlock, bool processAsModule = false);
 std::map<std::string, std::set<std::string>> createMapOfModuleUses(SgFile* file);
-void printSymbolTable(SgFile *file);
+void printSymbolTable(SgFile *file, std::string filter = "");
 SgStatement* getFuncStat(SgStatement *st, const std::set<int> additional = std::set<int>());
 std::map<SgStatement*, std::vector<DefUseList>> createDefUseMapByPlace();
 SgStatement* duplicateProcedure(SgStatement* toDup, const std::string& newName, bool withAttributes = false, bool withComment = false, bool withSameLines = true);

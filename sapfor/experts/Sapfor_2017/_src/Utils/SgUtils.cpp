@@ -1900,10 +1900,14 @@ objT& getObjectForFileFromMap(const char *fileName, map<string, objT> &mapObject
 template vector<SpfInterval*>& getObjectForFileFromMap(const char *fileName, map<string, vector<SpfInterval*>>&);
 template PredictorStats& getObjectForFileFromMap(const char *fileName, map<string, PredictorStats>&);
 
-SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig, const set<string> &usedInBlock)
+SgSymbol* getFromModule(const map<string, set<SgSymbol*>> &byUse, SgSymbol *orig, const set<string> &usedInBlock, bool processAsModule)
 {
-    if (orig->scope()->variant() != MODULE_STMT)
-        return orig;
+    if (!processAsModule)
+    {
+        checkNull(orig->scope(), convertFileName(__FILE__).c_str(), __LINE__);
+        if (orig->scope()->variant() != MODULE_STMT)
+            return orig;
+    }
 
     if (byUse.size())
     {
@@ -1987,12 +1991,17 @@ map<string, set<string>> createMapOfModuleUses(SgFile *file)
     return retValMap;
 }
 
-void printSymbolTable(SgFile *file)
+void printSymbolTable(SgFile *file, string filter)
 {
     for (auto s = file->firstSymbol(); s; s = s->next())
     {
         auto t = s->type();
-        printf("[%d] %s type %d (%s)\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "");
+        bool need = true;
+        if (filter != "")
+            if (filter != s->identifier())
+                need = false;
+        if (need)
+            printf("[%d] %s type %d (%s), location %d line\n", s->id(), s->identifier(), t ? t->variant() : -1, t ? tag[t->variant()] : "", s->scope()->lineNumber());
     }
 }
 
