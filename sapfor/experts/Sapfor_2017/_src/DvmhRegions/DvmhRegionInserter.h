@@ -6,6 +6,8 @@
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../Utils/SgUtils.h"
+#include "DvmhRegions/Exceptions.h"
+#include "ReadWriteAnylyser.h"
 
 #include <iostream>
 #include <set>
@@ -18,6 +20,7 @@
 #include <unordered_set> 
 #include <unordered_map>
 #include <memory>
+
 
 typedef std::unordered_set<DIST::Array* > ArraySet;
 struct ReadWrite
@@ -61,7 +64,10 @@ class DvmhRegion
 private:
     std::vector<LoopGraph*> loops;
     std::string fun_name;
+
 public:
+    ReadWriteAnylyser rw_info; // info about vars, read and modified
+
     DvmhRegion() { }
     DvmhRegion(LoopGraph *loopNode, const std::string &fun_name);
 
@@ -72,6 +78,10 @@ public:
     const std::string& getFunName() const { return fun_name; }
     void setFunName(const std::string& newName) { fun_name = newName; }
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
+    std::string getFileName() const { return this->getFirstSt()->fileName(); }
+    std::unordered_set<SgSymbol*> get_modified();  // may raise NotImplemented
+    std::unordered_set<SgSymbol*> get_read();  // may raise NotImplemented
+    void append(DvmhRegion& region);
 };
 
 class DvmhRegionInsertor 
@@ -88,7 +98,7 @@ class DvmhRegionInsertor
     void insertActualDirectives();
     void insertRegionDirectives();
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool);
-    void mergeRegions();
+
     LoopCheckResults checkLoopForPurenessAndIO(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
     LoopCheckResults updateLoopNode(LoopGraph*, const std::map<std::string, FuncInfo*> &allFuncs);
 public:

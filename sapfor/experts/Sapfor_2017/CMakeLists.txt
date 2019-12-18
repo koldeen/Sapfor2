@@ -291,7 +291,7 @@ set(SOURCE_EXE
 	${PREDICTOR}
 	${PARSER}
 	${PPPA}
-	${ZLIB})
+	${ZLIB} _src/DvmhRegions/Exceptions.h _src/DvmhRegions/RegionsMerger.cpp _src/DvmhRegions/RegionsMerger.h _src/DvmhRegions/ReadWriteAnylyser.cpp _src/DvmhRegions/ReadWriteAnylyser.h)
 
 add_executable(Sapfor_F ${SOURCE_EXE})
 

@@ -2,6 +2,7 @@
 
 #include "DvmhRegionInserter.h"
 #include "../VerificationCode/verifications.h"
+#include "DvmhRegions/RegionsMerger.h"
 
 using namespace std;
 
@@ -333,82 +334,14 @@ void DvmhRegionInsertor::insertActualDirectives()
     }
 }
 
-static bool compareByStart(const DvmhRegion *a, const DvmhRegion *b)
-{
-    if (a->getLoops().size() < 1 || b->getLoops().size() < 1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    return a->getLoops()[0]->loop->lineNumber() < b->getLoops()[0]->loop->lineNumber();
-}
-
-static bool areNeighbours(const DvmhRegion *first, const DvmhRegion *second)
-{
-    set<int> toSkip = { DVM_PARALLEL_ON_DIR };
-    SgStatement* mediumSt = first->getLastSt()->lexNext();
-    while (toSkip.count(mediumSt->variant())) // skip statements which don't prevent from merging
-        mediumSt = mediumSt->lexNext();
-
-    SgStatement* firstSt = second->getFirstSt();
-    return (mediumSt->fileName() == firstSt->fileName()) && (mediumSt->lineNumber() == firstSt->lineNumber());
-}
-
-void DvmhRegionInsertor::mergeRegions()
-{
-    if (regions.size() < 2)
-        return;
-
-    sort(regions.begin(), regions.end(), compareByStart);
-
-    vector<DvmhRegion*> newRegions;
-    DvmhRegion *newRegion = new DvmhRegion();
-    DvmhRegion *regionPrev = regions[0];
-
-    bool isFirst = true;
-    for (auto& loop : regions[0]->getLoops())
-        newRegion->addLoop(loop);
-
-    for (auto& region : regions)
-    {
-        if (newRegion->getFunName() == "" && region->getLoops().size() > 0) 
-        {
-            SgStatement* func_st = getFuncStat(region->getLoops()[0]->loop);
-            string fun_name = func_st->symbol()->identifier();
-            newRegion->setFunName(fun_name);
-        }
-        //printf("Merge number %d\n", i++);
-        if (isFirst) // skip first region
-        {
-            isFirst = false;
-            continue;
-        }
-
-        // logic of intermediate derectives here, in perspective they can be accumulated and moved
-        if (!areNeighbours(regionPrev, region))
-        {
-            newRegions.push_back(newRegion);
-            newRegion = new DvmhRegion();
-        }
-
-        regionPrev = region;
-        for (auto& loop : region->getLoops())
-            newRegion->addLoop(loop);
-    }
-    newRegions.push_back(newRegion);
-
-    for (auto& old : regions)
-        delete old;
-    regions.clear();
-
-    regions = newRegions;
-}
-
 void DvmhRegionInsertor::insertDirectives()
 {
     __spf_print(1, "Find edges for regions\n");
     findEdgesForRegions(loopGraph);
 
     __spf_print(1, "Merging regions\n");
-    mergeRegions();
+    auto merger = RegionsMerger(regions);
+    regions = merger.mergeRegions();
 
     for (auto& elem : regions)
     {
@@ -457,7 +390,7 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
 }
 
 /*********** DvmhRegion *************/
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name), rw_info(loopNode->loop)
 {
     loops.push_back(loopNode);
 }
@@ -474,6 +407,24 @@ SgStatement* DvmhRegion::getLastSt() const
     if (loops.size() < 1) 
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     return loops.back()->loop->lastNodeOfStmt();
+}
+
+std::unordered_set<SgSymbol*> DvmhRegion::get_modified()  // may raise NotImplemented
+{
+    return rw_info.get_modified();
+}
+
+std::unordered_set<SgSymbol*> DvmhRegion::get_read()  // may raise NotImplemented
+{
+    return rw_info.get_read();
+}
+
+void DvmhRegion::append(DvmhRegion& region)
+{
+    for (auto& loop : region.getLoops())
+        this->addLoop(loop);
+
+    rw_info.update(region.rw_info);
 }
 
 static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) 
