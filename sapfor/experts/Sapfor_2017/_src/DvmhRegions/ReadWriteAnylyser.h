@@ -9,6 +9,7 @@
 
 #include <unordered_set>
 #include <tuple>
+#include <queue>
 
 
 typedef std::tuple<std::unordered_set<SgSymbol*>, std::unordered_set<SgSymbol*>> rw_tuple; // (reads, writes)
@@ -22,6 +23,7 @@ class ReadWriteAnylyser
 
     rw_tuple processAssignment(SgStatement* st);
     rw_tuple processLoop(SgStatement* st);
+    rw_tuple processBlock(SgStatement* start, SgStatement *end);
 public:
     std::vector<SgStatement*> anylyzedSts;  // may be: loops or stand-alone statements
     bool rw_undefined;  // not all constructions are implemented => if met such in statement, set this flag
@@ -36,6 +38,8 @@ public:
 
     static std::unordered_set<SgSymbol*> findVarsInExpr(SgExpression* expr);
     rw_tuple processStatement(SgStatement* st);  // may raise NotImplemented
+
+    void print();
 };
 
 
