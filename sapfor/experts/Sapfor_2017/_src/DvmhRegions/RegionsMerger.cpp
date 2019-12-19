@@ -25,21 +25,14 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
 
         region->getLoops()[0]->loop->unparsestdout();
         region->rw_info.print();
-        try {
-            for (auto& read : rw_data.get_read())  // check that [b, c] not modified in region
-                if (inSet(region->get_modified(), read))
-                    return false;
-        } catch (NotImplemented &e) {
-            return false;  // by default assume all vars are present
-        }
 
-        try {
-            for (auto& modified : rw_data.get_read())  // check that [a, d] not read in region
-                if (inSet(region->get_read(), modified))
-                    return false;
-        } catch (NotImplemented &e) {
-            return false;  // by default assume all vars are present
-        }
+        for (auto& read : rw_data.get_read())  // check that [b, c] not modified in region
+            if (inSet(region->get_modified(), read))
+                return false;
+
+        for (auto& modified : rw_data.get_modified())  // check that [a, d] not read in region
+            if (inSet(region->get_read(), modified))
+                return false;
     }
     catch (NotImplemented &e) {
         return false;
