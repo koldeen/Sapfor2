@@ -55,6 +55,8 @@
 #include "ExpressionTransform/expr_transform.h"
 #include "SageAnalysisTool/depInterfaceExt.h"
 #include "DvmhRegions/DvmhRegionInserter.h"
+#include "DvmhRegions/LoopChecker.h"
+#include "DvmhRegions/ReadWriteAnalyzer.h"
 #include "Utils/utils.h"
 #include "LoopAnalyzer/directive_creator.h"
 #include "Distribution/Array.h"
@@ -471,6 +473,9 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         updateStatsExprs(current_file_id, file->filename());
     }
     currProcessing.first = ""; currProcessing.second = -1;
+
+    auto modified_pars = ReadWriteAnalyzer::load_modified_pars(allFuncInfo);
+    auto rw_analyzer = ReadWriteAnalyzer(project, modified_pars);  // doesn't analyze anything until first query
 
     for (int i = n - 1; i >= 0; --i)
     {
@@ -989,7 +994,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_REGIONS)
         {
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInsertor regionInsertor(file, loopForFile, declaratedArrays);
+            DvmhRegionInsertor regionInsertor(file, loopForFile, rw_analyzer);
             regionInsertor.insertDirectives();
 
             //remove private from loops out of DVMH region
@@ -1295,8 +1300,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         //for each file of graphLoop
         for (auto &loopGraphInFile : loopGraph)
         {
-            DvmhRegionInsertor regionInsertor(NULL, loopGraphInFile.second);
-            regionInsertor.updateLoopGraph(allFuncs);
+            LoopChecker checker(loopGraphInFile.second);
+            checker.updateLoopGraph(allFuncs);
         }
 
         detectCopies(allFuncInfo);

@@ -177,8 +177,10 @@ set(DVMH_REG _src/DvmhRegions/DvmhRegionInserter.cpp
 		_src/DvmhRegions/Exceptions.h
 		_src/DvmhRegions/RegionsMerger.cpp
 		_src/DvmhRegions/RegionsMerger.h
-		_src/DvmhRegions/ReadWriteAnylyser.cpp
-		_src/DvmhRegions/ReadWriteAnylyser.h)
+		_src/DvmhRegions/ReadWriteAnalyzer.cpp
+		_src/DvmhRegions/ReadWriteAnalyzer.h
+		_src/DvmhRegions/LoopChecker.cpp
+		_src/DvmhRegions/LoopChecker.h)
 		
 set(DYNA _src/DynamicAnalysis/createParallelRegions.cpp
 		_src/DynamicAnalysis/createParallelRegions.h
@@ -296,7 +298,7 @@ set(SOURCE_EXE
 	${PREDICTOR}
 	${PARSER}
 	${PPPA}
-	${ZLIB})
+	${ZLIB} _src/DvmhRegions/DvmhRegion.cpp _src/DvmhRegions/DvmhRegion.h _src/DvmhRegions/VarUsages.cpp _src/DvmhRegions/VarUsages.h)
 
 add_executable(Sapfor_F ${SOURCE_EXE})
 

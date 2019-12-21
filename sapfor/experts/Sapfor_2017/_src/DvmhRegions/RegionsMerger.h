@@ -8,15 +8,18 @@
 
 class RegionsMerger
 {
-    std::vector<DvmhRegion*> regions;
+    std::vector<DvmhRegion*> &regions;
+    ReadWriteAnalyzer &rw_analyzer;
 
-    static bool compareByStart(const DvmhRegion *a, const DvmhRegion *b);
     bool canBeMoved(SgStatement* st, DvmhRegion *region);
     std::vector<SgStatement*> getStatementsToMove(DvmhRegion *first, const DvmhRegion *second);
+
     void moveStatements(std::vector<SgStatement*> sts, DvmhRegion *region);
+
+    static bool compareByStart(const DvmhRegion *a, const DvmhRegion *b);
     bool inSet(std::unordered_set<SgSymbol*>, SgSymbol*);
 public:
-    explicit RegionsMerger(std::vector<DvmhRegion*> old_regions) : regions(old_regions) { };
+    explicit RegionsMerger(std::vector<DvmhRegion*> &old_regions, ReadWriteAnalyzer &rw) : regions(old_regions), rw_analyzer(rw) { };
     std::vector<DvmhRegion*> mergeRegions();
 };
 

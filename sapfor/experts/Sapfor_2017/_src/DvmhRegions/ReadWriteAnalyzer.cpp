@@ -2,7 +2,7 @@
 // Created by Vladislav Volodkin on 12/17/19.
 //
 
-#include "ReadWriteAnylyser.h"
+#include "ReadWriteAnalyzer.h"
 
 using namespace std;
 
@@ -90,57 +90,27 @@ using namespace std;
 //    fflush(NULL);
 //}
 /* DELETE ME */
-ReadWriteAnylyser::ReadWriteAnylyser(SgStatement* anylyzedSt) : anylyzedSts(vector<SgStatement*>(1, anylyzedSt))
+
+void ReadWriteAnalyzer::init()
 {
-    init();
+    for (int i = 0; i < project.numberOfFiles(); i++)
+        for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
+            processStatement(project.file(i).functions(j));
 }
 
-ReadWriteAnylyser::ReadWriteAnylyser(std::vector<SgStatement*> anylyzedSts) : anylyzedSts(anylyzedSts)
-{
-    init();
-}
-
-void ReadWriteAnylyser::init()
-{
-    try {
-        for (auto &st : anylyzedSts)
-        {
-            auto st_reads = std::unordered_set<SgSymbol*>();
-            auto st_writes = std::unordered_set<SgSymbol*>();
-            tie(st_reads,  st_writes) = processStatement(st);
-
-            reads.insert(st_reads.begin(), st_reads.end());
-            writes.insert(st_writes.begin(), st_writes.end());
-        }
-
-
-        rw_undefined = false;
-    } catch (NotImplemented &e) {
-        rw_undefined = true;
-    }
-}
-
-rw_tuple ReadWriteAnylyser::processStatement(SgStatement* st)
+rw_tuple ReadWriteAnalyzer::processStatement(SgStatement* st)
 {
     if (st->variant() == ASSIGN_STAT)
         return processAssignment(st);
     else if (st->variant() == FOR_NODE)
-    {
-//        recExpressionPrintFdvm(st->expr(0));
-//        printf("____\n");
-//        recExpressionPrintFdvm(st->expr(1));
-//        printf("____\n");
-//        recExpressionPrintFdvm(st->expr(2));
-//        printf("****\n");
         return processLoop(st);
-    }
     else if (st->variant() == CONTROL_END)
         return rw_tuple();
     else
         throw NotImplemented();
 }
 
-rw_tuple ReadWriteAnylyser::processAssignment(SgStatement* st)
+rw_tuple ReadWriteAnalyzer::processAssignment(SgStatement* st)
 {
     auto writes = unordered_set<SgSymbol*>({st->expr(0)->symbol()});
     auto reads = findVarsInExpr(st->expr(1));
@@ -154,7 +124,7 @@ rw_tuple ReadWriteAnylyser::processAssignment(SgStatement* st)
     return rw_tuple(reads, writes);
 }
 
-rw_tuple ReadWriteAnylyser::processLoop(SgStatement* loop)
+rw_tuple ReadWriteAnalyzer::processLoop(SgStatement* loop)
 {
     auto loop_reads = std::unordered_set<SgSymbol*>();
     auto loop_writes = std::unordered_set<SgSymbol*>();
@@ -176,7 +146,7 @@ rw_tuple ReadWriteAnylyser::processLoop(SgStatement* loop)
     return rw_tuple(loop_reads, loop_writes);
 }
 
-rw_tuple ReadWriteAnylyser::processBlock(SgStatement* start, SgStatement *end)
+rw_tuple ReadWriteAnalyzer::processBlock(SgStatement* start, SgStatement *end)
 {
     auto loop_reads = std::unordered_set<SgSymbol*>();
     auto loop_writes = std::unordered_set<SgSymbol*>();
@@ -198,8 +168,10 @@ rw_tuple ReadWriteAnylyser::processBlock(SgStatement* start, SgStatement *end)
     return rw_tuple(loop_reads, loop_writes);
 }
 
-unordered_set<SgSymbol*> ReadWriteAnylyser::findVarsInExpr(SgExpression* exp)  // TODO: inter-procedure anylysis
+rw_tuple ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
 {
+    auto usages = rw_tuple();
+
     auto vars = unordered_set<SgSymbol*>();
 
     queue<SgExpression*> buf;
@@ -220,6 +192,11 @@ unordered_set<SgSymbol*> ReadWriteAnylyser::findVarsInExpr(SgExpression* exp)  /
             SgSymbol *s = OriginalSymbol(cur->symbol());
             vars.insert(s);
         }
+        else if (e_type == FUNC_CALL || e_type == PROC_CALL)
+        {
+            auto modified_in_fun = findUsagesInFuncCall(cur);
+            usages.insert(modified_in_fun);
+        }
 
         buf.push(cur->lhs());
         buf.push(cur->rhs());
@@ -228,44 +205,127 @@ unordered_set<SgSymbol*> ReadWriteAnylyser::findVarsInExpr(SgExpression* exp)  /
     return vars;
 }
 
-unordered_set<SgSymbol*> ReadWriteAnylyser::get_modified()  // may raise NotImplemented
+rw_tuple ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* exp)
 {
-    if (rw_undefined)
+    return rw_tuple();
+}
+
+unordered_set<SgSymbol*> ReadWriteAnalyzer::get_usages(SgStatement* st, VAR_TYPE var_type, USAGE_TYPE usage_type)  // may raise NotImplemented, out_of_range
+{
+    if (!initialized)
+        init();
+
+    VarUsages var_usages = data.at(st);
+
+    if (var_usages.undefined && usage_type != USAGE_ALL)
         throw NotImplemented();
 
-    return reads;
+    unordered_set<SgSymbol*> usages;
+    switch (usage_type) {
+        case USAGE_READ:
+            usages = var_usages.reads;
+            break;
+        case USAGE_WRITE:
+            usages = var_usages.writes;
+            break;
+        case USAGE_ALL:
+            usages = var_usages.all;
+            break;
+    }
+
+    if (var_type != VAR_ALL)
+        usages = filter(usages, var_type);
+
+    return usages;
 }
 
-unordered_set<SgSymbol*> ReadWriteAnylyser::get_read()  // may raise NotImplemented
+std::unordered_set<SgSymbol*> ReadWriteAnalyzer::get_usages(std::vector<SgStatement*> &statements, VAR_TYPE var_type, USAGE_TYPE usage_type) // may raise NotImplemented, out_of_range
 {
-    if (rw_undefined)
-        throw NotImplemented();
+    gif (!initialized)
+        init();
 
-    return writes;
+    auto usages = std::unordered_set<SgSymbol*>();
+
+    for (auto st : statements)
+    {
+        auto st_usages = get_usages(st, var_type, usage_type);
+        usages.insert(st_usages.begin(), st_usages.end());
+    }
+
+    return usages;
 }
 
-void ReadWriteAnylyser::update(ReadWriteAnylyser &to_add)
+void ReadWriteAnalyzer::printOne(SgStatement *st)
 {
-    rw_undefined |= to_add.rw_undefined;
-    if (rw_undefined)
-        return;
+    st->unparsestdout();
 
-    anylyzedSts.insert(anylyzedSts.end(), to_add.anylyzedSts.begin(), to_add.anylyzedSts.end());
-    reads.insert(to_add.get_read().begin(), to_add.get_read().end());
-    writes.insert(to_add.get_modified().begin(), to_add.get_modified().end());
-}
-
-void ReadWriteAnylyser::print()
-{
     printf("reads: ");
-    for (auto& s : reads)
-        printf("%s ", s->identifier());
+    try {
+        for (auto& s : get_usages(st, VAR_ALL, USAGE_READ))
+            printf("%s ", s->identifier());
+    } catch (NotImplemented &e) {
+        printf("not_defined");
+    }
     printf("\n");
 
-    printf("writes: ");
-    for (auto& s : writes)
-        printf("%s ", s->identifier());
-    printf("\n");
+    try {
+        printf("writes: ");
+        for (auto &s : get_usages(st, VAR_ALL, USAGE_WRITE))
+            printf("%s ", s->identifier());
+    } catch (NotImplemented &e) {
+        printf("not_defined");
+    }
 
-    printf("not ok: %d\n", rw_undefined);
+    try {
+        printf("all: ");
+        for (auto &s : get_usages(st, VAR_ALL, USAGE_ALL))
+            printf("%s ", s->identifier());
+    } catch (NotImplemented &e) {
+        printf("not_defined");
+    }
+
+    printf("***\n");
+}
+
+void ReadWriteAnalyzer::print()
+{
+    for (int i = 0; i < project.numberOfFiles(); i++)
+    {
+        printf("file: %s\n", project.file(i).filename());
+
+        for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
+        {
+            printf("function: %s\n", project.file(i).functions(j)->symbol()->identifier());
+
+            SgStatement* runner = project.file(i).functions(j);
+            auto last = runner->lastNodeOfStmt();
+
+            while (runner != last)
+            {
+                printOne(runner);
+                runner = runner->lexNext();
+            }
+        }
+    }
+}
+
+std::unordered_map<SgStatement*, std::vector<bool>> ReadWriteAnalyzer::load_modified_pars(std::map<std::string, std::vector<FuncInfo*>> files)
+{
+    auto modified_pars = std::unordered_map<SgStatement*, std::vector<bool>>();
+
+    for (auto& funcs : files)
+    {
+        for (auto& func : funcs.second)
+        {
+            auto func_pars_info = func->funcParams;
+            auto func_pars = std::vector<bool>();
+
+            for (int i = 0; i < func_pars_info.countOfPars; i++)
+                func_pars.push_back(func_pars_info.isArgOut(i));
+
+            modified_pars[func->funcPointer] = func_pars;
+        }
+    }
+
+    return modified_pars;
 }

@@ -18,24 +18,32 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
 {
     // For now: st [a, d = b + c] can be moved IF [b, c] are not modified in region AND [a, d] not used for read in region
     try {
-        auto rw_data = ReadWriteAnylyser(st);
+        // get usages for statement
+        auto st_reads = rw_analyzer.get_usages(st, VAR_ALL, USAGE_READ);
+        auto st_writes = rw_analyzer.get_usages(st, VAR_ALL, USAGE_WRITE);
+        rw_analyzer.printOne(st);  // TODO: remove debug
 
-        st->unparsestdout();
-        rw_data.print();
+        // get usages for region
+        auto loop_statements = vector<SgStatement*>();
+        for (auto& loop : region->getLoops())
+            loop_statements.push_back(loop->loop);
 
-        region->getLoops()[0]->loop->unparsestdout();
-        region->rw_info.print();
+        auto region_reads = rw_analyzer.get_usages(loop_statements, VAR_ALL, USAGE_READ);
+        auto region_writes = rw_analyzer.get_usages(loop_statements, VAR_ALL, USAGE_WRITE);
+        for (auto& st : loop_statements)  // TODO: remove debug
+            rw_analyzer.printOne(st);
 
-        for (auto& read : rw_data.get_read())  // check that [b, c] not modified in region
-            if (inSet(region->get_modified(), read))
+        // analyse if statement can be placed before region
+        for (auto& read : st_reads)  // check that [b, c] not modified in region
+            if (inSet(region_writes, read))
                 return false;
 
-        for (auto& modified : rw_data.get_modified())  // check that [a, d] not read in region
-            if (inSet(region->get_read(), modified))
+        for (auto& modified : st_writes)  // check that [a, d] not read in region
+            if (inSet(region_reads, modified))
                 return false;
     }
     catch (NotImplemented &e) {
-        return false;
+        return false;  // when met usage which can not be classified, keep statement where it is
     }
 
     return true;  // everything's ok
@@ -80,7 +88,8 @@ void RegionsMerger::moveStatements(vector<SgStatement*> sts, DvmhRegion *region)
         prev = toInsert;
         st->deleteStmt();
     }
-    // TODO: здесь нужно как-то перестроить array_usage
+
+    rw_analyzer.invalidate();
 }
 
 vector<DvmhRegion*> RegionsMerger::mergeRegions()

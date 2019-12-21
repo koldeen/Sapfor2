@@ -1,0 +1,37 @@
+//
+// Created by Vladislav Volodkin on 12/20/19.
+//
+
+#ifndef SAPFOR_LOOPCHECKER_H
+#define SAPFOR_LOOPCHECKER_H
+#include "../GraphLoop/graph_loops_func.h"
+#include "../GraphCall/graph_calls_func.h"
+
+#include <vector>
+#include <string>
+#include <map>
+
+struct LoopCheckResults
+{
+    bool usesIO;
+    bool hasImpureCalls;
+
+    std::vector<int> linesOfIO;
+
+    LoopCheckResults() : usesIO(false), hasImpureCalls(false) { }
+    LoopCheckResults(bool io, bool calls) : usesIO(io), hasImpureCalls(calls) { }
+};
+
+class LoopChecker {
+    std::vector<LoopGraph*> &loopGraph;
+
+    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *loopNode, const std::map<std::string, FuncInfo*> &allFuncs);
+    LoopCheckResults updateLoopNode(LoopGraph *loop, const std::map<std::string, FuncInfo*> &allFuncs);
+public:
+    explicit LoopChecker(std::vector<LoopGraph*> &graph) : loopGraph(graph) { }
+
+    void updateLoopGraph(const std::map<std::string, FuncInfo*> &allFuncs);
+};
+
+
+#endif //SAPFOR_LOOPCHECKER_H
