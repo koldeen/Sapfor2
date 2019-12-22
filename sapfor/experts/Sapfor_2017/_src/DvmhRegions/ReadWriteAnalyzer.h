@@ -13,48 +13,38 @@
 #include <tuple>
 #include <queue>
 #include <vector>
-
-
-enum VAR_TYPE { VAR_ARR, VAR_DISTR_ARR, VAR_SCALAR, VAR_ALL };
-enum USAGE_TYPE { USAGE_READ, USAGE_WRITE, USAGE_ALL };
-
-typedef std::tuple<std::unordered_set<SgSymbol*>, std::unordered_set<SgSymbol*>> rw_tuple; // (reads, writes)
+#include <exception>
 
 
 class ReadWriteAnalyzer
 {
     SgProject &project;
 
-    std::unordered_map<SgStatement*, std::vector<bool>> modified_pars;  // func -> params
-    std::unordered_map<SgStatement*, VarUsages> data;  // Maps statements to variables used in them.
-                                                       // Parent statements, like functions, loops, if-else, etc..
-                                                       // contain usage data for all variables from their body
+    std::unordered_map<SgStatement*, std::vector<bool>> modified_pars;  // func -> params, TODO: not inited
+    std::unordered_map<SgStatement*, VarUsages> usages_by_statement;    // maps statements to variables used in them
 
-    bool initialized;
+    bool initialized = false;
     void init();
 
-    rw_tuple processAssignment(SgStatement* st);
-    rw_tuple processLoop(SgStatement* st);
-    rw_tuple processBlock(SgStatement* start, SgStatement *end);
+    VarUsages findUsagesInStatement(SgStatement* st);
+    VarUsages findUsagesInAssignment(SgStatement* st);
 
-    rw_tuple processStatement(SgStatement* st);
-
-    std::unordered_set<SgSymbol*> filter(std::unordered_set<SgSymbol*>, VAR_TYPE);
+    const std::unordered_set<int> compound_statements = {FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR};
+    VarUsages gatherUsagesForCompound(SgStatement* st);
 public:
     explicit ReadWriteAnalyzer(SgProject &prjct, std::unordered_map<SgStatement*, std::vector<bool>> &modified_pars) :
-    project(prjct), initialized(false), modified_pars(modified_pars)
+    project(prjct), modified_pars(modified_pars)
     { };
 
     void invalidate() { initialized = false; } ;
 
-    std::unordered_set<SgSymbol*> get_usages(SgStatement*, VAR_TYPE, USAGE_TYPE);  // may raise NotImplemented, out_of_range
-    std::unordered_set<SgSymbol*> get_usages(std::vector<SgStatement*>&, VAR_TYPE, USAGE_TYPE);  // may raise NotImplemented, out_of_range
+    VarUsages get_usages(SgStatement*);  // may raise out_of_range
+    VarUsages get_usages(std::vector<SgStatement*>&);  // may raise out_of_range
 
-    rw_tuple findUsagesInExpr(SgExpression* exp);
-    rw_tuple findUsagesInFuncCall(SgExpression* exp);
+    VarUsages findUsagesInExpr(SgExpression* exp);
+    VarUsages findUsagesInFuncCall(SgExpression* exp);
 
     void print();
-    void printOne(SgStatement*);
 
     static std::unordered_map<SgStatement*, std::vector<bool>> load_modified_pars(std::map<std::string, std::vector<FuncInfo*>>);
 };

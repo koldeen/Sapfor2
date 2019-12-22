@@ -28,8 +28,6 @@ public:
     void setFunName(const std::string& newName) { fun_name = newName; }
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
     std::string getFileName() const { return this->getFirstSt()->fileName(); }
-    std::unordered_set<SgSymbol*> get_modified();  // may raise NotImplemented
-    std::unordered_set<SgSymbol*> get_read();  // may raise NotImplemented
     void append(DvmhRegion& region);
 };
 

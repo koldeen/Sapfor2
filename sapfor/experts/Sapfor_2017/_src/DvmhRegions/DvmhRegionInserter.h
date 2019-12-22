@@ -50,8 +50,8 @@ class DvmhRegionInsertor
 
     // actual directives
     ArraySet symbs_to_arrs(std::unordered_set<SgSymbol*>);
-    ArraySet get_used_arrs(SgStatement* st, USAGE_TYPE usage_type);
-    ArraySet get_used_arrs_for_block(SgStatement* st, USAGE_TYPE usage_type);
+    ArraySet get_used_arrs(SgStatement* st, int usage_type);
+    ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type);
     SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool);

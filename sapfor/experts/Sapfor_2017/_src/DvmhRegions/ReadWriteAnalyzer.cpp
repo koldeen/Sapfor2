@@ -7,172 +7,156 @@
 using namespace std;
 
 /* DELETE ME */
-//static string getValue(SgExpression *exp)
-//{
-//    if (exp == NULL)
-//        return "";
-//
-//    string ret = "";
-//    if (exp->symbol())
-//    {
-//        if (exp->symbol()->identifier())
-//            ret = "(" + string(exp->symbol()->identifier()) + ")";
-//    }
-//    else if (exp->variant() == INT_VAL)
-//    {
-//        char buf[256];
-//        sprintf(buf, "%d", exp->valueInteger());
-//        ret = "(" + string(buf) + ")";
-//    }
-//    else if (exp->variant() == ADD_OP)
-//        ret = "(+)";
-//    else if (exp->variant() == SUBT_OP)
-//        ret = "(-)";
-//    else if (exp->variant() == MULT_OP)
-//        ret = "(*)";
-//    else if (exp->variant() == DIV_OP)
-//        ret = "(/)";
-//    else if (exp->variant() == MOD_OP)
-//        ret = "(mod)";
-//    else if (exp->variant() == EXP_OP)
-//        ret = "(**)";
-//    else if (exp->variant() == KEYWORD_VAL)
-//        ret = "(" + string(((SgKeywordValExp*)exp)->value()) + ")";
-//    return ret;
-//}
-//
-//static void recExpressionPrint(SgExpression* exp, const int lvl, const char* LR, const int currNum, int& allNum)
-//{
-//    if (exp)
-//    {
-//        SgExpression* lhs = exp->lhs();
-//        SgExpression* rhs = exp->rhs();
-//        int lNum, rNum;
-//
-//        string vCurr = getValue(exp);
-//        string vL = getValue(lhs);
-//        string vR = getValue(rhs);
-//
-//        if (lhs && rhs)
-//        {
-//            lNum = allNum + 1;
-//            rNum = allNum + 2;
-//            allNum += 2;
-//            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-//            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-//        }
-//        else if (lhs)
-//        {
-//            lNum = allNum + 1;
-//            allNum++;
-//            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
-//        }
-//        else if (rhs)
-//        {
-//            rNum = allNum + 1;
-//            allNum++;
-//            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
-//        }
-//        if (lhs)
-//            recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
-//        if (rhs)
-//            recExpressionPrint(rhs, lvl + 1, "R", rNum, allNum);
-//    }
-//}
-//void recExpressionPrintFdvm(SgExpression *exp)
-//{
-//    printf("digraph G{\n");
-//    int allNum = 0;
-//    recExpressionPrint(exp, 0, "L", allNum, allNum);
-//    if (allNum == 0 && exp)
-//        printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());
-//    printf("}\n");
-//    fflush(NULL);
-//}
+static string getValue(SgExpression *exp)
+{
+    if (exp == NULL)
+        return "";
+
+    string ret = "";
+    if (exp->symbol())
+    {
+        if (exp->symbol()->identifier())
+            ret = "(" + string(exp->symbol()->identifier()) + ")";
+    }
+    else if (exp->variant() == INT_VAL)
+    {
+        char buf[256];
+        sprintf(buf, "%d", exp->valueInteger());
+        ret = "(" + string(buf) + ")";
+    }
+    else if (exp->variant() == ADD_OP)
+        ret = "(+)";
+    else if (exp->variant() == SUBT_OP)
+        ret = "(-)";
+    else if (exp->variant() == MULT_OP)
+        ret = "(*)";
+    else if (exp->variant() == DIV_OP)
+        ret = "(/)";
+    else if (exp->variant() == MOD_OP)
+        ret = "(mod)";
+    else if (exp->variant() == EXP_OP)
+        ret = "(**)";
+    else if (exp->variant() == KEYWORD_VAL)
+        ret = "(" + string(((SgKeywordValExp*)exp)->value()) + ")";
+    return ret;
+}
+
+static void recExpressionPrint(SgExpression* exp, const int lvl, const char* LR, const int currNum, int& allNum)
+{
+    if (exp)
+    {
+        SgExpression* lhs = exp->lhs();
+        SgExpression* rhs = exp->rhs();
+        int lNum, rNum;
+
+        string vCurr = getValue(exp);
+        string vL = getValue(lhs);
+        string vR = getValue(rhs);
+
+        if (lhs && rhs)
+        {
+            lNum = allNum + 1;
+            rNum = allNum + 2;
+            allNum += 2;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+        }
+        else if (lhs)
+        {
+            lNum = allNum + 1;
+            allNum++;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_L_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), lNum, lvl + 1, tag[lhs->variant()], vL.c_str());
+        }
+        else if (rhs)
+        {
+            rNum = allNum + 1;
+            allNum++;
+            printf("\"%d_%d_%s_%s_%s\" -> \"%d_%d_R_%s_%s\";\n", currNum, lvl, LR, tag[exp->variant()], vCurr.c_str(), rNum, lvl + 1, tag[rhs->variant()], vR.c_str());
+        }
+        if (lhs)
+            recExpressionPrint(lhs, lvl + 1, "L", lNum, allNum);
+        if (rhs)
+            recExpressionPrint(rhs, lvl + 1, "R", rNum, allNum);
+    }
+}
+void recExpressionPrintFdvm(SgExpression *exp)
+{
+    printf("digraph G{\n");
+    int allNum = 0;
+    recExpressionPrint(exp, 0, "L", allNum, allNum);
+    if (allNum == 0 && exp)
+        printf("\"%d_%d_%s_%s_%s\";\n", allNum, 0, "L", tag[exp->variant()], getValue(exp).c_str());
+    printf("}\n");
+    fflush(NULL);
+}
 /* DELETE ME */
 
 void ReadWriteAnalyzer::init()
 {
     for (int i = 0; i < project.numberOfFiles(); i++)
         for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
-            processStatement(project.file(i).functions(j));
+        {
+            SgStatement* func_hdr = project.file(i).functions(j);
+            SgStatement* last = func_hdr->lastNodeOfStmt();
+
+            SgStatement* runner = func_hdr->lexNext();
+            while (runner != last)
+            {
+                VarUsages usages = findUsagesInStatement(runner);
+                usages_by_statement[runner] = usages;
+
+                runner = runner->lexNext();
+            }
+        }
 }
 
-rw_tuple ReadWriteAnalyzer::processStatement(SgStatement* st)
+VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
 {
+    // *special* statements, TODO: what i've missed?
     if (st->variant() == ASSIGN_STAT)
-        return processAssignment(st);
-    else if (st->variant() == FOR_NODE)
-        return processLoop(st);
-    else if (st->variant() == CONTROL_END)
-        return rw_tuple();
-    else
-        throw NotImplemented();
-}
-
-rw_tuple ReadWriteAnalyzer::processAssignment(SgStatement* st)
-{
-    auto writes = unordered_set<SgSymbol*>({st->expr(0)->symbol()});
-    auto reads = findVarsInExpr(st->expr(1));
-
-    auto more_reads = findVarsInExpr(st->expr(1)->lhs());  // reads from array indexes
-    auto even_more_reads = findVarsInExpr(st->expr(1));  // reads from array indexes
-
-    reads.insert(more_reads.begin(), more_reads.end());
-    reads.insert(even_more_reads.begin(), even_more_reads.end());
-
-    return rw_tuple(reads, writes);
-}
-
-rw_tuple ReadWriteAnalyzer::processLoop(SgStatement* loop)
-{
-    auto loop_reads = std::unordered_set<SgSymbol*>();
-    auto loop_writes = std::unordered_set<SgSymbol*>();
-
-    // process loop header
-    auto reads = findVarsInExpr(loop->expr(0));
-    loop_reads.insert(reads.begin(), reads.end());
-
-    // process loop body
-    reads = std::unordered_set<SgSymbol*>();
-    auto writes = std::unordered_set<SgSymbol*>();
-
-    tie(reads, writes) = processBlock(loop->lexNext(), loop->lastNodeOfStmt());
-
-    loop_reads.insert(reads.begin(), reads.end());
-    loop_writes.insert(writes.begin(), writes.end());
-
-    // return
-    return rw_tuple(loop_reads, loop_writes);
-}
-
-rw_tuple ReadWriteAnalyzer::processBlock(SgStatement* start, SgStatement *end)
-{
-    auto loop_reads = std::unordered_set<SgSymbol*>();
-    auto loop_writes = std::unordered_set<SgSymbol*>();
-
-    SgStatement* runner = start;
-    while (runner != end)
+        return findUsagesInAssignment(st);
+    if (st->variant() == PROC_STAT)
     {
-        auto reads = std::unordered_set<SgSymbol*>();
-        auto writes = std::unordered_set<SgSymbol*>();
+        st->unparsestdout();
+        printf("%d\n", st->variant());
+        recExpressionPrintFdvm(st->expr(0));
+        recExpressionPrintFdvm(st->expr(1));
+        recExpressionPrintFdvm(st->expr(2));
 
-        tie(reads, writes) = processStatement(runner);
-
-        loop_reads.insert(reads.begin(), reads.end());
-        loop_writes.insert(writes.begin(), writes.end());
-
-        runner = runner->lastNodeOfStmt()->lexNext();
+        throw NotImplemented();
     }
 
-    return rw_tuple(loop_reads, loop_writes);
+    // common statements
+    auto st_usages = VarUsages();
+    for (int i = 0; i < 3; i++)
+    {
+        auto expr_usages = findUsagesInExpr(st->expr(i));
+        st_usages.extend(expr_usages);
+    }
+
+    return st_usages;
 }
 
-rw_tuple ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
+VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
 {
-    auto usages = rw_tuple();
+    // load read & writes from the right part
+    VarUsages usages = findUsagesInExpr(st->expr(1));
 
-    auto vars = unordered_set<SgSymbol*>();
+    // load usages from array indexes
+    VarUsages usages_in_arr_indexing = findUsagesInExpr(st->expr(1)->lhs());
+    usages.extend(usages_in_arr_indexing);
+    usages_in_arr_indexing = findUsagesInExpr(st->expr(1)->rhs());
+    usages.extend(usages_in_arr_indexing);
+
+    // finally add explicitly modified var
+    usages.insert_write(st->expr(0)->symbol());
+
+    return usages;
+}
+
+VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
+{
+    auto usages = VarUsages();
 
     queue<SgExpression*> buf;
     buf.push(exp);
@@ -190,101 +174,69 @@ rw_tuple ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
         if (e_type == VAR_REF || e_type == ARRAY_REF || e_type == RECORD_REF)
         {
             SgSymbol *s = OriginalSymbol(cur->symbol());
-            vars.insert(s);
+            usages.insert_read(s);
         }
         else if (e_type == FUNC_CALL || e_type == PROC_CALL)
         {
-            auto modified_in_fun = findUsagesInFuncCall(cur);
-            usages.insert(modified_in_fun);
+            VarUsages modified_in_fun = findUsagesInFuncCall(cur);
+            usages.extend(modified_in_fun);
         }
 
         buf.push(cur->lhs());
         buf.push(cur->rhs());
     }
 
-    return vars;
+    return usages;
 }
 
-rw_tuple ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* exp)
+VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* exp)
 {
-    return rw_tuple();
+    recExpressionPrintFdvm(exp);  // todo: stopped here
+    throw exception();
 }
 
-unordered_set<SgSymbol*> ReadWriteAnalyzer::get_usages(SgStatement* st, VAR_TYPE var_type, USAGE_TYPE usage_type)  // may raise NotImplemented, out_of_range
+VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)  // may raise out_of_range
 {
     if (!initialized)
         init();
 
-    VarUsages var_usages = data.at(st);
-
-    if (var_usages.undefined && usage_type != USAGE_ALL)
-        throw NotImplemented();
-
-    unordered_set<SgSymbol*> usages;
-    switch (usage_type) {
-        case USAGE_READ:
-            usages = var_usages.reads;
-            break;
-        case USAGE_WRITE:
-            usages = var_usages.writes;
-            break;
-        case USAGE_ALL:
-            usages = var_usages.all;
-            break;
-    }
-
-    if (var_type != VAR_ALL)
-        usages = filter(usages, var_type);
+    VarUsages usages;
+    if (compound_statements.find(st->variant()) == compound_statements.end())  // if statement is compound
+        usages = gatherUsagesForCompound(st);
+    else
+        usages = usages_by_statement.at(st);
 
     return usages;
 }
 
-std::unordered_set<SgSymbol*> ReadWriteAnalyzer::get_usages(std::vector<SgStatement*> &statements, VAR_TYPE var_type, USAGE_TYPE usage_type) // may raise NotImplemented, out_of_range
+VarUsages ReadWriteAnalyzer::get_usages(std::vector<SgStatement*> &statements) // may raise NotImplemented, out_of_range
 {
-    gif (!initialized)
-        init();
-
-    auto usages = std::unordered_set<SgSymbol*>();
+    auto usages = VarUsages();
 
     for (auto st : statements)
     {
-        auto st_usages = get_usages(st, var_type, usage_type);
-        usages.insert(st_usages.begin(), st_usages.end());
+        auto st_usages = get_usages(st);
+        usages.extend(st_usages);
     }
 
     return usages;
 }
 
-void ReadWriteAnalyzer::printOne(SgStatement *st)
+VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatement)
 {
-    st->unparsestdout();
+    auto all_usages = VarUsages();
 
-    printf("reads: ");
-    try {
-        for (auto& s : get_usages(st, VAR_ALL, USAGE_READ))
-            printf("%s ", s->identifier());
-    } catch (NotImplemented &e) {
-        printf("not_defined");
-    }
-    printf("\n");
+    SgStatement* last = compoundStatement->lastNodeOfStmt();
+    SgStatement* runner = compoundStatement->lexNext();
+    while (runner != last)
+    {
+        VarUsages st_usages = findUsagesInStatement(runner);
+        all_usages.extend(st_usages);
 
-    try {
-        printf("writes: ");
-        for (auto &s : get_usages(st, VAR_ALL, USAGE_WRITE))
-            printf("%s ", s->identifier());
-    } catch (NotImplemented &e) {
-        printf("not_defined");
+        runner = runner->lexNext();
     }
 
-    try {
-        printf("all: ");
-        for (auto &s : get_usages(st, VAR_ALL, USAGE_ALL))
-            printf("%s ", s->identifier());
-    } catch (NotImplemented &e) {
-        printf("not_defined");
-    }
-
-    printf("***\n");
+    return all_usages;
 }
 
 void ReadWriteAnalyzer::print()
@@ -302,7 +254,10 @@ void ReadWriteAnalyzer::print()
 
             while (runner != last)
             {
-                printOne(runner);
+                runner->unparsestdout();
+                auto st_usages = usages_by_statement[runner];
+                st_usages.print();
+
                 runner = runner->lexNext();
             }
         }

@@ -4,7 +4,9 @@
 #include "../VerificationCode/verifications.h"
 #include "DvmhRegions/RegionsMerger.h"
 
+
 using namespace std;
+
 
 #define DVMH_REG_RD 0
 #define DVMH_REG_WT 1
@@ -200,8 +202,8 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         while (isDVM_stat(st))
             st = st->lexNext();
 
-        auto readBlocks = get_used_arrs_for_block(st, USAGE_READ);
-        auto writeBlocks = get_used_arrs_for_block(st, USAGE_WRITE);
+        auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
+        auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
         insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
         insertActualDirective(st->lastNodeOfStmt()->lexNext(), writeBlocks, ACC_ACTUAL_DIR, false);
@@ -213,8 +215,8 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
     if (!isSgExecutableStatement(st) || isDVM_stat(st))
         return st->lexNext();
 
-    insertActualDirective(st, get_used_arrs(st, USAGE_READ), ACC_GET_ACTUAL_DIR, true);
-    insertActualDirective(st->lexNext(), get_used_arrs(st, USAGE_WRITE), ACC_ACTUAL_DIR, false);
+    insertActualDirective(st, get_used_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
+    insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
 
     if (st->variant() == LOGIF_NODE)
         return st->lexNext()->lexNext();
@@ -243,7 +245,7 @@ void DvmhRegionInsertor::insertDirectives()
     findEdgesForRegions(loopGraph);
 
     __spf_print(1, "Merging regions\n");
-    auto merger = RegionsMerger(regions);
+    auto merger = RegionsMerger(regions, rw_analyzer);
     regions = merger.mergeRegions();
 
     for (auto& elem : regions)
@@ -418,21 +420,25 @@ ArraySet DvmhRegionInsertor::symbs_to_arrs(unordered_set<SgSymbol*> symbols)
     return arrs;
 }
 
-ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, USAGE_TYPE usage_type)
+ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, int usage_type)
 {
-    auto arrs = ArraySet();
-
-    unordered_set<SgSymbol*> usages;
-    try {
-        usages = rw_analyzer.get_usages(st, VAR_DISTR_ARR, usage_type);
-    } catch (NotImplemented &e) {
-        usages = rw_analyzer.get_usages(st, VAR_DISTR_ARR, USAGE_ALL);
+    VarUsages st_usages = rw_analyzer.get_usages(st);
+    unordered_set<SgSymbol*> st_reads, st_writes;
+    if (st_usages.is_undefined())
+    {
+        st_reads = st_writes = st_usages.get_all(VAR_DISTR_ARR);
+    } else {
+        st_reads = st_usages.get_reads(VAR_DISTR_ARR);
+        st_writes = st_usages.get_writes(VAR_DISTR_ARR);
     }
 
-    return symbs_to_arrs(usages);
+    if (usage_type == DVMH_REG_RD)
+        return symbs_to_arrs(st_reads);
+    else
+        return symbs_to_arrs(st_writes);
 }
 
-ArraySet DvmhRegionInsertor::get_used_arrs_for_block(SgStatement* st, USAGE_TYPE usage_type)
+ArraySet DvmhRegionInsertor::get_used_arrs_for_block(SgStatement* st, int usage_type)
 {
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();

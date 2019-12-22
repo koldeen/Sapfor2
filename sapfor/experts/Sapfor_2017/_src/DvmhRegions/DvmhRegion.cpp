@@ -8,7 +8,7 @@
 using namespace std;
 
 
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name), rw_info(loopNode->loop)
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
 {
     loops.push_back(loopNode);
 }
@@ -27,20 +27,8 @@ SgStatement* DvmhRegion::getLastSt() const
     return loops.back()->loop->lastNodeOfStmt();
 }
 
-std::unordered_set<SgSymbol*> DvmhRegion::get_modified()  // may raise NotImplemented
-{
-    return rw_info.get_modified();
-}
-
-std::unordered_set<SgSymbol*> DvmhRegion::get_read()  // may raise NotImplemented
-{
-    return rw_info.get_read();
-}
-
 void DvmhRegion::append(DvmhRegion& region)
 {
     for (auto& loop : region.getLoops())
         this->addLoop(loop);
-
-    rw_info.update(region.rw_info);
 }

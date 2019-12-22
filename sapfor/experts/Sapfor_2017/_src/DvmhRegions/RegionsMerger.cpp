@@ -19,27 +19,29 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
     // For now: st [a, d = b + c] can be moved IF [b, c] are not modified in region AND [a, d] not used for read in region
     try {
         // get usages for statement
-        auto st_reads = rw_analyzer.get_usages(st, VAR_ALL, USAGE_READ);
-        auto st_writes = rw_analyzer.get_usages(st, VAR_ALL, USAGE_WRITE);
-        rw_analyzer.printOne(st);  // TODO: remove debug
+        VarUsages st_usages = rw_analyzer.get_usages(st);
+        st->unparsestdout();    // TODO: remove debug
+        st_usages.print();      // TODO: remove debug
 
         // get usages for region
         auto loop_statements = vector<SgStatement*>();
         for (auto& loop : region->getLoops())
             loop_statements.push_back(loop->loop);
 
-        auto region_reads = rw_analyzer.get_usages(loop_statements, VAR_ALL, USAGE_READ);
-        auto region_writes = rw_analyzer.get_usages(loop_statements, VAR_ALL, USAGE_WRITE);
-        for (auto& st : loop_statements)  // TODO: remove debug
-            rw_analyzer.printOne(st);
+        auto region_usages = rw_analyzer.get_usages(loop_statements);
+        for (auto& st : loop_statements)                    // TODO: remove debug
+        {                                                   // TODO: remove debug
+            st->unparsestdout();                            // TODO: remove debug
+            rw_analyzer.get_usages(st).print();             // TODO: remove debug
+        }                                                   // TODO: remove debug
 
         // analyse if statement can be placed before region
-        for (auto& read : st_reads)  // check that [b, c] not modified in region
-            if (inSet(region_writes, read))
+        for (auto& read : st_usages.get_reads())  // check that [b, c] not modified in region
+            if (inSet(region_usages.get_writes(), read))
                 return false;
 
-        for (auto& modified : st_writes)  // check that [a, d] not read in region
-            if (inSet(region_reads, modified))
+        for (auto& modified : st_usages.get_writes())  // check that [a, d] not read in region
+            if (inSet(region_usages.get_reads(), modified))
                 return false;
     }
     catch (NotImplemented &e) {
