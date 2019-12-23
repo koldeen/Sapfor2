@@ -20,8 +20,8 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
     try {
         // get usages for statement
         VarUsages st_usages = rw_analyzer.get_usages(st);
-        st->unparsestdout();    // TODO: remove debug
-        st_usages.print();      // TODO: remove debug
+//        st->unparsestdout();    // TODO: remove debug
+//        st_usages.print();      // TODO: remove debug
 
         // get usages for region
         auto loop_statements = vector<SgStatement*>();
@@ -29,20 +29,18 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
             loop_statements.push_back(loop->loop);
 
         auto region_usages = rw_analyzer.get_usages(loop_statements);
-        for (auto& st : loop_statements)                    // TODO: remove debug
-        {                                                   // TODO: remove debug
-            st->unparsestdout();                            // TODO: remove debug
-            rw_analyzer.get_usages(st).print();             // TODO: remove debug
-        }                                                   // TODO: remove debug
+//        for (auto& st : loop_statements)                    // TODO: remove debug
+//        {                                                   // TODO: remove debug
+//            st->unparsestdout();                            // TODO: remove debug
+//            rw_analyzer.get_usages(st).print();             // TODO: remove debug
+//        }                                                   // TODO: remove debug
 
         // analyse if statement can be placed before region
-        for (auto& read : st_usages.get_reads())  // check that [b, c] not modified in region
-            if (inSet(region_usages.get_writes(), read))
-                return false;
+        if (sets_intersect(st_usages.get_reads(), region_usages.get_writes()))  // check that [b, c] not modified in region
+            return false;
 
-        for (auto& modified : st_usages.get_writes())  // check that [a, d] not read in region
-            if (inSet(region_usages.get_reads(), modified))
-                return false;
+        if (sets_intersect(st_usages.get_writes(), region_usages.get_reads()))  // check that [a, d] not read in region
+            return false;
     }
     catch (NotImplemented &e) {
         return false;  // when met usage which can not be classified, keep statement where it is
@@ -145,12 +143,11 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
     return newRegions;
 }
 
-bool RegionsMerger::inSet(std::unordered_set<SgSymbol*> container, SgSymbol* needle)
+bool RegionsMerger::sets_intersect(std::unordered_set<SgSymbol*> set1,std::unordered_set<SgSymbol*> set2)
 {
-    auto it = container.find(needle);
+    for (auto& symb : set1)
+        if (set2.find(symb) != set2.end())
+            return true;
 
-    if (it == container.end())
-        return false;
-    else
-        return true;
+    return false;
 }

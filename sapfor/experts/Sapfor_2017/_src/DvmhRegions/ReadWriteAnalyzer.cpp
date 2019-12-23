@@ -93,19 +93,21 @@ void recExpressionPrintFdvm(SgExpression *exp)
 
 void ReadWriteAnalyzer::init()
 {
+    modified_pars = load_modified_pars(funcInfo);
+
     for (int i = 0; i < project.numberOfFiles(); i++)
         for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
         {
             SgStatement* func_hdr = project.file(i).functions(j);
             SgStatement* last = func_hdr->lastNodeOfStmt();
 
-            SgStatement* runner = func_hdr->lexNext();
-            while (runner != last)
+            for (SgStatement* runner = func_hdr->lexNext(); runner != last; runner = runner->lexNext())
             {
+                if (!isSgExecutableStatement(runner))  // TODO: is it ok to skip all of them?
+                    continue;
+
                 VarUsages usages = findUsagesInStatement(runner);
                 usages_by_statement[runner] = usages;
-
-                runner = runner->lexNext();
             }
         }
 }
@@ -117,7 +119,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
         return findUsagesInAssignment(st);
     if (st->variant() == PROC_STAT)
     {
-        st->unparsestdout();
+        st->unparsestdout();  // TODO
         printf("%d\n", st->variant());
         recExpressionPrintFdvm(st->expr(0));
         recExpressionPrintFdvm(st->expr(1));
@@ -149,7 +151,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
     usages.extend(usages_in_arr_indexing);
 
     // finally add explicitly modified var
-    usages.insert_write(st->expr(0)->symbol());
+    usages.insert_write(st->expr(0));
 
     return usages;
 }
@@ -171,11 +173,8 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
 
         auto e_type = cur->variant();
 
-        if (e_type == VAR_REF || e_type == ARRAY_REF || e_type == RECORD_REF)
-        {
-            SgSymbol *s = OriginalSymbol(cur->symbol());
-            usages.insert_read(s);
-        }
+        if (e_type == VAR_REF || e_type == ARRAY_REF)
+            usages.insert_read(cur);
         else if (e_type == FUNC_CALL || e_type == PROC_CALL)
         {
             VarUsages modified_in_fun = findUsagesInFuncCall(cur);
@@ -189,10 +188,30 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* exp)
+VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* fun_call)
 {
-    recExpressionPrintFdvm(exp);  // todo: stopped here
-    throw exception();
+    VarUsages usages;
+
+    auto params_tree = fun_call->lhs();
+
+    int param_no = 0;
+    while (params_tree)
+    {
+        auto param = params_tree->lhs();
+
+        if (param->variant() == VAR_REF || param->variant() == ARRAY_REF)
+        {
+            string func_key = fun_call->symbol()->identifier();  // TODO: use file_name + func_name
+            auto is_param_modified = modified_pars[func_key];
+            if (is_param_modified.at(param_no))
+                usages.insert_write(param);
+        }
+
+        param_no++;
+        params_tree = params_tree->rhs();
+    }
+
+    return usages;
 }
 
 VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)  // may raise out_of_range
@@ -201,7 +220,7 @@ VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)  // may raise out_of_ra
         init();
 
     VarUsages usages;
-    if (compound_statements.find(st->variant()) == compound_statements.end())  // if statement is compound
+    if (compound_statements.find(st->variant()) != compound_statements.end())  // if statement is compound
         usages = gatherUsagesForCompound(st);
     else
         usages = usages_by_statement.at(st);
@@ -264,12 +283,14 @@ void ReadWriteAnalyzer::print()
     }
 }
 
-std::unordered_map<SgStatement*, std::vector<bool>> ReadWriteAnalyzer::load_modified_pars(std::map<std::string, std::vector<FuncInfo*>> files)
+std::unordered_map<string, std::vector<bool>> ReadWriteAnalyzer::load_modified_pars(std::map<std::string, std::vector<FuncInfo*>> files)
 {
-    auto modified_pars = std::unordered_map<SgStatement*, std::vector<bool>>();
+    auto res = std::unordered_map<string, std::vector<bool>>();
 
     for (auto& funcs : files)
     {
+        string file_name = funcs.first;
+
         for (auto& func : funcs.second)
         {
             auto func_pars_info = func->funcParams;
@@ -278,9 +299,10 @@ std::unordered_map<SgStatement*, std::vector<bool>> ReadWriteAnalyzer::load_modi
             for (int i = 0; i < func_pars_info.countOfPars; i++)
                 func_pars.push_back(func_pars_info.isArgOut(i));
 
-            modified_pars[func->funcPointer] = func_pars;
+            string func_key = func->funcName;  // TODO: use file_name + func_name
+            res[func_key] = func_pars;
         }
     }
 
-    return modified_pars;
+    return res;
 }

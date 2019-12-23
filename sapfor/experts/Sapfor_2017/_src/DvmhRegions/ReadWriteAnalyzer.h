@@ -14,13 +14,15 @@
 #include <queue>
 #include <vector>
 #include <exception>
+#include <map>
 
 
 class ReadWriteAnalyzer
 {
     SgProject &project;
 
-    std::unordered_map<SgStatement*, std::vector<bool>> modified_pars;  // func -> params, TODO: not inited
+    std::map<std::string, std::vector<FuncInfo*>> &funcInfo;  // TODO: could be not initilized; should be rebuilt on invalidate()
+    std::unordered_map<std::string, std::vector<bool>> modified_pars;   // func -> params,
     std::unordered_map<SgStatement*, VarUsages> usages_by_statement;    // maps statements to variables used in them
 
     bool initialized = false;
@@ -32,8 +34,8 @@ class ReadWriteAnalyzer
     const std::unordered_set<int> compound_statements = {FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR};
     VarUsages gatherUsagesForCompound(SgStatement* st);
 public:
-    explicit ReadWriteAnalyzer(SgProject &prjct, std::unordered_map<SgStatement*, std::vector<bool>> &modified_pars) :
-    project(prjct), modified_pars(modified_pars)
+    explicit ReadWriteAnalyzer(SgProject &prjct, std::map<std::string, std::vector<FuncInfo*>> &funcInfo) :
+    project(prjct), funcInfo(funcInfo)
     { };
 
     void invalidate() { initialized = false; } ;
@@ -46,7 +48,7 @@ public:
 
     void print();
 
-    static std::unordered_map<SgStatement*, std::vector<bool>> load_modified_pars(std::map<std::string, std::vector<FuncInfo*>>);
+    static std::unordered_map<std::string, std::vector<bool>> load_modified_pars(std::map<std::string, std::vector<FuncInfo*>>);
 };
 
 

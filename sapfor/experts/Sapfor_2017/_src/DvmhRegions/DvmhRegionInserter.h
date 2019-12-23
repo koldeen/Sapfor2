@@ -38,7 +38,7 @@ class DvmhRegionInsertor
     // input data
     SgFile *file;
     const std::vector<LoopGraph*> &loopGraph;
-    ReadWriteAnalyzer rw_analyzer;
+    ReadWriteAnalyzer& rw_analyzer;
 
     // operating data
     std::vector<DvmhRegion*> regions;
@@ -59,7 +59,7 @@ public:
     DvmhRegionInsertor(
         SgFile* curFile,
         const std::vector<LoopGraph*>& curLoopGraph,
-        ReadWriteAnalyzer &rws
+        ReadWriteAnalyzer& rws
     ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws) { };
 
     void insertDirectives();

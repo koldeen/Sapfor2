@@ -474,8 +474,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     currProcessing.first = ""; currProcessing.second = -1;
 
-    auto modified_pars = ReadWriteAnalyzer::load_modified_pars(allFuncInfo);
-    auto rw_analyzer = ReadWriteAnalyzer(project, modified_pars);  // doesn't analyze anything until first query
+    auto rw_analyzer = ReadWriteAnalyzer(project, allFuncInfo);  // doesn't analyze anything until first query
 
     for (int i = n - 1; i >= 0; --i)
     {
