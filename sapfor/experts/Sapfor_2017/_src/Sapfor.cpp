@@ -994,6 +994,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         {
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
             DvmhRegionInsertor regionInsertor(file, loopForFile, rw_analyzer);
+
+            //collect info about <parallel> functions
+            regionInsertor.updateParallelFunctions(loopGraph, allFuncInfo);
+
             regionInsertor.insertDirectives();
 
             //remove private from loops out of DVMH region

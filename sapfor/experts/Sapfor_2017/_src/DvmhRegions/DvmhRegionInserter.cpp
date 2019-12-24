@@ -65,6 +65,92 @@ void DvmhRegionInsertor::insertRegionDirectives()
     }
 }
 
+bool DvmhRegionInsertor::isLoopParallel(LoopGraph *loop)
+{
+    auto prev_st = loop->loop->lexPrev();
+
+    while (prev_st && isDVM_stat(prev_st))
+    {
+        if (prev_st->variant() == DVM_PARALLEL_ON_DIR)
+            return true;
+        prev_st = prev_st->lexPrev();
+    }
+
+    return false;
+}
+
+void DvmhRegionInsertor::parFuncsInNode(LoopGraph *loop, bool isParallel)
+{
+    // check for parallel
+    isParallel |= isLoopParallel(loop);
+
+    // meat: save parallel calls
+    if (isParallel)
+        for (auto &call : loop->calls)  // mark call as parallel
+            this->parallel_functions[call.first] = loop->fileName;
+
+    // recursion: check nested loops, TODO: check if recursion is required
+    for (auto &nestedLoop : loop->children)
+        parFuncsInNode(nestedLoop, isParallel);
+}
+
+void DvmhRegionInsertor::updateParallelFunctions(
+        map<string, vector<LoopGraph*>> &loopGraphs,
+        map<string, vector<FuncInfo*>> &callGraphs
+        )
+{
+    for (auto &pair : loopGraphs)
+    {
+        auto loopGraph = pair.second;
+
+        for (auto &loopNode : loopGraph)
+        {
+            bool isParallel = isLoopParallel(loopNode);
+            parFuncsInNode(loopNode, isParallel);
+        }
+    }
+
+    typedef unordered_set<string> Calls;
+    typedef unordered_map<string, Calls> FuncsWithCalls;
+    typedef unordered_map<string, FuncsWithCalls> FuncsInfoByFile;
+
+    auto funcsInfo = FuncsInfoByFile();
+    for (auto &file : callGraphs)
+    {
+        funcsInfo[file.first] = FuncsWithCalls();
+
+        for (auto &func : file.second)
+        {
+            funcsInfo[file.first][func->funcName] = Calls();
+
+            for (auto &call : func->callsFrom)
+                funcsInfo[file.first][func->funcName].insert(call);
+        }
+
+    }
+
+    bool changes_done = true;
+    while (changes_done)
+    {
+        changes_done = false;
+
+        for (auto &funcs : parallel_functions)
+        {
+            auto file_name = funcs.second;
+            auto calls = funcsInfo[file_name][funcs.first];
+
+            for (auto &call : calls)
+            {
+                if (parallel_functions.find(call) == parallel_functions.end())
+                {
+                    parallel_functions[call] = file_name;
+                    changes_done = true;
+                }
+            }
+        }
+    }
+}
+
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
                       const string& locName, vector<string> &altNames)
 {
@@ -227,11 +313,15 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
-    // TODO: if func is parallel -> skip
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
+
+        // skip parallel funcs
+        string func_name = st->symbol()->identifier();
+        if (parallel_functions.find(func_name) != parallel_functions.end())
+            continue;
 
         st = st->lexNext();
         while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
