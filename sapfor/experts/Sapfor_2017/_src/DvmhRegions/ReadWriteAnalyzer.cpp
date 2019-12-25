@@ -246,7 +246,7 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
     auto all_usages = VarUsages();
 
     SgStatement* last = compoundStatement->lastNodeOfStmt();
-    SgStatement* runner = compoundStatement->lexNext();
+    SgStatement* runner = compoundStatement;
     while (runner != last)
     {
         VarUsages st_usages = findUsagesInStatement(runner);

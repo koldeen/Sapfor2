@@ -6,6 +6,7 @@ import os
 import time
 import difflib
 from textwrap import dedent
+import re
 
 
 class bcolors:
@@ -32,7 +33,8 @@ class Checker:
             if line.startswith('! ***'):  # remove sapfor header
                 continue
             
-            result.append(line.strip())
+            filtered = re.sub(' +', ' ', line).strip()
+            result.append(filtered)
         
         return result
 
@@ -45,7 +47,7 @@ class Checker:
         expected = self.load_file(f'{self.input_dir}{test_name}.out')
         output = self.load_file(f'{self.output_dir}{test_name}.out')
 
-        diff = list(difflib.unified_diff(expected, output, fromfile=f'{test_name}.in', tofile='{test_name}.out', lineterm=''))
+        diff = list(difflib.unified_diff(expected, output, fromfile=f'expected', tofile=f'got', lineterm=''))
 
         if not diff:
             return True
