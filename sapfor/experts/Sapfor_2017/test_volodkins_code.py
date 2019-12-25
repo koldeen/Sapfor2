@@ -1,8 +1,11 @@
+# python3
+
 import argparse
 from typing import List
 import os
 import time
 import difflib
+from textwrap import dedent
 
 
 class bcolors:
@@ -71,7 +74,7 @@ class Tester:
         self.test_dir = args.test_dir
         self.sapfor_path = args.sapfor_path
         self.keep_files = args.keep_files
-        self.no_diff = args.no_diff
+        self.diff = args.diff
 
         self.output_dir = self.test_dir + 'outputs_' + time.strftime('%l_%M_%s') + "/"
         os.mkdir(self.output_dir)
@@ -82,12 +85,23 @@ class Tester:
         print(f'tests to run {self.test_names}')
 
     def parse_args(self):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(
+            epilog=dedent(bcolors.OKGREEN + 
+                """
+                Usage example:
+                python3 test_volodkins_code.py --test_dir _src/DvmhRegions/tests/merge_regions/ --sapfor_path cmake-build-debug/Sapfor_F --keep_files --no_diff
+                """ + bcolors.ENDC,
+            )
+        )
 
         parser.add_argument("--test_dir", help="path to directory with test files", required=True)
         parser.add_argument("--sapfor_path", help="path to sapfor executable", required=True)
-        parser.add_argument("--keep_files", help="specify to keep output", type=bool, default=False, required=False)
-        parser.add_argument("--no_diff", help="don't print diff for failed tests", type=bool, default=False, required=False)
+
+        parser.add_argument("--keep_files", dest='keep_files', help="specify to keep output", action='store_true')
+        parser.set_defaults(keep_files=False)
+        
+        parser.add_argument('--no_diff', dest='diff', action='store_false')
+        parser.set_defaults(diff=True)
 
         return parser.parse_args()
 
@@ -102,11 +116,12 @@ class Tester:
             try:
                 checker.check(t_name)
             except TestFailed as e:
-                if self.no_diff:
-                    print(bcolors.FAIL + "failed" + bcolors.ENDC)
-                else:
+                if self.diff:
                     print(bcolors.FAIL + "failed with error: " + bcolors.ENDC)
                     print(e)
+                else:
+                    print(bcolors.FAIL + "failed" + bcolors.ENDC)
+                    
                 continue
 
             print(bcolors.OKGREEN + "ok" + bcolors.ENDC)
@@ -121,7 +136,6 @@ class Tester:
         return filtered
 
     def clean_dir(self):
-        print('removing')
         os.system(f'rm -rf {self.output_dir}')
 
 
