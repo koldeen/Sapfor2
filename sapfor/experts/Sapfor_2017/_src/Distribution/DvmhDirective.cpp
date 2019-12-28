@@ -186,11 +186,11 @@ static SgExpression* genSgExpr(SgFile *file, const string &letter, const pair<in
     return retVal;
 }
 
-static map<string, Symbol*> setToMapWithSortByStr(const set<Symbol*> &setIn)
+static std::multimap<string, Symbol*> setToMapWithSortByStr(const set<Symbol*> &setIn)
 {
-    map<string, Symbol*> retMap;
+    std::multimap<string, Symbol*> retMap;
     for (auto& elem : setIn)
-        retMap[elem->identifier()] = elem;
+        retMap.insert(make_pair(elem->identifier(), elem));
     return retMap;
 }
 

@@ -590,6 +590,7 @@ int lookForOperationKind(PT_ACCESSARRAY access)
     stmt = access->stmt;
     if (!sy || !stmt)
         return 0;
+    SgExpression* topOper = stmt->expr(1);
 
     if (father = lookForFather(stmt->expr(1), access->var))
     {
@@ -617,6 +618,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case MULT_OP:
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             switch (sy->type()->variant())
             {
             case T_INT:
@@ -631,6 +634,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case AND_OP:
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             switch (sy->type()->variant())
             {
             case T_BOOL:
@@ -639,6 +644,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case OR_OP:
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             switch (sy->type()->variant())
             {
             case T_BOOL:
@@ -647,6 +654,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case EQV_OP:
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             switch (sy->type()->variant())
             {
             case T_BOOL:
@@ -655,6 +664,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case NEQV_OP:
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             switch (sy->type()->variant())
             {
             case T_BOOL:
@@ -663,6 +674,8 @@ int lookForOperationKind(PT_ACCESSARRAY access)
                 return UNKNOWREDUCTION;
             }
         case FUNC_CALL://TODO with max and min
+            if (topOper != father)
+                return UNKNOWREDUCTION;
             if (father->symbol() && 
                     (strcmp(father->symbol()->identifier(), "max") == 0 ||
                      strcmp(father->symbol()->identifier(), "dmax") == 0 ||
@@ -804,12 +817,13 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
     for (auto &ACC : accessesForStat)
     {
         auto &elem = ACC.second;
+        bool isIfStat = ACC.first->variant() == IF_NODE || ACC.first->variant() == LOGIF_NODE;
 
-        // only read was accepted
+        // only read under IF stat was accepted
         if (elem.size() == 1)
         {           
             firstaccess = *elem.begin();
-            if (firstaccess->rw == 0)
+            if (firstaccess->rw == 0 && isIfStat)
                 continue;
             else
                 return UNKNOWREDUCTION;
@@ -817,12 +831,9 @@ int isItReduction(int firstref, PT_ACCESSARRAY access1, Set *arrayset, SgStateme
         else if (elem.size() != 2)
             return UNKNOWREDUCTION;
         // must be an assign statement or IF/LOGIF_NODE;
-        if (ACC.first->variant() != ASSIGN_STAT &&
-            ACC.first->variant() != IF_NODE &&
-            ACC.first->variant() != LOGIF_NODE)
-        {
+        if (ACC.first->variant() != ASSIGN_STAT && !isIfStat)
             return UNKNOWREDUCTION;
-        }
+
         firstaccess = *elem.begin();
         lastaccess = *elem.rbegin();
         // one of them must be read and another one - write

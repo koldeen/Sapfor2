@@ -100,7 +100,7 @@ static void setOptions(const short *options)
             break;
 
         if (z != ANALYSIS_OPTIONS)
-            intOptions[z] = atoi(splited[z].c_str());
+            intOptions[z] = std::stoi(splited[z]);
         else
             intOptions[z] = -1;
     }
@@ -119,7 +119,7 @@ static void setOptions(const short *options)
     //mpiProgram = intOptions[MPI_PROGRAM];
     //ignoreIO = (mpiProgram == 1) ? 1 : intOptions[IGNORE_IO_SAPFOR];
 
-    string optAnalisys = splited[ANALYSIS_OPTIONS];
+    string optAnalisys = splited.size() > ANALYSIS_OPTIONS ? splited[ANALYSIS_OPTIONS] : "";
 }
 
 static bool tryOpenProjectFile(const char *project)
@@ -207,7 +207,10 @@ static void runPassesForVisualizer(const short *projName, const vector<passes> &
         }
         
         if (tryOpenProjectFile(prName) == false)
-            throw (-1);
+        {
+            __spf_print(1, "Can not open project '%s'\n", prName);
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
              
         passDone = 0;
         rethrow = 0;
@@ -1681,5 +1684,355 @@ void createNeededException()
 {
     if (passDone == 2)
         throw std::exception();
+}
+#endif
+
+#ifdef JAVA
+static void* context = NULL;
+
+static jcharArray StringToJCharArray(JNIEnv* env, const wstring& nativeString)
+{    
+    jcharArray arr = env->NewCharArray(nativeString.size());
+    env->SetCharArrayRegion(arr, 0, nativeString.size(), (jchar*)nativeString.c_str());
+    return arr;
+}
+
+static short* toShort(const char* str)
+{
+    int len = str != NULL ? strlen(str) : 0; 
+    short* arr = new short[len + 1];
+    for (int z = 0; z < len; ++z)
+        arr[z] = str[z];
+    arr[len] = '\0';
+    return arr;
+}
+
+static wstring toWstring(const short* array, int size)
+{
+    if (size == 0)
+        return L"";
+
+    wstring str;
+    str.resize(size);
+    for (int z = 0; z < size; ++z)
+        str[z] = array[z];
+    return str;
+}
+
+static wstring toWstring(const int* array, int size)
+{
+    if (size == 0)
+        return L"";
+
+    wstring str;
+    for (int z = 0; z < size; ++z)
+    {
+        if (z != 0)
+            str += L"|";
+        str += std::to_wstring(array[z]);
+    }
+    return str;
+}
+
+
+static void codeInfo(wstring& total, const wstring& toAdd)
+{
+    total += std::to_wstring(toAdd.size()) + L" " + toAdd;
+}
+
+static wstring finishJniCall(int retCode, const short* result, const short* output, const int* outputSize, 
+                             const short* outputMessage, const int* outputMessageSize)
+{ 
+    wstring codedResult = L"";
+
+    codedResult += std::to_wstring(retCode) + L" ";
+    codeInfo(codedResult, toWstring(result, (result) ? strLen(result) : 0));
+    codeInfo(codedResult, toWstring(output, (outputSize) ? (outputSize[0] - 1) : 0));
+    codeInfo(codedResult, toWstring(outputMessage, (outputMessageSize) ? (outputMessageSize[0] - 1) : 0));
+
+    return codedResult;
+}
+
+static wstring finishJniCall(const int size, const int* sizes, short* newFilesNames, short* newFiles)
+{
+    wstring codedResult = L"";
+
+    codeInfo(codedResult, toWstring(sizes, size + 1));
+    codeInfo(codedResult, toWstring(newFilesNames, (newFilesNames) ? strLen(newFilesNames) : 0));
+    codeInfo(codedResult, toWstring(newFiles, (newFiles) ? strLen(newFiles) : 0));
+
+    return codedResult;
+}
+
+static void fillInfo(const vector<string> &data, int64_t *arr1, int *arr2)
+{
+    if (data.size() < 4)
+        return;
+    int idx = 0;
+    int count = std::stoi(data[idx++]);
+    arr1 = new int64_t[count];
+    for (int z = 0; z < count; ++z, ++idx)
+        arr1[z] = std::stoll(data[idx]);
+
+    count = std::stoi(data[idx++]);
+    arr2 = new int[count];
+    for (int z = 0; z < count; ++z, ++idx)
+        arr2[z] = std::stoi(data[idx]);
+}
+
+static void fillInfo(const string& data, int* arr)
+{
+    vector<string> splited;
+    splitString(data, '|', splited);
+
+    int idx = 0;
+    int count = std::stoi(splited[idx++]);
+    arr = new int[count];
+    for (int z = 0; z < count; ++z, ++idx)
+        arr[z] = std::stoi(splited[idx]);
+}
+
+static void fillInfo(const string& data, int64_t* arr)
+{
+    vector<string> splited;
+    splitString(data, '|', splited);
+
+    int idx = 0;
+    int count = std::stoi(splited[idx++]);
+    arr = new int64_t[count];
+    for (int z = 0; z < count; ++z, ++idx)
+        arr[z] = std::stoll(splited[idx]);
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
+
+          JNIEnv* env, jobject obj, jstring analysisName, jint winHandler, jstring options, jstring projName)
+{
+    const char* analysisName_c = env->GetStringUTFChars(analysisName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+    
+    string whichRun = analysisName_c;
+    int retCode = 0;
+    
+    short *result = NULL, *output = NULL, *outputMessage = NULL;
+    int *outputSize = NULL, *outputMessageSize = NULL;
+
+    short* projSh = toShort(projName_c);
+    short* optSh = toShort(options_c);
+
+    if (whichRun == "SPF_GetGraphLoops")
+        retCode = SPF_GetGraphLoops(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetGraphFunctions")
+        retCode = SPF_GetGraphFunctions(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetGraphVizOfFunctions")
+        retCode = SPF_GetGraphVizOfFunctions(context, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetArrayDistribution")
+        retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 0);
+    else if (whichRun == "SPF_GetArrayDistributionOnlyAnalysis")
+        retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 1);
+    else if (whichRun == "SPF_SetFunctionsToInclude")
+        retCode = SPF_SetFunctionsToInclude(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetAllDeclaratedArrays")
+        retCode = SPF_GetAllDeclaratedArrays(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetFileLineInfo")
+        retCode = SPF_GetFileLineInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetIncludeDependencies")
+        retCode = SPF_GetIncludeDependencies(context, winHandler, optSh, projSh, result);
+    else if (whichRun == "SPF_GetGCovInfo")
+        retCode = SPF_GetGCovInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_ParseFiles")
+        retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_StatisticAnalyzer")
+        retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
+    else if (whichRun == "SPF_GetPassesStateStr")
+        retCode = SPF_GetPassesStateStr(context, result);
+    else if (whichRun == "SPF_GetVersionAndBuildDate")
+        retCode = SPF_GetVersionAndBuildDate(context, result);
+    else if (whichRun == "SPF_GetIntrinsics")
+        retCode = SPF_GetIntrinsics(context, result);
+    else if (whichRun == "SPF_deleteAllAllocatedData")
+        SPF_deleteAllAllocatedData(context);
+    else
+    {
+        if (showDebug)
+            printf("SAPFOR: unknown function call, given '%s' name\n", whichRun.c_str());
+        retCode = -1001;
+    }
+
+    delete []projSh;
+    delete []optSh;
+    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    fflush(NULL);
+    return StringToJCharArray(env, codedResult);
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
+
+        JNIEnv* env, jobject obj, jstring transformName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOptions)
+{
+    const char* transformName_c = env->GetStringUTFChars(transformName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+    const char* folder_c = env->GetStringUTFChars(folder, NULL);
+    const char* addOpt_c = env->GetStringUTFChars(addOptions, NULL);
+
+    string whichRun = transformName_c;
+    int retCode = 0;
+
+    short *result = NULL, *output = NULL, *outputMessage = NULL;
+    int *outputSize = NULL, *outputMessageSize = NULL;
+    short* predStats = NULL;
+
+    short* projSh = toShort(projName_c);
+    short* optSh = toShort(options_c);
+    short* fold = toShort(folder_c);
+    short* addOpt = toShort(addOpt_c);
+
+    if (whichRun == "SPF_GetGraphLoops")
+        retCode = SPF_CorrectCodeStylePass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_RemoveDvmDirectives")
+        retCode = SPF_RemoveDvmDirectives(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_RemoveDvmDirectivesToComments")
+        retCode = SPF_RemoveDvmDirectivesToComments(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_InsertIncludesPass")
+        retCode = SPF_InsertIncludesPass(context, winHandler, optSh, projSh, fold, (char*)addOpt_c, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_ResolveParallelRegionConflicts")
+        retCode = SPF_ResolveParallelRegionConflicts(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_LoopEndDoConverterPass")
+        retCode = SPF_LoopEndDoConverterPass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_CreateParallelVariant")
+    {
+        //TODO: predStats
+        vector<string> splited;
+        string orig(addOpt_c);
+        splitString(orig, '|', splited);
+
+        int64_t* variants = NULL;
+        int* varLen = NULL;
+        
+
+        fillInfo(splited, variants, varLen);
+        retCode = SPF_CreateParallelVariant(context, winHandler, optSh, projSh, fold, variants, varLen, output, outputSize, outputMessage, outputMessageSize, predStats);
+
+        if (retCode > 0)
+        {
+            delete []variants;
+            delete []varLen;
+        }
+    }
+    if (whichRun == "SPF_LoopFission")
+        retCode = SPF_LoopFission(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_LoopUnion")
+        retCode = SPF_LoopUnion(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_PrivateExpansion")
+        retCode = SPF_PrivateExpansion(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_PrivateShrinking")
+        retCode = SPF_PrivateShrinking(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_CreateIntervalsTree")
+        retCode = SPF_CreateIntervalsTree(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_RemoveDvmIntervals")
+        retCode = SPF_RemoveDvmIntervals(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_DuplicateFunctionChains")
+        retCode = SPF_DuplicateFunctionChains(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
+    if (whichRun == "SPF_InlineProcedures")
+        retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, output, addOpt, outputSize, outputMessage, outputMessageSize);
+    else
+    {
+        if (showDebug)
+            printf("SAPFOR: unknown function call, given '%s' name\n", whichRun.c_str());
+        retCode = -1002;
+    }
+
+    delete []projSh;
+    delete []optSh;
+    delete []fold;
+    delete []addOpt;
+    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    fflush(NULL);
+    return StringToJCharArray(env, codedResult);
+}
+
+JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
+
+        (JNIEnv* env, jobject obj, jstring modifyName, jint winHandler, jstring options, jstring projName, jstring folder, jstring addOpt1, jstring addOpt2)
+{
+    const char* modifyName_c = env->GetStringUTFChars(modifyName, NULL);
+    const char* options_c = env->GetStringUTFChars(options, NULL);
+    const char* projName_c = env->GetStringUTFChars(projName, NULL);
+    const char* folder_c = env->GetStringUTFChars(folder, NULL);
+    const char* addOpt1_c = env->GetStringUTFChars(addOpt1, NULL);
+    const char* addOpt2_c = env->GetStringUTFChars(addOpt2, NULL);
+
+    string whichRun = modifyName_c;
+    int retCode = 0;
+
+    short *result = NULL, *output = NULL, *outputMessage = NULL;
+    int *outputSize = NULL, *outputMessageSize = NULL;
+    int size = 0, *sizes = NULL;
+    short *newFilesNames = NULL, *newFiles = NULL;
+
+    short* projSh = toShort(projName_c);
+    short* optSh = toShort(options_c);
+    short* fold = toShort(folder_c);
+
+    if (whichRun == "SPF_ModifyArrayDistribution")
+    {
+        int regId = atoi(addOpt1_c);
+        int64_t* modify = NULL;
+        fillInfo(addOpt2_c, modify);
+
+        retCode = SPF_ModifyArrayDistribution(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize, regId, modify);
+        delete []modify;
+    }
+    else if (whichRun == "SPF_InlineProcedure")
+    {
+        vector<string> splitS;
+        splitString(addOpt1_c, '|', splitS);
+        
+        vector<short*> tmpPar = { toShort(splitS[0].c_str()), toShort(splitS[1].c_str()) };
+        int line = std::stoi(addOpt2_c);
+        retCode = SPF_InlineProcedure(context, winHandler, optSh, projSh, fold, tmpPar[0], tmpPar[1], line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
+
+        delete []tmpPar[0];
+        delete []tmpPar[1];
+    }
+    else if (whichRun == "SPF_LoopUnionCurrent")
+    {
+        short* file = toShort(addOpt1_c);
+        int line = std::stoi(addOpt2_c);
+        retCode = SPF_LoopUnionCurrent(context, winHandler, optSh, projSh, fold, file, line, output, outputSize, outputMessage, outputMessageSize, size, sizes, newFiles, newFilesNames);
+        delete []file;
+    }
+    else if (whichRun == "SPF_ChangeSpfIntervals")
+    {
+        short* fileNameToMod = toShort(addOpt1_c);
+        int* toModifyLines = NULL;
+        fillInfo(addOpt2_c, toModifyLines);
+        retCode = SPF_ChangeSpfIntervals(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize, fileNameToMod, toModifyLines, size, sizes, newFiles, newFilesNames);
+        delete []fileNameToMod;
+        delete []toModifyLines;
+    }
+    else if (whichRun == "SPF_SetDistributionFlagToArray")
+    {
+        int flag = atoi(addOpt2_c);
+        retCode = SPF_SetDistributionFlagToArray(context, (char*)addOpt1_c, flag);
+    }
+    else
+    {
+        if (showDebug)
+            printf("SAPFOR: unknown function call, given '%s' name\n", whichRun.c_str());
+        retCode = -1003;
+    }
+
+    delete []projSh;
+    delete []optSh;
+    delete []fold;
+    
+    wstring codedResult = finishJniCall(retCode, result, output, outputSize, outputMessage, outputMessageSize);
+    codedResult += finishJniCall(size, sizes, newFilesNames, newFiles);
+
+    fflush(NULL);
+    return StringToJCharArray(env, codedResult);
 }
 #endif
