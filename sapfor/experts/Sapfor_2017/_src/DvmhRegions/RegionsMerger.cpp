@@ -116,10 +116,11 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
             continue;
         }
 
-        bool can = true;
-        auto toMove = getStatementsToMove(regionPrev, region, can);
-        if (can)
-            moveStatements(toMove, regionPrev);
+        /*bool can = true;
+        auto toMove = getStatementsToMove(regionPrev, region, can);*/
+        //TODO: need to check
+        if (false)
+            ;// moveStatements(toMove, regionPrev);
         else
         {
             //TODO: extend message

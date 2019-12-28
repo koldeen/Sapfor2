@@ -15,7 +15,7 @@ typedef set<string> Calls;
 typedef map<string, Calls> FuncsWithCalls;
 typedef map<string, FuncsWithCalls> FuncsInfoByFile;
 
-void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
+void DvmhRegionInserter::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
     for (auto &loopNode : loops)
     {
@@ -32,7 +32,7 @@ void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
     }
 }
 
-bool DvmhRegionInsertor::hasLimitsToDvmhParallel(const LoopGraph *loop) const
+bool DvmhRegionInserter::hasLimitsToDvmhParallel(const LoopGraph *loop) const
 {
     bool hasDirective = false;
     if (loop->lineNum > 0 || (loop->lineNum < 0 && loop->altLineNum > 0 && loop->directive))
@@ -41,7 +41,7 @@ bool DvmhRegionInsertor::hasLimitsToDvmhParallel(const LoopGraph *loop) const
     return loop->hasGoto || loop->hasPrints || loop->hasImpureCalls || !loop->directive || !hasDirective;
 }
 
-void DvmhRegionInsertor::insertRegionDirectives()
+void DvmhRegionInserter::insertRegionDirectives()
 {
     for (auto &region : regions)
     {
@@ -68,7 +68,7 @@ void DvmhRegionInsertor::insertRegionDirectives()
     }
 }
 
-bool DvmhRegionInsertor::isLoopParallel(LoopGraph *loop)
+bool DvmhRegionInserter::isLoopParallel(const LoopGraph *loop) const
 {
     auto prev_st = loop->loop->lexPrev();
 
@@ -82,7 +82,7 @@ bool DvmhRegionInsertor::isLoopParallel(LoopGraph *loop)
     return false;
 }
 
-void DvmhRegionInsertor::parFuncsInNode(LoopGraph *loop, bool isParallel)
+void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
 {
     // check for parallel
     isParallel |= isLoopParallel(loop);
@@ -90,27 +90,19 @@ void DvmhRegionInsertor::parFuncsInNode(LoopGraph *loop, bool isParallel)
     // meat: save parallel calls
     if (isParallel)
         for (auto &call : loop->calls)  // mark call as parallel
-            this->parallel_functions[call.first] = loop->fileName;
+            parallel_functions[call.first] = loop->fileName;
 
     // recursion: check nested loops, TODO: check if recursion is required
-    for (auto &nestedLoop : loop->children)
+    for (auto& nestedLoop : loop->children)
         parFuncsInNode(nestedLoop, isParallel);
 }
 
-void DvmhRegionInsertor::updateParallelFunctions(
-        map<string, vector<LoopGraph*>> &loopGraphs,
-        map<string, vector<FuncInfo*>> &callGraphs
-        )
-{
-    for (auto &pair : loopGraphs)
+void DvmhRegionInserter::updateParallelFunctions(const vector<LoopGraph*> &loopGraphs, const map<string, vector<FuncInfo*>> &callGraphs)
+{    
+    for (auto& loopNode : loopGraphs)
     {
-        auto loopGraph = pair.second;
-
-        for (auto &loopNode : loopGraph)
-        {
-            bool isParallel = isLoopParallel(loopNode);
-            parFuncsInNode(loopNode, isParallel);
-        }
+        bool isParallel = isLoopParallel(loopNode);
+        parFuncsInNode(loopNode, isParallel);
     }
 
     auto funcsInfo = FuncsInfoByFile();
@@ -271,7 +263,7 @@ static SgStatement* skipDvmhRegionInterval(SgStatement *start)
     return st->lexNext();
 }
 
-SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
+SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
 {
     if (st == NULL)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -309,7 +301,7 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         return st->lexNext();
 }
 
-void DvmhRegionInsertor::insertActualDirectives() 
+void DvmhRegionInserter::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
     for (int i = 0; i < funcNum; ++i)
@@ -328,7 +320,7 @@ void DvmhRegionInsertor::insertActualDirectives()
     }
 }
 
-void DvmhRegionInsertor::insertDirectives()
+void DvmhRegionInserter::insertDirectives()
 {
     __spf_print(1, "Find edges for regions\n");
     findEdgesForRegions(loopGraph);
@@ -353,7 +345,7 @@ void DvmhRegionInsertor::insertDirectives()
     insertActualDirectives();
 }
 
-void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments)
+void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments)
 {
     if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (arraySet.size() == 0))
         return;
@@ -496,7 +488,7 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
 //}
 //
 
-ArraySet DvmhRegionInsertor::symbs_to_arrs(set<SgSymbol*> symbols)
+ArraySet DvmhRegionInserter::symbs_to_arrs(set<SgSymbol*> symbols)
 {
     set<DIST::Array*> arrs;
 
@@ -508,7 +500,7 @@ ArraySet DvmhRegionInsertor::symbs_to_arrs(set<SgSymbol*> symbols)
     return arrs;
 }
 
-ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, int usage_type)
+ArraySet DvmhRegionInserter::get_used_arrs(SgStatement* st, int usage_type)
 {
     VarUsages st_usages = rw_analyzer.get_usages(st);
     set<SgSymbol*> st_reads, st_writes;
@@ -527,7 +519,7 @@ ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, int usage_type)
         return symbs_to_arrs(st_writes);
 }
 
-ArraySet DvmhRegionInsertor::get_used_arrs_for_block(SgStatement* st, int usage_type)
+ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_type)
 {
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();

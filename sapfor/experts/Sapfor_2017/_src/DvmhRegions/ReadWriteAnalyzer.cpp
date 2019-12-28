@@ -6,27 +6,30 @@
 
 using namespace std;
 
-void ReadWriteAnalyzer::init()
+void ReadWriteAnalyzer::init(SgFile* forFile)
 {
+    auto save = current_file->filename();
+    
     modified_pars = load_modified_pars(funcInfo);
-
-    for (int i = 0; i < project.numberOfFiles(); i++)
+    for (int j = 0; j < forFile->numberOfFunctions(); ++j)
     {
-        for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
+        SgStatement* func_hdr = forFile->functions(j);
+        SgStatement* last = func_hdr->lastNodeOfStmt();
+
+        for (SgStatement* runner = func_hdr->lexNext(); runner != last; runner = runner->lexNext())
         {
-            SgStatement* func_hdr = project.file(i).functions(j);
-            SgStatement* last = func_hdr->lastNodeOfStmt();
+            // TODO: is it ok to skip all of them?
+            if (!isSgExecutableStatement(runner) || isDVM_stat(runner) || isSPF_stat(runner))
+                continue;
 
-            for (SgStatement* runner = func_hdr->lexNext(); runner != last; runner = runner->lexNext())
-            {
-                if (!isSgExecutableStatement(runner))  // TODO: is it ok to skip all of them?
-                    continue;
-
-                VarUsages usages = findUsagesInStatement(runner);
-                usages_by_statement[runner] = usages;
-            }
+            VarUsages usages = findUsagesInStatement(runner);
+            usages_by_statement[runner] = usages;
         }
-    }
+    }    
+    initialized.insert(forFile->filename());
+
+    if (SgFile::switchToFile(save) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
 VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
@@ -34,26 +37,17 @@ VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
     // *special* statements, TODO: what i've missed?
     if (st->variant() == ASSIGN_STAT)
         return findUsagesInAssignment(st);
+
     if (st->variant() == PROC_STAT)
-    {
-        st->unparsestdout();  // TODO
-        printf("%d\n", st->variant());
-        recExpressionPrint(st->expr(0));
-        recExpressionPrint(st->expr(1));
-        recExpressionPrint(st->expr(2));
-
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        return findUsagesInFuncCall(st->expr(0), st->symbol()->identifier());
+    else if (!isDVM_stat(st) && !isSPF_stat(st))
+    {        
+        VarUsages st_usages;
+        for (int i = 0; i < 3; ++i)
+            st_usages.extend(findUsagesInExpr(st->expr(i)));
+        return st_usages;
     }
-
-    // common statements
-    auto st_usages = VarUsages();
-    for (int i = 0; i < 3; i++)
-    {
-        auto expr_usages = findUsagesInExpr(st->expr(i));
-        st_usages.extend(expr_usages);
-    }
-
-    return st_usages;
+    
 }
 
 VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
@@ -75,7 +69,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
 
 VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
 {
-    auto usages = VarUsages();
+    VarUsages usages;
 
     queue<SgExpression*> buf;
     buf.push(exp);
@@ -93,10 +87,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
         if (e_type == VAR_REF || e_type == ARRAY_REF)
             usages.insert_read(cur);
         else if (e_type == FUNC_CALL)
-        {
-            VarUsages modified_in_fun = findUsagesInFuncCall(cur);
-            usages.extend(modified_in_fun);
-        }
+            usages.extend(findUsagesInFuncCall(cur->lhs(), cur->symbol()->identifier()));
 
         buf.push(cur->lhs());
         buf.push(cur->rhs());
@@ -105,11 +96,9 @@ VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* fun_call)
+VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, const string func_key) const
 {
     VarUsages usages;
-
-    auto params_tree = fun_call->lhs();
 
     int param_no = 0;
     while (params_tree)
@@ -118,13 +107,22 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* fun_call)
 
         if (param->variant() == VAR_REF || param->variant() == ARRAY_REF)
         {
-            string func_key = fun_call->symbol()->identifier();  // TODO: use file_name + func_name
-            auto is_param_modified = modified_pars[func_key];
+            if (!isIntrinsicFunctionName(func_key.c_str()))
+            {
+                auto it = modified_pars.find(func_key);
+                if (it == modified_pars.end())
+                    usages.insert_write(param);
+                else
+                {
 
-            if (is_param_modified.size() >= param_no)
-                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-            if (is_param_modified[param_no])
-                usages.insert_write(param);
+                    auto is_param_modified = it->second;
+                    if (param_no >= is_param_modified.size())
+                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+                    if (is_param_modified[param_no])
+                        usages.insert_write(param);
+                }
+            }
+            usages.insert_read(param);
         }
 
         param_no++;
@@ -136,8 +134,8 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* fun_call)
 
 VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)  // may raise out_of_range
 {
-    if (!initialized)
-        init();
+    if (initialized.find(st->fileName()) == initialized.end())
+        init(st->getFile());
 
     VarUsages usages;
     if (compound_statements.find(st->variant()) != compound_statements.end())  // if statement is compound
@@ -183,7 +181,8 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
 
 void ReadWriteAnalyzer::print()
 {
-    for (int i = 0; i < project.numberOfFiles(); i++)
+    //TODO: print from class data
+    /*for (int i = 0; i < project.numberOfFiles(); i++)
     {
         printf("file: %s\n", project.file(i).filename());
         for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
@@ -201,7 +200,7 @@ void ReadWriteAnalyzer::print()
                 runner = runner->lexNext();
             }
         }
-    }
+    }*/
 }
 
 map<string, vector<bool>> ReadWriteAnalyzer::load_modified_pars(const map<string, vector<FuncInfo*>> &files)

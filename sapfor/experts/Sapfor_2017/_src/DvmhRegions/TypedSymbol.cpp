@@ -15,7 +15,8 @@ TypedSymbol::TypedSymbol(SgExpression* orig_exp) : orig(orig_exp->symbol())
     if (orig_exp->variant() == ARRAY_REF)
     {
         type = VAR_ARR;
-        if (!getArrayFromDeclarated(declaratedInStmt(orig), orig->identifier())->GetNonDistributeFlag())
+        DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(orig), orig->identifier());
+        if (arr && !arr->GetNonDistributeFlag())
             type = VAR_DISTR_ARR;
     }
 }

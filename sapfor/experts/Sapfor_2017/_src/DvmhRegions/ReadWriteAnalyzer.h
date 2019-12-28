@@ -15,14 +15,12 @@
 
 class ReadWriteAnalyzer
 {
-    SgProject &project;
-
     std::map<std::string, std::vector<FuncInfo*>> &funcInfo;  // TODO: could be not initilized; should be rebuilt on invalidate()
-    std::map<std::string, std::vector<bool>> modified_pars;   // func -> params,
+    std::map<std::string, std::vector<bool>> modified_pars;   // func -> used for write params,
     std::map<SgStatement*, VarUsages> usages_by_statement;    // maps statements to variables used in them
 
-    bool initialized = false;
-    void init();
+    std::set<std::string> initialized; // files was inited
+    void init(SgFile*);
 
     VarUsages findUsagesInStatement(SgStatement* st);
     VarUsages findUsagesInAssignment(SgStatement* st);
@@ -30,17 +28,16 @@ class ReadWriteAnalyzer
     const std::set<int> compound_statements = {FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR};
     VarUsages gatherUsagesForCompound(SgStatement* st);
 public:
-    explicit ReadWriteAnalyzer(SgProject &prjct, std::map<std::string, std::vector<FuncInfo*>> &funcInfo) :
-    project(prjct), funcInfo(funcInfo)
-    { };
+    explicit ReadWriteAnalyzer(std::map<std::string, std::vector<FuncInfo*>> &funcInfo) : funcInfo(funcInfo) 
+    { }
 
-    void invalidate() { initialized = false; } ;
+    void invalidate() { initialized.clear(); }
 
     VarUsages get_usages(SgStatement*);
     VarUsages get_usages(std::vector<SgStatement*>&);
 
     VarUsages findUsagesInExpr(SgExpression* exp);
-    VarUsages findUsagesInFuncCall(SgExpression* exp);
+    VarUsages findUsagesInFuncCall(SgExpression*, const std::string) const;
 
     void print();
 

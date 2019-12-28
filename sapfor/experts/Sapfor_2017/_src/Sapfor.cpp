@@ -474,7 +474,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     }
     currProcessing.first = ""; currProcessing.second = -1;
 
-    auto rw_analyzer = ReadWriteAnalyzer(project, allFuncInfo);  // doesn't analyze anything until first query
+    auto rw_analyzer = ReadWriteAnalyzer(allFuncInfo);  // doesn't analyze anything until first query
 
     for (int i = n - 1; i >= 0; --i)
     {
@@ -993,12 +993,12 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_REGIONS)
         {
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInsertor regionInsertor(file, loopForFile, rw_analyzer);
+            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer);
 
             //collect info about <parallel> functions
-            regionInsertor.updateParallelFunctions(loopGraph, allFuncInfo);
+            regionInserter.updateParallelFunctions(loopForFile, allFuncInfo);
 
-            regionInsertor.insertDirectives();
+            regionInserter.insertDirectives();
 
             //remove private from loops out of DVMH region
             map<int, LoopGraph*> mapLoopGraph;

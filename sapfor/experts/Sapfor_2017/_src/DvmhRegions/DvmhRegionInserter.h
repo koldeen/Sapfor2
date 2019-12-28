@@ -30,7 +30,7 @@ typedef std::map<int, ReadWrite> UsageByLine;
 typedef std::map<std::string, UsageByLine> UsageByFile;
 
 
-class DvmhRegionInsertor 
+class DvmhRegionInserter 
 {
     // input data
     SgFile *file;
@@ -57,9 +57,9 @@ class DvmhRegionInsertor
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool);
 
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
-    bool isLoopParallel(LoopGraph *loop);
+    bool isLoopParallel(const LoopGraph *loop) const;
 public:
-    DvmhRegionInsertor(
+    DvmhRegionInserter(
         SgFile* curFile,
         const std::vector<LoopGraph*>& curLoopGraph,
         ReadWriteAnalyzer& rws
@@ -68,11 +68,10 @@ public:
     void insertDirectives();
 
     void updateParallelFunctions(
-            std::map<std::string, std::vector<LoopGraph*>> &loopGraphs,
-            std::map<std::string, std::vector<FuncInfo*>> &callGraphs
-            );
+            const std::vector<LoopGraph*> &loopGraphs,
+            const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
 
-    ~DvmhRegionInsertor()
+    ~DvmhRegionInserter()
     {
         for (auto& reg : regions)
             delete reg;
