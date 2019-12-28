@@ -11,6 +11,9 @@ using namespace std;
 #define DVMH_REG_RD 0
 #define DVMH_REG_WT 1
 
+typedef set<string> Calls;
+typedef map<string, Calls> FuncsWithCalls;
+typedef map<string, FuncsWithCalls> FuncsInfoByFile;
 
 void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
@@ -109,10 +112,6 @@ void DvmhRegionInsertor::updateParallelFunctions(
             parFuncsInNode(loopNode, isParallel);
         }
     }
-
-    typedef unordered_set<string> Calls;
-    typedef unordered_map<string, Calls> FuncsWithCalls;
-    typedef unordered_map<string, FuncsWithCalls> FuncsInfoByFile;
 
     auto funcsInfo = FuncsInfoByFile();
     for (auto &file : callGraphs)
@@ -497,27 +496,27 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
 //}
 //
 
-ArraySet DvmhRegionInsertor::symbs_to_arrs(unordered_set<SgSymbol*> symbols)
+ArraySet DvmhRegionInsertor::symbs_to_arrs(set<SgSymbol*> symbols)
 {
-    unordered_set<DIST::Array*> arrs;
+    set<DIST::Array*> arrs;
 
     for (auto& symbol : symbols)
     {
         DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
         arrs.insert(arr);
     }
-
     return arrs;
 }
 
 ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, int usage_type)
 {
     VarUsages st_usages = rw_analyzer.get_usages(st);
-    unordered_set<SgSymbol*> st_reads, st_writes;
+    set<SgSymbol*> st_reads, st_writes;
     if (st_usages.is_undefined())
-    {
+    
         st_reads = st_writes = st_usages.get_all(VAR_DISTR_ARR);
-    } else {
+    else 
+    {
         st_reads = st_usages.get_reads(VAR_DISTR_ARR);
         st_writes = st_usages.get_writes(VAR_DISTR_ARR);
     }

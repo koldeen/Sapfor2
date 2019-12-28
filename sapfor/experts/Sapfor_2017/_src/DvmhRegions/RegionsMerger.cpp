@@ -1,7 +1,7 @@
 //
 // Created by Vladislav Volodkin on 12/17/19.
 //
-
+#include "leak_detector.h"
 #include "RegionsMerger.h"
 
 using namespace std;
@@ -17,44 +17,36 @@ bool RegionsMerger::compareByStart(const DvmhRegion *a, const DvmhRegion *b)
 bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
 {
     // For now: st [a, d = b + c] can be moved IF [b, c] are not modified in region AND [a, d] not used for read in region
-    try {
-        // get usages for statement
-        VarUsages st_usages = rw_analyzer.get_usages(st);
-//        st->unparsestdout();    // TODO: remove debug
-//        st_usages.print();      // TODO: remove debug
+    // get usages for statement
+    VarUsages st_usages = rw_analyzer.get_usages(st);
 
-        // get usages for region
-        auto loop_statements = vector<SgStatement*>();
-        for (auto& loop : region->getLoops())
-            loop_statements.push_back(loop->loop);
+    // get usages for region
+    auto loop_statements = vector<SgStatement*>();
+    for (auto& loop : region->getLoops())
+        loop_statements.push_back(loop->loop);
 
-        auto region_usages = rw_analyzer.get_usages(loop_statements);
-//        for (auto& st : loop_statements)                    // TODO: remove debug
-//        {                                                   // TODO: remove debug
-//            st->unparsestdout();                            // TODO: remove debug
-//            rw_analyzer.get_usages(st).print();             // TODO: remove debug
-//        }                                                   // TODO: remove debug
+    auto region_usages = rw_analyzer.get_usages(loop_statements);
 
-        // analyse if statement can be placed before region
-        if (sets_intersect(st_usages.get_reads(), region_usages.get_writes()))  // check that [b, c] not modified in region
-            return false;
+    // analyse if statement can be placed before region
+    if (sets_intersect(st_usages.get_reads(), region_usages.get_writes()))  // check that [b, c] not modified in region
+        return false;
 
-        if (sets_intersect(st_usages.get_writes(), region_usages.get_reads()))  // check that [a, d] not read in region
-            return false;
-    }
-    catch (NotImplemented &e) {
-        return false;  // when met usage which can not be classified, keep statement where it is
-    }
-
+    if (sets_intersect(st_usages.get_writes(), region_usages.get_reads()))  // check that [a, d] not read in region
+        return false;
+    
     return true;  // everything's ok
 }
 
-vector<SgStatement*> RegionsMerger::getStatementsToMove(DvmhRegion *first, const DvmhRegion *second)
+vector<SgStatement*> RegionsMerger::getStatementsToMove(DvmhRegion *first, const DvmhRegion *second, bool &can)
 {
+    // can not, abort operation
     if (first->getFileName() != second->getFileName() || first->getFunName() != second->getFunName())
-        throw NotMergeable();
+    {
+        can = false;
+        return vector<SgStatement*>();
+    }
 
-    auto toMove = vector<SgStatement*>();
+    vector<SgStatement*> toMove;
     SgStatement* mediumSt = first->getLastSt()->lexNext();
     while (mediumSt->id() != second->getFirstSt()->id())
     {
@@ -66,9 +58,11 @@ vector<SgStatement*> RegionsMerger::getStatementsToMove(DvmhRegion *first, const
 
         if (canBeMoved(mediumSt, first))
             toMove.push_back(mediumSt);
-        else
-            throw NotMergeable();
-
+        else // can not, abort operation
+        {
+            can = false;
+            return vector<SgStatement*>();
+        }
         mediumSt = mediumSt->lexNext();
     }
 
@@ -115,18 +109,21 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
             string fun_name = func_st->symbol()->identifier();
             newRegion->setFunName(fun_name);
         }
-        //printf("Merge number %d\n", i++);
+
         if (isFirst) // skip first region
         {
             isFirst = false;
             continue;
         }
 
-        try {
-            auto toMove = getStatementsToMove(regionPrev, region);
+        bool can = true;
+        auto toMove = getStatementsToMove(regionPrev, region, can);
+        if (can)
             moveStatements(toMove, regionPrev);
-        } catch (NotMergeable e) {
-            printf("cannot be merged\n");
+        else
+        {
+            //TODO: extend message
+            __spf_print(1, "cannot be merged\n");
             newRegions.push_back(newRegion);
             newRegion = new DvmhRegion();
         }
@@ -139,15 +136,13 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
     for (auto& old : regions)
         delete old;
     regions.clear();
-
     return newRegions;
 }
 
-bool RegionsMerger::sets_intersect(std::unordered_set<SgSymbol*> set1,std::unordered_set<SgSymbol*> set2)
+bool RegionsMerger::sets_intersect(const set<SgSymbol*>& set1, const set<SgSymbol*>& set2) const
 {
     for (auto& symb : set1)
         if (set2.find(symb) != set2.end())
             return true;
-
     return false;
 }

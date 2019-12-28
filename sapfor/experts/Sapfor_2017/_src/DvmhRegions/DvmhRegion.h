@@ -1,14 +1,10 @@
-//
 // Created by Vladislav Volodkin on 12/20/19.
-//
 
-#ifndef SAPFOR_DVMHREGION_H
-#define SAPFOR_DVMHREGION_H
+#pragma once
+
 #include "../GraphLoop/graph_loops_func.h"
 
 #include <string>
-#include <unordered_set>
-
 
 class DvmhRegion
 {
@@ -27,9 +23,7 @@ public:
     const std::string& getFunName() const { return fun_name; }
     void setFunName(const std::string& newName) { fun_name = newName; }
     const std::vector<LoopGraph*>& getLoops() const { return loops; }
-    std::string getFileName() const { return this->getFirstSt()->fileName(); }
+    std::string getFileName() const { return getFirstSt()->fileName(); }
     void append(DvmhRegion& region);
 };
 
-
-#endif //SAPFOR_DVMHREGION_H

@@ -1,12 +1,10 @@
 //
 // Created by Vladislav Volodkin on 12/20/19.
 //
-
+#include "leak_detector.h"
 #include "LoopChecker.h"
 
-
 using namespace std;
-
 
 void LoopChecker::updateLoopGraph(const map<string, FuncInfo*> &allFuncs)
 {
@@ -73,6 +71,5 @@ LoopCheckResults LoopChecker::checkLoopForPurenessAndIO(LoopGraph *loopNode, con
             loopCheckResults.linesOfIO.push_back(nameAndLineOfFuncCalled.second);
         }
     }
-
     return loopCheckResults;
 }

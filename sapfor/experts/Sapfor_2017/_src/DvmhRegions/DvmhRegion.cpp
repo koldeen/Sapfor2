@@ -2,13 +2,10 @@
 // Created by Vladislav Volodkin on 12/20/19.
 //
 
+#include "leak_detector.h"
 #include "DvmhRegion.h"
 
-
-using namespace std;
-
-
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
+DvmhRegion::DvmhRegion(LoopGraph *loopNode, const std::string &fun_name) : fun_name(fun_name)
 {
     loops.push_back(loopNode);
 }
@@ -30,5 +27,5 @@ SgStatement* DvmhRegion::getLastSt() const
 void DvmhRegion::append(DvmhRegion& region)
 {
     for (auto& loop : region.getLoops())
-        this->addLoop(loop);
+        addLoop(loop);
 }

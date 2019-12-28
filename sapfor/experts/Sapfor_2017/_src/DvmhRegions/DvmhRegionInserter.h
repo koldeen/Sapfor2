@@ -6,7 +6,6 @@
 #include "../GraphLoop/graph_loops_func.h"
 #include "../ExpressionTransform/expr_transform.h"
 #include "../Utils/SgUtils.h"
-#include "DvmhRegions/Exceptions.h"
 #include "ReadWriteAnalyzer.h"
 #include "DvmhRegion.h"
 
@@ -18,19 +17,17 @@
 #include <algorithm>
 #include <tuple>
 #include <utility>
-#include <unordered_set> 
-#include <unordered_map>
 #include <memory>
 
 
-typedef std::unordered_set<DIST::Array* > ArraySet;
+typedef std::set<DIST::Array* > ArraySet;
 struct ReadWrite
 {
     ArraySet read;
     ArraySet write;
 };
-typedef std::unordered_map<int, ReadWrite> UsageByLine;
-typedef std::unordered_map<std::string, UsageByLine> UsageByFile;
+typedef std::map<int, ReadWrite> UsageByLine;
+typedef std::map<std::string, UsageByLine> UsageByFile;
 
 
 class DvmhRegionInsertor 
@@ -39,7 +36,7 @@ class DvmhRegionInsertor
     SgFile *file;
     const std::vector<LoopGraph*> &loopGraph;
     ReadWriteAnalyzer& rw_analyzer;
-    std::unordered_map<std::string, std::string> parallel_functions;  // fun_name -> file_name
+    std::map<std::string, std::string> parallel_functions;  // fun_name -> file_name
 
     // operating data
     std::vector<DvmhRegion*> regions;
@@ -52,7 +49,7 @@ class DvmhRegionInsertor
     void insertRegionDirectives();
 
     // actual directives
-    ArraySet symbs_to_arrs(std::unordered_set<SgSymbol*>);
+    ArraySet symbs_to_arrs(std::set<SgSymbol*>);
     ArraySet get_used_arrs(SgStatement* st, int usage_type);
     ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type);
     SgStatement* processSt(SgStatement *st);
@@ -82,4 +79,4 @@ public:
     }
 };
 
-static std::tuple<std::set<SgSymbol *>, std::set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st);
+static std::tuple<std::set<SgSymbol *>, std::set<SgSymbol*>> getUsedDistributedArrays(SgStatement* st);
