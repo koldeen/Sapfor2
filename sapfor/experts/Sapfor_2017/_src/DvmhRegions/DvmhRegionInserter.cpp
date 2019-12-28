@@ -2,30 +2,15 @@
 
 #include "DvmhRegionInserter.h"
 #include "../VerificationCode/verifications.h"
+#include "DvmhRegions/RegionsMerger.h"
+
 
 using namespace std;
+
 
 #define DVMH_REG_RD 0
 #define DVMH_REG_WT 1
 
-void DvmhRegionInsertor::printFuncName(SgStatement* st)
-{
-    if (st->variant() == PROG_HEDR)
-    {
-        SgProgHedrStmt *progH = (SgProgHedrStmt*)st;
-        cout << "Program: " << progH->symbol()->identifier() << endl;
-    }
-    else if (st->variant() == PROC_HEDR)
-    {
-        SgProcHedrStmt *procH = (SgProcHedrStmt*)st;
-        cout << "Procedure: " << procH->symbol()->identifier() << endl;
-    }
-    else if (st->variant() == FUNC_HEDR)
-    {
-        SgFuncHedrStmt *funcH = (SgFuncHedrStmt*)st;
-        cout << "Function: " << funcH->symbol()->identifier() << endl;
-    }
-}
 
 void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
 {
@@ -36,6 +21,7 @@ void DvmhRegionInsertor::findEdgesForRegions(const vector<LoopGraph*> &loops)
             SgStatement* func_st = getFuncStat(loopNode->loop);
             string fun_name = func_st->symbol()->identifier();
             DvmhRegion *dvmhRegion = new DvmhRegion(loopNode, fun_name);
+            // loopNode->inDvmhRegion = true;  // <-- propagation
             regions.push_back(dvmhRegion);
         }
         else if (loopNode->children.size() > 0)
@@ -79,84 +65,90 @@ void DvmhRegionInsertor::insertRegionDirectives()
     }
 }
 
-// checks loop node itself, doesn't check its children
-LoopCheckResults DvmhRegionInsertor::checkLoopForPurenessAndIO(LoopGraph *loopNode, const map<string, FuncInfo*> &allFuncs)
+bool DvmhRegionInsertor::isLoopParallel(LoopGraph *loop)
 {
-    LoopCheckResults loopCheckResults;
+    auto prev_st = loop->loop->lexPrev();
 
-    for (auto &nameAndLineOfFuncCalled : loopNode->calls)
+    while (prev_st && isDVM_stat(prev_st))
     {
-        FuncInfo *calledFuncInfo = NULL;
+        if (prev_st->variant() == DVM_PARALLEL_ON_DIR)
+            return true;
+        prev_st = prev_st->lexPrev();
+    }
 
-        auto it = allFuncs.find(nameAndLineOfFuncCalled.first);
-        if (it != allFuncs.end())
-            calledFuncInfo = it->second;
+    return false;
+}
 
-        if (!calledFuncInfo)
+void DvmhRegionInsertor::parFuncsInNode(LoopGraph *loop, bool isParallel)
+{
+    // check for parallel
+    isParallel |= isLoopParallel(loop);
+
+    // meat: save parallel calls
+    if (isParallel)
+        for (auto &call : loop->calls)  // mark call as parallel
+            this->parallel_functions[call.first] = loop->fileName;
+
+    // recursion: check nested loops, TODO: check if recursion is required
+    for (auto &nestedLoop : loop->children)
+        parFuncsInNode(nestedLoop, isParallel);
+}
+
+void DvmhRegionInsertor::updateParallelFunctions(
+        map<string, vector<LoopGraph*>> &loopGraphs,
+        map<string, vector<FuncInfo*>> &callGraphs
+        )
+{
+    for (auto &pair : loopGraphs)
+    {
+        auto loopGraph = pair.second;
+
+        for (auto &loopNode : loopGraph)
         {
-            if (isIntrinsicFunctionName(nameAndLineOfFuncCalled.first.c_str()))
-                continue;
-            else
-            { // if funcInfo was not found assume func to be impure
-                loopCheckResults.hasImpureCalls = true;
-                loopCheckResults.usesIO = true;
-                loopCheckResults.linesOfIO.push_back(nameAndLineOfFuncCalled.second);
+            bool isParallel = isLoopParallel(loopNode);
+            parFuncsInNode(loopNode, isParallel);
+        }
+    }
+
+    typedef unordered_set<string> Calls;
+    typedef unordered_map<string, Calls> FuncsWithCalls;
+    typedef unordered_map<string, FuncsWithCalls> FuncsInfoByFile;
+
+    auto funcsInfo = FuncsInfoByFile();
+    for (auto &file : callGraphs)
+    {
+        funcsInfo[file.first] = FuncsWithCalls();
+
+        for (auto &func : file.second)
+        {
+            funcsInfo[file.first][func->funcName] = Calls();
+
+            for (auto &call : func->callsFrom)
+                funcsInfo[file.first][func->funcName].insert(call);
+        }
+
+    }
+
+    bool changes_done = true;
+    while (changes_done)
+    {
+        changes_done = false;
+
+        for (auto &funcs : parallel_functions)
+        {
+            auto file_name = funcs.second;
+            auto calls = funcsInfo[file_name][funcs.first];
+
+            for (auto &call : calls)
+            {
+                if (parallel_functions.find(call) == parallel_functions.end())
+                {
+                    parallel_functions[call] = file_name;
+                    changes_done = true;
+                }
             }
-            continue;
-        }
-
-        if (!calledFuncInfo->isPure) 
-            loopCheckResults.hasImpureCalls = true;
-
-        if (calledFuncInfo->usesIO())
-        {
-            loopCheckResults.usesIO = true;
-            loopCheckResults.linesOfIO.push_back(nameAndLineOfFuncCalled.second);
         }
     }
-
-    return loopCheckResults;
-}
-
-DvmhRegionInsertor::DvmhRegionInsertor(SgFile *curFile, const vector<LoopGraph*> &curLoopGraph) : file(curFile), loopGraph(curLoopGraph) { }
-
-DvmhRegionInsertor::DvmhRegionInsertor(
-    SgFile *curFile, 
-    const vector<LoopGraph*> &curLoopGraph,
-    const std::map<std::tuple<int, std::string, std::string>, std::pair<DIST::Array*, DIST::ArrayAccessInfo*>> &declaratedArrays
-) : file(curFile), loopGraph(curLoopGraph)
-{ 
-    auto array_access = createMapOfArrayAccess(declaratedArrays);
-    array_usage = ArrayUsageFactory::from_array_access(array_access, true);
-}
-
-LoopCheckResults DvmhRegionInsertor::updateLoopNode(LoopGraph *loop, const map<string, FuncInfo*> &allFuncs)
-{
-    LoopCheckResults loopChecks = checkLoopForPurenessAndIO(loop, allFuncs);
-    bool hasImpureCalls = loopChecks.hasImpureCalls;
-    bool usesIO = loopChecks.usesIO;
-
-    if (loopChecks.linesOfIO.size() && usesIO)
-        for (auto& elem : loopChecks.linesOfIO)
-            loop->linesOfIO.push_back(elem);
-
-    for (auto &nestedLoop : loop->children) 
-    {
-        loopChecks = updateLoopNode(nestedLoop, allFuncs);
-        hasImpureCalls |= loopChecks.hasImpureCalls;
-        usesIO |= loopChecks.usesIO;
-    }
-
-    loop->hasImpureCalls |= hasImpureCalls;
-    loop->hasPrints |= usesIO;
-
-    return LoopCheckResults(loop->hasPrints, loop->hasImpureCalls);
-}
-
-void DvmhRegionInsertor::updateLoopGraph(const map<string, FuncInfo*> &allFuncs)
-{
-    for (auto &loopNode : loopGraph)
-        updateLoopNode(loopNode, allFuncs);
 }
 
 static void findByUse(map<string, vector<pair<SgSymbol*, SgSymbol*>>> &modByUse, const string& varName, 
@@ -296,8 +288,8 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
         while (isDVM_stat(st))
             st = st->lexNext();
 
-        auto readBlocks = array_usage->get_op_arrs_for_block(st, true, true, DVMH_REG_RD);
-        auto writeBlocks = array_usage->get_op_arrs_for_block(st, true, true, DVMH_REG_WT);
+        auto readBlocks = get_used_arrs_for_block(st, DVMH_REG_RD);
+        auto writeBlocks = get_used_arrs_for_block(st, DVMH_REG_WT);
 
         insertActualDirective(block_dir, readBlocks, ACC_GET_ACTUAL_DIR, true);
         insertActualDirective(st->lastNodeOfStmt()->lexNext(), writeBlocks, ACC_ACTUAL_DIR, false);
@@ -309,8 +301,8 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
     if (!isSgExecutableStatement(st) || isDVM_stat(st))
         return st->lexNext();
 
-    insertActualDirective(st, array_usage->get_op_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
-    insertActualDirective(st->lexNext(), array_usage->get_op_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
+    insertActualDirective(st, get_used_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
+    insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
 
     if (st->variant() == LOGIF_NODE)
         return st->lexNext()->lexNext();
@@ -321,85 +313,20 @@ SgStatement* DvmhRegionInsertor::processSt(SgStatement *st)
 void DvmhRegionInsertor::insertActualDirectives() 
 {
     int funcNum = file->numberOfFunctions();
-    // TODO: if func is parallel -> skip
     for (int i = 0; i < funcNum; ++i)
     {
         SgStatement *st = file->functions(i);
         SgStatement *lastNode = st->lastNodeOfStmt();
 
+        // skip parallel funcs
+        string func_name = st->symbol()->identifier();
+        if (parallel_functions.find(func_name) != parallel_functions.end())
+            continue;
+
         st = st->lexNext();
         while (st != lastNode && st != NULL && st->variant() != CONTAINS_STMT)
             st = processSt(st);
     }
-}
-
-static bool compareByStart(const DvmhRegion *a, const DvmhRegion *b)
-{
-    if (a->getLoops().size() < 1 || b->getLoops().size() < 1)
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-
-    return a->getLoops()[0]->loop->lineNumber() < b->getLoops()[0]->loop->lineNumber();
-}
-
-static bool areNeighbours(const DvmhRegion *first, const DvmhRegion *second)
-{
-    set<int> toSkip = { DVM_PARALLEL_ON_DIR };
-    SgStatement* mediumSt = first->getLastSt()->lexNext();
-    while (toSkip.count(mediumSt->variant())) // skip statements which don't prevent from merging
-        mediumSt = mediumSt->lexNext();
-
-    SgStatement* firstSt = second->getFirstSt();
-    return (mediumSt->fileName() == firstSt->fileName()) && (mediumSt->lineNumber() == firstSt->lineNumber());
-}
-
-void DvmhRegionInsertor::mergeRegions()
-{
-    if (regions.size() < 2)
-        return;
-
-    sort(regions.begin(), regions.end(), compareByStart);
-
-    vector<DvmhRegion*> newRegions;
-    DvmhRegion *newRegion = new DvmhRegion();
-    DvmhRegion *regionPrev = regions[0];
-
-    bool isFirst = true;
-    for (auto& loop : regions[0]->getLoops())
-        newRegion->addLoop(loop);
-
-    for (auto& region : regions)
-    {
-        if (newRegion->getFunName() == "" && region->getLoops().size() > 0) 
-        {
-            SgStatement* func_st = getFuncStat(region->getLoops()[0]->loop);
-            string fun_name = func_st->symbol()->identifier();
-            newRegion->setFunName(fun_name);
-        }
-        //printf("Merge number %d\n", i++);
-        if (isFirst) // skip first region
-        {
-            isFirst = false;
-            continue;
-        }
-
-        // logic of intermediate derectives here, in perspective they can be accumulated and moved
-        if (!areNeighbours(regionPrev, region))
-        {
-            newRegions.push_back(newRegion);
-            newRegion = new DvmhRegion();
-        }
-
-        regionPrev = region;
-        for (auto& loop : region->getLoops())
-            newRegion->addLoop(loop);
-    }
-    newRegions.push_back(newRegion);
-
-    for (auto& old : regions)
-        delete old;
-    regions.clear();
-
-    regions = newRegions;
 }
 
 void DvmhRegionInsertor::insertDirectives()
@@ -408,7 +335,8 @@ void DvmhRegionInsertor::insertDirectives()
     findEdgesForRegions(loopGraph);
 
     __spf_print(1, "Merging regions\n");
-    mergeRegions();
+    auto merger = RegionsMerger(regions, rw_analyzer);
+    regions = merger.mergeRegions();
 
     for (auto& elem : regions)
     {
@@ -456,154 +384,151 @@ void DvmhRegionInsertor::insertActualDirective(SgStatement *st, const ArraySet &
     }
 }
 
-/*********** DvmhRegion *************/
-DvmhRegion::DvmhRegion(LoopGraph *loopNode, const string &fun_name) : fun_name(fun_name)
-{
-    loops.push_back(loopNode);
-}
+//static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp)
+//{
+//    set<SgSymbol *> result;
+//
+//    if (exp)
+//    {
+//        if (exp->variant() == ARRAY_REF)
+//        {
+//            SgSymbol* symbol = exp->symbol();
+//            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+//
+//            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
+//                result.insert(exp->symbol());
+//        }
+//
+//        set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
+//        set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
+//
+//        result.insert(lhsSymbols.begin(), lhsSymbols.end());
+//        result.insert(rhsSymbols.begin(), rhsSymbols.end());
+//    }
+//
+//    return result;
+//}
+//
+///* Returns tuple (READ, WRITE) of used symbols in the statement */
+//static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st)
+//{
+//    set<SgSymbol *> read, write;
+//
+//    // ignore not executable statements
+//    if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
+//        return make_tuple(read, write);
+//
+//    int start = 0;
+//    if (st->variant() == ASSIGN_STAT)
+//    {
+//        start = 1;
+//        SgExpression* exp = st->expr(0);
+//        // find write: check modified var
+//        if (st->expr(0)->variant() == ARRAY_REF)
+//        {
+//            SgSymbol* symbol = exp->symbol();
+//            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+//
+//            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
+//                write.insert(exp->symbol());
+//        }
+//
+//        // find reads
+//        set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(exp->lhs());
+//        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+//
+//        symbolsUsedInExpression = getSymbolsFromExpression(exp->rhs());
+//        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+//    }
+//
+//    // find read
+//    for (int i = start; i < 3; ++i)
+//    {
+//        if (st->expr(i))
+//        {
+//            set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
+//            read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+//        }
+//    }
+//
+//    return make_tuple(read, write);
+//}
+//
+//unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
+//        map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
+//        bool dist_only
+//        )
+//{
+//    UsageByFile usage_by_file;
+//
+//    for (auto& arr : arrays_with_access)
+//    {
+//        DIST::Array* arr_ptr = arr.first;
+//        if (dist_only && arr_ptr->GetNonDistributeFlag())
+//            continue;
+//
+//        for (auto& file : arr.second->GetAllAccessInfo())
+//        {
+//            for (auto& line : file.second)
+//            {
+//                for (auto& usage : line.second)
+//                {
+//                    if (usage.underFunctionPar != -1 && !isIntrinsicFunctionName(usage.fName.c_str()))
+//                        continue;
+//
+//                    string file_name = file.first;
+//                    int line_num = line.first;
+//
+//                    if (usage_by_file.find(file_name) == usage_by_file.end())
+//                        usage_by_file[file_name] = UsageByLine();
+//                    if (usage_by_file[file_name].find(line_num) == usage_by_file[file_name].end())
+//                        usage_by_file[file_name][line_num] = ReadWrite();
+//
+//                    if (usage.type == 0)
+//                        usage_by_file[file_name][line_num].read.insert(arr_ptr);
+//                    if (usage.type == 1)
+//                        usage_by_file[file_name][line_num].write.insert(arr_ptr);
+//                }
+//            }
+//        }
+//    }
+//
+//    return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
+//}
+//
 
-SgStatement* DvmhRegion::getFirstSt() const 
+ArraySet DvmhRegionInsertor::symbs_to_arrs(unordered_set<SgSymbol*> symbols)
 {
-    if (loops.size() < 1) 
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    return loops.front()->loop;
-}
+    unordered_set<DIST::Array*> arrs;
 
-SgStatement* DvmhRegion::getLastSt() const
-{
-    if (loops.size() < 1) 
-        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    return loops.back()->loop->lastNodeOfStmt();
-}
-
-static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp) 
-{
-    set<SgSymbol *> result;
-
-    if (exp)
+    for (auto& symbol : symbols)
     {
-        if (exp->variant() == ARRAY_REF) 
-        {
-            SgSymbol* symbol = exp->symbol();
-            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-
-            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
-                result.insert(exp->symbol());
-        }
-
-        set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
-        set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
-
-        result.insert(lhsSymbols.begin(), lhsSymbols.end());
-        result.insert(rhsSymbols.begin(), rhsSymbols.end());
+        DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
+        arrs.insert(arr);
     }
 
-    return result;
+    return arrs;
 }
 
-/* Returns tuple (READ, WRITE) of used symbols in the statement */
-static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st) 
+ArraySet DvmhRegionInsertor::get_used_arrs(SgStatement* st, int usage_type)
 {
-    set<SgSymbol *> read, write;
-
-    // ignore not executable statements
-    if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
-        return make_tuple(read, write);
-
-    int start = 0;
-    if (st->variant() == ASSIGN_STAT)
+    VarUsages st_usages = rw_analyzer.get_usages(st);
+    unordered_set<SgSymbol*> st_reads, st_writes;
+    if (st_usages.is_undefined())
     {
-        start = 1;
-        SgExpression* exp = st->expr(0);
-        // find write: check modified var 
-        if (st->expr(0)->variant() == ARRAY_REF)
-        {
-            SgSymbol* symbol = exp->symbol();
-            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-
-            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
-                write.insert(exp->symbol());
-        }
-        
-        // find reads
-        set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(exp->lhs());
-        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-
-        symbolsUsedInExpression = getSymbolsFromExpression(exp->rhs());
-        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
+        st_reads = st_writes = st_usages.get_all(VAR_DISTR_ARR);
+    } else {
+        st_reads = st_usages.get_reads(VAR_DISTR_ARR);
+        st_writes = st_usages.get_writes(VAR_DISTR_ARR);
     }
 
-    // find read
-    for (int i = start; i < 3; ++i) 
-    {
-        if (st->expr(i)) 
-        {
-            set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-            read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-        }
-    }
-
-    return make_tuple(read, write);
+    if (usage_type == DVMH_REG_RD)
+        return symbs_to_arrs(st_reads);
+    else
+        return symbs_to_arrs(st_writes);
 }
 
-unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
-        map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
-        bool dist_only
-        )
-{
-    UsageByFile usage_by_file;
-
-    for (auto& arr : arrays_with_access)
-    {
-        DIST::Array* arr_ptr = arr.first;
-        if (dist_only && arr_ptr->GetNonDistributeFlag())
-            continue;
-
-        for (auto& file : arr.second->GetAllAccessInfo())
-        {
-            for (auto& line : file.second) 
-            {
-                for (auto& usage : line.second)
-                {
-                    if (usage.underFunctionPar != -1 && !isIntrinsicFunctionName(usage.fName.c_str()))
-                        continue;
-
-                    string file_name = file.first;
-                    int line_num = line.first;
-
-                    if (usage_by_file.find(file_name) == usage_by_file.end())
-                        usage_by_file[file_name] = UsageByLine();
-                    if (usage_by_file[file_name].find(line_num) == usage_by_file[file_name].end())
-                        usage_by_file[file_name][line_num] = ReadWrite();
-                    
-                    if (usage.type == 0)
-                        usage_by_file[file_name][line_num].read.insert(arr_ptr);
-                    if (usage.type == 1)
-                        usage_by_file[file_name][line_num].write.insert(arr_ptr);
-                }          
-            }
-        }
-    }
-
-    return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
-}
-
-ArraySet ArrayUsage::get_op_arrs(SgStatement* st, int type)
-{
-    string f_name = st->fileName();
-    if (usages_by_file.find(f_name) != usages_by_file.end() &&
-        usages_by_file[f_name].find(st->lineNumber()) != usages_by_file[f_name].end())
-    {
-        if (type == 0)
-            return usages_by_file[f_name][st->lineNumber()].read;
-        else
-            return usages_by_file[f_name][st->lineNumber()].write;
-    }
-
-    return ArraySet(); 
-}
-
-ArraySet ArrayUsage::get_op_arrs_for_block(SgStatement* st, bool ignore_regions, bool ignore_dvm, int type)
+ArraySet DvmhRegionInsertor::get_used_arrs_for_block(SgStatement* st, int usage_type)
 {
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();
@@ -611,17 +536,17 @@ ArraySet ArrayUsage::get_op_arrs_for_block(SgStatement* st, bool ignore_regions,
     while (st != end && st != NULL)
     {
         // Skip regions
-        if (ignore_regions && st->variant() == ACC_REGION_DIR)
+        if (st->variant() == ACC_REGION_DIR)
             st = skipDvmhRegionInterval(st);
 
         // Skip DVM dirs
-        if (ignore_dvm && isDVM_stat(st))
+        if (isDVM_stat(st))
         {
             st = st->lexNext();
             continue;
         }
 
-        ArraySet st_usages = get_op_arrs(st, type);
+        ArraySet st_usages = get_used_arrs(st, usage_type);
         usages.insert(st_usages.begin(), st_usages.end());
         st = st->lexNext();
     }

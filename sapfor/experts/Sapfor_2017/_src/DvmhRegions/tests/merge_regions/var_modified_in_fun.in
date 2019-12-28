@@ -1,0 +1,28 @@
+		program jac2d
+		parameter (l = 8000,itmax = 100)
+		real  a(l,l),eps,maxeps,b(l,l)
+		double precision  startt,endt,dvtime
+
+
+        b(1,1) = 2.0
+        do  j = 1,l
+            do  i = 1,l
+            a(i,j) = i*a(i,j)+eps
+            enddo
+        enddo
+        b(1,1) = 10 + func(b,eps)
+        do  j = 1,l
+            do  i = 1,l
+            b(i,j) = 0. + a(i,j) + eps
+            enddo
+        enddo
+
+        maxeps = eps
+        end
+
+        function func(a,b) result(j)
+			real	:: a(l,l) ! input
+			real	:: b ! input
+			real	:: j ! output
+			b = a(1,1)*5+b
+		end function func

@@ -173,7 +173,20 @@ set(DISTR _src/Distribution/Array.cpp
 		_src/Distribution/GraphCSR.h)
 		
 set(DVMH_REG _src/DvmhRegions/DvmhRegionInserter.cpp
-		_src/DvmhRegions/DvmhRegionInserter.h)
+		_src/DvmhRegions/DvmhRegionInserter.h
+		_src/DvmhRegions/Exceptions.h
+		_src/DvmhRegions/RegionsMerger.cpp
+		_src/DvmhRegions/RegionsMerger.h
+		_src/DvmhRegions/ReadWriteAnalyzer.cpp
+		_src/DvmhRegions/ReadWriteAnalyzer.h
+		_src/DvmhRegions/LoopChecker.cpp
+		_src/DvmhRegions/LoopChecker.h
+		_src/DvmhRegions/DvmhRegion.cpp
+		_src/DvmhRegions/DvmhRegion.h
+		_src/DvmhRegions/VarUsages.cpp
+		_src/DvmhRegions/VarUsages.h
+		_src/DvmhRegions/TypedSymbol.cpp
+		_src/DvmhRegions/TypedSymbol.h)
 		
 set(DYNA _src/DynamicAnalysis/createParallelRegions.cpp
 		_src/DynamicAnalysis/createParallelRegions.h
