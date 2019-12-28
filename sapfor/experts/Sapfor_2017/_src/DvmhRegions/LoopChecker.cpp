@@ -1,6 +1,3 @@
-//
-// Created by Vladislav Volodkin on 12/20/19.
-//
 #include "leak_detector.h"
 #include "LoopChecker.h"
 
@@ -37,7 +34,7 @@ LoopCheckResults LoopChecker::updateLoopNode(LoopGraph *loop, const map<string, 
 
 
 // checks loop node itself, doesn't check its children
-LoopCheckResults LoopChecker::checkLoopForPurenessAndIO(LoopGraph *loopNode, const map<string, FuncInfo*> &allFuncs)
+LoopCheckResults LoopChecker::checkLoopForPurenessAndIO(const LoopGraph *loopNode, const map<string, FuncInfo*> &allFuncs) const
 {
     LoopCheckResults loopCheckResults;
 

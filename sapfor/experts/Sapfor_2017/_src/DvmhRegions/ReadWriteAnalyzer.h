@@ -1,5 +1,3 @@
-// Created by Vladislav Volodkin on 12/20/19.
-
 #pragma once
 
 #include "dvm.h"
@@ -22,11 +20,11 @@ class ReadWriteAnalyzer
     std::set<std::string> initialized; // files was inited
     void init(SgFile*);
 
-    VarUsages findUsagesInStatement(SgStatement* st);
-    VarUsages findUsagesInAssignment(SgStatement* st);
+    VarUsages findUsagesInStatement(SgStatement* st) const;
+    VarUsages findUsagesInAssignment(SgStatement* st) const;
 
     const std::set<int> compound_statements = {FOR_NODE, LOOP_NODE, FUNC_HEDR, PROC_HEDR};
-    VarUsages gatherUsagesForCompound(SgStatement* st);
+    VarUsages gatherUsagesForCompound(SgStatement* st) const;
 public:
     explicit ReadWriteAnalyzer(std::map<std::string, std::vector<FuncInfo*>> &funcInfo) : funcInfo(funcInfo) 
     { }
@@ -36,10 +34,10 @@ public:
     VarUsages get_usages(SgStatement*);
     VarUsages get_usages(std::vector<SgStatement*>&);
 
-    VarUsages findUsagesInExpr(SgExpression* exp);
+    VarUsages findUsagesInExpr(SgExpression* exp) const;
     VarUsages findUsagesInFuncCall(SgExpression*, const std::string) const;
 
-    void print();
+    void print() const;
 
     static std::map<std::string, std::vector<bool>> load_modified_pars(const std::map<std::string, std::vector<FuncInfo*>>&);
 };

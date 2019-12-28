@@ -1,6 +1,3 @@
-//
-// Created by Vladislav Volodkin on 12/17/19.
-//
 #include "leak_detector.h"
 #include "RegionsMerger.h"
 
@@ -14,7 +11,7 @@ bool RegionsMerger::compareByStart(const DvmhRegion *a, const DvmhRegion *b)
     return a->getLoops()[0]->loop->lineNumber() < b->getLoops()[0]->loop->lineNumber();
 }
 
-bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
+bool RegionsMerger::canBeMoved(SgStatement* st, const DvmhRegion *region) const
 {
     // For now: st [a, d = b + c] can be moved IF [b, c] are not modified in region AND [a, d] not used for read in region
     // get usages for statement
@@ -27,7 +24,7 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
 
     auto region_usages = rw_analyzer.get_usages(loop_statements);
 
-    // analyse if statement can be placed before region
+    // analyze if statement can be placed before region
     if (sets_intersect(st_usages.get_reads(), region_usages.get_writes()))  // check that [b, c] not modified in region
         return false;
 
@@ -37,7 +34,7 @@ bool RegionsMerger::canBeMoved(SgStatement* st, DvmhRegion *region)
     return true;  // everything's ok
 }
 
-vector<SgStatement*> RegionsMerger::getStatementsToMove(DvmhRegion *first, const DvmhRegion *second, bool &can)
+vector<SgStatement*> RegionsMerger::getStatementsToMove(const DvmhRegion *first, const DvmhRegion *second, bool &can) const
 {
     // can not, abort operation
     if (first->getFileName() != second->getFileName() || first->getFunName() != second->getFunName())
@@ -69,7 +66,8 @@ vector<SgStatement*> RegionsMerger::getStatementsToMove(DvmhRegion *first, const
     return toMove;
 }
 
-void RegionsMerger::moveStatements(vector<SgStatement*> sts, DvmhRegion *region) // Places statements before region
+// Places statements before region
+void RegionsMerger::moveStatements(const vector<SgStatement*>& sts, const DvmhRegion* region) 
 {
     SgStatement* prev = region->getFirstSt()->lexPrev();
     while (isDVM_stat(prev))

@@ -375,120 +375,7 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
     }
 }
 
-//static set<SgSymbol *> getSymbolsFromExpression(SgExpression *exp)
-//{
-//    set<SgSymbol *> result;
-//
-//    if (exp)
-//    {
-//        if (exp->variant() == ARRAY_REF)
-//        {
-//            SgSymbol* symbol = exp->symbol();
-//            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-//
-//            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
-//                result.insert(exp->symbol());
-//        }
-//
-//        set<SgSymbol *> lhsSymbols = getSymbolsFromExpression(exp->lhs());
-//        set<SgSymbol *> rhsSymbols = getSymbolsFromExpression(exp->rhs());
-//
-//        result.insert(lhsSymbols.begin(), lhsSymbols.end());
-//        result.insert(rhsSymbols.begin(), rhsSymbols.end());
-//    }
-//
-//    return result;
-//}
-//
-///* Returns tuple (READ, WRITE) of used symbols in the statement */
-//static tuple<set<SgSymbol *>, set<SgSymbol *>> getUsedDistributedArrays(SgStatement* st)
-//{
-//    set<SgSymbol *> read, write;
-//
-//    // ignore not executable statements
-//    if (!isSgExecutableStatement(st) || st->variant() == CONTAINS_STMT || isSgControlEndStmt(st) || isDVM_stat(st) || st->variant() == FOR_NODE)
-//        return make_tuple(read, write);
-//
-//    int start = 0;
-//    if (st->variant() == ASSIGN_STAT)
-//    {
-//        start = 1;
-//        SgExpression* exp = st->expr(0);
-//        // find write: check modified var
-//        if (st->expr(0)->variant() == ARRAY_REF)
-//        {
-//            SgSymbol* symbol = exp->symbol();
-//            DIST::Array*arr = getArrayFromDeclarated(declaratedInStmt(symbol), symbol->identifier());
-//
-//            if (!arr->GetNonDistributeFlag()) // if array's distributed add it
-//                write.insert(exp->symbol());
-//        }
-//
-//        // find reads
-//        set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(exp->lhs());
-//        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-//
-//        symbolsUsedInExpression = getSymbolsFromExpression(exp->rhs());
-//        read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-//    }
-//
-//    // find read
-//    for (int i = start; i < 3; ++i)
-//    {
-//        if (st->expr(i))
-//        {
-//            set<SgSymbol *> symbolsUsedInExpression = getSymbolsFromExpression(st->expr(i));
-//            read.insert(symbolsUsedInExpression.begin(), symbolsUsedInExpression.end());
-//        }
-//    }
-//
-//    return make_tuple(read, write);
-//}
-//
-//unique_ptr<ArrayUsage> ArrayUsageFactory::from_array_access(
-//        map<DIST::Array*, DIST::ArrayAccessInfo*> arrays_with_access,
-//        bool dist_only
-//        )
-//{
-//    UsageByFile usage_by_file;
-//
-//    for (auto& arr : arrays_with_access)
-//    {
-//        DIST::Array* arr_ptr = arr.first;
-//        if (dist_only && arr_ptr->GetNonDistributeFlag())
-//            continue;
-//
-//        for (auto& file : arr.second->GetAllAccessInfo())
-//        {
-//            for (auto& line : file.second)
-//            {
-//                for (auto& usage : line.second)
-//                {
-//                    if (usage.underFunctionPar != -1 && !isIntrinsicFunctionName(usage.fName.c_str()))
-//                        continue;
-//
-//                    string file_name = file.first;
-//                    int line_num = line.first;
-//
-//                    if (usage_by_file.find(file_name) == usage_by_file.end())
-//                        usage_by_file[file_name] = UsageByLine();
-//                    if (usage_by_file[file_name].find(line_num) == usage_by_file[file_name].end())
-//                        usage_by_file[file_name][line_num] = ReadWrite();
-//
-//                    if (usage.type == 0)
-//                        usage_by_file[file_name][line_num].read.insert(arr_ptr);
-//                    if (usage.type == 1)
-//                        usage_by_file[file_name][line_num].write.insert(arr_ptr);
-//                }
-//            }
-//        }
-//    }
-//
-//    return unique_ptr<ArrayUsage>(new ArrayUsage(usage_by_file));
-//}
-//
-
-ArraySet DvmhRegionInserter::symbs_to_arrs(set<SgSymbol*> symbols)
+ArraySet DvmhRegionInserter::symbs_to_arrs(set<SgSymbol*> symbols) const
 {
     set<DIST::Array*> arrs;
 
@@ -500,7 +387,7 @@ ArraySet DvmhRegionInserter::symbs_to_arrs(set<SgSymbol*> symbols)
     return arrs;
 }
 
-ArraySet DvmhRegionInserter::get_used_arrs(SgStatement* st, int usage_type)
+ArraySet DvmhRegionInserter::get_used_arrs(SgStatement* st, int usage_type) const
 {
     VarUsages st_usages = rw_analyzer.get_usages(st);
     set<SgSymbol*> st_reads, st_writes;
@@ -519,7 +406,7 @@ ArraySet DvmhRegionInserter::get_used_arrs(SgStatement* st, int usage_type)
         return symbs_to_arrs(st_writes);
 }
 
-ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_type)
+ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_type) const
 {
     auto usages = ArraySet();
     SgStatement *end = st->lastNodeOfStmt()->lexNext();

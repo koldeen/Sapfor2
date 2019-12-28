@@ -1,5 +1,3 @@
-// Created by Vladislav Volodkin on 12/20/19.
-
 #pragma once
 
 #include "dvm.h"

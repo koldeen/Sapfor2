@@ -41,17 +41,15 @@ class DvmhRegionInserter
     // operating data
     std::vector<DvmhRegion*> regions;
 
-
-
     // region directives
     void findEdgesForRegions(const std::vector<LoopGraph*>&);
     bool hasLimitsToDvmhParallel(const LoopGraph*) const;
     void insertRegionDirectives();
 
     // actual directives
-    ArraySet symbs_to_arrs(std::set<SgSymbol*>);
-    ArraySet get_used_arrs(SgStatement* st, int usage_type);
-    ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type);
+    ArraySet symbs_to_arrs(std::set<SgSymbol*>) const;
+    ArraySet get_used_arrs(SgStatement* st, int usage_type) const;
+    ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type) const;
     SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
     void insertActualDirective(SgStatement*, const ArraySet&, int, bool);
@@ -63,13 +61,11 @@ public:
         SgFile* curFile,
         const std::vector<LoopGraph*>& curLoopGraph,
         ReadWriteAnalyzer& rws
-    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws) { };
+    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws) { }
 
     void insertDirectives();
 
-    void updateParallelFunctions(
-            const std::vector<LoopGraph*> &loopGraphs,
-            const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
+    void updateParallelFunctions(const std::vector<LoopGraph*>&loopGraphs, const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
 
     ~DvmhRegionInserter()
     {
@@ -77,5 +73,3 @@ public:
             delete reg;
     }
 };
-
-static std::tuple<std::set<SgSymbol *>, std::set<SgSymbol*>> getUsedDistributedArrays(SgStatement* st);

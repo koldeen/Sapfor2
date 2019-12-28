@@ -1,5 +1,3 @@
-// Created by Vladislav Volodkin on 12/20/19.
-
 #pragma once
 
 #include "../GraphLoop/graph_loops_func.h"
@@ -24,7 +22,7 @@ class LoopChecker
 {
     std::vector<LoopGraph*> &loopGraph;
 
-    LoopCheckResults checkLoopForPurenessAndIO(LoopGraph *loopNode, const std::map<std::string, FuncInfo*> &allFuncs);
+    LoopCheckResults checkLoopForPurenessAndIO(const LoopGraph *loopNode, const std::map<std::string, FuncInfo*> &allFuncs) const;
     LoopCheckResults updateLoopNode(LoopGraph *loop, const std::map<std::string, FuncInfo*> &allFuncs);
 public:
     explicit LoopChecker(std::vector<LoopGraph*> &graph) : loopGraph(graph) { }

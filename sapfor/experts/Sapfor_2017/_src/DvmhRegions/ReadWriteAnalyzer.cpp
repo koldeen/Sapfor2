@@ -1,6 +1,3 @@
-//
-// Created by Vladislav Volodkin on 12/17/19.
-//
 #include "leak_detector.h"
 #include "ReadWriteAnalyzer.h"
 
@@ -32,7 +29,7 @@ void ReadWriteAnalyzer::init(SgFile* forFile)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
+VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st) const
 {
     // *special* statements, TODO: what i've missed?
     if (st->variant() == ASSIGN_STAT)
@@ -50,7 +47,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st)
     
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
+VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st) const
 {
     // load read & writes from the right part
     VarUsages usages = findUsagesInExpr(st->expr(1));
@@ -67,7 +64,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st)
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp)
+VarUsages ReadWriteAnalyzer::findUsagesInExpr(SgExpression* exp) const
 {
     VarUsages usages;
 
@@ -132,13 +129,14 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, con
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)  // may raise out_of_range
+VarUsages ReadWriteAnalyzer::get_usages(SgStatement* st)
 {
     if (initialized.find(st->fileName()) == initialized.end())
         init(st->getFile());
 
     VarUsages usages;
-    if (compound_statements.find(st->variant()) != compound_statements.end())  // if statement is compound
+    // if statement is compound
+    if (compound_statements.find(st->variant()) != compound_statements.end())
         usages = gatherUsagesForCompound(st);
     else
     {
@@ -163,7 +161,7 @@ VarUsages ReadWriteAnalyzer::get_usages(vector<SgStatement*> &statements)
     return usages;
 }
 
-VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatement)
+VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatement) const
 {
     auto all_usages = VarUsages();
 
@@ -179,7 +177,7 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
     return all_usages;
 }
 
-void ReadWriteAnalyzer::print()
+void ReadWriteAnalyzer::print() const
 {
     //TODO: print from class data
     /*for (int i = 0; i < project.numberOfFiles(); i++)

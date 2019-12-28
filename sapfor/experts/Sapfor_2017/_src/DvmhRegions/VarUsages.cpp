@@ -7,7 +7,7 @@
 using namespace std;
 
 
-void VarUsages::extend(VarUsages to_insert)
+void VarUsages::extend(const VarUsages& to_insert)
 {
     undefined |= to_insert.undefined;
 
@@ -15,7 +15,7 @@ void VarUsages::extend(VarUsages to_insert)
     writes.insert(to_insert.writes.begin(), to_insert.writes.end());
 }
 
-set<SgSymbol*> VarUsages::get_reads(VAR_TYPE var_type) 
+set<SgSymbol*> VarUsages::get_reads(VAR_TYPE var_type) const
 {
     if (undefined)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -23,7 +23,7 @@ set<SgSymbol*> VarUsages::get_reads(VAR_TYPE var_type)
     return filter(reads, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_writes(VAR_TYPE var_type) 
+set<SgSymbol*> VarUsages::get_writes(VAR_TYPE var_type) const
 {
     if (undefined)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -31,22 +31,22 @@ set<SgSymbol*> VarUsages::get_writes(VAR_TYPE var_type)
     return filter(writes, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_all(VAR_TYPE var_type)
+set<SgSymbol*> VarUsages::get_all(VAR_TYPE var_type) const
 {
-    auto all_usages = set<TypedSymbol>();
+    set<TypedSymbol> all_usages;
     all_usages.insert(reads.begin(), reads.end());
     all_usages.insert(writes.begin(), writes.end());
 
     return filter(all_usages, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_reads() { return get_reads(VAR_ANY); }
-set<SgSymbol*> VarUsages::get_writes() { return get_writes(VAR_ANY); }
-set<SgSymbol*> VarUsages::get_all() { return get_all(VAR_ANY); }
+set<SgSymbol*> VarUsages::get_reads() const { return get_reads(VAR_ANY); }
+set<SgSymbol*> VarUsages::get_writes() const { return get_writes(VAR_ANY); }
+set<SgSymbol*> VarUsages::get_all() const { return get_all(VAR_ANY); }
 
 set<SgSymbol*> VarUsages::filter(const set<TypedSymbol> &symbols, VAR_TYPE var_type)
 {
-    auto filtered = set<SgSymbol*>();
+    set<SgSymbol*> filtered;
     for (auto& s : symbols)
         if (var_type == VAR_ANY || s.type == var_type)
             filtered.insert(s.orig);
@@ -64,7 +64,7 @@ void VarUsages::insert_undefined(const TypedSymbol& s)
 void VarUsages::insert_read(const TypedSymbol& s) { reads.insert(s); }
 void VarUsages::insert_write(const TypedSymbol& s) { writes.insert(s); }
 
-void VarUsages::print()
+void VarUsages::print() const
 {
     printf("reads: ");
     if (undefined)
@@ -94,4 +94,4 @@ void VarUsages::print()
     printf("***\n");
 }
 
-bool VarUsages::is_undefined() { return undefined; }
+bool VarUsages::is_undefined() const { return undefined; }

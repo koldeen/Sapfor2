@@ -1,6 +1,3 @@
-//
-// Created by Vladislav Volodkin on 12/24/19.
-//
 #include "leak_detector.h"
 #include "TypedSymbol.h"
 

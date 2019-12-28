@@ -1,7 +1,3 @@
-//
-// Created by Vladislav Volodkin on 12/20/19.
-//
-
 #include "leak_detector.h"
 #include "DvmhRegion.h"
 

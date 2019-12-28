@@ -1,5 +1,3 @@
-// Created by Vladislav Volodkin on 12/20/19.
-
 #pragma once
 
 #include "dvm.h"
@@ -15,21 +13,21 @@ class VarUsages
 
 public:
     VarUsages() : undefined(false) { }
-    void extend(VarUsages);
+    void extend(const VarUsages&);
 
     void insert_undefined(const TypedSymbol&);
     void insert_read(const TypedSymbol&);
     void insert_write(const TypedSymbol&);
 
-    bool is_undefined();
-    std::set<SgSymbol*> get_reads(VAR_TYPE);
-    std::set<SgSymbol*> get_writes(VAR_TYPE);
-    std::set<SgSymbol*> get_all(VAR_TYPE);
+    bool is_undefined() const;
+    std::set<SgSymbol*> get_reads(VAR_TYPE) const;
+    std::set<SgSymbol*> get_writes(VAR_TYPE) const;
+    std::set<SgSymbol*> get_all(VAR_TYPE) const;
 
-    std::set<SgSymbol*> get_reads();
-    std::set<SgSymbol*> get_writes();
-    std::set<SgSymbol*> get_all();
+    std::set<SgSymbol*> get_reads() const;
+    std::set<SgSymbol*> get_writes() const;
+    std::set<SgSymbol*> get_all() const;
 
     static std::set<SgSymbol*> filter(const std::set<TypedSymbol>&, VAR_TYPE);
-    void print();
+    void print() const;
 };
