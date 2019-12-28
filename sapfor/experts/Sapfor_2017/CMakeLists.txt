@@ -34,7 +34,11 @@ else ()
 endif ()
 
 if(NOT EXISTS ${JAVA_SDK_DIR}/include)
-    message(FATAL_ERROR "path '${JAVA_SDK_DIR}/include' does not exist, set JAVA_HOME correctly")
+	if (WIN32)
+		message(FATAL_ERROR "path '${JAVA_SDK_DIR}/include' does not exist, set JAVA_HOME correctly")
+	else ()
+		message("path '${JAVA_SDK_DIR}/include' does not exist, set JAVA_HOME correctly")
+	endif()		
 endif()
 
 if (WIN32)
