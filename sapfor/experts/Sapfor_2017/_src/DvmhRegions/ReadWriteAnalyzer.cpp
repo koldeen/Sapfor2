@@ -7,7 +7,7 @@ void ReadWriteAnalyzer::init(SgFile* forFile)
 {
     auto save = current_file->filename();
     
-    modified_pars = load_modified_pars(funcInfo);
+    modified_pars = ReadWriteAnalyzer::load_modified_pars(funcInfo);
     for (int j = 0; j < forFile->numberOfFunctions(); ++j)
     {
         SgStatement* func_hdr = forFile->functions(j);
@@ -19,7 +19,14 @@ void ReadWriteAnalyzer::init(SgFile* forFile)
             if (!isSgExecutableStatement(runner) || isDVM_stat(runner) || isSPF_stat(runner))
                 continue;
 
+            if (runner->variant() == CONTAINS_STMT)
+                break;
+
             VarUsages usages = findUsagesInStatement(runner);
+
+            auto it = usages_by_statement.find(runner);
+            if (it != usages_by_statement.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
             usages_by_statement[runner] = usages;
         }
     }    
@@ -169,6 +176,9 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
     SgStatement* runner = compoundStatement;
     while (runner != last)
     {
+        if (runner->variant() == CONTAINS_STMT)
+            break;
+
         VarUsages st_usages = findUsagesInStatement(runner);
         all_usages.extend(st_usages);
 
@@ -179,31 +189,40 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
 
 void ReadWriteAnalyzer::print() const
 {
-    //TODO: print from class data
-    /*for (int i = 0; i < project.numberOfFiles(); i++)
+    auto save = current_file->filename();
+
+    for (int i = 0; i < CurrentProject->numberOfFiles(); i++)
     {
-        printf("file: %s\n", project.file(i).filename());
-        for (int j = 0; j < project.file(i).numberOfFunctions(); j++)
+        printf("file: %s\n", CurrentProject->file(i).filename());
+        for (int j = 0; j < CurrentProject->file(i).numberOfFunctions(); j++)
         {
-            printf("function: %s\n", project.file(i).functions(j)->symbol()->identifier());
-            SgStatement* runner = project.file(i).functions(j);
+            printf("function: %s\n", CurrentProject->file(i).functions(j)->symbol()->identifier());
+            SgStatement* runner = CurrentProject->file(i).functions(j);
             auto last = runner->lastNodeOfStmt();
 
             while (runner != last)
             {
-                runner->unparsestdout();
-                auto st_usages = usages_by_statement[runner];
-                st_usages.print();
-
+                if (runner->variant() == CONTAINS_STMT)
+                    break;
+                
+                auto it = usages_by_statement.find(runner);
+                if (it != usages_by_statement.end())
+                {
+                    runner->unparsestdout();
+                    it->second.print();
+                }
                 runner = runner->lexNext();
             }
         }
-    }*/
+    }
+
+    if (SgFile::switchToFile(save) == -1)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
 map<string, vector<bool>> ReadWriteAnalyzer::load_modified_pars(const map<string, vector<FuncInfo*>> &files)
 {
-    auto res = map<string, vector<bool>>();
+    map<string, vector<bool>> res;
 
     for (auto& funcs : files)
     {
@@ -217,10 +236,9 @@ map<string, vector<bool>> ReadWriteAnalyzer::load_modified_pars(const map<string
             for (int i = 0; i < func_pars_info.countOfPars; i++)
                 func_pars.push_back(func_pars_info.isArgOut(i));
 
-            string func_key = func->funcName;  // TODO: use file_name + func_name
+            string func_key = func->funcName;
             res[func_key] = func_pars;
         }
     }
-
     return res;
 }

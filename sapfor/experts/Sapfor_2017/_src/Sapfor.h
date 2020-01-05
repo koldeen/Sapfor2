@@ -134,7 +134,7 @@ enum algorithms {
     EMPTY_ALGO
 };
 
-enum optionNames {
+enum options {
     STATIC_SHADOW_ANALYSIS,
     STATIC_PRIVATE_ANALYSIS,
     FREE_FORM,
@@ -153,7 +153,9 @@ enum optionNames {
     EMPTY_OPTION
 };
 
-extern const char *passNames[EMPTY_PASS + 1];
+extern const char* passNames[EMPTY_PASS + 1];
+extern const char* optionNames[EMPTY_OPTION + 1];
+
 extern bool passNamesWasInit;
 static void setPassValues()
 {
@@ -253,7 +255,7 @@ static void setPassValues()
     passNames[PARSE_FILES] = "PARSE_FILES";
     passNames[PPPA_ANALYZER] = "PPPA_ANALYZER";
     passNames[SET_TO_ALL_DECL_INIT_ZERO] = "SET_TO_ALL_DECL_INIT_ZERO";
-    passNames[DUMP_DECLS_WITH_INIT] = "DUMP_DECLS_WITH_INIT";
+    passNames[DUMP_DECLS_WITH_INIT] = "DUMP_DECLS_WITH_INIT";    
 }
 
 void runPass(const int curr_regime, const char *proj_name = "dvm.proj", const char *folderName = NULL);

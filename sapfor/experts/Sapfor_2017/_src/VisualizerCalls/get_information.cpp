@@ -38,6 +38,12 @@
 #include "../LoopAnalyzer/loop_analyzer.h"
 #include <thread>
 
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <unistd.h> 
+#endif
+
 using std::string;
 using std::wstring;
 using std::map;
@@ -82,6 +88,26 @@ static char* ConvertShortToChar(const short* source, int& strL)
 
 static void setOptions(const short *options)
 {
+    if (!optionNames[STATIC_SHADOW_ANALYSIS])
+    {
+        optionNames[STATIC_SHADOW_ANALYSIS] = "STATIC_SHADOW_ANALYSIS";
+        optionNames[STATIC_PRIVATE_ANALYSIS] = "STATIC_PRIVATE_ANALYSIS";
+        optionNames[FREE_FORM] = "FREE_FORM";
+        optionNames[KEEP_DVM_DIRECTIVES] = "KEEP_DVM_DIRECTIVES";
+        optionNames[KEEP_SPF_DIRECTIVES] = "KEEP_SPF_DIRECTIVES";
+        optionNames[PARALLIZE_FREE_LOOPS] = "PARALLIZE_FREE_LOOPS";
+        optionNames[MAX_SHADOW_WIDTH] = "MAX_SHADOW_WIDTH";
+        optionNames[OUTPUT_UPPER] = "OUTPUT_UPPER";
+        optionNames[TRANSLATE_MESSAGES] = "TRANSLATE_MESSAGES";
+        optionNames[KEEP_LOOPS_CLOSE_NESTING] = "KEEP_LOOPS_CLOSE_NESTING";
+        optionNames[KEEP_GCOV] = "KEEP_GCOV";
+        optionNames[ANALYSIS_OPTIONS] = "ANALYSIS_OPTIONS";
+        optionNames[DEBUG_PRINT_ON] = "DEBUG_PRINT_ON";
+        optionNames[MPI_PROGRAM] = "MPI_PROGRAM";
+        optionNames[IGNORE_IO_SAPFOR] = "IGNORE_IO_SAPFOR";
+        optionNames[EMPTY_OPTION] = "EMPTY_OPTION";
+    }
+
     int len;
     char* conv = ConvertShortToChar(options, len);
     string convS(conv);
@@ -94,13 +120,20 @@ static void setOptions(const short *options)
     intOptions.resize(EMPTY_OPTION);
     std::fill(intOptions.begin(), intOptions.end(), -1);
 
-    for (int z = STATIC_SHADOW_ANALYSIS; z <= DEBUG_PRINT_ON; ++z) //TODO: extend
+    for (int z = STATIC_SHADOW_ANALYSIS; z <= EMPTY_OPTION; ++z) //TODO: extend
     {
         if (splited.size() == z)
             break;
 
+        __spf_print(1, "read value '%s' to '%s' option\n", splited[z].c_str(), optionNames[z]);
         if (z != ANALYSIS_OPTIONS)
-            intOptions[z] = std::stoi(splited[z]);
+        {
+            if (sscanf(splited[z].c_str(), "%d", &intOptions[z]) != 1)
+            {
+                __spf_print(1, "!wrong value!\n");
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
         else
             intOptions[z] = -1;
     }
@@ -1712,10 +1745,9 @@ static wstring toWstring(const short* array, int size)
     if (size == 0)
         return L"";
 
-    wstring str;
-    str.resize(size);
+    wstring str = L"";
     for (int z = 0; z < size; ++z)
-        str[z] = array[z];
+        str += array[z];
     return str;
 }
 
@@ -1724,7 +1756,7 @@ static wstring toWstring(const int* array, int size)
     if (size == 0)
         return L"";
 
-    wstring str;
+    wstring str = L"";
     for (int z = 0; z < size; ++z)
     {
         if (z != 0)
@@ -1747,8 +1779,8 @@ static wstring finishJniCall(int retCode, const short* result, const short* outp
 
     codedResult += std::to_wstring(retCode) + L" ";
     codeInfo(codedResult, toWstring(result, (result) ? strLen(result) : 0));
-    codeInfo(codedResult, toWstring(output, (outputSize) ? (outputSize[0] - 1) : 0));
-    codeInfo(codedResult, toWstring(outputMessage, (outputMessageSize) ? (outputMessageSize[0] - 1) : 0));
+    codeInfo(codedResult, toWstring(output, (outputSize) ? (outputSize[0]) : 0));
+    codeInfo(codedResult, toWstring(outputMessage, (outputMessageSize) ? (outputMessageSize[0]) : 0));
 
     return codedResult;
 }
@@ -1821,43 +1853,63 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis(
     short* projSh = toShort(projName_c);
     short* optSh = toShort(options_c);
 
-    if (whichRun == "SPF_GetGraphLoops")
-        retCode = SPF_GetGraphLoops(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetGraphFunctions")
-        retCode = SPF_GetGraphFunctions(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetGraphVizOfFunctions")
-        retCode = SPF_GetGraphVizOfFunctions(context, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetArrayDistribution")
-        retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 0);
-    else if (whichRun == "SPF_GetArrayDistributionOnlyAnalysis")
-        retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 1);
-    else if (whichRun == "SPF_SetFunctionsToInclude")
-        retCode = SPF_SetFunctionsToInclude(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetAllDeclaratedArrays")
-        retCode = SPF_GetAllDeclaratedArrays(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetFileLineInfo")
-        retCode = SPF_GetFileLineInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetIncludeDependencies")
-        retCode = SPF_GetIncludeDependencies(context, winHandler, optSh, projSh, result);
-    else if (whichRun == "SPF_GetGCovInfo")
-        retCode = SPF_GetGCovInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_ParseFiles")
-        retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_StatisticAnalyzer")
-        retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
-    else if (whichRun == "SPF_GetPassesStateStr")
-        retCode = SPF_GetPassesStateStr(context, result);
-    else if (whichRun == "SPF_GetVersionAndBuildDate")
-        retCode = SPF_GetVersionAndBuildDate(context, result);
-    else if (whichRun == "SPF_GetIntrinsics")
-        retCode = SPF_GetIntrinsics(context, result);
-    else if (whichRun == "SPF_deleteAllAllocatedData")
-        SPF_deleteAllAllocatedData(context);
-    else
+    try
     {
-        if (showDebug)
-            printf("SAPFOR: unknown function call, given '%s' name\n", whichRun.c_str());
-        retCode = -1001;
+        if (whichRun == "SPF_GetGraphLoops")
+            retCode = SPF_GetGraphLoops(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetGraphFunctions")
+            retCode = SPF_GetGraphFunctions(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetGraphVizOfFunctions")
+            retCode = SPF_GetGraphVizOfFunctions(context, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetArrayDistribution")
+            retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 0);
+        else if (whichRun == "SPF_GetArrayDistributionOnlyAnalysis")
+            retCode = SPF_GetArrayDistribution(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize, 1);
+        else if (whichRun == "SPF_SetFunctionsToInclude")
+            retCode = SPF_SetFunctionsToInclude(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetAllDeclaratedArrays")
+            retCode = SPF_GetAllDeclaratedArrays(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetFileLineInfo")
+            retCode = SPF_GetFileLineInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetIncludeDependencies")
+            retCode = SPF_GetIncludeDependencies(context, winHandler, optSh, projSh, result);
+        else if (whichRun == "SPF_GetGCovInfo")
+            retCode = SPF_GetGCovInfo(context, winHandler, optSh, projSh, result, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_ParseFiles")
+            retCode = SPF_ParseFiles(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_StatisticAnalyzer")
+            retCode = SPF_StatisticAnalyzer(context, winHandler, optSh, projSh, output, outputSize, outputMessage, outputMessageSize);
+        else if (whichRun == "SPF_GetPassesStateStr")
+            retCode = SPF_GetPassesStateStr(context, result);
+        else if (whichRun == "SPF_GetVersionAndBuildDate")
+            retCode = SPF_GetVersionAndBuildDate(context, result);
+        else if (whichRun == "SPF_GetIntrinsics")
+            retCode = SPF_GetIntrinsics(context, result);
+        else if (whichRun == "SPF_deleteAllAllocatedData")
+            SPF_deleteAllAllocatedData(context);
+        else if (whichRun == "SPF_ÑhangeDirectory")
+        {
+            if (options_c == NULL)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            if (chdir(options_c) != 0)
+            {
+                __spf_print(1, "can not change directory to '%s'\n", options_c);
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+        }
+        else
+        {
+            if (showDebug)
+                printf("SAPFOR: unknown function call, given '%s' name\n", whichRun.c_str());
+            retCode = -1001;
+        }
+    }
+    catch (...)
+    {
+        printf("SAPFOR: wrong exit from main DLL block for JAVA\n");
+        convertGlobalBuffer(output, outputSize);
+        convertGlobalMessagesBuffer(outputMessage, outputMessageSize);
+        retCode = -1004;
     }
 
     delete []projSh;

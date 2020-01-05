@@ -29,7 +29,7 @@ public:
     explicit ReadWriteAnalyzer(std::map<std::string, std::vector<FuncInfo*>> &funcInfo) : funcInfo(funcInfo) 
     { }
 
-    void invalidate() { initialized.clear(); }
+    void invalidate(const std::string& fileName) { initialized.erase(fileName); }
 
     VarUsages get_usages(SgStatement*);
     VarUsages get_usages(std::vector<SgStatement*>&);

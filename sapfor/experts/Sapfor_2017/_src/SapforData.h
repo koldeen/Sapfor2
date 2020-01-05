@@ -135,7 +135,8 @@ std::map<std::string, std::string> moduleDecls; // module -> file where declarat
 std::pair<std::string, int> inOnlyForloopOnPlace;
 //
 
-const char *passNames[EMPTY_PASS + 1];
+const char* passNames[EMPTY_PASS + 1];
+const char* optionNames[EMPTY_OPTION + 1];
 bool passNamesWasInit = false;
 
 std::map<PTR_BFND, std::pair<std::string, int>> sgStats;

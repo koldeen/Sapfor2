@@ -10,14 +10,14 @@ SgStatement* DvmhRegion::getFirstSt() const
 {
     if (loops.size() < 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    return loops.front()->loop;
+    return loops.front()->loop->GetOriginal();
 }
 
 SgStatement* DvmhRegion::getLastSt() const
 {
     if (loops.size() < 1)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-    return loops.back()->loop->lastNodeOfStmt();
+    return loops.back()->loop->GetOriginal()->lastNodeOfStmt();
 }
 
 void DvmhRegion::append(DvmhRegion& region)

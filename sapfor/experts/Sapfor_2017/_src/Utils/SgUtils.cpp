@@ -21,7 +21,11 @@
 #include <fcntl.h>
 #include <mutex>
 #include <thread>
-
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <unistd.h> 
+#endif
 
 #include "SgUtils.h"
 #include "errors.h"
@@ -2693,9 +2697,9 @@ static vector<string> parseList(vector<FileInfo>& listOfProject, bool needToIncl
             }
         }
 
-#ifdef _WIN32        
+#ifdef _WIN32
         sendMessage_2lvl(L" обработка файла '" + to_wstring(file) + L"'");
-#endif
+#endif        
         StdCapture::Init();
         string errorMessage = "";
         try
@@ -2891,6 +2895,28 @@ int parseFiles(const char* proj)
     if (!list)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
+    vector<string> pathSplit;
+    if (string(proj).find('\\') != string::npos)
+        splitString(proj, '\\', pathSplit);
+    else
+        splitString(proj, '/', pathSplit);
+
+    if (pathSplit.size() < 2)
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    if (pathSplit[pathSplit.size() - 2] != "visualiser_data")
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    string fullPath = "";
+    for (int z = 0; z < pathSplit.size() - 2; ++z)
+        fullPath += pathSplit[z] + "/";
+    if (fullPath == "")
+        fullPath = "./";
+    else
+    {
+        //change dir
+        if (chdir(fullPath.c_str()) != 0)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+    }
+
     vector<FileInfo> listOfProject;
     while (!feof(list))
     {
@@ -2901,17 +2927,26 @@ int parseFiles(const char* proj)
         string toAdd = buf;
         if (toAdd[toAdd.size() - 1] == '\n')
             toAdd = toAdd.erase(toAdd.size() - 1);
+        
+        string fileNameFixed = "";
+        auto idx = toAdd.find(fullPath);
+        if (idx != string::npos)
+            fileNameFixed = toAdd.substr(idx + fullPath.size());
+        else
+            fileNameFixed = (toAdd.substr(0, 2) == "./") ? toAdd.substr(2) : toAdd;
+        
+        const string optPath = fullPath + "visualiser_data/options/" + fileNameFixed + ".opt";
+        const string errPath = fullPath + "visualiser_data/options/" + fileNameFixed + ".err";
+        const string outPath = fullPath + "visualiser_data/options/" + fileNameFixed + ".out";
 
-        const string fileNameFixed = (toAdd.substr(0, 2) == "./" ? toAdd.substr(2) : toAdd);
-        const string optPath = "./visualiser_data/options/" + fileNameFixed + ".opt";
-        const string errPath = "./visualiser_data/options/" + fileNameFixed + ".err";
-        const string outPath = "./visualiser_data/options/" + fileNameFixed + ".out";
-
-        const string fileText = readFileToStr(fileNameFixed);
+        const string fileText = readFileToStr(toAdd);
 
         FILE* opt = fopen(optPath.c_str(), "r");
         if (!opt)
+        {
+            __spf_print(1, "can not open path %s\n", optPath.c_str());
             printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        }
         fgets(buf, 1024, opt);
         string toAddOpt = buf;
         if (toAddOpt[toAddOpt.size() - 1] == '\n')

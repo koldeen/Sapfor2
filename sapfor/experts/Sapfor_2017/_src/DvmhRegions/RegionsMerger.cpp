@@ -45,6 +45,22 @@ vector<SgStatement*> RegionsMerger::getStatementsToMove(const DvmhRegion *first,
 
     vector<SgStatement*> toMove;
     SgStatement* mediumSt = first->getLastSt()->lexNext();
+    if (mediumSt->variant() == DVM_PARALLEL_ON_DIR) // skip only DVM PARALLEL
+        mediumSt = mediumSt->lexNext();
+
+    //no statements between regions, so can
+    if (mediumSt == second->getFirstSt() && mediumSt->variant() == FOR_NODE)
+    {
+        can = true;
+        return vector<SgStatement*>();
+    } //TODO    
+    else
+    {
+        can = false;
+        return vector<SgStatement*>();
+    }
+
+    //TODO: need to check and correct
     while (mediumSt->id() != second->getFirstSt()->id())
     {
         if (mediumSt->variant() == DVM_PARALLEL_ON_DIR)
@@ -81,7 +97,7 @@ void RegionsMerger::moveStatements(const vector<SgStatement*>& sts, const DvmhRe
         st->deleteStmt();
     }
 
-    rw_analyzer.invalidate();
+    rw_analyzer.invalidate(region->getFileName());
 }
 
 vector<DvmhRegion*> RegionsMerger::mergeRegions()
@@ -114,11 +130,15 @@ vector<DvmhRegion*> RegionsMerger::mergeRegions()
             continue;
         }
 
-        /*bool can = true;
-        auto toMove = getStatementsToMove(regionPrev, region, can);*/
-        //TODO: need to check
-        if (false)
-            ;// moveStatements(toMove, regionPrev);
+        bool can = true;
+        auto toMove = getStatementsToMove(regionPrev, region, can);
+        if (can)
+        {
+            //TODO
+            if (toMove.size())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+             // moveStatements(toMove, regionPrev);
+        }
         else
         {
             //TODO: extend message
