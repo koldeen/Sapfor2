@@ -1,4 +1,3 @@
-#ifdef NDEBUG
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -41,7 +40,8 @@
 #ifdef _WIN32
 #include <direct.h>
 #else
-#include <unistd.h> 
+#include <unistd.h>
+#define _sleep usleep
 #endif
 
 using std::string;
@@ -1718,7 +1718,6 @@ void createNeededException()
     if (passDone == 2)
         throw std::exception();
 }
-#endif
 
 #ifdef JAVA
 static void* context = NULL;
