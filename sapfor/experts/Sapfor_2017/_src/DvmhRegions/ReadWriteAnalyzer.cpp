@@ -170,7 +170,7 @@ VarUsages ReadWriteAnalyzer::get_usages(vector<SgStatement*> &statements)
 
 VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatement) const
 {
-    auto all_usages = VarUsages();
+    VarUsages all_usages;
 
     SgStatement* last = compoundStatement->lastNodeOfStmt();
     SgStatement* runner = compoundStatement;
@@ -179,9 +179,13 @@ VarUsages ReadWriteAnalyzer::gatherUsagesForCompound(SgStatement* compoundStatem
         if (runner->variant() == CONTAINS_STMT)
             break;
 
-        VarUsages st_usages = findUsagesInStatement(runner);
-        all_usages.extend(st_usages);
+        if (!isSgExecutableStatement(runner) || isDVM_stat(runner) || isSPF_stat(runner))
+        {
+            runner = runner->lexNext();
+            continue;
+        }
 
+        all_usages.extend(findUsagesInStatement(runner));
         runner = runner->lexNext();
     }
     return all_usages;
