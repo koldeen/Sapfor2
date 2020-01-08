@@ -61,3 +61,6 @@ sapfor/experts/Sapfor_2017/Parser/Parser.vcxproj.user
 .vscode/*
 .vs/
 **/**/.DS_Store
+sapfor/experts/Sapfor_2017/Sapc++/Sapc++/Sapc++.vcxproj.user
+sapfor/experts/Sapfor_2017/Sapc++/Sapc++/x64/
+sapfor/experts/Sapfor_2017/Sapc++/x64/

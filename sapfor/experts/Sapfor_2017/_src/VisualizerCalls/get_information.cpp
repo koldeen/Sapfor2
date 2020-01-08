@@ -1725,7 +1725,11 @@ static void* context = NULL;
 static jcharArray StringToJCharArray(JNIEnv* env, const wstring& nativeString)
 {    
     jcharArray arr = env->NewCharArray(nativeString.size());
-    env->SetCharArrayRegion(arr, 0, nativeString.size(), (jchar*)nativeString.c_str());
+    unsigned short* tmpBuf = new unsigned short[nativeString.size()];
+    for (int z = 0; z < nativeString.size(); ++z)
+        tmpBuf[z] = nativeString[z];
+    env->SetCharArrayRegion(arr, 0, nativeString.size(), (jchar*)tmpBuf);
+    delete []tmpBuf;
     return arr;
 }
 

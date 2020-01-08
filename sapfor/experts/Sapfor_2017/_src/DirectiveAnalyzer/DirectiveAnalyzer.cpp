@@ -86,11 +86,7 @@ static void recUnite(vector<LoopGraph*> &loopGraph)
     }
 }
 
-extern void createMapLoopGraph(std::map<int, LoopGraph*> &sortedLoopGraph, const std::vector<LoopGraph*> *loopGraph);
 void UniteNestedDirectives(vector<LoopGraph*> &loopGraph)
 {
     recUnite(loopGraph);
-
-    /*map<int, LoopGraph*> sortedLoopGraph;
-    createMapLoopGraph(sortedLoopGraph, &loopGraph);*/
 }

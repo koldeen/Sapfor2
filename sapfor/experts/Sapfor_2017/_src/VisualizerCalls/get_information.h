@@ -48,38 +48,10 @@ void createNeededException();
 
 #ifdef JAVA
 #include <jni.h>
-/* Header for class SpfWrapper_SpfWrapper */
-
-#ifndef _Included_SpfWrapper_SpfWrapper
-#define _Included_SpfWrapper_SpfWrapper
-#ifdef __cplusplus
-extern "C" {
-#endif
-    /*
-     * Class:     components_Sapfor
-     * Method:    SPF_RunAnalysis
-     * Signature: (Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)[C
-     */
-    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis
-    (JNIEnv*, jobject, jstring, jint, jstring, jstring);
-
-    /*
-     * Class:     components_Sapfor
-     * Method:    SPF_RunTransformation
-     * Signature: (Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)[C
-     */
-    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation
-    (JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring);
-
-    /*
-     * Class:     components_Sapfor
-     * Method:    SPF_RunModification
-     * Signature: (Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)[C
-     */
-    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
-    (JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring, jstring);   
-#ifdef __cplusplus
+extern "C" 
+{    
+    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunAnalysis      (JNIEnv*, jobject, jstring, jint, jstring, jstring);
+    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring);
+    JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification  (JNIEnv*, jobject, jstring, jint, jstring, jstring, jstring, jstring, jstring);
 }
-#endif
-#endif
 #endif
