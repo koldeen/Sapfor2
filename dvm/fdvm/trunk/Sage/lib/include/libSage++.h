@@ -125,6 +125,8 @@ private:
     SgProject *project;
     bool unparseIgnore;
 
+    static std::string currProcessFile;
+    static int currProcessLine;
     static bool consistentCheckIsActivated;
     // fileID -> [ map<FileName, line>, SgSt*]
     static std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > statsByLine;
@@ -294,7 +296,11 @@ public:
             return false;
 
         if (current_file_id != fileID)
-            SgFile *file = &(project->file(fileID));
+        {
+            SgFile* file = &(project->file(fileID));
+            currProcessFile = file->filename();
+            currProcessLine = 0;
+        }
         return true;
     }
 
@@ -316,6 +322,11 @@ public:
     static void cleanParentStatsForExprs() { parentStatsForExpression.clear(); }
     static void activeConsistentchecker() { consistentCheckIsActivated = true; }
     static void deactiveConsistentchecker() { consistentCheckIsActivated = false; }
+
+    static void setCurrProcessFile(const std::string& name) { currProcessFile = name; }
+    static void setCurrProcessLine(const int line) { currProcessLine = line; }
+    static std::string getCurrProcessFile() { return currProcessFile; }
+    static int getCurrProcessLine() { return currProcessLine; }
 };
 
 class  SgExpression
@@ -3156,7 +3167,15 @@ inline SgStatement *SgFile::firstStatement()
 {
   SetCurrentFileTo(filept);
   SwitchToFile(GetFileNumWithPt(filept));
-  return BfndMapping(getFirstStmt());
+  SgStatement* retVal = BfndMapping(getFirstStmt());
+#ifdef __SPF
+  if (retVal)
+  {
+      SgStatement::setCurrProcessFile(retVal->fileName());
+      SgStatement::setCurrProcessLine(0);
+  }
+#endif
+  return retVal;
 }
 
 inline SgSymbol *SgFile::firstSymbol()
@@ -3289,7 +3308,12 @@ inline SgStatement * SgStatement::lexNext()
 #ifdef __SPF
     checkConsistence();
 #endif
-    return BfndMapping(BIF_NEXT(thebif)); 
+    SgStatement* retVal = BfndMapping(BIF_NEXT(thebif));
+#ifdef __SPF
+    if (retVal)
+        setCurrProcessLine(retVal->lineNumber());
+#endif
+    return retVal;
 }
 
 inline SgStatement * SgStatement::lexPrev()
@@ -3297,7 +3321,12 @@ inline SgStatement * SgStatement::lexPrev()
 #ifdef __SPF
     checkConsistence();
 #endif
-    return BfndMapping(getNodeBefore(thebif)); 
+    SgStatement* retVal = BfndMapping(getNodeBefore(thebif));
+#ifdef __SPF
+    if (retVal)
+        setCurrProcessLine(retVal->lineNumber());
+#endif
+    return retVal;
 }
 
 

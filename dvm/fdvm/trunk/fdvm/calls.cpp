@@ -12,7 +12,6 @@
 #ifdef __SPF
 SgFile *current_file;    //current file
 int current_file_id;     //number of current file 
-extern std::pair<std::string, int> currProcessing;
 #endif
 
 using std::map;
@@ -891,9 +890,6 @@ void FileStructure(SgFile *file)
     stat = file->firstStatement(); // file header   
     for (stat = stat->lexNext(); stat; stat = stat->lexNext())
     {
-#if __SPF
-		currProcessing.second = stat->lineNumber();
-#endif		
         if (stat->variant() == INTERFACE_STMT || stat->variant() == INTERFACE_ASSIGNMENT || stat->variant() == INTERFACE_OPERATOR)
         {
             stat = stat->lastNodeOfStmt(); //InterfaceBlock(stat);  
@@ -922,12 +918,7 @@ void doCallGraph(SgFile *file)
     // grab the first statement in the file.
     stat = file->firstStatement(); // file header  
 	for (stat = stat->lexNext(); stat; stat = end_of_unit->lexNext())
-	{
-#if __SPF
-		currProcessing.second = stat->lineNumber();
-#endif
 		end_of_unit = ProgramUnit(stat);
-	}
 
     // add the attribute (last statement of file) to first statement of file
     SgStatement **last = new (SgStatement *);

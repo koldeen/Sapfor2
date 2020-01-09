@@ -1640,7 +1640,10 @@ SgFile &SgProject::file(int i)
 
     current_file_id = i;
     current_file = pt;
-
+#ifdef __SPF   
+    SgStatement::setCurrProcessFile(pt->filename());
+    SgStatement::setCurrProcessLine(0);
+#endif
     return *pt;
 }
 
@@ -1767,6 +1770,9 @@ int SgFile::switchToFile(const std::string &name)
             SgFile *file = &(CurrentProject->file(it->second.second));
             current_file_id = it->second.second;
             current_file = file;
+
+            SgStatement::setCurrProcessFile(file->filename());
+            SgStatement::setCurrProcessLine(0);
         }
     }
 
@@ -1781,7 +1787,10 @@ void SgFile::addFile(const std::pair<SgFile*, int> &toAdd)
 
 std::map<int, std::map<std::pair<std::string, int>, SgStatement*> > SgStatement::statsByLine;
 std::map<SgExpression*, SgStatement*> SgStatement::parentStatsForExpression;
+
 bool SgStatement::consistentCheckIsActivated = false;
+std::string SgStatement::currProcessFile = "";
+int SgStatement::currProcessLine = -1;
 
 void SgStatement::checkConsistence()
 {
