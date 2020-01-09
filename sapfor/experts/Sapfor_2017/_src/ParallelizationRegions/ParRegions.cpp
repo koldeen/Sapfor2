@@ -251,7 +251,6 @@ static void checkForEmpty(SgStatement *start, SgStatement *end, vector<Messages>
 
     while (start != end)
     {
-        currProcessing.second = start->lineNumber();
         if (start->variant() == CONTAINS_STMT)
             break;
 
@@ -342,7 +341,6 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
         checkForEmpty(st, lastNode, messagesForFile);
         while (st != NULL && st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 

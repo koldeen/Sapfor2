@@ -51,7 +51,7 @@ VarUsages ReadWriteAnalyzer::findUsagesInStatement(SgStatement* st) const
             st_usages.extend(findUsagesInExpr(st->expr(i)));
         return st_usages;
     }
-    
+    return VarUsages();
 }
 
 VarUsages ReadWriteAnalyzer::findUsagesInAssignment(SgStatement* st) const

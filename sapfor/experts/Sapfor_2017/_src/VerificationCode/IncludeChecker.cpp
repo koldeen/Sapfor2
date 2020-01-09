@@ -30,8 +30,7 @@ bool IncludeChecker(SgFile *file, const string &fileName, vector<Messages> &curr
         SgStatement *lastNode = st->lastNodeOfStmt();
         int lastLine = 1;
         while (st != lastNode)
-        {
-            currProcessing.second = st->lineNumber();
+        {            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");

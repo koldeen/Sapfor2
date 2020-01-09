@@ -573,7 +573,6 @@ void loopGraphAnalyzer(SgFile *file, vector<LoopGraph*> &loopGraph, const vector
         
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");

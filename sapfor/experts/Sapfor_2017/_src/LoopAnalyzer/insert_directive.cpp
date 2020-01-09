@@ -251,7 +251,6 @@ void insertDirectiveToFile(SgFile *file, const char *fin_name, const vector<pair
             if (st->variant() == CONTAINS_STMT)
                 break;
 
-            currProcessing.second = st->lineNumber();
             if (numSt != 0)
                 st = st->lexNext();
 
@@ -402,7 +401,6 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
 
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -434,8 +432,6 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
     {
         for (auto &elem : toDel)
         {
-            currProcessing.second = elem->lineNumber();
-
             moveComment(elem);
             elem->delComments();
 
@@ -456,8 +452,6 @@ void removeDvmDirectives(SgFile *file, const bool toComment)
     {
         for (auto &elem : toDel)
         {
-            currProcessing.second = elem->lineNumber();
-
             moveComment(elem);
             elem->deleteStmt();
         }
@@ -1468,8 +1462,7 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
     map<SgStatement*, set<string>> dvmhModuleSt;
     if (dvmhModule)
         dvmhModuleSt[dvmhModule] = set<string>();
-
-    currProcessing.first = file->filename();
+    
     for (int i = 0; i < modulesAndFuncs.size(); ++i)
     {
         SgStatement *st = modulesAndFuncs[i];
@@ -1500,7 +1493,6 @@ void insertDistributionToFile(SgFile *file, const char *fin_name, const DataDire
             
             if (st->variant() == CONTAINS_STMT)
                 break;
-            currProcessing.second = st->lineNumber();
 
             const int currV = st->variant();
             if (currV == VAR_DECL || currV == VAR_DECL_90 || currV == DIM_STAT || currV == COMM_STAT)

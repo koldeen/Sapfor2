@@ -1710,7 +1710,6 @@ void loopAnalyzer(SgFile *file, vector<ParallelRegion*> &regions, map<tuple<int,
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG
             createNeededException();
 #endif
@@ -2388,7 +2387,6 @@ void arrayAccessAnalyzer(SgFile *file, vector<Messages> &messagesForFile, const 
         double currentWeight = 1.0;
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
 #if _WIN32 && NDEBUG
             createNeededException();
 #endif
@@ -3036,7 +3034,6 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
 
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 
@@ -3086,7 +3083,6 @@ void getAllDeclaratedArrays(SgFile *file, map<tuple<int, string, string>, pair<D
         
         while (st != lastNode)
         {
-            currProcessing.second = st->lineNumber();
             if (st->variant() == CONTAINS_STMT)
                 break;
 

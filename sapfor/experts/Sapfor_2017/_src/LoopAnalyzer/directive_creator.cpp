@@ -1425,7 +1425,6 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
     for (int i = 0; i < loopGraph.size(); ++i)
     {
         LoopGraph *loop = loopGraph[i];
-        currProcessing.second = loop->loop->lineNumber();
 
         if (loop->directive && 
             (loop->hasLimitsToParallel() == false) && 

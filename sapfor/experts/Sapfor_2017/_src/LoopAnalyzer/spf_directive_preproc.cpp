@@ -1472,7 +1472,6 @@ bool check_par_reg_dirs(SgFile *file, vector<Messages> &messagesForFile)
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;
@@ -1507,7 +1506,6 @@ bool preprocess_spf_dirs(SgFile *file, const map<string, CommonBlock> &commonBlo
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
                 break;
             }
-            currProcessing.second = st->lineNumber();
 
             if (st->variant() == CONTAINS_STMT)
                 break;

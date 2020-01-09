@@ -422,7 +422,6 @@ static bool comparSort(pair<int, int> left, pair<int, int> right)
     return (left.second > right.second);
 }
 
-pair<string, int> currProcessing; // file and line
 static bool runAnalysis(SgProject &project, const int curr_regime, const bool need_to_unparse, const char *newVer = NULL, const char *folderName = NULL)
 {
     if (PASSES_DONE_INIT == false)
@@ -467,12 +466,14 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     SgStatement::cleanStatsByLine();
     SgStatement::cleanParentStatsForExprs();
 
+    SgStatement::setCurrProcessFile("");
+    SgStatement::setCurrProcessLine(-1);
+
     for (int i = n - 1; i >= 0; --i)
     {
         SgFile *file = &(project.file(i));
         updateStatsExprs(current_file_id, file->filename());
     }
-    currProcessing.first = ""; currProcessing.second = -1;
 
     auto rw_analyzer = ReadWriteAnalyzer(allFuncInfo);  // doesn't analyze anything until first query
 
@@ -487,8 +488,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
 #ifdef _WIN32
         sendMessage_2lvl(wstring(L"обработка файла '") + wstring(toSendStrMessage.begin(), toSendStrMessage.end()) + L"'");
 #endif
-        currProcessing.first = file->filename(); currProcessing.second = 0;
-
         const char *file_name = file->filename();
         __spf_print(DEBUG_LVL1, "  Analyzing: %s\n", file_name);
 
@@ -528,8 +527,7 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             loopAnalyzer(file, parallelRegions, createdArrays, getObjectForFileFromMap(file_name, SPF_messages), COMP_DISTR, 
                          allFuncInfo, declaratedArrays, declaratedArraysSt, arrayLinksByFuncCalls, createDefUseMapByPlace(),
                          false, &(itFound->second));
-
-            currProcessing.second = 0;
+            
             UniteNestedDirectives(itFound->second);
         }
         else if (curr_regime == CALL_GRAPH)
@@ -608,7 +606,6 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
             const bool extract = (curr_regime == EXTRACT_PARALLEL_DIRS);
 
             insertDirectiveToFile(file, file_name, createdDirectives[file_name], extract, getObjectForFileFromMap(file_name, SPF_messages));
-            currProcessing.second = 0;
 
             if (mpiProgram == 0)
             {
@@ -1050,8 +1047,8 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
     // **********************************  ///
     /// SECOND AGGREGATION STEP            ///
     // **********************************  ///
-    currProcessing.first = ""; currProcessing.second = -1;
-    if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
+    SgStatement::setCurrProcessFile("");
+    SgStatement::setCurrProcessLine(-1);    if (curr_regime == LOOP_ANALYZER_DATA_DIST_S2 || curr_regime == ONLY_ARRAY_GRAPH)
     {
         if (curr_regime == ONLY_ARRAY_GRAPH)
             keepFiles = 1;

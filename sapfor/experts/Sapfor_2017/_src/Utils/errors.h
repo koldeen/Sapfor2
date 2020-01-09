@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
-
+#ifdef __SPF
+#include "dvm.h"
+#endif
 enum typeMessage { WARR, ERROR, NOTE };
-extern std::pair<std::string, int> currProcessing; // file and line, default ["", -1]
 
 // GROUP:
 // 10xx - analysis
@@ -173,9 +174,9 @@ static void printStackTrace() { };
     sprintf(buf, "Internal error at line %d and file %s\n", line, file);\
     addToGlobalBufferAndPrint(buf);\
 \
-    if (currProcessing.first != "" && currProcessing.second != -1)\
+    if (SgStatement::getCurrProcessFile() != "" && SgStatement::getCurrProcessLine() != -1)\
     { \
-       sprintf(buf, "Internal error in user code at line %d and file %s\n", currProcessing.second, currProcessing.first.c_str());\
+       sprintf(buf, "Internal error in user code at line %d and file %s\n", SgStatement::getCurrProcessLine(), SgStatement::getCurrProcessFile().c_str());\
        addToGlobalBufferAndPrint(buf);\
     } \
     throw(-1);\

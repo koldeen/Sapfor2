@@ -34,8 +34,7 @@ bool EndDoLoopChecker(SgFile *file, vector<Messages> &currMessages)
 
         OmpDir globalParallelSection;
         while (st != lastNode)
-        {
-            currProcessing.second = st->lineNumber();
+        {            
             if (st == NULL)
             {
                 __spf_print(1, "internal error in analysis, parallel directives will not be generated for this file!\n");
@@ -119,8 +118,7 @@ bool DvmDirectiveChecker(SgFile *file, map<string, vector<int>> &errors, const i
         SgStatement *lastNode = st->lastNodeOfStmt();
 
         for ( ; st != lastNode; st = st->lexNext())
-        {
-            currProcessing.second = st->lineNumber();
+        {            
             if (st->variant() == CONTAINS_STMT)
                 break;
 
@@ -147,8 +145,7 @@ bool EquivalenceChecker(SgFile *file, const string &fileName, const vector<Paral
         int lastLine = 1;
 
         while (st != lastNode)
-        {
-            currProcessing.second = st->lineNumber();
+        {            
             lastLine = st->lineNumber();
             if (st == NULL)
             {

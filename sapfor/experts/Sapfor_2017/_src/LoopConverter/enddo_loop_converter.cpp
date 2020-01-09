@@ -301,7 +301,6 @@ static void fillEndOfLoop(SgStatement *st, map<SgForStmt*, SgLabel*> &endOfLoops
     SgStatement *lastNode = st->lastNodeOfStmt();
     while (st && st != lastNode)
     {
-        currProcessing.second = st->lineNumber();
         if (st->variant() == CONTAINS_STMT)
             break;
 
@@ -354,7 +353,6 @@ void ConverToEndDo(SgFile *file, vector<Messages> &messagesForFile)
             st = file->functions(i);
             while (st != lastNode)
             {
-                currProcessing.second = st->lineNumber();
                 if (st->variant() == CONTAINS_STMT)
                     break;
 
