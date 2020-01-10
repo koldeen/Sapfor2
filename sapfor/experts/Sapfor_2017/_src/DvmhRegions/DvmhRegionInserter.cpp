@@ -290,16 +290,17 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
 
     // Skip useless
     const int var = st->variant();
-    if (!isSgExecutableStatement(st) || isDVM_stat(st) || var == ALLOCATE_STMT || var == DEALLOCATE_STMT)
+    if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
+        var == ALLOCATE_STMT || var == DEALLOCATE_STMT || var == PROC_STAT ||
+        st->lastNodeOfStmt() != st)
+    {
         return st->lexNext();
+    }
 
     insertActualDirective(st, get_used_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
     insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
 
-    if (st->variant() == LOGIF_NODE)
-        return st->lexNext()->lexNext();
-    else
-        return st->lexNext();
+    return st->lexNext();
 }
 
 void DvmhRegionInserter::insertActualDirectives() 
@@ -362,6 +363,29 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
 
         list.push_back(new SgVarRefExp(findSymbolOrCreate(file, arrayName)));
     }
+    auto prev = st->lexPrev();
+    //filter get_actual list with previuos actual
+    if (prev && prev->variant() == ACC_ACTUAL_DIR && variant == ACC_GET_ACTUAL_DIR)
+    {
+        SgExpression* ex = prev->expr(0);
+        set<SgSymbol*> prevActual;
+        while (ex)
+        {
+            prevActual.insert(ex->lhs()->symbol());
+            ex = ex->rhs();
+        }
+
+        vector<SgExpression*> listNew;
+        for (auto& elem : list)
+        {
+            if (prevActual.find(elem->symbol()) == prevActual.end())
+                listNew.push_back(elem);
+        }
+        list = listNew;
+
+        if (list.size() == 0)
+            return;
+    }
     actualizingSt->setExpression(0, makeExprList(list));
 
     st->insertStmtBefore(*actualizingSt, *st->controlParent());
@@ -392,24 +416,25 @@ ArraySet DvmhRegionInserter::get_used_arrs(SgStatement* st, int usage_type) cons
 {
     VarUsages st_usages = rw_analyzer.get_usages(st);
     set<SgSymbol*> st_reads, st_writes;
-    if (st_usages.is_undefined())
-    
-        st_reads = st_writes = st_usages.get_all(VAR_DISTR_ARR);
+    if (st_usages.is_undefined())    
+        st_reads = st_writes = st_usages.get_all({ VAR_TYPE::VAR_DISTR_ARR, VAR_TYPE::VAR_ARR });
     else 
     {
-        st_reads = st_usages.get_reads(VAR_DISTR_ARR);
-        st_writes = st_usages.get_writes(VAR_DISTR_ARR);
+        st_reads = st_usages.get_reads({ VAR_TYPE::VAR_DISTR_ARR, VAR_TYPE::VAR_ARR });
+        st_writes = st_usages.get_writes({ VAR_TYPE::VAR_DISTR_ARR, VAR_TYPE::VAR_ARR });
     }
 
     if (usage_type == DVMH_REG_RD)
         return symbs_to_arrs(st_reads);
-    else
+    else if (usage_type == DVMH_REG_WT)
         return symbs_to_arrs(st_writes);
+    else
+        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
 ArraySet DvmhRegionInserter::get_used_arrs_for_block(SgStatement* st, int usage_type) const
 {
-    auto usages = ArraySet();
+    ArraySet usages;
     SgStatement *end = st->lastNodeOfStmt()->lexNext();
 
     while (st != end && st != NULL)

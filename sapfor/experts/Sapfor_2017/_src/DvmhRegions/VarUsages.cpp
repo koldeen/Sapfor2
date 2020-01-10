@@ -1,11 +1,7 @@
-//
-// Created by Vladislav Volodkin on 12/21/19.
-//
 #include "leak_detector.h"
 #include "VarUsages.h"
 
 using namespace std;
-
 
 void VarUsages::extend(const VarUsages& to_insert)
 {
@@ -15,7 +11,7 @@ void VarUsages::extend(const VarUsages& to_insert)
     writes.insert(to_insert.writes.begin(), to_insert.writes.end());
 }
 
-set<SgSymbol*> VarUsages::get_reads(VAR_TYPE var_type) const
+set<SgSymbol*> VarUsages::get_reads(const set<VAR_TYPE> var_type) const
 {
     if (undefined)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -23,7 +19,7 @@ set<SgSymbol*> VarUsages::get_reads(VAR_TYPE var_type) const
     return filter(reads, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_writes(VAR_TYPE var_type) const
+set<SgSymbol*> VarUsages::get_writes(const set<VAR_TYPE> var_type) const
 {
     if (undefined)
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
@@ -31,7 +27,7 @@ set<SgSymbol*> VarUsages::get_writes(VAR_TYPE var_type) const
     return filter(writes, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_all(VAR_TYPE var_type) const
+set<SgSymbol*> VarUsages::get_all(const set<VAR_TYPE> var_type) const
 {
     set<TypedSymbol> all_usages;
     all_usages.insert(reads.begin(), reads.end());
@@ -40,16 +36,20 @@ set<SgSymbol*> VarUsages::get_all(VAR_TYPE var_type) const
     return filter(all_usages, var_type);
 }
 
-set<SgSymbol*> VarUsages::get_reads() const { return get_reads(VAR_ANY); }
-set<SgSymbol*> VarUsages::get_writes() const { return get_writes(VAR_ANY); }
-set<SgSymbol*> VarUsages::get_all() const { return get_all(VAR_ANY); }
+set<SgSymbol*> VarUsages::get_reads() const { return get_reads({ VAR_TYPE::VAR_ANY }); }
+set<SgSymbol*> VarUsages::get_writes() const { return get_writes({ VAR_TYPE::VAR_ANY }); }
+set<SgSymbol*> VarUsages::get_all() const { return get_all({ VAR_TYPE::VAR_ANY }); }
 
-set<SgSymbol*> VarUsages::filter(const set<TypedSymbol> &symbols, VAR_TYPE var_type)
+set<SgSymbol*> VarUsages::filter(const set<TypedSymbol> &symbols, const set<VAR_TYPE> var_type)
 {
     set<SgSymbol*> filtered;
-    for (auto& s : symbols)
-        if (var_type == VAR_ANY || s.type == var_type)
+    if (var_type.find(VAR_TYPE::VAR_ANY) != var_type.end())
+        for (auto& s : symbols)
             filtered.insert(s.orig);
+    else
+        for (auto& s : symbols)
+            if (var_type.find(s.type) != var_type.end())
+                filtered.insert(s.orig);
     return filtered;
 }
 
@@ -87,7 +87,7 @@ void VarUsages::print() const
     printf("\n");
 
     printf("all: ");
-    for (auto& s : get_all(VAR_ANY))
+    for (auto& s : get_all({ VAR_TYPE::VAR_ANY }))
         printf("%s ", s->identifier());
     printf("\n");
 

@@ -4,7 +4,7 @@
 #include "../Utils/SgUtils.h"
 #include <string>
 
-enum VAR_TYPE { VAR_ARR, VAR_DISTR_ARR, VAR_SCALAR, VAR_ANY, VAR_UNDEFINED };
+enum class VAR_TYPE { VAR_ARR, VAR_DISTR_ARR, VAR_SCALAR, VAR_ANY, VAR_UNDEFINED };
 
 class TypedSymbol
 {

@@ -5,16 +5,18 @@ using namespace std;
 
 TypedSymbol::TypedSymbol(SgExpression* orig_exp) : orig(orig_exp->symbol())
 {
-    type = VAR_UNDEFINED;
+    type = VAR_TYPE::VAR_UNDEFINED;
     if (orig_exp->variant() == VAR_REF)
-        type = VAR_SCALAR;
+        type = VAR_TYPE::VAR_SCALAR;
 
     if (orig_exp->variant() == ARRAY_REF)
     {
-        type = VAR_ARR;
+        type = VAR_TYPE::VAR_ARR;
         DIST::Array* arr = getArrayFromDeclarated(declaratedInStmt(orig), orig->identifier());
-        if (arr && !arr->GetNonDistributeFlag())
-            type = VAR_DISTR_ARR;
+        if (arr == NULL) //for strings charecter(*)
+            type = VAR_TYPE::VAR_SCALAR;
+        else if (!arr->GetNonDistributeFlag())
+            type = VAR_TYPE::VAR_DISTR_ARR;
     }
 }
 

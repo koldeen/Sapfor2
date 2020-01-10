@@ -20,14 +20,14 @@ public:
     void insert_write(const TypedSymbol&);
 
     bool is_undefined() const;
-    std::set<SgSymbol*> get_reads(VAR_TYPE) const;
-    std::set<SgSymbol*> get_writes(VAR_TYPE) const;
-    std::set<SgSymbol*> get_all(VAR_TYPE) const;
+    std::set<SgSymbol*> get_reads(const std::set<VAR_TYPE>) const;
+    std::set<SgSymbol*> get_writes(const std::set<VAR_TYPE>) const;
+    std::set<SgSymbol*> get_all(const std::set<VAR_TYPE>) const;
 
     std::set<SgSymbol*> get_reads() const;
     std::set<SgSymbol*> get_writes() const;
     std::set<SgSymbol*> get_all() const;
 
-    static std::set<SgSymbol*> filter(const std::set<TypedSymbol>&, VAR_TYPE);
+    static std::set<SgSymbol*> filter(const std::set<TypedSymbol>&, const std::set<VAR_TYPE>);
     void print() const;
 };
