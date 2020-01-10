@@ -289,7 +289,8 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
     }
 
     // Skip useless
-    if (!isSgExecutableStatement(st) || isDVM_stat(st))
+    const int var = st->variant();
+    if (!isSgExecutableStatement(st) || isDVM_stat(st) || var == ALLOCATE_STMT || var == DEALLOCATE_STMT)
         return st->lexNext();
 
     insertActualDirective(st, get_used_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
