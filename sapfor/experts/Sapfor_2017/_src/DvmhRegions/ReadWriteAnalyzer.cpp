@@ -104,6 +104,14 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, con
 {
     VarUsages usages;
 
+    vector<int> inOutTypes;
+    if (!isIntrinsicFunctionName(func_key.c_str()))
+    {
+        auto it = modified_pars.find(func_key);
+        if (it != modified_pars.end())
+            inOutTypes = it->second;
+    }
+
     int param_no = 0;
     while (params_tree)
     {
@@ -111,22 +119,18 @@ VarUsages ReadWriteAnalyzer::findUsagesInFuncCall(SgExpression* params_tree, con
 
         if (param->variant() == VAR_REF || param->variant() == ARRAY_REF)
         {
-            if (!isIntrinsicFunctionName(func_key.c_str()))
+            if (inOutTypes.size())
             {
-                auto it = modified_pars.find(func_key);
-                if (it == modified_pars.end())
-                    usages.insert_write(param);
-                else
-                {
+                if (param_no >= inOutTypes.size())
+                    printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 
-                    auto is_param_modified = it->second;
-                    if (param_no >= is_param_modified.size())
-                        printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
-                    if (is_param_modified[param_no])
-                        usages.insert_write(param);
-                }
+                if (FuncParam::isArgIn((int64_t)inOutTypes[param_no]))
+                    usages.insert_read(param);
+                if (FuncParam::isArgOut((int64_t)inOutTypes[param_no]))
+                    usages.insert_write(param);
             }
-            usages.insert_read(param);
+            else
+                usages.insert_read(param);
         }
 
         param_no++;
@@ -224,9 +228,9 @@ void ReadWriteAnalyzer::print() const
         printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
 }
 
-map<string, vector<bool>> ReadWriteAnalyzer::load_modified_pars(const map<string, vector<FuncInfo*>> &files)
+map<string, vector<int>> ReadWriteAnalyzer::load_modified_pars(const map<string, vector<FuncInfo*>> &files)
 {
-    map<string, vector<bool>> res;
+    map<string, vector<int>> res;
 
     for (auto& funcs : files)
     {
@@ -234,14 +238,8 @@ map<string, vector<bool>> ReadWriteAnalyzer::load_modified_pars(const map<string
 
         for (auto& func : funcs.second)
         {
-            auto func_pars_info = func->funcParams;
-            auto func_pars = vector<bool>();
-
-            for (int i = 0; i < func_pars_info.countOfPars; i++)
-                func_pars.push_back(func_pars_info.isArgOut(i));
-
             string func_key = func->funcName;
-            res[func_key] = func_pars;
+            res[func_key] = func->funcParams.inout_types;
         }
     }
     return res;

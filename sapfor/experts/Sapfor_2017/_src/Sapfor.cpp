@@ -990,10 +990,10 @@ static bool runAnalysis(SgProject &project, const int curr_regime, const bool ne
         else if (curr_regime == INSERT_REGIONS)
         {
             auto loopForFile = getObjectForFileFromMap(file_name, loopGraph);
-            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer);
+            DvmhRegionInserter regionInserter(file, loopForFile, rw_analyzer, arrayLinksByFuncCalls);
 
             //collect info about <parallel> functions
-            regionInserter.updateParallelFunctions(loopForFile, allFuncInfo);
+            regionInserter.updateParallelFunctions(loopGraph, allFuncInfo);
 
             regionInserter.insertDirectives();
 

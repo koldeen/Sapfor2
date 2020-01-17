@@ -14,7 +14,7 @@
 class ReadWriteAnalyzer
 {
     std::map<std::string, std::vector<FuncInfo*>> &funcInfo;  // TODO: could be not initilized; should be rebuilt on invalidate()
-    std::map<std::string, std::vector<bool>> modified_pars;   // func -> used for write params,
+    std::map<std::string, std::vector<int>> modified_pars;   // func -> used for [in, inout, out] params,
     std::map<SgStatement*, VarUsages> usages_by_statement;    // maps statements to variables used in them
 
     std::set<std::string> initialized; // files was inited
@@ -39,5 +39,5 @@ public:
 
     void print() const;
 
-    static std::map<std::string, std::vector<bool>> load_modified_pars(const std::map<std::string, std::vector<FuncInfo*>>&);
+    static std::map<std::string, std::vector<int>> load_modified_pars(const std::map<std::string, std::vector<FuncInfo*>>&);
 };

@@ -37,7 +37,8 @@ class DvmhRegionInserter
     const std::vector<LoopGraph*> &loopGraph;
     ReadWriteAnalyzer& rw_analyzer;
     std::map<std::string, std::string> parallel_functions;  // fun_name -> file_name
-
+    std::set<DIST::Array*> writesToArraysInParallelLoop;
+    std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls;
     // operating data
     std::vector<DvmhRegion*> regions;
 
@@ -52,7 +53,7 @@ class DvmhRegionInserter
     ArraySet get_used_arrs_for_block(SgStatement* st, int usage_type) const;
     SgStatement* processSt(SgStatement *st);
     void insertActualDirectives();
-    void insertActualDirective(SgStatement*, const ArraySet&, int, bool);
+    void insertActualDirective(SgStatement*, const ArraySet&, int, bool, const std::set<std::string>* = NULL);
 
     void parFuncsInNode(LoopGraph *loop, bool isParallel);
     bool isLoopParallel(const LoopGraph *loop) const;
@@ -60,12 +61,13 @@ public:
     DvmhRegionInserter(
         SgFile* curFile,
         const std::vector<LoopGraph*>& curLoopGraph,
-        ReadWriteAnalyzer& rws
-    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws) { }
+        ReadWriteAnalyzer& rws,
+        std::map<DIST::Array*, std::set<DIST::Array*>>& arrayLinksByFuncCalls
+    ) : file(curFile), loopGraph(curLoopGraph), rw_analyzer(rws), arrayLinksByFuncCalls(arrayLinksByFuncCalls) { }
 
     void insertDirectives();
 
-    void updateParallelFunctions(const std::vector<LoopGraph*>&loopGraphs, const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
+    void updateParallelFunctions(const std::map<std::string, std::vector<LoopGraph*>>& loopGraphs, const std::map<std::string, std::vector<FuncInfo*>> &callGraphs);
 
     ~DvmhRegionInserter()
     {

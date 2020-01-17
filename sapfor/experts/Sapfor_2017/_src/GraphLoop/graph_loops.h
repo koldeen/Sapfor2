@@ -253,13 +253,16 @@ public:
 
     void removeNonDistrArrays()
     {
-        std::set<DIST::Array*> newUsedArrays;
+        usedArraysAll = usedArrays;
+        usedArraysWriteAll = usedArraysWrite;
+
+        std::set<DIST::Array*> newUsedArrays;        
         for (auto &elem : usedArrays)
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
                 newUsedArrays.insert(elem);
         usedArrays = newUsedArrays;
 
-        std::set<DIST::Array*> newUsedArraysW;
+        std::set<DIST::Array*> newUsedArraysW;        
         for (auto &elem : usedArraysWrite)
             if (elem->GetNonDistributeFlagVal() == DIST::DISTR)
                 newUsedArraysW.insert(elem);
@@ -353,8 +356,10 @@ public:
 
     Statement *loop;
 
-    std::set<DIST::Array*> usedArrays;
-    std::set<DIST::Array*> usedArraysWrite;
+    std::set<DIST::Array*> usedArrays;// without NON DIST
+    std::set<DIST::Array*> usedArraysAll;
+    std::set<DIST::Array*> usedArraysWrite; // without NON DIST
+    std::set<DIST::Array*> usedArraysWriteAll;
 
     int inDvmhRegion; // 0 -unknown, -1 - no, 1 - yes
 };

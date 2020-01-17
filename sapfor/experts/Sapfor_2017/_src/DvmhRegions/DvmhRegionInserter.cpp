@@ -78,7 +78,6 @@ bool DvmhRegionInserter::isLoopParallel(const LoopGraph *loop) const
             return true;
         prev_st = prev_st->lexPrev();
     }
-
     return false;
 }
 
@@ -89,23 +88,41 @@ void DvmhRegionInserter::parFuncsInNode(LoopGraph *loop, bool isParallel)
 
     // meat: save parallel calls
     if (isParallel)
-        for (auto &call : loop->calls)  // mark call as parallel
+    {
+        for (auto& call : loop->calls)  // mark call as parallel
             parallel_functions[call.first] = loop->fileName;
-
-    // recursion: check nested loops, TODO: check if recursion is required
-    for (auto& nestedLoop : loop->children)
-        parFuncsInNode(nestedLoop, isParallel);
+        writesToArraysInParallelLoop.insert(loop->usedArraysWriteAll.begin(), loop->usedArraysWriteAll.end());
+    }
+    else    
+        for (auto& nestedLoop : loop->children)
+            parFuncsInNode(nestedLoop, isParallel);
 }
 
-void DvmhRegionInserter::updateParallelFunctions(const vector<LoopGraph*> &loopGraphs, const map<string, vector<FuncInfo*>> &callGraphs)
+void DvmhRegionInserter::updateParallelFunctions(const map<string, vector<LoopGraph*>> &loopGraphs, const map<string, vector<FuncInfo*>> &callGraphs)
 {    
-    for (auto& loopNode : loopGraphs)
+    for (auto& loopGraph : loopGraphs)
     {
-        bool isParallel = isLoopParallel(loopNode);
-        parFuncsInNode(loopNode, isParallel);
+        auto save = current_file->filename();
+
+        if (SgFile::switchToFile(loopGraph.first) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+        for (auto& loopNode : loopGraph.second)
+        {
+            bool isParallel = isLoopParallel(loopNode);
+            parFuncsInNode(loopNode, isParallel);
+        }
+
+        if (SgFile::switchToFile(save) == -1)
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
     }
 
-    auto funcsInfo = FuncsInfoByFile();
+    ArraySet newSet = writesToArraysInParallelLoop;
+    for (auto& elem : writesToArraysInParallelLoop)
+        getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
+    writesToArraysInParallelLoop = newSet;
+
+    //TODO: check this
+    FuncsInfoByFile funcsInfo;
     for (auto &file : callGraphs)
     {
         funcsInfo[file.first] = FuncsWithCalls();
@@ -263,6 +280,32 @@ static SgStatement* skipDvmhRegionInterval(SgStatement *start)
     return st->lexNext();
 }
 
+static void createExceptList(SgExpression *ex, set<string> &symbs)
+{
+    if (ex)
+    {
+        if (ex->variant() == FUNC_CALL)
+        {
+            SgExpression* list = ex->lhs();
+            while (list)
+            {
+                int listVar = list->lhs()->variant();
+                if (listVar == ARRAY_REF)
+                    symbs.insert(list->lhs()->symbol()->identifier());
+                else
+                    createExceptList(list->lhs(), symbs);
+                list = list->rhs();
+            }
+        }
+        else
+        {
+            createExceptList(ex->lhs(), symbs);
+            createExceptList(ex->rhs(), symbs);
+        }
+    }
+}
+
+//TODO:
 SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
 {
     if (st == NULL)
@@ -290,16 +333,50 @@ SgStatement* DvmhRegionInserter::processSt(SgStatement *st)
 
     // Skip useless
     const int var = st->variant();
+
+
     if (!isSgExecutableStatement(st) || isDVM_stat(st) ||
-        var == ALLOCATE_STMT || var == DEALLOCATE_STMT || var == PROC_STAT ||
+        var == ALLOCATE_STMT || var == DEALLOCATE_STMT || 
         st->lastNodeOfStmt() != st)
     {
         return st->lexNext();
     }
 
-    insertActualDirective(st, get_used_arrs(st, DVMH_REG_RD), ACC_GET_ACTUAL_DIR, true);
-    insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false);
+    
 
+    //TODO: read and write !!!
+    if (var != PROC_STAT && var != READ_STAT)
+    {
+        set<string> exceptSymbsForActual;
+        if (var != WRITE_STAT)
+            for (int z = 0; z < 3; ++z)
+                createExceptList(st->expr(z), exceptSymbsForActual);
+
+        //filtering by writes in DVMH regions
+        auto readArrays = get_used_arrs(st, DVMH_REG_RD);
+        ArraySet newReadArrays;
+        for (auto& elem : readArrays)
+        {
+            ArraySet newSet;
+            getRealArrayRefs(elem, elem, newSet, arrayLinksByFuncCalls);
+
+            for (auto& orig : newSet)
+                if (writesToArraysInParallelLoop.find(orig) != writesToArraysInParallelLoop.end())
+                    newReadArrays.insert(elem);
+        }
+
+        insertActualDirective(st, newReadArrays, ACC_GET_ACTUAL_DIR, true, &exceptSymbsForActual);
+    }
+
+    if (var != PROC_STAT && var != WRITE_STAT)
+    {
+        set<string> exceptSymbsForActual;
+        if (var != READ_STAT)
+            for (int z = 0; z < 3; ++z)
+                createExceptList(st->expr(z), exceptSymbsForActual);
+
+        insertActualDirective(st->lexNext(), get_used_arrs(st, DVMH_REG_WT), ACC_ACTUAL_DIR, false, &exceptSymbsForActual);
+    }
     return st->lexNext();
 }
 
@@ -347,7 +424,7 @@ void DvmhRegionInserter::insertDirectives()
     insertActualDirectives();
 }
 
-void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments)
+void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &arraySet, int variant, bool moveComments, const set<string>* exceptSymbs)
 {
     if (!st || (variant != ACC_ACTUAL_DIR && variant != ACC_GET_ACTUAL_DIR) || (arraySet.size() == 0))
         return;
@@ -361,35 +438,53 @@ void DvmhRegionInserter::insertActualDirective(SgStatement *st, const ArraySet &
         if (arr->GetLocation().first == DIST::l_MODULE)
             arrayName = getNameByUse(st, arrayName, arr->GetLocation().second);
 
+        if (exceptSymbs)
+            if (exceptSymbs->find(arrayName) != exceptSymbs->end())
+                continue;
         list.push_back(new SgVarRefExp(findSymbolOrCreate(file, arrayName)));
     }
-    auto prev = st->lexPrev();
-    //filter get_actual list with previuos actual
-    if (prev && prev->variant() == ACC_ACTUAL_DIR && variant == ACC_GET_ACTUAL_DIR)
+    if (list.size() == 0)
+        return;
+        
+    if (variant == ACC_GET_ACTUAL_DIR)
     {
-        SgExpression* ex = prev->expr(0);
-        set<SgSymbol*> prevActual;
-        while (ex)
+        auto prev = st->lexPrev();
+        //filter get_actual list with previuos actual
+        if (prev && prev->variant() == ACC_ACTUAL_DIR)
         {
-            prevActual.insert(ex->lhs()->symbol());
-            ex = ex->rhs();
-        }
+            SgExpression* ex = prev->expr(0);
+            set<SgSymbol*> prevActual;
+            while (ex)
+            {
+                prevActual.insert(ex->lhs()->symbol());
+                ex = ex->rhs();
+            }
 
-        vector<SgExpression*> listNew;
-        for (auto& elem : list)
+            vector<SgExpression*> listNew;
+            for (auto& elem : list)
+            {
+                if (prevActual.find(elem->symbol()) == prevActual.end())
+                    listNew.push_back(elem);
+            }
+            list = listNew;
+
+            if (list.size() == 0)
+                return;
+        }
+    }
+    else if (variant == ACC_ACTUAL_DIR)
+    {
+        auto prev = st->lexPrev();
+        if (prev && prev->variant() == ASSIGN_STAT)
         {
-            if (prevActual.find(elem->symbol()) == prevActual.end())
-                listNew.push_back(elem);
+            // actualizing only left part of assign
+            list.clear();
+            list.push_back(prev->expr(0)->copyPtr());
         }
-        list = listNew;
-
-        if (list.size() == 0)
-            return;
     }
     actualizingSt->setExpression(0, makeExprList(list));
 
     st->insertStmtBefore(*actualizingSt, *st->controlParent());
-
     if (moveComments)
     {
         if (st->comments())

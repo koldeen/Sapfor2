@@ -65,6 +65,10 @@ struct FuncParam
             return isArgIn(num) && isArgOut(num);
     }
 
+    static bool isArgIn(int64_t type) { return (type & IN_BIT) != 0; }
+    static bool isArgOut(int64_t type) { return (type & OUT_BIT) != 0; }
+    static bool isArgInOut(int64_t type) { return isArgIn(type) && isArgOut(type); }
+
     std::vector<std::string> identificators;
     std::vector<void*> parameters;
     std::vector<paramType> parametersT;

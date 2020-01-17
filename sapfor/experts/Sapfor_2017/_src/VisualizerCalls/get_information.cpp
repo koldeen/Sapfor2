@@ -203,7 +203,7 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
         return;
     }
 #endif
-    catch (std::exception&)
+    catch (std::exception& ex)
     {
         if (showDebug)
             printf("SAPFOR: thread was terminated\n");
