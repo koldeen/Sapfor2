@@ -6166,7 +6166,11 @@ SgExpression *doShapeList(SgSymbol *ar, SgStatement *st)   /* RTS2 */
   for(i=0; i<ndim ; i++) {   
 
     pe = artype->sizeInDim(i);
-    if ((sbe=isSgSubscriptExp(pe)) != NULL) {
+    if(IS_BY_USE(ar)) {
+         u_bound = UBOUNDFunction(ar,i+1);
+         l_bound = LBOUNDFunction(ar,i+1);  
+    }
+    else if ((sbe=isSgSubscriptExp(pe)) != NULL) {
       if(sbe->ubound() && (sbe->ubound()->variant() == INT_VAL || sbe->ubound()->variant() == CONST_REF) && (!sbe->lbound() || sbe->lbound() && (sbe->lbound()->variant() == INT_VAL || sbe->lbound()->variant() == CONST_REF))) {
          u_bound =  &((sbe->ubound())->copy());
          if(sbe->lbound())

@@ -898,8 +898,16 @@ static bool matchPrototype(SgSymbol *funcSymb, SgExpression *&listArgs)
         {
             if (ndl->name == name && current_file == ndl->file)
             {
-                CreateIntefacePrototype(ndl->st_header);
-                argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
+                if (ndl->st_header == NULL)
+                {
+                    Error("Can not find procedure header %s", name.c_str(), 900, first_do_par);
+                    ret = false;
+                }
+                else
+                {
+                    CreateIntefacePrototype(ndl->st_header);
+                    argsBits = fillBitsOfArgs(isSgProgHedrStmt(ndl->st_header));
+                }
             }
         }
 

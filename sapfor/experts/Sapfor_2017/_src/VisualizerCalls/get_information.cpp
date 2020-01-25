@@ -36,6 +36,7 @@
 #include "../Distribution/CreateDistributionDirs.h"
 #include "../LoopAnalyzer/loop_analyzer.h"
 #include <thread>
+#include <exception>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -205,8 +206,7 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
 #endif
     catch (std::exception& ex)
     {
-        if (showDebug)
-            printf("SAPFOR: thread was terminated\n");
+        printf("SAPFOR: thread was terminated with exception: %s\n", ex.what());
         fflush(NULL);
         rethrow = -1;
     }
@@ -1252,6 +1252,59 @@ int SPF_SetDistributionFlagToArray(void*& context, char *key, int flag)
     return 0;
 }
 
+int SPF_SetDistributionFlagToArrays(void*& context, const char* keys, const char* flags)
+{
+    MessageManager::clearCache();
+
+    if (!keys || !flags)
+        return 0;
+
+    try
+    {
+        vector<string> keysS;
+        vector<string> flagsS;
+
+        splitString(keys, '|', keysS);
+        splitString(flags, '|', flagsS);
+        
+        if (keysS.size() != flagsS.size())
+            printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+        map<string, DIST::Array*> allArrays;
+        for (auto& array : declaratedArrays)
+            allArrays[array.second.first->GetName()] = array.second.first;
+
+        for (int z = 0; z < keysS.size(); ++z)
+        {
+            auto it = allArrays.find(keysS[z]);
+            if (it == allArrays.end())
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            int flag = -1;
+            if (sscanf(flagsS[z].c_str(), "%d", &flag) != 1)
+            {
+                __spf_print(1, "!wrong value!\n");
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+            }
+
+            if (flag != 0 && flag != 1)
+                printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
+
+            __spf_print(1, "change flag for array '%s': %d -> %d\n", keysS[z].c_str(), it->second->GetNonDistributeFlag(), flag);
+
+            if (flag == 0)
+                it->second->SetNonDistributeFlag(DIST::DISTR);
+            else
+                it->second->SetNonDistributeFlag(DIST::NO_DISTR);
+        }
+    }
+    catch (...)
+    {
+        return -1;
+    }
+    return 0;
+}
+
 static int simpleTransformPass(const passes PASS_NAME, short *options, short *projName, short *folderName,
                                short *&output, int *&outputSize, short *&outputMessage, int *&outputMessageSize)
 {
@@ -1716,7 +1769,7 @@ void SPF_deleteAllAllocatedData(void*& context)
 void createNeededException()
 {
     if (passDone == 2)
-        throw std::exception();
+        throw std::runtime_error("Interrupted by user\n");
 }
 
 #ifdef JAVA
@@ -1944,19 +1997,19 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
     short* fold = toShort(folder_c);
     short* addOpt = toShort(addOpt_c);
 
-    if (whichRun == "SPF_GetGraphLoops")
+    if (whichRun == "SPF_CorrectCodeStylePass")
         retCode = SPF_CorrectCodeStylePass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_RemoveDvmDirectives")
+    else if (whichRun == "SPF_RemoveDvmDirectives")
         retCode = SPF_RemoveDvmDirectives(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_RemoveDvmDirectivesToComments")
+    else if (whichRun == "SPF_RemoveDvmDirectivesToComments")
         retCode = SPF_RemoveDvmDirectivesToComments(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_InsertIncludesPass")
+    else if (whichRun == "SPF_InsertIncludesPass")
         retCode = SPF_InsertIncludesPass(context, winHandler, optSh, projSh, fold, (char*)addOpt_c, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_ResolveParallelRegionConflicts")
+    else if (whichRun == "SPF_ResolveParallelRegionConflicts")
         retCode = SPF_ResolveParallelRegionConflicts(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_LoopEndDoConverterPass")
+    else if (whichRun == "SPF_LoopEndDoConverterPass")
         retCode = SPF_LoopEndDoConverterPass(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_CreateParallelVariant")
+    else if (whichRun == "SPF_CreateParallelVariant")
     {
         //TODO: predStats
         vector<string> splited;
@@ -1976,21 +2029,21 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunTransformation(
             delete []varLen;
         }
     }
-    if (whichRun == "SPF_LoopFission")
+    else if (whichRun == "SPF_LoopFission")
         retCode = SPF_LoopFission(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_LoopUnion")
+    else if (whichRun == "SPF_LoopUnion")
         retCode = SPF_LoopUnion(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_PrivateExpansion")
+    else if (whichRun == "SPF_PrivateExpansion")
         retCode = SPF_PrivateExpansion(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_PrivateShrinking")
+    else if (whichRun == "SPF_PrivateShrinking")
         retCode = SPF_PrivateShrinking(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_CreateIntervalsTree")
+    else if (whichRun == "SPF_CreateIntervalsTree")
         retCode = SPF_CreateIntervalsTree(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_RemoveDvmIntervals")
+    else if (whichRun == "SPF_RemoveDvmIntervals")
         retCode = SPF_RemoveDvmIntervals(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_DuplicateFunctionChains")
+    else if (whichRun == "SPF_DuplicateFunctionChains")
         retCode = SPF_DuplicateFunctionChains(context, winHandler, optSh, projSh, fold, output, outputSize, outputMessage, outputMessageSize);
-    if (whichRun == "SPF_InlineProcedures")
+    else if (whichRun == "SPF_InlineProcedures")
         retCode = SPF_InlineProcedures(context, winHandler, optSh, projSh, fold, output, addOpt, outputSize, outputMessage, outputMessageSize);
     else
     {
@@ -2073,6 +2126,8 @@ JNIEXPORT jcharArray JNICALL Java_components_Sapfor_SPF_1RunModification
         int flag = atoi(addOpt2_c);
         retCode = SPF_SetDistributionFlagToArray(context, (char*)addOpt1_c, flag);
     }
+    else if (whichRun == "SPF_SetDistributionFlagToArrays")
+        retCode = SPF_SetDistributionFlagToArrays(context, addOpt1_c, addOpt2_c);    
     else
     {
         if (showDebug)

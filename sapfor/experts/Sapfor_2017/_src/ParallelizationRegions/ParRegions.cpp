@@ -199,6 +199,7 @@ static void setExplicitFlag(const string &name, const map<string, FuncInfo*> &ma
 
 static void fillDvmDirs(SgStatement *st, vector<Statement*> &userDvmDistrDirs, vector<Statement*> &userDvmAlignDirs,
                         vector<Statement*> &userDvmShadowDirs, vector<Statement*> &userDvmRealignDirs, vector<Statement*> &userDvmRedistrDirs,
+                        vector<Statement*>& userDvmRealignDirsDef, vector<Statement*>& userDvmRedistrDirsDef,
                         const bool &regionStarted, const map<int, LoopGraph*> &allLoopsInFile)
 {
     switch (st->variant())
@@ -225,10 +226,12 @@ static void fillDvmDirs(SgStatement *st, vector<Statement*> &userDvmDistrDirs, v
     case DVM_REALIGN_DIR:
         if (regionStarted)
             userDvmRealignDirs.push_back(new Statement(st));
+        userDvmRealignDirsDef.push_back(new Statement(st));
         break;
     case DVM_REDISTRIBUTE_DIR:
         if (regionStarted)
             userDvmRedistrDirs.push_back(new Statement(st));
+        userDvmRedistrDirsDef.push_back(new Statement(st));
         break;
     case DVM_PARALLEL_ON_DIR:
         if (st->lexNext()->variant() == FOR_NODE)
@@ -327,6 +330,9 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
         vector<Statement*> userDvmRealignDirs;
         vector<Statement*> userDvmRedistrDirs;
 
+        vector<Statement*> userDvmRealignDirsDef;
+        vector<Statement*> userDvmRedistrDirsDef;
+
         set<string> usedArrayInRegion;
 
         SgStatement *st = file->functions(i);
@@ -399,7 +405,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
                 for (auto &func : funcCallFromReg)
                     currReg->AddFuncCalls(func);
 
-                filterUserDirectives(currReg, usedArrayInRegion, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs);
+                filterUserDirectives(currReg, usedArrayInRegion, userDvmRedistrDirs, userDvmRealignDirs, userDvmShadowDirs);
                 currReg->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
                 currReg->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
 
@@ -421,7 +427,7 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
                     fillArrayNamesInReg(usedArrayInRegion, st->expr(i));
             }
 
-            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, regionStarted, allLoopsInFile);
+            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, userDvmRealignDirsDef, userDvmRealignDirsDef, regionStarted, allLoopsInFile);
             st = st->lexNext();
         }
 
@@ -429,8 +435,8 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
         defaultR->AddUserDirectives(userDvmDistrDirs, DVM_DISTRIBUTE_DIR);
         defaultR->AddUserDirectives(userDvmAlignDirs, DVM_ALIGN_DIR);
         defaultR->AddUserDirectives(userDvmShadowDirs, DVM_SHADOW_DIR);
-        defaultR->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
-        defaultR->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
+        defaultR->AddUserDirectives(userDvmRealignDirsDef, DVM_REALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmRedistrDirsDef, DVM_REDISTRIBUTE_DIR);
     }
 
     vector<SgStatement*> modules;
@@ -445,19 +451,23 @@ void fillRegionLines(SgFile *file, vector<ParallelRegion*> &regions, vector<Mess
         vector<Statement*> userDvmRealignDirs;
         vector<Statement*> userDvmRedistrDirs;
 
+        vector<Statement*> userDvmRealignDirsDef;
+        vector<Statement*> userDvmRedistrDirsDef;
+
+
         for (SgStatement* st = mod->lexNext(); st; st = st->lexNext())
         {
             if (isSgExecutableStatement(st))
                 break;
-            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, regionStarted, allLoopsInFile);
+            fillDvmDirs(st, userDvmDistrDirs, userDvmAlignDirs, userDvmShadowDirs, userDvmRealignDirs, userDvmRealignDirs, userDvmRealignDirsDef, userDvmRealignDirsDef, regionStarted, allLoopsInFile);
         }
 
         //for default
         defaultR->AddUserDirectives(userDvmDistrDirs, DVM_DISTRIBUTE_DIR);
         defaultR->AddUserDirectives(userDvmAlignDirs, DVM_ALIGN_DIR);
         defaultR->AddUserDirectives(userDvmShadowDirs, DVM_SHADOW_DIR);
-        defaultR->AddUserDirectives(userDvmRealignDirs, DVM_REALIGN_DIR);
-        defaultR->AddUserDirectives(userDvmRedistrDirs, DVM_REDISTRIBUTE_DIR);
+        defaultR->AddUserDirectives(userDvmRealignDirsDef, DVM_REALIGN_DIR);
+        defaultR->AddUserDirectives(userDvmRedistrDirsDef, DVM_REDISTRIBUTE_DIR);
     }
 }
 

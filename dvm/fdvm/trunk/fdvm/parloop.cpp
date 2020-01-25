@@ -83,11 +83,10 @@ int ParallelLoop(SgStatement *stmt)
  
 //allocating LoopRef and OutInitIndexArray,OutLastIndexArray,OutStepArray 
   iplp = ndvm++;
+  iout = ndvm; 
   if(interface != 2)
-  {
-     iout = ndvm; 
      ndvm += 3*nloop;
-  }  
+   
 //looking through the loop nest 
   for(st=first_do,stl=NULL,i=0; i<nloop; st=st->lexNext(),i++) {
      stdo = isSgForStmt(st);
