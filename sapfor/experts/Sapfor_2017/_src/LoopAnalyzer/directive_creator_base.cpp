@@ -68,11 +68,11 @@ static LoopGraph* createDirectiveForLoop(LoopGraph *currentLoop, MapToArray &mai
     //remote from SHADOW all arrays from REMOTE
     for (auto it = directive->remoteAccess.begin(); it != directive->remoteAccess.end(); ++it)
     {
-        string arrayN = it->first.first;
+        string arrayN = it->first.first.second;
 
         for (int k = 0; k < directive->shadowRenew.size(); ++k)
         {
-            if (directive->shadowRenew[k].first.first == arrayN)
+            if (directive->shadowRenew[k].first.second == arrayN)
             {
                 directive->shadowRenew.erase(directive->shadowRenew.begin() + k);
                 break;

@@ -473,7 +473,16 @@ void fillInfoFromDirectives(const LoopGraph *loopInfo, ParallelDirective *direct
         fillReductionsFromComment(sData, directive->reductionLoc, true);
         fillShadowAcrossFromComment(SHADOW_OP, sData, directive->shadowRenew);
         fillShadowAcrossFromComment(ACROSS_OP, sData, directive->across);
-        fillRemoteFromComment(sData, directive->remoteAccess);
+
+        map<pair<SgSymbol*, string>, Expression*> remotes;
+        fillRemoteFromComment(sData, remotes);
+        for (auto& elem : remotes)
+        {
+            SgSymbol* symb = OriginalSymbol(elem.first.first);
+            auto uniqKey = getFromUniqTable(symb);
+            
+            directive->remoteAccess[make_pair(make_pair(elem.first.first->identifier(), getShortName(uniqKey)), elem.first.second)] = new Expression(elem.second->GetOriginal());
+        }        
     }
 }
 

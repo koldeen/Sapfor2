@@ -192,6 +192,7 @@ static void runPassesLoop(const vector<passes> &passesToRun, const char *prName,
         {
             if (showDebug)
                 printf("SAPFOR: run pass %d -> %s\n", passesToRun[i], passNames[passesToRun[i]]);
+            __spf_print(1, "SAPFOR: run pass %d -> %s\n", passesToRun[i], passNames[passesToRun[i]]);
             runPass(passesToRun[i], prName, folderNameChar);
         }
     }

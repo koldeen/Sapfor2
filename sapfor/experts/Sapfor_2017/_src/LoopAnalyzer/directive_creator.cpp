@@ -1395,7 +1395,7 @@ static bool tryToResolveUnmatchedDims(const map<DIST::Array*, vector<bool>> &dim
                                     else
                                         listB->append(*new SgExpression(DDOT));
                                 }
-                                parDirective->remoteAccess[make_pair(elem.first->GetShortName(), bounds)] = new Expression(listB);
+                                parDirective->remoteAccess[make_pair(make_pair(elem.first->GetShortName(), elem.first->GetName()), bounds)] = new Expression(listB);
                             }
                         }
                     }
@@ -1429,7 +1429,9 @@ void selectParallelDirectiveForVariant(SgFile *file, ParallelRegion *currParReg,
         if (loop->directive && 
             (loop->hasLimitsToParallel() == false) && 
             (loop->region == currParReg) && 
-            (loop->userDvmDirective == NULL))
+            (loop->userDvmDirective == NULL) &&
+            (loop->hasLimitsToParallel() == false) &&
+            (loop->isArrayTemplatesTheSame(regionId) == true))
         {
             if (loop->perfectLoop >= 1)
             {

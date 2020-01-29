@@ -803,15 +803,15 @@ getNewDirective(const string &fullArrayName,
             string rule = alignRules[i];
             if (alignToRealign)
             {
-                auto it = rule.find("ALIGN");
-                while (it != string::npos)
-                {
-                    rule = rule.replace(it, 5, "REALIGN");
-                    it = rule.find("ALIGN", it + 7);
-                }
-
                 if (dataDir.alignRules[i].alignArray->GetLocation().first == DIST::l_MODULE)
                 {
+                    auto it = rule.find("ALIGN");
+                    while (it != string::npos)
+                    {
+                        rule = rule.replace(it, 5, "REALIGN");
+                        it = rule.find("ALIGN", it + 7);
+                    }
+
                     for (auto byUseElem : byUse)
                     {
                         if (byUseElem.second.size() == 0)

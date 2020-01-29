@@ -279,6 +279,19 @@ public:
 
     void clearUserDirectives();    
 
+    bool isArrayTemplatesTheSame(const int regId)
+    {
+        std::set<DIST::Array*> usedTemplates;
+        for (auto& array : usedArrays)
+            usedTemplates.insert(array->GetTemplateArray(regId));
+
+        if (usedArrays.size())
+        {
+            if (usedTemplates.size() == 0 || usedTemplates.size() > 1)
+                return false;
+        }
+        return true;
+    }
 public:
     int lineNum;
     int altLineNum;

@@ -665,10 +665,10 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
             int k = 0;
             for (auto it = remoteAccess.begin(); it != remoteAccess.end(); ++it, ++k)
             {
-                directive += it->first.first + "(";
+                directive += it->first.first.first + "(";
                 directive += it->first.second + ")";
-                
-                DIST::Array* currArray = allArrays.GetArrayByName(it->first.second);
+
+                DIST::Array* currArray = allArrays.GetArrayByName(it->first.first.second);
                 SgArrayRefExp *tmp = new SgArrayRefExp(*getFromModule(byUseInFunc, currArray->GetDeclSymbol()->GetOriginal(), usedInLoop), *it->second);
                 
                 tmp->addAttribute(ARRAY_REF, currArray, sizeof(DIST::Array));
@@ -680,6 +680,7 @@ ParallelDirective::genDirective(File *file, const vector<pair<DIST::Array*, cons
                     p = createAndSetNext(RIGHT, EXPR_LIST, p);
                 }
             }
+
             directive += ")";
 
             if (dirStatement[1] == NULL)

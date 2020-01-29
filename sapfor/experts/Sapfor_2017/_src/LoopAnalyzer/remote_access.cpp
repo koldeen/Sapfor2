@@ -316,6 +316,24 @@ static void getAllSymbols(SgExpression *ex, set<string> &symbs)
     }
 }
 
+static bool ifRange(SgExpression* spec)
+{
+    while (spec)
+    {
+        if (spec->lhs()->variant() == DDOT)
+        {
+            if (!spec->lhs()->lhs() || !spec->lhs()->rhs())
+                return true;
+            if (string(spec->lhs()->lhs()->unparse()) != string(spec->lhs()->rhs()->unparse()))
+                return true;
+        }
+        
+        spec = spec->rhs();
+    }
+
+    return false;
+}
+
 template<int NUM>
 bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGraph, const DIST::Arrays<int> &allArrays, 
                      const DataDirective &data, const vector<int> &currVar, const int regionID, vector<Messages> &currMessages,
@@ -411,9 +429,13 @@ bool createRemoteDir(SgStatement *st, const map<int, LoopGraph*> &sortedLoopGrap
                 const int cpV = toInsert->controlParent()->variant(); 
                 const int varI = toInsert->variant();
                 //dont convert to a(:,:,:) before assign operators
-                if (lvlUp == 0 && 
+                if (lvlUp == 0 &&
                     ((varI == ASSIGN_STAT) || (varI != FOR_NODE && (cpV == FUNC_HEDR || cpV == PROC_HEDR || cpV == PROG_HEDR))))
-                    ;
+                {
+                    for (auto& elem : allSubs)
+                        if (ifRange(elem))
+                            converToDDOT(elem);
+                }
                 else 
                 {
                     for (auto &elem : allSubs)
@@ -504,7 +526,7 @@ static inline bool isArrayRefHasDifferentVars(SgExpression *ex, set<string> &var
     return retVal;
 }
 
-static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*> &uniqRemotes, 
+static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*> &uniqRemotes, const set<string>& remotesInParallel,
                                  set<SgArrayRefExp*> &addedRemotes, vector<Messages> &messages, const int line, bool withConv = true)
 {
     //TODO: tmp solution, convert all links to arrRef(:,:,:) 
@@ -527,7 +549,7 @@ static inline void addRemoteLink(SgArrayRefExp *expr, map<string, SgArrayRefExp*
 
     string remoteExp(copyExpr->unparse());
     auto rem = uniqRemotes.find(remoteExp);
-    if (rem == uniqRemotes.end())
+    if (rem == uniqRemotes.end() && remotesInParallel.find(remoteExp) == remotesInParallel.end())
     {
         rem = uniqRemotes.insert(rem, make_pair(remoteExp, copyExpr));
         addedRemotes.insert(copyExpr);
@@ -574,6 +596,10 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
         set<DIST::Array*> usedArrays = SECOND(under_dvm_dir)->usedArrays;
         set<DIST::Array*> usedArraysWrite = SECOND(under_dvm_dir)->usedArraysWrite;
 
+        set<string> remotesInParallel;
+        for (auto& elem : THIRD(under_dvm_dir)->remoteAccess)
+            remotesInParallel.insert(elem.first.first.first + "(" + elem.first.second + ")");
+
         if (!arrayRefOnDir->IsTemplate())
         {
             getRealArrayRefs(arrayRefOnDir, arrayRefOnDir, realRefArrayOnDir, arrayLinksByFuncCalls);
@@ -586,7 +612,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
 
                 if (!isAllRulesEqual(allRules))
                 {
-                    __spf_print(1, "not supported yet\n");                 
+                    __spf_print(1, "not supported yet\n");
                     printInternalError(convertFileName(__FILE__).c_str(), __LINE__);
                 }
                 else
@@ -708,7 +734,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                     continue;
                                 else if (itA->second.second[i] == REMOTE_TRUE)
                                 {
-                                    addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                                    addRemoteLink(itA->first, uniqRemotes, remotesInParallel, addedRemotes, messages, itA->second.first);
                                     __spf_print(DEB, "CRIP: %d, REMOTE_TRUE\n", __LINE__);
                                 }
                             }
@@ -722,7 +748,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                 if (arrayRef == arrayRefOnDir)
                                     continue;
 
-                                addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                                addRemoteLink(itA->first, uniqRemotes, remotesInParallel, addedRemotes, messages, itA->second.first);
                                 __spf_print(DEB, "CRIP: %d, IRREG_REFS\n", __LINE__);
                             }
                             continue;
@@ -740,7 +766,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
 
                             if (itA->second.second[i] == REMOTE_TRUE)
                             {
-                                addRemoteLink(itA->first, uniqRemotes, addedRemotes, messages, itA->second.first);
+                                addRemoteLink(itA->first, uniqRemotes, remotesInParallel, addedRemotes, messages, itA->second.first);
                                 __spf_print(DEB, "CRIP: %d, IRREG_REFS && REMOTE_TRUE\n", __LINE__);
                             }
                         }
@@ -768,7 +794,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                             if (countOfDimAcc > 1 ||
                                 countOfDimAcc == 1 && THIRD(under_dvm_dir)->on[links[i]].first == "*")
                             {
-                                addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                addRemoteLink(regAccess.first, uniqRemotes, remotesInParallel, addedRemotes, messages, regAccess.second.first);
                                 __spf_print(DEB, "CRIP: %d ---\n", __LINE__);
                                 continue;
                             }
@@ -779,7 +805,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                 if (linksWithTempl[i] != -1)
                                     if (distrVar->distRule[linksWithTempl[i]] == BLOCK)
                                     {
-                                        addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                        addRemoteLink(regAccess.first, uniqRemotes, remotesInParallel, addedRemotes, messages, regAccess.second.first);
                                         __spf_print(DEB, "CRIP: %d, NOT MAPPED\n", __LINE__);
                                         continue;
                                     }
@@ -792,7 +818,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                 {
                                     if (regAccess.second.second[i].coefficients.size() == 0)
                                     {
-                                        addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                        addRemoteLink(regAccess.first, uniqRemotes, remotesInParallel, addedRemotes, messages, regAccess.second.first);
                                         __spf_print(DEB, "CRIP: %d, ----\n", __LINE__);
                                         continue;
                                     }
@@ -832,7 +858,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                                                 //printf("%d %d -- %d %d\n", currWriteAcc.first, alignRuleWrite.first, currReadAcc.first, alignRuleRead.first);
                                                 if (currWriteAcc.first * alignRuleWrite.first != currReadAcc.first * alignRuleRead.first)
                                                 {
-                                                    addRemoteLink(regAccess.first, uniqRemotes, addedRemotes, messages, regAccess.second.first);
+                                                    addRemoteLink(regAccess.first, uniqRemotes, remotesInParallel, addedRemotes, messages, regAccess.second.first);
                                                     __spf_print(DEB, "CRIP: %d, MISS\n", __LINE__);
                                                     wasAdd = true;
                                                     break;
@@ -865,7 +891,7 @@ void createRemoteInParallel(const tuple<SgForStmt*, const LoopGraph*, const Para
                     }
                 }
                 SgArrayRefExp* newRem = new SgArrayRefExp(*findSymbolOrCreate(current_file, usedArr->GetShortName()), *ex);
-                addRemoteLink(newRem, uniqRemotes, addedRemotes, messages, -1, false);
+                addRemoteLink(newRem, uniqRemotes, remotesInParallel, addedRemotes, messages, -1, false);
                 __spf_print(DEB, "CRIP: %d, AFTER MAIN CHECK\n", __LINE__);
             }
         }

@@ -86,8 +86,8 @@ public:
     //                               origin_Name   uniqName                   bounds
     std::vector<std::pair<std::pair<std::string, std::string>, std::vector<std::pair<int, int>>>> across;
     std::vector<std::vector<std::pair<int, int>>> acrossShifts;
-
-    std::map<std::pair<std::string, std::string>, Expression*> remoteAccess;
+    //                               origin_Name   uniqName   expression
+    std::map<std::pair<std::pair<std::string, std::string>, std::string>, Expression*> remoteAccess;
 
     std::map<std::string, std::set<std::string>> reduction;
     std::map<std::string, std::set<std::tuple<std::string, std::string, int>>> reductionLoc;
@@ -112,7 +112,7 @@ public:
         reduction = copyFrom.reduction;
         reductionLoc = copyFrom.reductionLoc;
 
-        cloneOfTemplate = copyFrom.cloneOfTemplate;        
+        cloneOfTemplate = copyFrom.cloneOfTemplate;
     }
 
     std::pair<std::string, std::vector<Expression*>> 
@@ -137,13 +137,7 @@ public:
         acrossShifts.clear();
         reduction.clear();
         reductionLoc.clear();
-        for (auto it = remoteAccess.begin(); it != remoteAccess.end(); ++it)
-        {
-#ifdef _WIN32
-            removeFromCollection(it->second);      
-#endif
-            delete it->second;
-        }
+        remoteAccess.clear();
     }
 
 private:
